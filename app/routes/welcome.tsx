@@ -24,6 +24,15 @@ export default function WelcomePage() {
   const [countdown, setCountdown] = useState(30)
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
+  const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
+  useEffect(() => {
+    const getPhase = async () => {
+      const res = await fetch("/api/admin/event-phase", { method: "POST" })
+      const data = await res.json()
+      setPhase(data.phase)
+    }
+    getPhase()
+  }, [])
   
   const next = () => setStep((s) => Math.min(s + 1, 3))
   const restart = () => {
@@ -55,7 +64,27 @@ export default function WelcomePage() {
       </span>
     </Button>
   )
-
+  useEffect(() => {
+    if (step !== 4 || !assignedNumber) return
+  
+    const interval = setInterval(async () => {
+      const res = await fetch("/api/event-phase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match_id: process.env.NEXT_PUBLIC_MATCH_ID }),
+      })
+      const data = await res.json()
+  
+      if (data.phase === "matching") {
+        clearInterval(interval)
+        await fetchMatches()
+        setStep(5) // Move to result
+      }
+    }, 5000)
+  
+    return () => clearInterval(interval)
+  }, [step])
+  
   const handleSubmit = async () => {
     setLoading(true)
     try {
@@ -94,14 +123,8 @@ export default function WelcomePage() {
       next()
   
       // 4. Wait 30s, then auto-match
-      setTimeout(async () => {
-        await fetch("/api/generate-matches", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ match_id: data1.match_id }), // default is hardcoded
-        })
-        setStep(4) // Move to match result step
-      }, 30000)
+// After summary, move to waiting screen
+setStep(4) // but 4 = waiting
     } catch (err) {
       console.error("Submit error:", err)
       setPersonalitySummary("ما قدرنا نولّد تحليل شخصيتك.")
@@ -137,12 +160,6 @@ export default function WelcomePage() {
   
   const fetchMatches = async () => {
     try {
-      const matchRes = await fetch("/api/generate-matches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: process.env.NEXT_PUBLIC_MATCH_ID || "00000000-0000-0000-0000-000000000000" }),
-      })
-  
       const myMatches = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -187,6 +204,18 @@ export default function WelcomePage() {
   
     return () => clearInterval(interval)
   }, [step])
+  if (phase === null) {
+    return <div className="text-center text-xl p-10">جارٍ التحميل...</div>
+  }
+  
+  if (phase !== "form" && step < 3) {
+    return (
+      <div className="text-center text-xl p-10 space-y-2">
+        <h2 className="font-bold text-2xl">🚫 التسجيل مغلق</h2>
+        <p className="text-muted-foreground text-sm">المنظّم بدأ التوافق أو أغلق التسجيل.</p>
+      </div>
+    )
+  }
   
   return (
     <div
@@ -335,7 +364,6 @@ export default function WelcomePage() {
   <FancyPreviousButton onClick={restart} label="الرجوع للبداية" />
   <FancyNextButton
   onClick={() => {
-    setCountdown(30)
     setStep(4)
   }}
   label="عرض النتائج الآن"
@@ -343,21 +371,28 @@ export default function WelcomePage() {
 </div>
           </section>
         )}
-        {step === 4 && (
+{step === 4 && (
   <section className="space-y-6">
-<h3 className="text-lg font-semibold text-center text-muted-foreground">
-  {countdown > 0
-    ? `جاري البحث عن توأم روحك... (${countdown})`
-    : matchResult
-    ? `توأم روحك هو رقم ${matchResult}`
-    : `...`}
-</h3>
-
-{countdown === 0 && (
-  <p className="text-muted-foreground text-sm text-center italic">
-    {matchReason}
-  </p>
+    <h3 className="text-lg font-semibold text-center text-muted-foreground">
+      بانتظار المنظّم لبدء التوافق...
+    </h3>
+    <p className="text-center text-muted-foreground text-sm italic">
+      لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
+    </p>
+  </section>
 )}
+{step === 5 && (
+  <section className="space-y-6">
+    <h3 className="text-lg font-semibold text-center text-muted-foreground">
+      {matchResult
+        ? `توأم روحك هو رقم ${matchResult}`
+        : "ما قدرنا نلقالك توأم روح واضح"}
+    </h3>
+
+    <p className="text-muted-foreground text-sm text-center italic">
+      {matchReason}
+    </p>
+
     <div className="flex justify-center">
       <FancyNextButton onClick={restart} label="ابدأ من جديد" />
     </div>

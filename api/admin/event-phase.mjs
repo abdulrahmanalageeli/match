@@ -18,8 +18,8 @@ export default async function handler(req, res) {
   }
 
   const { data, error } = await supabase
-    .from("event_control")
-    .select("phase")
+  .from("event_state")
+  .select("phase")
     .eq("match_id", match_id)
     .single()
 

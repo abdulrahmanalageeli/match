@@ -16,9 +16,9 @@ export default async function handler(req, res) {
   try {
     const { data, error } = await supabase
       .from("participants")
-      .select("id, assigned_num, table_number, q1, q2, q3, q4")
+      .select("id, assigned_number, table_number, q1, q2, q3, q4")
       .eq("match_id", STATIC_MATCH_ID)
-      .order("assigned_num", { ascending: true }) // fixed field name
+      .order("assigned_number", { ascending: true })
 
     if (error) throw error
 

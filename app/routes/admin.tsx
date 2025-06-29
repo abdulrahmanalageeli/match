@@ -97,7 +97,6 @@ export default function AdminPage() {
       body: JSON.stringify({
         match_id: "00000000-0000-0000-0000-000000000000",
         phase: e.target.value,
-        secret: "soulmatch2025", // or better: from env
       }),
     })
     const data = await res.json()

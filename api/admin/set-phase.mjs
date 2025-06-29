@@ -12,18 +12,15 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { match_id, phase, secret } = req.body
+  const { phase } = req.body
+  const match_id = "00000000-0000-0000-0000-000000000000" // 🔒 hardcoded for simplicity
 
-  if (secret !== process.env.ADMIN_SECRET_KEY) {
-    return res.status(403).json({ error: "Unauthorized" })
-  }
-
-  if (!match_id || !phase) {
-    return res.status(400).json({ error: "match_id and phase required" })
+  if (!phase) {
+    return res.status(400).json({ error: "phase is required" })
   }
 
   const { error } = await supabase
-  .from("event_state") // ✅ correct table
+    .from("event_state")
     .upsert({ match_id, phase }, { onConflict: "match_id" })
 
   if (error) {

@@ -2,8 +2,8 @@
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.VITE_SUPABASE_URL,
+  process.env.VITE_SUPABASE_ANON_KEY
 )
 
 export default async function handler(req, res) {
@@ -24,7 +24,7 @@ export default async function handler(req, res) {
       .from("participants")
       .select("id")
       .eq("match_id", match_id)
-      .eq("assigned_num", assigned_number)
+      .eq("assigned_number", assigned_number)
       .single()
 
     if (fetchMeError || !me) throw new Error("Participant not found")
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
 
     const { data: others, error: namesError } = await supabase
       .from("participants")
-      .select("id, assigned_num")
+      .select("id, assigned_number")
       .in("id", pairedIds)
 
     const results = matches.map((match) => {
@@ -53,7 +53,7 @@ export default async function handler(req, res) {
       const otherId = isA ? match.participant_b_id : match.participant_a_id
       const other = others.find((p) => p.id === otherId)
       return {
-        with: other?.assigned_num ?? "??",
+        with: other?.assigned_number ?? "??",
         type: match.match_type,
         reason: match.reason,
       }

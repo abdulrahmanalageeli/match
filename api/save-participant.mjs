@@ -26,7 +26,7 @@ export default async (req, res) => {
       .from("participants")
       .select("id")
       .eq("match_id", match_id)
-      .eq("assigned_num", assigned_number)
+      .eq("assigned_number", assigned_number)
 
     if (existingError) throw existingError
 
@@ -36,14 +36,14 @@ export default async (req, res) => {
         .from("participants")
         .update({ q1, q2, q3, q4 })
         .eq("match_id", match_id)
-        .eq("assigned_num", assigned_number)
+        .eq("assigned_number", assigned_number)
 
       if (updateError) throw updateError
     } else {
       // Insert
       const { error: insertError } = await supabase.from("participants").insert([
         {
-          assigned_num: assigned_number,
+          assigned_number: assigned_number,
           match_id,
           q1,
           q2,

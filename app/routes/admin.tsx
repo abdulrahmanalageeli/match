@@ -40,6 +40,10 @@ export default function AdminPage() {
     fetchParticipants()
   }
 
+  const openMatrix = () => {
+    window.open("/matrix", "_blank", "width=1000,height=800")
+  }
+
   const login = () => {
     if (password === STATIC_PASSWORD) {
       localStorage.setItem("admin", "authenticated")
@@ -89,24 +93,24 @@ export default function AdminPage() {
           <div>
             <label className="block text-sm font-semibold mb-1">🧭 Set Phase:</label>
             <select
-  className="border px-3 py-1 rounded text-sm"
-  onChange={async (e) => {
-    const res = await fetch("/api/admin/set-phase", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        match_id: "00000000-0000-0000-0000-000000000000",
-        phase: e.target.value,
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      alert("❌ Error: " + data.error)
-    } else {
-      alert("✅ Phase updated to " + e.target.value)
-    }
-  }}
->
+              className="border px-3 py-1 rounded text-sm"
+              onChange={async (e) => {
+                const res = await fetch("/api/admin/set-phase", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    match_id: "00000000-0000-0000-0000-000000000000",
+                    phase: e.target.value,
+                  }),
+                })
+                const data = await res.json()
+                if (!res.ok) {
+                  alert("❌ Error: " + data.error)
+                } else {
+                  alert("✅ Phase updated to " + e.target.value)
+                }
+              }}
+            >
               <option value="waiting">waiting</option>
               <option value="form">form</option>
               <option value="matching">matching</option>
@@ -129,6 +133,13 @@ export default function AdminPage() {
             className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
           >
             🔄 Trigger Matching
+          </button>
+
+          <button
+            onClick={openMatrix}
+            className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
+          >
+            📊 Show Matrix
           </button>
         </div>
       </div>

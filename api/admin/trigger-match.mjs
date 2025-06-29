@@ -1,4 +1,3 @@
-// /api/admin/trigger-match.mjs
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
@@ -94,36 +93,30 @@ export default async function handler(req, res) {
       }
     }
 
-    // Choose best match per participant
+    // 1. Sort scores by highest compatibility first
+    allScores.sort((a, b) => b.score - a.score)
+
+    // 2. Greedily assign best unmatched pairs only once
     const matched = new Set()
     const results = []
 
-    for (const p of participants) {
-      const me = p.assigned_number
-      if (matched.has(me)) continue
-
-      const possible = allScores
-        .filter(s => (s.a === me || s.b === me) && !matched.has(s.a) && !matched.has(s.b))
-        .sort((a, b) => b.score - a.score)
-
-      const best = possible[0]
-
-      if (best) {
-        const partner = best.a === me ? best.b : best.a
-        matched.add(me)
-        matched.add(partner)
-
+    for (const pair of allScores) {
+      const { a, b, score, reason } = pair
+      if (!matched.has(a) && !matched.has(b)) {
         results.push({
-          participant_a_number: me,
-          participant_b_number: partner,
-          compatibility_score: best.score,
-          reason: best.reason,
+          participant_a_number: a,
+          participant_b_number: b,
+          compatibility_score: score,
+          match_type: "توأم روح",
+          reason,
           match_id,
         })
+        matched.add(a)
+        matched.add(b)
       }
     }
 
-    // Fallback for unpaired
+    // 3. Fallback if someone is left
     const allNums = participants.map(p => p.assigned_number)
     const unpaired = allNums.find(n => !matched.has(n))
 
@@ -132,6 +125,7 @@ export default async function handler(req, res) {
         participant_a_number: unpaired,
         participant_b_number: 0,
         compatibility_score: 0,
+        match_type: "غير متوافق",
         reason: "لم يكن هناك شريك لهذا المشارك بسبب عدد المشاركين الفردي.",
         match_id,
       })

@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button"
 import { Timeline, TimelineItem } from "../../components/ui/timeline"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
-
+import MatchResult from "./MatchResult"
 export default function WelcomePage() {
   const [step, setStep] = useState(0)
   const [dark, setDark] = useState(false)
@@ -54,7 +54,23 @@ export default function WelcomePage() {
   const handleSubmit = async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/generate-summary", {
+      // 1. Save participant
+      const res1 = await fetch("/api/save-participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          assigned_number: assignedNumber,
+          q1: freeTime,
+          q2: friendDesc,
+          q3: preference,
+          q4: uniqueTrait,
+        }),
+      })
+      const data1 = await res1.json()
+      if (!res1.ok) throw new Error(data1.error)
+  
+      // 2. Generate summary
+      const res2 = await fetch("/api/generate-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -66,18 +82,30 @@ export default function WelcomePage() {
           },
         }),
       })
-      const data = await res.json()
-      setPersonalitySummary(data.summary)
+      const data2 = await res2.json()
+      setPersonalitySummary(data2.summary || "ما قدرنا نولّد تحليل شخصيتك.")
+  
+      // 3. Go to summary step
       next()
+  
+      // 4. Wait 30s, then auto-match
+      setTimeout(async () => {
+        await fetch("/api/generate-matches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match_id: data1.match_id }), // default is hardcoded
+        })
+        setStep(4) // Move to match result step
+      }, 30000)
     } catch (err) {
-      console.error("GPT Error:", err)
+      console.error("Submit error:", err)
       setPersonalitySummary("ما قدرنا نولّد تحليل شخصيتك.")
       next()
     } finally {
       setLoading(false)
     }
   }
-
+  
   return (
     <div
       className={`min-h-screen px-4 py-10 flex items-center justify-center ${
@@ -226,6 +254,16 @@ export default function WelcomePage() {
             </div>
           </section>
         )}
+        {step === 4 && (
+  <section className="space-y-6">
+    <h3 className="text-lg font-semibold text-center text-muted-foreground">نتائج التوافق</h3>
+    <MatchResult assignedNumber={assignedNumber} />
+    <div className="flex justify-center">
+      <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+    </div>
+  </section>
+)}
+
       </div>
     </div>
   )

@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 
   try {
     const prompt = Object.entries(responses)
-      .map(([key, value]) => `- ${value}`)
+      .map(([_, value]) => `- ${value}`)
       .join("\n")
 
     const completion = await openai.chat.completions.create({
@@ -25,12 +25,15 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content:
-            "You summarize personality forms in under 80 words. Make it insightful, friendly, and sound human.",
+          content: `
+أنت مساعد ذكي يتكلم باللهجة السعودية العادية، وتكتب بصيغة المتكلم كأنك تكلّم الشخص مباشرة، لكن بأسلوب محترم وهادئ. لا تستخدم كلمات إنجليزية ولا لهجة مبالغ فيها، وخلّك واضح ومفهوم. هدفك إنك تلخّص شخصية الشخص هذا من خلال إجاباته، وتحاول توصّف له نفسه بشكل صادق، مختصر، وبدون مبالغة.
+
+لا تكون رسمي بزيادة ولا كأنك صديق مقرّب، خلك بالنص. لازم ما تتعدى ٨٠ كلمة.
+        `.trim(),
         },
         {
           role: "user",
-          content: `Here are the answers:\n${prompt}`,
+          content: `هاذي الإجابات اللي كتبها:\n${prompt}`,
         },
       ],
     })
@@ -39,7 +42,7 @@ export default async function handler(req, res) {
     console.log("GPT Response:", summary)
 
     if (!summary) {
-      return res.status(200).json({ summary: "GPT returned no summary." })
+      return res.status(200).json({ summary: "ما طلع ملخص من GPT." })
     }
 
     return res.status(200).json({ summary })

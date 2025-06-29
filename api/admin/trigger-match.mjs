@@ -41,20 +41,32 @@ export default async function handler(req, res) {
       })
       .join("\n")
 
-    const systemMsg = `
-You're a smart compatibility assistant. For each pair of participants, you're given 4 answers per person.
-Analyze them and classify the relationship between each pair as:
-- "توأم روح"
-- "خصم لدود"
-- "محايد"
-
-Your response must follow this format:
-[رقمA]-[رقمB]: [نوع العلاقة] - [شرح السبب]
-Only respond in Arabic.
-    `.trim()
-
+      const systemMsg = `
+      You're a smart compatibility assistant. For each pair of participants, you're given 4 answers per person.
+      
+      Analyze them **carefully**, and classify the relationship between each pair as **one of**:
+      - "توأم روح" (soulmate)
+      - "خصم لدود" (arch-nemesis)
+      - "محايد" (neutral)
+      
+      Your output **must be in Arabic only** using the following format exactly:
+      
+      [رقمA]-[رقمB]: [نوع العلاقة] - [شرح السبب بالتفصيل]
+      
+      Important notes:
+      - Do NOT label a pair "توأم روح" if their answers contain fundamental value conflicts (e.g. دين، توجهات، علاقات).
+      - If the answers are too vague or don't match well or conflict mildly, use "محايد".
+      - If one person says something opposite or attacking another's belief (e.g. 'Atheism is a red flag' vs 'I'm atheist'), label them "خصم لدود".
+      - Be concise, but give a clear, logical Arabic explanation for why this match type makes sense.
+      
+      Example:
+      
+      3-5: توأم روح - إجاباتهم كلها تدل على حب الهدوء والانسجام الاجتماعي، وكأنهم يكملون بعض.
+      4-6: خصم لدود - أحدهم يرفض صراحة توجهات الآخر الدينية والاجتماعية، مما يسبب صدام.
+      `.trim()
+      
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview",
+      model: "gpt-3.5-turbo-1106",
       messages: [
         { role: "system", content: systemMsg },
         { role: "user", content: formattedPairs },

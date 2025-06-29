@@ -12,7 +12,6 @@ export default async function handler(req, res) {
   }
 
   const { assigned_number } = req.body
-
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   if (!assigned_number) {
@@ -20,17 +19,18 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 1. Get participant ID by their assigned number
     const { data: me, error: fetchMeError } = await supabase
       .from("participants")
       .select("id")
       .eq("match_id", match_id)
       .eq("assigned_number", assigned_number)
-      .single()
+      .maybeSingle()
 
     if (fetchMeError || !me) throw new Error("Participant not found")
-
     const myId = me.id
 
+    // 2. Get all match rows where this participant is either A or B
     const { data: matches, error: matchesError } = await supabase
       .from("match_results")
       .select("participant_a_id, participant_b_id, match_type, reason")
@@ -39,28 +39,42 @@ export default async function handler(req, res) {
 
     if (matchesError) throw matchesError
 
+    if (!matches || matches.length === 0) {
+      return res.status(200).json({ matches: [] })
+    }
+
+    // 3. Get the assigned_numbers for the matching partners
     const pairedIds = matches.map((m) =>
       m.participant_a_id === myId ? m.participant_b_id : m.participant_a_id
     )
+
+    if (pairedIds.length === 0) {
+      return res.status(200).json({ matches: [] })
+    }
 
     const { data: others, error: namesError } = await supabase
       .from("participants")
       .select("id, assigned_number")
       .in("id", pairedIds)
 
+    if (namesError) throw namesError
+
+    // 4. Combine data
     const results = matches.map((match) => {
       const isA = match.participant_a_id === myId
       const otherId = isA ? match.participant_b_id : match.participant_a_id
       const other = others.find((p) => p.id === otherId)
+
       return {
-        with: other?.assigned_number ?? "??",
+        with: other?.assigned_number ?? "(غير معروف)",
         type: match.match_type,
-        reason: match.reason,
+        reason: match.reason || "السبب غير متوفر",
       }
     })
 
     return res.status(200).json({ matches: results })
   } catch (err) {
+    console.error("Error in get-my-matches:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })
   }
 }

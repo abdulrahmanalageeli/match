@@ -15,33 +15,36 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid request body" })
   }
 
-  const messages = [
-    {
-      role: "system",
-      content:
-        "You're a friendly and insightful AI that summarizes personality form answers into a warm, brief (max 80 words) description.",
-    },
-    {
-      role: "user",
-      content: `Form responses:\n${JSON.stringify(responses, null, 2)}`,
-    },
-  ]
-
   try {
+    const prompt = Object.entries(responses)
+      .map(([key, value]) => `- ${value}`)
+      .join("\n")
+
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You summarize personality forms in under 80 words. Make it insightful, friendly, and sound human.",
+        },
+        {
+          role: "user",
+          content: `Here are the answers:\n${prompt}`,
+        },
+      ],
     })
 
     const summary = completion.choices?.[0]?.message?.content?.trim()
+    console.log("GPT Response:", summary)
 
     if (!summary) {
-      throw new Error("No summary returned from GPT.")
+      return res.status(200).json({ summary: "GPT returned no summary." })
     }
 
     return res.status(200).json({ summary })
-  } catch (err) {
-    console.error("GPT API Error:", err)
-    return res.status(500).json({ error: err.message || "Failed to get summary." })
+  } catch (error) {
+    console.error("GPT API Error:", error)
+    return res.status(500).json({ error: error.message || "Unexpected error" })
   }
 }

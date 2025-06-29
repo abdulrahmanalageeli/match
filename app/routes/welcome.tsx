@@ -212,7 +212,7 @@ setStep(4) // but 4 = waiting
     return <div className="text-center text-xl p-10">جارٍ التحميل...</div>
   }
   
-  if (phase !== "form" && step < 3) {
+  if (phase !== "form" && step === 0) {
     return (
       <div className="text-center text-xl p-10 space-y-2">
         <h2 className="font-bold text-2xl">🚫 التسجيل مغلق</h2>

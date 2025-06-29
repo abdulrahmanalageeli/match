@@ -42,28 +42,21 @@ export default async function handler(req, res) {
       .join("\n")
 
       const systemMsg = `
-      You're a smart compatibility assistant. For each pair of participants, you're given 4 answers per person.
+      أنت مساعد ذكي في التوافق بين المشاركين. لكل زوج من المشاركين، لديك ٤ إجابات لكل شخص.
       
-      Analyze them **carefully**, and classify the relationship between each pair as **one of**:
-      - "توأم روح" (soulmate)
-      - "خصم لدود" (arch-nemesis)
-      - "محايد" (neutral)
+      مهمتك:
+      - تحليل التوافق بين كل زوج من المشاركين بدقة.
+      - إعطاء نسبة مئوية للتوافق من 0 إلى 100٪ (حتى لو التوافق ضعيف).
+      - كتابة شرح بسيط ومقنع عن سبب هذه النسبة.
       
-      Your output **must be in Arabic only** using the following format exactly:
+      صيغة الإخراج المطلوبة (بالعربية فقط، سطر لكل زوج):
+      [رقمA]-[رقمB]: [نسبة التوافق]% - [شرح السبب]
       
-      [رقمA]-[رقمB]: [نوع العلاقة] - [شرح السبب بالتفصيل]
-      
-      Important notes:
-      - Do NOT label a pair "توأم روح" if their answers contain fundamental value conflicts (e.g. دين، توجهات، علاقات).
-      - If the answers are too vague or don't match well or conflict mildly, use "محايد".
-      - If one person says something opposite or attacking another's belief (e.g. 'Atheism is a red flag' vs 'I'm atheist'), label them "خصم لدود".
-      - Be concise, but give a clear, logical Arabic explanation for why this match type makes sense.
-      
-      Example:
-      
-      3-5: توأم روح - إجاباتهم كلها تدل على حب الهدوء والانسجام الاجتماعي، وكأنهم يكملون بعض.
-      4-6: خصم لدود - أحدهم يرفض صراحة توجهات الآخر الدينية والاجتماعية، مما يسبب صدام.
+      مثال:
+      3-5: 84% - إجاباتهم تدل على انسجام في الأنشطة والهوايات وتوجهات اجتماعية متقاربة.
+      7-9: 41% - رغم وجود بعض التشابه، هناك اختلاف واضح في القيم والتفضيلات.
       `.trim()
+      
       
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo-1106",
@@ -75,25 +68,24 @@ export default async function handler(req, res) {
 
     const resultText = completion.choices?.[0]?.message?.content?.trim()
     const results = []
-
     resultText.split("\n").forEach((line) => {
-      const match = line.match(/^(\d+)-(\d+):\s*(.*?)\s*-\s*(.+)$/)
+      const match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
       if (!match) return
-
-      const [, aNum, bNum, type, reason] = match
+    
+      const [, aNum, bNum, percentage, reason] = match
       const a = participants.find((p) => p.assigned_number == aNum)
       const b = participants.find((p) => p.assigned_number == bNum)
       if (!a || !b) return
-
+    
       results.push({
         participant_a_id: a.id,
         participant_b_id: b.id,
-        match_type: type.trim(),
+        compatibility_score: Number(percentage),
         reason: reason.trim(),
         match_id,
       })
     })
-
+    
     const { error: insertError } = await supabase
       .from("match_results")
       .insert(results)

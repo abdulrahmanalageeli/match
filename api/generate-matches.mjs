@@ -16,16 +16,13 @@ export default async function handler(req, res) {
   }
 
   const { match_id } = req.body
-
-  if (!match_id) {
-    return res.status(400).json({ error: "match_id is required" })
-  }
+  if (!match_id) return res.status(400).json({ error: "match_id is required" })
 
   try {
     // 1. Fetch participants
     const { data: participants, error } = await supabase
       .from("participants")
-      .select("id, assigned_number, q1, q2, q3, q4")
+      .select("assigned_number, q1, q2, q3, q4")
       .eq("match_id", match_id)
 
     if (error) throw error
@@ -40,72 +37,84 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Prepare prompt
+    // 3. Format prompt
     const formattedPairs = pairs
-      .map(([a, b], idx) => {
+      .map(([a, b]) => {
         return `المشارك ${a.assigned_number}:\n- ${a.q1}\n- ${a.q2}\n- ${a.q3}\n- ${a.q4}\n` +
-               `المشارك ${b.assigned_number}:\n- ${b.q1}\n- ${b.q2}\n- ${b.q3}\n- ${b.q4}\n\n`
+               `المشارك ${b.assigned_number}:\n- ${b.q1}\n- ${b.q2}\n- ${b.q3}\n- ${b.q4}\n`
       })
-      .join("")
+      .join("\n")
 
-      const systemMsg = `
-      You're a smart compatibility assistant. For each pair of participants, you're given 4 answers per person.
-      
-      Analyze them **carefully**, and classify the relationship between each pair as **one of**:
-      - "توأم روح" (soulmate)
-      - "خصم لدود" (arch-nemesis)
-      - "محايد" (neutral)
-      
-      Your output **must be in Arabic only** using the following format exactly:
-      
-      [رقمA]-[رقمB]: [نوع العلاقة] - [شرح السبب بالتفصيل]
-      
-      Important notes:
-      - Do NOT label a pair "توأم روح" if their answers contain fundamental value conflicts (e.g. دين، توجهات، علاقات).
-      - If the answers are too vague or don't match well or conflict mildly, use "محايد".
-      - If one person says something opposite or attacking another's belief (e.g. 'Atheism is a red flag' vs 'I'm atheist'), label them "خصم لدود".
-      - Be concise, but give a clear, logical Arabic explanation for why this match type makes sense.
-      
-      Example:
-      
-      3-5: توأم روح - إجاباتهم كلها تدل على حب الهدوء والانسجام الاجتماعي، وكأنهم يكملون بعض.
-      4-6: خصم لدود - أحدهم يرفض صراحة توجهات الآخر الدينية والاجتماعية، مما يسبب صدام.
-      `
-      
+    const systemMsg = `
+أنت مساعد ذكي في التوافق بين المشاركين. لكل زوج من المشاركين، لديك ٤ إجابات لكل شخص.
+
+مهمتك:
+- تحليل التوافق بين كل زوج من المشاركين بدقة.
+- إعطاء نسبة مئوية للتوافق من 0 إلى 100٪ (حتى لو التوافق ضعيف).
+- كتابة شرح بسيط ومقنع عن سبب هذه النسبة.
+
+صيغة الإخراج المطلوبة (بالعربية فقط، سطر لكل زوج):
+[رقمA]-[رقمB]: [نسبة التوافق]% - [شرح السبب]
+
+مثال:
+3-5: 84% - إجاباتهم تدل على انسجام في الأنشطة والهوايات وتوجهات اجتماعية متقاربة.
+7-9: 41% - رغم وجود بعض التشابه، هناك اختلاف واضح في القيم والتفضيلات.
+`.trim()
+
     const completion = await openai.chat.completions.create({
-      model: "gpt-4-1106-preview", // or "gpt-4.1-mini" if you're using that
+      model: "gpt-4-1106-preview",
       messages: [
-        { role: "system", content: systemMsg.trim() },
+        { role: "system", content: systemMsg },
         { role: "user", content: formattedPairs },
       ],
     })
 
     const resultText = completion.choices?.[0]?.message?.content?.trim()
+    if (!resultText) throw new Error("GPT response was empty")
 
-    // 4. Parse result
-    const results = []
-    const lines = resultText.split("\n").filter(Boolean)
+    // 4. Parse GPT output
+// 4. Parse GPT output
+const results = []
+const pairedSet = new Set()
 
-    for (const line of lines) {
-      const match = line.match(/^(\d+)-(\d+):\s*(.*?)\s*-\s*(.+)$/)
-      if (!match) continue
+resultText.split("\n").forEach((line) => {
+  const match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
+  if (!match) return
 
-      const [, aNum, bNum, typeRaw, reason] = match
-      const type = typeRaw.trim()
-      const a = participants.find((p) => p.assigned_number == aNum)
-      const b = participants.find((p) => p.assigned_number == bNum)
-      if (!a || !b) continue
+  const [, aNum, bNum, scoreStr, reason] = match
+  const aNumber = Number(aNum)
+  const bNumber = Number(bNum)
+  const compatibility_score = Number(scoreStr)
 
-      results.push({
-        participant_a_id: a.id,
-        participant_b_id: b.id,
-        match_type: type,
-        reason: reason.trim(),
-        match_id,
-      })
-    }
+  pairedSet.add(aNumber)
+  pairedSet.add(bNumber)
 
-    // 5. Insert into Supabase
+  results.push({
+    participant_a_number: aNumber,
+    participant_b_number: bNumber,
+    compatibility_score,
+    reason: reason.trim(),
+    match_id,
+  })
+})
+
+// Detect unpaired participant if odd count
+if (participants.length % 2 !== 0) {
+  const allNumbers = participants.map(p => p.assigned_number)
+  const unpaired = allNumbers.find(n => !pairedSet.has(n))
+  if (unpaired !== undefined) {
+    results.push({
+      participant_a_number: unpaired,
+      participant_b_number: 0,
+      compatibility_score: 0,
+      reason: "لم يكن هناك شريك لهذا المشارك بسبب عدد المشاركين الفردي.",
+      match_id,
+    })
+  }
+}
+
+
+    // 5. Insert results into Supabase
     const { error: insertError } = await supabase
       .from("match_results")
       .insert(results)
@@ -113,13 +122,12 @@ export default async function handler(req, res) {
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "Matches generated",
+      message: "Matches generated successfully",
       count: results.length,
-      analysis: resultText, // full GPT response
+      analysis: resultText,
     })
-    
   } catch (err) {
-    console.error(err)
+    console.error("Match error:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })
   }
 }

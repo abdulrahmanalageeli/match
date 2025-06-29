@@ -27,8 +27,12 @@ export default function WelcomePage() {
   const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
   useEffect(() => {
     const getPhase = async () => {
-      const res = await fetch("/api/admin/event-phase", { method: "POST" })
-      const data = await res.json()
+      const res = await fetch("/api/admin/event-phase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),
+      })
+            const data = await res.json()
       setPhase(data.phase)
     }
     getPhase()
@@ -71,7 +75,7 @@ export default function WelcomePage() {
       const res = await fetch("/api/event-phase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: process.env.NEXT_PUBLIC_MATCH_ID }),
+        body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),
       })
       const data = await res.json()
   

@@ -205,15 +205,6 @@ export default function WelcomePage() {
         {/* Step 3 */}
         {step === 3 && (
           <section className="space-y-6">
-            <h2 className="text-xl font-bold text-center">Match Timeline</h2>
-            <div className="text-left space-y-4">
-              <Timeline>
-                <TimelineItem step={1}>❤️ Round 1 — Soulmate Match</TimelineItem>
-                <TimelineItem step={2}>⚡ Round 2 — Nemesis Match</TimelineItem>
-                <TimelineItem step={3}>💙 Round 3 — Soulmate Match</TimelineItem>
-                <TimelineItem step={4}>⚡ Round 4 — Nemesis Match</TimelineItem>
-              </Timeline>
-            </div>
 
             <div className="mt-8">
               <h3 className="text-lg font-semibold text-center text-muted-foreground">Personality Insight</h3>
@@ -227,7 +218,7 @@ export default function WelcomePage() {
             </div>
 
             <div className="flex justify-center">
-              <FancyNextButton onClick={restart} label="Restart" />
+              <FancyNextButton onClick={restart} label="Next" />
             </div>
           </section>
         )}

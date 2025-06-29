@@ -23,7 +23,7 @@ export default async function handler(req, res) {
   }
 
   const { error } = await supabase
-    .from("event_control")
+  .from("event_state") // ✅ correct table
     .upsert({ match_id, phase }, { onConflict: "match_id" })
 
   if (error) {

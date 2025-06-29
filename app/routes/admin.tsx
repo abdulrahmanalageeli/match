@@ -89,16 +89,25 @@ export default function AdminPage() {
           <div>
             <label className="block text-sm font-semibold mb-1">🧭 Set Phase:</label>
             <select
-              className="border px-3 py-1 rounded text-sm"
-              onChange={async (e) => {
-                await fetch("/api/admin/set-phase", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ phase: e.target.value }),
-                })
-                alert("✅ Phase updated to " + e.target.value)
-              }}
-            >
+  className="border px-3 py-1 rounded text-sm"
+  onChange={async (e) => {
+    const res = await fetch("/api/admin/set-phase", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        match_id: "00000000-0000-0000-0000-000000000000",
+        phase: e.target.value,
+        secret: "soulmatch2025", // or better: from env
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert("❌ Error: " + data.error)
+    } else {
+      alert("✅ Phase updated to " + e.target.value)
+    }
+  }}
+>
               <option value="form">form</option>
               <option value="waiting">waiting</option>
               <option value="matching">matching</option>

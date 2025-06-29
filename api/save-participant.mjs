@@ -1,4 +1,5 @@
-// /pages/api/save-participant.mjs
+// /api/save-participant.mjs (Vercel serverless function)
+
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -6,22 +7,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
-export default async function handler(req, res) {
+export default async (req, res) => {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { assigned_number, q1, q2, q3, q4 } = req.body
-
-  // Use a fixed match_id for now. You can later replace this with event-specific logic.
-  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
-
-  if (!assigned_number || !q1 || !q2 || !q3 || !q4) {
-    return res.status(400).json({ error: "Missing required fields" })
-  }
-
   try {
-    // Check if this assigned_number already exists
+    const { assigned_number, q1, q2, q3, q4 } = req.body
+
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+    if (!assigned_number || !q1 || !q2 || !q3 || !q4) {
+      return res.status(400).json({ error: "Missing required fields" })
+    }
+
+    // Check for existing
     const { data: existing, error: existingError } = await supabase
       .from("participants")
       .select("id")
@@ -30,8 +30,8 @@ export default async function handler(req, res) {
 
     if (existingError) throw existingError
 
-    if (existing.length > 0) {
-      // Already exists, update instead
+    if (existing && existing.length > 0) {
+      // Update
       const { error: updateError } = await supabase
         .from("participants")
         .update({ q1, q2, q3, q4 })
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 
       if (updateError) throw updateError
     } else {
-      // New participant
+      // Insert
       const { error: insertError } = await supabase.from("participants").insert([
         {
           assigned_num: assigned_number,
@@ -57,6 +57,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ message: "Saved", match_id })
   } catch (err) {
+    console.error("Server Error:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })
   }
 }

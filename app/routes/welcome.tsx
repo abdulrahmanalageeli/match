@@ -26,18 +26,23 @@ export default function WelcomePage() {
   const [matchReason, setMatchReason] = useState<string>("")
   const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
   useEffect(() => {
-    const getPhase = async () => {
-      const res = await fetch("/api/admin/event-phase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),
-      })
-            const data = await res.json()
-      setPhase(data.phase)
-    }
-    getPhase()
-  }, [])
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/admin/event-phase", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),
+        })
+        const data = await res.json()
+        setPhase(data.phase)
+      } catch (err) {
+        console.error("Failed to fetch phase", err)
+      }
+    }, 5000) // every 5 seconds
   
+    return () => clearInterval(interval)
+  }, [])
+    
   const next = () => setStep((s) => Math.min(s + 1, 3))
   const restart = () => {
     setStep(0)

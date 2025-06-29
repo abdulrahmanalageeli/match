@@ -107,8 +107,8 @@ export default function AdminPage() {
     }
   }}
 >
-              <option value="form">form</option>
               <option value="waiting">waiting</option>
+              <option value="form">form</option>
               <option value="matching">matching</option>
             </select>
           </div>

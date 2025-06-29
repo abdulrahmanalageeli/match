@@ -125,7 +125,7 @@ export default async function handler(req, res) {
         participant_a_number: unpaired,
         participant_b_number: 0,
         compatibility_score: 0,
-        match_type: "غير متوافق",
+        match_type: "محايد", // ✅ valid enum value
         reason: "لم يكن هناك شريك لهذا المشارك بسبب عدد المشاركين الفردي.",
         match_id,
       })

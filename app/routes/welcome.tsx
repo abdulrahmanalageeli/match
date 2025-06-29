@@ -21,7 +21,10 @@ export default function WelcomePage() {
   const [uniqueTrait, setUniqueTrait] = useState("")
   const [personalitySummary, setPersonalitySummary] = useState("")
   const [loading, setLoading] = useState(false)
-
+  const [countdown, setCountdown] = useState(30)
+  const [matchResult, setMatchResult] = useState<string | null>(null)
+  const [matchReason, setMatchReason] = useState<string>("")
+  
   const next = () => setStep((s) => Math.min(s + 1, 3))
   const restart = () => {
     setStep(0)
@@ -126,6 +129,64 @@ export default function WelcomePage() {
       console.error("Static insert failed:", err)
     }
   }
+  type MatchResultEntry = {
+    with: string
+    type: string
+    reason: string
+  }
+  
+  const fetchMatches = async () => {
+    try {
+      const matchRes = await fetch("/api/generate-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ match_id: process.env.NEXT_PUBLIC_MATCH_ID || "00000000-0000-0000-0000-000000000000" }),
+      })
+  
+      const myMatches = await fetch("/api/get-my-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_number: assignedNumber }),
+      })
+  
+      const data = await myMatches.json()
+      const matches = data.matches as MatchResultEntry[]
+      const best = matches.find((m) => m.type === "توأم روح") || matches[0]
+        
+      if (best) {
+        setMatchResult(best.with)
+        setMatchReason(best.reason)
+      } else {
+        setMatchResult("؟")
+        setMatchReason("ما لقينا توأم روح واضح، بس أنت مميز أكيد.")
+      }
+    } catch (err) {
+      console.error("Match error:", err)
+      setMatchResult("؟")
+      setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+    }
+  }
+  
+  useEffect(() => {
+    if (step !== 4 || !assignedNumber) return
+  
+    setCountdown(30)
+    setMatchResult(null)
+    setMatchReason("")
+  
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          fetchMatches()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  
+    return () => clearInterval(interval)
+  }, [step])
   
   return (
     <div
@@ -270,15 +331,33 @@ export default function WelcomePage() {
               </p>
             </div>
 
-            <div className="flex justify-center">
-              <FancyNextButton onClick={restart} label="الرجوع للبداية" />
-            </div>
+            <div className="flex justify-center gap-3">
+  <FancyPreviousButton onClick={restart} label="الرجوع للبداية" />
+  <FancyNextButton
+  onClick={() => {
+    setCountdown(30)
+    setStep(4)
+  }}
+  label="عرض النتائج الآن"
+/>
+</div>
           </section>
         )}
         {step === 4 && (
   <section className="space-y-6">
-    <h3 className="text-lg font-semibold text-center text-muted-foreground">نتائج التوافق</h3>
-    <MatchResult assignedNumber={assignedNumber} />
+<h3 className="text-lg font-semibold text-center text-muted-foreground">
+  {countdown > 0
+    ? `جاري البحث عن توأم روحك... (${countdown})`
+    : matchResult
+    ? `توأم روحك هو رقم ${matchResult}`
+    : `...`}
+</h3>
+
+{countdown === 0 && (
+  <p className="text-muted-foreground text-sm text-center italic">
+    {matchReason}
+  </p>
+)}
     <div className="flex justify-center">
       <FancyNextButton onClick={restart} label="ابدأ من جديد" />
     </div>

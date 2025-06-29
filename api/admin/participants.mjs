@@ -1,33 +1,30 @@
+// /api/admin/participants.mjs
+
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY
+  "https://your-project.supabase.co", // ← put your full Supabase URL
+  "your-anon-key" // ← put your actual anon key
 )
 
 export default async function handler(req, res) {
-  if (req.method !== "DELETE") {
-    return res.status(405).json({ error: "Only DELETE allowed" })
+  if (req.method !== "GET") {
+    return res.status(405).json({ error: "Only GET allowed" })
   }
 
-  const { assigned_number } = req.body
-  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
-
-  if (!assigned_number) {
-    return res.status(400).json({ error: "assigned_number is required" })
-  }
+  const match_id = "00000000-0000-0000-0000-000000000000" // Or make this static/custom if you want
 
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("participants")
-      .delete()
+      .select("*")
       .eq("match_id", match_id)
-      .eq("assigned_number", assigned_number)
+      .order("assigned_number", { ascending: true })
 
     if (error) throw error
 
-    return res.status(200).json({ message: "Participant deleted" })
+    return res.status(200).json({ participants: data })
   } catch (err) {
-    return res.status(500).json({ error: err.message })
+    return res.status(500).json({ error: err.message || "Unexpected error" })
   }
 }

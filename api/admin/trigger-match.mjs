@@ -1,3 +1,4 @@
+// /api/admin/trigger-match.mjs
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
     }
 
     const chunks = chunkPairs(allPairs)
-    const results = []
+    const allScores = []
 
     for (const chunk of chunks) {
       const prompt = chunk
@@ -65,10 +66,7 @@ export default async function handler(req, res) {
 
 استخدم الصيغة التالية فقط:
 [A]-[B]: 74% - سبب
-
-مثال:
-3-7: 85% - اهتمامات متقاربة وتوجه اجتماعي مشابه.
-      `.trim()
+`.trim()
 
       const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo-1106",
@@ -83,35 +81,60 @@ export default async function handler(req, res) {
       for (const line of lines) {
         const match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
         if (!match) continue
-      
+
         const [, aNum, bNum, scoreStr, reason] = match
         console.log(`${aNum}-${bNum} ✅ ${scoreStr}%`)
-      
-        results.push({
-          participant_a_number: Number(aNum),
-          participant_b_number: Number(bNum),
-          compatibility_score: Number(scoreStr),
+
+        allScores.push({
+          a: Number(aNum),
+          b: Number(bNum),
+          score: Number(scoreStr),
           reason: reason.trim(),
+        })
+      }
+    }
+
+    // Choose best match per participant
+    const matched = new Set()
+    const results = []
+
+    for (const p of participants) {
+      const me = p.assigned_number
+      if (matched.has(me)) continue
+
+      const possible = allScores
+        .filter(s => (s.a === me || s.b === me) && !matched.has(s.a) && !matched.has(s.b))
+        .sort((a, b) => b.score - a.score)
+
+      const best = possible[0]
+
+      if (best) {
+        const partner = best.a === me ? best.b : best.a
+        matched.add(me)
+        matched.add(partner)
+
+        results.push({
+          participant_a_number: me,
+          participant_b_number: partner,
+          compatibility_score: best.score,
+          reason: best.reason,
           match_id,
         })
       }
     }
 
-    // Fallback for odd participant
-    if (participants.length % 2 !== 0) {
-      const allNums = participants.map(p => p.assigned_number)
-      const paired = new Set(results.flatMap(r => [r.participant_a_number, r.participant_b_number]))
-      const unpaired = allNums.find(n => !paired.has(n))
+    // Fallback for unpaired
+    const allNums = participants.map(p => p.assigned_number)
+    const unpaired = allNums.find(n => !matched.has(n))
 
-      if (unpaired !== undefined) {
-        results.push({
-          participant_a_number: unpaired,
-          participant_b_number: 0,
-          compatibility_score: 0,
-          reason: "لم يكن هناك شريك لهذا المشارك بسبب عدد المشاركين الفردي.",
-          match_id,
-        })
-      }
+    if (unpaired !== undefined) {
+      results.push({
+        participant_a_number: unpaired,
+        participant_b_number: 0,
+        compatibility_score: 0,
+        reason: "لم يكن هناك شريك لهذا المشارك بسبب عدد المشاركين الفردي.",
+        match_id,
+      })
     }
 
     const { error: insertError } = await supabase

@@ -25,6 +25,8 @@ export default function WelcomePage() {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
   const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
+  const [tableNumber, setTableNumber] = useState<number | null>(null)
+
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -73,6 +75,7 @@ export default function WelcomePage() {
       </span>
     </Button>
   )
+  
   useEffect(() => {
     if (step !== 4 || !assignedNumber) return
   
@@ -388,8 +391,19 @@ setStep(4) // but 4 = waiting
     <p className="text-center text-muted-foreground text-sm italic">
       لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
     </p>
+
+    <div
+      dir="rtl"
+      className="mt-4 mx-auto max-w-md rounded-xl border border-border bg-muted/30 p-5 shadow-sm backdrop-blur-sm"
+    >
+      <h4 className="text-sm font-medium text-right mb-2 text-foreground">تحليل شخصيتك 👇</h4>
+      <p className="text-sm text-right leading-relaxed text-muted-foreground italic">
+        {personalitySummary || "ما تم إنشاء ملخص."}
+      </p>
+    </div>
   </section>
 )}
+
 {step === 5 && (
   <section className="space-y-6">
     <h3 className="text-lg font-semibold text-center text-muted-foreground">

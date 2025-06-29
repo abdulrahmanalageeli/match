@@ -77,7 +77,7 @@ export default function WelcomePage() {
     if (step !== 4 || !assignedNumber) return
   
     const interval = setInterval(async () => {
-      const res = await fetch("/api/event-phase", {
+      const res = await fetch("/api/admin/event-phase", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),

@@ -19,23 +19,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Get participant ID by their assigned number
-    const { data: me, error: fetchMeError } = await supabase
-      .from("participants")
-      .select("id")
-      .eq("match_id", match_id)
-      .eq("assigned_number", assigned_number)
-      .maybeSingle()
-
-    if (fetchMeError || !me) throw new Error("Participant not found")
-    const myId = me.id
-
-    // 2. Get all match rows where this participant is either A or B
+    // 1. Get all match rows where this number is either A or B
     const { data: matches, error: matchesError } = await supabase
       .from("match_results")
-      .select("participant_a_id, participant_b_id, match_type, reason")
+      .select("participant_a_number, participant_b_number, match_type, reason")
       .eq("match_id", match_id)
-      .or(`participant_a_id.eq.${myId},participant_b_id.eq.${myId}`)
+      .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
 
     if (matchesError) throw matchesError
 
@@ -43,30 +32,13 @@ export default async function handler(req, res) {
       return res.status(200).json({ matches: [] })
     }
 
-    // 3. Get the assigned_numbers for the matching partners
-    const pairedIds = matches.map((m) =>
-      m.participant_a_id === myId ? m.participant_b_id : m.participant_a_id
-    )
-
-    if (pairedIds.length === 0) {
-      return res.status(200).json({ matches: [] })
-    }
-
-    const { data: others, error: namesError } = await supabase
-      .from("participants")
-      .select("id, assigned_number")
-      .in("id", pairedIds)
-
-    if (namesError) throw namesError
-
-    // 4. Combine data
+    // 2. Construct the output
     const results = matches.map((match) => {
-      const isA = match.participant_a_id === myId
-      const otherId = isA ? match.participant_b_id : match.participant_a_id
-      const other = others.find((p) => p.id === otherId)
+      const isA = match.participant_a_number === assigned_number
+      const otherNum = isA ? match.participant_b_number : match.participant_a_number
 
       return {
-        with: other?.assigned_number ?? "(غير معروف)",
+        with: otherNum !== 0 ? otherNum.toString() : "؟",
         type: match.match_type,
         reason: match.reason || "السبب غير متوفر",
       }

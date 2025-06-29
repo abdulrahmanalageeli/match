@@ -170,7 +170,7 @@ export default function WelcomePage() {
   useEffect(() => {
     if (step !== 4 || !assignedNumber) return
   
-    setCountdown(30)
+    setCountdown(3)
     setMatchResult(null)
     setMatchReason("")
   

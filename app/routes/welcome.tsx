@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react"
-import { ChevronRightIcon, ChevronLeftIcon, SunIcon, MoonIcon } from "lucide-react"
+import {
+  ChevronRightIcon,
+  ChevronLeftIcon,
+  SunIcon,
+  MoonIcon,
+} from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Timeline, TimelineItem } from "../../components/ui/timeline"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -10,7 +15,6 @@ export default function WelcomePage() {
   const [dark, setDark] = useState(false)
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
 
-  // Form state
   const [freeTime, setFreeTime] = useState("")
   const [friendDesc, setFriendDesc] = useState("")
   const [preference, setPreference] = useState("")
@@ -25,7 +29,6 @@ export default function WelcomePage() {
   }
   const previous = () => setStep((s) => Math.max(s - 1, 0))
 
-  // Toggle dark class on <html>
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
@@ -67,8 +70,8 @@ export default function WelcomePage() {
       setPersonalitySummary(data.summary)
       next()
     } catch (err) {
-      console.error("Error fetching GPT summary:", err)
-      setPersonalitySummary("Failed to generate personality insight.")
+      console.error("GPT Error:", err)
+      setPersonalitySummary("ما قدرنا نولّد تحليل شخصيتك.")
       next()
     } finally {
       setLoading(false)
@@ -82,9 +85,10 @@ export default function WelcomePage() {
           ? "bg-[oklch(0.141_0.005_285.823)] text-[oklch(0.985_0_0)]"
           : "bg-[oklch(1_0_0)] text-[oklch(0.141_0.005_285.823)]"
       }`}
+      dir="rtl"
     >
-      {/* Theme toggle */}
-      <div className="absolute top-4 right-4 z-50">
+      {/* زر الوضع المظلم */}
+      <div className="absolute top-4 left-4 z-50">
         <Button
           variant="ghost"
           size="sm"
@@ -100,27 +104,27 @@ export default function WelcomePage() {
       </div>
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in">
-        {/* Step 0 */}
+        {/* خطوة 0 */}
         {step === 0 && (
           <section className="space-y-6">
-            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Welcome to the Event</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">أهلًا بك في اللقاء</h1>
             <p className="text-muted-foreground text-sm sm:text-base">
-              You’ll meet 4 people. After each chat, decide: were they your
-              <span className="font-semibold text-foreground"> soulmate </span>
-              or your
-              <span className="font-semibold text-foreground"> nemesis</span>?
+              بتقابل ٤ أشخاص. بعد كل حوار، قرر إذا كان
+              <span className="font-semibold text-foreground"> توأم روحك </span>
+              أو
+              <span className="font-semibold text-foreground"> خصمك اللدود</span>.
             </p>
             <div className="flex justify-center">
-              <FancyNextButton onClick={next} label="Start" />
+              <FancyNextButton onClick={next} label="ابدأ" />
             </div>
           </section>
         )}
 
-        {/* Step 1 */}
+        {/* خطوة 1 */}
         {step === 1 && (
           <section className="space-y-6">
-            <h2 className="text-xl font-semibold">Enter Your Assigned Number</h2>
-            <p className="text-muted-foreground text-sm">Your host gave you a number. Enter it below to continue.</p>
+            <h2 className="text-xl font-semibold">أدخل رقمك المخصص</h2>
+            <p className="text-muted-foreground text-sm">منظّم الحدث أعطاك رقم. اكتبه هنا علشان نكمل.</p>
             <input
               type="number"
               inputMode="numeric"
@@ -131,15 +135,15 @@ export default function WelcomePage() {
               className="mx-auto block h-24 w-24 text-center text-4xl font-bold rounded-lg border border-border bg-background shadow-sm pr-3 [appearance:textfield] focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <div className="flex justify-center gap-3">
-              <FancyPreviousButton onClick={previous} label="Back" />
-              <FancyNextButton onClick={next} label="Continue" />
+              <FancyPreviousButton onClick={previous} label="رجوع" />
+              <FancyNextButton onClick={next} label="استمرار" />
             </div>
           </section>
         )}
 
-        {/* Step 2 */}
+        {/* خطوة 2 */}
         {step === 2 && (
-          <section className="space-y-6 text-left">
+          <section className="space-y-6 text-right">
             <div className="flex flex-col items-center gap-2">
               <Avatar className="w-16 h-16">
                 <AvatarFallback className="text-xl font-semibold bg-muted">
@@ -148,11 +152,11 @@ export default function WelcomePage() {
               </Avatar>
             </div>
 
-            <h2 className="text-xl font-bold text-center pt-4">Tell Us About Yourself</h2>
+            <h2 className="text-xl font-bold text-center pt-4">عرفنا عن نفسك شوي</h2>
 
             <form className="space-y-5 max-w-md mx-auto">
               <div className="space-y-2">
-                <label className="block text-sm font-medium">What do you enjoy doing in your free time?</label>
+                <label className="block text-sm font-medium">وش تسوي بوقتك الفاضي؟</label>
                 <input
                   type="text"
                   value={freeTime}
@@ -162,7 +166,7 @@ export default function WelcomePage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium">How do your friends describe you?</label>
+                <label className="block text-sm font-medium">كيف يوصفونك أصحابك؟</label>
                 <input
                   type="text"
                   value={friendDesc}
@@ -172,20 +176,20 @@ export default function WelcomePage() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium">Would you rather:</label>
+                <label className="block text-sm font-medium">تميل أكثر لـ:</label>
                 <select
                   value={preference}
                   onChange={(e) => setPreference(e.target.value)}
                   className="w-full rounded-md border border-border bg-background p-2 focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="">Select one</option>
-                  <option value="alone">Have a deep 1:1 conversation</option>
-                  <option value="group">Lead a fun group activity</option>
+                  <option value="">اختر وحدة</option>
+                  <option value="alone">جلسة هادئة بين شخصين</option>
+                  <option value="group">نشاط ممتع مع مجموعة</option>
                 </select>
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium">What’s something unique about you?</label>
+                <label className="block text-sm font-medium">وش يميزك عن غيرك؟</label>
                 <input
                   type="text"
                   value={uniqueTrait}
@@ -196,29 +200,29 @@ export default function WelcomePage() {
             </form>
 
             <div className="flex justify-center gap-3">
-              <FancyPreviousButton onClick={previous} label="Back" />
-              <FancyNextButton onClick={handleSubmit} label={loading ? "Loading..." : "Submit & Start"} />
+              <FancyPreviousButton onClick={previous} label="رجوع" />
+              <FancyNextButton onClick={handleSubmit} label={loading ? "يتم التحليل..." : "ارسال وبدء"} />
             </div>
           </section>
         )}
 
-        {/* Step 3 */}
+        {/* خطوة 3 */}
         {step === 3 && (
           <section className="space-y-6">
-
-            <div className="mt-8">
-              <h3 className="text-lg font-semibold text-center text-muted-foreground">Personality Insight</h3>
-              <div className="mt-4 mx-auto max-w-md rounded-xl border border-border bg-muted/30 p-5 shadow-sm backdrop-blur-sm">
-                <p className="text-sm leading-relaxed text-muted-foreground italic">
-                  {loading
-                    ? "Analyzing your personality..."
-                    : personalitySummary || "No summary generated."}
-                </p>
-              </div>
+            <h3 className="text-lg font-semibold text-center text-muted-foreground">تحليل شخصيتك</h3>
+            <div
+              dir="rtl"
+              className="mt-4 mx-auto max-w-md rounded-xl border border-border bg-muted/30 p-5 shadow-sm backdrop-blur-sm"
+            >
+              <p className="text-sm text-right leading-relaxed text-muted-foreground italic">
+                {loading
+                  ? "جاري تحليل شخصيتك..."
+                  : personalitySummary || "ما تم إنشاء ملخص."}
+              </p>
             </div>
 
             <div className="flex justify-center">
-              <FancyNextButton onClick={restart} label="Next" />
+              <FancyNextButton onClick={restart} label="الرجوع للبداية" />
             </div>
           </section>
         )}

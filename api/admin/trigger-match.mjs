@@ -38,13 +38,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Build single GPT prompt for all pairs
+    // 3. Create GPT prompt and message
     const prompt = pairs.map(([a, b]) => (
       `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
       `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
     )).join("\n\n")
 
-const systemMsg = `
+    const systemMsg = `
 أنت مساعد توافق بين المشاركين. لكل زوج من المشاركين، قيّم نسبة التوافق من 0 إلى 100، واذكر السبب باختصار.
 
 أرجع النتائج فقط بصيغة JSON Array بهذا الشكل:
@@ -57,33 +57,38 @@ const systemMsg = `
 بدون أي نص آخر خارج JSON.
 `.trim()
 
-const response = await openai.chat.completions.create({
-  model: "gpt-4o", // ✅ required for JSON response
-  messages: [
-    { role: "system", content: systemMsg },
-    { role: "user", content: prompt }
-  ],
-  response_format: "json" // ✅ tells GPT to return machine-readable JSON
-})
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemMsg },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.3
+    })
 
+    // 4. Parse GPT JSON response
+    let gptMatches = []
+    try {
+      const raw = response.choices?.[0]?.message?.content
+      gptMatches = JSON.parse(raw)
+    } catch (e) {
+      console.error("❌ Failed to parse GPT JSON:", e)
+      return res.status(500).json({ error: "GPT response was not valid JSON." })
+    }
 
-let gptMatches = []
-try {
-  const raw = response.choices?.[0]?.message?.content
-  gptMatches = JSON.parse(raw)
-} catch (e) {
-  console.error("❌ Failed to parse GPT JSON:", e)
-  return res.status(500).json({ error: "GPT response was not valid JSON." })
-}
+    for (const { a, b, score, reason } of gptMatches) {
+      if (
+        typeof a !== "number" || typeof b !== "number" ||
+        typeof score !== "number" || typeof reason !== "string"
+      ) continue
 
-for (const { a, b, score, reason } of gptMatches) {
-  scores[`${a}-${b}`] = {
-    score: Number(score),
-    reason: reason.trim()
-  }
-}
+      scores[`${a}-${b}`] = {
+        score,
+        reason: reason.trim()
+      }
+    }
 
-    // 4. Build scored pairs (only with positive score)
+    // 5. Build scored pairs (only those with score > 0)
     const allPairs = []
     for (let i = 0; i < numbers.length; i++) {
       for (let j = i + 1; j < numbers.length; j++) {
@@ -101,10 +106,10 @@ for (const { a, b, score, reason } of gptMatches) {
       }
     }
 
-    // 5. Sort pairs by score descending
+    // 6. Sort by score
     allPairs.sort((p1, p2) => p2.score - p1.score)
 
-    // 6. Greedy Matching
+    // 7. Greedy Matching
     const matched = new Set()
     const results = []
 
@@ -123,34 +128,32 @@ for (const { a, b, score, reason } of gptMatches) {
       }
     }
 
-    // 7. Handle unmatched
+    // 8. Handle unmatched
     const unmatched = numbers.filter(n => !matched.has(n))
 
-if (unmatched.length === 1) {
-  const lone = unmatched[0]
-  results.push({
-    participant_a_number: 0, // you
-    participant_b_number: lone,
-    compatibility_score: 0,
-    match_type: "توأم روح (منظم)",
-    reason: "تم توصيله بك لعدم وجود شريك متبقي.",
-    match_id
-  })
-} else if (unmatched.length > 1) {
-  // This should rarely ever happen
-  for (const num of unmatched) {
-    results.push({
-      participant_a_number: num,
-      participant_b_number: 0,
-      compatibility_score: 0,
-      match_type: "محايد",
-      reason: "لم يوجد شريك متوافق.",
-      match_id
-    })
-  }
-}
+    if (unmatched.length === 1) {
+      results.push({
+        participant_a_number: 0,
+        participant_b_number: unmatched[0],
+        compatibility_score: 0,
+        match_type: "توأم روح (منظم)",
+        reason: "تم توصيله بك لعدم وجود شريك متبقي.",
+        match_id
+      })
+    } else if (unmatched.length > 1) {
+      for (const num of unmatched) {
+        results.push({
+          participant_a_number: num,
+          participant_b_number: 0,
+          compatibility_score: 0,
+          match_type: "محايد",
+          reason: "لم يوجد شريك متوافق.",
+          match_id
+        })
+      }
+    }
 
-    // 8. Insert into DB
+    // 9. Insert into DB
     const { error: insertError } = await supabase
       .from("match_results")
       .insert(results)

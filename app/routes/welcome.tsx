@@ -82,11 +82,12 @@ if (data.success) {
 
     } catch (err) {
       console.error("Error resolving token:", err)
+        } finally {
+      setIsResolving(false) // ✅ only set false after async finishes
     }
   }
 
   resolveToken()
-  setIsResolving(false)
 }, [token])
 
   useEffect(() => {

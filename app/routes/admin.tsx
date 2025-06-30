@@ -40,10 +40,9 @@ await fetch("/api/admin", {
   const triggerMatching = async () => {
     if (!confirm("Are you sure you want to trigger the matching for all participants?")) return
     setLoading(true)
-const res = await fetch("/api/admin", {
+const res = await fetch("/api/trigger-match", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ action: "trigger-match" }),
 })
     const data = await res.json()
     alert(`✅ Done.\n\n${data.analysis}`)

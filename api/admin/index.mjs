@@ -29,6 +29,17 @@ export default async function handler(req, res) {
 
   // 🔹 POST actions
   if (method === "POST") {
+    if (action === "participants") {
+  const { data, error } = await supabase
+    .from("participants")
+    .select("id, assigned_number, table_number, q1, q2, q3, q4")
+    .eq("match_id", STATIC_MATCH_ID)
+    .order("assigned_number", { ascending: true })
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ participants: data })
+}
+
     if (action === "delete") {
       const { assigned_number } = req.body
       const { error } = await supabase

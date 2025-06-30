@@ -44,36 +44,39 @@ export default async function handler(req, res) {
       `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
     )).join("\n\n")
 
-    const systemMsg = `
-أنت مساعد توافق بين المشاركين. قيّم نسبة التوافق من 0 إلى 100٪ لكل زوج، واذكر السبب باختصار.
-استخدم فقط هذه الصيغة لكل زوج:
-[A]-[B]: 74% - سبب مختصر
+const systemMsg = `
+أنت مساعد توافق بين المشاركين. لكل زوج من المشاركين، قيّم نسبة التوافق من 0 إلى 100، واذكر السبب باختصار.
+
+أرجع النتائج فقط بصيغة JSON Array بهذا الشكل:
+
+[
+  { "a": 5, "b": 6, "score": 74, "reason": "كلاهما يفضل العزلة والتأمل" },
+  { "a": 1, "b": 2, "score": 88, "reason": "يتشاركان في القيم والاهتمامات" }
+]
+
+بدون أي نص آخر خارج JSON.
 `.trim()
 
-    const response = await openai.chat.completions.create({
-model: "gpt-4-turbo",
-      messages: [
-        { role: "system", content: systemMsg },
-        { role: "user", content: prompt }
-      ],
-      temperature: 0.3
-    })
+const response = await openai.chat.completions.create({
+  model: "gpt-4o", // ✅ required for JSON response
+  messages: [
+    { role: "system", content: systemMsg },
+    { role: "user", content: prompt }
+  ],
+  response_format: "json" // ✅ tells GPT to return machine-readable JSON
+})
 
-    const lines = response.choices?.[0]?.message?.content?.trim().split("\n") || []
-for (const line of lines) {
-  if (!line.trim()) continue
 
-  let match = line.match(/المشارك\s*(\d+)\s*-\s*المشارك\s*(\d+):\s*(\d{1,3})%\s*-\s*(.+)/)
-  if (!match) {
-    match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
-  }
+let gptMatches = []
+try {
+  const raw = response.choices?.[0]?.message?.content
+  gptMatches = JSON.parse(raw)
+} catch (e) {
+  console.error("❌ Failed to parse GPT JSON:", e)
+  return res.status(500).json({ error: "GPT response was not valid JSON." })
+}
 
-  if (!match) {
-    console.warn("⚠️ Could not parse line:", line)
-    continue
-  }
-
-  const [, a, b, score, reason] = match
+for (const { a, b, score, reason } of gptMatches) {
   scores[`${a}-${b}`] = {
     score: Number(score),
     reason: reason.trim()

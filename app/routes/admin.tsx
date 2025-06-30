@@ -40,7 +40,7 @@ await fetch("/api/admin", {
   const triggerMatching = async () => {
     if (!confirm("Are you sure you want to trigger the matching for all participants?")) return
     setLoading(true)
-const res = await fetch("/api/trigger-match", {
+const res = await fetch("/api/admin/trigger-match", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
 })

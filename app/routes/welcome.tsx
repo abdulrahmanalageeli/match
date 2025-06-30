@@ -44,26 +44,40 @@ const res = await fetch("/api/token-handler", {
 if (data.success) {
   setAssignedNumber(data.assigned_number);
 
-  // Get current phase and redirect accordingly
+  const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
+
   const res2 = await fetch("/api/admin", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
+    body: JSON.stringify({
+      action: "event-phase",
+      match_id: "00000000-0000-0000-0000-000000000000",
+    }),
   });
   const phaseData = await res2.json();
 
   if (phaseData.phase === "matching") {
-    // Immediately show results
-    setStep(5);
-    fetchMatches();
+    if (hasFilledForm) {
+      setStep(5);
+      fetchMatches();
+    } else {
+      setStep(-1); // late joiner, too late
+    }
   } else if (phaseData.phase === "waiting") {
-    // Resume waiting screen
-    setStep(4);
-  } else {
-    // Resume form
-    setStep(2);
+    if (hasFilledForm) {
+      setStep(4);
+    } else {
+      setStep(2);
+    }
+  } else if (phaseData.phase === "form") {
+    if (hasFilledForm) {
+      setStep(4); // ✅ show waiting screen with personality summary
+    } else {
+      setStep(2); // default form step
+    }
   }
 }
+
     } catch (err) {
       console.error("Error resolving token:", err)
     }
@@ -298,6 +312,12 @@ setStep(4) // but 4 = waiting
             </div>
           </section>
         )}
+{step === -1 && (
+  <section className="space-y-6">
+    <h2 className="text-2xl font-bold">🚫 التوافق بدأ بالفعل</h2>
+    <p className="text-muted-foreground text-sm">ما لحقت تعبي النموذج. تابع المنظّم وانتظر الجولة الجاية.</p>
+  </section>
+)}
 
         {/* خطوة 1 */}
 {step === 1 && !token && (   // ✅ prevent Step 1 from showing when token is used

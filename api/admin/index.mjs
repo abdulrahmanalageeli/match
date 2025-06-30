@@ -98,6 +98,16 @@ if (action === "participants") {
   return res.status(200).json({ participants: data })
 }
 
+if (action === "event-phase") {
+  const { data, error } = await supabase
+    .from("event_state")
+    .select("phase")
+    .eq("match_id", STATIC_MATCH_ID)
+    .single()
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ phase: data.phase })
+}
 
   }
   return res.status(405).json({ error: "Unsupported method or action" })

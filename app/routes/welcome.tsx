@@ -29,7 +29,9 @@ export default function WelcomePage() {
   const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const token = useSearchParams()[0].get("token")
-useEffect(() => {
+const [isResolving, setIsResolving] = useState(true)
+
+  useEffect(() => {
   const resolveToken = async () => {
     if (!token) return
 
@@ -84,6 +86,8 @@ if (data.success) {
   }
 
   resolveToken()
+  setIsResolving(false)
+
 }, [token])
 
   useEffect(() => {
@@ -262,14 +266,14 @@ setStep(4) // but 4 = waiting
     return <div className="text-center text-xl p-10">جارٍ التحميل...</div>
   }
   
-  if (phase !== "form" && step === 0) {
-    return (
-      <div className="text-center text-xl p-10 space-y-2">
-        <h2 className="font-bold text-2xl">🚫 التسجيل مغلق</h2>
-        <p className="text-muted-foreground text-sm">المنظّم بدأ التوافق أو أغلق التسجيل.</p>
-      </div>
-    )
-  }
+if (!isResolving && phase !== "form" && step === 0) {
+  return (
+    <div className="text-center text-xl p-10 space-y-2">
+      <h2 className="font-bold text-2xl">🚫 التسجيل مغلق</h2>
+      <p className="text-muted-foreground text-sm">المنظّم بدأ التوافق أو أغلق التسجيل.</p>
+    </div>
+  )
+}
   
   return (
     <div

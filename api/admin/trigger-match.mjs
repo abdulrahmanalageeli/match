@@ -117,28 +117,29 @@ model: "gpt-4-turbo",
     // 7. Handle unmatched
     const unmatched = numbers.filter(n => !matched.has(n))
 
-    if (unmatched.length === 1) {
-      results.push({
-        participant_a_number: unmatched[0],
-        participant_b_number: 0,
-        compatibility_score: 0,
-        match_type: "محايد",
-        reason: "لم يوجد شريك متوافق.",
-        match_id
-      })
-    } else if (unmatched.length > 1) {
-      // Should never happen in greedy matching
-      for (const num of unmatched) {
-        results.push({
-          participant_a_number: num,
-          participant_b_number: 0,
-          compatibility_score: 0,
-          match_type: "محايد",
-          reason: "لم يتم التوفيق بسبب العدد الفردي.",
-          match_id
-        })
-      }
-    }
+if (unmatched.length === 1) {
+  const lone = unmatched[0]
+  results.push({
+    participant_a_number: 0, // you
+    participant_b_number: lone,
+    compatibility_score: 0,
+    match_type: "توأم روح (منظم)",
+    reason: "تم توصيله بك لعدم وجود شريك متبقي.",
+    match_id
+  })
+} else if (unmatched.length > 1) {
+  // This should rarely ever happen
+  for (const num of unmatched) {
+    results.push({
+      participant_a_number: num,
+      participant_b_number: 0,
+      compatibility_score: 0,
+      match_type: "محايد",
+      reason: "لم يوجد شريك متوافق.",
+      match_id
+    })
+  }
+}
 
     // 8. Insert into DB
     const { error: insertError } = await supabase

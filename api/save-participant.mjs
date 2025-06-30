@@ -1,5 +1,4 @@
 // /api/save-participant.mjs (Vercel serverless function)
-
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -13,15 +12,13 @@ export default async (req, res) => {
   }
 
   try {
-    const { assigned_number, q1, q2, q3, q4 } = req.body
-
+    const { assigned_number, q1, q2, q3, q4, summary } = req.body
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
-    if (!assigned_number || !q1 || !q2 || !q3 || !q4) {
-      return res.status(400).json({ error: "Missing required fields" })
+    if (!assigned_number) {
+      return res.status(400).json({ error: "Missing assigned_number" })
     }
 
-    // Check for existing
     const { data: existing, error: existingError } = await supabase
       .from("participants")
       .select("id")
@@ -30,26 +27,42 @@ export default async (req, res) => {
 
     if (existingError) throw existingError
 
+    const updateFields = {}
+
+    // Allow saving q1–q4 only if all exist
+    if (q1 && q2 && q3 && q4) {
+      updateFields.q1 = q1
+      updateFields.q2 = q2
+      updateFields.q3 = q3
+      updateFields.q4 = q4
+    }
+
+    // Allow saving summary alone or with full form
+    if (summary) {
+      updateFields.summary = summary
+    }
+
+    if (Object.keys(updateFields).length === 0) {
+      return res.status(400).json({ error: "No valid fields to save" })
+    }
+
     if (existing && existing.length > 0) {
-      // Update
+      // ✅ Update existing
       const { error: updateError } = await supabase
         .from("participants")
-        .update({ q1, q2, q3, q4 })
+        .update(updateFields)
         .eq("match_id", match_id)
         .eq("assigned_number", assigned_number)
 
       if (updateError) throw updateError
     } else {
-      // Insert
+      // ✅ Insert new
       const { error: insertError } = await supabase.from("participants").insert([
         {
-          assigned_number: assigned_number,
+          assigned_number,
           match_id,
-          q1,
-          q2,
-          q3,
-          q4,
           is_host: false,
+          ...updateFields,
         },
       ])
       if (insertError) throw insertError

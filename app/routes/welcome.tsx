@@ -193,7 +193,15 @@ const res = await fetch("/api/admin", {
       })
       const data2 = await res2.json()
       setPersonalitySummary(data2.summary || "ما قدرنا نولّد تحليل شخصيتك.")
-  
+  await fetch("/api/save-participant", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    assigned_number: assignedNumber,
+    summary: data2.summary || "ما قدرنا نولّد تحليل شخصيتك.",
+  }),
+})
+
       // 3. Go to summary step
       next()
   

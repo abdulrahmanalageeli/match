@@ -161,11 +161,11 @@ export default function AdminPage() {
         <button
           disabled={!manualNumber}
           onClick={async () => {
-            const res = await fetch("/api/admin/create-token", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ assigned_number: manualNumber }),
-            })
+          const res = await fetch("/api/token-handler", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "create", assigned_number: manualNumber }),
+          })
 
             const data = await res.json()
             if (data.secure_token) {

@@ -34,11 +34,11 @@ useEffect(() => {
     if (!token) return
 
     try {
-      const res = await fetch("/api/resolve-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ secure_token: token }),
-      })
+const res = await fetch("/api/token-handler", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "resolve", secure_token: token }),
+})
 
       const data = await res.json()
       if (data.success) {

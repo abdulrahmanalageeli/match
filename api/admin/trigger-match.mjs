@@ -60,19 +60,25 @@ model: "gpt-4-turbo",
     })
 
     const lines = response.choices?.[0]?.message?.content?.trim().split("\n") || []
-    for (const line of lines) {
-      const match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
-      if (!match) {
-        console.warn("⚠️ Could not parse line:", line)
-        continue
-      }
+for (const line of lines) {
+  if (!line.trim()) continue
 
-      const [, a, b, score, reason] = match
-      scores[`${a}-${b}`] = {
-        score: Number(score),
-        reason: reason.trim()
-      }
-    }
+  let match = line.match(/المشارك\s*(\d+)\s*-\s*المشارك\s*(\d+):\s*(\d{1,3})%\s*-\s*(.+)/)
+  if (!match) {
+    match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
+  }
+
+  if (!match) {
+    console.warn("⚠️ Could not parse line:", line)
+    continue
+  }
+
+  const [, a, b, score, reason] = match
+  scores[`${a}-${b}`] = {
+    score: Number(score),
+    reason: reason.trim()
+  }
+}
 
     // 4. Build scored pairs (only with positive score)
     const allPairs = []

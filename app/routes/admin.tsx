@@ -5,6 +5,8 @@ export default function AdminPage() {
   const [authenticated, setAuthenticated] = useState(false)
   const [participants, setParticipants] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [qrParticipant, setQrParticipant] = useState<any | null>(null)
+  const [manualNumber, setManualNumber] = useState<number | null>(null)
 
   const STATIC_PASSWORD = "soulmatch2025"
 
@@ -144,6 +146,45 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Manual QR generator */}
+      <div className="mb-6 flex items-end gap-3">
+        <div>
+          <label className="block text-sm font-medium mb-1">🎯 رقم المشارك:</label>
+          <input
+            type="number"
+            value={manualNumber ?? ""}
+            onChange={(e) => setManualNumber(Number(e.target.value))}
+            className="w-28 p-2 rounded border"
+            placeholder="مثلاً: 17"
+          />
+        </div>
+        <button
+          disabled={!manualNumber}
+          onClick={async () => {
+            const res = await fetch("/api/admin/create-token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ assigned_number: manualNumber }),
+            })
+
+            const data = await res.json()
+            if (data.secure_token) {
+              setQrParticipant({
+                assigned_number: manualNumber,
+                secure_token: data.secure_token,
+              })
+              setManualNumber(null)
+              fetchParticipants()
+            } else {
+              alert("❌ فشل في توليد الرابط")
+            }
+          }}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 disabled:opacity-50"
+        >
+          توليد QR
+        </button>
+      </div>
+
       {loading ? (
         <p>Loading...</p>
       ) : (
@@ -190,11 +231,41 @@ export default function AdminPage() {
                   >
                     حذف
                   </button>
+                  <button
+                    onClick={() => setQrParticipant(p)}
+                    className="bg-gray-300 px-2 py-1 rounded text-xs hover:bg-gray-400"
+                  >
+                    QR
+                  </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {/* QR Modal */}
+      {qrParticipant && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded shadow-lg text-center space-y-4 w-72">
+            <h2 className="text-xl font-bold">
+              QR: رقم {qrParticipant.assigned_number}
+            </h2>
+            <img
+              src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                `${window.location.origin}/welcome?token=${qrParticipant.secure_token}`
+              )}`}
+              alt="QR Code"
+              className="mx-auto"
+            />
+            <button
+              onClick={() => setQrParticipant(null)}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

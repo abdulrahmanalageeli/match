@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
+
 import {
   ChevronRightIcon,
   ChevronLeftIcon,
@@ -26,6 +28,32 @@ export default function WelcomePage() {
   const [matchReason, setMatchReason] = useState<string>("")
   const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
+  const token = useSearchParams()[0].get("token")
+useEffect(() => {
+  const resolveToken = async () => {
+    if (!token) return
+
+    try {
+      const res = await fetch("/api/resolve-token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secure_token: token }),
+      })
+
+      const data = await res.json()
+      if (data.success) {
+        setAssignedNumber(data.assigned_number)
+        setStep(2) // optionally skip number input step
+      } else {
+        alert("الرابط غير صالح أو انتهت صلاحيته.")
+      }
+    } catch (err) {
+      console.error("Error resolving token:", err)
+    }
+  }
+
+  resolveToken()
+}, [token])
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -254,7 +282,7 @@ setStep(4) // but 4 = waiting
         )}
 
         {/* خطوة 1 */}
-        {step === 1 && (
+{step === 1 && !token && (   // ✅ prevent Step 1 from showing when token is used
           <section className="space-y-6">
             <h2 className="text-xl font-semibold">أدخل رقمك المخصص</h2>
             <p className="text-muted-foreground text-sm">منظّم الحدث أعطاك رقم. اكتبه هنا علشان نكمل.</p>

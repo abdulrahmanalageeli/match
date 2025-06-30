@@ -67,14 +67,21 @@ export default async function handler(req, res) {
     })
 
     // 4. Parse GPT JSON response
-    let gptMatches = []
-    try {
-      const raw = response.choices?.[0]?.message?.content
-      gptMatches = JSON.parse(raw)
-    } catch (e) {
-      console.error("❌ Failed to parse GPT JSON:", e)
-      return res.status(500).json({ error: "GPT response was not valid JSON." })
-    }
+let gptMatches = []
+try {
+  let raw = response.choices?.[0]?.message?.content?.trim()
+
+  // 🔥 Remove ```json or ``` if GPT added code fences
+  if (raw.startsWith("```")) {
+    raw = raw.replace(/^```[a-z]*\s*/i, "").replace(/```$/, "").trim()
+  }
+
+  gptMatches = JSON.parse(raw)
+} catch (e) {
+  console.error("❌ Failed to parse GPT JSON:", e)
+  return res.status(500).json({ error: "GPT response was not valid JSON." })
+}
+
 
     for (const { a, b, score, reason } of gptMatches) {
       if (

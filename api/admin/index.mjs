@@ -154,6 +154,16 @@ export default async function handler(req, res) {
       return res.status(200).json({ message: "Matching complete", analysis: `✅ ${matches.length} pairs matched.` })
     }
   }
+if (action === "participants") {
+  const { data, error } = await supabase
+    .from("participants")
+    .select("id, assigned_number, table_number, q1, q2, q3, q4")
+    .eq("match_id", STATIC_MATCH_ID)
+    .order("assigned_number", { ascending: true })
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ participants: data })
+}
 
   return res.status(405).json({ error: "Unsupported method or action" })
 }

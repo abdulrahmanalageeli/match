@@ -12,21 +12,31 @@ export default async function handler(req, res) {
 
   const { action } = req.body
 
-  if (action === "create") {
-    // 🎯 CREATE TOKEN LOGIC (from create-token.mjs)
-    const { assigned_number } = req.body
-
-    if (!assigned_number) {
-      return res.status(400).json({ error: "Missing assigned_number" })
-    }
-
 if (action === "create") {
-  const { assigned_number } = req.body
+  const { assigned_number } = req.body;
 
   if (!assigned_number) {
-    return res.status(400).json({ error: "Missing assigned_number" })
+    return res.status(400).json({ error: "Missing assigned_number" });
   }
 
+  // Check if participant already exists
+  const { data: existing, error: fetchError } = await supabase
+    .from("participants")
+    .select("secure_token")
+    .eq("assigned_number", assigned_number)
+    .eq("match_id", "00000000-0000-0000-0000-000000000000")
+    .single();
+
+  if (existing) {
+    return res.status(200).json({ secure_token: existing.secure_token });
+  }
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    console.error("Check Token Error:", fetchError);
+    return res.status(500).json({ error: "Database fetch failed" });
+  }
+
+  // Create new participant if none found
   const { data, error } = await supabase
     .from("participants")
     .insert([
@@ -36,16 +46,15 @@ if (action === "create") {
       },
     ])
     .select("secure_token")
-    .single()
+    .single();
 
   if (error) {
-    console.error("Create Token Error:", error)
-    return res.status(500).json({ error: "Database insert failed" })
+    console.error("Create Token Error:", error);
+    return res.status(500).json({ error: "Database insert failed" });
   }
 
-  return res.status(200).json({ secure_token: data.secure_token })
+  return res.status(200).json({ secure_token: data.secure_token });
 }
-  }
 
   if (action === "resolve") {
     // 🔍 RESOLVE TOKEN LOGIC (from resolve-token.mjs)

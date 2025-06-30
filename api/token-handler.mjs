@@ -20,22 +20,31 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Missing assigned_number" })
     }
 
-    const { data, error } = await supabase
-      .from("participants")
-      .insert([
-        {
-          assigned_number,
-          match_id: "00000000-0000-0000-0000-000000000000",
-        },
-      ])
-      .select("secure_token")
+if (action === "create") {
+  const { assigned_number } = req.body
 
-    if (error) {
-      console.error("Create Token Error:", error)
-      return res.status(500).json({ error: "Database insert failed" })
-    }
+  if (!assigned_number) {
+    return res.status(400).json({ error: "Missing assigned_number" })
+  }
 
-    return res.status(200).json({ token: data[0].secure_token })
+  const { data, error } = await supabase
+    .from("participants")
+    .insert([
+      {
+        assigned_number,
+        match_id: "00000000-0000-0000-0000-000000000000",
+      },
+    ])
+    .select("secure_token")
+    .single()
+
+  if (error) {
+    console.error("Create Token Error:", error)
+    return res.status(500).json({ error: "Database insert failed" })
+  }
+
+  return res.status(200).json({ secure_token: data.secure_token })
+}
   }
 
   if (action === "resolve") {

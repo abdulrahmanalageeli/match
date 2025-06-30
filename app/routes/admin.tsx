@@ -13,7 +13,11 @@ export default function AdminPage() {
   const fetchParticipants = async () => {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/participants")
+const res = await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "participants" }),
+})
       const data = await res.json()
       setParticipants(data.participants || [])
     } catch (err) {
@@ -25,18 +29,22 @@ export default function AdminPage() {
 
   const deleteParticipant = async (assigned_number: number) => {
     if (!confirm(`Are you sure you want to delete participant #${assigned_number}?`)) return
-    await fetch("/api/admin/delete-participant", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ assigned_number }),
-    })
+await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "delete", assigned_number }),
+})
     fetchParticipants()
   }
 
   const triggerMatching = async () => {
     if (!confirm("Are you sure you want to trigger the matching for all participants?")) return
     setLoading(true)
-    const res = await fetch("/api/admin/trigger-match", { method: "POST" })
+const res = await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "trigger-match" }),
+})
     const data = await res.json()
     alert(`✅ Done.\n\n${data.analysis}`)
     fetchParticipants()
@@ -97,14 +105,15 @@ export default function AdminPage() {
             <select
               className="border px-3 py-1 rounded text-sm"
               onChange={async (e) => {
-                const res = await fetch("/api/admin/set-phase", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    match_id: "00000000-0000-0000-0000-000000000000",
-                    phase: e.target.value,
-                  }),
-                })
+const res = await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    action: "set-phase",
+    match_id: "00000000-0000-0000-0000-000000000000",
+    phase: e.target.value,
+  }),
+})
                 const data = await res.json()
                 if (!res.ok) {
                   alert("❌ Error: " + data.error)
@@ -122,7 +131,11 @@ export default function AdminPage() {
           <button
             onClick={async () => {
               if (!confirm("Assign table numbers to everyone?")) return
-              await fetch("/api/admin/set-table", { method: "POST" })
+await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "set-table" }),
+})
               fetchParticipants()
             }}
             className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded"
@@ -215,11 +228,11 @@ export default function AdminPage() {
                     value={p.table_number ?? ""}
                     onChange={async (e) => {
                       const table_number = Number(e.target.value)
-                      await fetch("/api/admin/update-table", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ assigned_number: p.assigned_number, table_number }),
-                      })
+await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "update-table", assigned_number: p.assigned_number, table_number }),
+})
                       fetchParticipants()
                     }}
                     className="w-16 p-1 border rounded text-center text-sm"

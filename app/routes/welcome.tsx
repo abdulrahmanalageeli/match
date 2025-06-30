@@ -58,11 +58,12 @@ const res = await fetch("/api/token-handler", {
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/api/admin/event-phase", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),
-        })
+const res = await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
+})
+
         const data = await res.json()
         setPhase(data.phase)
       } catch (err) {
@@ -107,11 +108,11 @@ const res = await fetch("/api/token-handler", {
     if (step !== 4 || !assignedNumber) return
   
     const interval = setInterval(async () => {
-      const res = await fetch("/api/admin/event-phase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ match_id: "00000000-0000-0000-0000-000000000000" }),
-      })
+const res = await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
+})
       const data = await res.json()
   
       if (data.phase === "matching") {

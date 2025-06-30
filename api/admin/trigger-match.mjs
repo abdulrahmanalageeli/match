@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import munkres from "munkres-js" // install this with `npm i munkres-js`
+import munkres from "munkres-js"
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -28,10 +28,9 @@ export default async function handler(req, res) {
     }
 
     const numbers = participants.map((p) => p.assigned_number)
-    const scores = {} // key = "a-b", value = { score, reason }
-
-    // All possible pairs (excluding a==b)
+    const scores = {}
     const pairs = []
+
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         pairs.push([participants[i], participants[j]])
@@ -67,10 +66,12 @@ export default async function handler(req, res) {
         const [, a, b, score, reason] = match
         const key = `${a}-${b}`
         scores[key] = { score: Number(score), reason: reason.trim() }
+
+        // ✅ Log every line parsed
+        console.log(`${a}-${b} ✅ ${score}%`)
       }
     }
 
-    // Build matrix (square, fill unmatched with 0)
     const n = numbers.length
     const matrix = Array(n).fill(0).map(() => Array(n).fill(0))
     const reasonMap = {}
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
         const key2 = `${numbers[j]}-${numbers[i]}`
         const entry = scores[key1] || scores[key2]
         if (entry) {
-          matrix[i][j] = -entry.score // negative for cost minimization
+          matrix[i][j] = -entry.score
           reasonMap[`${i}-${j}`] = entry.reason
         } else {
           matrix[i][j] = 0
@@ -90,14 +91,12 @@ export default async function handler(req, res) {
       }
     }
 
-    // Ensure matrix is even size for munkres
     if (n % 2 !== 0) {
       matrix.push(Array(n).fill(0))
       for (let row of matrix) row.push(0)
-      numbers.push(0) // dummy participant
+      numbers.push(0)
     }
 
-    // Optimal assignment
     const assignments = munkres(matrix)
     const used = new Set()
     const results = []
@@ -121,9 +120,11 @@ export default async function handler(req, res) {
         reason,
         match_id
       })
+
+      // ✅ Log final assignments
+      console.log(`✅ Final Match: ${a}-${b} with ${score}%`)
     }
 
-    // Add leftover person if odd
     for (const num of numbers) {
       if (!used.has(num) && num !== 0) {
         results.push({
@@ -134,6 +135,7 @@ export default async function handler(req, res) {
           reason: "لم يكن هناك شريك لهذا المشارك بسبب عدد المشاركين الفردي.",
           match_id
         })
+        console.log(`⚠️ Unmatched: ${num}`)
       }
     }
 

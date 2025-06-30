@@ -54,7 +54,6 @@ export default function WelcomePage() {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
-    testInsertToSupabase() // run on first load
 
   }, [dark])
 
@@ -145,25 +144,8 @@ setStep(4) // but 4 = waiting
       setLoading(false)
     }
   }
-  const testInsertToSupabase = async () => {
-    try {
-      const res = await fetch("/api/save-participant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          assigned_number: 999,
-          q1: "test q1",
-          q2: "test q2",
-          q3: "test q3",
-          q4: "test q4",
-        }),
-      })
-      const data = await res.json()
-      console.log("Static Supabase insert result:", data)
-    } catch (err) {
-      console.error("Static insert failed:", err)
-    }
-  }
+  
+      
   type MatchResultEntry = {
     with: string
     type: string

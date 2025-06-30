@@ -45,6 +45,9 @@ const res = await fetch("/api/token-handler", {
       const data = await res.json()
 if (data.success) {
   setAssignedNumber(data.assigned_number);
+if (data.summary) {
+  setPersonalitySummary(data.summary)
+}
 
   const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
 

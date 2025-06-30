@@ -57,20 +57,20 @@ if (action === "create") {
 }
 
 if (action === "resolve") {
-  const { secure_token } = req.body;
+  const { secure_token } = req.body
 
   if (!secure_token) {
-    return res.status(400).json({ error: "Missing secure_token" });
+    return res.status(400).json({ error: "Missing secure_token" })
   }
 
   const { data, error } = await supabase
     .from("participants")
-    .select("assigned_number, q1, q2, q3, q4")
+    .select("assigned_number, q1, q2, q3, q4, summary") // 🔥 Add summary
     .eq("secure_token", secure_token)
-    .single();
+    .single()
 
   if (error || !data) {
-    return res.status(404).json({ success: false, error: "Invalid token" });
+    return res.status(404).json({ success: false, error: "Invalid token" })
   }
 
   return res.status(200).json({
@@ -80,6 +80,7 @@ if (action === "resolve") {
     q2: data.q2,
     q3: data.q3,
     q4: data.q4,
+    summary: data.summary
   });
 }
 

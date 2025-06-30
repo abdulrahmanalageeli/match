@@ -41,12 +41,29 @@ const res = await fetch("/api/token-handler", {
 })
 
       const data = await res.json()
-      if (data.success) {
-        setAssignedNumber(data.assigned_number)
-        setStep(2) // optionally skip number input step
-      } else {
-        alert("الرابط غير صالح أو انتهت صلاحيته.")
-      }
+if (data.success) {
+  setAssignedNumber(data.assigned_number);
+
+  // Get current phase and redirect accordingly
+  const res2 = await fetch("/api/admin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
+  });
+  const phaseData = await res2.json();
+
+  if (phaseData.phase === "matching") {
+    // Immediately show results
+    setStep(5);
+    fetchMatches();
+  } else if (phaseData.phase === "waiting") {
+    // Resume waiting screen
+    setStep(4);
+  } else {
+    // Resume form
+    setStep(2);
+  }
+}
     } catch (err) {
       console.error("Error resolving token:", err)
     }

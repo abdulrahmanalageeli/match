@@ -270,6 +270,10 @@ await fetch("/api/admin", {
               alt="QR Code"
               className="mx-auto"
             />
+            <p className="text-sm break-all">
+  {`${window.location.origin}/welcome?token=${qrParticipant.secure_token}`}
+</p>
+
             <button
               onClick={() => setQrParticipant(null)}
               className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"

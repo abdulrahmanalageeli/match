@@ -23,8 +23,7 @@ export default async function handler(req, res) {
     const { data: matches, error: matchesError } = await supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, match_type, reason")
-      .eq("match_id", match_id)
-      .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
+.or(`participant_a_number.eq.${Number(assigned_number)},participant_b_number.eq.${Number(assigned_number)}`)
 
     if (matchesError) throw matchesError
 
@@ -34,7 +33,7 @@ export default async function handler(req, res) {
 
     // 2. Construct the output
     const results = matches.map((match) => {
-      const isA = match.participant_a_number === assigned_number
+const isA = match.participant_a_number === Number(assigned_number)
       const otherNum = isA ? match.participant_b_number : match.participant_a_number
 
       return {

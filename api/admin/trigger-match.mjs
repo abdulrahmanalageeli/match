@@ -27,56 +27,55 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Not enough participants" })
     }
 
-    const numbers = participants.map((p) => p.assigned_number)
+    const numbers = participants.map(p => p.assigned_number)
+    const pairs = []
     const scores = {}
 
     // 2. Generate all unique pairs
-    const pairs = []
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         pairs.push([participants[i], participants[j]])
       }
     }
 
-    // 3. Call OpenAI in chunks to get compatibility scores
-    const chunkSize = 10
-    for (let i = 0; i < pairs.length; i += chunkSize) {
-      const chunk = pairs.slice(i, i + chunkSize)
-      const prompt = chunk.map(([a, b]) => (
-        `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
-        `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
-      )).join("\n\n")
+    // 3. Build single GPT prompt for all pairs
+    const prompt = pairs.map(([a, b]) => (
+      `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
+      `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
+    )).join("\n\n")
 
-      const systemMsg = `
-أنت مساعد توافق بين المشاركين. لكل زوج، قيّم نسبة التوافق من 0 إلى 100٪، واذكر السبب باختصار.
-استخدم الصيغة التالية فقط:
-[A]-[B]: 74% - سبب
-      `.trim()
+    const systemMsg = `
+أنت مساعد توافق بين المشاركين. قيّم نسبة التوافق من 0 إلى 100٪ لكل زوج، واذكر السبب باختصار.
+استخدم فقط هذه الصيغة لكل زوج:
+[A]-[B]: 74% - سبب مختصر
+`.trim()
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo-1106",
-        messages: [
-          { role: "system", content: systemMsg },
-          { role: "user", content: prompt }
-        ]
-      })
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-0613", // or "gpt-4o" if preferred
+      messages: [
+        { role: "system", content: systemMsg },
+        { role: "user", content: prompt }
+      ],
+      temperature: 0.3
+    })
 
-      const lines = response.choices?.[0]?.message?.content?.trim().split("\n") || []
-      for (const line of lines) {
-        const match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
-        if (!match) {
-          console.warn("❗️Unparsable line from OpenAI:", line)
-          continue
-        }
-        const [, a, b, score, reason] = match
-        const key = `${a}-${b}`
-        scores[key] = { score: Number(score), reason: reason.trim() }
-        console.log(`${a}-${b} ✅ ${score}%`)
+    const lines = response.choices?.[0]?.message?.content?.trim().split("\n") || []
+    for (const line of lines) {
+      const match = line.match(/^(\d+)-(\d+):\s*(\d{1,3})%\s*-\s*(.+)$/)
+      if (!match) {
+        console.warn("⚠️ Could not parse line:", line)
+        continue
+      }
+
+      const [, a, b, score, reason] = match
+      scores[`${a}-${b}`] = {
+        score: Number(score),
+        reason: reason.trim()
       }
     }
 
-    // 4. Gather all scored pairs (score > 0)
-    let allPairs = []
+    // 4. Build scored pairs (only with positive score)
+    const allPairs = []
     for (let i = 0; i < numbers.length; i++) {
       for (let j = i + 1; j < numbers.length; j++) {
         const key1 = `${numbers[i]}-${numbers[j]}`
@@ -87,16 +86,16 @@ export default async function handler(req, res) {
             a: numbers[i],
             b: numbers[j],
             score: entry.score,
-            reason: entry.reason,
+            reason: entry.reason
           })
         }
       }
     }
 
-    // 5. Sort pairs by descending score
+    // 5. Sort pairs by score descending
     allPairs.sort((p1, p2) => p2.score - p1.score)
 
-    // 6. Greedy global matching
+    // 6. Greedy Matching
     const matched = new Set()
     const results = []
 
@@ -112,22 +111,32 @@ export default async function handler(req, res) {
           reason: pair.reason,
           match_id
         })
-        console.log(`✅ Final Match: ${pair.a}-${pair.b} with ${pair.score}%`)
       }
     }
 
-    // 7. Mark unmatched participants
-    for (const num of numbers) {
-      if (!matched.has(num)) {
+    // 7. Handle unmatched
+    const unmatched = numbers.filter(n => !matched.has(n))
+
+    if (unmatched.length === 1) {
+      results.push({
+        participant_a_number: unmatched[0],
+        participant_b_number: 0,
+        compatibility_score: 0,
+        match_type: "محايد",
+        reason: "لم يوجد شريك متوافق.",
+        match_id
+      })
+    } else if (unmatched.length > 1) {
+      // Should never happen in greedy matching
+      for (const num of unmatched) {
         results.push({
           participant_a_number: num,
           participant_b_number: 0,
           compatibility_score: 0,
           match_type: "محايد",
-          reason: "لم يوجد شريك متوافق.",
+          reason: "لم يتم التوفيق بسبب العدد الفردي.",
           match_id
         })
-        console.log(`⚠️ Unmatched: ${num}`)
       }
     }
 
@@ -139,13 +148,13 @@ export default async function handler(req, res) {
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Greedy matching complete",
+      message: "✅ Matching complete",
       count: results.length,
       results
     })
 
   } catch (err) {
-    console.error("Match Trigger Error:", err)
+    console.error("🔥 Matching error:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })
   }
 }

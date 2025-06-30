@@ -87,7 +87,6 @@ if (data.success) {
 
   resolveToken()
   setIsResolving(false)
-
 }, [token])
 
   useEffect(() => {

@@ -16,7 +16,6 @@ export default async function handler(req, res) {
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
-    // 1. Fetch participants
     const { data: participants, error } = await supabase
       .from("participants")
       .select("assigned_number, q1, q2, q3, q4")
@@ -31,14 +30,12 @@ export default async function handler(req, res) {
     const pairs = []
     const scores = {}
 
-    // 2. Generate all unique pairs
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         pairs.push([participants[i], participants[j]])
       }
     }
 
-    // 3. GPT prompt
     const prompt = pairs.map(([a, b]) => (
       `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
       `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
@@ -93,6 +90,7 @@ const systemMsg = `
 
 بدون أي نص إضافي خارج JSON.
 `.trim()
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -102,7 +100,6 @@ const systemMsg = `
       temperature: 0.3
     })
 
-    // 4. Parse GPT JSON
     let gptMatches = []
     try {
       let raw = response.choices?.[0]?.message?.content?.trim()
@@ -120,53 +117,41 @@ const systemMsg = `
         typeof a !== "number" || typeof b !== "number" ||
         typeof score !== "number" || typeof reason !== "string"
       ) continue
-      scores[`${a}-${b}`] = { score, reason: reason.trim() }
+      const key = `${Math.min(a, b)}-${Math.max(a, b)}`
+      scores[key] = { score, reason: reason.trim() }
     }
 
-    // 5. Build full match list
-    const allPairs = []
-    for (let i = 0; i < numbers.length; i++) {
-      for (let j = i + 1; j < numbers.length; j++) {
-        const key1 = `${numbers[i]}-${numbers[j]}`
-        const key2 = `${numbers[j]}-${numbers[i]}`
-        const entry = scores[key1] || scores[key2]
-        if (entry) {
-          allPairs.push({
-            a: numbers[i],
-            b: numbers[j],
-            score: entry.score,
-            reason: entry.reason
-          })
-        }
-      }
-    }
+    const allPairs = Object.entries(scores).map(([key, val]) => {
+      const [a, b] = key.split("-").map(Number)
+      return { a, b, score: val.score, reason: val.reason }
+    }).sort((p1, p2) => p2.score - p1.score)
 
-    // 🔍 Log all scores
     console.log("📊 All Compatibility Scores:")
-    allPairs
-      .sort((p1, p2) => p2.score - p1.score)
-      .forEach(pair => {
-        console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
-      })
+    allPairs.forEach(pair => {
+      console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
+    })
 
-    // 6. Assign matches globally, round by round
     const matches = []
     const usedPairs = new Set()
     const usedInRound = {}
+    const participantScores = {}
 
     for (let round = 1; round <= 4; round++) {
       usedInRound[round] = new Set()
-
       for (const pair of allPairs) {
         const a = pair.a
         const b = pair.b
-        const key = [Math.min(a, b), Math.max(a, b)].join("-")
+        const key = `${Math.min(a, b)}-${Math.max(a, b)}`
 
         if (
           usedPairs.has(key) ||
           usedInRound[round].has(a) ||
           usedInRound[round].has(b)
         ) continue
+
+        const prevA = participantScores[a]?.[participantScores[a].length - 1] ?? 101
+        const prevB = participantScores[b]?.[participantScores[b].length - 1] ?? 101
+        if (pair.score > prevA || pair.score > prevB) continue
 
         matches.push({
           participant_a_number: a,
@@ -181,10 +166,12 @@ const systemMsg = `
         usedPairs.add(key)
         usedInRound[round].add(a)
         usedInRound[round].add(b)
+
+        participantScores[a] = [...(participantScores[a] || []), pair.score]
+        participantScores[b] = [...(participantScores[b] || []), pair.score]
       }
     }
 
-    // 7. Fallback: participants missing matches in any round
     const participantRounds = {}
     for (const match of matches) {
       const { participant_a_number: a, participant_b_number: b, round } = match
@@ -211,7 +198,6 @@ const systemMsg = `
       }
     }
 
-    // 8. Insert into DB
     const { error: insertError } = await supabase
       .from("match_results")
       .insert(matches)
@@ -219,7 +205,7 @@ const systemMsg = `
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Matching complete: best global pairs per round",
+      message: "✅ Matching complete with personal score descent & global logic",
       count: matches.length,
       results: matches
     })

@@ -15,7 +15,7 @@ export default async function handler(req, res) {
   try {
     const { data: matches, error } = await supabase
       .from("match_results")
-      .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score")
+      .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score, round")
       .eq("match_id", match_id)
 
     if (error) throw error
@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       type: match.match_type || "غير محدد",
       reason: match.reason || "السبب غير متوفر",
       score: match.compatibility_score ?? 0,
+      round: match.round ?? 1,
     }))
 
     return res.status(200).json({ matches: results })

@@ -225,33 +225,44 @@ setStep(4) // but 4 = waiting
     with: string
     type: string
     reason: string
+    round: number
+
   }
   
-  const fetchMatches = async () => {
-    try {
-      const myMatches = await fetch("/api/get-my-matches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber }),
-      })
-  
-      const data = await myMatches.json()
-      const matches = data.matches as MatchResultEntry[]
-      const best = matches.find((m) => m.type === "توأم روح") || matches[0]
-        
-      if (best) {
-        setMatchResult(best.with)
-        setMatchReason(best.reason)
-      } else {
-        setMatchResult("؟")
-        setMatchReason("ما لقينا توأم روح واضح، بس أنت مميز أكيد.")
-      }
-    } catch (err) {
-      console.error("Match error:", err)
-      setMatchResult("؟")
-      setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+const fetchMatches = async () => {
+  try {
+    const myMatches = await fetch("/api/get-my-matches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ assigned_number: assignedNumber }),
+    })
+
+    const data = await myMatches.json()
+    const matches = data.matches as MatchResultEntry[]
+
+    // Sort by round number
+    matches.sort((a, b) => a.round - b.round)
+
+    const round1 = matches.find((m) => m.round === 1)
+    const round2 = matches.find((m) => m.round === 2)
+
+    if (round1) {
+      setMatchResult(`توأم روحك هو رقم ${round1.with}`)
+      setMatchReason(round1.reason)
     }
+
+    if (round2) {
+      // Append round 2 info to the reason (or show separately)
+      setMatchResult((prev) => `${prev} 💢 وعدوك اللدود هو رقم ${round2.with}`)
+      setMatchReason((prev) => `${prev}\n\n💢 ${round2.reason}`)
+    }
+
+  } catch (err) {
+    console.error("Match error:", err)
+    setMatchResult("؟")
+    setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
   }
+}
   
   useEffect(() => {
     if (step !== 4 || !assignedNumber) return

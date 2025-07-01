@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from "react"
-import { UserRound, QrCode, Trash2, Table2, LockKeyhole, RefreshCcw, LayoutDashboard, Loader2 } from "lucide-react"
+import {
+  UserRound,
+  QrCode,
+  Trash2,
+  Table2,
+  LockKeyhole,
+  RefreshCcw,
+  LayoutDashboard,
+  Loader2,
+  Activity
+} from "lucide-react"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -9,6 +19,7 @@ export default function AdminPage() {
   const [qrParticipant, setQrParticipant] = useState<any | null>(null)
   const [detailParticipant, setDetailParticipant] = useState<any | null>(null)
   const [manualNumber, setManualNumber] = useState<number | null>(null)
+  const [currentPhase, setCurrentPhase] = useState("waiting")
 
   const STATIC_PASSWORD = "soulmatch2025"
 
@@ -72,17 +83,36 @@ export default function AdminPage() {
     }
   }, [])
 
+  const updatePhase = async (phase: string) => {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "set-phase",
+        match_id: "00000000-0000-0000-0000-000000000000",
+        phase,
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert("❌ Error: " + data.error)
+    } else {
+      setCurrentPhase(phase)
+      alert("✅ Phase updated to " + phase)
+    }
+  }
+
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-900 p-6">
-        <div className="bg-neutral-800 text-white p-6 rounded shadow-lg w-full max-w-sm space-y-4">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-black to-neutral-800 p-6">
+        <div className="bg-neutral-900 text-white p-6 rounded-xl shadow-lg w-full max-w-sm space-y-4">
           <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
             <LockKeyhole className="w-6 h-6" /> Admin Login
           </h1>
           <input
             type="password"
             placeholder="Enter Admin Password"
-            className="w-full p-2 rounded bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-2 rounded bg-neutral-800 text-white border border-neutral-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -98,38 +128,28 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-100 p-6">
-      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+    <div className="min-h-screen bg-neutral-100 p-6 relative">
+      {/* Phase indicator fixed in top center */}
+      <div className="fixed top-2 left-1/2 -translate-x-1/2 z-50 bg-white/80 backdrop-blur border border-blue-200 shadow px-4 py-2 rounded-lg flex items-center gap-2">
+        <Activity className="text-blue-600 w-4 h-4" />
+        <span className="font-semibold text-blue-800">Current Phase:</span>
+        <select
+          value={currentPhase}
+          onChange={(e) => updatePhase(e.target.value)}
+          className="border border-blue-400 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option value="waiting">⏳ Waiting</option>
+          <option value="form">📝 Form</option>
+          <option value="matching">🤖 Matching</option>
+        </select>
+      </div>
+
+      <div className="pt-20 flex flex-wrap justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <LayoutDashboard className="w-6 h-6" /> Participants ({participants.length})
         </h1>
 
         <div className="flex gap-2 flex-wrap">
-          <select
-            className="border px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onChange={async (e) => {
-              const res = await fetch("/api/admin", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  action: "set-phase",
-                  match_id: "00000000-0000-0000-0000-000000000000",
-                  phase: e.target.value,
-                }),
-              })
-              const data = await res.json()
-              if (!res.ok) {
-                alert("❌ Error: " + data.error)
-              } else {
-                alert("✅ Phase updated to " + e.target.value)
-              }
-            }}
-          >
-            <option value="waiting">waiting</option>
-            <option value="form">form</option>
-            <option value="matching">matching</option>
-          </select>
-
           <button
             onClick={async () => {
               if (!confirm("Assign table numbers to everyone?")) return

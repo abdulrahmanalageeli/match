@@ -104,28 +104,23 @@ const systemMsg = `
     })
 
     // 4. Parse GPT JSON response
-let gptMatches = []
-try {
-  let raw = response.choices?.[0]?.message?.content?.trim()
-
-  // 🔥 Remove ```json or ``` if GPT added code fences
-  if (raw.startsWith("```")) {
-    raw = raw.replace(/^```[a-z]*\s*/i, "").replace(/```$/, "").trim()
-  }
-
-  gptMatches = JSON.parse(raw)
-} catch (e) {
-  console.error("❌ Failed to parse GPT JSON:", e)
-  return res.status(500).json({ error: "GPT response was not valid JSON." })
-}
-
+    let gptMatches = []
+    try {
+      let raw = response.choices?.[0]?.message?.content?.trim()
+      if (raw.startsWith("```")) {
+        raw = raw.replace(/^```[a-z]*\s*/i, "").replace(/```$/, "").trim()
+      }
+      gptMatches = JSON.parse(raw)
+    } catch (e) {
+      console.error("❌ Failed to parse GPT JSON:", e)
+      return res.status(500).json({ error: "GPT response was not valid JSON." })
+    }
 
     for (const { a, b, score, reason } of gptMatches) {
       if (
         typeof a !== "number" || typeof b !== "number" ||
         typeof score !== "number" || typeof reason !== "string"
       ) continue
-
       scores[`${a}-${b}`] = {
         score,
         reason: reason.trim()
@@ -150,64 +145,66 @@ try {
       }
     }
 
-    // 6. Sort by score
+    // 6. Sort by compatibility score (descending)
     allPairs.sort((p1, p2) => p2.score - p1.score)
 
-    // 7. Greedy Matching
-    const matched = new Set()
-    const results = []
+    // 7. Assign up to 4 matches per participant
+    const matchMap = {} // { participant_number: Set of matched_numbers }
+    const roundMatches = []
 
     for (const pair of allPairs) {
-      if (!matched.has(pair.a) && !matched.has(pair.b)) {
-        matched.add(pair.a)
-        matched.add(pair.b)
-        results.push({
-          participant_a_number: pair.a,
-          participant_b_number: pair.b,
-          compatibility_score: pair.score,
+      const { a, b, score, reason } = pair
+
+      matchMap[a] = matchMap[a] || new Set()
+      matchMap[b] = matchMap[b] || new Set()
+
+      if (
+        matchMap[a].size < 4 &&
+        matchMap[b].size < 4 &&
+        !matchMap[a].has(b) &&
+        !matchMap[b].has(a)
+      ) {
+        matchMap[a].add(b)
+        matchMap[b].add(a)
+
+        roundMatches.push({
+          participant_a_number: a,
+          participant_b_number: b,
+          compatibility_score: score,
           match_type: "توأم روح",
-          reason: pair.reason,
+          reason,
           match_id
         })
       }
     }
 
-    // 8. Handle unmatched
-    const unmatched = numbers.filter(n => !matched.has(n))
+    // 8. Assign round numbers (1–4) based on each participant’s order
+    const roundsByParticipant = {}
+    for (const match of roundMatches) {
+      const a = match.participant_a_number
+      const b = match.participant_b_number
 
-    if (unmatched.length === 1) {
-      results.push({
-        participant_a_number: 0,
-        participant_b_number: unmatched[0],
-        compatibility_score: 0,
-        match_type: "توأم روح (منظم)",
-        reason: "تم توصيله بك لعدم وجود شريك متبقي.",
-        match_id
-      })
-    } else if (unmatched.length > 1) {
-      for (const num of unmatched) {
-        results.push({
-          participant_a_number: num,
-          participant_b_number: 0,
-          compatibility_score: 0,
-          match_type: "محايد",
-          reason: "لم يوجد شريك متوافق.",
-          match_id
-        })
-      }
+      const roundA = (roundsByParticipant[a] || 0) + 1
+      const roundB = (roundsByParticipant[b] || 0) + 1
+      const assignedRound = Math.max(roundA, roundB)
+
+      match.round = assignedRound
+
+      roundsByParticipant[a] = roundA
+      roundsByParticipant[b] = roundB
     }
 
     // 9. Insert into DB
     const { error: insertError } = await supabase
       .from("match_results")
-      .insert(results)
+      .insert(roundMatches)
 
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Matching complete",
-      count: results.length,
-      results
+      message: "✅ Matching complete with 4 rounds",
+      count: roundMatches.length,
+      results: roundMatches
     })
 
   } catch (err) {

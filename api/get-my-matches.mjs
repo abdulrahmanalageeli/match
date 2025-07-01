@@ -1,4 +1,3 @@
-// /pages/api/get-my-matches.mjs
 import { createClient } from "@supabase/supabase-js"
 
 const supabase = createClient(
@@ -11,38 +10,23 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { assigned_number } = req.body
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
-  if (!assigned_number) {
-    return res.status(400).json({ error: "assigned_number is required" })
-  }
-
   try {
-    // 1. Get all match rows where this number is either A or B
-    const { data: matches, error: matchesError } = await supabase
+    const { data: matches, error } = await supabase
       .from("match_results")
-.select("participant_a_number, participant_b_number, match_type, reason, compatibility_score")
-.or(`participant_a_number.eq.${Number(assigned_number)},participant_b_number.eq.${Number(assigned_number)}`)
+      .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score")
+      .eq("match_id", match_id)
 
-    if (matchesError) throw matchesError
+    if (error) throw error
 
-    if (!matches || matches.length === 0) {
-      return res.status(200).json({ matches: [] })
-    }
-
-    // 2. Construct the output
-    const results = matches.map((match) => {
-const isA = match.participant_a_number === Number(assigned_number)
-      const otherNum = isA ? match.participant_b_number : match.participant_a_number
-
-      return {
-        with: otherNum !== 0 ? otherNum.toString() : "؟",
-        type: match.match_type,
-        reason: match.reason || "السبب غير متوفر",
-            score: match.compatibility_score ?? null,
-      }
-    })
+    const results = (matches || []).map(match => ({
+      with: match.participant_a_number?.toString(),
+      partner: match.participant_b_number?.toString(),
+      type: match.match_type || "غير محدد",
+      reason: match.reason || "السبب غير متوفر",
+      score: match.compatibility_score ?? 0,
+    }))
 
     return res.status(200).json({ matches: results })
   } catch (err) {

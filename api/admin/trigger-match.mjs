@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Create GPT prompt and message
+    // 3. GPT prompt
     const prompt = pairs.map(([a, b]) => (
       `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
       `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
@@ -93,7 +93,6 @@ const systemMsg = `
 
 بدون أي نص إضافي خارج JSON.
 `.trim()
-
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -103,7 +102,7 @@ const systemMsg = `
       temperature: 0.3
     })
 
-    // 4. Parse GPT JSON response
+    // 4. Parse GPT JSON
     let gptMatches = []
     try {
       let raw = response.choices?.[0]?.message?.content?.trim()
@@ -121,13 +120,10 @@ const systemMsg = `
         typeof a !== "number" || typeof b !== "number" ||
         typeof score !== "number" || typeof reason !== "string"
       ) continue
-      scores[`${a}-${b}`] = {
-        score,
-        reason: reason.trim()
-      }
+      scores[`${a}-${b}`] = { score, reason: reason.trim() }
     }
 
-    // 5. Build scored pairs (only those with score > 0)
+    // 5. Build full sorted match list
     const allPairs = []
     for (let i = 0; i < numbers.length; i++) {
       for (let j = i + 1; j < numbers.length; j++) {
@@ -145,66 +141,80 @@ const systemMsg = `
       }
     }
 
-    // 6. Sort by compatibility score (descending)
     allPairs.sort((p1, p2) => p2.score - p1.score)
 
-    // 7. Assign up to 4 matches per participant
-    const matchMap = {} // { participant_number: Set of matched_numbers }
-    const roundMatches = []
+    // 6. Assign matches per round
+    const matches = []
+    const alreadyMatched = new Set() // a-b key
+    const matchCount = {} // participant: count
 
-    for (const pair of allPairs) {
-      const { a, b, score, reason } = pair
+    for (let round = 1; round <= 4; round++) {
+      const roundUsed = new Set()
+      for (const pair of allPairs) {
+        const { a, b, score, reason } = pair
+        const key = [Math.min(a, b), Math.max(a, b)].join("-")
 
-      matchMap[a] = matchMap[a] || new Set()
-      matchMap[b] = matchMap[b] || new Set()
+        matchCount[a] = matchCount[a] || 0
+        matchCount[b] = matchCount[b] || 0
 
-      if (
-        matchMap[a].size < 4 &&
-        matchMap[b].size < 4 &&
-        !matchMap[a].has(b) &&
-        !matchMap[b].has(a)
-      ) {
-        matchMap[a].add(b)
-        matchMap[b].add(a)
+        if (
+          matchCount[a] >= round || matchCount[b] >= round ||
+          alreadyMatched.has(key) ||
+          roundUsed.has(a) || roundUsed.has(b)
+        ) continue
 
-        roundMatches.push({
+        matches.push({
           participant_a_number: a,
           participant_b_number: b,
           compatibility_score: score,
           match_type: "توأم روح",
           reason,
-          match_id
+          match_id,
+          round
+        })
+
+        alreadyMatched.add(key)
+        roundUsed.add(a)
+        roundUsed.add(b)
+        matchCount[a]++
+        matchCount[b]++
+      }
+    }
+
+    // 7. Fallback for participants with < 4 matches
+    const fullSet = new Set(numbers)
+    const existing = new Set()
+    for (const m of matches) {
+      existing.add(m.participant_a_number)
+      existing.add(m.participant_b_number)
+    }
+
+    for (const n of fullSet) {
+      const count = matchCount[n] || 0
+      if (count < 4) {
+        matches.push({
+          participant_a_number: 0,
+          participant_b_number: n,
+          compatibility_score: 0,
+          match_type: "محايد",
+          reason: "لم نجد لك ٤ مباريات متوافقة.",
+          match_id,
+          round: count + 1
         })
       }
     }
 
-    // 8. Assign round numbers (1–4) based on each participant’s order
-    const roundsByParticipant = {}
-    for (const match of roundMatches) {
-      const a = match.participant_a_number
-      const b = match.participant_b_number
-
-      const roundA = (roundsByParticipant[a] || 0) + 1
-      const roundB = (roundsByParticipant[b] || 0) + 1
-      const assignedRound = Math.max(roundA, roundB)
-
-      match.round = assignedRound
-
-      roundsByParticipant[a] = roundA
-      roundsByParticipant[b] = roundB
-    }
-
-    // 9. Insert into DB
+    // 8. Insert into DB
     const { error: insertError } = await supabase
       .from("match_results")
-      .insert(roundMatches)
+      .insert(matches)
 
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Matching complete with 4 rounds",
-      count: roundMatches.length,
-      results: roundMatches
+      message: "✅ Matching complete with 4 rounds per participant",
+      count: matches.length,
+      results: matches
     })
 
   } catch (err) {

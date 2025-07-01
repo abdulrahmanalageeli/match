@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { UserRound, Zap, Info, Gauge } from "lucide-react"
+import { UserRound, Info, Gauge } from "lucide-react"
 
 interface MatchResult {
   with: string
@@ -31,17 +31,10 @@ export default function MatrixPage() {
     fetchAllMatches()
   }, [])
 
-  const getGradient = (score: number) => {
-    if (score >= 85) return "from-green-200 via-green-100 to-white"
-    if (score >= 70) return "from-yellow-200 via-yellow-100 to-white"
-    if (score >= 50) return "from-orange-200 via-orange-100 to-white"
-    return "from-gray-200 via-gray-100 to-white"
-  }
-
   return (
-    <div dir="rtl" className="min-h-screen bg-neutral-100 p-6">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <h1 className="text-4xl font-extrabold text-center text-blue-700">📊 نتائج التوافق بين الجميع</h1>
+    <div dir="rtl" className="min-h-screen bg-neutral-100 p-6 font-sans">
+      <div className="max-w-6xl mx-auto space-y-8">
+        <h1 className="text-4xl font-bold text-center text-blue-800">📊 نتائج التوافق بين الجميع</h1>
 
         {loading ? (
           <p className="text-center text-gray-500 text-lg">⏳ جاري تحميل جميع النتائج...</p>
@@ -52,24 +45,27 @@ export default function MatrixPage() {
             {matches.map((match, i) => (
               <div
                 key={i}
-                className={`bg-gradient-to-br ${getGradient(match.score)} border border-gray-200 rounded-2xl p-5 shadow hover:shadow-lg transition-all duration-300`}
+                className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm hover:shadow-md transition-all flex flex-col justify-between h-full"
               >
-                <div className="flex justify-between items-center mb-2">
-                  <div className="text-blue-800 font-semibold flex items-center gap-1 text-lg">
-                    <UserRound className="w-5 h-5" />
-                    #{match.with} × #{match.partner}
+                {/* Layer 1: Names */}
+                <div className="flex items-center justify-between mb-3 text-sm text-gray-600">
+                  <div className="flex items-center gap-1">
+                    <UserRound className="w-4 h-4 text-gray-500" />
+                    <span>#{match.with} × #{match.partner}</span>
                   </div>
-                  <span className="text-sm text-gray-600 font-medium">{match.type}</span>
+                  <span className="text-xs bg-gray-100 rounded px-2 py-0.5">{match.type}</span>
                 </div>
 
-                <div className="text-sm text-blue-900 font-bold flex items-center gap-1 mb-1">
-                  <Gauge className="w-4 h-4" />
-                  نسبة التوافق: {match.score}%
+                {/* Layer 2: Score */}
+                <div className="flex items-center justify-center mb-3">
+                  <Gauge className="w-5 h-5 text-blue-600 mr-1" />
+                  <span className="text-3xl font-bold text-blue-700">{match.score}%</span>
                 </div>
 
-                <div className="text-sm text-gray-800 flex gap-2 items-start mt-2 leading-relaxed">
-                  <Info className="w-4 h-4 text-gray-500 mt-0.5 shrink-0" />
-                  <span>{match.reason}</span>
+                {/* Layer 3: Reason */}
+                <div className="flex gap-2 text-sm text-gray-700 leading-relaxed mt-auto">
+                  <Info className="w-4 h-4 text-gray-400 mt-0.5" />
+                  <p className="text-right">{match.reason}</p>
                 </div>
               </div>
             ))}

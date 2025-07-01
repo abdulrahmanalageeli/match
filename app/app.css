@@ -72,7 +72,8 @@
 @import "tailwindcss";
 
 @import "tw-animate-css";
-
+@import "@fontsource/tajawal/400.css";
+@import "@fontsource/tajawal/700.css";
 @custom-variant dark (&:is(.dark *));
 @tailwind utilities;
 @layer base {
@@ -132,7 +133,9 @@ body {
     color-scheme: dark;
   }
 }
-
+:root {
+  --font-sans: 'Tajawal', sans-serif;
+}
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);

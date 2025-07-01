@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"
+import { UserRound, QrCode, Trash2, Table2, LockKeyhole, RefreshCcw, LayoutDashboard, Loader2 } from "lucide-react"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -73,13 +74,15 @@ export default function AdminPage() {
 
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-black text-white">
-        <div className="w-full max-w-sm space-y-4 text-center">
-          <h1 className="text-xl font-bold">🔐 Admin Login</h1>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-900 p-6">
+        <div className="bg-neutral-800 text-white p-6 rounded shadow-lg w-full max-w-sm space-y-4">
+          <h1 className="text-2xl font-bold flex items-center justify-center gap-2">
+            <LockKeyhole className="w-6 h-6" /> Admin Login
+          </h1>
           <input
             type="password"
             placeholder="Enter Admin Password"
-            className="w-full p-2 rounded bg-white text-black"
+            className="w-full p-2 rounded bg-neutral-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -95,38 +98,37 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="p-6 bg-gray-100 min-h-screen">
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold">👥 Participants ({participants.length})</h1>
+    <div className="min-h-screen bg-neutral-100 p-6">
+      <div className="flex flex-wrap justify-between items-center mb-6 gap-4">
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          <LayoutDashboard className="w-6 h-6" /> Participants ({participants.length})
+        </h1>
 
-        <div className="flex gap-3 items-center flex-wrap">
-          <div>
-            <label className="block text-sm font-semibold mb-1">🧭 Set Phase:</label>
-            <select
-              className="border px-3 py-1 rounded text-sm"
-              onChange={async (e) => {
-                const res = await fetch("/api/admin", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    action: "set-phase",
-                    match_id: "00000000-0000-0000-0000-000000000000",
-                    phase: e.target.value,
-                  }),
-                })
-                const data = await res.json()
-                if (!res.ok) {
-                  alert("❌ Error: " + data.error)
-                } else {
-                  alert("✅ Phase updated to " + e.target.value)
-                }
-              }}
-            >
-              <option value="waiting">waiting</option>
-              <option value="form">form</option>
-              <option value="matching">matching</option>
-            </select>
-          </div>
+        <div className="flex gap-2 flex-wrap">
+          <select
+            className="border px-3 py-1 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={async (e) => {
+              const res = await fetch("/api/admin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: "set-phase",
+                  match_id: "00000000-0000-0000-0000-000000000000",
+                  phase: e.target.value,
+                }),
+              })
+              const data = await res.json()
+              if (!res.ok) {
+                alert("❌ Error: " + data.error)
+              } else {
+                alert("✅ Phase updated to " + e.target.value)
+              }
+            }}
+          >
+            <option value="waiting">waiting</option>
+            <option value="form">form</option>
+            <option value="matching">matching</option>
+          </select>
 
           <button
             onClick={async () => {
@@ -138,38 +140,35 @@ export default function AdminPage() {
               })
               fetchParticipants()
             }}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded"
+            className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded"
           >
-            🪑 Auto Assign Tables
+            <Table2 className="w-4 h-4" /> Auto Assign
           </button>
 
           <button
             onClick={triggerMatching}
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-500"
+            className="flex items-center gap-1 bg-green-600 hover:bg-green-500 text-white px-3 py-2 rounded"
           >
-            🔄 Trigger Matching
+            <RefreshCcw className="w-4 h-4" /> Match
           </button>
 
           <button
             onClick={openMatrix}
-            className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-500"
+            className="flex items-center gap-1 bg-yellow-600 hover:bg-yellow-500 text-white px-3 py-2 rounded"
           >
-            📊 Show Matrix
+            <LayoutDashboard className="w-4 h-4" /> Matrix
           </button>
         </div>
       </div>
 
-      <div className="mb-6 flex items-end gap-3 flex-wrap">
-        <div>
-          <label className="block text-sm font-medium mb-1">🎯 رقم المشارك:</label>
-          <input
-            type="number"
-            value={manualNumber ?? ""}
-            onChange={(e) => setManualNumber(Number(e.target.value))}
-            className="w-28 p-2 rounded border"
-            placeholder="مثلاً: 17"
-          />
-        </div>
+      <div className="flex gap-2 mb-4 flex-wrap items-end">
+        <input
+          type="number"
+          value={manualNumber ?? ""}
+          onChange={(e) => setManualNumber(Number(e.target.value))}
+          placeholder="رقم المشارك"
+          className="w-28 p-2 rounded border focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
         <button
           disabled={!manualNumber}
           onClick={async () => {
@@ -178,7 +177,6 @@ export default function AdminPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ action: "create", assigned_number: manualNumber }),
             })
-
             const data = await res.json()
             if (data.secure_token) {
               setQrParticipant({
@@ -191,27 +189,35 @@ export default function AdminPage() {
               alert("❌ فشل في توليد الرابط")
             }
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500 disabled:opacity-50"
+          className="flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded disabled:opacity-50"
         >
-          توليد QR
+          <QrCode className="w-4 h-4" /> QR
         </button>
       </div>
 
       {loading ? (
-        <p>Loading...</p>
+        <div className="flex justify-center items-center">
+          <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {participants.map((p) => (
             <div
               key={p.id}
-              className="bg-white rounded shadow p-4 flex flex-col items-center cursor-pointer hover:ring-2 hover:ring-blue-400"
+              className="bg-white p-4 rounded shadow hover:shadow-lg cursor-pointer transition transform hover:scale-105"
               onClick={() => setDetailParticipant(p)}
             >
-              <div className="text-3xl">🧑‍🎤</div>
-              <div className="font-bold text-lg">#{p.assigned_number}</div>
-              <div className="text-sm text-gray-600">🪑 {p.table_number ?? "?"}</div>
-              <div className="text-xs text-gray-500 truncate w-full text-center">
-                {p.q1}
+              <div className="flex flex-col items-center gap-1">
+                <div className="bg-blue-100 rounded-full p-2">
+                  <UserRound className="w-6 h-6 text-blue-600" />
+                </div>
+                <div className="font-bold">#{p.assigned_number}</div>
+                <div className="text-sm text-gray-500 flex items-center gap-1">
+                  <Table2 className="w-4 h-4" /> {p.table_number ?? "?"}
+                </div>
+                <div className="text-xs text-gray-400 truncate w-full text-center italic">
+                  “{p.q1}”
+                </div>
               </div>
             </div>
           ))}
@@ -219,24 +225,22 @@ export default function AdminPage() {
       )}
 
       {detailParticipant && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow-lg w-80 space-y-3">
-            <h2 className="text-xl font-bold text-center">
-              👤 Participant #{detailParticipant.assigned_number}
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 shadow-lg w-80 space-y-3">
+            <h2 className="text-xl font-bold text-center flex items-center justify-center gap-1">
+              <UserRound className="w-5 h-5" /> #{detailParticipant.assigned_number}
             </h2>
-            <div className="text-sm">
+            <div className="text-sm space-y-1">
               <div><strong>Table:</strong> {detailParticipant.table_number ?? "-"}</div>
               <div><strong>Q1:</strong> {detailParticipant.q1}</div>
               <div><strong>Q2:</strong> {detailParticipant.q2}</div>
               <div><strong>Q3:</strong> {detailParticipant.q3}</div>
               <div><strong>Q4:</strong> {detailParticipant.q4}</div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               <input
                 type="number"
                 defaultValue={detailParticipant.table_number ?? ""}
-                placeholder="جدول"
-                className="w-20 p-1 border rounded text-center"
                 onBlur={async (e) => {
                   const table_number = Number(e.target.value)
                   await fetch("/api/admin", {
@@ -250,35 +254,36 @@ export default function AdminPage() {
                   })
                   fetchParticipants()
                 }}
+                className="w-16 p-1 border rounded text-center"
               />
               <button
                 onClick={() => deleteParticipant(detailParticipant.assigned_number)}
-                className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-400 text-sm"
+                className="flex items-center gap-1 text-red-600 hover:bg-red-100 rounded px-2 py-1 text-sm"
               >
-                حذف
+                <Trash2 className="w-4 h-4" /> حذف
               </button>
               <button
                 onClick={() => setQrParticipant(detailParticipant)}
-                className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400 text-sm"
+                className="flex items-center gap-1 text-gray-600 hover:bg-gray-100 rounded px-2 py-1 text-sm"
               >
-                QR
+                <QrCode className="w-4 h-4" /> QR
               </button>
             </div>
             <button
               onClick={() => setDetailParticipant(null)}
               className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-500"
             >
-              إغلاق
+              Close
             </button>
           </div>
         </div>
       )}
 
       {qrParticipant && (
-        <div className="fixed inset-0 bg-black bg-opacity-80 z-50 flex items-center justify-center">
-          <div className="bg-white p-6 rounded shadow-lg text-center space-y-4 w-72">
-            <h2 className="text-xl font-bold">
-              QR: رقم {qrParticipant.assigned_number}
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white rounded p-6 shadow-lg text-center w-72 space-y-3">
+            <h2 className="text-lg font-bold">
+              <QrCode className="inline-block w-5 h-5" /> QR: #{qrParticipant.assigned_number}
             </h2>
             <img
               src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
@@ -287,14 +292,14 @@ export default function AdminPage() {
               alt="QR Code"
               className="mx-auto"
             />
-            <p className="text-sm break-all">
+            <p className="text-xs break-all">
               {`${window.location.origin}/welcome?token=${qrParticipant.secure_token}`}
             </p>
             <button
               onClick={() => setQrParticipant(null)}
-              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-500"
             >
-              إغلاق
+              Close
             </button>
           </div>
         </div>

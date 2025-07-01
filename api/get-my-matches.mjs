@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     // 1. Get all match rows where this number is either A or B
     const { data: matches, error: matchesError } = await supabase
       .from("match_results")
-      .select("participant_a_number, participant_b_number, match_type, reason")
+.select("participant_a_number, participant_b_number, match_type, reason, compatibility_score")
 .or(`participant_a_number.eq.${Number(assigned_number)},participant_b_number.eq.${Number(assigned_number)}`)
 
     if (matchesError) throw matchesError
@@ -40,6 +40,7 @@ const isA = match.participant_a_number === Number(assigned_number)
         with: otherNum !== 0 ? otherNum.toString() : "؟",
         type: match.match_type,
         reason: match.reason || "السبب غير متوفر",
+            score: match.compatibility_score ?? null,
       }
     })
 

@@ -123,14 +123,14 @@ const systemMsg = `
       scores[`${a}-${b}`] = { score, reason: reason.trim() }
     }
 
-    // 5. Build full sorted match list
+    // 5. Build full match list
     const allPairs = []
     for (let i = 0; i < numbers.length; i++) {
       for (let j = i + 1; j < numbers.length; j++) {
         const key1 = `${numbers[i]}-${numbers[j]}`
         const key2 = `${numbers[j]}-${numbers[i]}`
         const entry = scores[key1] || scores[key2]
-        if (entry && entry.score > 0) {
+        if (entry) {
           allPairs.push({
             a: numbers[i],
             b: numbers[j],
@@ -141,66 +141,73 @@ const systemMsg = `
       }
     }
 
-    allPairs.sort((p1, p2) => p2.score - p1.score)
+    // 🔍 Log all scores
+    console.log("📊 All Compatibility Scores:")
+    allPairs
+      .sort((p1, p2) => p2.score - p1.score)
+      .forEach(pair => {
+        console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
+      })
 
-    // 6. Assign matches per round
+    // 6. Assign matches globally, round by round
     const matches = []
-    const alreadyMatched = new Set() // a-b key
-    const matchCount = {} // participant: count
+    const usedPairs = new Set()
+    const usedInRound = {}
 
     for (let round = 1; round <= 4; round++) {
-      const roundUsed = new Set()
+      usedInRound[round] = new Set()
+
       for (const pair of allPairs) {
-        const { a, b, score, reason } = pair
+        const a = pair.a
+        const b = pair.b
         const key = [Math.min(a, b), Math.max(a, b)].join("-")
 
-        matchCount[a] = matchCount[a] || 0
-        matchCount[b] = matchCount[b] || 0
-
         if (
-          matchCount[a] >= round || matchCount[b] >= round ||
-          alreadyMatched.has(key) ||
-          roundUsed.has(a) || roundUsed.has(b)
+          usedPairs.has(key) ||
+          usedInRound[round].has(a) ||
+          usedInRound[round].has(b)
         ) continue
 
         matches.push({
           participant_a_number: a,
           participant_b_number: b,
-          compatibility_score: score,
+          compatibility_score: pair.score,
           match_type: "توأم روح",
-          reason,
+          reason: pair.reason,
           match_id,
           round
         })
 
-        alreadyMatched.add(key)
-        roundUsed.add(a)
-        roundUsed.add(b)
-        matchCount[a]++
-        matchCount[b]++
+        usedPairs.add(key)
+        usedInRound[round].add(a)
+        usedInRound[round].add(b)
       }
     }
 
-    // 7. Fallback for participants with < 4 matches
-    const fullSet = new Set(numbers)
-    const existing = new Set()
-    for (const m of matches) {
-      existing.add(m.participant_a_number)
-      existing.add(m.participant_b_number)
+    // 7. Fallback: participants missing matches in any round
+    const participantRounds = {}
+    for (const match of matches) {
+      const { participant_a_number: a, participant_b_number: b, round } = match
+      participantRounds[a] = participantRounds[a] || new Set()
+      participantRounds[b] = participantRounds[b] || new Set()
+      participantRounds[a].add(round)
+      participantRounds[b].add(round)
     }
 
-    for (const n of fullSet) {
-      const count = matchCount[n] || 0
-      if (count < 4) {
-        matches.push({
-          participant_a_number: 0,
-          participant_b_number: n,
-          compatibility_score: 0,
-          match_type: "محايد",
-          reason: "لم نجد لك ٤ مباريات متوافقة.",
-          match_id,
-          round: count + 1
-        })
+    for (const participant of numbers) {
+      const rounds = participantRounds[participant] || new Set()
+      for (let r = 1; r <= 4; r++) {
+        if (!rounds.has(r)) {
+          matches.push({
+            participant_a_number: 0,
+            participant_b_number: participant,
+            compatibility_score: 0,
+            match_type: "محايد",
+            reason: "لم نجد لك شريكًا مناسبًا لهذه الجولة.",
+            match_id,
+            round: r
+          })
+        }
       }
     }
 
@@ -212,7 +219,7 @@ const systemMsg = `
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Matching complete with 4 rounds per participant",
+      message: "✅ Matching complete: best global pairs per round",
       count: matches.length,
       results: matches
     })

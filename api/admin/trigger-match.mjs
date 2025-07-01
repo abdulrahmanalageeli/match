@@ -13,8 +13,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const match_id =
-    process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
     const { data: participants, error } = await supabase
@@ -27,7 +26,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Not enough participants" })
     }
 
-    const numbers = participants.map((p) => p.assigned_number)
+    const numbers = participants.map(p => p.assigned_number)
     const pairs = []
 
     for (let i = 0; i < participants.length; i++) {
@@ -37,14 +36,9 @@ export default async function handler(req, res) {
     }
 
     const prompt = pairs
-      .map(
-        ([a, b]) =>
-          `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${
-            a.q3 ?? ""
-          }\n- ${a.q4 ?? ""}\n` +
-          `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${
-            b.q2 ?? ""
-          }\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
+      .map(([a, b]) =>
+        `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
+        `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
       )
       .join("\n\n")
 
@@ -98,13 +92,14 @@ const systemMsg = `
 بدون أي نص إضافي خارج JSON.
 `.trim()
 
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemMsg },
-        { role: "user", content: prompt },
+        { role: "user", content: prompt }
       ],
-      temperature: 0.3,
+      temperature: 0.3
     })
 
     let gptMatches = []
@@ -122,59 +117,95 @@ const systemMsg = `
     const scores = {}
     for (const { a, b, score, reason } of gptMatches) {
       if (
-        typeof a !== "number" ||
-        typeof b !== "number" ||
-        typeof score !== "number" ||
-        typeof reason !== "string"
-      )
-        continue
+        typeof a !== "number" || typeof b !== "number" ||
+        typeof score !== "number" || typeof reason !== "string"
+      ) continue
       const key = `${Math.min(a, b)}-${Math.max(a, b)}`
       scores[key] = { score, reason: reason.trim() }
     }
 
-    const allPairs = Object.entries(scores)
-      .map(([key, val]) => {
-        const [a, b] = key.split("-").map(Number)
-        return { a, b, score: val.score, reason: val.reason }
-      })
-      .sort((p1, p2) => p2.score - p1.score)
-
-    console.log("📊 All Compatibility Scores:")
-    allPairs.forEach((pair) => {
-      console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
+    const allPairs = Object.entries(scores).map(([key, val]) => {
+      const [a, b] = key.split("-").map(Number)
+      return { a, b, score: val.score, reason: val.reason }
     })
 
-    const used = new Set()
+    // 📊 Print all compatibility
+    console.log("📊 All Compatibility Scores:")
+    allPairs
+      .slice()
+      .sort((a, b) => b.score - a.score)
+      .forEach(pair => {
+        console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
+      })
+
     const finalMatches = []
 
-    for (const pair of allPairs) {
-      if (!used.has(pair.a) && !used.has(pair.b)) {
-        used.add(pair.a)
-        used.add(pair.b)
-
-        finalMatches.push({
+    // ✅ Round 1 – Soulmate (best matches)
+    const used1 = new Set()
+    const round1 = []
+    const sortedHigh = [...allPairs].sort((a, b) => b.score - a.score)
+    for (const pair of sortedHigh) {
+      if (!used1.has(pair.a) && !used1.has(pair.b)) {
+        used1.add(pair.a)
+        used1.add(pair.b)
+        round1.push({
           participant_a_number: pair.a,
           participant_b_number: pair.b,
           compatibility_score: pair.score,
           match_type: "توأم روح",
           reason: pair.reason,
           match_id,
-          round: 1,
+          round: 1
         })
       }
     }
+    finalMatches.push(...round1)
 
-    // Handle odd participant out
-    const unmatched = numbers.filter((n) => !used.has(n))
-    if (unmatched.length === 1) {
+    // ❌ Handle odd participant in Round 1
+    const unmatched1 = numbers.filter(n => !used1.has(n))
+    if (unmatched1.length === 1) {
       finalMatches.push({
         participant_a_number: 0,
-        participant_b_number: unmatched[0],
+        participant_b_number: unmatched1[0],
         compatibility_score: 0,
         match_type: "توأم روح (منظم)",
         reason: "تم توصيله بك لعدم وجود شريك متبقي.",
         match_id,
-        round: 1,
+        round: 1
+      })
+    }
+
+    // 🔻 Round 2 – Nemesis (lowest matches, ignoring used1)
+    const used2 = new Set()
+    const round2 = []
+    const sortedLow = [...allPairs].sort((a, b) => a.score - b.score)
+    for (const pair of sortedLow) {
+      if (!used2.has(pair.a) && !used2.has(pair.b)) {
+        used2.add(pair.a)
+        used2.add(pair.b)
+        round2.push({
+          participant_a_number: pair.a,
+          participant_b_number: pair.b,
+          compatibility_score: pair.score,
+          match_type: "عدو لدود",
+          reason: pair.reason,
+          match_id,
+          round: 2
+        })
+      }
+    }
+    finalMatches.push(...round2)
+
+    const unmatched2 = numbers.filter(n => !used2.has(n))
+    if (unmatched2.length === 1) {
+      finalMatches.push({
+        participant_a_number: 0,
+        participant_b_number: unmatched2[0],
+        compatibility_score: 0,
+        match_type: "محايد",
+        reason: "لم نجد شريكاً مناسباً.",
+        match_id,
+        round: 2
       })
     }
 
@@ -185,10 +216,11 @@ const systemMsg = `
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ 1 perfect round of global matching complete",
+      message: "✅ Round 1 (Soulmates) + Round 2 (Nemesis) matching complete",
       count: finalMatches.length,
-      results: finalMatches,
+      results: finalMatches
     })
+
   } catch (err) {
     console.error("🔥 Matching error:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })

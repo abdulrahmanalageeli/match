@@ -13,7 +13,8 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+  const match_id =
+    process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
     const { data: participants, error } = await supabase
@@ -26,9 +27,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Not enough participants" })
     }
 
-    const numbers = participants.map(p => p.assigned_number)
+    const numbers = participants.map((p) => p.assigned_number)
     const pairs = []
-    const scores = {}
 
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
@@ -36,10 +36,17 @@ export default async function handler(req, res) {
       }
     }
 
-    const prompt = pairs.map(([a, b]) => (
-      `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
-      `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
-    )).join("\n\n")
+    const prompt = pairs
+      .map(
+        ([a, b]) =>
+          `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${
+            a.q3 ?? ""
+          }\n- ${a.q4 ?? ""}\n` +
+          `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${
+            b.q2 ?? ""
+          }\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
+      )
+      .join("\n\n")
 
 const systemMsg = `
 أنت مساعد توافق بين المشاركين.
@@ -95,9 +102,9 @@ const systemMsg = `
       model: "gpt-4o",
       messages: [
         { role: "system", content: systemMsg },
-        { role: "user", content: prompt }
+        { role: "user", content: prompt },
       ],
-      temperature: 0.3
+      temperature: 0.3,
     })
 
     let gptMatches = []
@@ -112,104 +119,76 @@ const systemMsg = `
       return res.status(500).json({ error: "GPT response was not valid JSON." })
     }
 
+    const scores = {}
     for (const { a, b, score, reason } of gptMatches) {
       if (
-        typeof a !== "number" || typeof b !== "number" ||
-        typeof score !== "number" || typeof reason !== "string"
-      ) continue
+        typeof a !== "number" ||
+        typeof b !== "number" ||
+        typeof score !== "number" ||
+        typeof reason !== "string"
+      )
+        continue
       const key = `${Math.min(a, b)}-${Math.max(a, b)}`
       scores[key] = { score, reason: reason.trim() }
     }
 
-    const allPairs = Object.entries(scores).map(([key, val]) => {
-      const [a, b] = key.split("-").map(Number)
-      return { a, b, score: val.score, reason: val.reason }
-    }).sort((p1, p2) => p2.score - p1.score)
+    const allPairs = Object.entries(scores)
+      .map(([key, val]) => {
+        const [a, b] = key.split("-").map(Number)
+        return { a, b, score: val.score, reason: val.reason }
+      })
+      .sort((p1, p2) => p2.score - p1.score)
 
     console.log("📊 All Compatibility Scores:")
-    allPairs.forEach(pair => {
+    allPairs.forEach((pair) => {
       console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
     })
 
-    const matches = []
-    const usedPairs = new Set()
-    const usedInRound = {}
-    const participantScores = {}
+    const used = new Set()
+    const finalMatches = []
 
-    for (let round = 1; round <= 4; round++) {
-      usedInRound[round] = new Set()
-      for (const pair of allPairs) {
-        const a = pair.a
-        const b = pair.b
-        const key = `${Math.min(a, b)}-${Math.max(a, b)}`
+    for (const pair of allPairs) {
+      if (!used.has(pair.a) && !used.has(pair.b)) {
+        used.add(pair.a)
+        used.add(pair.b)
 
-        if (
-          usedPairs.has(key) ||
-          usedInRound[round].has(a) ||
-          usedInRound[round].has(b)
-        ) continue
-
-        const prevA = participantScores[a]?.[participantScores[a].length - 1] ?? 101
-        const prevB = participantScores[b]?.[participantScores[b].length - 1] ?? 101
-        if (pair.score > prevA || pair.score > prevB) continue
-
-        matches.push({
-          participant_a_number: a,
-          participant_b_number: b,
+        finalMatches.push({
+          participant_a_number: pair.a,
+          participant_b_number: pair.b,
           compatibility_score: pair.score,
           match_type: "توأم روح",
           reason: pair.reason,
           match_id,
-          round
+          round: 1,
         })
-
-        usedPairs.add(key)
-        usedInRound[round].add(a)
-        usedInRound[round].add(b)
-
-        participantScores[a] = [...(participantScores[a] || []), pair.score]
-        participantScores[b] = [...(participantScores[b] || []), pair.score]
       }
     }
 
-    const participantRounds = {}
-    for (const match of matches) {
-      const { participant_a_number: a, participant_b_number: b, round } = match
-      participantRounds[a] = participantRounds[a] || new Set()
-      participantRounds[b] = participantRounds[b] || new Set()
-      participantRounds[a].add(round)
-      participantRounds[b].add(round)
-    }
-
-    for (const participant of numbers) {
-      const rounds = participantRounds[participant] || new Set()
-      for (let r = 1; r <= 4; r++) {
-        if (!rounds.has(r)) {
-          matches.push({
-            participant_a_number: 0,
-            participant_b_number: participant,
-            compatibility_score: 0,
-            match_type: "محايد",
-            reason: "لم نجد لك شريكًا مناسبًا لهذه الجولة.",
-            match_id,
-            round: r
-          })
-        }
-      }
+    // Handle odd participant out
+    const unmatched = numbers.filter((n) => !used.has(n))
+    if (unmatched.length === 1) {
+      finalMatches.push({
+        participant_a_number: 0,
+        participant_b_number: unmatched[0],
+        compatibility_score: 0,
+        match_type: "توأم روح (منظم)",
+        reason: "تم توصيله بك لعدم وجود شريك متبقي.",
+        match_id,
+        round: 1,
+      })
     }
 
     const { error: insertError } = await supabase
       .from("match_results")
-      .insert(matches)
+      .insert(finalMatches)
 
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Matching complete with personal score descent & global logic",
-      count: matches.length,
-      results: matches
+      message: "✅ 1 perfect round of global matching complete",
+      count: finalMatches.length,
+      results: finalMatches,
     })
-
   } catch (err) {
     console.error("🔥 Matching error:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })

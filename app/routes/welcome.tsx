@@ -26,6 +26,76 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 
+const ProgressIndicator = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
+  const steps = [
+    { name: "البداية", icon: Brain },
+    { name: "الرقم", icon: Cpu },
+    { name: "التحليل", icon: Users },
+    { name: "الانتظار", icon: Clock },
+    { name: "التوافق", icon: Target },
+  ];
+
+  return (
+    <div className="w-full max-w-md mx-auto mb-8">
+      <div className="flex items-center justify-between">
+        {steps.map((step, index) => {
+          const Icon = step.icon;
+          const isActive = index <= currentStep;
+          const isCurrent = index === currentStep;
+          
+          return (
+            <div key={index} className="flex flex-col items-center">
+              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ${
+                isActive 
+                  ? dark 
+                    ? "bg-gradient-to-r from-slate-500 to-slate-600 shadow-lg shadow-slate-500/25" 
+                    : "bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25"
+                  : dark 
+                    ? "bg-slate-700/50 border border-slate-600/30" 
+                    : "bg-gray-200/50 border border-gray-300/30"
+              }`}>
+                <Icon className={`w-5 h-5 transition-all duration-300 ${
+                  isActive 
+                    ? "text-white" 
+                    : dark ? "text-slate-400" : "text-gray-500"
+                }`} />
+                {isCurrent && (
+                  <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse ${
+                    dark ? "bg-green-400" : "bg-green-500"
+                  }`} />
+                )}
+              </div>
+              <span className={`text-xs mt-2 font-medium transition-all duration-300 ${
+                isActive 
+                  ? dark ? "text-slate-200" : "text-blue-700"
+                  : dark ? "text-slate-400" : "text-gray-500"
+              }`}>
+                {step.name}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      
+      {/* Progress bar */}
+      <div className="mt-4 relative">
+        <div className={`h-1 rounded-full ${
+          dark ? "bg-slate-700/50" : "bg-gray-200/50"
+        }`}>
+          <div 
+            className={`h-full rounded-full transition-all duration-1000 ease-out ${
+              dark 
+                ? "bg-gradient-to-r from-slate-500 to-slate-600" 
+                : "bg-gradient-to-r from-blue-500 to-blue-600"
+            }`}
+            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function WelcomePage() {
   const [step, setStep] = useState(0)
   const [showFinalResult, setShowFinalResult] = useState(false)
@@ -191,7 +261,7 @@ export default function WelcomePage() {
   const FancyNextButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
     <Button 
       onClick={onClick} 
-      className="relative ps-12 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+      className="spring-btn relative ps-12 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
     >
       {label}
       <span className="bg-white/20 pointer-events-none absolute inset-y-0 start-0 flex w-9 items-center justify-center rounded-s-md">
@@ -203,7 +273,7 @@ export default function WelcomePage() {
   const FancyPreviousButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
     <Button 
       onClick={onClick} 
-      className="relative pe-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+      className="spring-btn relative pe-12 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
     >
       {label}
       <span className="bg-white/20 pointer-events-none absolute inset-y-0 end-0 flex w-9 items-center justify-center rounded-e-md">
@@ -400,7 +470,7 @@ export default function WelcomePage() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400 mx-auto"></div>
-          <p className="text-slate-300 text-xl font-medium">جارٍ التحميل...</p>
+          <p className="text-slate-300 text-xl font-medium" dir="rtl">جارٍ التحميل...</p>
         </div>
       </div>
     )
@@ -440,6 +510,31 @@ export default function WelcomePage() {
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl animate-pulse delay-500 ${
           dark ? "bg-gradient-to-r from-slate-500/5 to-slate-400/5" : "bg-gradient-to-r from-blue-400/10 to-purple-400/10"
         }`}></div>
+        <div className="pointer-events-none absolute inset-0 z-0">
+          {/* Floating particles */}
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full opacity-40 animate-float-particle${i % 2 === 0 ? '' : '-reverse'} ${
+                dark
+                  ? i % 3 === 0
+                    ? 'bg-cyan-400/30'
+                    : 'bg-slate-400/20'
+                  : i % 3 === 0
+                    ? 'bg-blue-400/30'
+                    : 'bg-purple-400/20'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 4) * 20}px`,
+                top: `${10 + (i * 10) % 70}%`,
+                left: `${5 + (i * 13) % 85}%`,
+                animationDelay: `${i * 0.7}s`,
+                zIndex: 0,
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       {/* Grid pattern overlay */}
@@ -468,6 +563,8 @@ export default function WelcomePage() {
       </div>
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
+        <ProgressIndicator currentStep={step} totalSteps={5} dark={dark} />
+
         {/* خطوة 0 */}
         {step === 0 && (
           <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
@@ -475,8 +572,8 @@ export default function WelcomePage() {
               <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
                 dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
               }`}></div>
-              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-                dark ? "bg-white/10 border-white/20" : "bg-white/80 border-gray-200/50 shadow-xl"
+              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
               }`}>
                 <div className="flex justify-center mb-6">
                   <div className="relative">
@@ -569,8 +666,8 @@ export default function WelcomePage() {
         {/* خطوة 2 */}
         {step === 2 && (
           <section className="space-y-6 text-right animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-              dark ? "bg-white/10 border-white/20" : "bg-white/80 border-gray-200/50 shadow-xl"
+            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+              dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
             }`}>
               <div className="flex flex-col items-center gap-4 mb-6">
                 <div className="relative">
@@ -868,7 +965,7 @@ export default function WelcomePage() {
                         onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
                         disabled={prompts.length <= 1}
                       >
-                        <ChevronRightIcon className="w-5 h-5 rtl:rotate-180" />
+                        <ChevronLeftIcon className="w-5 h-5" />
                       </button>
                       <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
                       <button
@@ -878,7 +975,7 @@ export default function WelcomePage() {
                         onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
                         disabled={prompts.length <= 1}
                       >
-                        <ChevronLeftIcon className="w-5 h-5 rtl:rotate-180" />
+                        <ChevronRightIcon className="w-5 h-5" />
                       </button>
                     </div>
                   </div>
@@ -895,22 +992,36 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  <div className={`rounded-xl p-4 border mb-6 ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <p className={`text-sm text-center italic ${
-                      dark ? "text-slate-300" : "text-gray-600"
-                    }`}>
-                      {matchReason}
-                    </p>
-                  </div>
+                  {compatibilityScore !== null && (
+                    <div className="mt-4 flex flex-col items-center">
+                      <div className="w-full max-w-xs h-4 rounded-full bg-gray-200/50 dark:bg-slate-700/50 overflow-hidden mb-2">
+                        <div
+                          className={`h-full rounded-full transition-all duration-700 ${
+                            compatibilityScore >= 80
+                              ? 'bg-green-500'
+                              : compatibilityScore >= 50
+                                ? 'bg-yellow-400'
+                                : 'bg-red-500'
+                          }`}
+                          style={{ width: `${compatibilityScore}%` }}
+                        />
+                      </div>
+                      <span className={`text-sm font-bold ${
+                        compatibilityScore >= 80
+                          ? 'text-green-600'
+                          : compatibilityScore >= 50
+                            ? 'text-yellow-600'
+                            : 'text-red-600'
+                      }`}>
+                        {compatibilityScore >= 80 ? 'قوي' : compatibilityScore >= 50 ? 'متوسط' : 'ضعيف'}
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex justify-center">
                     <Button
                       onClick={startConversation}
-                      className="relative ps-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                      className="spring-btn relative ps-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
                     >
                       ابدأ المحادثة
                       <span className="bg-white/20 pointer-events-none absolute inset-y-0 start-0 flex w-9 items-center justify-center rounded-s-md">
@@ -927,21 +1038,63 @@ export default function WelcomePage() {
                     المحادثة جارية...
                   </h3>
                   
-                  <div className={`text-center mb-6 p-6 rounded-xl border ${
+                  <div className={`text-center mb-6 p-6 rounded-xl border relative overflow-hidden ${
                     dark 
                       ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
                       : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
                   }`}>
-                    <div className={`text-4xl font-bold mb-2 ${
-                      dark ? "text-slate-200" : "text-gray-800"
-                    }`}>
-                      {formatTime(conversationTimer)}
+                    {/* Animated progress ring */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                          className={`${dark ? "text-slate-400/20" : "text-gray-300/50"}`}
+                        />
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                          strokeDasharray={`${2 * Math.PI * 54}`}
+                          strokeDashoffset={`${2 * Math.PI * 54 * (1 - conversationTimer / 300)}`}
+                          className={`${dark ? "text-slate-400" : "text-blue-500"} transition-all duration-1000 ease-out`}
+                          strokeLinecap="round"
+                        />
+                      </svg>
                     </div>
-                    <p className={`text-sm ${
-                      dark ? "text-slate-300" : "text-gray-600"
-                    }`}>
-                      الوقت المتبقي
-                    </p>
+                    
+                    <div className="relative z-10">
+                      <div className={`text-4xl font-bold mb-2 ${
+                        dark ? "text-slate-200" : "text-gray-800"
+                      }`}>
+                        {formatTime(conversationTimer)}
+                      </div>
+                      <p className={`text-sm ${
+                        dark ? "text-slate-300" : "text-gray-600"
+                      }`}>
+                        الوقت المتبقي
+                      </p>
+                    </div>
+                    
+                    {/* Pulsing dots animation */}
+                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
+                      <div className={`w-2 h-2 rounded-full animate-pulse ${
+                        dark ? "bg-slate-400" : "bg-blue-500"
+                      }`} style={{ animationDelay: '0ms' }}></div>
+                      <div className={`w-2 h-2 rounded-full animate-pulse ${
+                        dark ? "bg-slate-400" : "bg-blue-500"
+                      }`} style={{ animationDelay: '300ms' }}></div>
+                      <div className={`w-2 h-2 rounded-full animate-pulse ${
+                        dark ? "bg-slate-400" : "bg-blue-500"
+                      }`} style={{ animationDelay: '600ms' }}></div>
+                    </div>
                   </div>
 
                   <div className="flex justify-center gap-3">
@@ -1014,17 +1167,19 @@ export default function WelcomePage() {
                 </div>
               </div>
 
-              <div className={`rounded-xl p-4 border mb-6 ${
-                dark 
-                  ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                  : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-              }`}>
-                <p className={`text-sm text-center italic ${
-                  dark ? "text-slate-300" : "text-gray-600"
+              {isScoreRevealed && (
+                <div className={`rounded-xl p-4 border mb-6 ${
+                  dark 
+                    ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                    : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
                 }`}>
-                  {matchReason}
-                </p>
-              </div>
+                  <p className={`text-sm text-center italic ${
+                    dark ? "text-slate-300" : "text-gray-600"
+                  }`}>
+                    {matchReason}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-center">
@@ -1142,7 +1297,7 @@ export default function WelcomePage() {
             <div className="flex justify-center gap-3 mt-6">
               <Button
                 onClick={submitFeedback}
-                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
               >
                 إرسال التقييم
               </Button>

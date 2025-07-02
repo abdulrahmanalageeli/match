@@ -28,6 +28,7 @@ import MatchResult from "./MatchResult"
 
 export default function WelcomePage() {
   const [step, setStep] = useState(0)
+  const [showFinalResult, setShowFinalResult] = useState(false)
   const [dark, setDark] = useState(false)
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
 
@@ -42,6 +43,17 @@ export default function WelcomePage() {
   const [matchReason, setMatchReason] = useState<string>("")
   const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
+  const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
+  const [isScoreRevealed, setIsScoreRevealed] = useState(false)
+  const [conversationStarted, setConversationStarted] = useState(false)
+  const [conversationTimer, setConversationTimer] = useState(300) // 5 minutes
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
+  const [feedbackAnswers, setFeedbackAnswers] = useState({
+    enjoyment: "",
+    connection: "",
+    wouldMeetAgain: "",
+    overallRating: ""
+  })
   const token = useSearchParams()[0].get("token")
   const [isResolving, setIsResolving] = useState(true)
   const [typewriterText, setTypewriterText] = useState("")
@@ -271,6 +283,8 @@ export default function WelcomePage() {
     type: string
     reason: string
     round: number
+    table_number: number | null
+    score: number
   }
 
   const fetchMatches = async () => {
@@ -291,14 +305,18 @@ export default function WelcomePage() {
       const round2 = matches.find((m) => m.round === 2)
 
       if (round1) {
-        setMatchResult(`توأم روحك هو رقم ${round1.with}`)
+        setMatchResult(round1.with)
         setMatchReason(round1.reason)
+        setTableNumber(round1.table_number)
+        setCompatibilityScore(round1.score)
       }
 
       if (round2) {
-        // Append round 2 info to the reason (or show separately)
-        setMatchResult((prev) => `${prev} وعدوك اللدود هو رقم ${round2.with}`)
-        setMatchReason((prev) => `${prev}\n\n${round2.reason}`)
+        // For now, we'll focus on round 1, but you can extend this for round 2
+        setMatchResult(round2.with)
+        setMatchReason(round2.reason)
+        setTableNumber(round2.table_number)
+        setCompatibilityScore(round2.score)
       }
 
     } catch (err) {
@@ -328,6 +346,47 @@ export default function WelcomePage() {
 
     return () => clearInterval(interval)
   }, [step])
+
+  // Conversation timer effect
+  useEffect(() => {
+    if (!conversationStarted || conversationTimer <= 0) return
+
+    const interval = setInterval(() => {
+      setConversationTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          setShowFeedbackModal(true)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [conversationStarted, conversationTimer])
+
+  const startConversation = () => {
+    setConversationStarted(true)
+  }
+
+  const skipConversation = () => {
+    setConversationTimer(0)
+    setShowFeedbackModal(true)
+  }
+
+  const submitFeedback = () => {
+    // Here you can send feedback to your API
+    console.log("Feedback submitted:", feedbackAnswers)
+    setIsScoreRevealed(true)
+    setShowFeedbackModal(false)
+    setShowFinalResult(true)
+  }
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
 
   if (phase === null) {
     return (
@@ -720,21 +779,151 @@ export default function WelcomePage() {
                   dark ? "text-slate-400" : "text-gray-600"
                 }`} />
               </div>
-              <h3 className={`text-lg font-semibold text-center mb-4 ${
+              
+              {!conversationStarted ? (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}>
+                    توأم روحك هو رقم {matchResult}
+                  </h3>
+                  
+                  {tableNumber && (
+                    <div className={`text-center mb-4 p-3 rounded-xl border ${
+                      dark 
+                        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                    }`}>
+                      <p className={`text-lg font-semibold ${
+                        dark ? "text-slate-200" : "text-gray-700"
+                      }`}>
+                        اذهب إلى الطاولة رقم {tableNumber}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-sm text-center italic ${
+                      dark ? "text-slate-200" : "text-gray-700"
+                    }`}>
+                      {matchReason}
+                    </p>
+                  </div>
+
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-sm ${
+                      dark ? "text-slate-300" : "text-gray-600"
+                    }`}>
+                      درجة التوافق: {isScoreRevealed ? compatibilityScore : "***"}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={startConversation}
+                      className="relative ps-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                    >
+                      ابدأ المحادثة
+                      <span className="bg-white/20 pointer-events-none absolute inset-y-0 start-0 flex w-9 items-center justify-center rounded-s-md">
+                        <MessageSquare className="opacity-80" size={16} aria-hidden="true" />
+                      </span>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}>
+                    المحادثة جارية...
+                  </h3>
+                  
+                  <div className={`text-center mb-6 p-6 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className={`text-4xl font-bold mb-2 ${
+                      dark ? "text-slate-200" : "text-gray-800"
+                    }`}>
+                      {formatTime(conversationTimer)}
+                    </div>
+                    <p className={`text-sm ${
+                      dark ? "text-slate-300" : "text-gray-600"
+                    }`}>
+                      الوقت المتبقي
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center gap-3">
+                    <Button
+                      onClick={skipConversation}
+                      variant="outline"
+                      className={`border-2 ${
+                        dark 
+                          ? "border-slate-400/30 text-slate-200 hover:bg-slate-500/20"
+                          : "border-gray-400/30 text-gray-700 hover:bg-gray-100"
+                      }`}
+                    >
+                      تخطي المحادثة
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Final Result Step */}
+        {showFinalResult && (
+          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+            }`}>
+              <div className="flex justify-center mb-4">
+                <Heart className={`w-12 h-12 animate-pulse ${
+                  dark ? "text-slate-400" : "text-gray-600"
+                }`} />
+              </div>
+              
+              <h3 className={`text-xl font-bold text-center mb-4 ${
                 dark ? "text-slate-200" : "text-gray-800"
               }`}>
-                {matchResult
-                  ? `توأم روحك هو رقم ${matchResult}`
-                  : "ما قدرنا نلقالك توأم روح واضح"}
+                شكراً لك!
               </h3>
+              
+              <div className={`text-center mb-6 p-6 rounded-xl border ${
+                dark 
+                  ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                  : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+              }`}>
+                <p className={`text-lg font-semibold mb-2 ${
+                  dark ? "text-slate-200" : "text-gray-700"
+                }`}>
+                  درجة التوافق النهائية
+                </p>
+                <div className={`text-3xl font-bold ${
+                  dark ? "text-slate-200" : "text-gray-800"
+                }`}>
+                  {compatibilityScore}/100
+                </div>
+              </div>
 
-              <div className={`rounded-xl p-4 border ${
+              <div className={`rounded-xl p-4 border mb-6 ${
                 dark 
                   ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
                   : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
               }`}>
                 <p className={`text-sm text-center italic ${
-                  dark ? "text-slate-200" : "text-gray-700"
+                  dark ? "text-slate-300" : "text-gray-600"
                 }`}>
                   {matchReason}
                 </p>
@@ -747,6 +936,123 @@ export default function WelcomePage() {
           </section>
         )}
       </div>
+
+      {/* Feedback Modal */}
+      {showFeedbackModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className={`w-full max-w-md backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+          }`}>
+            <h3 className={`text-xl font-bold text-center mb-6 ${
+              dark ? "text-slate-200" : "text-gray-800"
+            }`}>
+              تقييم المحادثة
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  dark ? "text-slate-200" : "text-gray-700"
+                }`}>
+                  كيف استمتعت بالمحادثة؟
+                </label>
+                <select
+                  value={feedbackAnswers.enjoyment}
+                  onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, enjoyment: e.target.value }))}
+                  className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
+                    dark 
+                      ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
+                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                  }`}
+                >
+                  <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
+                  <option value="excellent" className={dark ? "bg-slate-800" : "bg-white"}>ممتاز</option>
+                  <option value="good" className={dark ? "bg-slate-800" : "bg-white"}>جيد</option>
+                  <option value="average" className={dark ? "bg-slate-800" : "bg-white"}>متوسط</option>
+                  <option value="poor" className={dark ? "bg-slate-800" : "bg-white"}>ضعيف</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  dark ? "text-slate-200" : "text-gray-700"
+                }`}>
+                  هل شعرت بتواصل جيد؟
+                </label>
+                <select
+                  value={feedbackAnswers.connection}
+                  onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, connection: e.target.value }))}
+                  className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
+                    dark 
+                      ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
+                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                  }`}
+                >
+                  <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
+                  <option value="yes" className={dark ? "bg-slate-800" : "bg-white"}>نعم</option>
+                  <option value="somewhat" className={dark ? "bg-slate-800" : "bg-white"}>نوعاً ما</option>
+                  <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  dark ? "text-slate-200" : "text-gray-700"
+                }`}>
+                  هل تود مقابلته مرة أخرى؟
+                </label>
+                <select
+                  value={feedbackAnswers.wouldMeetAgain}
+                  onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: e.target.value }))}
+                  className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
+                    dark 
+                      ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
+                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                  }`}
+                >
+                  <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
+                  <option value="definitely" className={dark ? "bg-slate-800" : "bg-white"}>بالتأكيد</option>
+                  <option value="maybe" className={dark ? "bg-slate-800" : "bg-white"}>ربما</option>
+                  <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
+                </select>
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  dark ? "text-slate-200" : "text-gray-700"
+                }`}>
+                  التقييم العام (من 1 إلى 5)
+                </label>
+                <select
+                  value={feedbackAnswers.overallRating}
+                  onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, overallRating: e.target.value }))}
+                  className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
+                    dark 
+                      ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
+                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                  }`}
+                >
+                  <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
+                  <option value="5" className={dark ? "bg-slate-800" : "bg-white"}>5 - ممتاز</option>
+                  <option value="4" className={dark ? "bg-slate-800" : "bg-white"}>4 - جيد جداً</option>
+                  <option value="3" className={dark ? "bg-slate-800" : "bg-white"}>3 - جيد</option>
+                  <option value="2" className={dark ? "bg-slate-800" : "bg-white"}>2 - مقبول</option>
+                  <option value="1" className={dark ? "bg-slate-800" : "bg-white"}>1 - ضعيف</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-center gap-3 mt-6">
+              <Button
+                onClick={submitFeedback}
+                className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+              >
+                إرسال التقييم
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

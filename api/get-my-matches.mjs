@@ -27,6 +27,7 @@ export default async function handler(req, res) {
       reason: match.reason || "السبب غير متوفر",
       score: match.compatibility_score ?? 0,
       round: match.round ?? 1,
+      table_number: match.table_number || null,
     }))
 
     return res.status(200).json({ matches: results })

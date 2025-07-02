@@ -677,6 +677,22 @@ export default function WelcomePage() {
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
+              {/* Player Avatar - Always Visible */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
+                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  }`}>
+                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                </div>
+              </div>
+
               <div className="flex justify-center mb-4">
                 <Brain className={`w-12 h-12 animate-pulse ${
                   dark ? "text-slate-400" : "text-gray-600"
@@ -736,6 +752,22 @@ export default function WelcomePage() {
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
+              {/* Player Avatar - Always Visible */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
+                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  }`}>
+                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                </div>
+              </div>
+
               <div className="flex justify-center mb-4">
                 <Users className={`w-12 h-12 animate-pulse ${
                   dark ? "text-slate-400" : "text-gray-600"
@@ -782,6 +814,22 @@ export default function WelcomePage() {
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
+              {/* Player Avatar - Always Visible */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
+                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  }`}>
+                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                </div>
+              </div>
+
               <div className="flex justify-center mb-4">
                 <Target className={`w-12 h-12 animate-bounce ${
                   dark ? "text-slate-400" : "text-gray-600"
@@ -894,6 +942,22 @@ export default function WelcomePage() {
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
+              {/* Player Avatar - Always Visible */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
+                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  }`}>
+                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                </div>
+              </div>
+
               <div className="flex justify-center mb-4">
                 <Heart className={`w-12 h-12 animate-pulse ${
                   dark ? "text-slate-400" : "text-gray-600"

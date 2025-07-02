@@ -25,6 +25,7 @@ export default async function handler(req, res) {
       .from("match_results")
       .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score, round, table_number")
       .eq("match_id", match_id)
+      .eq("round", 1)
       .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
 
     if (error) throw error

@@ -29,7 +29,7 @@ import MatchResult from "./MatchResult"
 export default function WelcomePage() {
   const [step, setStep] = useState(0)
   const [showFinalResult, setShowFinalResult] = useState(false)
-  const [dark, setDark] = useState(false)
+  const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
 
   const [freeTime, setFreeTime] = useState("")
@@ -300,30 +300,17 @@ export default function WelcomePage() {
 
       console.log("Fetched matches:", matches) // Debug log
 
-      // Sort by round number
-      matches.sort((a, b) => a.round - b.round)
+      // Since API now only returns round 1 matches, we can simplify this
+      const match = matches[0] // Get the first (and should be only) match
 
-      const round1 = matches.find((m) => m.round === 1)
-      const round2 = matches.find((m) => m.round === 2)
+      console.log("Round 1 match:", match) // Debug log
 
-      console.log("Round 1 match:", round1) // Debug log
-      console.log("Round 2 match:", round2) // Debug log
-
-      if (round1) {
-        setMatchResult(round1.with)
-        setMatchReason(round1.reason)
-        setTableNumber(round1.table_number)
-        setCompatibilityScore(round1.score)
-        console.log("Set round 1 data:", { with: round1.with, table: round1.table_number, score: round1.score }) // Debug log
-      }
-
-      if (round2) {
-        // For now, we'll focus on round 1, but you can extend this for round 2
-        setMatchResult(round2.with)
-        setMatchReason(round2.reason)
-        setTableNumber(round2.table_number)
-        setCompatibilityScore(round2.score)
-        console.log("Set round 2 data:", { with: round2.with, table: round2.table_number, score: round2.score }) // Debug log
+      if (match) {
+        setMatchResult(match.with)
+        setMatchReason(match.reason)
+        setTableNumber(match.table_number)
+        setCompatibilityScore(match.score)
+        console.log("Set match data:", { with: match.with, table: match.table_number, score: match.score }) // Debug log
       }
 
     } catch (err) {
@@ -426,26 +413,26 @@ export default function WelcomePage() {
       className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden ${
         dark
           ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
-          : "bg-gradient-to-br from-white via-gray-50 to-gray-100 text-gray-900"
+          : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
       }`}
       dir="rtl"
     >
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className={`absolute -top-40 -right-40 w-80 h-80 rounded-full blur-3xl animate-pulse ${
-          dark ? "bg-slate-500/10" : "bg-gray-400/10"
+          dark ? "bg-slate-500/10" : "bg-blue-400/20"
         }`}></div>
         <div className={`absolute -bottom-40 -left-40 w-80 h-80 rounded-full blur-3xl animate-pulse delay-1000 ${
-          dark ? "bg-slate-400/10" : "bg-gray-300/10"
+          dark ? "bg-slate-400/10" : "bg-purple-400/15"
         }`}></div>
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl animate-pulse delay-500 ${
-          dark ? "bg-gradient-to-r from-slate-500/5 to-slate-400/5" : "bg-gradient-to-r from-gray-400/5 to-gray-300/5"
+          dark ? "bg-gradient-to-r from-slate-500/5 to-slate-400/5" : "bg-gradient-to-r from-blue-400/10 to-purple-400/10"
         }`}></div>
       </div>
 
       {/* Grid pattern overlay */}
       <div className="absolute inset-0 opacity-20" style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${dark ? '%236B7280' : '%239CA3AF'}' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${dark ? '%236B7280' : '%233B82F6'}' fill-opacity='${dark ? '0.1' : '0.15'}'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
       }}></div>
 
       {/* زر الوضع المظلم */}
@@ -477,7 +464,7 @@ export default function WelcomePage() {
                 dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
               }`}></div>
               <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-                dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+                dark ? "bg-white/10 border-white/20" : "bg-white/80 border-gray-200/50 shadow-xl"
               }`}>
                 <div className="flex justify-center mb-6">
                   <div className="relative">
@@ -526,11 +513,11 @@ export default function WelcomePage() {
         {step === 1 && !token && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+              dark ? "bg-white/10 border-white/20" : "bg-white/80 border-gray-200/50 shadow-xl"
             }`}>
               <div className="flex justify-center mb-4">
                 <Cpu className={`w-12 h-12 ${
-                  dark ? "text-slate-400" : "text-gray-600"
+                  dark ? "text-slate-400" : "text-blue-600"
                 }`} />
               </div>
               <h2 className={`text-xl font-semibold mb-2 ${
@@ -550,7 +537,7 @@ export default function WelcomePage() {
                   className={`mx-auto block h-24 w-24 text-center text-4xl font-bold rounded-xl border-2 backdrop-blur-sm shadow-lg focus:outline-none transition-all duration-300 [appearance:textfield] ${
                     dark 
                       ? "border-slate-400/50 bg-white/10 text-slate-200 focus:ring-4 focus:ring-slate-400/30 focus:border-slate-400"
-                      : "border-gray-400/50 bg-white/80 text-gray-800 focus:ring-4 focus:ring-gray-400/30 focus:border-gray-500"
+                      : "border-blue-400/50 bg-white/90 text-gray-800 focus:ring-4 focus:ring-blue-400/30 focus:border-blue-500 shadow-md"
                   }`}
                 />
                 <div className={`absolute inset-0 rounded-xl blur-xl opacity-50 ${
@@ -571,7 +558,7 @@ export default function WelcomePage() {
         {step === 2 && (
           <section className="space-y-6 text-right animate-in slide-in-from-bottom-4 duration-700">
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+              dark ? "bg-white/10 border-white/20" : "bg-white/80 border-gray-200/50 shadow-xl"
             }`}>
               <div className="flex flex-col items-center gap-4 mb-6">
                 <div className="relative">
@@ -603,7 +590,7 @@ export default function WelcomePage() {
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-gray-400/30 bg-white/80 text-gray-800 placeholder-gray-500/50 focus:ring-gray-400/30 focus:border-gray-500"
+                        : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                     placeholder="اكتب إجابتك هنا..."
                   />
@@ -620,7 +607,7 @@ export default function WelcomePage() {
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-gray-400/30 bg-white/80 text-gray-800 placeholder-gray-500/50 focus:ring-gray-400/30 focus:border-gray-500"
+                        : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                     placeholder="اكتب إجابتك هنا..."
                   />
@@ -636,7 +623,7 @@ export default function WelcomePage() {
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                        : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                   >
                     <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر وحدة</option>
@@ -656,7 +643,7 @@ export default function WelcomePage() {
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-gray-400/30 bg-white/80 text-gray-800 placeholder-gray-500/50 focus:ring-gray-400/30 focus:border-gray-500"
+                        : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                     placeholder="اكتب إجابتك هنا..."
                   />
@@ -674,22 +661,22 @@ export default function WelcomePage() {
         {/* خطوة 3 */}
         {step === 3 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Always Visible */}
-              <div className="flex justify-center mb-6">
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
-                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
-                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
                   }`}>
-                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
                       dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
                     }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
                 </div>
               </div>
 
@@ -749,22 +736,22 @@ export default function WelcomePage() {
 
         {step === 4 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Always Visible */}
-              <div className="flex justify-center mb-6">
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
-                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
-                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
                   }`}>
-                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
                       dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
                     }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
                 </div>
               </div>
 
@@ -811,22 +798,22 @@ export default function WelcomePage() {
 
         {step === 5 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Always Visible */}
-              <div className="flex justify-center mb-6">
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
-                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
-                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
                   }`}>
-                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
                       dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
                     }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
                 </div>
               </div>
 
@@ -939,22 +926,22 @@ export default function WelcomePage() {
         {/* Final Result Step */}
         {showFinalResult && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Always Visible */}
-              <div className="flex justify-center mb-6">
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
-                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
-                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
                   }`}>
-                    <AvatarFallback className={`text-2xl font-semibold text-white ${
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
                       dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
                     }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
                 </div>
               </div>
 
@@ -1032,7 +1019,7 @@ export default function WelcomePage() {
                   className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                     dark 
                       ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
-                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                      : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                   }`}
                 >
                   <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
@@ -1055,7 +1042,7 @@ export default function WelcomePage() {
                   className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                     dark 
                       ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
-                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                      : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                   }`}
                 >
                   <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
@@ -1077,7 +1064,7 @@ export default function WelcomePage() {
                   className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                     dark 
                       ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
-                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                      : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                   }`}
                 >
                   <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
@@ -1099,7 +1086,7 @@ export default function WelcomePage() {
                   className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                     dark 
                       ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
-                      : "border-gray-400/30 bg-white/80 text-gray-800 focus:ring-gray-400/30 focus:border-gray-500"
+                      : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                   }`}
                 >
                   <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>

@@ -26,71 +26,28 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 
-const ProgressIndicator = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
-  const steps = [
-    { name: "البداية", icon: Brain },
-    { name: "الرقم", icon: Cpu },
-    { name: "التحليل", icon: Users },
-    { name: "الانتظار", icon: Clock },
-    { name: "التوافق", icon: Target },
-  ];
-
+const ModernProgressIndicator = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
+  const percent = (currentStep / (totalSteps - 1)) * 100;
   return (
-    <div className="w-full max-w-md mx-auto mb-8">
-      <div className="flex items-center justify-between">
-        {steps.map((step, index) => {
-          const Icon = step.icon;
-          const isActive = index <= currentStep;
-          const isCurrent = index === currentStep;
-          
-          return (
-            <div key={index} className="flex flex-col items-center">
-              <div className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 ${
-                isActive 
-                  ? dark 
-                    ? "bg-gradient-to-r from-slate-500 to-slate-600 shadow-lg shadow-slate-500/25" 
-                    : "bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg shadow-blue-500/25"
-                  : dark 
-                    ? "bg-slate-700/50 border border-slate-600/30" 
-                    : "bg-gray-200/50 border border-gray-300/30"
-              }`}>
-                <Icon className={`w-5 h-5 transition-all duration-300 ${
-                  isActive 
-                    ? "text-white" 
-                    : dark ? "text-slate-400" : "text-gray-500"
-                }`} />
-                {isCurrent && (
-                  <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full animate-pulse ${
-                    dark ? "bg-green-400" : "bg-green-500"
-                  }`} />
-                )}
-              </div>
-              <span className={`text-xs mt-2 font-medium transition-all duration-300 ${
-                isActive 
-                  ? dark ? "text-slate-200" : "text-blue-700"
-                  : dark ? "text-slate-400" : "text-gray-500"
-              }`}>
-                {step.name}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-      
-      {/* Progress bar */}
-      <div className="mt-4 relative">
-        <div className={`h-1 rounded-full ${
-          dark ? "bg-slate-700/50" : "bg-gray-200/50"
-        }`}>
-          <div 
-            className={`h-full rounded-full transition-all duration-1000 ease-out ${
-              dark 
-                ? "bg-gradient-to-r from-slate-500 to-slate-600" 
-                : "bg-gradient-to-r from-blue-500 to-blue-600"
-            }`}
-            style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }}
-          />
-        </div>
+    <div className="w-full max-w-md mx-auto mb-8 flex flex-col items-center">
+      <div className="relative w-full h-6 flex items-center justify-center">
+        {/* Background line */}
+        <div className={`absolute left-0 right-0 top-1/2 h-1 rounded-full ${dark ? 'bg-slate-700/60' : 'bg-blue-100/80'}`} style={{ transform: 'translateY(-50%)' }} />
+        {/* Filled line */}
+        <div className={`absolute left-0 top-1/2 h-1 rounded-full transition-all duration-700 ${dark ? 'bg-gradient-to-r from-blue-400 to-cyan-400' : 'bg-gradient-to-r from-blue-500 to-purple-400'}`} style={{ width: `${percent}%`, transform: 'translateY(-50%)' }} />
+        {/* Glowing dot */}
+        <div
+          className={`absolute top-1/2 rounded-full shadow-lg transition-all duration-500 ${dark ? 'bg-cyan-400' : 'bg-blue-500'}`}
+          style={{
+            left: `calc(${percent}% - 18px)`,
+            width: 36,
+            height: 36,
+            boxShadow: `0 0 16px 4px ${dark ? '#22d3ee88' : '#3b82f688'}`,
+            border: `3px solid ${dark ? '#0ea5e9' : '#6366f1'}`,
+            transform: 'translateY(-50%)',
+            zIndex: 2,
+          }}
+        />
       </div>
     </div>
   );
@@ -563,7 +520,7 @@ export default function WelcomePage() {
       </div>
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
-        <ProgressIndicator currentStep={step} totalSteps={5} dark={dark} />
+        <ModernProgressIndicator currentStep={step} totalSteps={5} dark={dark} />
 
         {/* خطوة 0 */}
         {step === 0 && (
@@ -992,27 +949,27 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  {compatibilityScore !== null && (
-                    <div className="mt-4 flex flex-col items-center">
-                      <div className="w-full max-w-xs h-4 rounded-full bg-gray-200/50 dark:bg-slate-700/50 overflow-hidden mb-2">
+                  {isScoreRevealed && compatibilityScore !== null && (
+                    <div className="relative flex flex-col items-center mt-4 mb-2">
+                      <div className="w-full max-w-xs h-2 rounded-full bg-gradient-to-r from-blue-500/30 via-cyan-400/30 to-purple-500/30 overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all duration-700 ${
+                          className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${
                             compatibilityScore >= 80
-                              ? 'bg-green-500'
+                              ? 'from-green-400 via-green-500 to-emerald-400'
                               : compatibilityScore >= 50
-                                ? 'bg-yellow-400'
-                                : 'bg-red-500'
-                          }`}
+                                ? 'from-yellow-300 via-yellow-400 to-yellow-500'
+                                : 'from-red-400 via-pink-500 to-pink-400'
+                          } animate-pulse`}
                           style={{ width: `${compatibilityScore}%` }}
                         />
                       </div>
-                      <span className={`text-sm font-bold ${
+                      <span className={`absolute -top-6 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full shadow-lg backdrop-blur-md border border-white/30 text-xs font-bold ${
                         compatibilityScore >= 80
-                          ? 'text-green-600'
+                          ? 'bg-green-400/80 text-white'
                           : compatibilityScore >= 50
-                            ? 'text-yellow-600'
-                            : 'text-red-600'
-                      }`}>
+                            ? 'bg-yellow-400/80 text-gray-900'
+                            : 'bg-red-500/80 text-white'
+                      }`} style={{letterSpacing: '0.1em'}}>
                         {compatibilityScore >= 80 ? 'قوي' : compatibilityScore >= 50 ? 'متوسط' : 'ضعيف'}
                       </span>
                     </div>
@@ -1038,10 +995,8 @@ export default function WelcomePage() {
                     المحادثة جارية...
                   </h3>
                   
-                  <div className={`text-center mb-6 p-6 rounded-xl border relative overflow-hidden ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  <div className={`mx-auto my-6 w-full max-w-xs rounded-2xl border-2 shadow-xl backdrop-blur-xl p-0 flex flex-col items-center justify-center relative overflow-hidden ${
+                    dark ? 'bg-white/10 border-white/20' : 'bg-white/80 border-gray-200/50'
                   }`}>
                     {/* Animated progress ring */}
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -1053,7 +1008,7 @@ export default function WelcomePage() {
                           stroke="currentColor"
                           strokeWidth="4"
                           fill="none"
-                          className={`${dark ? "text-slate-400/20" : "text-gray-300/50"}`}
+                          className={`${dark ? 'text-slate-400/20' : 'text-gray-300/50'}`}
                         />
                         <circle
                           cx="60"
@@ -1064,36 +1019,21 @@ export default function WelcomePage() {
                           fill="none"
                           strokeDasharray={`${2 * Math.PI * 54}`}
                           strokeDashoffset={`${2 * Math.PI * 54 * (1 - conversationTimer / 300)}`}
-                          className={`${dark ? "text-slate-400" : "text-blue-500"} transition-all duration-1000 ease-out`}
+                          className={`${dark ? 'text-slate-400' : 'text-blue-500'} transition-all duration-1000 ease-out`}
                           strokeLinecap="round"
                         />
                       </svg>
                     </div>
                     
-                    <div className="relative z-10">
-                      <div className={`text-4xl font-bold mb-2 ${
-                        dark ? "text-slate-200" : "text-gray-800"
-                      }`}>
-                        {formatTime(conversationTimer)}
+                    <div className="relative z-10 flex flex-col items-center justify-center py-8">
+                      <div className={`text-4xl font-bold mb-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{formatTime(conversationTimer)}</div>
+                      <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>الوقت المتبقي</p>
+                      {/* Pulsing dots animation */}
+                      <div className="mt-2 flex space-x-1">
+                        <div className={`w-2 h-2 rounded-full animate-pulse ${dark ? 'bg-slate-400' : 'bg-blue-500'}`} style={{ animationDelay: '0ms' }}></div>
+                        <div className={`w-2 h-2 rounded-full animate-pulse ${dark ? 'bg-slate-400' : 'bg-blue-500'}`} style={{ animationDelay: '300ms' }}></div>
+                        <div className={`w-2 h-2 rounded-full animate-pulse ${dark ? 'bg-slate-400' : 'bg-blue-500'}`} style={{ animationDelay: '600ms' }}></div>
                       </div>
-                      <p className={`text-sm ${
-                        dark ? "text-slate-300" : "text-gray-600"
-                      }`}>
-                        الوقت المتبقي
-                      </p>
-                    </div>
-                    
-                    {/* Pulsing dots animation */}
-                    <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex space-x-1">
-                      <div className={`w-2 h-2 rounded-full animate-pulse ${
-                        dark ? "bg-slate-400" : "bg-blue-500"
-                      }`} style={{ animationDelay: '0ms' }}></div>
-                      <div className={`w-2 h-2 rounded-full animate-pulse ${
-                        dark ? "bg-slate-400" : "bg-blue-500"
-                      }`} style={{ animationDelay: '300ms' }}></div>
-                      <div className={`w-2 h-2 rounded-full animate-pulse ${
-                        dark ? "bg-slate-400" : "bg-blue-500"
-                      }`} style={{ animationDelay: '600ms' }}></div>
                     </div>
                   </div>
 

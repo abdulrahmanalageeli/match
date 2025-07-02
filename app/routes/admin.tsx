@@ -244,15 +244,19 @@ export default function AdminPage() {
               </span>
             </div>
             
-            <select
-              value={currentPhase}
-              onChange={(e) => updatePhase(e.target.value)}
-              className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
-            >
-              <option value="waiting">Waiting</option>
-              <option value="form">Form</option>
-              <option value="matching">Matching</option>
-            </select>
+                         <select
+               value={currentPhase}
+               onChange={(e) => updatePhase(e.target.value)}
+               className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+               style={{
+                 color: 'white',
+                 backgroundColor: 'rgba(15, 23, 42, 0.8)'
+               }}
+             >
+               <option value="waiting" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting</option>
+               <option value="form" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Form</option>
+               <option value="matching" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching</option>
+             </select>
           </div>
 
           <div className="flex items-center gap-2">

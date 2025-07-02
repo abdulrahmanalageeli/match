@@ -26,28 +26,37 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 
-const ModernProgressIndicator = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
-  const percent = (currentStep / (totalSteps - 1)) * 100;
+const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
+  const steps = Array.from({ length: totalSteps });
   return (
-    <div className="w-full max-w-md mx-auto mb-8 flex flex-col items-center">
-      <div className="relative w-full h-6 flex items-center justify-center">
-        {/* Background line */}
+    <div className="w-full max-w-[90%] mx-auto mb-8 flex flex-col items-center">
+      <div className="relative w-full flex items-center justify-between" style={{ height: 32 }}>
+        {/* Timeline line */}
         <div className={`absolute left-0 right-0 top-1/2 h-1 rounded-full ${dark ? 'bg-slate-700/60' : 'bg-blue-100/80'}`} style={{ transform: 'translateY(-50%)' }} />
-        {/* Filled line */}
-        <div className={`absolute left-0 top-1/2 h-1 rounded-full transition-all duration-700 ${dark ? 'bg-gradient-to-r from-blue-400 to-cyan-400' : 'bg-gradient-to-r from-blue-500 to-purple-400'}`} style={{ width: `${percent}%`, transform: 'translateY(-50%)' }} />
-        {/* Glowing dot */}
-        <div
-          className={`absolute top-1/2 rounded-full shadow-lg transition-all duration-500 ${dark ? 'bg-cyan-400' : 'bg-blue-500'}`}
-          style={{
-            left: `calc(${percent}% - 18px)`,
-            width: 36,
-            height: 36,
-            boxShadow: `0 0 16px 4px ${dark ? '#22d3ee88' : '#3b82f688'}`,
-            border: `3px solid ${dark ? '#0ea5e9' : '#6366f1'}`,
-            transform: 'translateY(-50%)',
-            zIndex: 2,
-          }}
-        />
+        {steps.map((_, i) => {
+          const isCurrent = i === currentStep;
+          const isPast = i < currentStep;
+          return (
+            <div key={i} className="relative z-10 flex flex-col items-center" style={{ width: 1, flex: 1 }}>
+              <div
+                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${
+                  isCurrent
+                    ? dark
+                      ? 'bg-cyan-400 border-cyan-300 shadow-lg shadow-cyan-400/40'
+                      : 'bg-blue-500 border-blue-400 shadow-lg shadow-blue-400/40'
+                    : isPast
+                      ? dark
+                        ? 'bg-slate-500 border-slate-400'
+                        : 'bg-blue-300 border-blue-200'
+                      : dark
+                        ? 'bg-slate-800 border-slate-700'
+                        : 'bg-gray-200 border-gray-300'
+                }`}
+                style={{ boxShadow: isCurrent ? `0 0 12px 2px ${dark ? '#22d3ee88' : '#3b82f688'}` : undefined }}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -520,7 +529,7 @@ export default function WelcomePage() {
       </div>
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
-        <ModernProgressIndicator currentStep={step} totalSteps={5} dark={dark} />
+        <SleekTimeline currentStep={step} totalSteps={5} dark={dark} />
 
         {/* خطوة 0 */}
         {step === 0 && (
@@ -948,32 +957,6 @@ export default function WelcomePage() {
                       درجة التوافق: {isScoreRevealed ? compatibilityScore : "***"}
                     </p>
                   </div>
-
-                  {isScoreRevealed && compatibilityScore !== null && (
-                    <div className="relative flex flex-col items-center mt-4 mb-2">
-                      <div className="w-full max-w-xs h-2 rounded-full bg-gradient-to-r from-blue-500/30 via-cyan-400/30 to-purple-500/30 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-700 bg-gradient-to-r ${
-                            compatibilityScore >= 80
-                              ? 'from-green-400 via-green-500 to-emerald-400'
-                              : compatibilityScore >= 50
-                                ? 'from-yellow-300 via-yellow-400 to-yellow-500'
-                                : 'from-red-400 via-pink-500 to-pink-400'
-                          } animate-pulse`}
-                          style={{ width: `${compatibilityScore}%` }}
-                        />
-                      </div>
-                      <span className={`absolute -top-6 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full shadow-lg backdrop-blur-md border border-white/30 text-xs font-bold ${
-                        compatibilityScore >= 80
-                          ? 'bg-green-400/80 text-white'
-                          : compatibilityScore >= 50
-                            ? 'bg-yellow-400/80 text-gray-900'
-                            : 'bg-red-500/80 text-white'
-                      }`} style={{letterSpacing: '0.1em'}}>
-                        {compatibilityScore >= 80 ? 'قوي' : compatibilityScore >= 50 ? 'متوسط' : 'ضعيف'}
-                      </span>
-                    </div>
-                  )}
 
                   <div className="flex justify-center">
                     <Button

@@ -298,17 +298,23 @@ export default function WelcomePage() {
       const data = await myMatches.json()
       const matches = data.matches as MatchResultEntry[]
 
+      console.log("Fetched matches:", matches) // Debug log
+
       // Sort by round number
       matches.sort((a, b) => a.round - b.round)
 
       const round1 = matches.find((m) => m.round === 1)
       const round2 = matches.find((m) => m.round === 2)
 
+      console.log("Round 1 match:", round1) // Debug log
+      console.log("Round 2 match:", round2) // Debug log
+
       if (round1) {
         setMatchResult(round1.with)
         setMatchReason(round1.reason)
         setTableNumber(round1.table_number)
         setCompatibilityScore(round1.score)
+        console.log("Set round 1 data:", { with: round1.with, table: round1.table_number, score: round1.score }) // Debug log
       }
 
       if (round2) {
@@ -317,6 +323,7 @@ export default function WelcomePage() {
         setMatchReason(round2.reason)
         setTableNumber(round2.table_number)
         setCompatibilityScore(round2.score)
+        console.log("Set round 2 data:", { with: round2.with, table: round2.table_number, score: round2.score }) // Debug log
       }
 
     } catch (err) {
@@ -377,6 +384,7 @@ export default function WelcomePage() {
   const submitFeedback = () => {
     // Here you can send feedback to your API
     console.log("Feedback submitted:", feedbackAnswers)
+    console.log("Compatibility score to reveal:", compatibilityScore) // Debug log
     setIsScoreRevealed(true)
     setShowFeedbackModal(false)
     setShowFinalResult(true)
@@ -788,19 +796,17 @@ export default function WelcomePage() {
                     توأم روحك هو رقم {matchResult}
                   </h3>
                   
-                  {tableNumber && (
-                    <div className={`text-center mb-4 p-3 rounded-xl border ${
-                      dark 
-                        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-lg font-semibold ${
+                      dark ? "text-slate-200" : "text-gray-700"
                     }`}>
-                      <p className={`text-lg font-semibold ${
-                        dark ? "text-slate-200" : "text-gray-700"
-                      }`}>
-                        اذهب إلى الطاولة رقم {tableNumber}
-                      </p>
-                    </div>
-                  )}
+                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                    </p>
+                  </div>
 
                   <div className={`rounded-xl p-4 border mb-6 ${
                     dark 
@@ -913,7 +919,7 @@ export default function WelcomePage() {
                 <div className={`text-3xl font-bold ${
                   dark ? "text-slate-200" : "text-gray-800"
                 }`}>
-                  {compatibilityScore}/100
+                  {compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}
                 </div>
               </div>
 

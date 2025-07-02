@@ -15,10 +15,12 @@ export default async function handler(req, res) {
   try {
     const { data: matches, error } = await supabase
       .from("match_results")
-      .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score, round")
+      .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score, round, table_number")
       .eq("match_id", match_id)
 
     if (error) throw error
+
+    console.log("Raw matches from Supabase:", matches) // Debug log
 
     const results = (matches || []).map(match => ({
       with: match.participant_a_number?.toString(),
@@ -29,6 +31,8 @@ export default async function handler(req, res) {
       round: match.round ?? 1,
       table_number: match.table_number || null,
     }))
+
+    console.log("Processed results:", results) // Debug log
 
     return res.status(200).json({ matches: results })
   } catch (err) {

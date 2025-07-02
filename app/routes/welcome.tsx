@@ -27,15 +27,19 @@ import "../../app/app.css"
 import MatchResult from "./MatchResult"
 
 const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
+  const stepLabels = ["التوافق", "الانتظار", "التحليل", "الرقم", "البداية"];
+  // Reverse for RTL
   const steps = Array.from({ length: totalSteps });
   return (
-    <div className="w-full max-w-[90%] mx-auto mb-8 flex flex-col items-center">
-      <div className="relative w-full flex items-center justify-between" style={{ height: 32 }}>
+    <div className="w-full max-w-[90%] mx-auto mb-8 flex flex-col items-center" dir="rtl">
+      <div className="relative w-full flex flex-row-reverse items-center justify-between" style={{ height: 32 }}>
         {/* Timeline line */}
         <div className={`absolute left-0 right-0 top-1/2 h-1 rounded-full ${dark ? 'bg-slate-700/60' : 'bg-blue-100/80'}`} style={{ transform: 'translateY(-50%)' }} />
         {steps.map((_, i) => {
-          const isCurrent = i === currentStep;
-          const isPast = i < currentStep;
+          // For RTL, currentStep is counted from the right
+          const rtlIndex = totalSteps - 1 - i;
+          const isCurrent = rtlIndex === currentStep;
+          const isPast = rtlIndex < currentStep;
           return (
             <div key={i} className="relative z-10 flex flex-col items-center" style={{ width: 1, flex: 1 }}>
               <div
@@ -54,6 +58,7 @@ const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number;
                 }`}
                 style={{ boxShadow: isCurrent ? `0 0 12px 2px ${dark ? '#22d3ee88' : '#3b82f688'}` : undefined }}
               />
+              <span className={`mt-2 text-xs font-medium ${isCurrent ? (dark ? 'text-cyan-300' : 'text-blue-600') : (dark ? 'text-slate-400' : 'text-gray-500')}`}>{stepLabels[i]}</span>
             </div>
           );
         })}
@@ -852,19 +857,26 @@ export default function WelcomePage() {
                   dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <MessageSquare className={`w-5 h-5 ${
-                    dark ? "text-slate-300" : "text-gray-500"
-                  }`} />
-                  <h4 className={`text-sm font-medium ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>تحليل شخصيتك</h4>
-                </div>
-                <div className={`text-sm text-right leading-relaxed italic min-h-[4rem] ${
-                  dark ? "text-slate-300" : "text-gray-600"
-                }`}>
-                  {typewriterText}
-                  {isTyping && <span className="animate-pulse">|</span>}
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    aria-label="التالي"
+                    className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                    onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                    disabled={prompts.length <= 1}
+                  >
+                    <ChevronLeftIcon className="w-5 h-5" />
+                  </button>
+                  <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                  <button
+                    type="button"
+                    aria-label="السابق"
+                    className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                    onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                    disabled={prompts.length <= 1}
+                  >
+                    <ChevronRightIcon className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -926,9 +938,9 @@ export default function WelcomePage() {
                     <div className="flex items-center justify-between gap-2">
                       <button
                         type="button"
-                        aria-label="السابق"
+                        aria-label="التالي"
                         className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
                         disabled={prompts.length <= 1}
                       >
                         <ChevronLeftIcon className="w-5 h-5" />
@@ -936,9 +948,9 @@ export default function WelcomePage() {
                       <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
                       <button
                         type="button"
-                        aria-label="التالي"
+                        aria-label="السابق"
                         className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
                         disabled={prompts.length <= 1}
                       >
                         <ChevronRightIcon className="w-5 h-5" />
@@ -961,7 +973,7 @@ export default function WelcomePage() {
                   <div className="flex justify-center">
                     <Button
                       onClick={startConversation}
-                      className="spring-btn relative ps-12 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                      className="spring-btn relative ps-12 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
                     >
                       ابدأ المحادثة
                       <span className="bg-white/20 pointer-events-none absolute inset-y-0 start-0 flex w-9 items-center justify-center rounded-s-md">

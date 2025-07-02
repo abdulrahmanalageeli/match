@@ -59,6 +59,18 @@ export default function WelcomePage() {
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
 
+  const prompts = [
+    "ما أكثر شيء استمتعت به مؤخراً؟",
+    "لو كان بإمكانك السفر لأي مكان، أين ستذهب ولماذا؟",
+    "ما هي هوايتك المفضلة؟",
+    "ما هو أفضل كتاب أو فيلم شاهدته مؤخراً؟",
+    "لو كان بإمكانك تعلم مهارة جديدة، ماذا ستكون؟",
+    "ما هو أكثر شيء تفتخر به في نفسك؟",
+    "ما هو حلمك الكبير في الحياة؟",
+    "ما هو أكثر شيء يجعلك تضحك؟"
+  ];
+  const [promptIndex, setPromptIndex] = useState(0);
+
   // Typewriter effect for AI description
   useEffect(() => {
     if (!personalitySummary || personalitySummary === "ما تم إنشاء ملخص.") {
@@ -848,11 +860,27 @@ export default function WelcomePage() {
                       ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
                       : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
                   }`}>
-                    <p className={`text-sm text-center italic ${
-                      dark ? "text-slate-200" : "text-gray-700"
-                    }`}>
-                      {matchReason}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-label="السابق"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronRightIcon className="w-5 h-5 rtl:rotate-180" />
+                      </button>
+                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                      <button
+                        type="button"
+                        aria-label="التالي"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5 rtl:rotate-180" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
@@ -864,6 +892,18 @@ export default function WelcomePage() {
                       dark ? "text-slate-300" : "text-gray-600"
                     }`}>
                       درجة التوافق: {isScoreRevealed ? compatibilityScore : "***"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-sm text-center italic ${
+                      dark ? "text-slate-300" : "text-gray-600"
+                    }`}>
+                      {matchReason}
                     </p>
                   </div>
 

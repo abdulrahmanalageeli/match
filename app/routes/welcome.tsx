@@ -1100,6 +1100,12 @@ if (!isResolving && phase !== "form" && step === 0) {
                   )}
                 </div>
               </div>
+              <div className="mt-8 flex flex-col items-center justify-center">
+                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-lg shadow-lg border-2 ${dark ? 'bg-yellow-400/10 border-yellow-400/40 text-yellow-300' : 'bg-yellow-100 border-yellow-400 text-yellow-700'}`}> 
+                  <Clock className="w-6 h-6" />
+                  يرجى الانتظار حتى ينقلك المنظّم للمرحلة التالية
+                </div>
+              </div>
             </div>
 
             {/* Users wait for host to move them to next phase */}
@@ -1575,6 +1581,28 @@ if (!isResolving && phase !== "form" && step === 0) {
                 </div>
               )}
       <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+    </div>
+    <div className={`text-center mb-6 p-6 rounded-xl border shadow-xl ${
+      dark 
+        ? "bg-gradient-to-r from-blue-900/40 to-cyan-900/40 border-blue-400/30" 
+        : "bg-gradient-to-r from-blue-100/80 to-cyan-100/80 border-blue-400/30"
+    }`}>
+      <div className="flex flex-col items-center gap-2 mb-2">
+        <Clock className="w-8 h-8 animate-pulse text-blue-400" />
+        <span className="text-lg font-extrabold text-blue-500">بانتظار المنظّم</span>
+      </div>
+      <p className="text-base font-semibold text-blue-400">سيتم إخبارك عندما يبدأ المنظّم الجولة الثانية</p>
+    </div>
+    <div className={`text-center mb-6 p-6 rounded-xl border ${
+      dark 
+        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" 
+        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+    }`}>
+      <p className={`text-lg font-bold mb-2 ${dark ? "text-yellow-300" : "text-yellow-700"}`}>درجة التوافق الأصلية</p>
+      <div className="text-5xl font-extrabold text-yellow-400 drop-shadow-lg mb-2">
+        {compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}
+      </div>
+      <p className={`text-base font-semibold italic ${dark ? "text-yellow-200" : "text-yellow-800"}`}>هذه هي درجة التوافق الأصلية التي كانت مخفية أثناء الجولة، وليست مبنية على تقييمك.</p>
     </div>
   </section>
 )}

@@ -23,12 +23,18 @@ export default async function handler(req, res) {
 
     console.log("Looking for matches for player:", assigned_number, "in round:", roundNumber) // Debug log
 
-    const { data: matches, error } = await supabase
+    // If round is provided, filter by round, otherwise fetch all rounds
+    let query = supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score, round, table_number")
       .eq("match_id", match_id)
-      .eq("round", roundNumber)
       .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
+
+    if (typeof round === 'number') {
+      query = query.eq("round", round)
+    }
+
+    const { data: matches, error } = await query
 
     if (error) throw error
 

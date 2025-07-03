@@ -128,6 +128,8 @@ const [isResolving, setIsResolving] = useState(true)
   const [announcementProgress, setAnnouncementProgress] = useState(0)
   const [showFormFilledPrompt, setShowFormFilledPrompt] = useState(false)
   const [pendingMatchRound, setPendingMatchRound] = useState<number | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyMatches, setHistoryMatches] = useState<MatchResultEntry[]>([])
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -1592,12 +1594,53 @@ if (!isResolving && phase !== "form" && step === 0) {
               )}
             </div>
 
-            <div className="flex justify-center gap-3">
-    
-      <FancyNextButton onClick={restart} label="ابدأ من جديد" />
-    </div>
-
-  </section>
+            <div className="flex justify-center gap-3 mt-6">
+              <Button
+                onClick={async () => {
+                  // Fetch all matches for this user
+                  const res = await fetch("/api/get-my-matches", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ assigned_number: assignedNumber })
+                  })
+                  const data = await res.json()
+                  setHistoryMatches(data.matches || [])
+                  setShowHistory(true)
+                }}
+                className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+              >
+                عرض السجل
+              </Button>
+              <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+            </div>
+            {/* History Modal/Section */}
+            {showHistory && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className={`w-full max-w-lg rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
+                    <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
+                  </div>
+                  <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto">
+                    {historyMatches.length === 0 ? (
+                      <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
+                    ) : (
+                      historyMatches.map((m, i) => (
+                        <div key={i} className="py-4 flex flex-col gap-1">
+                          <div className="flex items-center gap-2">
+                            <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>#{m.with}</span>
+                            <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-slate-700 text-slate-200" : "bg-blue-100 text-blue-700"}`}>الجولة {m.round}</span>
+                            <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}/100</span>
+                          </div>
+                          <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
 )}
       </div>
 

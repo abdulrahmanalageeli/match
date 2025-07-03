@@ -138,75 +138,67 @@ const systemMsg = `
         console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
       })
 
+    // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (2 ROUNDS) ---
+    // For each round, globally sort all pairs by compatibility score (descending).
+    // Assign matches if neither participant is matched in this round and the pair hasn't been matched in previous rounds.
+    // If odd participant, assign the unmatched participant with the lowest available compatibility to the host (0).
+    // Only compatibility_score, round, and reason are stored.
+    // No match_type.
+    // ------------------------------------------------------------
     const finalMatches = []
+    const matchedPairs = new Set() // Track pairs matched in any round
+    const participantCount = numbers.length
+    const rounds = 2
 
-    // ✅ Round 1 – Soulmate (best matches)
-    const used1 = new Set()
-    const round1 = []
-    const sortedHigh = [...allPairs].sort((a, b) => b.score - a.score)
-    for (const pair of sortedHigh) {
-      if (!used1.has(pair.a) && !used1.has(pair.b)) {
-        used1.add(pair.a)
-        used1.add(pair.b)
-        round1.push({
-          participant_a_number: pair.a,
-          participant_b_number: pair.b,
-          compatibility_score: pair.score,
-          match_type: "توأم روح",
-          reason: pair.reason,
+    for (let round = 1; round <= rounds; round++) {
+      const used = new Set() // Track participants matched in this round
+      const roundMatches = []
+      // Sort all pairs globally by score (descending)
+      const sortedPairs = [...allPairs].sort((a, b) => b.score - a.score)
+      for (const pair of sortedPairs) {
+        const key = `${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`
+        if (
+          !used.has(pair.a) &&
+          !used.has(pair.b) &&
+          !matchedPairs.has(key)
+        ) {
+          used.add(pair.a)
+          used.add(pair.b)
+          matchedPairs.add(key)
+          roundMatches.push({
+            participant_a_number: pair.a,
+            participant_b_number: pair.b,
+            compatibility_score: pair.score,
+            reason: pair.reason,
+            match_id,
+            round
+          })
+        }
+      }
+      // Handle odd participant: find unmatched with lowest score
+      const unmatched = numbers.filter(n => !used.has(n))
+      if (unmatched.length === 1) {
+        // Find the lowest score for this unmatched participant
+        let minScore = Infinity
+        let minReason = ""
+        for (const pair of allPairs) {
+          if ((pair.a === unmatched[0] || pair.b === unmatched[0]) && !matchedPairs.has(`${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`)) {
+            if (pair.score < minScore) {
+              minScore = pair.score
+              minReason = pair.reason
+            }
+          }
+        }
+        roundMatches.push({
+          participant_a_number: 0,
+          participant_b_number: unmatched[0],
+          compatibility_score: 0,
+          reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
           match_id,
-          round: 1
+          round
         })
       }
-    }
-    finalMatches.push(...round1)
-
-    // ❌ Handle odd participant in Round 1
-    const unmatched1 = numbers.filter(n => !used1.has(n))
-    if (unmatched1.length === 1) {
-      finalMatches.push({
-        participant_a_number: 0,
-        participant_b_number: unmatched1[0],
-        compatibility_score: 0,
-        match_type: "توأم روح (منظم)",
-        reason: "تم توصيله بك لعدم وجود شريك متبقي.",
-        match_id,
-        round: 1
-      })
-    }
-
-    // 🔻 Round 2 – Nemesis (lowest matches, ignoring used1)
-    const used2 = new Set()
-    const round2 = []
-    const sortedLow = [...allPairs].sort((a, b) => a.score - b.score)
-    for (const pair of sortedLow) {
-      if (!used2.has(pair.a) && !used2.has(pair.b)) {
-        used2.add(pair.a)
-        used2.add(pair.b)
-        round2.push({
-          participant_a_number: pair.a,
-          participant_b_number: pair.b,
-          compatibility_score: pair.score,
-          match_type: "عدو لدود",
-          reason: pair.reason,
-          match_id,
-          round: 2
-        })
-      }
-    }
-    finalMatches.push(...round2)
-
-    const unmatched2 = numbers.filter(n => !used2.has(n))
-    if (unmatched2.length === 1) {
-      finalMatches.push({
-        participant_a_number: 0,
-        participant_b_number: unmatched2[0],
-        compatibility_score: 0,
-        match_type: "محايد",
-        reason: "لم نجد شريكاً مناسباً.",
-        match_id,
-        round: 2
-      })
+      finalMatches.push(...roundMatches)
     }
 
     const { error: insertError } = await supabase
@@ -216,7 +208,7 @@ const systemMsg = `
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: "✅ Round 1 (Soulmates) + Round 2 (Nemesis) matching complete",
+      message: `✅ Matching complete for ${rounds} rounds`,
       count: finalMatches.length,
       results: finalMatches
     })

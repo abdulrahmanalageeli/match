@@ -89,7 +89,7 @@ const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted }: { curre
 };
 
 export default function WelcomePage() {
-  const [step, setStep] = useState(-1)
+  const [step, setStep] = useState(0)
   const [showFinalResult, setShowFinalResult] = useState(false)
   const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
@@ -127,6 +127,7 @@ const [isResolving, setIsResolving] = useState(true)
   const [welcomeTyping, setWelcomeTyping] = useState(false)
   const [announcementProgress, setAnnouncementProgress] = useState(0)
   const [showFormFilledPrompt, setShowFormFilledPrompt] = useState(false)
+  const [pendingMatchRound, setPendingMatchRound] = useState<number | null>(null)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -226,12 +227,12 @@ const [isResolving, setIsResolving] = useState(true)
             if (phaseData.phase !== "form") {
               // Registration closed but user filled form, skip to correct step
               if (phaseData.phase === "matching") {
-                await fetchMatches(1); // Fetch match data immediately
+                setPendingMatchRound(1); // Defer fetch until assignedNumber is set
                 setStep(4); // Show matches
               } else if (phaseData.phase === "waiting" || phaseData.phase === "waiting2") {
                 setStep(3); // Show analysis/waiting
               } else if (phaseData.phase === "matching2") {
-                await fetchMatches(2); // Fetch match data immediately
+                setPendingMatchRound(2); // Defer fetch until assignedNumber is set
                 setStep(6); // Show round 2 matches
               }
             } else {
@@ -249,6 +250,13 @@ const [isResolving, setIsResolving] = useState(true)
     }
     resolveToken()
   }, [token])
+
+  useEffect(() => {
+    if (assignedNumber && pendingMatchRound) {
+      fetchMatches(pendingMatchRound)
+      setPendingMatchRound(null)
+    }
+  }, [assignedNumber, pendingMatchRound])
 
   // Combined real-time updates for all steps
   useEffect(() => {

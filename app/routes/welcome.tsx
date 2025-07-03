@@ -1613,33 +1613,6 @@ if (!isResolving && phase !== "form" && step === 0) {
               </Button>
               <FancyNextButton onClick={restart} label="ابدأ من جديد" />
             </div>
-            {/* History Modal/Section */}
-            {showHistory && (
-              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className={`w-full max-w-lg rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
-                    <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
-                  </div>
-                  <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto">
-                    {historyMatches.length === 0 ? (
-                      <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
-                    ) : (
-                      historyMatches.map((m, i) => (
-                        <div key={i} className="py-4 flex flex-col gap-1">
-                          <div className="flex items-center gap-2">
-                            <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>#{m.with}</span>
-                            <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-slate-700 text-slate-200" : "bg-blue-100 text-blue-700"}`}>الجولة {m.round}</span>
-                            <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}/100</span>
-                          </div>
-                          <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
           </section>
 )}
       </div>
@@ -1787,6 +1760,32 @@ if (!isResolving && phase !== "form" && step === 0) {
               >
                 الانتقال إلى التحليل
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showHistory && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`w-full max-w-lg rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
+              <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
+            </div>
+            <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto">
+              {historyMatches.length === 0 ? (
+                <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
+              ) : (
+                historyMatches.map((m, i) => (
+                  <div key={i} className="py-4 flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>#{m.with}</span>
+                      <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-slate-700 text-slate-200" : "bg-blue-100 text-blue-700"}`}>الجولة {m.round}</span>
+                      <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}/100</span>
+                    </div>
+                    <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

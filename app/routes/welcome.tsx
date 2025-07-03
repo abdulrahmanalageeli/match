@@ -254,45 +254,6 @@ export default function WelcomePage() {
     </Button>
   )
 
-  useEffect(() => {
-    if (step !== 4 || !assignedNumber) return
-
-    setCountdown(3)
-    setMatchResult(null)
-    setMatchReason("")
-
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          fetchMatches()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [step])
-
-  // Conversation timer effect
-  useEffect(() => {
-    if (!conversationStarted || conversationTimer <= 0) return
-
-    const interval = setInterval(() => {
-      setConversationTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          setShowFeedbackModal(true)
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [conversationStarted, conversationTimer])
-
   const startConversation = () => {
     setConversationStarted(true)
   }
@@ -391,27 +352,6 @@ export default function WelcomePage() {
     }
   }
 
-  useEffect(() => {
-    if (step !== 4 || !assignedNumber) return
-
-    setCountdown(3)
-    setMatchResult(null)
-    setMatchReason("")
-
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          fetchMatches()
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [step])
-
   // Conversation timer effect
   useEffect(() => {
     if (!conversationStarted || conversationTimer <= 0) return
@@ -429,6 +369,26 @@ export default function WelcomePage() {
 
     return () => clearInterval(interval)
   }, [conversationStarted, conversationTimer])
+
+  useEffect(() => {
+    if (step !== 4 || !assignedNumber) return
+
+    const interval = setInterval(async () => {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
+      })
+      const data = await res.json()
+      if ((currentRound === 1 && data.phase === "matching") || (currentRound === 2 && data.phase === "matching2")) {
+        clearInterval(interval)
+        await fetchMatches(currentRound)
+        setStep(5)
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [step, currentRound, assignedNumber])
 
   const submitFeedback = () => {
     setIsScoreRevealed(true)

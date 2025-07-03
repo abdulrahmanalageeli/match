@@ -99,6 +99,7 @@ export default function WelcomePage() {
   const [isResolving, setIsResolving] = useState(true)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
+  const [currentRound, setCurrentRound] = useState(1)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -256,23 +257,50 @@ export default function WelcomePage() {
   useEffect(() => {
     if (step !== 4 || !assignedNumber) return
 
-    const interval = setInterval(async () => {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
-      })
-      const data = await res.json()
+    setCountdown(3)
+    setMatchResult(null)
+    setMatchReason("")
 
-      if (data.phase === "matching") {
-        clearInterval(interval)
-        await fetchMatches()
-        setStep(5) // Move to result
-      }
-    }, 5000)
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          fetchMatches()
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
 
     return () => clearInterval(interval)
   }, [step])
+
+  // Conversation timer effect
+  useEffect(() => {
+    if (!conversationStarted || conversationTimer <= 0) return
+
+    const interval = setInterval(() => {
+      setConversationTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval)
+          setShowFeedbackModal(true)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [conversationStarted, conversationTimer])
+
+  const startConversation = () => {
+    setConversationStarted(true)
+  }
+
+  const skipConversation = () => {
+    setConversationTimer(0)
+    setShowFeedbackModal(true)
+  }
 
   const handleSubmit = async () => {
     setLoading(true)
@@ -340,34 +368,24 @@ export default function WelcomePage() {
     score: number
   }
 
-  const fetchMatches = async () => {
+  const fetchMatches = async (roundOverride?: number) => {
     try {
+      const roundToFetch = roundOverride || currentRound;
       const myMatches = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber }),
+        body: JSON.stringify({ assigned_number: assignedNumber, round: roundToFetch }),
       })
-
       const data = await myMatches.json()
       const matches = data.matches as MatchResultEntry[]
-
-      console.log("Fetched matches:", matches) // Debug log
-
-      // Since API now only returns round 1 matches, we can simplify this
-      const match = matches[0] // Get the first (and should be only) match
-
-      console.log("Round 1 match:", match) // Debug log
-
+      const match = matches[0]
       if (match) {
         setMatchResult(match.with)
         setMatchReason(match.reason)
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
-        console.log("Set match data:", { with: match.with, table: match.table_number, score: match.score }) // Debug log
       }
-
     } catch (err) {
-      console.error("Match error:", err)
       setMatchResult("؟")
       setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
     }
@@ -412,19 +430,7 @@ export default function WelcomePage() {
     return () => clearInterval(interval)
   }, [conversationStarted, conversationTimer])
 
-  const startConversation = () => {
-    setConversationStarted(true)
-  }
-
-  const skipConversation = () => {
-    setConversationTimer(0)
-    setShowFeedbackModal(true)
-  }
-
   const submitFeedback = () => {
-    // Here you can send feedback to your API
-    console.log("Feedback submitted:", feedbackAnswers)
-    console.log("Compatibility score to reveal:", compatibilityScore) // Debug log
     setIsScoreRevealed(true)
     setShowFeedbackModal(false)
     setShowFinalResult(true)
@@ -840,10 +846,8 @@ export default function WelcomePage() {
                   dark ? "text-slate-400" : "text-gray-600"
                 }`} />
               </div>
-              <h3 className={`text-lg font-semibold text-center mb-4 ${
-                dark ? "text-slate-200" : "text-gray-800"
-              }`}>
-                بانتظار المنظّم لبدء التوافق...
+              <h3 className={`text-lg font-semibold text-center mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                {currentRound === 1 ? "بانتظار المنظّم لبدء التوافق..." : "بانتظار المنظّم لبدء الجولة الثانية..."}
               </h3>
               <p className={`text-center text-sm italic mb-6 ${
                 dark ? "text-slate-300" : "text-gray-600"
@@ -1117,7 +1121,20 @@ export default function WelcomePage() {
               )}
             </div>
 
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-3">
+              {currentRound === 1 && isScoreRevealed && (
+                <FancyNextButton
+                  onClick={() => {
+                    setCurrentRound(2)
+                    setShowFinalResult(false)
+                    setIsScoreRevealed(false)
+                    setConversationStarted(false)
+                    setConversationTimer(300)
+                    setStep(4) // Go to waiting for round 2
+                  }}
+                  label="ابدأ الجولة الثانية"
+                />
+              )}
               <FancyNextButton onClick={restart} label="ابدأ من جديد" />
             </div>
           </section>

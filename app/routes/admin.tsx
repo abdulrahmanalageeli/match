@@ -154,7 +154,9 @@ export default function AdminPage() {
   const phaseConfig = {
     waiting: { label: "Waiting", color: "text-yellow-400", bg: "bg-yellow-400/10", icon: Clock },
     form: { label: "Form", color: "text-blue-400", bg: "bg-blue-400/10", icon: CheckSquare },
-    matching: { label: "Matching", color: "text-green-400", bg: "bg-green-400/10", icon: BarChart3 }
+    matching: { label: "Matching", color: "text-green-400", bg: "bg-green-400/10", icon: BarChart3 },
+    waiting2: { label: "Waiting for Round 2", color: "text-yellow-300", bg: "bg-yellow-300/10", icon: Clock },
+    matching2: { label: "Matching Round 2", color: "text-pink-400", bg: "bg-pink-400/10", icon: BarChart3 },
   }
 
   const currentPhaseConfig = phaseConfig[currentPhase as keyof typeof phaseConfig]
@@ -256,6 +258,8 @@ export default function AdminPage() {
                <option value="waiting" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting</option>
                <option value="form" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Form</option>
                <option value="matching" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching</option>
+               <option value="waiting2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting for Round 2</option>
+               <option value="matching2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching Round 2</option>
              </select>
           </div>
 

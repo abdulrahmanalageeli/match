@@ -13,19 +13,21 @@ export default async function handler(req, res) {
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
-    const { assigned_number } = req.body
+    const { assigned_number, round } = req.body
     
     if (!assigned_number) {
       return res.status(400).json({ error: "assigned_number is required" })
     }
 
-    console.log("Looking for matches for player:", assigned_number) // Debug log
+    const roundNumber = typeof round === 'number' ? round : 1;
+
+    console.log("Looking for matches for player:", assigned_number, "in round:", roundNumber) // Debug log
 
     const { data: matches, error } = await supabase
       .from("match_results")
       .select("participant_a_number, participant_b_number, match_type, reason, compatibility_score, round, table_number")
       .eq("match_id", match_id)
-      .eq("round", 1)
+      .eq("round", roundNumber)
       .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
 
     if (error) throw error

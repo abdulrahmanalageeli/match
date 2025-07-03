@@ -62,11 +62,21 @@ const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted }: { curre
                 }`}
                 style={{ boxShadow: isCurrent ? `0 0 12px 2px ${dark ? '#22d3ee88' : '#3b82f688'}` : undefined }}
               >
-                {/* Check mark for completed form */}
-                {isFormStep && formCompleted && (
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+                {/* AI-themed indicators for completed steps */}
+                {isCompleted && (
+                  <div className="relative">
+                    {/* Neural network nodes */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.2s' }}></div>
+                    </div>
+                    {/* AI check mark */}
+                    <svg className="w-3 h-3 text-white relative z-10" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  </div>
                 )}
               </div>
               <span className={`mt-2 text-xs font-medium ${isCurrent ? (dark ? 'text-cyan-300' : 'text-blue-600') : isCompleted ? (dark ? 'text-green-400' : 'text-green-600') : (dark ? 'text-slate-400' : 'text-gray-500')}`}>{stepLabels[i]}</span>
@@ -256,84 +266,7 @@ export default function WelcomePage() {
 
         // Handle step transitions based on phase changes
         if (assignedNumber) {
-          // If we're in welcome page (-1) and phase changes to form, move to step 0
-          if (step === -1 && data.phase === "form") {
-            setStep(0)
-          }
-          
-          // If we're in welcome page (-1) and phase changes to waiting, check if form is filled
-          if (step === -1 && data.phase === "waiting") {
-            // Check if user has filled form
-            const res = await fetch("/api/token-handler", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "resolve", secure_token: token }),
-            })
-            const userData = await res.json()
-            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
-            
-            if (hasFilledForm) {
-              setStep(3) // Analysis/waiting
-            } else {
-              setStep(2) // Form
-            }
-          }
-          
-          // If we're in welcome page (-1) and phase changes to matching, check if form is filled
-          if (step === -1 && data.phase === "matching") {
-            // Check if user has filled form
-            const res = await fetch("/api/token-handler", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "resolve", secure_token: token }),
-            })
-            const userData = await res.json()
-            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
-            
-            if (hasFilledForm) {
-              await fetchMatches(1)
-              setStep(4) // Round 1 matching
-            } else {
-              setStep(-2) // Too late
-            }
-          }
-          
-          // If we're in welcome page (-1) and phase changes to waiting2, check if form is filled
-          if (step === -1 && data.phase === "waiting2") {
-            // Check if user has filled form
-            const res = await fetch("/api/token-handler", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "resolve", secure_token: token }),
-            })
-            const userData = await res.json()
-            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
-            
-            if (hasFilledForm) {
-              setStep(5) // Waiting between rounds
-            } else {
-              setStep(2) // Form
-            }
-          }
-          
-          // If we're in welcome page (-1) and phase changes to matching2, check if form is filled
-          if (step === -1 && data.phase === "matching2") {
-            // Check if user has filled form
-            const res = await fetch("/api/token-handler", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ action: "resolve", secure_token: token }),
-            })
-            const userData = await res.json()
-            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
-            
-            if (hasFilledForm) {
-              await fetchMatches(2)
-              setStep(6) // Round 2 matching
-            } else {
-              setStep(-2) // Too late
-            }
-          }
+          // Remove automatic transition from welcome page - users must click button manually
           
           // If we're in step 3 (analysis/waiting) and phase changes to matching, fetch matches for round 1
           if (step === 3 && data.phase === "matching") {
@@ -1589,17 +1522,25 @@ export default function WelcomePage() {
 
             <div className="flex justify-center gap-3">
               {currentRound === 1 && isScoreRevealed && (
-                <FancyNextButton
-                  onClick={() => {
-                    setCurrentRound(2)
-                    setShowFinalResult(false)
-                    setIsScoreRevealed(false)
-                    setConversationStarted(false)
-                    setConversationTimer(300)
-                    setStep(4) // Go to waiting for round 2
-                  }}
-                  label="ابدأ الجولة الثانية"
-                />
+                <div className={`text-center p-4 rounded-xl border ${
+                  dark 
+                    ? "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30"
+                    : "bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30"
+                }`}>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Clock className={`w-5 h-5 ${
+                      dark ? "text-blue-300" : "text-blue-600"
+                    }`} />
+                    <span className={`text-sm font-medium ${
+                      dark ? "text-blue-200" : "text-blue-700"
+                    }`}>بانتظار المنظّم</span>
+                  </div>
+                  <p className={`text-sm ${
+                    dark ? "text-blue-300" : "text-blue-600"
+                  }`}>
+                    سيتم إخبارك عندما يبدأ المنظّم الجولة الثانية
+                  </p>
+                </div>
               )}
               <FancyNextButton onClick={restart} label="ابدأ من جديد" />
             </div>

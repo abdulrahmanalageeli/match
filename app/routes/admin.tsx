@@ -37,7 +37,7 @@ export default function AdminPage() {
   const [qrParticipant, setQrParticipant] = useState<any | null>(null)
   const [detailParticipant, setDetailParticipant] = useState<any | null>(null)
   const [manualNumber, setManualNumber] = useState<number | null>(null)
-  const [currentPhase, setCurrentPhase] = useState("waiting")
+  const [currentPhase, setCurrentPhase] = useState("form")
   const [searchTerm, setSearchTerm] = useState("")
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
@@ -334,8 +334,8 @@ export default function AdminPage() {
                  backgroundColor: 'rgba(15, 23, 42, 0.8)'
                }}
              >
-               <option value="waiting" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting</option>
                <option value="form" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Form</option>
+               <option value="waiting" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting</option>
                <option value="matching" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching</option>
                <option value="waiting2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting for Round 2</option>
                <option value="matching2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching Round 2</option>

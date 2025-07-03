@@ -27,8 +27,8 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 
-const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number; totalSteps: number; dark: boolean }) => {
-  const stepLabels = ["التوافق", "الانتظار", "التحليل", "الرقم", "البداية"];
+const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean }) => {
+  const stepLabels = ["الجولة ٢", "انتظار", "الجولة ١", "تحليل", "النموذج"];
   // Reverse for RTL
   const steps = Array.from({ length: totalSteps });
   return (
@@ -41,6 +41,9 @@ const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number;
           const rtlIndex = totalSteps - 1 - i;
           const isCurrent = rtlIndex === currentStep;
           const isPast = rtlIndex < currentStep;
+          const isFormStep = rtlIndex === 0; // Form step (rightmost in RTL)
+          const isCompleted = isPast || (isFormStep && formCompleted);
+          
           return (
             <div key={i} className="relative z-10 flex flex-col items-center" style={{ width: 1, flex: 1 }}>
               <div
@@ -49,17 +52,24 @@ const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number;
                     ? dark
                       ? 'bg-cyan-400 border-cyan-300 shadow-lg shadow-cyan-400/40'
                       : 'bg-blue-500 border-blue-400 shadow-lg shadow-blue-400/40'
-                    : isPast
+                    : isCompleted
                       ? dark
-                        ? 'bg-slate-500 border-slate-400'
-                        : 'bg-blue-300 border-blue-200'
+                        ? 'bg-green-500 border-green-400'
+                        : 'bg-green-400 border-green-300'
                       : dark
                         ? 'bg-slate-800 border-slate-700'
                         : 'bg-gray-200 border-gray-300'
                 }`}
                 style={{ boxShadow: isCurrent ? `0 0 12px 2px ${dark ? '#22d3ee88' : '#3b82f688'}` : undefined }}
-              />
-              <span className={`mt-2 text-xs font-medium ${isCurrent ? (dark ? 'text-cyan-300' : 'text-blue-600') : (dark ? 'text-slate-400' : 'text-gray-500')}`}>{stepLabels[i]}</span>
+              >
+                {/* Check mark for completed form */}
+                {isFormStep && formCompleted && (
+                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </div>
+              <span className={`mt-2 text-xs font-medium ${isCurrent ? (dark ? 'text-cyan-300' : 'text-blue-600') : isCompleted ? (dark ? 'text-green-400' : 'text-green-600') : (dark ? 'text-slate-400' : 'text-gray-500')}`}>{stepLabels[i]}</span>
             </div>
           );
         })}
@@ -69,7 +79,7 @@ const SleekTimeline = ({ currentStep, totalSteps, dark }: { currentStep: number;
 };
 
 export default function WelcomePage() {
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState(-1)
   const [showFinalResult, setShowFinalResult] = useState(false)
   const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
@@ -103,6 +113,8 @@ export default function WelcomePage() {
   const [currentRound, setCurrentRound] = useState(1)
   const [announcement, setAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
+  const [welcomeText, setWelcomeText] = useState("")
+  const [welcomeTyping, setWelcomeTyping] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -115,6 +127,33 @@ export default function WelcomePage() {
     "ما هو أكثر شيء يجعلك تضحك؟"
   ];
   const [promptIndex, setPromptIndex] = useState(0);
+
+  // Typewriter effect for welcome message
+  useEffect(() => {
+    if (step !== -1 || !assignedNumber) {
+      setWelcomeText("")
+      setWelcomeTyping(false)
+      return
+    }
+
+    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام التوافق الذكي! 🎯\n\nسنقوم بتحليل شخصيتك ومطابقتك مع أشخاص آخرين بناءً على اهتماماتك وصفاتك.`
+    
+    setWelcomeTyping(true)
+    setWelcomeText("")
+    
+    let index = 0
+    const typeInterval = setInterval(() => {
+      if (index < fullText.length) {
+        setWelcomeText(fullText.substring(0, index + 1))
+        index++
+      } else {
+        clearInterval(typeInterval)
+        setWelcomeTyping(false)
+      }
+    }, 50) // Speed of typing
+
+    return () => clearInterval(typeInterval)
+  }, [step, assignedNumber])
 
   // Typewriter effect for AI description
   useEffect(() => {
@@ -173,23 +212,39 @@ export default function WelcomePage() {
 
           if (phaseData.phase === "matching") {
             if (hasFilledForm) {
-              setStep(5);
+              setStep(4); // Round 1 matching
               fetchMatches();
             } else {
-              setStep(-1); // late joiner, too late
+              setStep(-2); // late joiner, too late
             }
           } else if (phaseData.phase === "waiting") {
             if (hasFilledForm) {
-              setStep(4);
+              setStep(3); // Analysis/waiting
             } else {
-              setStep(2);
+              setStep(2); // Form
             }
           } else if (phaseData.phase === "form") {
             if (hasFilledForm) {
-              setStep(4); // ✅ show waiting screen with personality summary
+              setStep(3); // Analysis/waiting with personality summary
             } else {
-              setStep(2); // default form step
+              setStep(2); // Form
             }
+          } else if (phaseData.phase === "waiting2") {
+            if (hasFilledForm) {
+              setStep(5); // Waiting between rounds
+            } else {
+              setStep(2); // Form
+            }
+          } else if (phaseData.phase === "matching2") {
+            if (hasFilledForm) {
+              setStep(6); // Round 2 matching
+              fetchMatches(2);
+            } else {
+              setStep(-2); // late joiner, too late
+            }
+          } else {
+            // Default: show welcome page
+            setStep(-1);
           }
         }
 
@@ -232,20 +287,36 @@ export default function WelcomePage() {
 
         // Handle step transitions based on phase changes
         if (assignedNumber) {
-          // If we're in step 4 (waiting) and phase changes to matching, fetch matches
-          if (step === 4 && ((currentRound === 1 && data.phase === "matching") || (currentRound === 2 && data.phase === "matching2"))) {
-            await fetchMatches(currentRound)
+          // If we're in welcome page (-1) and phase changes to form, move to step 0
+          if (step === -1 && data.phase === "form") {
+            setStep(0)
+          }
+          
+          // If we're in step 3 (analysis/waiting) and phase changes to matching, fetch matches for round 1
+          if (step === 3 && data.phase === "matching") {
+            await fetchMatches(1)
+            setStep(4)
+          }
+          
+          // If we're in step 4 (round 1 matching) and phase changes to waiting2, move to step 5
+          if (step === 4 && data.phase === "waiting2") {
             setStep(5)
           }
           
-          // If we're in step 2 (form) and phase changes to matching, move to step 4
-          if (step === 2 && data.phase === "matching") {
-            setStep(4)
+          // If we're in step 5 (waiting between rounds) and phase changes to matching2, fetch matches for round 2
+          if (step === 5 && data.phase === "matching2") {
+            await fetchMatches(2)
+            setStep(6)
           }
           
-          // If we're in step 2 (form) and phase changes to waiting, move to step 4
+          // If we're in step 2 (form) and phase changes to matching, move to step 3
+          if (step === 2 && data.phase === "matching") {
+            setStep(3)
+          }
+          
+          // If we're in step 2 (form) and phase changes to waiting, move to step 3
           if (step === 2 && data.phase === "waiting") {
-            setStep(4)
+            setStep(3)
           }
 
           // If we're in step 1 (number entry) and phase changes to form, move to step 2
@@ -258,9 +329,9 @@ export default function WelcomePage() {
             setStep(1)
           }
 
-          // If we're in any step and phase changes to waiting2 (waiting for round 2), move to step 4
-          if (data.phase === "waiting2" && step !== 4) {
-            setStep(4)
+          // If we're in any step and phase changes to waiting2 (waiting for round 2), move to step 5
+          if (data.phase === "waiting2" && step !== 5) {
+            setStep(5)
           }
 
           // If we're in any step and emergency pause is activated, stay on current step but show pause overlay
@@ -274,12 +345,12 @@ export default function WelcomePage() {
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving])
 
-  const next = () => setStep((s) => Math.min(s + 1, 3))
+  const next = () => setStep((s) => Math.min(s + 1, 6))
   const restart = () => {
-    setStep(0)
+    setStep(-1)
     setPersonalitySummary("")
   }
-  const previous = () => setStep((s) => Math.max(s - 1, 0))
+  const previous = () => setStep((s) => Math.max(s - 1, -2))
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -409,7 +480,7 @@ export default function WelcomePage() {
 
   // Conversation timer effect
   useEffect(() => {
-    if (!conversationStarted || conversationTimer <= 0) return
+    if (!conversationStarted || conversationTimer <= 0 || emergencyPaused) return
 
     const interval = setInterval(() => {
       setConversationTimer((prev) => {
@@ -423,7 +494,7 @@ export default function WelcomePage() {
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [conversationStarted, conversationTimer])
+  }, [conversationStarted, conversationTimer, emergencyPaused])
 
   const submitFeedback = () => {
     setIsScoreRevealed(true)
@@ -661,7 +732,67 @@ export default function WelcomePage() {
       </div>
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
-        <SleekTimeline currentStep={step} totalSteps={5} dark={dark} />
+        {step >= 0 && (
+          <SleekTimeline currentStep={step} totalSteps={5} dark={dark} formCompleted={step >= 3} />
+        )}
+
+        {/* Welcome Landing Page */}
+        {step === -1 && (
+          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
+            <div className="relative">
+              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
+                dark ? "bg-gradient-to-r from-cyan-600 to-blue-700" : "bg-gradient-to-r from-cyan-400 to-blue-500"
+              }`}></div>
+              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              }`}>
+                <div className="flex justify-center mb-6">
+                  <div className="relative">
+                    <div className={`w-20 h-20 rounded-2xl border-2 shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-110 ${
+                      dark 
+                        ? "bg-gradient-to-br from-cyan-700 via-blue-600 to-cyan-800 border-cyan-400/50 shadow-cyan-500/20" 
+                        : "bg-gradient-to-br from-cyan-100 via-blue-100 to-cyan-200 border-cyan-400/50 shadow-cyan-500/20"
+                    }`}>
+                      <span className={`text-2xl font-bold tracking-wider ${
+                        dark ? "text-white" : "text-gray-800"
+                      }`}>
+                        {assignedNumber ?? "؟"}
+                      </span>
+                    </div>
+                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                  </div>
+                </div>
+                
+                <div className="text-center space-y-4">
+                  <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
+                    dark ? "bg-gradient-to-r from-cyan-300 to-blue-400" : "bg-gradient-to-r from-cyan-600 to-blue-700"
+                  }`}>
+                    نظام التوافق الذكي
+                  </h1>
+                  
+                  <div className={`min-h-[6rem] text-right leading-relaxed ${
+                    dark ? "text-slate-200" : "text-gray-700"
+                  }`}>
+                    {welcomeText.split('\n').map((line, index) => (
+                      <p key={index} className="mb-2">
+                        {line}
+                        {index === welcomeText.split('\n').length - 1 && welcomeTyping && (
+                          <span className="animate-pulse">|</span>
+                        )}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {!welcomeTyping && (
+              <div className="flex justify-center">
+                <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
+              </div>
+            )}
+          </section>
+        )}
 
         {/* خطوة 0 */}
         {step === 0 && (
@@ -706,7 +837,8 @@ export default function WelcomePage() {
           </section>
         )}
 
-        {step === -1 && (
+        {/* Too Late Message */}
+        {step === -2 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 backdrop-blur-xl">
               <AlertTriangle className="w-12 h-12 text-red-400 mx-auto mb-4" />
@@ -769,16 +901,39 @@ export default function WelcomePage() {
             }`}>
               <div className="flex flex-col items-center gap-4 mb-6">
                 <div className="relative">
-                  <Avatar className={`w-20 h-20 border-4 shadow-lg ${
-                    dark ? "border-slate-400/50" : "border-gray-400/50"
+                  <div className={`relative w-24 h-24 rounded-2xl border-2 shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-110 ${
+                    dark 
+                      ? "bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 border-slate-400/50 shadow-slate-500/20" 
+                      : "bg-gradient-to-br from-gray-100 via-white to-gray-200 border-gray-400/50 shadow-gray-500/20"
                   }`}>
-                    <AvatarFallback className={`text-2xl font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    {/* Animated background glow */}
+                    <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-400/20 to-blue-500/20 animate-pulse`}></div>
+                    
+                    {/* Number display */}
+                    <span className={`relative z-10 text-3xl font-bold tracking-wider ${
+                      dark ? "text-white" : "text-gray-800"
                     }`}>
                       {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                    </span>
+                    
+                    {/* Corner accent */}
+                    <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 ${
+                      dark ? "bg-green-400 border-white" : "bg-green-500 border-white"
+                    } animate-pulse`}></div>
+                    
+                    {/* Subtle corner lines */}
+                    <div className={`absolute top-2 left-2 w-2 h-2 border-l-2 border-t-2 rounded-tl ${
+                      dark ? "border-cyan-400/60" : "border-blue-500/60"
+                    }`}></div>
+                    <div className={`absolute bottom-2 right-2 w-2 h-2 border-r-2 border-b-2 rounded-br ${
+                      dark ? "border-cyan-400/60" : "border-blue-500/60"
+                    }`}></div>
+                  </div>
+                  
+                  {/* Floating particles around the icon */}
+                  <div className="absolute -top-2 -left-2 w-2 h-2 bg-cyan-400/60 rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
+                  <div className="absolute -top-1 -right-3 w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
+                  <div className="absolute -bottom-1 -left-3 w-1 h-1 bg-purple-400/60 rounded-full animate-ping" style={{ animationDelay: '1s' }}></div>
                 </div>
                 <h2 className={`text-xl font-bold text-center ${
                   dark ? "text-slate-200" : "text-gray-800"
@@ -963,72 +1118,6 @@ export default function WelcomePage() {
               </div>
 
               <div className="flex justify-center mb-4">
-                <Users className={`w-12 h-12 animate-pulse ${
-                  dark ? "text-slate-400" : "text-gray-600"
-                }`} />
-              </div>
-              <h3 className={`text-lg font-semibold text-center mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                {currentRound === 1 ? "بانتظار المنظّم لبدء التوافق..." : "بانتظار المنظّم لبدء الجولة الثانية..."}
-              </h3>
-              <p className={`text-center text-sm italic mb-6 ${
-                dark ? "text-slate-300" : "text-gray-600"
-              }`}>
-                لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
-              </p>
-
-              <div
-                dir="rtl"
-                className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
-                  dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
-                }`}>
-                <div className="flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    aria-label="التالي"
-                    className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                    onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                    disabled={prompts.length <= 1}
-                  >
-                    <ChevronLeftIcon className="w-5 h-5" />
-                  </button>
-                  <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                  <button
-                    type="button"
-                    aria-label="السابق"
-                    className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                    onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                    disabled={prompts.length <= 1}
-                  >
-                    <ChevronRightIcon className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {step === 5 && (
-          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
-            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
-            }`}>
-              {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10">
-                <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
-                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
-                  }`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
-              </div>
-
-              <div className="flex justify-center mb-4">
                 <Target className={`w-12 h-12 animate-bounce ${
                   dark ? "text-slate-400" : "text-gray-600"
                 }`} />
@@ -1082,28 +1171,9 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <p className={`text-sm ${
-                      dark ? "text-slate-300" : "text-gray-600"
-                    }`}>
-                      درجة التوافق: {isScoreRevealed ? compatibilityScore : "***"}
-                    </p>
-                  </div>
-
-                  <div className="flex justify-center">
-                    <Button
-                      onClick={startConversation}
-                      className="spring-btn relative ps-12 bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
-                    >
-                      ابدأ المحادثة
-                      <span className="bg-white/20 pointer-events-none absolute inset-y-0 start-0 flex w-9 items-center justify-center rounded-s-md">
-                        <MessageSquare className="opacity-80" size={16} aria-hidden="true" />
-                      </span>
-                    </Button>
+                  <div className="flex justify-center gap-3">
+                    <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
+                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
                   </div>
                 </>
               ) : (
@@ -1111,63 +1181,294 @@ export default function WelcomePage() {
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    المحادثة جارية...
+                    حوار مع رقم {matchResult}
                   </h3>
                   
-                  <div className={`mx-auto my-6 w-full max-w-xs rounded-2xl border-2 shadow-xl backdrop-blur-xl p-0 flex flex-col items-center justify-center relative overflow-hidden ${
-                    dark ? 'bg-white/10 border-white/20' : 'bg-white/80 border-gray-200/50'
+                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
                   }`}>
-                    {/* Animated progress ring */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 120 120">
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="54"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                          className={`${dark ? 'text-slate-400/20' : 'text-gray-300/50'}`}
-                        />
-                        <circle
-                          cx="60"
-                          cy="60"
-                          r="54"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                          fill="none"
-                          strokeDasharray={`${2 * Math.PI * 54}`}
-                          strokeDashoffset={`${2 * Math.PI * 54 * (1 - conversationTimer / 300)}`}
-                          className={`${dark ? 'text-slate-400' : 'text-blue-500'} transition-all duration-1000 ease-out`}
-                          strokeLinecap="round"
-                        />
-                      </svg>
+                    <p className={`text-lg font-semibold ${
+                      dark ? "text-slate-200" : "text-gray-700"
+                    }`}>
+                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-label="التالي"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5" />
+                      </button>
+                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                      <button
+                        type="button"
+                        aria-label="السابق"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronRightIcon className="w-5 h-5" />
+                      </button>
                     </div>
-                    
-                    <div className="relative z-10 flex flex-col items-center justify-center py-8">
-                      <div className={`text-4xl font-bold mb-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{formatTime(conversationTimer)}</div>
-                      <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>الوقت المتبقي</p>
-                      {/* Pulsing dots animation */}
-                      <div className="mt-2 flex space-x-1">
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${dark ? 'bg-slate-400' : 'bg-blue-500'}`} style={{ animationDelay: '0ms' }}></div>
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${dark ? 'bg-slate-400' : 'bg-blue-500'}`} style={{ animationDelay: '300ms' }}></div>
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${dark ? 'bg-slate-400' : 'bg-blue-500'}`} style={{ animationDelay: '600ms' }}></div>
-                      </div>
+                  </div>
+
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Clock className={`w-5 h-5 ${
+                        dark ? "text-slate-300" : "text-gray-500"
+                      }`} />
+                      <span className={`text-sm font-medium ${
+                        dark ? "text-slate-200" : "text-gray-700"
+                      }`}>الوقت المتبقي:</span>
+                    </div>
+                    <p className={`text-2xl font-bold ${
+                      dark ? "text-slate-200" : "text-gray-800"
+                    }`}>
+                      {formatTime(conversationTimer)}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
+                  </div>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
+        {step === 5 && (
+          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+            }`}>
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
+                <div className="relative">
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              </div>
+
+              <div className="flex justify-center mb-4">
+                <Users className={`w-12 h-12 animate-pulse ${
+                  dark ? "text-slate-400" : "text-gray-600"
+                }`} />
+              </div>
+              <h3 className={`text-lg font-semibold text-center mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                بانتظار المنظّم لبدء الجولة الثانية...
+              </h3>
+              <p className={`text-center text-sm italic mb-6 ${
+                dark ? "text-slate-300" : "text-gray-600"
+              }`}>
+                لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
+              </p>
+
+              <div
+                dir="rtl"
+                className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
+                  dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
+                }`}>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    aria-label="التالي"
+                    className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                    onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                    disabled={prompts.length <= 1}
+                  >
+                    <ChevronLeftIcon className="w-5 h-5" />
+                  </button>
+                  <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                  <button
+                    type="button"
+                    aria-label="السابق"
+                    className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                    onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                    disabled={prompts.length <= 1}
+                  >
+                    <ChevronRightIcon className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {step === 6 && (
+          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+            }`}>
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
+                <div className="relative">
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              </div>
+
+              <div className="flex justify-center mb-4">
+                <Target className={`w-12 h-12 animate-bounce ${
+                  dark ? "text-slate-400" : "text-gray-600"
+                }`} />
+              </div>
+              
+              {!conversationStarted ? (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}>
+                    توأم روحك في الجولة الثانية هو رقم {matchResult}
+                  </h3>
+                  
+                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-lg font-semibold ${
+                      dark ? "text-slate-200" : "text-gray-700"
+                    }`}>
+                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-label="التالي"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5" />
+                      </button>
+                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                      <button
+                        type="button"
+                        aria-label="السابق"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronRightIcon className="w-5 h-5" />
+                      </button>
                     </div>
                   </div>
 
                   <div className="flex justify-center gap-3">
-                    <Button
-                      onClick={skipConversation}
-                      variant="outline"
-                      className={`border-2 ${
-                        dark 
-                          ? "border-slate-400/30 text-slate-200 hover:bg-slate-500/20"
-                          : "border-gray-400/30 text-gray-700 hover:bg-gray-100"
-                      }`}
-                    >
-                      تخطي المحادثة
-                    </Button>
+                    <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
+                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}>
+                    حوار مع رقم {matchResult} (الجولة الثانية)
+                  </h3>
+                  
+                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-lg font-semibold ${
+                      dark ? "text-slate-200" : "text-gray-700"
+                    }`}>
+                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-label="التالي"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5" />
+                      </button>
+                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                      <button
+                        type="button"
+                        aria-label="السابق"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronRightIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Clock className={`w-5 h-5 ${
+                        dark ? "text-slate-300" : "text-gray-500"
+                      }`} />
+                      <span className={`text-sm font-medium ${
+                        dark ? "text-slate-200" : "text-gray-700"
+                      }`}>الوقت المتبقي:</span>
+                    </div>
+                    <p className={`text-2xl font-bold ${
+                      dark ? "text-slate-200" : "text-gray-800"
+                    }`}>
+                      {formatTime(conversationTimer)}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
                   </div>
                 </>
               )}

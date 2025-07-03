@@ -117,7 +117,7 @@ export default function WelcomePage() {
     overallRating: ""
   })
   const token = useSearchParams()[0].get("token")
-  const [isResolving, setIsResolving] = useState(true)
+const [isResolving, setIsResolving] = useState(true)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
@@ -192,51 +192,51 @@ export default function WelcomePage() {
   }, [personalitySummary])
 
   useEffect(() => {
-    const resolveToken = async () => {
-      if (!token) return
+  const resolveToken = async () => {
+    if (!token) return
 
-      try {
-        const res = await fetch("/api/token-handler", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "resolve", secure_token: token }),
-        })
+    try {
+const res = await fetch("/api/token-handler", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ action: "resolve", secure_token: token }),
+})
 
-        const data = await res.json()
-        if (data.success) {
-          setAssignedNumber(data.assigned_number);
-          if (data.summary) {
-            setPersonalitySummary(data.summary)
-          }
+      const data = await res.json()
+if (data.success) {
+  setAssignedNumber(data.assigned_number);
+if (data.summary) {
+  setPersonalitySummary(data.summary)
+}
 
-          const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
+  const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
 
           // Always start with welcome landing page, then check phase for next step
           setStep(-1);
 
-          const res2 = await fetch("/api/admin", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              action: "event-phase",
-              match_id: "00000000-0000-0000-0000-000000000000",
-            }),
-          });
-          const phaseData = await res2.json();
+  const res2 = await fetch("/api/admin", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "event-phase",
+      match_id: "00000000-0000-0000-0000-000000000000",
+    }),
+  });
+  const phaseData = await res2.json();
 
           // Store phase info for later use, but don't change step yet
           setPhase(phaseData.phase);
-        }
+}
 
-      } catch (err) {
-        console.error("Error resolving token:", err)
-      } finally {
-        setIsResolving(false) // ✅ only set false after async finishes
-      }
+    } catch (err) {
+      console.error("Error resolving token:", err)
+        } finally {
+      setIsResolving(false) // ✅ only set false after async finishes
     }
+  }
 
-    resolveToken()
-  }, [token])
+  resolveToken()
+}, [token])
 
   // Combined real-time updates for all steps
   useEffect(() => {
@@ -246,11 +246,11 @@ export default function WelcomePage() {
     const interval = setInterval(async () => {
       try {
         // Fetch both phase and event state in one call
-        const res = await fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+const res = await fetch("/api/admin", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-event-state", match_id: "00000000-0000-0000-0000-000000000000" }),
-        })
+})
 
         const data = await res.json()
         
@@ -324,10 +324,10 @@ export default function WelcomePage() {
         console.error("Failed to fetch real-time updates", err)
       }
     }, 3000) // every 3 seconds
-
+  
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving])
-
+    
   const next = () => setStep((s) => Math.min(s + 1, 6))
   const restart = () => {
     setStep(-1)
@@ -362,7 +362,7 @@ export default function WelcomePage() {
       </span>
     </Button>
   )
-
+  
   const startConversation = () => {
     setConversationStarted(true)
   }
@@ -371,7 +371,7 @@ export default function WelcomePage() {
     setConversationTimer(0)
     setShowFeedbackModal(true)
   }
-
+  
   const handleSubmit = async () => {
     setLoading(true)
     try {
@@ -389,7 +389,7 @@ export default function WelcomePage() {
       })
       const data1 = await res1.json()
       if (!res1.ok) throw new Error(data1.error)
-
+  
       // 2. Generate summary
       const res2 = await fetch("/api/generate-summary", {
         method: "POST",
@@ -414,8 +414,8 @@ export default function WelcomePage() {
         }),
       })
 
-      // 3. Stay on current step and wait for host to move to next phase
-      // The real-time polling will handle the transition when host changes phase
+      // Move to waiting/analysis step immediately after form submission
+      setStep(3)
     } catch (err) {
       console.error("Submit error:", err)
       setPersonalitySummary("ما قدرنا نولّد تحليل شخصيتك.")
@@ -424,7 +424,7 @@ export default function WelcomePage() {
       setLoading(false)
     }
   }
-
+      
   type MatchResultEntry = {
     with: string
     type: string
@@ -433,17 +433,17 @@ export default function WelcomePage() {
     table_number: number | null
     score: number
   }
-
+  
   const fetchMatches = async (roundOverride?: number) => {
-    try {
+  try {
       const roundToFetch = roundOverride || currentRound;
-      const myMatches = await fetch("/api/get-my-matches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+    const myMatches = await fetch("/api/get-my-matches", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assigned_number: assignedNumber, round: roundToFetch }),
-      })
-      const data = await myMatches.json()
-      const matches = data.matches as MatchResultEntry[]
+    })
+    const data = await myMatches.json()
+    const matches = data.matches as MatchResultEntry[]
       const match = matches[0]
       if (match) {
         setMatchResult(match.with)
@@ -451,16 +451,16 @@ export default function WelcomePage() {
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
       }
-    } catch (err) {
-      setMatchResult("؟")
-      setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
-    }
+  } catch (err) {
+    setMatchResult("؟")
+    setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
   }
-
+}
+  
   // Conversation timer effect
   useEffect(() => {
     if (!conversationStarted || conversationTimer <= 0 || emergencyPaused) return
-
+  
     const interval = setInterval(() => {
       setConversationTimer((prev) => {
         if (prev <= 1) {
@@ -471,7 +471,7 @@ export default function WelcomePage() {
         return prev - 1
       })
     }, 1000)
-
+  
     return () => clearInterval(interval)
   }, [conversationStarted, conversationTimer, emergencyPaused])
 
@@ -522,9 +522,9 @@ export default function WelcomePage() {
       </div>
     )
   }
-
-  if (!isResolving && phase !== "form" && step === 0) {
-    return (
+  
+if (!isResolving && phase !== "form" && step === 0) {
+  return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 backdrop-blur-sm">
@@ -574,10 +574,10 @@ export default function WelcomePage() {
             )}
           </div>
         </div>
-      </div>
-    )
-  }
-
+    </div>
+  )
+}
+  
   return (
     <div
       className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden ${
@@ -840,13 +840,13 @@ export default function WelcomePage() {
                 <p className={`text-sm sm:text-base leading-relaxed ${
                   dark ? "text-slate-300" : "text-gray-600"
                 }`}>
-                  بتقابل ٤ أشخاص. بعد كل حوار، قرر إذا كان
+              بتقابل ٤ أشخاص. بعد كل حوار، قرر إذا كان
                   <span className={`font-semibold ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}> توأم روحك </span>
-                  أو
+              أو
                   <span className="font-semibold text-red-500"> خصمك اللدود</span>.
-                </p>
+            </p>
               </div>
             </div>
             <div className="flex justify-center">
@@ -863,8 +863,8 @@ export default function WelcomePage() {
               <h2 className="text-2xl font-bold text-red-200">التوافق بدأ بالفعل</h2>
               <p className="text-red-300 text-sm">ما لحقت تعبي النموذج. تابع المنظّم وانتظر الجولة الجاية.</p>
             </div>
-          </section>
-        )}
+  </section>
+)}
 
         {/* خطوة 1 */}
         {step === 1 && !token && (
@@ -884,13 +884,13 @@ export default function WelcomePage() {
                 dark ? "text-slate-300" : "text-gray-600"
               }`}>منظّم الحدث أعطاك رقم. اكتبه هنا علشان نكمل.</p>
               <div className="relative">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={999}
-                  value={assignedNumber ?? ""}
-                  onChange={(e) => setAssignedNumber(Number(e.target.value))}
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={999}
+              value={assignedNumber ?? ""}
+              onChange={(e) => setAssignedNumber(Number(e.target.value))}
                   className={`mx-auto block h-24 w-24 text-center text-4xl font-bold rounded-xl border-2 backdrop-blur-sm shadow-lg focus:outline-none transition-all duration-300 [appearance:textfield] ${
                     dark 
                       ? "border-slate-400/50 bg-white/10 text-slate-200 focus:ring-4 focus:ring-slate-400/30 focus:border-slate-400"
@@ -946,8 +946,8 @@ export default function WelcomePage() {
                     <div className={`absolute bottom-2 right-2 w-2 h-2 border-r-2 border-b-2 rounded-br ${
                       dark ? "border-cyan-400/60" : "border-blue-500/60"
                     }`}></div>
-                  </div>
-                  
+            </div>
+
                   {/* Floating particles around the icon */}
                   <div className="absolute -top-2 -left-2 w-2 h-2 bg-cyan-400/60 rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
                   <div className="absolute -top-1 -right-3 w-1.5 h-1.5 bg-blue-400/60 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
@@ -963,43 +963,43 @@ export default function WelcomePage() {
                   <label className={`block text-sm font-medium ${
                     dark ? "text-slate-200" : "text-gray-700"
                   }`}>وش تسوي بوقتك الفاضي؟</label>
-                  <input
-                    type="text"
-                    value={freeTime}
-                    onChange={(e) => setFreeTime(e.target.value)}
+                <input
+                  type="text"
+                  value={freeTime}
+                  onChange={(e) => setFreeTime(e.target.value)}
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
                         : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                     placeholder="اكتب إجابتك هنا..."
-                  />
-                </div>
+                />
+              </div>
 
                 <div className="space-y-3">
                   <label className={`block text-sm font-medium ${
                     dark ? "text-slate-200" : "text-gray-700"
                   }`}>كيف يوصفونك أصحابك؟</label>
-                  <input
-                    type="text"
-                    value={friendDesc}
-                    onChange={(e) => setFriendDesc(e.target.value)}
+                <input
+                  type="text"
+                  value={friendDesc}
+                  onChange={(e) => setFriendDesc(e.target.value)}
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
                         : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                     placeholder="اكتب إجابتك هنا..."
-                  />
-                </div>
+                />
+              </div>
 
                 <div className="space-y-3">
                   <label className={`block text-sm font-medium ${
                     dark ? "text-slate-200" : "text-gray-700"
                   }`}>تميل أكثر لـ:</label>
-                  <select
-                    value={preference}
-                    onChange={(e) => setPreference(e.target.value)}
+                <select
+                  value={preference}
+                  onChange={(e) => setPreference(e.target.value)}
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
@@ -1009,26 +1009,26 @@ export default function WelcomePage() {
                     <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر وحدة</option>
                     <option value="alone" className={dark ? "bg-slate-800" : "bg-white"}>جلسة هادئة بين شخصين</option>
                     <option value="group" className={dark ? "bg-slate-800" : "bg-white"}>نشاط ممتع مع مجموعة</option>
-                  </select>
-                </div>
+                </select>
+              </div>
 
                 <div className="space-y-3">
                   <label className={`block text-sm font-medium ${
                     dark ? "text-slate-200" : "text-gray-700"
                   }`}>وش يميزك عن غيرك؟</label>
-                  <input
-                    type="text"
-                    value={uniqueTrait}
-                    onChange={(e) => setUniqueTrait(e.target.value)}
+                <input
+                  type="text"
+                  value={uniqueTrait}
+                  onChange={(e) => setUniqueTrait(e.target.value)}
                     className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
                       dark 
                         ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
                         : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
                     }`}
                     placeholder="اكتب إجابتك هنا..."
-                  />
-                </div>
-              </form>
+                />
+              </div>
+            </form>
             </div>
 
             <div className="flex justify-center gap-3">
@@ -1068,8 +1068,8 @@ export default function WelcomePage() {
               <h3 className={`text-lg font-semibold text-center mb-6 ${
                 dark ? "text-slate-200" : "text-gray-800"
               }`}>تحليل شخصيتك</h3>
-              <div
-                dir="rtl"
+            <div
+              dir="rtl"
                 className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
                   dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
                 }`}
@@ -1150,8 +1150,8 @@ export default function WelcomePage() {
                       dark ? "text-slate-200" : "text-gray-700"
                     }`}>
                       {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
-                    </p>
-                  </div>
+              </p>
+            </div>
 
                   <div className={`rounded-xl p-4 border mb-6 ${
                     dark 
@@ -1181,7 +1181,7 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  <div className="flex justify-center gap-3">
+            <div className="flex justify-center gap-3">
                     <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
                     <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
                   </div>
@@ -1259,7 +1259,7 @@ export default function WelcomePage() {
                   </div>
                 </>
               )}
-            </div>
+</div>
           </section>
         )}
 
@@ -1291,15 +1291,15 @@ export default function WelcomePage() {
               </div>
               <h3 className={`text-lg font-semibold text-center mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                 بانتظار المنظّم لبدء الجولة الثانية...
-              </h3>
+    </h3>
               <p className={`text-center text-sm italic mb-6 ${
                 dark ? "text-slate-300" : "text-gray-600"
               }`}>
-                لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
-              </p>
+      لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
+    </p>
 
-              <div
-                dir="rtl"
+    <div
+      dir="rtl"
                 className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
                   dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
                 }`}>
@@ -1482,9 +1482,9 @@ export default function WelcomePage() {
                   </div>
                 </>
               )}
-            </div>
-          </section>
-        )}
+    </div>
+  </section>
+)}
 
         {/* Final Result Step */}
         {showFinalResult && (
@@ -1518,8 +1518,8 @@ export default function WelcomePage() {
                 dark ? "text-slate-200" : "text-gray-800"
               }`}>
                 شكراً لك!
-              </h3>
-              
+    </h3>
+
               <div className={`text-center mb-6 p-6 rounded-xl border ${
                 dark 
                   ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
@@ -1546,8 +1546,8 @@ export default function WelcomePage() {
                   <p className={`text-sm text-center italic ${
                     dark ? "text-slate-300" : "text-gray-600"
                   }`}>
-                    {matchReason}
-                  </p>
+      {matchReason}
+    </p>
                 </div>
               )}
             </div>
@@ -1574,10 +1574,10 @@ export default function WelcomePage() {
                   </p>
                 </div>
               )}
-              <FancyNextButton onClick={restart} label="ابدأ من جديد" />
-            </div>
-          </section>
-        )}
+      <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+    </div>
+  </section>
+)}
       </div>
 
       {/* Feedback Modal */}
@@ -1614,7 +1614,7 @@ export default function WelcomePage() {
                   <option value="average" className={dark ? "bg-slate-800" : "bg-white"}>متوسط</option>
                   <option value="poor" className={dark ? "bg-slate-800" : "bg-white"}>ضعيف</option>
                 </select>
-              </div>
+      </div>
 
               <div>
                 <label className={`block text-sm font-medium mb-2 ${

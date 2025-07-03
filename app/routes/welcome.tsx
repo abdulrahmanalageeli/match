@@ -200,6 +200,9 @@ export default function WelcomePage() {
 
           const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
 
+          // Always start with welcome landing page, then check phase for next step
+          setStep(-1);
+
           const res2 = await fetch("/api/admin", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -210,42 +213,8 @@ export default function WelcomePage() {
           });
           const phaseData = await res2.json();
 
-          if (phaseData.phase === "matching") {
-            if (hasFilledForm) {
-              setStep(4); // Round 1 matching
-              fetchMatches();
-            } else {
-              setStep(-2); // late joiner, too late
-            }
-          } else if (phaseData.phase === "waiting") {
-            if (hasFilledForm) {
-              setStep(3); // Analysis/waiting
-            } else {
-              setStep(2); // Form
-            }
-          } else if (phaseData.phase === "form") {
-            if (hasFilledForm) {
-              setStep(3); // Analysis/waiting with personality summary
-            } else {
-              setStep(2); // Form
-            }
-          } else if (phaseData.phase === "waiting2") {
-            if (hasFilledForm) {
-              setStep(5); // Waiting between rounds
-            } else {
-              setStep(2); // Form
-            }
-          } else if (phaseData.phase === "matching2") {
-            if (hasFilledForm) {
-              setStep(6); // Round 2 matching
-              fetchMatches(2);
-            } else {
-              setStep(-2); // late joiner, too late
-            }
-          } else {
-            // Default: show welcome page
-            setStep(-1);
-          }
+          // Store phase info for later use, but don't change step yet
+          setPhase(phaseData.phase);
         }
 
       } catch (err) {
@@ -290,6 +259,80 @@ export default function WelcomePage() {
           // If we're in welcome page (-1) and phase changes to form, move to step 0
           if (step === -1 && data.phase === "form") {
             setStep(0)
+          }
+          
+          // If we're in welcome page (-1) and phase changes to waiting, check if form is filled
+          if (step === -1 && data.phase === "waiting") {
+            // Check if user has filled form
+            const res = await fetch("/api/token-handler", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "resolve", secure_token: token }),
+            })
+            const userData = await res.json()
+            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
+            
+            if (hasFilledForm) {
+              setStep(3) // Analysis/waiting
+            } else {
+              setStep(2) // Form
+            }
+          }
+          
+          // If we're in welcome page (-1) and phase changes to matching, check if form is filled
+          if (step === -1 && data.phase === "matching") {
+            // Check if user has filled form
+            const res = await fetch("/api/token-handler", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "resolve", secure_token: token }),
+            })
+            const userData = await res.json()
+            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
+            
+            if (hasFilledForm) {
+              await fetchMatches(1)
+              setStep(4) // Round 1 matching
+            } else {
+              setStep(-2) // Too late
+            }
+          }
+          
+          // If we're in welcome page (-1) and phase changes to waiting2, check if form is filled
+          if (step === -1 && data.phase === "waiting2") {
+            // Check if user has filled form
+            const res = await fetch("/api/token-handler", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "resolve", secure_token: token }),
+            })
+            const userData = await res.json()
+            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
+            
+            if (hasFilledForm) {
+              setStep(5) // Waiting between rounds
+            } else {
+              setStep(2) // Form
+            }
+          }
+          
+          // If we're in welcome page (-1) and phase changes to matching2, check if form is filled
+          if (step === -1 && data.phase === "matching2") {
+            // Check if user has filled form
+            const res = await fetch("/api/token-handler", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "resolve", secure_token: token }),
+            })
+            const userData = await res.json()
+            const hasFilledForm = userData.q1 && userData.q2 && userData.q3 && userData.q4;
+            
+            if (hasFilledForm) {
+              await fetchMatches(2)
+              setStep(6) // Round 2 matching
+            } else {
+              setStep(-2) // Too late
+            }
           }
           
           // If we're in step 3 (analysis/waiting) and phase changes to matching, fetch matches for round 1
@@ -431,16 +474,12 @@ export default function WelcomePage() {
         }),
       })
 
-      // 3. Go to summary step
-      next()
-
-      // 4. Wait 30s, then auto-match
-      // After summary, move to waiting screen
-      setStep(4) // but 4 = waiting
+      // 3. Stay on current step and wait for host to move to next phase
+      // The real-time polling will handle the transition when host changes phase
     } catch (err) {
       console.error("Submit error:", err)
       setPersonalitySummary("ما قدرنا نولّد تحليل شخصيتك.")
-      next()
+      // Don't auto-advance on error either
     } finally {
       setLoading(false)
     }
@@ -733,7 +772,21 @@ export default function WelcomePage() {
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
         {step >= 0 && (
-          <SleekTimeline currentStep={step} totalSteps={5} dark={dark} formCompleted={step >= 3} />
+          <SleekTimeline 
+            currentStep={
+              step === 0 ? 0 : // Welcome screen
+              step === 1 ? 0 : // Number entry
+              step === 2 ? 0 : // Form (first step)
+              step === 3 ? 1 : // Analysis (second step)
+              step === 4 ? 2 : // Round 1 (third step)
+              step === 5 ? 3 : // Waiting (fourth step)
+              step === 6 ? 4 : // Round 2 (fifth step)
+              0
+            } 
+            totalSteps={5} 
+            dark={dark} 
+            formCompleted={step >= 3} 
+          />
         )}
 
         {/* Welcome Landing Page */}
@@ -1084,15 +1137,7 @@ export default function WelcomePage() {
               </div>
             </div>
 
-            <div className="flex justify-center gap-3">
-              <FancyPreviousButton onClick={restart} label="الرجوع للبداية" />
-              <FancyNextButton
-                onClick={() => {
-                  setStep(4)
-                }}
-                label="عرض النتائج الآن"
-              />
-            </div>
+            {/* Users wait for host to move them to next phase */}
           </section>
         )}
 

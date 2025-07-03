@@ -41,6 +41,11 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
+  const [announcement, setAnnouncement] = useState("")
+  const [announcementType, setAnnouncementType] = useState("info")
+  const [currentAnnouncement, setCurrentAnnouncement] = useState<any>(null)
+  const [emergencyPaused, setEmergencyPaused] = useState(false)
+  const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
 
   const STATIC_PASSWORD = "soulmatch2025"
 
@@ -54,6 +59,21 @@ export default function AdminPage() {
       })
       const data = await res.json()
       setParticipants(data.participants || [])
+      
+      // Also fetch current event state
+      const stateRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-event-state" }),
+      })
+      const stateData = await stateRes.json()
+      setCurrentPhase(stateData.phase)
+      setCurrentAnnouncement({
+        message: stateData.announcement,
+        type: stateData.announcement_type,
+        time: stateData.announcement_time
+      })
+      setEmergencyPaused(stateData.emergency_paused)
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -160,6 +180,65 @@ export default function AdminPage() {
   }
 
   const currentPhaseConfig = phaseConfig[currentPhase as keyof typeof phaseConfig]
+
+  const sendAnnouncement = async () => {
+    if (!announcement.trim()) return
+    
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "set-announcement",
+        message: announcement,
+        type: announcementType
+      }),
+    })
+    
+    if (res.ok) {
+      setAnnouncement("")
+      setShowAnnouncementModal(false)
+      fetchParticipants() // Refresh to get updated state
+      alert("✅ Announcement sent!")
+    } else {
+      alert("❌ Failed to send announcement")
+    }
+  }
+
+  const clearAnnouncement = async () => {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "clear-announcement" }),
+    })
+    
+    if (res.ok) {
+      setCurrentAnnouncement(null)
+      fetchParticipants()
+      alert("✅ Announcement cleared!")
+    } else {
+      alert("❌ Failed to clear announcement")
+    }
+  }
+
+  const toggleEmergencyPause = async () => {
+    const newPausedState = !emergencyPaused
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "set-emergency-pause",
+        paused: newPausedState
+      }),
+    })
+    
+    if (res.ok) {
+      setEmergencyPaused(newPausedState)
+      fetchParticipants()
+      alert(`✅ Emergency ${newPausedState ? 'pause' : 'resume'} activated!`)
+    } else {
+      alert("❌ Failed to toggle emergency pause")
+    }
+  }
 
   if (!authenticated) {
     return (
@@ -357,8 +436,56 @@ export default function AdminPage() {
                 <BarChart3 className="w-4 h-4" />
                 Matrix
               </button>
+
+              <button
+                onClick={() => setShowAnnouncementModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
+              >
+                <Activity className="w-4 h-4" />
+                Announce
+              </button>
+
+              <button
+                onClick={toggleEmergencyPause}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
+                  emergencyPaused
+                    ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+                    : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
+                }`}
+              >
+                <AlertCircle className="w-4 h-4" />
+                {emergencyPaused ? "Resume" : "Emergency Pause"}
+              </button>
             </div>
           </div>
+
+          {/* Current Announcement Display */}
+          {currentAnnouncement?.message && (
+            <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${
+                    currentAnnouncement.type === "warning" ? "bg-yellow-400" :
+                    currentAnnouncement.type === "error" ? "bg-red-400" :
+                    currentAnnouncement.type === "success" ? "bg-green-400" :
+                    "bg-blue-400"
+                  }`}></div>
+                  <div>
+                    <p className="text-white font-medium">{currentAnnouncement.message}</p>
+                    <p className="text-slate-400 text-sm">
+                      {new Date(currentAnnouncement.time).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={clearAnnouncement}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Participants Grid */}
@@ -557,6 +684,69 @@ export default function AdminPage() {
                     Copy Link
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Announcement Modal */}
+      {showAnnouncementModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-2xl w-full max-w-md space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Activity className="w-5 h-5" />
+                Send Announcement
+              </h2>
+              <button
+                onClick={() => setShowAnnouncementModal(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Message Type</label>
+                <select
+                  value={announcementType}
+                  onChange={(e) => setAnnouncementType(e.target.value)}
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50"
+                >
+                  <option value="info" className="bg-slate-800">Info (Blue)</option>
+                  <option value="success" className="bg-slate-800">Success (Green)</option>
+                  <option value="warning" className="bg-slate-800">Warning (Yellow)</option>
+                  <option value="error" className="bg-slate-800">Error (Red)</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Message</label>
+                <textarea
+                  value={announcement}
+                  onChange={(e) => setAnnouncement(e.target.value)}
+                  placeholder="Enter your announcement message..."
+                  className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 resize-none"
+                  rows={4}
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowAnnouncementModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-500/20 border border-slate-500/30 text-slate-300 hover:bg-slate-500/30 rounded-xl transition-all duration-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendAnnouncement}
+                disabled={!announcement.trim()}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
+              >
+                Send Announcement
               </button>
             </div>
           </div>

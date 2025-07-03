@@ -109,6 +109,64 @@ if (action === "event-phase") {
   return res.status(200).json({ phase: data.phase })
 }
 
+if (action === "set-announcement") {
+  const { message, type = "info" } = req.body
+  const { error } = await supabase
+    .from("event_state")
+    .upsert({ 
+      match_id: STATIC_MATCH_ID, 
+      announcement: message,
+      announcement_type: type,
+      announcement_time: new Date().toISOString()
+    }, { onConflict: "match_id" })
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ message: "Announcement set" })
+}
+
+if (action === "clear-announcement") {
+  const { error } = await supabase
+    .from("event_state")
+    .update({ 
+      announcement: null,
+      announcement_type: null,
+      announcement_time: null
+    })
+    .eq("match_id", STATIC_MATCH_ID)
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ message: "Announcement cleared" })
+}
+
+if (action === "set-emergency-pause") {
+  const { paused } = req.body
+  const { error } = await supabase
+    .from("event_state")
+    .upsert({ 
+      match_id: STATIC_MATCH_ID, 
+      emergency_paused: paused,
+      pause_time: paused ? new Date().toISOString() : null
+    }, { onConflict: "match_id" })
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ message: `Emergency ${paused ? 'pause' : 'resume'} set` })
+}
+
+if (action === "get-event-state") {
+  const { data, error } = await supabase
+    .from("event_state")
+    .select("phase, announcement, announcement_type, announcement_time, emergency_paused, pause_time")
+    .eq("match_id", STATIC_MATCH_ID)
+    .single()
+
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ 
+    phase: data.phase,
+    announcement: data.announcement,
+    announcement_type: data.announcement_type,
+    announcement_time: data.announcement_time,
+    emergency_paused: data.emergency_paused || false,
+    pause_time: data.pause_time
+  })
+}
+
   }
   return res.status(405).json({ error: "Unsupported method or action" })
 

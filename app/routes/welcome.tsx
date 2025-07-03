@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useSearchParams } from "react-router-dom"
+import { X } from "lucide-react"
 
 import {
   ChevronRightIcon,
@@ -100,6 +101,8 @@ export default function WelcomePage() {
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
+  const [announcement, setAnnouncement] = useState<any>(null)
+  const [emergencyPaused, setEmergencyPaused] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -200,24 +203,76 @@ export default function WelcomePage() {
     resolveToken()
   }, [token])
 
+  // Combined real-time updates for all steps
   useEffect(() => {
+    // Don't start polling until initial resolution is complete
+    if (isResolving) return
+
     const interval = setInterval(async () => {
       try {
+        // Fetch both phase and event state in one call
         const res = await fetch("/api/admin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
+          body: JSON.stringify({ action: "get-event-state", match_id: "00000000-0000-0000-0000-000000000000" }),
         })
 
         const data = await res.json()
+        
+        // Update phase
         setPhase(data.phase)
+        
+        // Update announcements and emergency pause
+        setAnnouncement({
+          message: data.announcement,
+          type: data.announcement_type,
+          time: data.announcement_time
+        })
+        setEmergencyPaused(data.emergency_paused || false)
+
+        // Handle step transitions based on phase changes
+        if (assignedNumber) {
+          // If we're in step 4 (waiting) and phase changes to matching, fetch matches
+          if (step === 4 && ((currentRound === 1 && data.phase === "matching") || (currentRound === 2 && data.phase === "matching2"))) {
+            await fetchMatches(currentRound)
+            setStep(5)
+          }
+          
+          // If we're in step 2 (form) and phase changes to matching, move to step 4
+          if (step === 2 && data.phase === "matching") {
+            setStep(4)
+          }
+          
+          // If we're in step 2 (form) and phase changes to waiting, move to step 4
+          if (step === 2 && data.phase === "waiting") {
+            setStep(4)
+          }
+
+          // If we're in step 1 (number entry) and phase changes to form, move to step 2
+          if (step === 1 && data.phase === "form") {
+            setStep(2)
+          }
+
+          // If we're in step 0 (welcome) and phase changes to form, move to step 1
+          if (step === 0 && data.phase === "form") {
+            setStep(1)
+          }
+
+          // If we're in any step and phase changes to waiting2 (waiting for round 2), move to step 4
+          if (data.phase === "waiting2" && step !== 4) {
+            setStep(4)
+          }
+
+          // If we're in any step and emergency pause is activated, stay on current step but show pause overlay
+          // (this is handled by the emergencyPaused state and overlay)
+        }
       } catch (err) {
-        console.error("Failed to fetch phase", err)
+        console.error("Failed to fetch real-time updates", err)
       }
-    }, 5000) // every 5 seconds
+    }, 3000) // every 3 seconds
 
     return () => clearInterval(interval)
-  }, [])
+  }, [step, currentRound, assignedNumber, isResolving])
 
   const next = () => setStep((s) => Math.min(s + 1, 3))
   const restart = () => {
@@ -370,26 +425,6 @@ export default function WelcomePage() {
     return () => clearInterval(interval)
   }, [conversationStarted, conversationTimer])
 
-  useEffect(() => {
-    if (step !== 4 || !assignedNumber) return
-
-    const interval = setInterval(async () => {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "event-phase", match_id: "00000000-0000-0000-0000-000000000000" }),
-      })
-      const data = await res.json()
-      if ((currentRound === 1 && data.phase === "matching") || (currentRound === 2 && data.phase === "matching2")) {
-        clearInterval(interval)
-        await fetchMatches(currentRound)
-        setStep(5)
-      }
-    }, 5000)
-
-    return () => clearInterval(interval)
-  }, [step, currentRound, assignedNumber])
-
   const submitFeedback = () => {
     setIsScoreRevealed(true)
     setShowFeedbackModal(false)
@@ -427,6 +462,47 @@ export default function WelcomePage() {
     )
   }
 
+  // Emergency pause overlay
+  if (emergencyPaused) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-red-800 to-red-900 animate-in fade-in duration-500">
+        <div className="text-center space-y-8 max-w-md mx-auto p-8">
+          <div className="bg-red-500/20 border-2 border-red-400/40 rounded-3xl p-10 backdrop-blur-xl shadow-2xl transform transition-all duration-500 hover:scale-105">
+            {/* Animated warning icon */}
+            <div className="relative mb-8">
+              <AlertTriangle className="w-20 h-20 text-red-400 mx-auto animate-pulse" />
+              {/* Ripple effects */}
+              <div className="absolute inset-0 w-20 h-20 mx-auto rounded-full bg-red-400/20 animate-ping"></div>
+              <div className="absolute inset-0 w-20 h-20 mx-auto rounded-full bg-red-400/10 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+            </div>
+            
+            <h2 className="font-bold text-4xl text-red-200 mb-6 animate-in slide-in-from-bottom-4 duration-700">النشاط متوقف مؤقتاً</h2>
+            <p className="text-red-300 text-xl leading-relaxed animate-in slide-in-from-bottom-4 duration-700 delay-200">
+              المنظّم أوقف النشاط مؤقتاً. يرجى الانتظار...
+            </p>
+            
+            {/* Animated dots */}
+            <div className="flex justify-center gap-2 mt-8">
+              <div className="w-3 h-3 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-3 h-3 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-3 h-3 bg-red-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+            
+            {announcement?.message && (
+              <div className="mt-8 p-6 rounded-2xl border-2 border-red-400/30 bg-red-500/10 backdrop-blur-sm animate-in slide-in-from-bottom-4 duration-700 delay-300">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+                  <p className="text-red-200 font-medium text-sm">رسالة من المنظّم:</p>
+                </div>
+                <p className="text-red-200 font-semibold text-lg leading-relaxed">{announcement.message}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden ${
@@ -436,6 +512,91 @@ export default function WelcomePage() {
       }`}
       dir="rtl"
     >
+      {/* Announcement Banner */}
+      {announcement?.message && (
+        <div className="fixed top-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-top-4 duration-500">
+          <div className={`max-w-4xl mx-auto rounded-2xl border-2 p-6 backdrop-blur-xl shadow-2xl transform transition-all duration-500 hover:scale-[1.02] ${
+            announcement.type === "warning" 
+              ? "bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border-yellow-400/40 text-yellow-100 shadow-yellow-500/20"
+              : announcement.type === "error"
+              ? "bg-gradient-to-r from-red-500/20 to-pink-500/20 border-red-400/40 text-red-100 shadow-red-500/20"
+              : announcement.type === "success"
+              ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/40 text-green-100 shadow-green-500/20"
+              : "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/40 text-blue-100 shadow-blue-500/20"
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                {/* Animated icon */}
+                <div className={`relative w-8 h-8 rounded-full flex items-center justify-center ${
+                  announcement.type === "warning" ? "bg-yellow-400/20" :
+                  announcement.type === "error" ? "bg-red-400/20" :
+                  announcement.type === "success" ? "bg-green-400/20" :
+                  "bg-blue-400/20"
+                }`}>
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${
+                    announcement.type === "warning" ? "bg-yellow-400" :
+                    announcement.type === "error" ? "bg-red-400" :
+                    announcement.type === "success" ? "bg-green-400" :
+                    "bg-blue-400"
+                  }`}></div>
+                  {/* Ripple effect */}
+                  <div className={`absolute inset-0 rounded-full animate-ping ${
+                    announcement.type === "warning" ? "bg-yellow-400/30" :
+                    announcement.type === "error" ? "bg-red-400/30" :
+                    announcement.type === "success" ? "bg-green-400/30" :
+                    "bg-blue-400/30"
+                  }`}></div>
+                </div>
+                
+                {/* Message content */}
+                <div className="flex-1">
+                  <p className="font-semibold text-lg leading-relaxed">{announcement.message}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className={`w-1 h-1 rounded-full ${
+                      announcement.type === "warning" ? "bg-yellow-400" :
+                      announcement.type === "error" ? "bg-red-400" :
+                      announcement.type === "success" ? "bg-green-400" :
+                      "bg-blue-400"
+                    }`}></div>
+                    <p className="text-xs opacity-70 font-medium">
+                      {new Date(announcement.time).toLocaleTimeString('ar-SA', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Close button with animation */}
+              <button
+                onClick={() => setAnnouncement(null)}
+                className={`p-2 rounded-full transition-all duration-300 hover:scale-110 hover:bg-white/10 ${
+                  announcement.type === "warning" ? "text-yellow-300 hover:text-yellow-200" :
+                  announcement.type === "error" ? "text-red-300 hover:text-red-200" :
+                  announcement.type === "success" ? "text-green-300 hover:text-green-200" :
+                  "text-blue-300 hover:text-blue-200"
+                }`}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="mt-4 h-1 bg-white/10 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full animate-pulse ${
+                announcement.type === "warning" ? "bg-yellow-400" :
+                announcement.type === "error" ? "bg-red-400" :
+                announcement.type === "success" ? "bg-green-400" :
+                "bg-blue-400"
+              }`} style={{
+                animation: 'progress 10s linear infinite'
+              }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className={`absolute -top-40 -right-40 w-80 h-80 rounded-full blur-3xl animate-pulse ${
@@ -819,8 +980,7 @@ export default function WelcomePage() {
                 dir="rtl"
                 className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
                   dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
-                }`}
-              >
+                }`}>
                 <div className="flex items-center justify-between gap-2">
                   <button
                     type="button"

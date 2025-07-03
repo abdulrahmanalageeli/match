@@ -127,8 +127,6 @@ const [isResolving, setIsResolving] = useState(true)
   const [welcomeTyping, setWelcomeTyping] = useState(false)
   const [announcementProgress, setAnnouncementProgress] = useState(0)
   const [showFormFilledPrompt, setShowFormFilledPrompt] = useState(false)
-  const [showHistoryModal, setShowHistoryModal] = useState(false)
-  const [matchHistory, setMatchHistory] = useState<MatchResultEntry[]>([])
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -525,25 +523,6 @@ const res = await fetch("/api/admin", {
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
-
-  // Fetch match history when entering waiting room (step 5)
-  useEffect(() => {
-    if (step === 5 && assignedNumber) {
-      (async () => {
-        try {
-          const res = await fetch("/api/get-my-matches", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ assigned_number: assignedNumber, round: 1 }),
-          })
-          const data = await res.json()
-          setMatchHistory(data.matches || [])
-        } catch (err) {
-          setMatchHistory([])
-        }
-      })()
-    }
-  }, [step, assignedNumber])
 
   if (phase === null) {
     return (
@@ -1364,50 +1343,7 @@ if (!isResolving && phase !== "form" && step === 0) {
                   </button>
                 </div>
               </div>
-              <div className="flex justify-center mt-6">
-                {/* Only show if feedback for round 1 has been given and not showing feedback modal */}
-                {!showFeedbackModal && (
-                  <Button
-                    className="px-6 py-2 font-bold"
-                    onClick={() => setShowHistoryModal(true)}
-                  >
-                    عرض سجل الجولة السابقة
-                  </Button>
-                )}
-              </div>
             </div>
-            {/* History Modal */}
-            {showHistoryModal && (
-              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className={`w-full max-w-lg rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
-                  <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل الجولة السابقة</h3>
-                  {matchHistory.length === 0 ? (
-                    <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد مباريات سابقة.</p>
-                  ) : (
-                    <ul className="divide-y divide-gray-300/30 mb-6">
-                      {matchHistory.map((m, i) => (
-                        <li key={i} className="py-3">
-                          <div className="flex flex-col gap-1">
-                            <span className={`font-bold ${dark ? "text-cyan-300" : "text-blue-700"}`}>رقم الشريك: {m.with}</span>
-                            <span className={`text-sm ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق: {m.score}/100</span>
-                            <span className={`text-xs italic ${dark ? "text-slate-400" : "text-gray-500"}`}>{m.reason}</span>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="flex justify-center">
-                    <Button
-                      className="px-6 py-2 font-bold"
-                      variant="outline"
-                      onClick={() => setShowHistoryModal(false)}
-                    >
-                      إغلاق
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </section>
         )}
 

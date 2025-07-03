@@ -126,6 +126,9 @@ const [isResolving, setIsResolving] = useState(true)
   const [welcomeText, setWelcomeText] = useState("")
   const [welcomeTyping, setWelcomeTyping] = useState(false)
   const [announcementProgress, setAnnouncementProgress] = useState(0)
+  const [showFormFilledPrompt, setShowFormFilledPrompt] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [matchHistory, setMatchHistory] = useState<MatchResultEntry[]>([])
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -192,51 +195,62 @@ const [isResolving, setIsResolving] = useState(true)
   }, [personalitySummary])
 
   useEffect(() => {
-  const resolveToken = async () => {
-    if (!token) return
+    const resolveToken = async () => {
+      if (!token) return
 
-    try {
-const res = await fetch("/api/token-handler", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ action: "resolve", secure_token: token }),
-})
-
-      const data = await res.json()
-if (data.success) {
-  setAssignedNumber(data.assigned_number);
-if (data.summary) {
-  setPersonalitySummary(data.summary)
-}
-
-  const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
-
-          // Always start with welcome landing page, then check phase for next step
+      try {
+        const res = await fetch("/api/token-handler", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "resolve", secure_token: token }),
+        })
+        const data = await res.json()
+        if (data.success) {
+          setAssignedNumber(data.assigned_number);
+          if (data.summary) {
+            setPersonalitySummary(data.summary)
+          }
+          const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
           setStep(-1);
-
-  const res2 = await fetch("/api/admin", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      action: "event-phase",
-      match_id: "00000000-0000-0000-0000-000000000000",
-    }),
-  });
-  const phaseData = await res2.json();
-
-          // Store phase info for later use, but don't change step yet
+          const res2 = await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "event-phase",
+              match_id: "00000000-0000-0000-0000-000000000000",
+            }),
+          });
+          const phaseData = await res2.json();
           setPhase(phaseData.phase);
-}
 
-    } catch (err) {
-      console.error("Error resolving token:", err)
-        } finally {
-      setIsResolving(false) // ✅ only set false after async finishes
+          // --- NEW LOGIC ---
+          if (hasFilledForm) {
+            if (phaseData.phase !== "form") {
+              // Registration closed but user filled form, skip to correct step
+              if (phaseData.phase === "matching") {
+                setStep(4); // Show matches
+                await fetchMatches(1);
+              } else if (phaseData.phase === "waiting" || phaseData.phase === "waiting2") {
+                setStep(3); // Show analysis/waiting
+              } else if (phaseData.phase === "matching2") {
+                setStep(6); // Show round 2 matches
+                await fetchMatches(2);
+              }
+            } else {
+              // In form phase and already filled form, show prompt
+              setShowFormFilledPrompt(true);
+            }
+          }
+          // --- END NEW LOGIC ---
+        }
+      } catch (err) {
+        console.error("Error resolving token:", err)
+      } finally {
+        setIsResolving(false)
+      }
     }
-  }
-
-  resolveToken()
-}, [token])
+    resolveToken()
+  }, [token])
 
   // Combined real-time updates for all steps
   useEffect(() => {
@@ -511,6 +525,25 @@ const res = await fetch("/api/admin", {
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
+
+  // Fetch match history when entering waiting room (step 5)
+  useEffect(() => {
+    if (step === 5 && assignedNumber) {
+      (async () => {
+        try {
+          const res = await fetch("/api/get-my-matches", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assigned_number: assignedNumber, round: 1 }),
+          })
+          const data = await res.json()
+          setMatchHistory(data.matches || [])
+        } catch (err) {
+          setMatchHistory([])
+        }
+      })()
+    }
+  }, [step, assignedNumber])
 
   if (phase === null) {
     return (
@@ -1331,7 +1364,50 @@ if (!isResolving && phase !== "form" && step === 0) {
                   </button>
                 </div>
               </div>
+              <div className="flex justify-center mt-6">
+                {/* Only show if feedback for round 1 has been given and not showing feedback modal */}
+                {!showFeedbackModal && (
+                  <Button
+                    className="px-6 py-2 font-bold"
+                    onClick={() => setShowHistoryModal(true)}
+                  >
+                    عرض سجل الجولة السابقة
+                  </Button>
+                )}
+              </div>
             </div>
+            {/* History Modal */}
+            {showHistoryModal && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+                <div className={`w-full max-w-lg rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل الجولة السابقة</h3>
+                  {matchHistory.length === 0 ? (
+                    <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد مباريات سابقة.</p>
+                  ) : (
+                    <ul className="divide-y divide-gray-300/30 mb-6">
+                      {matchHistory.map((m, i) => (
+                        <li key={i} className="py-3">
+                          <div className="flex flex-col gap-1">
+                            <span className={`font-bold ${dark ? "text-cyan-300" : "text-blue-700"}`}>رقم الشريك: {m.with}</span>
+                            <span className={`text-sm ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق: {m.score}/100</span>
+                            <span className={`text-xs italic ${dark ? "text-slate-400" : "text-gray-500"}`}>{m.reason}</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <div className="flex justify-center">
+                    <Button
+                      className="px-6 py-2 font-bold"
+                      variant="outline"
+                      onClick={() => setShowHistoryModal(false)}
+                    >
+                      إغلاق
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </section>
         )}
 
@@ -1541,6 +1617,18 @@ if (!isResolving && phase !== "form" && step === 0) {
                 }`}>
                   {compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}
                 </div>
+                {isScoreRevealed && (
+                  <div className="mt-4">
+                    <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
+                    {currentRound === 1 && (
+                      <div className="mt-4 flex flex-col items-center">
+                        <Clock className={`w-5 h-5 mb-1 ${dark ? "text-blue-300" : "text-blue-600"}`} />
+                        <span className={`text-sm font-medium ${dark ? "text-blue-200" : "text-blue-700"}`}>بانتظار المنظّم</span>
+                        <p className={`text-sm ${dark ? "text-blue-300" : "text-blue-600"}`}>سيتم إخبارك عندما يبدأ المنظّم الجولة الثانية</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {isScoreRevealed && (
@@ -1719,6 +1807,37 @@ if (!isResolving && phase !== "form" && step === 0) {
                 className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
               >
                 إرسال التقييم
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Form filled prompt modal */}
+      {showFormFilledPrompt && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`w-full max-w-md rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+            <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-slate-100" : "text-gray-800"}`}>لقد قمت بتعبئة النموذج مسبقاً</h3>
+            <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>هل ترغب في إعادة تعبئة النموذج أم الانتقال مباشرةً إلى التحليل؟</p>
+            <div className="flex gap-4 justify-center">
+              <Button
+                className="px-6 py-2 font-bold"
+                onClick={() => {
+                  setShowFormFilledPrompt(false);
+                  setStep(2); // Stay on form
+                }}
+              >
+                إعادة تعبئة النموذج
+              </Button>
+              <Button
+                className="px-6 py-2 font-bold"
+                variant="outline"
+                onClick={() => {
+                  setShowFormFilledPrompt(false);
+                  setStep(3); // Go to analysis
+                }}
+              >
+                الانتقال إلى التحليل
               </Button>
             </div>
           </div>

@@ -46,6 +46,8 @@ export default function AdminPage() {
   const [currentAnnouncement, setCurrentAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
+  const [waitingCount, setWaitingCount] = useState(0)
+  const [totalParticipants, setTotalParticipants] = useState(0)
 
   const STATIC_PASSWORD = "soulmatch2025"
 
@@ -74,6 +76,16 @@ export default function AdminPage() {
         time: stateData.announcement_time
       })
       setEmergencyPaused(stateData.emergency_paused)
+      
+      // Fetch waiting count
+      const waitingRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-waiting-count" }),
+      })
+      const waitingData = await waitingRes.json()
+      setWaitingCount(waitingData.waiting_count || 0)
+      setTotalParticipants(waitingData.total_participants || 0)
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -346,6 +358,10 @@ export default function AdminPage() {
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2">
               <span className="text-slate-300 text-sm">Total: </span>
               <span className="font-bold text-white">{participants.length}</span>
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2">
+              <span className="text-slate-300 text-sm">Waiting: </span>
+              <span className="font-bold text-white">{waitingCount}</span>
             </div>
           </div>
         </div>

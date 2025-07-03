@@ -125,6 +125,7 @@ export default function WelcomePage() {
   const [emergencyPaused, setEmergencyPaused] = useState(false)
   const [welcomeText, setWelcomeText] = useState("")
   const [welcomeTyping, setWelcomeTyping] = useState(false)
+  const [announcementProgress, setAnnouncementProgress] = useState(0)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -283,6 +284,12 @@ export default function WelcomePage() {
           if (step === 5 && data.phase === "matching2") {
             await fetchMatches(2)
             setStep(6)
+            // Reset timer for round 2
+            setConversationTimer(300)
+            setConversationStarted(false)
+            setShowFeedbackModal(false)
+            setIsScoreRevealed(false)
+            setShowFinalResult(false)
           }
           
           // If we're in step 2 (form) and phase changes to matching, move to step 3
@@ -468,6 +475,31 @@ export default function WelcomePage() {
     return () => clearInterval(interval)
   }, [conversationStarted, conversationTimer, emergencyPaused])
 
+  // Announcement progress effect
+  useEffect(() => {
+    if (!announcement?.message) {
+      setAnnouncementProgress(0)
+      return
+    }
+
+    const duration = 10000 // 10 seconds
+    const interval = 100 // Update every 100ms
+    const increment = (interval / duration) * 100
+
+    const timer = setInterval(() => {
+      setAnnouncementProgress(prev => {
+        if (prev >= 100) {
+          clearInterval(timer)
+          setAnnouncement(null) // Auto-dismiss when complete
+          return 100
+        }
+        return prev + increment
+      })
+    }, interval)
+
+    return () => clearInterval(timer)
+  }, [announcement?.message])
+
   const submitFeedback = () => {
     setIsScoreRevealed(true)
     setShowFeedbackModal(false)
@@ -627,13 +659,13 @@ export default function WelcomePage() {
             
             {/* Progress bar */}
             <div className="mt-4 h-1 bg-white/10 rounded-full overflow-hidden">
-              <div className={`h-full rounded-full animate-pulse ${
+              <div className={`h-full rounded-full transition-all duration-100 ${
                 announcement.type === "warning" ? "bg-yellow-400" :
                 announcement.type === "error" ? "bg-red-400" :
                 announcement.type === "success" ? "bg-green-400" :
                 "bg-blue-400"
               }`} style={{
-                animation: 'progress 10s linear infinite'
+                width: `${announcementProgress}%`
               }}></div>
             </div>
           </div>

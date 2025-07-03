@@ -186,6 +186,59 @@ if (action === "get-event-state") {
   })
 }
 
+if (action === "get-waiting-count") {
+  // Get participants who have completed form but are waiting for matching
+  const { data: formCompleted, error: formError } = await supabase
+    .from("participants")
+    .select("assigned_number")
+    .eq("match_id", STATIC_MATCH_ID)
+    .not("q1", "is", null)
+    .not("q2", "is", null)
+    .not("q3", "is", null)
+    .not("q4", "is", null)
+
+  if (formError) return res.status(500).json({ error: formError.message })
+
+  // Get current phase
+  const { data: eventState, error: eventError } = await supabase
+    .from("event_state")
+    .select("phase")
+    .eq("match_id", STATIC_MATCH_ID)
+    .single()
+
+  if (eventError && eventError.code !== 'PGRST116') {
+    return res.status(500).json({ error: eventError.message })
+  }
+
+  const currentPhase = eventState?.phase || "form"
+  
+  // Count waiting participants based on phase
+  let waitingCount = 0
+  if (currentPhase === "waiting" || currentPhase === "matching") {
+    // All form-completed participants are waiting during analysis/matching
+    waitingCount = formCompleted.length
+  } else if (currentPhase === "waiting2" || currentPhase === "matching2") {
+    // Count participants who completed round 1 and are waiting for round 2
+    const { data: round1Completed, error: round1Error } = await supabase
+      .from("match_results")
+      .select("participant_number")
+      .eq("match_id", STATIC_MATCH_ID)
+      .eq("round", 1)
+    
+    if (round1Error) return res.status(500).json({ error: round1Error.message })
+    
+    // Get unique participants who completed round 1
+    const round1Participants = [...new Set(round1Completed.map(r => r.participant_number))]
+    waitingCount = round1Participants.length
+  }
+
+  return res.status(200).json({ 
+    waiting_count: waitingCount,
+    total_participants: formCompleted.length,
+    current_phase: currentPhase
+  })
+}
+
   }
   return res.status(405).json({ error: "Unsupported method or action" })
 

@@ -226,13 +226,13 @@ const [isResolving, setIsResolving] = useState(true)
             if (phaseData.phase !== "form") {
               // Registration closed but user filled form, skip to correct step
               if (phaseData.phase === "matching") {
+                await fetchMatches(1); // Fetch match data immediately
                 setStep(4); // Show matches
-                await fetchMatches(1);
               } else if (phaseData.phase === "waiting" || phaseData.phase === "waiting2") {
                 setStep(3); // Show analysis/waiting
               } else if (phaseData.phase === "matching2") {
+                await fetchMatches(2); // Fetch match data immediately
                 setStep(6); // Show round 2 matches
-                await fetchMatches(2);
               }
             } else {
               // In form phase and already filled form, show prompt
@@ -1113,7 +1113,9 @@ if (!isResolving && phase !== "form" && step === 0) {
                 </div>
               </div>
               <div className="mt-8 flex flex-col items-center justify-center">
-                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-lg shadow-lg border-2 ${dark ? 'bg-yellow-400/10 border-yellow-400/40 text-yellow-300' : 'bg-yellow-100 border-yellow-400 text-yellow-700'}`}> 
+                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-lg shadow-lg border-2 ${
+                  dark ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30 text-blue-200' : 'bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30 text-blue-700'
+                }`}> 
                   <Clock className="w-6 h-6" />
                   يرجى الانتظار حتى ينقلك المنظّم للمرحلة التالية
                 </div>

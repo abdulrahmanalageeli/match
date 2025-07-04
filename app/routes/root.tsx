@@ -41,8 +41,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { OfflineIndicator } from "../components/OfflineIndicator"
+
 export default function App() {
-  return <Outlet />;
+  return (
+    <>
+      <OfflineIndicator />
+      <Outlet />
+    </>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {

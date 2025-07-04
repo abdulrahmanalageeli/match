@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
-    const { assigned_number, round } = req.body
+    const { assigned_number, round, history_only } = req.body
     
     if (!assigned_number) {
       return res.status(400).json({ error: "assigned_number is required" })
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     const roundNumber = typeof round === 'number' ? round : 1;
 
-    console.log("Looking for matches for player:", assigned_number, "in round:", roundNumber) // Debug log
+    console.log("Looking for matches for player:", assigned_number, "in round:", roundNumber, "history_only:", history_only) // Debug log
 
     // If round is provided, filter by round, otherwise fetch all rounds
     let query = supabase
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 
     console.log("Raw matches from Supabase:", matches) // Debug log
 
-    const results = (matches || []).map(match => {
+    let results = (matches || []).map(match => {
       // Determine which participant is the current player and which is their match
       const isPlayerA = match.participant_a_number?.toString() === assigned_number?.toString()
       const currentPlayer = isPlayerA ? match.participant_a_number?.toString() : match.participant_b_number?.toString()
@@ -57,6 +57,21 @@ export default async function handler(req, res) {
       }
     })
 
+    // If history_only is true, filter to only show completed matches
+    if (history_only) {
+      // Get completed matches for this participant
+      const { data: completions, error: completionError } = await supabase
+        .from("match_completions")
+        .select("round")
+        .eq("match_id", match_id)
+        .eq("participant_number", assigned_number)
+
+      if (completionError) throw completionError
+
+      const completedRounds = new Set(completions?.map(c => c.round) || [])
+      results = results.filter(match => completedRounds.has(match.round))
+    }
+
     console.log("Processed results:", results) // Debug log
 
     return res.status(200).json({ matches: results })
@@ -64,4 +79,18 @@ export default async function handler(req, res) {
     console.error("Error in get-my-matches:", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })
   }
+}
+
+if (req.method === "DELETE") {
+  // Only allow if admin_token matches
+  if (req.body?.admin_token !== process.env.ADMIN_TOKEN) {
+    return res.status(403).json({ error: "Forbidden" })
+  }
+  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+  const { error } = await supabase
+    .from("match_results")
+    .delete()
+    .eq("match_id", match_id)
+  if (error) return res.status(500).json({ error: error.message })
+  return res.status(200).json({ success: true })
 }

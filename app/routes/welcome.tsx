@@ -1726,7 +1726,22 @@ if (!isResolving && phase !== "form" && step === 0) {
       )}
 
       {/* Floating previous matches card */}
-      {step === 4 && historyMatches.length > 0 && (
+      {typeof step === 'number' && step === 4 && historyMatches.filter(m => m.round === 1).length > 0 && (
+        <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-none select-none shadow-none border border-white/10">
+          <h4 className="text-base font-bold text-cyan-200 mb-2 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-300" /> اللقاءات السابقة
+          </h4>
+          <div className="space-y-1">
+            {historyMatches.filter(m => m.round === 1).map((m: MatchResultEntry, i: number) => (
+              <div key={i} className="flex items-center justify-between text-cyan-100/80 text-sm bg-white/5 rounded-lg px-2 py-1">
+                <span className="font-bold">#{m.with}</span>
+                <span>{m.score}/100</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {typeof step === 'number' && step === 6 && historyMatches.length > 0 && (
         <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-none select-none shadow-none border border-white/10">
           <h4 className="text-base font-bold text-cyan-200 mb-2 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-cyan-300" /> اللقاءات السابقة

@@ -1655,21 +1655,6 @@ if (!isResolving && phase !== "form" && step === 0) {
               )}
             </div>
             {/* Previous Matches Card */}
-            {historyMatches.length > 0 && (
-              <div className="w-full md:w-64 bg-gradient-to-br from-cyan-50/80 to-blue-100/80 border border-cyan-200 rounded-2xl shadow-2xl p-4 backdrop-blur-xl animate-fade-in self-start">
-                <h3 className="text-lg font-bold text-cyan-700 mb-3 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-cyan-400" /> اللقاءات السابقة
-                </h3>
-                <div className="space-y-2">
-                  {historyMatches.map((m, i) => (
-                    <div key={i} className="flex items-center justify-between bg-white/60 rounded-xl px-3 py-1 shadow-sm">
-                      <span className="font-bold text-blue-700">#{m.with}</span>
-                      <span className="font-bold text-cyan-600">{m.score}/100</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 

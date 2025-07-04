@@ -41,10 +41,10 @@ export default async function handler(req, res) {
     console.log("Raw matches from Supabase:", matches) // Debug log
 
     let results = (matches || []).map(match => {
-      // Determine which participant is the current player and which is their match
-      const isPlayerA = match.participant_a_number?.toString() === assigned_number?.toString()
-      const currentPlayer = isPlayerA ? match.participant_a_number?.toString() : match.participant_b_number?.toString()
-      const matchedWith = isPlayerA ? match.participant_b_number?.toString() : match.participant_a_number?.toString()
+      // Ensure both are numbers for comparison
+      const isPlayerA = Number(match.participant_a_number) === Number(assigned_number)
+      const currentPlayer = isPlayerA ? match.participant_a_number : match.participant_b_number
+      const matchedWith = isPlayerA ? match.participant_b_number : match.participant_a_number
       
       return {
         with: matchedWith,

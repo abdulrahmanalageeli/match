@@ -1730,6 +1730,22 @@ if (!isResolving && phase !== "form" && step === 0) {
           </div>
         </div>
       )}
+      {/* Previous Matches Sidebar - only after round 1 is complete (step >= 6) and if there are previous matches */}
+      {step >= 6 && historyMatches.length > 0 && (
+        <aside className="hidden md:block fixed top-24 right-6 z-40 w-72 bg-gradient-to-br from-cyan-50/80 to-blue-100/80 border border-cyan-200 rounded-2xl shadow-2xl p-6 backdrop-blur-xl animate-fade-in">
+          <h3 className="text-xl font-bold text-cyan-700 mb-4 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-cyan-400" /> اللقاءات السابقة
+          </h3>
+          <div className="space-y-3">
+            {historyMatches.map((m, i) => (
+              <div key={i} className="flex items-center justify-between bg-white/60 rounded-xl px-4 py-2 shadow-sm hover:scale-105 transition">
+                <span className="font-bold text-lg text-blue-700">#{m.with}</span>
+                <span className="font-bold text-cyan-600">{m.score}/100</span>
+              </div>
+            ))}
+          </div>
+        </aside>
+      )}
     </div>
   )
 }

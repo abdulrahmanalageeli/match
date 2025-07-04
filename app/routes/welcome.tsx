@@ -1514,151 +1514,150 @@ if (!isResolving && phase !== "form" && step === 0) {
   </section>
 )}
 
+        {/* Main feedback/result + previous matches layout */}
         {modalStep && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="w-full max-w-2xl flex flex-col md:flex-row gap-6 backdrop-blur-xl border rounded-2xl p-8 shadow-2xl bg-white/10 border-white/20">
-              {/* Main Modal Content */}
-              <div className="flex-1 min-w-0">
-                {modalStep === "feedback" ? (
-                  <>
-                    <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>تقييم المحادثة</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>كيف استمتعت بالمحادثة؟</label>
-                        <select
-                          value={feedbackAnswers.enjoyment}
-                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, enjoyment: e.target.value }))}
-                          className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                        >
-                          <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
-                          <option value="excellent" className={dark ? "bg-slate-800" : "bg-white"}>ممتاز</option>
-                          <option value="good" className={dark ? "bg-slate-800" : "bg-white"}>جيد</option>
-                          <option value="average" className={dark ? "bg-slate-800" : "bg-white"}>متوسط</option>
-                          <option value="poor" className={dark ? "bg-slate-800" : "bg-white"}>ضعيف</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل شعرت بتواصل جيد؟</label>
-                        <select
-                          value={feedbackAnswers.connection}
-                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, connection: e.target.value }))}
-                          className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                        >
-                          <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
-                          <option value="yes" className={dark ? "bg-slate-800" : "bg-white"}>نعم</option>
-                          <option value="somewhat" className={dark ? "bg-slate-800" : "bg-white"}>نوعاً ما</option>
-                          <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل تود مقابلته مرة أخرى؟</label>
-                        <select
-                          value={feedbackAnswers.wouldMeetAgain}
-                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: e.target.value }))}
-                          className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                        >
-                          <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
-                          <option value="definitely" className={dark ? "bg-slate-800" : "bg-white"}>بالتأكيد</option>
-                          <option value="maybe" className={dark ? "bg-slate-800" : "bg-white"}>ربما</option>
-                          <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>التقييم العام (من 1 إلى 5)</label>
-                        <select
-                          value={feedbackAnswers.overallRating}
-                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, overallRating: e.target.value }))}
-                          className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                        >
-                          <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
-                          <option value="5" className={dark ? "bg-slate-800" : "bg-white"}>5 - ممتاز</option>
-                          <option value="4" className={dark ? "bg-slate-800" : "bg-white"}>4 - جيد جداً</option>
-                          <option value="3" className={dark ? "bg-slate-800" : "bg-white"}>3 - جيد</option>
-                          <option value="2" className={dark ? "bg-slate-800" : "bg-white"}>2 - مقبول</option>
-                          <option value="1" className={dark ? "bg-slate-800" : "bg-white"}>1 - ضعيف</option>
-                        </select>
-                      </div>
+          <div className="flex flex-col md:flex-row gap-6 w-full max-w-4xl mx-auto mt-12">
+            {/* Main Content */}
+            <div className="flex-1 min-w-0">
+              {modalStep === "feedback" ? (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>تقييم المحادثة</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>كيف استمتعت بالمحادثة؟</label>
+                      <select
+                        value={feedbackAnswers.enjoyment}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, enjoyment: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                    >
+                      <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
+                      <option value="excellent" className={dark ? "bg-slate-800" : "bg-white"}>ممتاز</option>
+                      <option value="good" className={dark ? "bg-slate-800" : "bg-white"}>جيد</option>
+                      <option value="average" className={dark ? "bg-slate-800" : "bg-white"}>متوسط</option>
+                      <option value="poor" className={dark ? "bg-slate-800" : "bg-white"}>ضعيف</option>
+                    </select>
                     </div>
-                    <div className="flex justify-center gap-3 mt-6">
-                      <Button
-                        onClick={submitFeedback}
-                        className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل شعرت بتواصل جيد؟</label>
+                      <select
+                        value={feedbackAnswers.connection}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, connection: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
                       >
-                        إرسال التقييم
-                      </Button>
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
+                        <option value="yes" className={dark ? "bg-slate-800" : "bg-white"}>نعم</option>
+                        <option value="somewhat" className={dark ? "bg-slate-800" : "bg-white"}>نوعاً ما</option>
+                        <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
+                      </select>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
-                    <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
-                      <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
-                      <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
-                      {isScoreRevealed && (
-                        <div className="mt-4">
-                          <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
-                          {currentRound === 1 && (
-                            <div className="flex flex-col items-center justify-center py-8">
-                              <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
-                                <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
-                                <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
-                              </div>
-                              <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
-                              <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
-                              <div className="flex gap-2 mt-6">
-                                <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                              </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل تود مقابلته مرة أخرى؟</label>
+                      <select
+                        value={feedbackAnswers.wouldMeetAgain}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                      >
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
+                        <option value="definitely" className={dark ? "bg-slate-800" : "bg-white"}>بالتأكيد</option>
+                        <option value="maybe" className={dark ? "bg-slate-800" : "bg-white"}>ربما</option>
+                        <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>التقييم العام (من 1 إلى 5)</label>
+                      <select
+                        value={feedbackAnswers.overallRating}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, overallRating: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                      >
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
+                        <option value="5" className={dark ? "bg-slate-800" : "bg-white"}>5 - ممتاز</option>
+                        <option value="4" className={dark ? "bg-slate-800" : "bg-white"}>4 - جيد جداً</option>
+                        <option value="3" className={dark ? "bg-slate-800" : "bg-white"}>3 - جيد</option>
+                        <option value="2" className={dark ? "bg-slate-800" : "bg-white"}>2 - مقبول</option>
+                        <option value="1" className={dark ? "bg-slate-800" : "bg-white"}>1 - ضعيف</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-center gap-3 mt-6">
+                    <Button
+                      onClick={submitFeedback}
+                      className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                    >
+                      إرسال التقييم
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
+                  <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
+                    <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
+                    <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
+                    {isScoreRevealed && (
+                      <div className="mt-4">
+                        <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
+                        {currentRound === 1 && (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
+                              <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
+                              <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {/* Only show buttons if NOT waiting for host */}
-                    {!(currentRound === 1 && isScoreRevealed) && (
-                      <div className="flex justify-center gap-3 mt-6">
-                        <Button
-                          onClick={() => {
-                            // Fetch all matches for this user
-                            fetch("/api/get-my-matches", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ assigned_number: assignedNumber })
-                            })
-                              .then(res => res.json())
-                              .then(data => {
-                                setHistoryMatches(data.matches || [])
-                                setShowHistory(true)
-                              })
-                          }}
-                          className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
-                        >
-                          عرض السجل
-                        </Button>
-                        <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
+                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
+                            <div className="flex gap-2 mt-6">
+                              <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </>
-                )}
-              </div>
-              {/* Previous Matches Card */}
-              {historyMatches.length > 0 && (
-                <div className="w-full md:w-64 bg-gradient-to-br from-cyan-50/80 to-blue-100/80 border border-cyan-200 rounded-2xl shadow-2xl p-4 backdrop-blur-xl animate-fade-in self-start">
-                  <h3 className="text-lg font-bold text-cyan-700 mb-3 flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-cyan-400" /> اللقاءات السابقة
-                  </h3>
-                  <div className="space-y-2">
-                    {historyMatches.map((m, i) => (
-                      <div key={i} className="flex items-center justify-between bg-white/60 rounded-xl px-3 py-1 shadow-sm">
-                        <span className="font-bold text-blue-700">#{m.with}</span>
-                        <span className="font-bold text-cyan-600">{m.score}/100</span>
-                      </div>
-                    ))}
                   </div>
-                </div>
+                  {/* Only show buttons if NOT waiting for host */}
+                  {!(currentRound === 1 && isScoreRevealed) && (
+                    <div className="flex justify-center gap-3 mt-6">
+                      <Button
+                        onClick={() => {
+                          // Fetch all matches for this user
+                          fetch("/api/get-my-matches", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ assigned_number: assignedNumber })
+                          })
+                            .then(res => res.json())
+                            .then(data => {
+                              setHistoryMatches(data.matches || [])
+                              setShowHistory(true)
+                            })
+                        }}
+                        className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                      >
+                        عرض السجل
+                      </Button>
+                      <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+                    </div>
+                  )}
+                </>
               )}
             </div>
+            {/* Previous Matches Card */}
+            {historyMatches.length > 0 && (
+              <div className="w-full md:w-64 bg-gradient-to-br from-cyan-50/80 to-blue-100/80 border border-cyan-200 rounded-2xl shadow-2xl p-4 backdrop-blur-xl animate-fade-in self-start">
+                <h3 className="text-lg font-bold text-cyan-700 mb-3 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-cyan-400" /> اللقاءات السابقة
+                </h3>
+                <div className="space-y-2">
+                  {historyMatches.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between bg-white/60 rounded-xl px-3 py-1 shadow-sm">
+                      <span className="font-bold text-blue-700">#{m.with}</span>
+                      <span className="font-bold text-cyan-600">{m.score}/100</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

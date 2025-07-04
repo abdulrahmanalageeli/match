@@ -20,7 +20,6 @@ import {
   UserCheck,
   MessageSquare,
   Activity,
-  History,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Timeline, TimelineItem } from "../../components/ui/timeline"
@@ -256,7 +255,6 @@ const [isResolving, setIsResolving] = useState(true)
 
   useEffect(() => {
     if (assignedNumber && pendingMatchRound) {
-      setCurrentRound(pendingMatchRound)
       fetchMatches(pendingMatchRound)
       setPendingMatchRound(null)
     }
@@ -295,7 +293,6 @@ const res = await fetch("/api/admin", {
           
           // If we're in step 3 (analysis/waiting) and phase changes to matching, fetch matches for round 1
           if (step === 3 && data.phase === "matching") {
-            setCurrentRound(1)
             await fetchMatches(1)
             setStep(4)
           }
@@ -307,7 +304,6 @@ const res = await fetch("/api/admin", {
           
           // If we're in step 5 (waiting between rounds) and phase changes to matching2, fetch matches for round 2
           if (step === 5 && data.phase === "matching2") {
-            setCurrentRound(2)
             await fetchMatches(2)
             setStep(6)
             // Reset timer for round 2
@@ -476,9 +472,6 @@ const res = await fetch("/api/admin", {
         setMatchReason(match.reason)
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
-      } else {
-        setMatchResult("؟")
-        setMatchReason("لم يتم العثور على تطابق.")
       }
   } catch (err) {
     setMatchResult("؟")
@@ -529,29 +522,7 @@ const res = await fetch("/api/admin", {
     return () => clearInterval(timer)
   }, [announcement?.message])
 
-  const submitFeedback = async () => {
-    try {
-      // Save feedback to database
-      const res = await fetch("/api/save-feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          assigned_number: assignedNumber,
-          round: currentRound,
-          enjoyment: feedbackAnswers.enjoyment,
-          connection: feedbackAnswers.connection,
-          wouldMeetAgain: feedbackAnswers.wouldMeetAgain,
-          overallRating: feedbackAnswers.overallRating
-        })
-      })
-      
-      if (!res.ok) {
-        console.error("Failed to save feedback")
-      }
-    } catch (err) {
-      console.error("Error saving feedback:", err)
-    }
-    
+  const submitFeedback = () => {
     setIsScoreRevealed(true)
     setShowFeedbackModal(false)
     setShowFinalResult(true)
@@ -1623,32 +1594,23 @@ if (!isResolving && phase !== "form" && step === 0) {
               )}
             </div>
 
-            <div className="flex flex-col items-center gap-4 mt-6">
-              {/* Standalone History Button */}
-              <div className="relative group">
-                <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-                <Button
-                  onClick={async () => {
-                    // Fetch only completed matches for history
-                    const res = await fetch("/api/get-my-matches", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ 
-                        assigned_number: assignedNumber,
-                        history_only: true
-                      })
-                    })
-                    const data = await res.json()
-                    setHistoryMatches(data.matches || [])
-                    setShowHistory(true)
-                  }}
-                  className="relative bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 rounded-full px-8 py-3 font-semibold text-lg"
-                >
-                  <History className="w-5 h-5 mr-2" />
-                  عرض السجل
-                </Button>
-              </div>
-              
+            <div className="flex justify-center gap-3 mt-6">
+              <Button
+                onClick={async () => {
+                  // Fetch all matches for this user
+                  const res = await fetch("/api/get-my-matches", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ assigned_number: assignedNumber })
+                  })
+                  const data = await res.json()
+                  setHistoryMatches(data.matches || [])
+                  setShowHistory(true)
+                }}
+                className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+              >
+                عرض السجل
+              </Button>
               <FancyNextButton onClick={restart} label="ابدأ من جديد" />
             </div>
           </section>
@@ -1806,12 +1768,12 @@ if (!isResolving && phase !== "form" && step === 0) {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={`max-w-lg w-auto mx-4 rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
             <div className="flex justify-between items-center mb-4">
-              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات المكتملة</h3>
+              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
               <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
             </div>
             <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto">
               {historyMatches.length === 0 ? (
-                <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا توجد لقاءات مكتملة بعد.</p>
+                <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
               ) : (
                 historyMatches.map((m, i) => (
                   <div key={i} className="py-4 flex flex-col gap-1">

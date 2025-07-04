@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
-    const { assigned_number, round, history_only } = req.body
+    const { assigned_number, round } = req.body
     
     if (!assigned_number) {
       return res.status(400).json({ error: "assigned_number is required" })
@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     const roundNumber = typeof round === 'number' ? round : 1;
 
-    console.log("Looking for matches for player:", assigned_number, "in round:", roundNumber, "history_only:", history_only) // Debug log
+    console.log("Looking for matches for player:", assigned_number, "in round:", roundNumber) // Debug log
 
     // If round is provided, filter by round, otherwise fetch all rounds
     let query = supabase
@@ -40,11 +40,11 @@ export default async function handler(req, res) {
 
     console.log("Raw matches from Supabase:", matches) // Debug log
 
-    let results = (matches || []).map(match => {
-      // Ensure both are numbers for comparison
-      const isPlayerA = Number(match.participant_a_number) === Number(assigned_number)
-      const currentPlayer = isPlayerA ? match.participant_a_number : match.participant_b_number
-      const matchedWith = isPlayerA ? match.participant_b_number : match.participant_a_number
+    const results = (matches || []).map(match => {
+      // Determine which participant is the current player and which is their match
+      const isPlayerA = match.participant_a_number?.toString() === assigned_number?.toString()
+      const currentPlayer = isPlayerA ? match.participant_a_number?.toString() : match.participant_b_number?.toString()
+      const matchedWith = isPlayerA ? match.participant_b_number?.toString() : match.participant_a_number?.toString()
       
       return {
         with: matchedWith,
@@ -56,31 +56,6 @@ export default async function handler(req, res) {
         table_number: match.table_number || null,
       }
     })
-
-    // If history_only is true, filter to only show completed matches
-    if (history_only === true) {
-      try {
-        // Get completed matches for this participant
-        const { data: completions, error: completionError } = await supabase
-          .from("match_completions")
-          .select("round")
-          .eq("match_id", match_id)
-          .eq("participant_number", assigned_number)
-
-        if (completionError) {
-          console.warn("Completion table might not exist yet:", completionError)
-          // If table doesn't exist, return empty results for history
-          results = []
-        } else {
-          const completedRounds = new Set(completions?.map(c => c.round) || [])
-          results = results.filter(match => completedRounds.has(match.round))
-        }
-      } catch (err) {
-        console.warn("Error checking completions:", err)
-        // If there's any error, return empty results for history
-        results = []
-      }
-    }
 
     console.log("Processed results:", results) // Debug log
 

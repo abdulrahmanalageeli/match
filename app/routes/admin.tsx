@@ -26,8 +26,7 @@ import {
   Clock,
   CheckSquare,
   Square,
-  X,
-  Database
+  X
 } from "lucide-react"
 
 export default function AdminPage() {
@@ -769,25 +768,6 @@ export default function AdminPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* Database Migration Button */}
-      {authenticated && (
-        <button
-          onClick={async () => {
-            if (!window.confirm("This will create the necessary database tables for feedback tracking. Continue?")) return;
-            try {
-              // This would typically be done through a proper migration system
-              // For now, we'll just show a message
-              alert("✅ Database migration completed. The feedback and completion tracking tables have been created.");
-            } catch (error) {
-              alert("❌ Migration failed: " + error);
-            }
-          }}
-          className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded shadow-lg mb-4 mr-4"
-        >
-          <Database className="inline-block mr-2" /> Run Migration
-        </button>
       )}
 
       {/* Clear History Button */}

@@ -1730,8 +1730,8 @@ if (!isResolving && phase !== "form" && step === 0) {
           </div>
         </div>
       )}
-      {/* Previous Matches Sidebar - only after round 1 is complete (step >= 6) and if there are previous matches */}
-      {step >= 6 && historyMatches.length > 0 && (
+      {/* Previous Matches Sidebar - show as soon as there is any match history */}
+      {historyMatches.length > 0 && (
         <aside className="hidden md:block fixed top-24 right-6 z-40 w-72 bg-gradient-to-br from-cyan-50/80 to-blue-100/80 border border-cyan-200 rounded-2xl shadow-2xl p-6 backdrop-blur-xl animate-fade-in">
           <h3 className="text-xl font-bold text-cyan-700 mb-4 flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-cyan-400" /> اللقاءات السابقة

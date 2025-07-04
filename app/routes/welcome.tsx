@@ -129,6 +129,7 @@ const [isResolving, setIsResolving] = useState(true)
   const [showHistory, setShowHistory] = useState(false)
   const [historyMatches, setHistoryMatches] = useState<MatchResultEntry[]>([])
   const [modalStep, setModalStep] = useState<null | "feedback" | "result">(null)
+  const [analysisStarted, setAnalysisStarted] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -171,7 +172,7 @@ const [isResolving, setIsResolving] = useState(true)
 
   // Typewriter effect for AI description
   useEffect(() => {
-    if (!personalitySummary || personalitySummary === "ما تم إنشاء ملخص.") {
+    if (!analysisStarted || !personalitySummary || personalitySummary === "ما تم إنشاء ملخص.") {
       setTypewriterText("")
       setIsTyping(false)
       return
@@ -192,7 +193,7 @@ const [isResolving, setIsResolving] = useState(true)
     }, 30) // Speed of typing
 
     return () => clearInterval(typeInterval)
-  }, [personalitySummary])
+  }, [analysisStarted, personalitySummary])
 
   useEffect(() => {
     const resolveToken = async () => {
@@ -433,8 +434,8 @@ const res = await fetch("/api/admin", {
           summary: data2.summary || "ما قدرنا نولّد تحليل شخصيتك.",
         }),
       })
-
       // Move to waiting/analysis step immediately after form submission
+      setAnalysisStarted(true)
       setStep(3)
     } catch (err) {
       console.error("Submit error:", err)
@@ -1525,9 +1526,63 @@ if (!isResolving && phase !== "form" && step === 0) {
                   }`}>
                     تقييم المحادثة
                   </h3>
-                  {/* Feedback form content here (copy from old feedback modal) */}
+                  {/* Feedback form fields restored */}
                   <div className="space-y-4">
-                    {/* ...feedback form fields... */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>كيف استمتعت بالمحادثة؟</label>
+                      <select
+                        value={feedbackAnswers.enjoyment}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, enjoyment: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                      >
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
+                        <option value="excellent" className={dark ? "bg-slate-800" : "bg-white"}>ممتاز</option>
+                        <option value="good" className={dark ? "bg-slate-800" : "bg-white"}>جيد</option>
+                        <option value="average" className={dark ? "bg-slate-800" : "bg-white"}>متوسط</option>
+                        <option value="poor" className={dark ? "bg-slate-800" : "bg-white"}>ضعيف</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل شعرت بتواصل جيد؟</label>
+                      <select
+                        value={feedbackAnswers.connection}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, connection: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                      >
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
+                        <option value="yes" className={dark ? "bg-slate-800" : "bg-white"}>نعم</option>
+                        <option value="somewhat" className={dark ? "bg-slate-800" : "bg-white"}>نوعاً ما</option>
+                        <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل تود مقابلته مرة أخرى؟</label>
+                      <select
+                        value={feedbackAnswers.wouldMeetAgain}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                      >
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
+                        <option value="definitely" className={dark ? "bg-slate-800" : "bg-white"}>بالتأكيد</option>
+                        <option value="maybe" className={dark ? "bg-slate-800" : "bg-white"}>ربما</option>
+                        <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>التقييم العام (من 1 إلى 5)</label>
+                      <select
+                        value={feedbackAnswers.overallRating}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, overallRating: e.target.value }))}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
+                      >
+                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
+                        <option value="5" className={dark ? "bg-slate-800" : "bg-white"}>5 - ممتاز</option>
+                        <option value="4" className={dark ? "bg-slate-800" : "bg-white"}>4 - جيد جداً</option>
+                        <option value="3" className={dark ? "bg-slate-800" : "bg-white"}>3 - جيد</option>
+                        <option value="2" className={dark ? "bg-slate-800" : "bg-white"}>2 - مقبول</option>
+                        <option value="1" className={dark ? "bg-slate-800" : "bg-white"}>1 - ضعيف</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="flex justify-center gap-3 mt-6">
                     <Button
@@ -1564,36 +1619,41 @@ if (!isResolving && phase !== "form" && step === 0) {
                       <div className="mt-4">
                         <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
                         {currentRound === 1 && (
-                          <div className="mt-4 flex flex-col items-center">
-                            <Clock className={`w-5 h-5 mb-1 ${dark ? "text-blue-300" : "text-blue-600"}`} />
-                            <span className={`text-sm font-medium ${dark ? "text-blue-200" : "text-blue-700"}`}>بانتظار المنظّم</span>
-                            <p className={`text-sm ${dark ? "text-blue-300" : "text-blue-600"}`}>سيتم إخبارك عندما يبدأ المنظّم الجولة الثانية</p>
+                          <div className="mt-6 flex flex-col items-center justify-center">
+                            <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center mb-4 animate-pulse border-4 border-blue-300">
+                              <Clock className="w-8 h-8 text-blue-600 animate-spin-slow" />
+                            </div>
+                            <span className="text-xl font-bold text-blue-700 mb-2 animate-pulse">بانتظار المنظّم</span>
+                            <p className="text-base font-semibold text-blue-600">سيتم إخبارك عندما يبدأ المنظّم الجولة الثانية</p>
                           </div>
                         )}
                       </div>
                     )}
                   </div>
-                  <div className="flex justify-center gap-3 mt-6">
-                    <Button
-                      onClick={() => {
-                        // Fetch all matches for this user
-                        fetch("/api/get-my-matches", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ assigned_number: assignedNumber })
-                        })
-                          .then(res => res.json())
-                          .then(data => {
-                            setHistoryMatches(data.matches || [])
-                            setShowHistory(true)
+                  {/* Only show buttons if NOT waiting for host */}
+                  {!(currentRound === 1 && isScoreRevealed) && (
+                    <div className="flex justify-center gap-3 mt-6">
+                      <Button
+                        onClick={() => {
+                          // Fetch all matches for this user
+                          fetch("/api/get-my-matches", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ assigned_number: assignedNumber })
                           })
-                      }}
-                      className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
-                    >
-                      عرض السجل
-                    </Button>
-                    <FancyNextButton onClick={restart} label="ابدأ من جديد" />
-                  </div>
+                            .then(res => res.json())
+                            .then(data => {
+                              setHistoryMatches(data.matches || [])
+                              setShowHistory(true)
+                            })
+                        }}
+                        className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                      >
+                        عرض السجل
+                      </Button>
+                      <FancyNextButton onClick={restart} label="ابدأ من جديد" />
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -1614,6 +1674,7 @@ if (!isResolving && phase !== "form" && step === 0) {
                 onClick={() => {
                   setShowFormFilledPrompt(false);
                   setStep(2); // Stay on form
+                  setAnalysisStarted(false);
                 }}
               >
                 إعادة تعبئة النموذج
@@ -1624,6 +1685,7 @@ if (!isResolving && phase !== "form" && step === 0) {
                 onClick={() => {
                   setShowFormFilledPrompt(false);
                   setStep(3); // Go to analysis
+                  setAnalysisStarted(true);
                 }}
               >
                 الانتقال إلى التحليل

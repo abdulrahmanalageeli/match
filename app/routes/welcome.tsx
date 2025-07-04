@@ -302,6 +302,12 @@ const res = await fetch("/api/admin", {
             setStep(5)
           }
           
+          // If we're in step 4 (round 1 matching) and phase changes to matching2, go to waiting step (5) first
+          if (step === 4 && data.phase === "matching2") {
+            setStep(5)
+            return // Don't proceed to 6 in the same tick
+          }
+          
           // If we're in step 5 (waiting between rounds) and phase changes to matching2, fetch matches for round 2
           if (step === 5 && data.phase === "matching2") {
             await fetchMatches(2)

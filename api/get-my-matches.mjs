@@ -58,18 +58,28 @@ export default async function handler(req, res) {
     })
 
     // If history_only is true, filter to only show completed matches
-    if (history_only) {
-      // Get completed matches for this participant
-      const { data: completions, error: completionError } = await supabase
-        .from("match_completions")
-        .select("round")
-        .eq("match_id", match_id)
-        .eq("participant_number", assigned_number)
+    if (history_only === true) {
+      try {
+        // Get completed matches for this participant
+        const { data: completions, error: completionError } = await supabase
+          .from("match_completions")
+          .select("round")
+          .eq("match_id", match_id)
+          .eq("participant_number", assigned_number)
 
-      if (completionError) throw completionError
-
-      const completedRounds = new Set(completions?.map(c => c.round) || [])
-      results = results.filter(match => completedRounds.has(match.round))
+        if (completionError) {
+          console.warn("Completion table might not exist yet:", completionError)
+          // If table doesn't exist, return empty results for history
+          results = []
+        } else {
+          const completedRounds = new Set(completions?.map(c => c.round) || [])
+          results = results.filter(match => completedRounds.has(match.round))
+        }
+      } catch (err) {
+        console.warn("Error checking completions:", err)
+        // If there's any error, return empty results for history
+        results = []
+      }
     }
 
     console.log("Processed results:", results) // Debug log

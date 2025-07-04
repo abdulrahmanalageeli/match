@@ -256,6 +256,7 @@ const [isResolving, setIsResolving] = useState(true)
 
   useEffect(() => {
     if (assignedNumber && pendingMatchRound) {
+      setCurrentRound(pendingMatchRound)
       fetchMatches(pendingMatchRound)
       setPendingMatchRound(null)
     }
@@ -294,6 +295,7 @@ const res = await fetch("/api/admin", {
           
           // If we're in step 3 (analysis/waiting) and phase changes to matching, fetch matches for round 1
           if (step === 3 && data.phase === "matching") {
+            setCurrentRound(1)
             await fetchMatches(1)
             setStep(4)
           }
@@ -305,6 +307,7 @@ const res = await fetch("/api/admin", {
           
           // If we're in step 5 (waiting between rounds) and phase changes to matching2, fetch matches for round 2
           if (step === 5 && data.phase === "matching2") {
+            setCurrentRound(2)
             await fetchMatches(2)
             setStep(6)
             // Reset timer for round 2
@@ -473,6 +476,9 @@ const res = await fetch("/api/admin", {
         setMatchReason(match.reason)
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
+      } else {
+        setMatchResult("؟")
+        setMatchReason("لم يتم العثور على تطابق.")
       }
   } catch (err) {
     setMatchResult("؟")

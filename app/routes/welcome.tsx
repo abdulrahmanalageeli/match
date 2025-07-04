@@ -532,6 +532,18 @@ const res = await fetch("/api/admin", {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  useEffect(() => {
+    if (modalStep === "result" && assignedNumber) {
+      fetch("/api/get-my-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_number: assignedNumber })
+      })
+        .then(res => res.json())
+        .then(data => setHistoryMatches(data.matches || []));
+    }
+  }, [modalStep, assignedNumber]);
+
   if (phase === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

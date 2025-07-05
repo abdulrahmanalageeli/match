@@ -5,12 +5,14 @@ import { Button } from "../../components/ui/button"
 interface AIQuestionsGeneratorProps {
   secureToken: string
   dark: boolean
+  currentRound: number
   onQuestionsGenerated?: (questions: string[]) => void
 }
 
 export default function AIQuestionsGenerator({ 
   secureToken, 
   dark, 
+  currentRound,
   onQuestionsGenerated 
 }: AIQuestionsGeneratorProps) {
   const [aiQuestions, setAiQuestions] = useState<string[]>([])
@@ -30,6 +32,7 @@ export default function AIQuestionsGenerator({
         },
         body: JSON.stringify({
           secure_token: secureToken,
+          round: currentRound,
         }),
       })
 

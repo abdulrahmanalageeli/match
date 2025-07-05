@@ -137,6 +137,9 @@ const [isResolving, setIsResolving] = useState(true)
   const [animationStep, setAnimationStep] = useState(0)
   const [showRegistrationContent, setShowRegistrationContent] = useState(false)
   const [secureToken, setSecureToken] = useState<string>("")
+  const [conversationStarters, setConversationStarters] = useState<string[]>([])
+  const [showConversationStarters, setShowConversationStarters] = useState(false)
+  const [generatingStarters, setGeneratingStarters] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -608,6 +611,8 @@ const [isResolving, setIsResolving] = useState(true)
     const secs = seconds % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
+
+
 
   useEffect(() => {
     if (modalStep === "result" && assignedNumber) {
@@ -1661,6 +1666,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <AIQuestionsGenerator 
                         secureToken={secureToken}
                         dark={dark}
+                        currentRound={currentRound}
                       />
                     </div>
                   )}
@@ -1724,6 +1730,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <AIQuestionsGenerator 
                         secureToken={secureToken}
                         dark={dark}
+                        currentRound={currentRound}
                       />
                     </div>
                   )}
@@ -1826,6 +1833,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <AIQuestionsGenerator 
                     secureToken={secureToken}
                     dark={dark}
+                    currentRound={currentRound}
                   />
                 </div>
               )}
@@ -1914,6 +1922,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <AIQuestionsGenerator 
                         secureToken={secureToken}
                         dark={dark}
+                        currentRound={currentRound}
                       />
                     </div>
                   )}
@@ -2081,6 +2090,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <AIQuestionsGenerator 
                         secureToken={secureToken}
                         dark={dark}
+                        currentRound={currentRound}
                       />
                     </div>
                   )}

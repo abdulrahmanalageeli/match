@@ -198,9 +198,21 @@ export default function AdminPage() {
     waiting_4: { label: "Waiting 4", color: "text-yellow-100", bg: "bg-yellow-100/10", icon: Clock },
     round_4: { label: "Round 4", color: "text-cyan-400", bg: "bg-cyan-400/10", icon: BarChart3 },
     group_phase: { label: "Group Phase", color: "text-orange-400", bg: "bg-orange-400/10", icon: Users },
+    // Legacy phases for backward compatibility
+    matching: { label: "Matching", color: "text-green-400", bg: "bg-green-400/10", icon: BarChart3 },
+    waiting2: { label: "Waiting for Round 2", color: "text-yellow-300", bg: "bg-yellow-300/10", icon: Clock },
+    matching2: { label: "Matching Round 2", color: "text-pink-400", bg: "bg-pink-400/10", icon: BarChart3 },
   }
 
-  const currentPhaseConfig = phaseConfig[currentPhase as keyof typeof phaseConfig]
+  // Ensure currentPhase is always a string
+  const safeCurrentPhase = currentPhase || "registration"
+  
+  const currentPhaseConfig = phaseConfig[safeCurrentPhase as keyof typeof phaseConfig] || {
+    label: "Unknown",
+    color: "text-gray-400",
+    bg: "bg-gray-400/10",
+    icon: AlertCircle
+  }
 
   const sendAnnouncement = async () => {
     if (!announcement.trim()) return
@@ -347,7 +359,7 @@ export default function AdminPage() {
             </div>
             
                          <select
-               value={currentPhase}
+               value={safeCurrentPhase}
                onChange={(e) => updatePhase(e.target.value)}
                className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                style={{
@@ -485,7 +497,7 @@ export default function AdminPage() {
                   const res = await fetch("/api/admin", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "advance-phase", currentPhase }),
+                    body: JSON.stringify({ action: "advance-phase", currentPhase: safeCurrentPhase }),
                   })
                   const data = await res.json()
                   if (res.ok) {
@@ -510,8 +522,8 @@ export default function AdminPage() {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ 
-                      round: currentPhase.startsWith("round_") ? parseInt(currentPhase.split('_')[1]) : 1,
-                      match_type: currentPhase === "group_phase" ? "group" : "individual"
+                                round: safeCurrentPhase.startsWith("round_") ? parseInt(safeCurrentPhase.split('_')[1]) : 1,
+          match_type: safeCurrentPhase === "group_phase" ? "group" : "individual"
                     }),
                   })
                   const data = await res.json()

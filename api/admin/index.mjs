@@ -122,6 +122,7 @@ export default async function handler(req, res) {
           .single()
 
         if (error) {
+          console.error("event-phase error:", error);
           // If no event state exists, return "registration" as default
           if (error.code === 'PGRST116') {
             return res.status(200).json({ phase: "registration" })
@@ -141,7 +142,10 @@ export default async function handler(req, res) {
             announcement_type: type,
             announcement_time: new Date().toISOString()
           }, { onConflict: "match_id" })
-        if (error) return res.status(500).json({ error: error.message })
+        if (error) {
+          console.error("set-announcement error:", error);
+          return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Announcement set" })
       }
 
@@ -154,7 +158,10 @@ export default async function handler(req, res) {
             announcement_time: null
           })
           .eq("match_id", STATIC_MATCH_ID)
-        if (error) return res.status(500).json({ error: error.message })
+        if (error) {
+          console.error("clear-announcement error:", error);
+          return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: "Announcement cleared" })
       }
 
@@ -167,11 +174,15 @@ export default async function handler(req, res) {
             emergency_paused: paused,
             pause_time: paused ? new Date().toISOString() : null
           }, { onConflict: "match_id" })
-        if (error) return res.status(500).json({ error: error.message })
+        if (error) {
+          console.error("set-emergency-pause error:", error);
+          return res.status(500).json({ error: error.message })
+        }
         return res.status(200).json({ message: `Emergency ${paused ? 'pause' : 'resume'} set` })
       }
 
       if (action === "get-event-state") {
+        console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase
           .from("event_state")
           .select("phase, announcement, announcement_type, announcement_time, emergency_paused, pause_time, current_round, total_rounds")
@@ -179,8 +190,10 @@ export default async function handler(req, res) {
           .single()
 
         if (error) {
+          console.error("get-event-state error:", error);
           // If no event state exists, return default values
           if (error.code === 'PGRST116') {
+            console.log("No event state found, returning defaults");
             return res.status(200).json({ 
               phase: "registration",
               announcement: null,
@@ -194,6 +207,7 @@ export default async function handler(req, res) {
           }
           return res.status(500).json({ error: error.message })
         }
+        console.log("Event state found:", data);
         return res.status(200).json({ 
           phase: data.phase,
           announcement: data.announcement,
@@ -208,13 +222,20 @@ export default async function handler(req, res) {
 
       if (action === "get-participant-stats") {
         try {
+          console.log("Getting participant stats for match_id:", STATIC_MATCH_ID);
+          
           // Get total participants
           const { data: totalParticipants, error: totalError } = await supabase
             .from("participants")
             .select("assigned_number")
             .eq("match_id", STATIC_MATCH_ID)
 
-          if (totalError) return res.status(500).json({ error: totalError.message })
+          if (totalError) {
+            console.error("Total participants error:", totalError);
+            return res.status(500).json({ error: totalError.message })
+          }
+
+          console.log("Total participants found:", totalParticipants?.length || 0);
 
           // Get participants who completed form
           const { data: formCompleted, error: formError } = await supabase
@@ -226,7 +247,12 @@ export default async function handler(req, res) {
             .not("q3", "is", null)
             .not("q4", "is", null)
 
-          if (formError) return res.status(500).json({ error: formError.message })
+          if (formError) {
+            console.error("Form completed error:", formError);
+            return res.status(500).json({ error: formError.message })
+          }
+
+          console.log("Form completed participants:", formCompleted?.length || 0);
 
           // Get current event state
           const { data: eventState, error: eventError } = await supabase
@@ -236,11 +262,14 @@ export default async function handler(req, res) {
             .single()
 
           if (eventError && eventError.code !== 'PGRST116') {
+            console.error("Event state error:", eventError);
             return res.status(500).json({ error: eventError.message })
           }
 
           const currentPhase = eventState?.phase || "registration"
           const currentRound = eventState?.current_round || 1
+
+          console.log("Current phase:", currentPhase, "Current round:", currentRound);
 
           // Calculate waiting count based on phase
           let waitingCount = 0
@@ -258,7 +287,9 @@ export default async function handler(req, res) {
                 .eq("match_id", STATIC_MATCH_ID)
                 .eq("round", previousRound)
               
-              if (!roundError && roundCompleted) {
+              if (roundError) {
+                console.error("Round completed error:", roundError);
+              } else if (roundCompleted) {
                 const roundParticipants = new Set()
                 roundCompleted.forEach(match => {
                   if (match.participant_a_number > 0) roundParticipants.add(match.participant_a_number)
@@ -277,7 +308,9 @@ export default async function handler(req, res) {
               .eq("match_id", STATIC_MATCH_ID)
               .in("round", [1, 2, 3, 4])
             
-            if (!allRoundsError && allRoundsCompleted) {
+            if (allRoundsError) {
+              console.error("All rounds completed error:", allRoundsError);
+            } else if (allRoundsCompleted) {
               const allParticipants = new Set()
               allRoundsCompleted.forEach(match => {
                 if (match.participant_a_number > 0) allParticipants.add(match.participant_a_number)
@@ -297,7 +330,9 @@ export default async function handler(req, res) {
               .eq("match_id", STATIC_MATCH_ID)
               .eq("round", currentRound)
             
-            if (!currentRoundError && currentRoundMatches) {
+            if (currentRoundError) {
+              console.error("Current round matches error:", currentRoundError);
+            } else if (currentRoundMatches) {
               const currentParticipants = new Set()
               currentRoundMatches.forEach(match => {
                 if (match.participant_a_number > 0) currentParticipants.add(match.participant_a_number)
@@ -309,14 +344,17 @@ export default async function handler(req, res) {
             }
           }
 
-          return res.status(200).json({
+          const result = {
             total_participants: totalParticipants.length,
             form_completed: formCompleted.length,
             waiting_count: waitingCount,
             current_round_participants: currentRoundParticipants,
             current_phase: currentPhase,
             current_round: currentRound
-          })
+          };
+
+          console.log("Participant stats result:", result);
+          return res.status(200).json(result);
         } catch (error) {
           console.error("Error getting participant stats:", error)
           return res.status(500).json({ error: "Failed to get participant stats" })

@@ -25,83 +25,38 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get participants based on round
-    let participants = []
-    
-    if (round === 1) {
-      console.log("Getting participants for round 1...");
-      // For round 1, get all participants who completed the form
-      const { data, error } = await supabase
-        .from("participants")
-        .select("assigned_number, q1, q2, q3, q4")
-        .eq("match_id", match_id)
-        .not("q1", "is", null)
-        .not("q2", "is", null)
-        .not("q3", "is", null)
-        .not("q4", "is", null)
+    // Get all participants who completed the form
+    console.log("Getting all participants...");
+    const { data: allParticipants, error } = await supabase
+      .from("participants")
+      .select("assigned_number, q1, q2, q3, q4")
+      .eq("match_id", match_id)
+      .not("q1", "is", null)
+      .not("q2", "is", null)
+      .not("q3", "is", null)
+      .not("q4", "is", null)
 
-      if (error) {
-        console.error("Error fetching participants for round 1:", error);
-        throw error;
-      }
-      participants = data
-      console.log(`Found ${participants.length} participants for round 1`);
-    } else {
-      console.log(`Getting participants for round ${round}...`);
-      // For subsequent rounds, get participants who completed the previous round
-      const { data: previousMatches, error: matchError } = await supabase
-        .from("match_results")
-        .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
-        .eq("match_id", match_id)
-        .eq("round", round - 1)
-
-      if (matchError) {
-        console.error("Error fetching previous matches:", matchError);
-        throw matchError;
-      }
-
-      console.log(`Found ${previousMatches.length} previous matches`);
-
-      // Get unique participants from previous round
-      const participantNumbers = new Set()
-      previousMatches.forEach(match => {
-        if (match.participant_a_number > 0) participantNumbers.add(match.participant_a_number)
-        if (match.participant_b_number > 0) participantNumbers.add(match.participant_b_number)
-        if (match.participant_c_number > 0) participantNumbers.add(match.participant_c_number)
-        if (match.participant_d_number > 0) participantNumbers.add(match.participant_d_number)
-      })
-
-      console.log(`Unique participants from previous round: ${participantNumbers.size}`);
-
-      // Get participant details
-      const { data, error } = await supabase
-        .from("participants")
-        .select("assigned_number, q1, q2, q3, q4")
-        .eq("match_id", match_id)
-        .in("assigned_number", Array.from(participantNumbers))
-
-      if (error) {
-        console.error("Error fetching participant details:", error);
-        throw error;
-      }
-      participants = data
-      console.log(`Found ${participants.length} participants for round ${round}`);
+    if (error) {
+      console.error("Error fetching participants:", error);
+      throw error;
     }
 
-    if (participants.length < 2) {
-      console.log(`Not enough participants: ${participants.length}`);
+    console.log(`Found ${allParticipants.length} participants total`);
+
+    if (allParticipants.length < 2) {
+      console.log(`Not enough participants: ${allParticipants.length}`);
       return res.status(400).json({ error: "Not enough participants for matching" })
     }
 
-    console.log(`Starting ${match_type} matching for ${participants.length} participants`);
+    console.log(`Starting ${match_type} matching for ${allParticipants.length} participants`);
 
     if (match_type === "group") {
       // Group matching logic
-      const result = await generateGroupMatches(participants, round, match_id)
+      const result = await generateGroupMatches(allParticipants, round, match_id)
       return res.status(200).json(result)
     } else {
-      // Individual matching logic
-      const result = await generateIndividualMatches(participants, round, match_id)
+      // Individual matching logic - now generates all 4 rounds globally
+      const result = await generateGlobalIndividualMatches(allParticipants, match_id)
       return res.status(200).json(result)
     }
 
@@ -111,8 +66,8 @@ export default async function handler(req, res) {
   }
 }
 
-async function generateIndividualMatches(participants, round, match_id) {
-  console.log(`Starting individual matching for ${participants.length} participants`);
+async function generateGlobalIndividualMatches(participants, match_id) {
+  console.log(`Starting global individual matching for ${participants.length} participants`);
   
   // Generate all possible pairs
   const pairs = []
@@ -124,7 +79,7 @@ async function generateIndividualMatches(participants, round, match_id) {
 
   console.log(`Generated ${pairs.length} possible pairs`);
 
-  // Generate compatibility scores using AI
+  // Generate compatibility scores using AI for all pairs
   const compatibilityScores = []
   
   for (const [participantA, participantB] of pairs) {
@@ -184,98 +139,131 @@ async function generateIndividualMatches(participants, round, match_id) {
 
   console.log(`Generated ${compatibilityScores.length} compatibility scores`);
 
-  // Sort by compatibility score (descending)
+  // Sort by compatibility score (descending) for global optimization
   compatibilityScores.sort((a, b) => b.score - a.score)
 
-  // Generate 4 matches per participant using Hungarian algorithm
-  const matches = []
-  const usedParticipants = new Set()
+  // Generate all 4 rounds with global optimization
+  const allMatches = []
+  const usedPairs = new Set() // Track used pairs across all rounds
+  const participantRoundCount = new Map() // Track how many times each participant has been matched
 
-  // First pass: create optimal matches
-  for (const pair of compatibilityScores) {
-    if (!usedParticipants.has(pair.participantA) && !usedParticipants.has(pair.participantB)) {
-      matches.push({
-        participant_a_number: pair.participantA,
-        participant_b_number: pair.participantB,
-        compatibility_score: pair.score,
-        reason: pair.reason,
-        match_id,
-        round,
-        table_number: Math.floor(matches.length / 2) + 1
-      })
-      usedParticipants.add(pair.participantA)
-      usedParticipants.add(pair.participantB)
-    }
-  }
+  // Initialize participant round count
+  participants.forEach(p => participantRoundCount.set(p.assigned_number, 0))
 
-  console.log(`Created ${matches.length} initial matches`);
+  // Generate matches for all 4 rounds
+  for (let round = 1; round <= 4; round++) {
+    console.log(`Generating matches for round ${round}`);
+    
+    const roundMatches = []
+    const roundUsedParticipants = new Set()
 
-  // Handle odd participant
-  const unusedParticipants = participants
-    .map(p => p.assigned_number)
-    .filter(num => !usedParticipants.has(num))
-
-  console.log(`Unused participants: ${unusedParticipants.length}`);
-
-  if (unusedParticipants.length === 1) {
-    // Find the best match for the odd participant
-    const oddParticipant = unusedParticipants[0]
-    let bestMatch = null
-    let bestScore = -1
-
+    // Find the best available pairs for this round
     for (const pair of compatibilityScores) {
-      if ((pair.participantA === oddParticipant || pair.participantB === oddParticipant) && 
-          !usedParticipants.has(pair.participantA === oddParticipant ? pair.participantB : pair.participantA)) {
-        if (pair.score > bestScore) {
-          bestScore = pair.score
-          bestMatch = pair
-        }
+      const pairKey = `${Math.min(pair.participantA, pair.participantB)}-${Math.max(pair.participantA, pair.participantB)}`
+      
+      // Check if this pair hasn't been used before
+      if (!usedPairs.has(pairKey) && 
+          !roundUsedParticipants.has(pair.participantA) && 
+          !roundUsedParticipants.has(pair.participantB) &&
+          participantRoundCount.get(pair.participantA) < 4 &&
+          participantRoundCount.get(pair.participantB) < 4) {
+        
+        roundMatches.push({
+          participant_a_number: pair.participantA,
+          participant_b_number: pair.participantB,
+          compatibility_score: pair.score,
+          reason: pair.reason,
+          match_id,
+          round,
+          table_number: Math.floor(roundMatches.length / 2) + 1
+        })
+        
+        usedPairs.add(pairKey)
+        roundUsedParticipants.add(pair.participantA)
+        roundUsedParticipants.add(pair.participantB)
+        participantRoundCount.set(pair.participantA, participantRoundCount.get(pair.participantA) + 1)
+        participantRoundCount.set(pair.participantB, participantRoundCount.get(pair.participantB) + 1)
       }
     }
 
-    if (bestMatch) {
-      matches.push({
-        participant_a_number: bestMatch.participantA,
-        participant_b_number: bestMatch.participantB,
-        compatibility_score: bestMatch.score,
-        reason: bestMatch.reason,
-        match_id,
-        round,
-        table_number: Math.floor(matches.length / 2) + 1
-      })
-    } else {
-      // No suitable match found, create a solo entry
-      matches.push({
-        participant_a_number: 0,
-        participant_b_number: oddParticipant,
-        compatibility_score: 0,
-        reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
-        match_id,
-        round,
-        table_number: Math.floor(matches.length / 2) + 1
-      })
+    // Handle odd participants for this round
+    const unusedInRound = participants
+      .map(p => p.assigned_number)
+      .filter(num => !roundUsedParticipants.has(num) && participantRoundCount.get(num) < 4)
+
+    if (unusedInRound.length === 1) {
+      // Find the best available match for the odd participant
+      const oddParticipant = unusedInRound[0]
+      let bestMatch = null
+      let bestScore = -1
+
+      for (const pair of compatibilityScores) {
+        const pairKey = `${Math.min(pair.participantA, pair.participantB)}-${Math.max(pair.participantA, pair.participantB)}`
+        
+        if ((pair.participantA === oddParticipant || pair.participantB === oddParticipant) && 
+            !usedPairs.has(pairKey) &&
+            participantRoundCount.get(pair.participantA === oddParticipant ? pair.participantB : pair.participantA) < 4) {
+          if (pair.score > bestScore) {
+            bestScore = pair.score
+            bestMatch = pair
+          }
+        }
+      }
+
+      if (bestMatch) {
+        roundMatches.push({
+          participant_a_number: bestMatch.participantA,
+          participant_b_number: bestMatch.participantB,
+          compatibility_score: bestMatch.score,
+          reason: bestMatch.reason,
+          match_id,
+          round,
+          table_number: Math.floor(roundMatches.length / 2) + 1
+        })
+        
+        const pairKey = `${Math.min(bestMatch.participantA, bestMatch.participantB)}-${Math.max(bestMatch.participantA, bestMatch.participantB)}`
+        usedPairs.add(pairKey)
+        participantRoundCount.set(bestMatch.participantA, participantRoundCount.get(bestMatch.participantA) + 1)
+        participantRoundCount.set(bestMatch.participantB, participantRoundCount.get(bestMatch.participantB) + 1)
+      } else {
+        // No suitable match found, create a solo entry
+        roundMatches.push({
+          participant_a_number: 0,
+          participant_b_number: oddParticipant,
+          compatibility_score: 0,
+          reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
+          match_id,
+          round,
+          table_number: Math.floor(roundMatches.length / 2) + 1
+        })
+        participantRoundCount.set(oddParticipant, participantRoundCount.get(oddParticipant) + 1)
+      }
     }
+
+    console.log(`Round ${round}: Created ${roundMatches.length} matches`);
+    allMatches.push(...roundMatches)
   }
 
-  console.log(`Final matches to save: ${matches.length}`);
+  console.log(`Total matches to save: ${allMatches.length}`);
 
-  // Save matches to database
+  // Save all matches to database
   const { error: insertError } = await supabase
     .from("match_results")
-    .insert(matches)
+    .insert(allMatches)
 
   if (insertError) {
     console.error("Error inserting matches:", insertError)
     throw new Error("Failed to save matches")
   }
 
-  console.log(`Successfully saved ${matches.length} matches to database`);
+  console.log(`Successfully saved ${allMatches.length} matches to database`);
 
   return {
     success: true,
-    matches: matches.length,
+    matches: allMatches.length,
     participants: participants.length,
-    analysis: `تم إنشاء ${matches.length} مباراة للجولة ${round}`
+    rounds: 4,
+    analysis: `تم إنشاء ${allMatches.length} مباراة لجميع الجولات الأربع`
   }
 }
 

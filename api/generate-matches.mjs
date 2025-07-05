@@ -141,8 +141,13 @@ async function generateGlobalIndividualMatches(participants, match_id) {
 
   // Sort by compatibility score (descending) for global optimization
   compatibilityScores.sort((a, b) => b.score - a.score)
+  
+  console.log("Top 10 compatibility scores:");
+  compatibilityScores.slice(0, 10).forEach((pair, index) => {
+    console.log(`${index + 1}. ${pair.participantA}-${pair.participantB}: ${pair.score}%`);
+  });
 
-  // Generate all 4 rounds with global optimization
+  // Generate all 4 rounds with proper global optimization
   const allMatches = []
   const usedPairs = new Set() // Track used pairs across all rounds
   const participantRoundCount = new Map() // Track how many times each participant has been matched
@@ -152,21 +157,38 @@ async function generateGlobalIndividualMatches(participants, match_id) {
 
   // Generate matches for all 4 rounds
   for (let round = 1; round <= 4; round++) {
-    console.log(`Generating matches for round ${round}`);
+    console.log(`\n=== Generating matches for round ${round} ===`);
     
     const roundMatches = []
     const roundUsedParticipants = new Set()
 
-    // Find the best available pairs for this round
+    // Debug: Show participant availability before this round
+    console.log(`Before Round ${round} - Participant round counts:`, 
+      Array.from(participantRoundCount.entries()).map(([p, count]) => `${p}:${count}`).join(', '));
+
+    // Find the best available pairs for this round (GLOBAL SORTING)
     for (const pair of compatibilityScores) {
       const pairKey = `${Math.min(pair.participantA, pair.participantB)}-${Math.max(pair.participantA, pair.participantB)}`
       
-      // Check if this pair hasn't been used before
+      // Debug: Track participant 9 specifically
+      if (pair.participantA === 9 || pair.participantB === 9) {
+        const otherParticipant = pair.participantA === 9 ? pair.participantB : pair.participantA;
+        console.log(`Round ${round} - Checking pair 9-${otherParticipant} (score: ${pair.score}):`);
+        console.log(`  - Used pairs has 9-${otherParticipant}: ${usedPairs.has(pairKey)}`);
+        console.log(`  - 9 in round used: ${roundUsedParticipants.has(9)}`);
+        console.log(`  - ${otherParticipant} in round used: ${roundUsedParticipants.has(otherParticipant)}`);
+        console.log(`  - 9 round count: ${participantRoundCount.get(9)}`);
+        console.log(`  - ${otherParticipant} round count: ${participantRoundCount.get(otherParticipant)}`);
+      }
+      
+      // Check if this pair hasn't been used before AND participants are available
       if (!usedPairs.has(pairKey) && 
           !roundUsedParticipants.has(pair.participantA) && 
           !roundUsedParticipants.has(pair.participantB) &&
           participantRoundCount.get(pair.participantA) < 4 &&
           participantRoundCount.get(pair.participantB) < 4) {
+        
+        console.log(`Round ${round}: Assigning ${pair.participantA}-${pair.participantB} (score: ${pair.score})`);
         
         roundMatches.push({
           participant_a_number: pair.participantA,
@@ -183,6 +205,11 @@ async function generateGlobalIndividualMatches(participants, match_id) {
         roundUsedParticipants.add(pair.participantB)
         participantRoundCount.set(pair.participantA, participantRoundCount.get(pair.participantA) + 1)
         participantRoundCount.set(pair.participantB, participantRoundCount.get(pair.participantB) + 1)
+        
+        // Debug: Track participant 9 specifically
+        if (pair.participantA === 9 || pair.participantB === 9) {
+          console.log(`Round ${round} - ASSIGNED pair with 9! New count for 9: ${participantRoundCount.get(9)}`);
+        }
       }
     }
 
@@ -190,6 +217,15 @@ async function generateGlobalIndividualMatches(participants, match_id) {
     const unusedInRound = participants
       .map(p => p.assigned_number)
       .filter(num => !roundUsedParticipants.has(num) && participantRoundCount.get(num) < 4)
+
+    console.log(`Round ${round} unused participants:`, unusedInRound);
+    
+    // Debug: Check if 9 is in unused participants
+    if (unusedInRound.includes(9)) {
+      console.log(`Round ${round} - Participant 9 is available for odd participant matching`);
+    } else {
+      console.log(`Round ${round} - Participant 9 is NOT available. Round used: ${roundUsedParticipants.has(9)}, Count: ${participantRoundCount.get(9)}`);
+    }
 
     if (unusedInRound.length === 1) {
       // Find the best available match for the odd participant
@@ -211,6 +247,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
       }
 
       if (bestMatch) {
+        console.log(`Round ${round}: Best match for odd participant ${oddParticipant}: ${bestMatch.participantA}-${bestMatch.participantB} (score: ${bestMatch.score})`);
         roundMatches.push({
           participant_a_number: bestMatch.participantA,
           participant_b_number: bestMatch.participantB,
@@ -227,6 +264,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
         participantRoundCount.set(bestMatch.participantB, participantRoundCount.get(bestMatch.participantB) + 1)
       } else {
         // No suitable match found, create a solo entry
+        console.log(`Round ${round}: No suitable match for ${oddParticipant}, creating solo entry`);
         roundMatches.push({
           participant_a_number: 0,
           participant_b_number: oddParticipant,
@@ -241,10 +279,11 @@ async function generateGlobalIndividualMatches(participants, match_id) {
     }
 
     console.log(`Round ${round}: Created ${roundMatches.length} matches`);
+    console.log(`Round ${round} matches:`, roundMatches.map(m => `${m.participant_a_number}-${m.participant_b_number} (${m.compatibility_score})`));
     allMatches.push(...roundMatches)
   }
 
-  console.log(`Total matches to save: ${allMatches.length}`);
+  console.log(`\nTotal matches to save: ${allMatches.length}`);
 
   // Save all matches to database
   const { error: insertError } = await supabase

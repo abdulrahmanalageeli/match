@@ -596,7 +596,7 @@ const res = await fetch("/api/admin", {
     )
   }
   
-if (!isResolving && phase !== "form" && step === 0) {
+if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "round_3" || phase === "round_4" || phase === "group_phase") && step === 0) {
   return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">

@@ -645,19 +645,19 @@ const [isResolving, setIsResolving] = useState(true)
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-4xl w-full">
             {/* Header Section */}
-            <div className="text-center mb-12">
-              <div className="relative inline-block mb-8">
-                <div className="absolute inset-0 rounded-3xl blur-2xl opacity-30 bg-gradient-to-r from-cyan-500 to-blue-600 animate-pulse"></div>
-                <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-3xl p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
-                  <div className="flex items-center justify-center gap-4 mb-6">
-                    <Brain className="w-12 h-12 text-white animate-pulse" />
-                    <Sparkles className="w-8 h-8 text-cyan-200 animate-bounce" />
-                    <Heart className="w-12 h-12 text-white animate-pulse" />
+            <div className="text-center mb-8 sm:mb-12">
+              <div className="relative inline-block mb-6 sm:mb-8">
+                <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-xl sm:blur-2xl opacity-30 bg-gradient-to-r from-cyan-500 to-blue-600 animate-pulse"></div>
+                <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
+                  <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+                    <Brain className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
+                    <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-200 animate-bounce" />
+                    <Heart className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
                   </div>
-                  <h1 className="text-4xl sm:text-6xl font-bold text-white mb-4 tracking-tight">
+                  <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
                     نظام التوافق الذكي
                   </h1>
-                  <p className="text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed">
+                  <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
                     اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم
                   </p>
                 </div>
@@ -665,44 +665,44 @@ const [isResolving, setIsResolving] = useState(true)
             </div>
 
             {/* Features Grid */}
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 text-center hover:bg-white/15 transition-all duration-300">
-                <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Users className="w-8 h-8 text-white" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
-                <p className="text-cyan-200 text-sm">تقابل ٤ أشخاص مختلفين بناءً على تحليل شخصيتك</p>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
+                <p className="text-cyan-200 text-xs sm:text-sm">تقابل ٤ أشخاص مختلفين بناءً على تحليل شخصيتك</p>
               </div>
               
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 text-center hover:bg-white/15 transition-all duration-300">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Brain className="w-8 h-8 text-white" />
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">تحليل متقدم</h3>
-                <p className="text-cyan-200 text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل متقدم</h3>
+                <p className="text-cyan-200 text-xs sm:text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
               </div>
               
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 text-center hover:bg-white/15 transition-all duration-300">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Target className="w-8 h-8 text-white" />
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 sm:col-span-2 lg:col-span-1">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                  <Target className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">نتائج دقيقة</h3>
-                <p className="text-cyan-200 text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">نتائج دقيقة</h3>
+                <p className="text-cyan-200 text-xs sm:text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
               </div>
             </div>
 
             {/* Registration Options */}
-            <div className="max-w-2xl mx-auto">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8">
-                <h2 className="text-2xl font-bold text-white text-center mb-8">انضم إلى الرحلة</h2>
+            <div className="max-w-2xl mx-auto px-4">
+              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
                 
                 {/* New Player Option */}
-                <div className="mb-8">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
-                    <h3 className="text-lg font-semibold text-white">لاعب جديد</h3>
+                <div className="mb-6 sm:mb-8">
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
+                    <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
                   </div>
-                  <p className="text-cyan-200 text-sm mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
+                  <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
                   <Button
                     onClick={async () => {
                       setLoading(true)
@@ -728,11 +728,11 @@ const [isResolving, setIsResolving] = useState(true)
                       }
                     }}
                     disabled={loading}
-                    className="w-full spring-btn bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-lg py-4"
+                    className="w-full spring-btn bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
                   >
                     {loading ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                         جاري التخصيص...
                       </div>
                     ) : (
@@ -742,24 +742,24 @@ const [isResolving, setIsResolving] = useState(true)
                 </div>
 
                 {/* Divider */}
-                <div className="flex items-center gap-4 mb-8">
+                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
                   <div className="flex-1 h-px bg-white/20"></div>
-                  <span className="text-white/60 text-sm">أو</span>
+                  <span className="text-white/60 text-xs sm:text-sm">أو</span>
                   <div className="flex-1 h-px bg-white/20"></div>
                 </div>
 
                 {/* Returning Player Option */}
                 <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-3 h-3 bg-purple-400 rounded-full"></div>
-                    <h3 className="text-lg font-semibold text-white">لاعب عائد</h3>
+                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full"></div>
+                    <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
                   </div>
-                  <p className="text-cyan-200 text-sm mb-4">أدخل رمزك للعودة إلى رحلتك</p>
-                  <div className="space-y-4">
+                  <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
+                  <div className="space-y-3 sm:space-y-4">
                     <input
                       type="text"
                       placeholder="أدخل رمز الدخول..."
-                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300"
+                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300 text-sm sm:text-base"
                       onKeyPress={(e) => {
                         if (e.key === 'Enter') {
                           const token = e.currentTarget.value.trim()
@@ -779,7 +779,7 @@ const [isResolving, setIsResolving] = useState(true)
                           alert("يرجى إدخال رمز صحيح")
                         }
                       }}
-                      className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-lg py-4"
+                      className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
                     >
                       العودة للرحلة
                     </Button>
@@ -789,18 +789,18 @@ const [isResolving, setIsResolving] = useState(true)
             </div>
 
             {/* Footer Info */}
-            <div className="text-center mt-12">
-              <div className="flex items-center justify-center gap-6 text-cyan-200 text-sm">
+            <div className="text-center mt-8 sm:mt-12 px-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-cyan-200 text-xs sm:text-sm">
                 <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4" />
+                  <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>آمن ومحمي</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>سريع وسهل</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Heart className="w-4 h-4" />
+                  <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>نتائج مضمونة</span>
                 </div>
               </div>

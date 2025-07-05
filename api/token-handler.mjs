@@ -15,7 +15,6 @@ export default async function handler(req, res) {
   const { action } = req.body
 
   if (action === "create") {
-    if (!req.body.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
     // Auto-assign the next available number
     try {
       // Get the highest assigned number

@@ -228,7 +228,7 @@ export default async function handler(req, res) {
           if (previousRound > 0) {
             const { data: roundCompleted, error: roundError } = await supabase
               .from("match_results")
-              .select("participant_a_number, participant_b_number")
+              .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
               .eq("match_id", STATIC_MATCH_ID)
               .eq("round", previousRound)
             
@@ -237,6 +237,8 @@ export default async function handler(req, res) {
               roundCompleted.forEach(match => {
                 if (match.participant_a_number > 0) roundParticipants.add(match.participant_a_number)
                 if (match.participant_b_number > 0) roundParticipants.add(match.participant_b_number)
+                if (match.participant_c_number > 0) roundParticipants.add(match.participant_c_number)
+                if (match.participant_d_number > 0) roundParticipants.add(match.participant_d_number)
               })
               waitingCount = roundParticipants.size
             }
@@ -245,7 +247,7 @@ export default async function handler(req, res) {
           // Count participants who completed all rounds
           const { data: allRoundsCompleted, error: allRoundsError } = await supabase
             .from("match_results")
-            .select("participant_a_number, participant_b_number")
+            .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
             .eq("match_id", STATIC_MATCH_ID)
             .in("round", [1, 2, 3, 4])
           
@@ -254,6 +256,8 @@ export default async function handler(req, res) {
             allRoundsCompleted.forEach(match => {
               if (match.participant_a_number > 0) allParticipants.add(match.participant_a_number)
               if (match.participant_b_number > 0) allParticipants.add(match.participant_b_number)
+              if (match.participant_c_number > 0) allParticipants.add(match.participant_c_number)
+              if (match.participant_d_number > 0) allParticipants.add(match.participant_d_number)
             })
             waitingCount = allParticipants.size
           }
@@ -263,7 +267,7 @@ export default async function handler(req, res) {
         if (currentPhase.startsWith("round_")) {
           const { data: currentRoundMatches, error: currentRoundError } = await supabase
             .from("match_results")
-            .select("participant_a_number, participant_b_number")
+            .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
             .eq("match_id", STATIC_MATCH_ID)
             .eq("round", currentRound)
           
@@ -272,6 +276,8 @@ export default async function handler(req, res) {
             currentRoundMatches.forEach(match => {
               if (match.participant_a_number > 0) currentParticipants.add(match.participant_a_number)
               if (match.participant_b_number > 0) currentParticipants.add(match.participant_b_number)
+              if (match.participant_c_number > 0) currentParticipants.add(match.participant_c_number)
+              if (match.participant_d_number > 0) currentParticipants.add(match.participant_d_number)
             })
             currentRoundParticipants = currentParticipants.size
           }

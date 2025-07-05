@@ -133,6 +133,8 @@ const [isResolving, setIsResolving] = useState(true)
   const [analysisStarted, setAnalysisStarted] = useState(false)
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<MatchResultEntry | null>(null)
   const [showHistoryDetail, setShowHistoryDetail] = useState(false)
+  const [animationStep, setAnimationStep] = useState(0)
+  const [showRegistrationContent, setShowRegistrationContent] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -611,6 +613,21 @@ const [isResolving, setIsResolving] = useState(true)
     }
   }, [modalStep, assignedNumber]);
 
+  // AI Animation Effect for Registration
+  useEffect(() => {
+    if (!token) {
+      const handleShowContent = () => {
+        setShowRegistrationContent(true)
+      }
+      
+      document.addEventListener('showRegistrationContent', handleShowContent)
+      
+      return () => {
+        document.removeEventListener('showRegistrationContent', handleShowContent)
+      }
+    }
+  }, [token])
+
   // Registration UI if no token
   if (!token) {
     return (
@@ -644,169 +661,231 @@ const [isResolving, setIsResolving] = useState(true)
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-4xl w-full">
-            {/* Header Section */}
-            <div className="text-center mb-8 sm:mb-12">
-              <div className="relative inline-block mb-6 sm:mb-8">
-                <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-xl sm:blur-2xl opacity-30 bg-gradient-to-r from-cyan-500 to-blue-600 animate-pulse"></div>
-                <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
-                  <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
-                    <Brain className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
-                    <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-200 animate-bounce" />
-                    <Heart className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
+            {/* Initial Loading Animation */}
+            {!showRegistrationContent && (
+              <div className="text-center">
+                <div className="relative inline-block mb-8">
+                  {/* AI Loading Effect */}
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                    <Brain className="w-12 h-12 sm:w-16 sm:h-16 text-white animate-spin" />
                   </div>
-                  <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
+                  
+                  {/* Neural Network Animation */}
+                  <div className="relative w-64 h-32 mx-auto mb-8">
+                    {[...Array(6)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-ping"
+                        style={{
+                          left: `${20 + (i * 40)}px`,
+                          top: `${20 + (i % 2) * 80}px`,
+                          animationDelay: `${i * 0.2}s`,
+                        }}
+                      />
+                    ))}
+                    {[...Array(5)].map((_, i) => (
+                      <div
+                        key={`line-${i}`}
+                        className="absolute h-px bg-gradient-to-r from-cyan-400 to-transparent animate-pulse"
+                        style={{
+                          left: `${20 + (i * 40)}px`,
+                          top: `${60 + (i % 2) * 20}px`,
+                          width: '40px',
+                          animationDelay: `${i * 0.3}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  
+                  <h1 className="text-2xl sm:text-4xl font-bold text-white mb-4 tracking-tight animate-in slide-in-from-bottom-4 duration-1000">
                     نظام التوافق الذكي
                   </h1>
-                  <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
-                    اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم
+                  <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed animate-in slide-in-from-bottom-4 duration-1000 delay-300">
+                    جاري تحميل الذكاء الاصطناعي...
                   </p>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Features Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                  <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
-                <p className="text-cyan-200 text-xs sm:text-sm">تقابل ٤ أشخاص مختلفين بناءً على تحليل شخصيتك</p>
-              </div>
-              
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                  <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل متقدم</h3>
-                <p className="text-cyan-200 text-xs sm:text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
-              </div>
-              
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 sm:col-span-2 lg:col-span-1">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                  <Target className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">نتائج دقيقة</h3>
-                <p className="text-cyan-200 text-xs sm:text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
-              </div>
-            </div>
-
-            {/* Registration Options */}
-            <div className="max-w-2xl mx-auto px-4">
-              <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
-                <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
-                
-                {/* New Player Option */}
-                <div className="mb-6 sm:mb-8">
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
-                    <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
-                  </div>
-                  <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
-                  <Button
-                    onClick={async () => {
-                      setLoading(true)
-                      try {
-                        const res = await fetch("/api/token-handler", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ action: "create" }),
-                        })
-                        const data = await res.json()
-                        if (data.secure_token) {
-                          setAssignedNumber(data.assigned_number)
-                          // Redirect to the same page with the token
-                          window.location.href = `/welcome?token=${data.secure_token}`
-                        } else {
-                          alert("❌ فشل في الحصول على رقم")
-                        }
-                      } catch (err) {
-                        console.error("Error creating token:", err)
-                        alert("❌ فشل في الحصول على رقم")
-                      } finally {
-                        setLoading(false)
-                      }
-                    }}
-                    disabled={loading}
-                    className="w-full spring-btn bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
-                  >
-                    {loading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        جاري التخصيص...
+            {/* Final Registration Content */}
+            {showRegistrationContent && (
+              <>
+                {/* Header Section */}
+                <div className="text-center mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000">
+                  <div className="relative inline-block mb-6 sm:mb-8">
+                    <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-xl sm:blur-2xl opacity-30 bg-gradient-to-r from-cyan-500 to-blue-600 animate-pulse"></div>
+                    <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
+                      <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+                        <Brain className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
+                        <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-200 animate-bounce" />
+                        <Heart className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
                       </div>
-                    ) : (
-                      "Pay to join"
-                    )}
-                  </Button>
-                </div>
-
-                {/* Divider */}
-                <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                  <div className="flex-1 h-px bg-white/20"></div>
-                  <span className="text-white/60 text-xs sm:text-sm">أو</span>
-                  <div className="flex-1 h-px bg-white/20"></div>
-                </div>
-
-                {/* Returning Player Option */}
-                <div>
-                  <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                    <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full"></div>
-                    <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
+                      <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
+                        نظام التوافق الذكي
+                      </h1>
+                      <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
+                        اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
-                  <div className="space-y-3 sm:space-y-4">
-                    <input
-                      type="text"
-                      placeholder="أدخل رمز الدخول..."
-                      className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300 text-sm sm:text-base"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          const token = e.currentTarget.value.trim()
-                          if (token) {
-                            window.location.href = `/welcome?token=${token}`
+                </div>
+
+                {/* Features Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-200">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
+                    <p className="text-cyan-200 text-xs sm:text-sm">تقابل ٤ أشخاص مختلفين بناءً على تحليل شخصيتك</p>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-400">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل متقدم</h3>
+                    <p className="text-cyan-200 text-xs sm:text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 sm:col-span-2 lg:col-span-1 animate-in slide-in-from-bottom-4 duration-1000 delay-600">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Target className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">نتائج دقيقة</h3>
+                    <p className="text-cyan-200 text-xs sm:text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                  </div>
+                </div>
+
+                {/* Registration Options */}
+                <div className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
+                    
+                    {/* New Player Option */}
+                    <div className="mb-6 sm:mb-8">
+                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
+                        <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
+                      </div>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
+                      <Button
+                        onClick={async () => {
+                          setLoading(true)
+                          try {
+                            const res = await fetch("/api/token-handler", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ action: "create" }),
+                            })
+                            const data = await res.json()
+                            if (data.secure_token) {
+                              setAssignedNumber(data.assigned_number)
+                              // Redirect to the same page with the token
+                              window.location.href = `/welcome?token=${data.secure_token}`
+                            } else {
+                              alert("❌ فشل في الحصول على رقم")
+                            }
+                          } catch (err) {
+                            console.error("Error creating token:", err)
+                            alert("❌ فشل في الحصول على رقم")
+                          } finally {
+                            setLoading(false)
                           }
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={() => {
-                        const tokenInput = document.querySelector('input[type="text"]') as HTMLInputElement
-                        const token = tokenInput?.value.trim()
-                        if (token) {
-                          window.location.href = `/welcome?token=${token}`
-                        } else {
-                          alert("يرجى إدخال رمز صحيح")
-                        }
-                      }}
-                      className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
-                    >
-                      العودة للرحلة
-                    </Button>
+                        }}
+                        disabled={loading}
+                        className="w-full spring-btn bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                      >
+                        {loading ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            جاري التخصيص...
+                          </div>
+                        ) : (
+                          "Pay to join"
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                      <div className="flex-1 h-px bg-white/20"></div>
+                      <span className="text-white/60 text-xs sm:text-sm">أو</span>
+                      <div className="flex-1 h-px bg-white/20"></div>
+                    </div>
+
+                    {/* Returning Player Option */}
+                    <div>
+                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full"></div>
+                        <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
+                      </div>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
+                      <div className="space-y-3 sm:space-y-4">
+                        <input
+                          type="text"
+                          placeholder="أدخل رمز الدخول..."
+                          className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300 text-sm sm:text-base"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              const token = e.currentTarget.value.trim()
+                              if (token) {
+                                window.location.href = `/welcome?token=${token}`
+                              }
+                            }
+                          }}
+                        />
+                        <Button
+                          onClick={() => {
+                            const tokenInput = document.querySelector('input[type="text"]') as HTMLInputElement
+                            const token = tokenInput?.value.trim()
+                            if (token) {
+                              window.location.href = `/welcome?token=${token}`
+                            } else {
+                              alert("يرجى إدخال رمز صحيح")
+                            }
+                          }}
+                          className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                        >
+                          العودة للرحلة
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Footer Info */}
-            <div className="text-center mt-8 sm:mt-12 px-4">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-cyan-200 text-xs sm:text-sm">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>آمن ومحمي</span>
+                {/* Footer Info */}
+                <div className="text-center mt-8 sm:mt-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-cyan-200 text-xs sm:text-sm">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>آمن ومحمي</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>سريع وسهل</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>نتائج مضمونة</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>سريع وسهل</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span>نتائج مضمونة</span>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
+
+        {/* Animation Trigger */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              setTimeout(() => {
+                document.dispatchEvent(new CustomEvent('showRegistrationContent'));
+              }, 3000);
+            `,
+          }}
+        />
       </div>
     );
   }

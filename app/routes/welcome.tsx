@@ -556,6 +556,34 @@ const res = await fetch("/api/admin", {
     }
   }, [modalStep, assignedNumber]);
 
+  // Registration UI if no token
+  if (!token) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold mb-4">مرحباً بك في نظام التوافق الذكي!</h1>
+        <p className="mb-4">اضغط للبدء:</p>
+        <button
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg mt-4"
+          onClick={async () => {
+            const res = await fetch('/api/token-handler', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'create' }),
+            });
+            const data = await res.json();
+            if (data.secure_token) {
+              window.location.href = `/welcome?token=${data.secure_token}`;
+            } else {
+              alert(data.error || 'حدث خطأ أثناء التسجيل');
+            }
+          }}
+        >
+          ابدأ
+        </button>
+      </div>
+    );
+  }
+
   if (phase === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

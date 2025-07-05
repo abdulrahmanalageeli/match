@@ -15,9 +15,8 @@ export default async (req, res) => {
     const { assigned_number, q1, q2, q3, q4, summary } = req.body
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
-    if (!assigned_number) {
-      return res.status(400).json({ error: "Missing assigned_number" })
-    }
+    if (!req.body?.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
+    if (!req.body?.q1 || !req.body?.q2 || !req.body?.q3 || !req.body?.q4) return res.status(400).json({ error: 'Missing form responses' })
 
     const { data: existing, error: existingError } = await supabase
       .from("participants")

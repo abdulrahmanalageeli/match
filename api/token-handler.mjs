@@ -10,9 +10,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
+  if (!req.body?.action) return res.status(400).json({ error: 'Missing action' })
+
   const { action } = req.body
 
   if (action === "create") {
+    if (!req.body.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
     // Auto-assign the next available number
     try {
       // Get the highest assigned number
@@ -84,20 +87,15 @@ export default async function handler(req, res) {
   }
 
   if (action === "resolve") {
-    const { secure_token } = req.body
-
-    if (!secure_token) {
-      return res.status(400).json({ error: "Missing secure_token" })
-    }
-
+    if (!req.body.secure_token) return res.status(400).json({ error: 'Missing secure_token' })
     const { data, error } = await supabase
       .from("participants")
       .select("assigned_number, q1, q2, q3, q4, summary")
-      .eq("secure_token", secure_token)
+      .eq("secure_token", req.body.secure_token)
       .single()
 
     if (error || !data) {
-      return res.status(404).json({ success: false, error: "Invalid token" })
+      return res.status(404).json({ error: 'Participant not found' })
     }
 
     return res.status(200).json({

@@ -222,30 +222,39 @@ const [isResolving, setIsResolving] = useState(true)
               match_id: "00000000-0000-0000-0000-000000000000",
             }),
           });
-                  const phaseData = await res2.json();
-        setPhase(phaseData.phase);
-        setCurrentRound(phaseData.current_round || 1);
-        setTotalRounds(phaseData.total_rounds || 4);
-
-        // --- NEW LOGIC ---
-        if (hasFilledForm) {
-          if (phaseData.phase !== "form") {
-            // Registration closed but user filled form, skip to correct step
-            if (phaseData.phase.startsWith("round_")) {
-              const roundNumber = parseInt(phaseData.phase.split('_')[1]);
-              setPendingMatchRound(roundNumber);
-              setStep(4); // Show matches
-            } else if (phaseData.phase.startsWith("waiting_")) {
-              setStep(3); // Show analysis/waiting
-            } else if (phaseData.phase === "group_phase") {
-              setStep(7); // Show group phase
-            }
+          
+          if (!res2.ok) {
+            console.error("Failed to fetch event phase:", res2.status, res2.statusText);
+            // Set default values if API fails
+            setPhase("registration");
+            setCurrentRound(1);
+            setTotalRounds(4);
           } else {
-            // In form phase and already filled form, show prompt
-            setShowFormFilledPrompt(true);
+            const phaseData = await res2.json();
+            setPhase(phaseData.phase || "registration");
+            setCurrentRound(phaseData.current_round || 1);
+            setTotalRounds(phaseData.total_rounds || 4);
+
+            // --- NEW LOGIC ---
+            if (hasFilledForm) {
+              if (phaseData.phase !== "form") {
+                // Registration closed but user filled form, skip to correct step
+                if (phaseData.phase && phaseData.phase.startsWith("round_")) {
+                  const roundNumber = parseInt(phaseData.phase.split('_')[1]);
+                  setPendingMatchRound(roundNumber);
+                  setStep(4); // Show matches
+                } else if (phaseData.phase && phaseData.phase.startsWith("waiting_")) {
+                  setStep(3); // Show analysis/waiting
+                } else if (phaseData.phase === "group_phase") {
+                  setStep(7); // Show group phase
+                }
+              } else {
+                // In form phase and already filled form, show prompt
+                setShowFormFilledPrompt(true);
+              }
+            }
+            // --- END NEW LOGIC ---
           }
-        }
-        // --- END NEW LOGIC ---
         }
       } catch (err) {
         console.error("Error resolving token:", err)
@@ -271,16 +280,21 @@ const [isResolving, setIsResolving] = useState(true)
     const interval = setInterval(async () => {
       try {
         // Fetch both phase and event state in one call
-const res = await fetch("/api/admin", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
+        const res = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "get-event-state", match_id: "00000000-0000-0000-0000-000000000000" }),
-})
+        })
+
+        if (!res.ok) {
+          console.error("Failed to fetch real-time updates:", res.status, res.statusText);
+          return;
+        }
 
         const data = await res.json()
         
         // Update phase
-        setPhase(data.phase)
+        setPhase(data.phase || "registration")
         
         // Update announcements and emergency pause
         setAnnouncement({
@@ -297,7 +311,7 @@ const res = await fetch("/api/admin", {
           setTotalRounds(data.total_rounds || 4);
           
           // Handle phase transitions
-          if (data.phase.startsWith("round_")) {
+          if (data.phase && data.phase.startsWith("round_")) {
             const roundNumber = parseInt(data.phase.split('_')[1]);
             if (step === 3 || step === 5) { // From waiting to round
               await fetchMatches(roundNumber);
@@ -308,7 +322,7 @@ const res = await fetch("/api/admin", {
               setModalStep(null);
               setIsScoreRevealed(false);
             }
-          } else if (data.phase.startsWith("waiting_")) {
+          } else if (data.phase && data.phase.startsWith("waiting_")) {
             if (step === 4) { // From round to waiting
               setStep(5);
             }

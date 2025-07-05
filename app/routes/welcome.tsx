@@ -461,25 +461,46 @@ const [isResolving, setIsResolving] = useState(true)
   }
   
   const fetchMatches = async (roundOverride?: number) => {
+    if (!assignedNumber) return
+    
+    const round = roundOverride || currentRound
+    console.log(`Fetching matches for round ${round}`)
+    
     try {
-      const roundToFetch = roundOverride || currentRound;
-      const myMatches = await fetch("/api/get-my-matches", {
+      const res = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber, round: roundToFetch }),
+        body: JSON.stringify({ assigned_number: assignedNumber })
       })
-      const data = await myMatches.json()
-      const matches = data.matches as MatchResultEntry[]
-      const match = matches[0]
-      if (match) {
-        setMatchResult(match.with)
-        setMatchReason(match.reason)
-        setTableNumber(match.table_number)
-        setCompatibilityScore(match.score)
+      
+      if (!res.ok) {
+        console.error("Failed to fetch matches:", res.status, res.statusText)
+        return
+      }
+      
+      const data = await res.json()
+      const matches = data.matches || []
+      
+      // Find current round match
+      const currentRoundMatch = matches.find((m: MatchResultEntry) => m.round === round)
+      
+      if (currentRoundMatch) {
+        setMatchResult(currentRoundMatch.with)
+        setMatchReason(currentRoundMatch.reason)
+        setCompatibilityScore(currentRoundMatch.score)
+        setTableNumber(currentRoundMatch.table_number)
+        
+        // Incrementally add to history if not already present
+        setHistoryMatches(prev => {
+          const exists = prev.some(m => m.with === currentRoundMatch.with && m.round === currentRoundMatch.round)
+          if (!exists) {
+            return [...prev, currentRoundMatch]
+          }
+          return prev
+        })
       }
     } catch (err) {
-      setMatchResult("؟")
-      setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+      console.error("Error fetching matches:", err)
     }
   }
 
@@ -551,6 +572,28 @@ const [isResolving, setIsResolving] = useState(true)
   const submitFeedback = () => {
     setIsScoreRevealed(true)
     setModalStep("result")
+    
+    // Incrementally update history when feedback is submitted
+    if (assignedNumber && matchResult) {
+      // Add current match to history immediately
+      const currentMatch = {
+        with: matchResult,
+        type: "مباراة",
+        reason: matchReason,
+        round: currentRound,
+        table_number: tableNumber,
+        score: compatibilityScore || 0
+      }
+      
+      setHistoryMatches(prev => {
+        // Check if this match already exists in history
+        const exists = prev.some(m => m.with === currentMatch.with && m.round === currentMatch.round)
+        if (!exists) {
+          return [...prev, currentMatch]
+        }
+        return prev
+      })
+    }
   }
 
   const formatTime = (seconds: number) => {
@@ -561,13 +604,8 @@ const [isResolving, setIsResolving] = useState(true)
 
   useEffect(() => {
     if (modalStep === "result" && assignedNumber) {
-      fetch("/api/get-my-matches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber })
-      })
-        .then(res => res.json())
-        .then(data => setHistoryMatches(data.matches || []));
+      // History is now handled incrementally, no need to fetch all at once
+      // The history is updated when feedback is submitted and when matches are fetched
     }
   }, [modalStep, assignedNumber]);
 
@@ -826,14 +864,21 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
         {step >= 0 && (
           <SleekTimeline 
             currentStep={
+              // Timeline should reflect actual phase/round, not just step
+              phase === "registration" ? 0 :
+              phase === "form" ? 1 :
+              phase === "waiting" ? 2 :
+              phase?.startsWith("round_") ? 3 + (currentRound - 1) :
+              phase?.startsWith("waiting_") ? 3 + currentRound :
+              phase === "group_phase" ? 6 :
               step === 0 ? 0 : // Welcome screen
               step === 1 ? 0 : // Number entry
-              step === 2 ? 0 : // Form (first step)
-              step === 3 ? 1 : // Analysis (second step)
-              step === 4 ? 2 + (currentRound - 1) : // Round X (third+ step)
-              step === 5 ? 3 : // Waiting (fourth step)
-              step === 6 ? 4 : // Round 2 (fifth step)
-              step === 7 ? 6 : // Group phase (sixth step)
+              step === 2 ? 1 : // Form
+              step === 3 ? 2 : // Analysis
+              step === 4 ? 3 + (currentRound - 1) : // Round X
+              step === 5 ? 3 + currentRound : // Waiting
+              step === 6 ? 4 : // Round 2
+              step === 7 ? 6 : // Group phase
               0
             } 
             totalSteps={7} 
@@ -1855,17 +1900,8 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <div className="flex justify-center gap-3 mt-6">
                       <Button
                         onClick={() => {
-                          // Fetch all matches for this user
-                          fetch("/api/get-my-matches", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ assigned_number: assignedNumber })
-                          })
-                            .then(res => res.json())
-                            .then(data => {
-                              setHistoryMatches(data.matches || [])
-                              setShowHistory(true)
-                            })
+                          // History is already maintained incrementally, just show it
+                          setShowHistory(true)
                         }}
                         className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
                       >
@@ -1943,13 +1979,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
       )}
 
       {/* Floating previous matches card */}
-      {typeof step === 'number' && step === 4 && historyMatches.filter(m => m.round === 1).length > 0 && (
+      {typeof step === 'number' && step === 4 && historyMatches.filter(m => m.round <= currentRound).length > 0 && (
         <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-none select-none shadow-none border border-white/10">
           <h4 className="text-base font-bold text-cyan-200 mb-2 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-cyan-300" /> اللقاءات السابقة
           </h4>
           <div className="space-y-1">
-            {historyMatches.filter(m => m.round === 1).map((m: MatchResultEntry, i: number) => (
+            {historyMatches.filter(m => m.round <= currentRound).map((m: MatchResultEntry, i: number) => (
               <div key={i} className="flex items-center justify-between text-cyan-100/80 text-sm bg-white/5 rounded-lg px-2 py-1">
                 <span className="font-bold">#{m.with}</span>
                 <span>{m.score}/100</span>

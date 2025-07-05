@@ -317,8 +317,9 @@ const res = await fetch("/api/admin", {
               setStep(7);
             }
           } else if (data.phase === "form") {
-            if (step === 0) setStep(1);
-            if (step === 1) setStep(2);
+            if (step === -1) setStep(0); // Welcome landing page -> System intro
+            if (step === 0) setStep(2); // System intro -> Form (skip step 1 since we have token)
+            if (step === 1) setStep(2); // Form -> Analysis
           } else if (data.phase === "waiting") {
             if (step === 2) setStep(3);
           }

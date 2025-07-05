@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       // For subsequent rounds, get participants who completed the previous round
       const { data: previousMatches, error: matchError } = await supabase
         .from("match_results")
-        .select("participant_a_number, participant_b_number")
+        .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
         .eq("match_id", match_id)
         .eq("round", round - 1)
 
@@ -54,6 +54,8 @@ export default async function handler(req, res) {
       previousMatches.forEach(match => {
         if (match.participant_a_number > 0) participantNumbers.add(match.participant_a_number)
         if (match.participant_b_number > 0) participantNumbers.add(match.participant_b_number)
+        if (match.participant_c_number > 0) participantNumbers.add(match.participant_c_number)
+        if (match.participant_d_number > 0) participantNumbers.add(match.participant_d_number)
       })
 
       // Get participant details

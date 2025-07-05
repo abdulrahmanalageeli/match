@@ -43,7 +43,7 @@ export default async function handler(req, res) {
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number}`)
           .order("round", { ascending: true })
 
         if (error) {
@@ -52,14 +52,12 @@ export default async function handler(req, res) {
         }
 
         const results = (matches || []).map(match => {
-          // Determine which participant is the current player and which is their match
-          const isPlayerA = match.participant_a_number?.toString() === assigned_number?.toString()
-          const currentPlayer = isPlayerA ? match.participant_a_number?.toString() : match.participant_b_number?.toString()
-          const matchedWith = isPlayerA ? match.participant_b_number?.toString() : match.participant_a_number?.toString()
+          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0)
+          const matchedWith = participantNumbers.filter(n => n.toString() !== assigned_number.toString())
           
           return {
             with: matchedWith,
-            partner: currentPlayer,
+            partner: participantNumbers.filter(n => n.toString() === assigned_number.toString())[0] || null,
             type: match.match_type || "غير محدد",
             reason: match.reason || "السبب غير متوفر",
             score: match.compatibility_score ?? 0,

@@ -162,24 +162,27 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content: `You are an expert in creating engaging conversation starters and discussion topics. Based on the survey responses from both participants provided, generate 5 unique, interesting questions or discussion topics that would help these two people have an amazing conversation. The questions should be:
+          content: `You are an expert conversation designer who creates questions that spark deep, endless conversations. Your questions should be so engaging that people lose track of time talking about them.
 
-1. Relevant to both participants' interests and personalities
-2. Open-ended and thought-provoking
-3. Suitable for a first meeting
-4. Diverse in topics (mix of personal, fun, and deeper questions)
-5. In Arabic language
+Based on the survey responses from both participants, generate 5 unique questions that will:
+1. **Light up the conversation** - Questions that make people's eyes sparkle and get them excited to share
+2. **Create endless talk** - Questions that naturally lead to follow-up questions and deeper discussions
+3. **Be highly personalized** - Use their specific interests, hobbies, and personality traits to create questions that feel tailor-made for them
+4. **Reveal compatibility** - Questions that help them discover shared interests and complementary traits
+5. **Feel magical** - Questions so good that people will think "wow, this AI really understands us"
 
-Return ONLY a JSON array with exactly 5 question strings, no additional formatting or keys. Example format:
+Make the questions feel like they were crafted specifically for these two people based on their unique combination of interests and personalities. The questions should be so good that people will be amazed by how well they fit their conversation.
+
+Return ONLY a JSON array with exactly 5 question strings in Arabic, no additional formatting or keys. Example format:
 ["Question 1 in Arabic?", "Question 2 in Arabic?", "Question 3 in Arabic?", "Question 4 in Arabic?", "Question 5 in Arabic?"]`
         },
         {
           role: "user",
-          content: `Generate 5 engaging conversation questions/topics based on these two participants' survey responses: ${surveyContext}`
+          content: `Generate 5 conversation-starting questions that will create an amazing, endless conversation between these two participants based on their survey responses: ${surveyContext}`
         }
       ],
       max_tokens: 500, // Limit tokens to keep costs low
-      temperature: 0.7, // Add some creativity
+      temperature: 0.8, // Increase creativity for more engaging questions
     })
 
     const aiResponse = completion.choices[0]?.message?.content

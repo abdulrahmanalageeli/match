@@ -26,6 +26,7 @@ import { Timeline, TimelineItem } from "../../components/ui/timeline"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
+import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
 
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
   const stepLabels = ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
@@ -135,6 +136,7 @@ const [isResolving, setIsResolving] = useState(true)
   const [showHistoryDetail, setShowHistoryDetail] = useState(false)
   const [animationStep, setAnimationStep] = useState(0)
   const [showRegistrationContent, setShowRegistrationContent] = useState(false)
+  const [secureToken, setSecureToken] = useState<string>("")
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -213,6 +215,7 @@ const [isResolving, setIsResolving] = useState(true)
         const data = await res.json()
         if (data.success) {
           setAssignedNumber(data.assigned_number);
+          setSecureToken(token); // Store the secure token
           if (data.summary) {
             setPersonalitySummary(data.summary)
           }
@@ -1652,6 +1655,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </div>
                   </div>
 
+                  {/* AI Questions Generator */}
+                  {secureToken && (
+                    <div className="mb-6">
+                      <AIQuestionsGenerator 
+                        secureToken={secureToken}
+                        dark={dark}
+                      />
+                    </div>
+                  )}
+
             <div className="flex justify-center gap-3">
                     <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
                     <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
@@ -1704,6 +1717,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </button>
                     </div>
                   </div>
+
+                  {/* AI Questions Generator */}
+                  {secureToken && (
+                    <div className="mb-6">
+                      <AIQuestionsGenerator 
+                        secureToken={secureToken}
+                        dark={dark}
+                      />
+                    </div>
+                  )}
 
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
                     dark 
@@ -1796,6 +1819,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </button>
                 </div>
               </div>
+
+              {/* AI Questions Generator */}
+              {secureToken && (
+                <div className="mt-6">
+                  <AIQuestionsGenerator 
+                    secureToken={secureToken}
+                    dark={dark}
+                  />
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -1874,6 +1907,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </button>
                     </div>
                   </div>
+
+                  {/* AI Questions Generator */}
+                  {secureToken && (
+                    <div className="mb-6">
+                      <AIQuestionsGenerator 
+                        secureToken={secureToken}
+                        dark={dark}
+                      />
+                    </div>
+                  )}
 
                   <div className="flex justify-center gap-3">
                     <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
@@ -2031,6 +2074,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </button>
                     </div>
                   </div>
+
+                  {/* AI Questions Generator */}
+                  {secureToken && (
+                    <div className="mb-6">
+                      <AIQuestionsGenerator 
+                        secureToken={secureToken}
+                        dark={dark}
+                      />
+                    </div>
+                  )}
 
                   <div className="flex justify-center gap-3">
                     <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />

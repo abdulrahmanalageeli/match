@@ -131,6 +131,8 @@ const [isResolving, setIsResolving] = useState(true)
   const [historyMatches, setHistoryMatches] = useState<MatchResultEntry[]>([])
   const [modalStep, setModalStep] = useState<null | "feedback" | "result">(null)
   const [analysisStarted, setAnalysisStarted] = useState(false)
+  const [selectedHistoryItem, setSelectedHistoryItem] = useState<MatchResultEntry | null>(null)
+  const [showHistoryDetail, setShowHistoryDetail] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -863,24 +865,38 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
         {step >= 0 && (
           <SleekTimeline 
-            currentStep={
-              // Timeline should reflect actual phase/round, not just step
-              phase === "registration" ? 0 :
-              phase === "form" ? 1 :
-              phase === "waiting" ? 2 :
-              phase?.startsWith("round_") ? 3 + (currentRound - 1) :
-              phase?.startsWith("waiting_") ? 3 + currentRound :
-              phase === "group_phase" ? 6 :
-              step === 0 ? 0 : // Welcome screen
-              step === 1 ? 0 : // Number entry
-              step === 2 ? 1 : // Form
-              step === 3 ? 2 : // Analysis
-              step === 4 ? 3 + (currentRound - 1) : // Round X
-              step === 5 ? 3 + currentRound : // Waiting
-              step === 6 ? 4 : // Round 2
-              step === 7 ? 6 : // Group phase
-              0
-            } 
+            currentStep={(() => {
+              // Timeline labels in RTL order: ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"]
+              // RTL indices: 6=Groups, 5=Round4, 4=Round3, 3=Round2, 2=Round1, 1=Analysis, 0=Form
+              let timelineStep = 0;
+              
+              if (phase === "registration") timelineStep = 0; // Form (rightmost)
+              else if (phase === "form") timelineStep = 0; // Form (rightmost)
+              else if (phase === "waiting") timelineStep = 1; // Analysis
+              else if (phase === "round_1") timelineStep = 2; // Round 1
+              else if (phase === "waiting_2") timelineStep = 2; // Round 1 (waiting for round 2)
+              else if (phase === "round_2") timelineStep = 3; // Round 2
+              else if (phase === "waiting_3") timelineStep = 3; // Round 2 (waiting for round 3)
+              else if (phase === "round_3") timelineStep = 4; // Round 3
+              else if (phase === "waiting_4") timelineStep = 4; // Round 3 (waiting for round 4)
+              else if (phase === "round_4") timelineStep = 5; // Round 4
+              else if (phase === "group_phase") timelineStep = 6; // Groups (leftmost)
+              else {
+                // Fallback to step-based calculation if phase is not set
+                if (step === 0) timelineStep = 0; // Welcome screen -> Form
+                else if (step === 1) timelineStep = 0; // Number entry -> Form
+                else if (step === 2) timelineStep = 0; // Form -> Form
+                else if (step === 3) timelineStep = 1; // Analysis -> Analysis
+                else if (step === 4) timelineStep = 2 + (currentRound - 1); // Round X -> Round X
+                else if (step === 5) timelineStep = 2 + currentRound; // Waiting -> Next Round
+                else if (step === 6) timelineStep = 4; // Round 2 -> Round 2
+                else if (step === 7) timelineStep = 6; // Group phase -> Groups
+                else timelineStep = 0;
+              }
+              
+              console.log(`Timeline Debug: phase=${phase}, currentRound=${currentRound}, step=${step}, timelineStep=${timelineStep}`);
+              return timelineStep;
+            })()} 
             totalSteps={7} 
             dark={dark} 
             formCompleted={step >= 3}
@@ -1963,11 +1979,18 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
               ) : (
                 historyMatches.map((m, i) => (
-                  <div key={i} className="py-4 flex flex-col gap-1">
+                  <div 
+                    key={i} 
+                    className="py-4 flex flex-col gap-1 cursor-pointer hover:bg-white/5 rounded-lg px-2 transition-all duration-200"
+                    onClick={() => {
+                      setSelectedHistoryItem(m)
+                      setShowHistoryDetail(true)
+                    }}
+                  >
                     <div className="flex items-center gap-2">
                       <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>#{m.with}</span>
                       <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-slate-700 text-slate-200" : "bg-blue-100 text-blue-700"}`}>الجولة {m.round}</span>
-                      <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}/100</span>
+                      <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}%</span>
                     </div>
                     <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
                   </div>
@@ -1980,36 +2003,136 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
       {/* Floating previous matches card */}
       {typeof step === 'number' && step === 4 && historyMatches.filter(m => m.round <= currentRound).length > 0 && (
-        <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-none select-none shadow-none border border-white/10">
+        <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-auto select-none shadow-none border border-white/10">
           <h4 className="text-base font-bold text-cyan-200 mb-2 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-cyan-300" /> اللقاءات السابقة
           </h4>
           <div className="space-y-1">
             {historyMatches.filter(m => m.round <= currentRound).map((m: MatchResultEntry, i: number) => (
-              <div key={i} className="flex items-center justify-between text-cyan-100/80 text-sm bg-white/5 rounded-lg px-2 py-1">
+              <div 
+                key={i} 
+                className="flex items-center justify-between text-cyan-100/80 text-sm bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-white/10 transition-all duration-200"
+                onClick={() => {
+                  setSelectedHistoryItem(m)
+                  setShowHistoryDetail(true)
+                }}
+              >
                 <span className="font-bold">#{m.with}</span>
-                <span>{m.score}/100</span>
+                <span>{m.score}%</span>
               </div>
             ))}
           </div>
         </div>
       )}
       {typeof step === 'number' && step === 6 && historyMatches.length > 0 && (
-        <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-none select-none shadow-none border border-white/10">
+        <div className="fixed top-24 right-8 z-10 w-60 bg-white/10 backdrop-blur-lg rounded-2xl p-4 pointer-events-auto select-none shadow-none border border-white/10">
           <h4 className="text-base font-bold text-cyan-200 mb-2 flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-cyan-300" /> اللقاءات السابقة
           </h4>
           <div className="space-y-1">
             {historyMatches.map((m: MatchResultEntry, i: number) => (
-              <div key={i} className="flex items-center justify-between text-cyan-100/80 text-sm bg-white/5 rounded-lg px-2 py-1">
+              <div 
+                key={i} 
+                className="flex items-center justify-between text-cyan-100/80 text-sm bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-white/10 transition-all duration-200"
+                onClick={() => {
+                  setSelectedHistoryItem(m)
+                  setShowHistoryDetail(true)
+                }}
+              >
                 <span className="font-bold">#{m.with}</span>
-                <span>{m.score}/100</span>
+                <span>{m.score}%</span>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* History Detail Modal */}
+      {showHistoryDetail && selectedHistoryItem && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`max-w-lg w-auto mx-4 rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
+              <Button variant="ghost" onClick={() => setShowHistoryDetail(false)}><X /></Button>
+            </div>
+            
+            <div className="space-y-6">
+              {/* Match Header */}
+              <div className={`text-center p-6 rounded-xl border ${dark ? "bg-slate-700/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-blue-600/20 border-blue-400" : "bg-blue-100 border-blue-300"}`}>
+                    <span className={`text-2xl font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>#{assignedNumber}</span>
+                  </div>
+                  <div className={`text-3xl ${dark ? "text-slate-300" : "text-gray-500"}`}>×</div>
+                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-cyan-600/20 border-cyan-400" : "bg-cyan-100 border-cyan-300"}`}>
+                    <span className={`text-2xl font-bold ${dark ? "text-cyan-200" : "text-cyan-700"}`}>#{selectedHistoryItem.with}</span>
+                  </div>
+                </div>
+                <h4 className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>الجولة {selectedHistoryItem.round}</h4>
+                <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</div>
+                <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
+              </div>
+
+              {/* Compatibility Details */}
+              <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>سبب التوافق</h5>
+                <p className={`text-sm leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>{selectedHistoryItem.reason}</p>
+              </div>
+
+              {/* Match Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>رقم الطاولة</h5>
+                  <p className={`text-lg font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
+                    {selectedHistoryItem.table_number || "غير محدد"}
+                  </p>
+                </div>
+                <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع المباراة</h5>
+                  <p className={`text-lg font-bold ${dark ? "text-blue-300" : "text-blue-600"}`}>
+                    {selectedHistoryItem.type}
+                  </p>
+                </div>
+              </div>
+
+              {/* Compatibility Score Bar */}
+              <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex justify-between items-center mb-2">
+                  <h5 className={`font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
+                  <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</span>
+                </div>
+                <div className={`w-full h-3 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      selectedHistoryItem.score >= 80 ? "bg-green-500" :
+                      selectedHistoryItem.score >= 60 ? "bg-yellow-500" :
+                      selectedHistoryItem.score >= 40 ? "bg-orange-500" :
+                      "bg-red-500"
+                    }`}
+                    style={{ width: `${selectedHistoryItem.score}%` }}
+                  ></div>
+                </div>
+                <div className="flex justify-between text-xs mt-1">
+                  <span className={dark ? "text-slate-400" : "text-gray-500"}>منخفض</span>
+                  <span className={dark ? "text-slate-400" : "text-gray-500"}>متوسط</span>
+                  <span className={dark ? "text-slate-400" : "text-gray-500"}>عالي</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-center mt-6">
+              <Button
+                onClick={() => setShowHistoryDetail(false)}
+                className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+              >
+                إغلاق
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating previous matches card */}
     </div>
   )
 }

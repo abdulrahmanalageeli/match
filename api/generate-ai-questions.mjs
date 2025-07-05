@@ -29,6 +29,26 @@ export default async function handler(req, res) {
 
     const match_id = "00000000-0000-0000-0000-000000000000"
 
+    // Get the current event state to determine the actual round
+    const { data: eventState, error: eventError } = await supabase
+      .from("event_state")
+      .select("phase")
+      .eq("match_id", match_id)
+      .single()
+
+    if (eventError) {
+      console.error("Event state error:", eventError)
+      return res.status(500).json({ error: "Failed to get event state" })
+    }
+
+    // Determine the actual current round from the phase
+    let actualRound = round
+    if (eventState?.phase && eventState.phase.startsWith("round_")) {
+      actualRound = parseInt(eventState.phase.split('_')[1])
+    }
+
+    console.log("Requested round:", round, "Actual round from phase:", actualRound, "Phase:", eventState?.phase)
+
     // Get the requesting participant's info
     const { data: requestingParticipant, error: fetchError } = await supabase
       .from("participants")
@@ -50,20 +70,20 @@ export default async function handler(req, res) {
       .from("match_results")
       .select("participant_a_number, participant_b_number")
       .eq("match_id", match_id)
-      .eq("round", round)
+      .eq("round", actualRound)
       .or(`participant_a_number.eq.${requestingParticipant.assigned_number},participant_b_number.eq.${requestingParticipant.assigned_number}`)
       .single()
 
     if (matchError || !currentMatch) {
       console.error("Match query error:", matchError)
       console.error("Requesting participant:", requestingParticipant.assigned_number)
-      console.error("Round:", round)
+      console.error("Round:", actualRound)
       return res.status(404).json({ error: "No match found for this round" })
     }
 
     console.log("Found match:", currentMatch)
     console.log("Requesting participant:", requestingParticipant.assigned_number)
-    console.log("Round:", round)
+    console.log("Round:", actualRound)
 
     // Determine the other participant's number
     const otherParticipantNumber = currentMatch.participant_a_number === requestingParticipant.assigned_number 
@@ -77,7 +97,7 @@ export default async function handler(req, res) {
       .from("ai_questions")
       .select("questions")
       .eq("match_id", match_id)
-      .eq("round", round)
+      .eq("round", actualRound)
       .eq("participant_a_number", Math.min(requestingParticipant.assigned_number, otherParticipantNumber))
       .eq("participant_b_number", Math.max(requestingParticipant.assigned_number, otherParticipantNumber))
       .single()
@@ -219,7 +239,7 @@ Return ONLY a JSON array with exactly 5 question strings, no additional formatti
       .from("ai_questions")
       .insert({
         match_id,
-        round,
+        round: actualRound,
         participant_a_number: Math.min(requestingParticipant.assigned_number, otherParticipantNumber),
         participant_b_number: Math.max(requestingParticipant.assigned_number, otherParticipantNumber),
         questions: questions

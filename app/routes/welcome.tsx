@@ -27,8 +27,8 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 
-const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean }) => {
-  const stepLabels = ["الجولة ٢", "انتظار", "الجولة ١", "تحليل", "النموذج"];
+const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
+  const stepLabels = ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
   // Reverse for RTL
   const steps = Array.from({ length: totalSteps });
   return (
@@ -102,7 +102,7 @@ export default function WelcomePage() {
   const [countdown, setCountdown] = useState(30)
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
-  const [phase, setPhase] = useState<"form" | "waiting" | "matching" | null>(null)
+  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [isScoreRevealed, setIsScoreRevealed] = useState(false)
@@ -119,6 +119,7 @@ const [isResolving, setIsResolving] = useState(true)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
+  const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
   const [welcomeText, setWelcomeText] = useState("")
@@ -221,28 +222,30 @@ const [isResolving, setIsResolving] = useState(true)
               match_id: "00000000-0000-0000-0000-000000000000",
             }),
           });
-          const phaseData = await res2.json();
-          setPhase(phaseData.phase);
+                  const phaseData = await res2.json();
+        setPhase(phaseData.phase);
+        setCurrentRound(phaseData.current_round || 1);
+        setTotalRounds(phaseData.total_rounds || 4);
 
-          // --- NEW LOGIC ---
-          if (hasFilledForm) {
-            if (phaseData.phase !== "form") {
-              // Registration closed but user filled form, skip to correct step
-              if (phaseData.phase === "matching") {
-                setPendingMatchRound(1); // Defer fetch until assignedNumber is set
-                setStep(4); // Show matches
-              } else if (phaseData.phase === "waiting" || phaseData.phase === "waiting2") {
-                setStep(3); // Show analysis/waiting
-              } else if (phaseData.phase === "matching2") {
-                setPendingMatchRound(2); // Defer fetch until assignedNumber is set
-                setStep(6); // Show round 2 matches
-              }
-            } else {
-              // In form phase and already filled form, show prompt
-              setShowFormFilledPrompt(true);
+        // --- NEW LOGIC ---
+        if (hasFilledForm) {
+          if (phaseData.phase !== "form") {
+            // Registration closed but user filled form, skip to correct step
+            if (phaseData.phase.startsWith("round_")) {
+              const roundNumber = parseInt(phaseData.phase.split('_')[1]);
+              setPendingMatchRound(roundNumber);
+              setStep(4); // Show matches
+            } else if (phaseData.phase.startsWith("waiting_")) {
+              setStep(3); // Show analysis/waiting
+            } else if (phaseData.phase === "group_phase") {
+              setStep(7); // Show group phase
             }
+          } else {
+            // In form phase and already filled form, show prompt
+            setShowFormFilledPrompt(true);
           }
-          // --- END NEW LOGIC ---
+        }
+        // --- END NEW LOGIC ---
         }
       } catch (err) {
         console.error("Error resolving token:", err)
@@ -289,63 +292,36 @@ const res = await fetch("/api/admin", {
 
         // Handle step transitions based on phase changes
         if (assignedNumber) {
-          // Remove automatic transition from welcome page - users must click button manually
+          // Update current round and total rounds
+          setCurrentRound(data.current_round || 1);
+          setTotalRounds(data.total_rounds || 4);
           
-          // If we're in step 3 (analysis/waiting) and phase changes to matching, fetch matches for round 1
-          if (step === 3 && data.phase === "matching") {
-            await fetchMatches(1)
-            setStep(4)
+          // Handle phase transitions
+          if (data.phase.startsWith("round_")) {
+            const roundNumber = parseInt(data.phase.split('_')[1]);
+            if (step === 3 || step === 5) { // From waiting to round
+              await fetchMatches(roundNumber);
+              setStep(4);
+              // Reset conversation state for new round
+              setConversationTimer(300);
+              setConversationStarted(false);
+              setModalStep(null);
+              setIsScoreRevealed(false);
+            }
+          } else if (data.phase.startsWith("waiting_")) {
+            if (step === 4) { // From round to waiting
+              setStep(5);
+            }
+          } else if (data.phase === "group_phase") {
+            if (step !== 7) {
+              setStep(7);
+            }
+          } else if (data.phase === "form") {
+            if (step === 0) setStep(1);
+            if (step === 1) setStep(2);
+          } else if (data.phase === "waiting") {
+            if (step === 2) setStep(3);
           }
-          
-          // If we're in step 4 (round 1 matching) and phase changes to waiting2, move to step 5
-          if (step === 4 && data.phase === "waiting2") {
-            setStep(5)
-          }
-          
-          // If we're in step 4 (round 1 matching) and phase changes to matching2, go to waiting step (5) first
-          if (step === 4 && data.phase === "matching2") {
-            setStep(5)
-            return // Don't proceed to 6 in the same tick
-          }
-          
-          // If we're in step 5 (waiting between rounds) and phase changes to matching2, fetch matches for round 2
-          if (step === 5 && data.phase === "matching2") {
-            await fetchMatches(2)
-            setStep(6)
-            // Reset timer for round 2
-            setConversationTimer(300)
-            setConversationStarted(false)
-            setModalStep(null)
-            setIsScoreRevealed(false)
-          }
-          
-          // If we're in step 2 (form) and phase changes to matching, move to step 3
-          if (step === 2 && data.phase === "matching") {
-            setStep(3)
-          }
-          
-          // If we're in step 2 (form) and phase changes to waiting, move to step 3
-          if (step === 2 && data.phase === "waiting") {
-            setStep(3)
-          }
-
-          // If we're in step 1 (number entry) and phase changes to form, move to step 2
-          if (step === 1 && data.phase === "form") {
-            setStep(2)
-          }
-
-          // If we're in step 0 (welcome) and phase changes to form, move to step 1
-          if (step === 0 && data.phase === "form") {
-            setStep(1)
-          }
-
-          // If we're in any step and phase changes to waiting2 (waiting for round 2), move to step 5
-          if (data.phase === "waiting2" && step !== 5) {
-            setStep(5)
-          }
-
-          // If we're in any step and emergency pause is activated, stay on current step but show pause overlay
-          // (this is handled by the emergencyPaused state and overlay)
         }
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
@@ -460,17 +436,25 @@ const res = await fetch("/api/admin", {
     table_number: number | null
     score: number
   }
+
+  type GroupMatchEntry = {
+    group_id: string
+    participants: string[]
+    reason: string
+    table_number: number | null
+    score: number
+  }
   
   const fetchMatches = async (roundOverride?: number) => {
-  try {
+    try {
       const roundToFetch = roundOverride || currentRound;
-    const myMatches = await fetch("/api/get-my-matches", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+      const myMatches = await fetch("/api/get-my-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assigned_number: assignedNumber, round: roundToFetch }),
-    })
-    const data = await myMatches.json()
-    const matches = data.matches as MatchResultEntry[]
+      })
+      const data = await myMatches.json()
+      const matches = data.matches as MatchResultEntry[]
       const match = matches[0]
       if (match) {
         setMatchResult(match.with)
@@ -478,11 +462,33 @@ const res = await fetch("/api/admin", {
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
       }
-  } catch (err) {
-    setMatchResult("؟")
-    setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+    } catch (err) {
+      setMatchResult("؟")
+      setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+    }
   }
-}
+
+  const fetchGroupMatches = async () => {
+    try {
+      const myMatches = await fetch("/api/get-my-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigned_number: assignedNumber, match_type: "group" }),
+      })
+      const data = await myMatches.json()
+      const matches = data.matches as GroupMatchEntry[]
+      const match = matches[0]
+      if (match) {
+        setMatchResult(match.participants.join(", "))
+        setMatchReason(match.reason)
+        setTableNumber(match.table_number)
+        setCompatibilityScore(match.score)
+      }
+    } catch (err) {
+      setMatchResult("؟")
+      setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
+    }
+  }
   
   // Conversation timer effect
   useEffect(() => {
@@ -781,14 +787,17 @@ if (!isResolving && phase !== "form" && step === 0) {
               step === 1 ? 0 : // Number entry
               step === 2 ? 0 : // Form (first step)
               step === 3 ? 1 : // Analysis (second step)
-              step === 4 ? 2 : // Round 1 (third step)
+              step === 4 ? 2 + (currentRound - 1) : // Round X (third+ step)
               step === 5 ? 3 : // Waiting (fourth step)
               step === 6 ? 4 : // Round 2 (fifth step)
+              step === 7 ? 6 : // Group phase (sixth step)
               0
             } 
-            totalSteps={5} 
+            totalSteps={7} 
             dark={dark} 
-            formCompleted={step >= 3} 
+            formCompleted={step >= 3}
+            currentRound={currentRound}
+            totalRounds={totalRounds}
           />
         )}
 
@@ -917,34 +926,42 @@ if (!isResolving && phase !== "form" && step === 0) {
               </div>
               <h2 className={`text-xl font-semibold mb-2 ${
                 dark ? "text-slate-200" : "text-gray-800"
-              }`}>أدخل رقمك المخصص</h2>
+              }`}>تسجيل المشاركة</h2>
               <p className={`text-sm mb-6 ${
                 dark ? "text-slate-300" : "text-gray-600"
-              }`}>منظّم الحدث أعطاك رقم. اكتبه هنا علشان نكمل.</p>
-              <div className="relative">
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={999}
-              value={assignedNumber ?? ""}
-              onChange={(e) => setAssignedNumber(Number(e.target.value))}
-                  className={`mx-auto block h-24 w-24 text-center text-4xl font-bold rounded-xl border-2 backdrop-blur-sm shadow-lg focus:outline-none transition-all duration-300 [appearance:textfield] ${
-                    dark 
-                      ? "border-slate-400/50 bg-white/10 text-slate-200 focus:ring-4 focus:ring-slate-400/30 focus:border-slate-400"
-                      : "border-blue-400/50 bg-white/90 text-gray-800 focus:ring-4 focus:ring-blue-400/30 focus:border-blue-500 shadow-md"
-                  }`}
-                />
-                <div className={`absolute inset-0 rounded-xl blur-xl opacity-50 ${
-                  dark 
-                    ? "bg-gradient-to-r from-slate-400/20 to-slate-500/20"
-                    : "bg-gradient-to-r from-gray-400/20 to-gray-500/20"
-                }`}></div>
+              }`}>اضغط على الزر أدناه للحصول على رقم مخصص تلقائياً</p>
+              
+              <div className="flex justify-center">
+                <Button
+                  onClick={async () => {
+                    setLoading(true)
+                    try {
+                      const res = await fetch("/api/token-handler", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "create" }),
+                      })
+                      const data = await res.json()
+                      if (data.secure_token) {
+                        setAssignedNumber(data.assigned_number)
+                        // Redirect to the same page with the token
+                        window.location.href = `/welcome?token=${data.secure_token}`
+                      } else {
+                        alert("❌ فشل في الحصول على رقم")
+                      }
+                    } catch (err) {
+                      console.error("Error creating token:", err)
+                      alert("❌ فشل في الحصول على رقم")
+                    } finally {
+                      setLoading(false)
+                    }
+                  }}
+                  disabled={loading}
+                  className="spring-btn bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                >
+                  {loading ? "جاري التخصيص..." : "احصل على رقم مخصص"}
+                </Button>
               </div>
-            </div>
-            <div className="flex justify-center gap-3">
-              <FancyPreviousButton onClick={previous} label="رجوع" />
-              <FancyNextButton onClick={next} label="استمرار" />
             </div>
           </section>
         )}
@@ -1407,7 +1424,7 @@ if (!isResolving && phase !== "form" && step === 0) {
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    توأم روحك في الجولة الثانية هو رقم {matchResult}
+                    توأم روحك في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
                   
                   <div className={`text-center mb-4 p-3 rounded-xl border ${
@@ -1460,7 +1477,164 @@ if (!isResolving && phase !== "form" && step === 0) {
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    حوار مع رقم {matchResult} (الجولة الثانية)
+                    حوار مع رقم {matchResult} (الجولة {currentRound})
+                  </h3>
+                  
+                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-lg font-semibold ${
+                      dark ? "text-slate-200" : "text-gray-700"
+                    }`}>
+                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-label="التالي"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5" />
+                      </button>
+                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                      <button
+                        type="button"
+                        aria-label="السابق"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronRightIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Clock className={`w-5 h-5 ${
+                        dark ? "text-slate-300" : "text-gray-500"
+                      }`} />
+                      <span className={`text-sm font-medium ${
+                        dark ? "text-slate-200" : "text-gray-700"
+                      }`}>الوقت المتبقي:</span>
+                    </div>
+                    <p className={`text-2xl font-bold ${
+                      dark ? "text-slate-200" : "text-gray-800"
+                    }`}>
+                      {formatTime(conversationTimer)}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
+                  </div>
+                </>
+              )}
+    </div>
+  </section>
+)}
+
+        {step === 7 && (
+          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+            }`}>
+              {/* Player Avatar - Positioned outside as part of the box design */}
+              <div className="absolute -top-3 -right-3 z-10">
+                <div className="relative">
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
+                      {assignedNumber ?? "؟"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              </div>
+
+              <div className="flex justify-center mb-4">
+                <Users className={`w-12 h-12 animate-bounce ${
+                  dark ? "text-slate-400" : "text-gray-600"
+                }`} />
+              </div>
+              
+              {!conversationStarted ? (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}>
+                    مجموعتك: {matchResult}
+                  </h3>
+                  
+                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <p className={`text-lg font-semibold ${
+                      dark ? "text-slate-200" : "text-gray-700"
+                    }`}>
+                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                    </p>
+                  </div>
+
+                  <div className={`rounded-xl p-4 border mb-6 ${
+                    dark 
+                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                  }`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-label="التالي"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronLeftIcon className="w-5 h-5" />
+                      </button>
+                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                      <button
+                        type="button"
+                        aria-label="السابق"
+                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                        disabled={prompts.length <= 1}
+                      >
+                        <ChevronRightIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center gap-3">
+                    <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
+                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3 className={`text-xl font-bold text-center mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}>
+                    حوار جماعي مع {matchResult}
                   </h3>
                   
                   <div className={`text-center mb-4 p-3 rounded-xl border ${

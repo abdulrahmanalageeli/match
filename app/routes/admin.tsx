@@ -48,6 +48,7 @@ export default function AdminPage() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
   const [waitingCount, setWaitingCount] = useState(0)
   const [totalParticipants, setTotalParticipants] = useState(0)
+  const [participantStats, setParticipantStats] = useState<any>(null)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -78,15 +79,16 @@ export default function AdminPage() {
       })
       setEmergencyPaused(stateData.emergency_paused)
       
-      // Fetch waiting count
-      const waitingRes = await fetch("/api/admin", {
+      // Fetch participant stats
+      const statsRes = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-waiting-count" }),
+        body: JSON.stringify({ action: "get-participant-stats" }),
       })
-      const waitingData = await waitingRes.json()
-      setWaitingCount(waitingData.waiting_count || 0)
-      setTotalParticipants(waitingData.total_participants || 0)
+      const statsData = await statsRes.json()
+      setParticipantStats(statsData)
+      setWaitingCount(statsData.waiting_count || 0)
+      setTotalParticipants(statsData.total_participants || 0)
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -185,11 +187,17 @@ export default function AdminPage() {
   )
 
   const phaseConfig = {
+    registration: { label: "Registration", color: "text-blue-400", bg: "bg-blue-400/10", icon: UserRound },
+    form: { label: "Form", color: "text-green-400", bg: "bg-green-400/10", icon: CheckSquare },
     waiting: { label: "Waiting", color: "text-yellow-400", bg: "bg-yellow-400/10", icon: Clock },
-    form: { label: "Form", color: "text-blue-400", bg: "bg-blue-400/10", icon: CheckSquare },
-    matching: { label: "Matching", color: "text-green-400", bg: "bg-green-400/10", icon: BarChart3 },
-    waiting2: { label: "Waiting for Round 2", color: "text-yellow-300", bg: "bg-yellow-300/10", icon: Clock },
-    matching2: { label: "Matching Round 2", color: "text-pink-400", bg: "bg-pink-400/10", icon: BarChart3 },
+    round_1: { label: "Round 1", color: "text-purple-400", bg: "bg-purple-400/10", icon: BarChart3 },
+    waiting_2: { label: "Waiting 2", color: "text-yellow-300", bg: "bg-yellow-300/10", icon: Clock },
+    round_2: { label: "Round 2", color: "text-pink-400", bg: "bg-pink-400/10", icon: BarChart3 },
+    waiting_3: { label: "Waiting 3", color: "text-yellow-200", bg: "bg-yellow-200/10", icon: Clock },
+    round_3: { label: "Round 3", color: "text-indigo-400", bg: "bg-indigo-400/10", icon: BarChart3 },
+    waiting_4: { label: "Waiting 4", color: "text-yellow-100", bg: "bg-yellow-100/10", icon: Clock },
+    round_4: { label: "Round 4", color: "text-cyan-400", bg: "bg-cyan-400/10", icon: BarChart3 },
+    group_phase: { label: "Group Phase", color: "text-orange-400", bg: "bg-orange-400/10", icon: Users },
   }
 
   const currentPhaseConfig = phaseConfig[currentPhase as keyof typeof phaseConfig]
@@ -347,11 +355,17 @@ export default function AdminPage() {
                  backgroundColor: 'rgba(15, 23, 42, 0.8)'
                }}
              >
+               <option value="registration" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Registration</option>
                <option value="form" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Form</option>
                <option value="waiting" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting</option>
-               <option value="matching" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching</option>
-               <option value="waiting2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting for Round 2</option>
-               <option value="matching2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Matching Round 2</option>
+               <option value="round_1" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 1</option>
+               <option value="waiting_2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting 2</option>
+               <option value="round_2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 2</option>
+               <option value="waiting_3" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting 3</option>
+               <option value="round_3" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 3</option>
+               <option value="waiting_4" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting 4</option>
+               <option value="round_4" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 4</option>
+               <option value="group_phase" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Group Phase</option>
              </select>
           </div>
 
@@ -394,6 +408,32 @@ export default function AdminPage() {
                   className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                 />
                 <button
+                  onClick={async () => {
+                    setLoading(true)
+                    const res = await fetch("/api/token-handler", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "create" }),
+                    })
+                    const data = await res.json()
+                    if (data.secure_token) {
+                      setQrParticipant({
+                        assigned_number: data.assigned_number,
+                        secure_token: data.secure_token,
+                      })
+                      fetchParticipants()
+                    } else {
+                      alert("❌ فشل في توليد الرابط")
+                    }
+                    setLoading(false)
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition-all duration-300"
+                >
+                  <Plus className="w-4 h-4" />
+                  Auto Assign Number
+                </button>
+
+                <button
                   disabled={!manualNumber}
                   onClick={async () => {
                     const res = await fetch("/api/token-handler", {
@@ -416,7 +456,7 @@ export default function AdminPage() {
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
                 >
                   <QrCode className="w-4 h-4" />
-                  Generate QR
+                  Manual QR
                 </button>
               </div>
             </div>
@@ -439,11 +479,54 @@ export default function AdminPage() {
               </button>
 
               <button
-                onClick={triggerMatching}
+                onClick={async () => {
+                  if (!confirm("Are you sure you want to advance to the next phase?")) return
+                  setLoading(true)
+                  const res = await fetch("/api/admin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "advance-phase", currentPhase }),
+                  })
+                  const data = await res.json()
+                  if (res.ok) {
+                    alert(`✅ Phase advanced to ${data.new_phase}`)
+                    fetchParticipants()
+                  } else {
+                    alert("❌ Failed to advance phase")
+                  }
+                  setLoading(false)
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
+              >
+                <ChevronRight className="w-4 h-4" />
+                Advance Phase
+              </button>
+
+              <button
+                onClick={async () => {
+                  if (!confirm("Are you sure you want to generate matches for the current round?")) return
+                  setLoading(true)
+                  const res = await fetch("/api/generate-matches", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                      round: currentPhase.startsWith("round_") ? parseInt(currentPhase.split('_')[1]) : 1,
+                      match_type: currentPhase === "group_phase" ? "group" : "individual"
+                    }),
+                  })
+                  const data = await res.json()
+                  if (res.ok) {
+                    alert(`✅ ${data.analysis}`)
+                    fetchParticipants()
+                  } else {
+                    alert("❌ Failed to generate matches")
+                  }
+                  setLoading(false)
+                }}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition-all duration-300"
               >
                 <RefreshCcw className="w-4 h-4" />
-                Match
+                Generate Matches
               </button>
 
               <button
@@ -475,6 +558,31 @@ export default function AdminPage() {
               </button>
             </div>
           </div>
+
+          {/* Statistics Display */}
+          {participantStats && (
+            <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
+              <h3 className="text-white font-semibold mb-3">Participant Statistics</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-blue-400">{participantStats.total_participants}</p>
+                  <p className="text-slate-400 text-sm">Total Registered</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-green-400">{participantStats.form_completed}</p>
+                  <p className="text-slate-400 text-sm">Form Completed</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-yellow-400">{participantStats.waiting_count}</p>
+                  <p className="text-slate-400 text-sm">Currently Waiting</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold text-purple-400">{participantStats.current_round_participants}</p>
+                  <p className="text-slate-400 text-sm">In Current Round</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Current Announcement Display */}
           {currentAnnouncement?.message && (

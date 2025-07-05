@@ -18,30 +18,40 @@ export interface MatchResult {
   id: string
   participant_a_number: number
   participant_b_number: number
-  match_type: string
-  reason: string
   compatibility_score: number
+  reason: string
+  match_id: string
   round: number
   table_number?: number
+  match_type?: string
+}
+
+export interface GroupMatch {
+  id: string
+  group_id: string
+  participant_numbers: number[]
+  compatibility_score: number
+  reason: string
   match_id: string
-  created_at?: string
+  table_number?: number
 }
 
 export interface EventState {
   match_id: string
-  phase: 'waiting' | 'form' | 'matching' | 'waiting2' | 'matching2'
+  phase: 'registration' | 'form' | 'waiting' | 'round_1' | 'waiting_2' | 'round_2' | 'waiting_3' | 'round_3' | 'waiting_4' | 'round_4' | 'group_phase'
   announcement?: string
   announcement_type?: 'info' | 'warning' | 'error' | 'success'
   announcement_time?: string
   emergency_paused?: boolean
   pause_time?: string
+  current_round?: number
+  total_rounds?: number
 }
 
-export interface ApiResponse<T = any> {
-  success?: boolean
+export interface ApiResponse<T> {
   data?: T
   error?: string
-  message?: string
+  success?: boolean
 }
 
 export interface AdminCredentials {
@@ -64,7 +74,12 @@ export interface SaveParticipantRequest {
 }
 
 export interface GenerateSummaryRequest {
-  responses: Record<string, string>
+  responses: {
+    q1: string
+    q2: string
+    q3: string
+    q4: string
+  }
 }
 
 export interface GetMatchesRequest {
@@ -72,11 +87,35 @@ export interface GetMatchesRequest {
   round?: number
 }
 
-export type Phase = 'waiting' | 'form' | 'matching' | 'waiting2' | 'matching2'
+export interface MatchResultEntry {
+  with: string
+  type: string
+  reason: string
+  round: number
+  table_number: number | null
+  score: number
+}
+
+export interface GroupMatchEntry {
+  group_id: string
+  participants: string[]
+  reason: string
+  table_number: number | null
+  score: number
+}
+
+export type Phase = 'registration' | 'form' | 'waiting' | 'round_1' | 'waiting_2' | 'round_2' | 'waiting_3' | 'round_3' | 'waiting_4' | 'round_4' | 'group_phase'
 
 export interface PhaseConfig {
   label: string
   color: string
   bg: string
   icon: React.ComponentType<{ className?: string }>
+}
+
+export interface ParticipantStats {
+  total_participants: number
+  form_completed: number
+  waiting_count: number
+  current_round_participants: number
 } 

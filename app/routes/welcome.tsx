@@ -244,20 +244,6 @@ const [isResolving, setIsResolving] = useState(true)
             // In form phase and already filled form, show prompt
             setShowFormFilledPrompt(true);
           }
-        } else {
-          // New user hasn't filled form yet
-          if (phaseData.phase === "form") {
-            // Immediately go to form for new users in form phase
-            setStep(2);
-          } else if (phaseData.phase === "waiting") {
-            setStep(3);
-          } else if (phaseData.phase.startsWith("round_")) {
-            const roundNumber = parseInt(phaseData.phase.split('_')[1]);
-            setPendingMatchRound(roundNumber);
-            setStep(4);
-          } else if (phaseData.phase === "group_phase") {
-            setStep(7);
-          }
         }
         // --- END NEW LOGIC ---
         }

@@ -97,10 +97,12 @@ export default async function handler(req, res) {
 
     if (match_type === "group") {
       // Group matching logic
-      return await generateGroupMatches(participants, round, match_id)
+      const result = await generateGroupMatches(participants, round, match_id)
+      return res.status(200).json(result)
     } else {
       // Individual matching logic
-      return await generateIndividualMatches(participants, round, match_id)
+      const result = await generateIndividualMatches(participants, round, match_id)
+      return res.status(200).json(result)
     }
 
   } catch (error) {
@@ -264,17 +266,17 @@ async function generateIndividualMatches(participants, round, match_id) {
 
   if (insertError) {
     console.error("Error inserting matches:", insertError)
-    return res.status(500).json({ error: "Failed to save matches" })
+    throw new Error("Failed to save matches")
   }
 
   console.log(`Successfully saved ${matches.length} matches to database`);
 
-  return res.status(200).json({
+  return {
     success: true,
     matches: matches.length,
     participants: participants.length,
     analysis: `تم إنشاء ${matches.length} مباراة للجولة ${round}`
-  })
+  }
 }
 
 async function generateGroupMatches(participants, round, match_id) {
@@ -310,15 +312,15 @@ async function generateGroupMatches(participants, round, match_id) {
 
   if (insertError) {
     console.error("Error inserting group matches:", insertError)
-    return res.status(500).json({ error: "Failed to save group matches" })
+    throw new Error("Failed to save group matches")
   }
 
   console.log(`Successfully saved ${groups.length} groups to database`);
 
-  return res.status(200).json({
+  return {
     success: true,
     groups: groups.length,
     participants: participants.length,
     analysis: `تم إنشاء ${groups.length} مجموعة للجولة ${round}`
-  })
+  }
 }

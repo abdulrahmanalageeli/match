@@ -18,6 +18,8 @@ export default async function handler(req, res) {
   const { round, match_type = "individual" } = req.body
   const match_id = "00000000-0000-0000-0000-000000000000"
 
+  console.log(`Generating matches for round ${round}, type: ${match_type}`);
+
   if (!round) {
     return res.status(400).json({ error: "Round number is required" })
   }
@@ -27,6 +29,7 @@ export default async function handler(req, res) {
     let participants = []
     
     if (round === 1) {
+      console.log("Getting participants for round 1...");
       // For round 1, get all participants who completed the form
       const { data, error } = await supabase
         .from("participants")
@@ -37,9 +40,14 @@ export default async function handler(req, res) {
         .not("q3", "is", null)
         .not("q4", "is", null)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error fetching participants for round 1:", error);
+        throw error;
+      }
       participants = data
+      console.log(`Found ${participants.length} participants for round 1`);
     } else {
+      console.log(`Getting participants for round ${round}...`);
       // For subsequent rounds, get participants who completed the previous round
       const { data: previousMatches, error: matchError } = await supabase
         .from("match_results")
@@ -47,7 +55,12 @@ export default async function handler(req, res) {
         .eq("match_id", match_id)
         .eq("round", round - 1)
 
-      if (matchError) throw matchError
+      if (matchError) {
+        console.error("Error fetching previous matches:", matchError);
+        throw matchError;
+      }
+
+      console.log(`Found ${previousMatches.length} previous matches`);
 
       // Get unique participants from previous round
       const participantNumbers = new Set()
@@ -58,6 +71,8 @@ export default async function handler(req, res) {
         if (match.participant_d_number > 0) participantNumbers.add(match.participant_d_number)
       })
 
+      console.log(`Unique participants from previous round: ${participantNumbers.size}`);
+
       // Get participant details
       const { data, error } = await supabase
         .from("participants")
@@ -65,13 +80,20 @@ export default async function handler(req, res) {
         .eq("match_id", match_id)
         .in("assigned_number", Array.from(participantNumbers))
 
-      if (error) throw error
+      if (error) {
+        console.error("Error fetching participant details:", error);
+        throw error;
+      }
       participants = data
+      console.log(`Found ${participants.length} participants for round ${round}`);
     }
 
     if (participants.length < 2) {
+      console.log(`Not enough participants: ${participants.length}`);
       return res.status(400).json({ error: "Not enough participants for matching" })
     }
+
+    console.log(`Starting ${match_type} matching for ${participants.length} participants`);
 
     if (match_type === "group") {
       // Group matching logic
@@ -88,6 +110,8 @@ export default async function handler(req, res) {
 }
 
 async function generateIndividualMatches(participants, round, match_id) {
+  console.log(`Starting individual matching for ${participants.length} participants`);
+  
   // Generate all possible pairs
   const pairs = []
   for (let i = 0; i < participants.length; i++) {
@@ -95,6 +119,8 @@ async function generateIndividualMatches(participants, round, match_id) {
       pairs.push([participants[i], participants[j]])
     }
   }
+
+  console.log(`Generated ${pairs.length} possible pairs`);
 
   // Generate compatibility scores using AI
   const compatibilityScores = []
@@ -119,6 +145,8 @@ async function generateIndividualMatches(participants, round, match_id) {
 السبب: [سبب التوافق أو عدم التوافق]`
 
     try {
+      console.log(`Analyzing compatibility between ${participantA.assigned_number} and ${participantB.assigned_number}`);
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [{ role: "user", content: prompt }],
@@ -133,6 +161,8 @@ async function generateIndividualMatches(participants, round, match_id) {
       const score = scoreMatch ? parseInt(scoreMatch[1]) : 50
       const reason = reasonMatch ? reasonMatch[1].trim() : "تحليل التوافق غير متوفر"
 
+      console.log(`Compatibility score: ${score} for ${participantA.assigned_number} and ${participantB.assigned_number}`);
+
       compatibilityScores.push({
         participantA: participantA.assigned_number,
         participantB: participantB.assigned_number,
@@ -140,7 +170,7 @@ async function generateIndividualMatches(participants, round, match_id) {
         reason
       })
     } catch (error) {
-      console.error("AI analysis error:", error)
+      console.error(`AI analysis error for ${participantA.assigned_number} and ${participantB.assigned_number}:`, error)
       compatibilityScores.push({
         participantA: participantA.assigned_number,
         participantB: participantB.assigned_number,
@@ -149,6 +179,8 @@ async function generateIndividualMatches(participants, round, match_id) {
       })
     }
   }
+
+  console.log(`Generated ${compatibilityScores.length} compatibility scores`);
 
   // Sort by compatibility score (descending)
   compatibilityScores.sort((a, b) => b.score - a.score)
@@ -174,10 +206,14 @@ async function generateIndividualMatches(participants, round, match_id) {
     }
   }
 
+  console.log(`Created ${matches.length} initial matches`);
+
   // Handle odd participant
   const unusedParticipants = participants
     .map(p => p.assigned_number)
     .filter(num => !usedParticipants.has(num))
+
+  console.log(`Unused participants: ${unusedParticipants.length}`);
 
   if (unusedParticipants.length === 1) {
     // Find the best match for the odd participant
@@ -219,6 +255,8 @@ async function generateIndividualMatches(participants, round, match_id) {
     }
   }
 
+  console.log(`Final matches to save: ${matches.length}`);
+
   // Save matches to database
   const { error: insertError } = await supabase
     .from("match_results")
@@ -229,6 +267,8 @@ async function generateIndividualMatches(participants, round, match_id) {
     return res.status(500).json({ error: "Failed to save matches" })
   }
 
+  console.log(`Successfully saved ${matches.length} matches to database`);
+
   return res.status(200).json({
     success: true,
     matches: matches.length,
@@ -238,9 +278,13 @@ async function generateIndividualMatches(participants, round, match_id) {
 }
 
 async function generateGroupMatches(participants, round, match_id) {
+  console.log(`Starting group matching for ${participants.length} participants`);
+  
   // For group phase, create groups of 3-4 people
   const groups = []
   const shuffledParticipants = [...participants].sort(() => Math.random() - 0.5)
+  
+  console.log(`Shuffled ${shuffledParticipants.length} participants for grouping`);
   
   // Create groups of 4, with the last group potentially being 3
   for (let i = 0; i < shuffledParticipants.length; i += 4) {
@@ -257,6 +301,8 @@ async function generateGroupMatches(participants, round, match_id) {
     }
   }
 
+  console.log(`Created ${groups.length} groups`);
+
   // Save group matches to database
   const { error: insertError } = await supabase
     .from("group_matches")
@@ -266,6 +312,8 @@ async function generateGroupMatches(participants, round, match_id) {
     console.error("Error inserting group matches:", insertError)
     return res.status(500).json({ error: "Failed to save group matches" })
   }
+
+  console.log(`Successfully saved ${groups.length} groups to database`);
 
   return res.status(200).json({
     success: true,

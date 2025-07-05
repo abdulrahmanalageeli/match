@@ -698,7 +698,60 @@ const [isResolving, setIsResolving] = useState(true)
                   </div>
                   
                   <h1 className="text-2xl sm:text-4xl font-bold text-white mb-4 tracking-tight animate-in slide-in-from-bottom-4 duration-1000">
-                    نظام التوافق الذكي
+                    <div className="relative inline-block">
+                      {/* Animated Background Glow */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 rounded-3xl blur-2xl opacity-30 animate-pulse"></div>
+                      
+                      {/* Main Logo Container */}
+                      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-8 border border-cyan-400/30 shadow-2xl">
+                        {/* Animated Border */}
+                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-20 animate-spin" style={{ animationDuration: '8s' }}></div>
+                        
+                        {/* Logo Content */}
+                        <div className="relative flex items-center justify-center gap-4 sm:gap-6">
+                          {/* Left Icon */}
+                          <div className="relative">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center animate-pulse">
+                              <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                            </div>
+                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
+                          </div>
+                          
+                          {/* Text with Gradient */}
+                          <div className="relative">
+                            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent font-extrabold text-2xl sm:text-4xl lg:text-6xl tracking-wider">
+                              التوافق الأعمى
+                            </span>
+                            {/* Text Glow Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent font-extrabold text-2xl sm:text-4xl lg:text-6xl tracking-wider blur-sm opacity-50 animate-pulse"></div>
+                          </div>
+                          
+                          {/* Right Icon */}
+                          <div className="relative">
+                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center animate-pulse">
+                              <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                            </div>
+                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-cyan-500 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
+                          </div>
+                        </div>
+                        
+                        {/* Floating Particles */}
+                        <div className="absolute inset-0 overflow-hidden rounded-3xl">
+                          {[...Array(8)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-ping"
+                              style={{
+                                left: `${15 + (i * 12)}%`,
+                                top: `${25 + (i % 2) * 50}%`,
+                                animationDelay: `${i * 0.2}s`,
+                                animationDuration: '2s'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </h1>
                   <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed animate-in slide-in-from-bottom-4 duration-1000 delay-300">
                     جاري تحميل الذكاء الاصطناعي...

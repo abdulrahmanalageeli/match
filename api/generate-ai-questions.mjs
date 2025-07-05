@@ -55,13 +55,22 @@ export default async function handler(req, res) {
       .single()
 
     if (matchError || !currentMatch) {
+      console.error("Match query error:", matchError)
+      console.error("Requesting participant:", requestingParticipant.assigned_number)
+      console.error("Round:", round)
       return res.status(404).json({ error: "No match found for this round" })
     }
+
+    console.log("Found match:", currentMatch)
+    console.log("Requesting participant:", requestingParticipant.assigned_number)
+    console.log("Round:", round)
 
     // Determine the other participant's number
     const otherParticipantNumber = currentMatch.participant_a_number === requestingParticipant.assigned_number 
       ? currentMatch.participant_b_number 
       : currentMatch.participant_a_number
+
+    console.log("Other participant number:", otherParticipantNumber)
 
     // Check if questions already exist for this pair and round
     const { data: existingQuestions, error: existingError } = await supabase
@@ -89,8 +98,26 @@ export default async function handler(req, res) {
       .single()
 
     if (otherError || !otherParticipant) {
+      console.error("Other participant error:", otherError)
+      console.error("Looking for participant:", otherParticipantNumber)
       return res.status(404).json({ error: "Other participant not found" })
     }
+
+    console.log("Requesting participant data:", {
+      number: requestingParticipant.assigned_number,
+      q1: requestingParticipant.q1,
+      q2: requestingParticipant.q2,
+      q3: requestingParticipant.q3,
+      q4: requestingParticipant.q4
+    })
+
+    console.log("Other participant data:", {
+      number: otherParticipant.assigned_number,
+      q1: otherParticipant.q1,
+      q2: otherParticipant.q2,
+      q3: otherParticipant.q3,
+      q4: otherParticipant.q4
+    })
 
     // Create context from both participants' survey responses
     const surveyContext = `

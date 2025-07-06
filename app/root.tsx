@@ -25,30 +25,10 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        
-        {/* Security Headers */}
-        <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
-        <meta httpEquiv="X-Frame-Options" content="DENY" />
-        <meta httpEquiv="X-XSS-Protection" content="1; mode=block" />
-        <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
-        <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.openai.com https://*.supabase.co;" />
-        
-        {/* SEO and Accessibility */}
-        <meta name="description" content="نظام التوافق الذكي - اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم" />
-        <meta name="keywords" content="توافق, مطابقة, ذكاء اصطناعي, علاقات, زواج" />
-        <meta name="author" content="Blind Compatibility System" />
-        <meta name="robots" content="noindex, nofollow" />
-        
-        {/* PWA Support */}
-        <meta name="theme-color" content="#0ea5e9" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="التوافق الأعمى" />
-        
         <Meta />
         <Links />
       </head>

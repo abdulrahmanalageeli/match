@@ -10,25 +10,14 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router', 'react-router-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-popover', '@radix-ui/react-slot', '@radix-ui/react-switch', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
-          icons: ['lucide-react'],
-          utils: ['clsx', 'class-variance-authority', 'tailwind-merge'],
-        },
+        manualChunks: undefined,
       },
     },
-    target: 'esnext',
   },
   esbuild: {
     drop: ['console', 'debugger'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
-  },
-  server: {
-    hmr: {
-      overlay: false,
-    },
+    include: ['react', 'react-dom'],
   },
 });

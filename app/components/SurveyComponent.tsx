@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "../../components/ui/button"
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
@@ -294,7 +294,7 @@ const surveyQuestions = [
 
 const questionsPerPage = 5
 
-export default React.memo(function SurveyComponent({ 
+export default function SurveyComponent({ 
   onSubmit, 
   surveyData, 
   setSurveyData,
@@ -317,86 +317,6 @@ export default React.memo(function SurveyComponent({
 
   const totalPages = Math.ceil(surveyQuestions.length / questionsPerPage) + 1 // +1 for terms page
   const progress = ((currentPage + 1) / totalPages) * 100
-
-  // Memoize computed values
-  const currentQuestions = useMemo(() => {
-    if (currentPage === totalPages - 1) return []
-    const startIndex = currentPage * questionsPerPage
-    const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
-    return surveyQuestions.slice(startIndex, endIndex)
-  }, [currentPage, totalPages])
-
-  const isPageValid = useCallback((page: number) => {
-    if (page === totalPages - 1) {
-      return surveyData.termsAccepted && surveyData.dataConsent
-    }
-    
-    const startIndex = page * questionsPerPage
-    const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
-    
-    for (let i = startIndex; i < endIndex; i++) {
-      const question = surveyQuestions[i]
-      const value = surveyData.answers[question.id]
-      
-      if (question.required) {
-        if (Array.isArray(value)) {
-          if (!value || value.length === 0) return false
-        } else {
-          if (!value || value === "") return false
-        }
-      }
-    }
-    return true
-  }, [surveyData, totalPages])
-
-  const nextPage = useCallback(() => {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1)
-    }
-  }, [currentPage, totalPages])
-
-  const prevPage = useCallback(() => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1)
-    }
-  }, [currentPage])
-
-  const handleSubmit = useCallback(() => {
-    console.log("🔍 SurveyComponent handleSubmit called")
-    console.log("📊 Current surveyData:", surveyData)
-    console.log("📝 Terms accepted:", surveyData.termsAccepted)
-    console.log("📝 Data consent:", surveyData.dataConsent)
-    
-    // Validate all required questions
-    for (const question of surveyQuestions) {
-      if (question.required) {
-        const value = surveyData.answers[question.id];
-        console.log(`❓ Question ${question.id}:`, value)
-        
-        if (Array.isArray(value)) {
-          if (!value || value.length === 0) {
-            console.log(`❌ Missing array answer for ${question.id}`)
-            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
-            return;
-          }
-        } else {
-          if (!value || value === "") {
-            console.log(`❌ Missing string answer for ${question.id}`)
-            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
-            return;
-          }
-        }
-      }
-    }
-    
-    if (surveyData.termsAccepted && surveyData.dataConsent) {
-      console.log("✅ All validations passed, calling onSubmit")
-      onSubmit(surveyData);
-    } else {
-      console.log("❌ Terms not accepted")
-      alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
-    }
-  }, [surveyData, onSubmit])
 
   const handleInputChange = (questionId: string, value: string | string[]) => {
     console.log(`📝 Input change for ${questionId}:`, value)
@@ -435,6 +355,78 @@ export default React.memo(function SurveyComponent({
         }
       }
       setSurveyData(newData)
+    }
+  }
+
+  const isPageValid = (page: number) => {
+    if (page === totalPages - 1) {
+      return surveyData.termsAccepted && surveyData.dataConsent
+    }
+    
+    const startIndex = page * questionsPerPage
+    const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+    
+    for (let i = startIndex; i < endIndex; i++) {
+      const question = surveyQuestions[i]
+      const value = surveyData.answers[question.id]
+      
+      if (question.required) {
+        if (Array.isArray(value)) {
+          if (!value || value.length === 0) return false
+        } else {
+          if (!value || value === "") return false
+        }
+      }
+    }
+    return true
+  }
+
+  const nextPage = () => {
+    if (currentPage < totalPages - 1) {
+      setCurrentPage(currentPage + 1)
+    }
+  }
+
+  const prevPage = () => {
+    if (currentPage > 0) {
+      setCurrentPage(currentPage - 1)
+    }
+  }
+
+  const handleSubmit = () => {
+    console.log("🔍 SurveyComponent handleSubmit called")
+    console.log("📊 Current surveyData:", surveyData)
+    console.log("📝 Terms accepted:", surveyData.termsAccepted)
+    console.log("📝 Data consent:", surveyData.dataConsent)
+    
+    // Validate all required questions
+    for (const question of surveyQuestions) {
+      if (question.required) {
+        const value = surveyData.answers[question.id];
+        console.log(`❓ Question ${question.id}:`, value)
+        
+        if (Array.isArray(value)) {
+          if (!value || value.length === 0) {
+            console.log(`❌ Missing array answer for ${question.id}`)
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+        } else {
+          if (!value || value === "") {
+            console.log(`❌ Missing string answer for ${question.id}`)
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+        }
+      }
+    }
+    
+    if (surveyData.termsAccepted && surveyData.dataConsent) {
+      console.log("✅ All validations passed, calling onSubmit")
+      onSubmit(surveyData);
+    } else {
+      console.log("❌ Terms not accepted")
+      alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
   }
 
@@ -746,4 +738,4 @@ export default React.memo(function SurveyComponent({
       </div>
     </div>
   )
-})
+} 

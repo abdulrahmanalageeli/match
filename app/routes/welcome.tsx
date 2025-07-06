@@ -2542,31 +2542,25 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                   <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
                     <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
-                    {isScoreRevealed ? (
-                      <>
-                        <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
-                        <div className="mt-4">
-                          <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
-                          {currentRound === 1 && (
-                            <div className="flex flex-col items-center justify-center py-8">
-                              <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
-                                <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
-                                <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
-                              </div>
-                              <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
-                              <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
-                              <div className="flex gap-2 mt-6">
-                                <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                                <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                                <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                              </div>
+                    <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
+                    {isScoreRevealed && (
+                      <div className="mt-4">
+                        <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
+                        {currentRound === 1 && (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
+                              <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
+                              <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
                             </div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <div className={`text-lg ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                        سيتم إظهار النتائج بعد إرسال التقييم
+                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
+                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
+                            <div className="flex gap-2 mt-6">
+                              <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

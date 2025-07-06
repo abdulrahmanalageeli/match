@@ -431,14 +431,23 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
           <RadioGroup
             value={value as string}
             onValueChange={(val) => handleInputChange(question.id, val)}
-            className="space-y-3"
+            className="space-y-4"
           >
             {question.options.map((option: any) => (
-              <div key={option.value} className="flex items-center space-x-3 space-x-reverse">
-                <RadioGroupItem value={option.value} id={`${question.id}-${option.value}`} />
-                <Label htmlFor={`${question.id}-${option.value}`} className="text-right cursor-pointer">
-                  {option.label}
-                </Label>
+              <div key={option.value} className="group">
+                <div className="flex items-center space-x-4 space-x-reverse">
+                  <RadioGroupItem 
+                    value={option.value} 
+                    id={`${question.id}-${option.value}`} 
+                    className="w-5 h-5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+                  />
+                  <Label 
+                    htmlFor={`${question.id}-${option.value}`} 
+                    className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                  >
+                    {option.label}
+                  </Label>
+                </div>
               </div>
             ))}
           </RadioGroup>
@@ -446,23 +455,29 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
 
       case "checkbox":
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {question.options.map((option: any) => (
-              <div key={option.value} className="flex items-center space-x-3 space-x-reverse">
-                <Checkbox
-                  id={`${question.id}-${option.value}`}
-                  checked={(value as string[]).includes(option.value)}
-                  onCheckedChange={(checked) => 
-                    handleCheckboxChange(question.id, option.value, checked as boolean)
-                  }
-                />
-                <Label htmlFor={`${question.id}-${option.value}`} className="text-right cursor-pointer">
-                  {option.label}
-                </Label>
+              <div key={option.value} className="group">
+                <div className="flex items-center space-x-4 space-x-reverse">
+                  <Checkbox
+                    id={`${question.id}-${option.value}`}
+                    checked={(value as string[]).includes(option.value)}
+                    onCheckedChange={(checked) => 
+                      handleCheckboxChange(question.id, option.value, checked as boolean)
+                    }
+                    className="w-5 h-5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+                  />
+                  <Label 
+                    htmlFor={`${question.id}-${option.value}`} 
+                    className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                  >
+                    {option.label}
+                  </Label>
+                </div>
               </div>
             ))}
             {question.maxSelections && (
-              <p className="text-sm text-gray-500 text-right">
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-right mt-3 bg-white/50 dark:bg-slate-700/50 px-4 py-2 rounded-xl">
                 اختر {question.maxSelections} فقط
               </p>
             )}
@@ -471,12 +486,15 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
 
       case "text":
         return (
-          <Textarea
-            value={value as string}
-            onChange={(e) => handleInputChange(question.id, e.target.value)}
-            placeholder={question.placeholder}
-            className="min-h-[100px] text-right"
-          />
+          <div className="relative">
+            <Textarea
+              value={value as string}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              placeholder={question.placeholder}
+              className="min-h-[120px] text-right border-2 border-gray-200 dark:border-slate-600 rounded-2xl px-6 py-4 text-lg transition-all duration-300 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm resize-none"
+            />
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
+          </div>
         )
 
       default:
@@ -485,145 +503,199 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
   }
 
   const renderTermsPage = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <Shield className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800">الشروط والأحكام</h2>
-        <p className="text-gray-600">يرجى قراءة والموافقة على الشروط التالية</p>
+    <div className="space-y-8">
+      <div className="text-center mb-8">
+        <div className="relative inline-block mb-6">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-2xl">
+            <Shield className="w-8 h-8 text-white" />
+          </div>
+          <div className="absolute -top-2 -right-2 w-6 h-6 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
+        </div>
+        <h2 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-3">الشروط والأحكام</h2>
+        <p className="text-lg text-gray-600 dark:text-gray-400">يرجى قراءة والموافقة على الشروط التالية</p>
       </div>
 
-      <Card className="border-2 border-blue-200 bg-blue-50">
-        <CardHeader>
-          <CardTitle className="text-blue-800 flex items-center gap-2">
-            <AlertTriangle className="w-5 h-5" />
-            شروط الخصوصية وحماية البيانات
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-right">
-          <div className="space-y-3 text-sm">
-            <p className="text-gray-700">
-              <strong>1. جمع البيانات:</strong> نقوم بجمع بياناتك الشخصية لغرض التوافق والمطابقة فقط.
-            </p>
-            <p className="text-gray-700">
-              <strong>2. استخدام البيانات:</strong> تستخدم البيانات حصرياً لتحليل التوافق وتقديم خدمات المطابقة.
-            </p>
-            <p className="text-gray-700">
-              <strong>3. حماية البيانات:</strong> نلتزم بمعايير حماية البيانات السعودية (PDPL) ونحافظ على سرية معلوماتك.
-            </p>
-            <p className="text-gray-700">
-              <strong>4. الذكاء الاصطناعي:</strong> نستخدم تقنيات الذكاء الاصطناعي المطابقة للوائح السعودية.
-            </p>
-            <p className="text-gray-700">
-              <strong>5. حقوقك:</strong> يمكنك طلب حذف بياناتك أو تعديلها في أي وقت.
-            </p>
-            <p className="text-gray-700">
-              <strong>6. الأمان:</strong> نستخدم تقنيات تشفير متقدمة لحماية بياناتك.
-            </p>
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-700 rounded-3xl p-8 border-2 border-blue-200 dark:border-blue-700 shadow-xl">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
+            <AlertTriangle className="w-5 h-5 text-white" />
           </div>
-        </CardContent>
-      </Card>
+          <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">
+            شروط الخصوصية وحماية البيانات
+          </h3>
+        </div>
+        <div className="space-y-4 text-right">
+          <div className="space-y-4 text-base">
+            <div className="bg-white/70 dark:bg-slate-700/70 rounded-2xl p-4 backdrop-blur-sm">
+              <p className="text-gray-700 dark:text-gray-200">
+                <strong className="text-blue-600 dark:text-blue-400">1. جمع البيانات:</strong> نقوم بجمع بياناتك الشخصية لغرض التوافق والمطابقة فقط.
+              </p>
+            </div>
+            <div className="bg-white/70 dark:bg-slate-700/70 rounded-2xl p-4 backdrop-blur-sm">
+              <p className="text-gray-700 dark:text-gray-200">
+                <strong className="text-blue-600 dark:text-blue-400">2. استخدام البيانات:</strong> تستخدم البيانات حصرياً لتحليل التوافق وتقديم خدمات المطابقة.
+              </p>
+            </div>
+            <div className="bg-white/70 dark:bg-slate-700/70 rounded-2xl p-4 backdrop-blur-sm">
+              <p className="text-gray-700 dark:text-gray-200">
+                <strong className="text-blue-600 dark:text-blue-400">3. حماية البيانات:</strong> نلتزم بمعايير حماية البيانات السعودية (PDPL) ونحافظ على سرية معلوماتك.
+              </p>
+            </div>
+            <div className="bg-white/70 dark:bg-slate-700/70 rounded-2xl p-4 backdrop-blur-sm">
+              <p className="text-gray-700 dark:text-gray-200">
+                <strong className="text-blue-600 dark:text-blue-400">4. الذكاء الاصطناعي:</strong> نستخدم تقنيات الذكاء الاصطناعي المطابقة للوائح السعودية.
+              </p>
+            </div>
+            <div className="bg-white/70 dark:bg-slate-700/70 rounded-2xl p-4 backdrop-blur-sm">
+              <p className="text-gray-700 dark:text-gray-200">
+                <strong className="text-blue-600 dark:text-blue-400">5. حقوقك:</strong> يمكنك طلب حذف بياناتك أو تعديلها في أي وقت.
+              </p>
+            </div>
+            <div className="bg-white/70 dark:bg-slate-700/70 rounded-2xl p-4 backdrop-blur-sm">
+              <p className="text-gray-700 dark:text-gray-200">
+                <strong className="text-blue-600 dark:text-blue-400">6. الأمان:</strong> نستخدم تقنيات تشفير متقدمة لحماية بياناتك.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
-      <div className="space-y-4">
-        <div className="flex items-center space-x-3 space-x-reverse">
-          <Checkbox
-            id="terms"
-            checked={surveyData.termsAccepted}
-            onCheckedChange={(checked) => 
-              setSurveyData(prev => ({ ...prev, termsAccepted: checked as boolean }))
-            }
-          />
-          <Label htmlFor="terms" className="text-right cursor-pointer">
-            أوافق على الشروط والأحكام
-          </Label>
+      <div className="space-y-6">
+        <div className="group">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-2xl p-6 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+            <Checkbox
+              id="terms"
+              checked={surveyData.termsAccepted}
+              onCheckedChange={(checked) => 
+                setSurveyData(prev => ({ ...prev, termsAccepted: checked as boolean }))
+              }
+              className="w-6 h-6 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+            />
+            <Label htmlFor="terms" className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
+              أوافق على الشروط والأحكام
+            </Label>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-3 space-x-reverse">
-          <Checkbox
-            id="dataConsent"
-            checked={surveyData.dataConsent}
-            onCheckedChange={(checked) => 
-              setSurveyData(prev => ({ ...prev, dataConsent: checked as boolean }))
-            }
-          />
-          <Label htmlFor="dataConsent" className="text-right cursor-pointer">
-            أوافق على معالجة بياناتي الشخصية وفقاً لسياسة الخصوصية
-          </Label>
+        <div className="group">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-2xl p-6 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+            <Checkbox
+              id="dataConsent"
+              checked={surveyData.dataConsent}
+              onCheckedChange={(checked) => 
+                setSurveyData(prev => ({ ...prev, dataConsent: checked as boolean }))
+              }
+              className="w-6 h-6 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+            />
+            <Label htmlFor="dataConsent" className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
+              أوافق على معالجة بياناتي الشخصية وفقاً لسياسة الخصوصية
+            </Label>
+          </div>
         </div>
       </div>
     </div>
   )
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-gray-600">التقدم</span>
-          <span className="text-sm text-gray-600">{currentPage + 1} من {totalPages}</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Header with Progress */}
+        <div className="mb-8">
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg">
+              <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                اكتشف توأم روحك
+              </span>
+            </div>
+          </div>
+          
+          {/* Enhanced Progress Bar */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">التقدم</span>
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400">{currentPage + 1} من {totalPages}</span>
+            </div>
+            <div className="relative">
+              <div className="h-3 bg-white/50 dark:bg-slate-800/50 rounded-full overflow-hidden backdrop-blur-sm">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out animate-shimmer"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-400/20 to-purple-400/20 animate-pulse"></div>
+            </div>
+          </div>
         </div>
-        <Progress value={progress} className="h-2" />
-      </div>
 
-      {/* Survey Content */}
-      <Card className="shadow-lg">
-        <CardContent className="p-6">
+        {/* Survey Content */}
+        <div className="space-y-6">
           {currentPage === totalPages - 1 ? (
-            renderTermsPage()
+            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+              {renderTermsPage()}
+            </div>
           ) : (
             <div className="space-y-6">
-              {surveyQuestions
-                .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage)
-                .map((question, index) => (
-                  <div key={question.id} className="space-y-4 p-4 border rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <span className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-bold">
-                        {currentPage * questionsPerPage + index + 1}
-                      </span>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-800 mb-3 text-right">
-                          {question.question}
-                        </h3>
-                        {renderQuestion(question)}
+                              {surveyQuestions
+                  .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage)
+                  .map((question, index) => (
+                    <div key={question.id} className="group animate-slide-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
+                      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 p-8 transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] hover:bg-white/90 dark:hover:bg-slate-800/90 hover:animate-glow">
+                      <div className="flex items-start gap-4">
+                        <div className="relative">
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                            {currentPage * questionsPerPage + index + 1}
+                          </div>
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-right leading-relaxed">
+                            {question.question}
+                          </h3>
+                          <div className="space-y-4">
+                            {renderQuestion(question)}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between items-center mt-8">
-        <Button
-          onClick={prevPage}
-          disabled={currentPage === 0}
-          variant="outline"
-          className="flex items-center gap-2"
-        >
-          <ChevronRight className="w-4 h-4" />
-          السابق
-        </Button>
+        {/* Enhanced Navigation */}
+        <div className="flex justify-between items-center mt-12">
+          <Button
+            onClick={prevPage}
+            disabled={currentPage === 0}
+            variant="outline"
+            className="flex items-center gap-3 px-6 py-3 rounded-2xl border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-lg disabled:opacity-50"
+          >
+            <ChevronRight className="w-5 h-5" />
+            <span className="font-medium">السابق</span>
+          </Button>
 
-        {currentPage === totalPages - 1 ? (
-          <Button
-            onClick={handleSubmit}
-            disabled={!surveyData.termsAccepted || !surveyData.dataConsent}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
-          >
-            <CheckCircle className="w-4 h-4" />
-            إرسال الاستبيان
-          </Button>
-        ) : (
-          <Button
-            onClick={nextPage}
-            disabled={!isPageValid(currentPage)}
-            className="flex items-center gap-2"
-          >
-            التالي
-            <ChevronLeft className="w-4 h-4" />
-          </Button>
-        )}
+          {currentPage === totalPages - 1 ? (
+            <Button
+              onClick={handleSubmit}
+              disabled={!surveyData.termsAccepted || !surveyData.dataConsent}
+              className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+            >
+              <CheckCircle className="w-5 h-5" />
+              <span>إرسال الاستبيان</span>
+            </Button>
+          ) : (
+            <Button
+              onClick={nextPage}
+              disabled={!isPageValid(currentPage)}
+              className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+            >
+              <span>التالي</span>
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   )

@@ -1773,11 +1773,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               ) : (
                 <>
                   {console.log("🎯 SurveyComponent is being rendered")}
-                  <SurveyComponent 
-                    onSubmit={handleSurveySubmit} 
-                    surveyData={surveyData}
-                    setSurveyData={setSurveyData}
-                  />
+                                  <SurveyComponent
+                  onSubmit={handleSurveySubmit}
+                  surveyData={surveyData}
+                  setSurveyData={setSurveyData}
+                  loading={loading}
+                />
                 </>
               )}
             </div>

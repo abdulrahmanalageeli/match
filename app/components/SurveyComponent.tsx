@@ -7,7 +7,7 @@ import { Textarea } from "../../components/ui/textarea"
 import { Input } from "../../components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
-import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -297,11 +297,13 @@ const questionsPerPage = 5
 export default function SurveyComponent({ 
   onSubmit, 
   surveyData, 
-  setSurveyData 
+  setSurveyData,
+  loading = false
 }: { 
   onSubmit: (data: SurveyData) => void
   surveyData: SurveyData
   setSurveyData: (data: SurveyData) => void
+  loading?: boolean
 }) {
   console.log("🚀 SurveyComponent mounted")
   
@@ -604,6 +606,25 @@ export default function SurveyComponent({
 
   return (
     <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-sm mx-4">
+            <div className="flex flex-col items-center gap-4 text-center">
+              <div className="relative">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
+                  <Loader2 className="w-8 h-8 text-white animate-spin" />
+                </div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">جاري تحليل البيانات</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">يرجى الانتظار بينما نقوم بتحليل إجاباتك وتوليد التوصيات...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="max-w-3xl mx-auto p-4">
         {/* Header with Progress */}
         <div className="mb-6">
@@ -688,11 +709,20 @@ export default function SurveyComponent({
                 console.log("🔘 إرسال الاستبيان button clicked")
                 handleSubmit()
               }}
-              disabled={!surveyData.termsAccepted || !surveyData.dataConsent}
+              disabled={!surveyData.termsAccepted || !surveyData.dataConsent || loading}
               className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
             >
-              <CheckCircle className="w-4 h-4" />
-              <span>إرسال الاستبيان</span>
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>جاري التحليل...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>إرسال الاستبيان</span>
+                </>
+              )}
             </Button>
           ) : (
             <Button

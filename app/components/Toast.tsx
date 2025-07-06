@@ -1,66 +1,78 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react'
+import { createPortal } from 'react-dom'
 
-export type ToastType = 'success' | 'error' | 'info' | 'warning'
+export type ToastType = 'success' | 'error' | 'warning' | 'info'
 
 interface ToastProps {
-  message: string
+  id: string
   type: ToastType
+  title: string
+  message?: string
   duration?: number
-  onClose: () => void
+  onClose: (id: string) => void
 }
 
-const toastIcons = {
-  success: CheckCircle,
-  error: AlertCircle,
-  info: Info,
-  warning: AlertTriangle,
-}
-
-const toastStyles = {
-  success: 'bg-green-500 border-green-400 text-white',
-  error: 'bg-red-500 border-red-400 text-white',
-  info: 'bg-blue-500 border-blue-400 text-white',
-  warning: 'bg-yellow-500 border-yellow-400 text-white',
-}
-
-export const Toast: React.FC<ToastProps> = ({ 
-  message, 
-  type, 
-  duration = 5000, 
-  onClose 
-}) => {
-  const [isVisible, setIsVisible] = useState(true)
-  const Icon = toastIcons[type]
+const Toast: React.FC<ToastProps> = ({ id, type, title, message, duration = 5000, onClose }) => {
+  const [isVisible, setIsVisible] = useState(false)
+  const [isExiting, setIsExiting] = useState(false)
 
   useEffect(() => {
+    setIsVisible(true)
     const timer = setTimeout(() => {
-      setIsVisible(false)
-      setTimeout(onClose, 300) // Wait for fade out animation
+      handleClose()
     }, duration)
 
     return () => clearTimeout(timer)
-  }, [duration, onClose])
+  }, [duration])
 
-  const handleClose = () => {
-    setIsVisible(false)
-    setTimeout(onClose, 300)
+  const handleClose = useCallback(() => {
+    setIsExiting(true)
+    setTimeout(() => {
+      onClose(id)
+    }, 300)
+  }, [id, onClose])
+
+  const getIcon = () => {
+    switch (type) {
+      case 'success':
+        return <CheckCircle className="w-5 h-5 text-green-500" />
+      case 'error':
+        return <AlertCircle className="w-5 h-5 text-red-500" />
+      case 'warning':
+        return <AlertTriangle className="w-5 h-5 text-yellow-500" />
+      case 'info':
+        return <Info className="w-5 h-5 text-blue-500" />
+    }
+  }
+
+  const getStyles = () => {
+    const baseStyles = "transform transition-all duration-300 ease-out"
+    const visibilityStyles = isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+    const exitStyles = isExiting ? "translate-x-full opacity-0 scale-95" : ""
+    
+    return `${baseStyles} ${visibilityStyles} ${exitStyles}`
   }
 
   return (
-    <div
-      className={`fixed top-4 right-4 z-50 max-w-sm w-full p-4 rounded-lg border shadow-lg transition-all duration-300 ${
-        isVisible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full'
-      } ${toastStyles[type]}`}
-    >
-      <div className="flex items-start space-x-3">
-        <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
-        <div className="flex-1">
-          <p className="text-sm font-medium">{message}</p>
+    <div className={`bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg p-4 min-w-80 max-w-md ${getStyles()}`}>
+      <div className="flex items-start gap-3">
+        <div className="flex-shrink-0 mt-0.5">
+          {getIcon()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {title}
+          </h4>
+          {message && (
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {message}
+            </p>
+          )}
         </div>
         <button
           onClick={handleClose}
-          className="flex-shrink-0 opacity-70 hover:opacity-100 transition-opacity"
+          className="flex-shrink-0 ml-3 p-1 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -69,37 +81,48 @@ export const Toast: React.FC<ToastProps> = ({
   )
 }
 
-// Toast manager hook
+interface ToastContextType {
+  showToast: (toast: Omit<ToastProps, 'id' | 'onClose'>) => void
+  hideToast: (id: string) => void
+}
+
+const ToastContext = React.createContext<ToastContextType | null>(null)
+
 export const useToast = () => {
-  const [toasts, setToasts] = useState<Array<{
-    id: string
-    message: string
-    type: ToastType
-    duration?: number
-  }>>([])
+  const context = React.useContext(ToastContext)
+  if (!context) {
+    throw new Error('useToast must be used within a ToastProvider')
+  }
+  return context
+}
 
-  const addToast = (message: string, type: ToastType = 'info', duration?: number) => {
+interface ToastProviderProps {
+  children: React.ReactNode
+}
+
+export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
+  const [toasts, setToasts] = useState<Array<ToastProps & { id: string }>>([])
+
+  const showToast = useCallback((toast: Omit<ToastProps, 'id' | 'onClose'>) => {
     const id = Math.random().toString(36).substr(2, 9)
-    setToasts(prev => [...prev, { id, message, type, duration }])
-  }
+    setToasts(prev => [...prev, { ...toast, id, onClose: hideToast }])
+  }, [])
 
-  const removeToast = (id: string) => {
+  const hideToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id))
-  }
+  }, [])
 
-  const ToastContainer = () => (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
-      {toasts.map(toast => (
-        <Toast
-          key={toast.id}
-          message={toast.message}
-          type={toast.type}
-          duration={toast.duration}
-          onClose={() => removeToast(toast.id)}
-        />
-      ))}
-    </div>
+  return (
+    <ToastContext.Provider value={{ showToast, hideToast }}>
+      {children}
+      {typeof window !== 'undefined' && createPortal(
+        <div className="fixed top-4 right-4 z-50 space-y-2">
+          {toasts.map(toast => (
+            <Toast key={toast.id} {...toast} />
+          ))}
+        </div>,
+        document.body
+      )}
+    </ToastContext.Provider>
   )
-
-  return { addToast, ToastContainer }
 } 

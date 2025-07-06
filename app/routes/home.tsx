@@ -1,4 +1,3 @@
-import { Welcome } from "../welcome/welcome";
 import { Button } from "../../components/ui/button";
 import '../app.css';
 import { Slot } from "@radix-ui/react-slot";

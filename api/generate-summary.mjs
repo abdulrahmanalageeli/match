@@ -417,8 +417,8 @@ export default async function handler(req, res) {
     } else {
       // Handle old form format
       prompt = Object.entries(responses)
-        .map(([_, value]) => `- ${value}`)
-        .join("\n")
+      .map(([_, value]) => `- ${value}`)
+      .join("\n")
     }
 
     const completion = await openai.chat.completions.create({

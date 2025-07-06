@@ -26,7 +26,7 @@ export default async (req, res) => {
     const matchId = match_id || process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
     // First, resolve the token to get assigned_number
-    const tokenRes = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/participants?secure_token=eq.${secure_token}&select=assigned_number,q1,q2,q3,q4,summary&limit=1`, {
+    const tokenRes = await fetch(`${process.env.VITE_SUPABASE_URL}/rest/v1/participants?secure_token=eq.${secure_token}&select=assigned_number,survey_data,summary&limit=1`, {
       headers: {
         'apikey': process.env.VITE_SUPABASE_ANON_KEY,
         'Authorization': `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`
@@ -43,15 +43,29 @@ export default async (req, res) => {
     }
 
     const participant = participants[0]
+    const surveyData = participant.survey_data?.answers || {}
 
     // Create prompt for AI conversation starters
     const prompt = `بناءً على إجابات هذا الشخص في الاستطلاع، اكتب 5 أسئلة أو مواضيع محادثة ممتعة ومثيرة للاهتمام ستساعد شخصين على التعرف على بعضهما بشكل أفضل:
 
 الإجابات:
-- وقت الفراغ: ${participant.q1}
-- وصف الأصدقاء: ${participant.q2}
-- التفضيل: ${participant.q3}
-- السمة المميزة: ${participant.q4}
+- الجنس: ${surveyData.gender || 'غير محدد'}
+- الفئة العمرية: ${surveyData.ageGroup || 'غير محدد'}
+- هدف المشاركة: ${surveyData.participationGoal || 'غير محدد'}
+- المستوى التعليمي: ${surveyData.educationLevel || 'غير محدد'}
+- القيم الجوهرية: ${Array.isArray(surveyData.coreValues) ? surveyData.coreValues.join(', ') : surveyData.coreValues || 'غير محدد'}
+- الانفتاح الذهني: ${surveyData.mentalOpenness || 'غير محدد'}
+- نمط عطلة نهاية الأسبوع: ${surveyData.weekendStyle || 'غير محدد'}
+- طريقة التفكير: ${surveyData.thinkingStyle || 'غير محدد'}
+- اتخاذ القرارات: ${surveyData.decisionMaking || 'غير محدد'}
+- التنظيم والعفوية: ${surveyData.organizationStyle || 'غير محدد'}
+- التعبير العاطفي: ${surveyData.emotionalExpression || 'غير محدد'}
+- المغامرة مقابل الاستقرار: ${surveyData.adventureVsStability || 'غير محدد'}
+- النشاط اليومي: ${surveyData.dailyActivity || 'غير محدد'}
+- علاقة العائلة: ${surveyData.familyRelationship || 'غير محدد'}
+- الرغبة في الأطفال: ${surveyData.childrenDesire || 'غير محدد'}
+- حل الخلافات: ${surveyData.conflictResolution || 'غير محدد'}
+- الهوايات: ${Array.isArray(surveyData.hobbies) ? surveyData.hobbies.join(', ') : surveyData.hobbies || 'غير محدد'}
 - ملخص الشخصية: ${participant.summary || "غير متوفر"}
 
 اكتب 5 أسئلة أو مواضيع محادثة باللغة العربية. يجب أن تكون:

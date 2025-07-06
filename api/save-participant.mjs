@@ -12,17 +12,14 @@ export default async (req, res) => {
   }
 
   try {
-    const { assigned_number, q1, q2, q3, q4, summary, survey_data } = req.body
+    const { assigned_number, summary, survey_data } = req.body
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
     if (!req.body?.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
     
-    // Check for either old form data or new survey data
-    const hasOldForm = q1 && q2 && q3 && q4
-    const hasNewSurvey = survey_data
-    
-    if (!hasOldForm && !hasNewSurvey) {
-      return res.status(400).json({ error: 'Missing form responses or survey data' })
+    // Check for survey data
+    if (!survey_data) {
+      return res.status(400).json({ error: 'Missing survey data' })
     }
 
     const { data: existing, error: existingError } = await supabase
@@ -35,30 +32,20 @@ export default async (req, res) => {
 
     const updateFields = {}
 
-    // Handle old form data
-    if (hasOldForm) {
-      updateFields.q1 = q1
-      updateFields.q2 = q2
-      updateFields.q3 = q3
-      updateFields.q4 = q4
-    }
-
-    // Handle new survey data
-    if (hasNewSurvey) {
-      const answers = req.body.survey_data?.answers || {};
-      const redLinesRaw = answers.redLines;
-      const redLines = Array.isArray(redLinesRaw)
-        ? redLinesRaw
-        : typeof redLinesRaw === "string"
-          ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
-          : [];
-      updateFields.survey_data = {
-        ...survey_data,
-        answers: {
-          ...answers,
-          redLines,
-        },
-      }
+    // Handle survey data
+    const answers = req.body.survey_data?.answers || {};
+    const redLinesRaw = answers.redLines;
+    const redLines = Array.isArray(redLinesRaw)
+      ? redLinesRaw
+      : typeof redLinesRaw === "string"
+        ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
+        : [];
+    updateFields.survey_data = {
+      ...survey_data,
+      answers: {
+        ...answers,
+        redLines,
+      },
     }
 
     // Allow saving summary alone or with form data

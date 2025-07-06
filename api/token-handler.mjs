@@ -89,7 +89,7 @@ export default async function handler(req, res) {
     if (!req.body.secure_token) return res.status(400).json({ error: 'Missing secure_token' })
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, q1, q2, q3, q4, summary")
+      .select("assigned_number, survey_data, summary")
       .eq("secure_token", req.body.secure_token)
       .single()
 
@@ -100,10 +100,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       assigned_number: data.assigned_number,
-      q1: data.q1,
-      q2: data.q2,
-      q3: data.q3,
-      q4: data.q4,
+      survey_data: data.survey_data,
       summary: data.summary
     })
   }

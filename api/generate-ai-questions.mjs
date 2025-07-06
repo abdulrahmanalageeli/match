@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     // Get the requesting participant's info
     const { data: requestingParticipant, error: fetchError } = await supabase
       .from("participants")
-      .select("assigned_number, q1, q2, q3, q4, summary")
+      .select("assigned_number, survey_data, summary")
       .eq("secure_token", secure_token)
       .single()
 
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
     }
 
     // Check if we have survey responses
-    if (!requestingParticipant.q1 || !requestingParticipant.q2 || !requestingParticipant.q3 || !requestingParticipant.q4) {
+    if (!requestingParticipant.survey_data || !requestingParticipant.survey_data.answers) {
       return res.status(400).json({ error: "Survey responses not found" })
     }
 
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
     // Get the other participant's survey responses
     const { data: otherParticipant, error: otherError } = await supabase
       .from("participants")
-      .select("assigned_number, q1, q2, q3, q4, summary")
+      .select("assigned_number, survey_data, summary")
       .eq("assigned_number", otherParticipantNumber)
       .single()
 
@@ -125,34 +125,30 @@ export default async function handler(req, res) {
 
     console.log("Requesting participant data:", {
       number: requestingParticipant.assigned_number,
-      q1: requestingParticipant.q1,
-      q2: requestingParticipant.q2,
-      q3: requestingParticipant.q3,
-      q4: requestingParticipant.q4
+      survey_data: requestingParticipant.survey_data,
+      summary: requestingParticipant.summary
     })
 
     console.log("Other participant data:", {
       number: otherParticipant.assigned_number,
-      q1: otherParticipant.q1,
-      q2: otherParticipant.q2,
-      q3: otherParticipant.q3,
-      q4: otherParticipant.q4
+      survey_data: otherParticipant.survey_data,
+      summary: otherParticipant.summary
     })
 
     // Create context from both participants' survey responses
     const surveyContext = `
       Participant ${requestingParticipant.assigned_number}:
-      - Free time activities: ${requestingParticipant.q1}
-      - Travel destination: ${requestingParticipant.q2}
-      - Favorite hobby: ${requestingParticipant.q3}
-      - Dream skill to learn: ${requestingParticipant.q4}
+      - Free time activities: ${requestingParticipant.survey_data?.answers?.q1 || ''}
+      - Travel destination: ${requestingParticipant.survey_data?.answers?.q2 || ''}
+      - Favorite hobby: ${requestingParticipant.survey_data?.answers?.q3 || ''}
+      - Dream skill to learn: ${requestingParticipant.survey_data?.answers?.q4 || ''}
       ${requestingParticipant.summary ? `- Personality Summary: ${requestingParticipant.summary}` : ''}
 
       Participant ${otherParticipant.assigned_number}:
-      - Free time activities: ${otherParticipant.q1}
-      - Travel destination: ${otherParticipant.q2}
-      - Favorite hobby: ${otherParticipant.q3}
-      - Dream skill to learn: ${otherParticipant.q4}
+      - Free time activities: ${otherParticipant.survey_data?.answers?.q1 || ''}
+      - Travel destination: ${otherParticipant.survey_data?.answers?.q2 || ''}
+      - Favorite hobby: ${otherParticipant.survey_data?.answers?.q3 || ''}
+      - Dream skill to learn: ${otherParticipant.survey_data?.answers?.q4 || ''}
       ${otherParticipant.summary ? `- Personality Summary: ${otherParticipant.summary}` : ''}
     `
 

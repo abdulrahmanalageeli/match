@@ -29,12 +29,9 @@ export default async function handler(req, res) {
     console.log("Getting all participants...");
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, q1, q2, q3, q4")
+      .select("assigned_number, survey_data")
       .eq("match_id", match_id)
-      .not("q1", "is", null)
-      .not("q2", "is", null)
-      .not("q3", "is", null)
-      .not("q4", "is", null)
+      .not("survey_data", "is", null)
 
     if (error) {
       console.error("Error fetching participants:", error);
@@ -83,19 +80,49 @@ async function generateGlobalIndividualMatches(participants, match_id) {
   const compatibilityScores = []
   
   for (const [participantA, participantB] of pairs) {
+    // Extract relevant survey data for compatibility analysis
+    const participantAData = participantA.survey_data?.answers || {};
+    const participantBData = participantB.survey_data?.answers || {};
+    
     const prompt = `تحليل التوافق بين شخصين:
 
 المشارك ${participantA.assigned_number}:
-- وقت الفراغ: ${participantA.q1}
-- وصف الأصدقاء: ${participantA.q2}
-- التفضيل: ${participantA.q3}
-- السمة المميزة: ${participantA.q4}
+- الجنس: ${participantAData.gender || 'غير محدد'}
+- الفئة العمرية: ${participantAData.ageGroup || 'غير محدد'}
+- هدف المشاركة: ${participantAData.participationGoal || 'غير محدد'}
+- المستوى التعليمي: ${participantAData.educationLevel || 'غير محدد'}
+- القيم الجوهرية: ${Array.isArray(participantAData.coreValues) ? participantAData.coreValues.join(', ') : participantAData.coreValues || 'غير محدد'}
+- الانفتاح الذهني: ${participantAData.mentalOpenness || 'غير محدد'}
+- نمط عطلة نهاية الأسبوع: ${participantAData.weekendStyle || 'غير محدد'}
+- طريقة التفكير: ${participantAData.thinkingStyle || 'غير محدد'}
+- اتخاذ القرارات: ${participantAData.decisionMaking || 'غير محدد'}
+- التنظيم والعفوية: ${participantAData.organizationStyle || 'غير محدد'}
+- التعبير العاطفي: ${participantAData.emotionalExpression || 'غير محدد'}
+- المغامرة مقابل الاستقرار: ${participantAData.adventureVsStability || 'غير محدد'}
+- النشاط اليومي: ${participantAData.dailyActivity || 'غير محدد'}
+- علاقة العائلة: ${participantAData.familyRelationship || 'غير محدد'}
+- الرغبة في الأطفال: ${participantAData.childrenDesire || 'غير محدد'}
+- حل الخلافات: ${participantAData.conflictResolution || 'غير محدد'}
+- الهوايات: ${Array.isArray(participantAData.hobbies) ? participantAData.hobbies.join(', ') : participantAData.hobbies || 'غير محدد'}
 
 المشارك ${participantB.assigned_number}:
-- وقت الفراغ: ${participantB.q1}
-- وصف الأصدقاء: ${participantB.q2}
-- التفضيل: ${participantB.q3}
-- السمة المميزة: ${participantB.q4}
+- الجنس: ${participantBData.gender || 'غير محدد'}
+- الفئة العمرية: ${participantBData.ageGroup || 'غير محدد'}
+- هدف المشاركة: ${participantBData.participationGoal || 'غير محدد'}
+- المستوى التعليمي: ${participantBData.educationLevel || 'غير محدد'}
+- القيم الجوهرية: ${Array.isArray(participantBData.coreValues) ? participantBData.coreValues.join(', ') : participantBData.coreValues || 'غير محدد'}
+- الانفتاح الذهني: ${participantBData.mentalOpenness || 'غير محدد'}
+- نمط عطلة نهاية الأسبوع: ${participantBData.weekendStyle || 'غير محدد'}
+- طريقة التفكير: ${participantBData.thinkingStyle || 'غير محدد'}
+- اتخاذ القرارات: ${participantBData.decisionMaking || 'غير محدد'}
+- التنظيم والعفوية: ${participantBData.organizationStyle || 'غير محدد'}
+- التعبير العاطفي: ${participantBData.emotionalExpression || 'غير محدد'}
+- المغامرة مقابل الاستقرار: ${participantBData.adventureVsStability || 'غير محدد'}
+- النشاط اليومي: ${participantBData.dailyActivity || 'غير محدد'}
+- علاقة العائلة: ${participantBData.familyRelationship || 'غير محدد'}
+- الرغبة في الأطفال: ${participantBData.childrenDesire || 'غير محدد'}
+- حل الخلافات: ${participantBData.conflictResolution || 'غير محدد'}
+- الهوايات: ${Array.isArray(participantBData.hobbies) ? participantBData.hobbies.join(', ') : participantBData.hobbies || 'غير محدد'}
 
 قيّم التوافق بين هذين الشخصين من 0 إلى 100، واكتب سبباً مختصراً باللغة العربية. أجب بالتنسيق التالي فقط:
 الدرجة: [رقم من 0-100]

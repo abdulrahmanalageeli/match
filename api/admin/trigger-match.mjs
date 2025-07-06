@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   try {
     const { data: participants, error } = await supabase
       .from("participants")
-      .select("assigned_number, q1, q2, q3, q4")
+      .select("assigned_number, survey_data")
       .eq("match_id", match_id)
 
     if (error) throw error
@@ -36,10 +36,48 @@ export default async function handler(req, res) {
     }
 
     const prompt = pairs
-      .map(([a, b]) =>
-        `المشارك ${a.assigned_number}:\n- ${a.q1 ?? ""}\n- ${a.q2 ?? ""}\n- ${a.q3 ?? ""}\n- ${a.q4 ?? ""}\n` +
-        `المشارك ${b.assigned_number}:\n- ${b.q1 ?? ""}\n- ${b.q2 ?? ""}\n- ${b.q3 ?? ""}\n- ${b.q4 ?? ""}`
-      )
+      .map(([a, b]) => {
+        const aData = a.survey_data?.answers || {};
+        const bData = b.survey_data?.answers || {};
+        
+        return `المشارك ${a.assigned_number}:
+- الجنس: ${aData.gender || 'غير محدد'}
+- الفئة العمرية: ${aData.ageGroup || 'غير محدد'}
+- هدف المشاركة: ${aData.participationGoal || 'غير محدد'}
+- المستوى التعليمي: ${aData.educationLevel || 'غير محدد'}
+- القيم الجوهرية: ${Array.isArray(aData.coreValues) ? aData.coreValues.join(', ') : aData.coreValues || 'غير محدد'}
+- الانفتاح الذهني: ${aData.mentalOpenness || 'غير محدد'}
+- نمط عطلة نهاية الأسبوع: ${aData.weekendStyle || 'غير محدد'}
+- طريقة التفكير: ${aData.thinkingStyle || 'غير محدد'}
+- اتخاذ القرارات: ${aData.decisionMaking || 'غير محدد'}
+- التنظيم والعفوية: ${aData.organizationStyle || 'غير محدد'}
+- التعبير العاطفي: ${aData.emotionalExpression || 'غير محدد'}
+- المغامرة مقابل الاستقرار: ${aData.adventureVsStability || 'غير محدد'}
+- النشاط اليومي: ${aData.dailyActivity || 'غير محدد'}
+- علاقة العائلة: ${aData.familyRelationship || 'غير محدد'}
+- الرغبة في الأطفال: ${aData.childrenDesire || 'غير محدد'}
+- حل الخلافات: ${aData.conflictResolution || 'غير محدد'}
+- الهوايات: ${Array.isArray(aData.hobbies) ? aData.hobbies.join(', ') : aData.hobbies || 'غير محدد'}
+
+المشارك ${b.assigned_number}:
+- الجنس: ${bData.gender || 'غير محدد'}
+- الفئة العمرية: ${bData.ageGroup || 'غير محدد'}
+- هدف المشاركة: ${bData.participationGoal || 'غير محدد'}
+- المستوى التعليمي: ${bData.educationLevel || 'غير محدد'}
+- القيم الجوهرية: ${Array.isArray(bData.coreValues) ? bData.coreValues.join(', ') : bData.coreValues || 'غير محدد'}
+- الانفتاح الذهني: ${bData.mentalOpenness || 'غير محدد'}
+- نمط عطلة نهاية الأسبوع: ${bData.weekendStyle || 'غير محدد'}
+- طريقة التفكير: ${bData.thinkingStyle || 'غير محدد'}
+- اتخاذ القرارات: ${bData.decisionMaking || 'غير محدد'}
+- التنظيم والعفوية: ${bData.organizationStyle || 'غير محدد'}
+- التعبير العاطفي: ${bData.emotionalExpression || 'غير محدد'}
+- المغامرة مقابل الاستقرار: ${bData.adventureVsStability || 'غير محدد'}
+- النشاط اليومي: ${bData.dailyActivity || 'غير محدد'}
+- علاقة العائلة: ${bData.familyRelationship || 'غير محدد'}
+- الرغبة في الأطفال: ${bData.childrenDesire || 'غير محدد'}
+- حل الخلافات: ${bData.conflictResolution || 'غير محدد'}
+- الهوايات: ${Array.isArray(bData.hobbies) ? bData.hobbies.join(', ') : bData.hobbies || 'غير محدد'}`
+      })
       .join("\n\n")
 
 const systemMsg = `أنت مساعد توافق بين المشاركين في فعالية اجتماعية.

@@ -25,9 +25,12 @@ export default defineConfig({
   },
   esbuild: {
     drop: ['console', 'debugger'],
+    jsx: 'automatic',
+    jsxImportSource: 'react',
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+    force: true,
   },
   server: {
     hmr: {
@@ -36,5 +39,8 @@ export default defineConfig({
   },
   css: {
     devSourcemap: false,
+  },
+  define: {
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
 });

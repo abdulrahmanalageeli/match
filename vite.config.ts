@@ -10,14 +10,11 @@ export default defineConfig({
     minify: 'esbuild',
     rollupOptions: {
       output: {
-        manualChunks: (id) => {
-          // Only chunk internal modules, not external ones
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'vendor';
-            }
-            return 'deps';
-          }
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router', 'react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-popover', '@radix-ui/react-slot', '@radix-ui/react-switch', '@radix-ui/react-tabs', '@radix-ui/react-tooltip'],
+          icons: ['lucide-react'],
+          utils: ['clsx', 'class-variance-authority', 'tailwind-merge'],
         },
       },
     },
@@ -25,22 +22,13 @@ export default defineConfig({
   },
   esbuild: {
     drop: ['console', 'debugger'],
-    jsx: 'automatic',
-    jsxImportSource: 'react',
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router', 'react-router-dom'],
-    force: true,
   },
   server: {
     hmr: {
       overlay: false,
     },
-  },
-  css: {
-    devSourcemap: false,
-  },
-  define: {
-    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
   },
 });

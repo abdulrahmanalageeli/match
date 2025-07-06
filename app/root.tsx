@@ -30,11 +30,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         
-        {/* Security Headers - Note: X-Frame-Options should be set as HTTP header, not meta tag */}
+        {/* Security Headers */}
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
+        <meta httpEquiv="X-Frame-Options" content="DENY" />
         <meta httpEquiv="X-XSS-Protection" content="1; mode=block" />
         <meta httpEquiv="Referrer-Policy" content="strict-origin-when-cross-origin" />
-        <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com moz-extension: chrome-extension:; img-src 'self' data: https:; connect-src 'self' https://api.openai.com https://*.supabase.co;" />
+        <meta httpEquiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://api.openai.com https://*.supabase.co;" />
         
         {/* SEO and Accessibility */}
         <meta name="description" content="نظام التوافق الذكي - اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم" />
@@ -44,7 +45,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         
         {/* PWA Support */}
         <meta name="theme-color" content="#0ea5e9" />
-        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="التوافق الأعمى" />
         

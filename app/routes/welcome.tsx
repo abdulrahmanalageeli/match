@@ -682,18 +682,14 @@ export default function WelcomePage() {
   }
   
   const handleSubmit = async () => {
-    if (!surveyData || !surveyData.answers || Object.keys(surveyData.answers).length === 0) {
-      alert("يرجى إكمال الاستبيان أولاً")
-      return
-    }
-
-    // Check if all required questions are answered
-    const requiredQuestions = surveyQuestions.filter(q => q.required)
-    const answeredQuestions = Object.keys(surveyData.answers)
+    console.log("🚀 Welcome handleSubmit called")
+    console.log("📊 surveyData:", surveyData)
+    console.log("📊 surveyData.answers:", surveyData?.answers)
+    console.log("📊 Object.keys(surveyData.answers):", surveyData?.answers ? Object.keys(surveyData.answers) : "no answers")
     
-    const missingQuestions = requiredQuestions.filter(q => !answeredQuestions.includes(q.id))
-    if (missingQuestions.length > 0) {
-      alert("يرجى إكمال جميع الأسئلة المطلوبة")
+    if (!surveyData || !surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+      console.log("❌ Survey validation failed")
+      alert("يرجى إكمال الاستبيان أولاً")
       return
     }
 
@@ -742,8 +738,10 @@ export default function WelcomePage() {
   }
 
   const handleSurveySubmit = (data: any) => {
+    console.log("📨 handleSurveySubmit called with data:", data)
     setSurveyData(data)
     setShowSurvey(false)
+    console.log("🔄 About to call handleSubmit")
     handleSubmit()
   }
       

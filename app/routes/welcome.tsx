@@ -682,17 +682,12 @@ export default function WelcomePage() {
   }
   
   const handleSubmit = async () => {
-    console.log("🚀 Welcome handleSubmit called")
-    console.log("📊 surveyData:", surveyData)
-    console.log("📊 surveyData.answers:", surveyData?.answers)
-    console.log("📊 Object.keys(surveyData.answers):", surveyData?.answers ? Object.keys(surveyData.answers) : "no answers")
-    
+    console.log("🚀 handleSubmit called with surveyData:", surveyData);
     if (!surveyData || !surveyData.answers || Object.keys(surveyData.answers).length === 0) {
-      console.log("❌ Survey validation failed")
-      alert("يرجى إكمال الاستبيان أولاً")
-      return
+      console.log("❌ surveyData.answers is empty or undefined", surveyData);
+      alert("يرجى إكمال الاستبيان أولاً");
+      return;
     }
-
     setLoading(true)
     try {
       // 1. Save participant with survey data
@@ -738,11 +733,10 @@ export default function WelcomePage() {
   }
 
   const handleSurveySubmit = (data: any) => {
-    console.log("📨 handleSurveySubmit called with data:", data)
-    setSurveyData(data)
-    setShowSurvey(false)
-    console.log("🔄 About to call handleSubmit")
-    handleSubmit()
+    console.log("📨 handleSurveySubmit called with data:", data);
+    setSurveyData(data);
+    setShowSurvey(false);
+    handleSubmit();
   }
       
   type MatchResultEntry = {

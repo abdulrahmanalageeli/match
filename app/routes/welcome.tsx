@@ -754,7 +754,8 @@ export default function WelcomePage() {
           summary: data2.summary || "ما قدرنا نولّد تحليل شخصيتك.",
         }),
       })
-      // Move to waiting/analysis step immediately after form submission
+      // Hide survey and move to waiting/analysis step after successful submission
+      setShowSurvey(false)
       setAnalysisStarted(true)
       setStep(3)
     } catch (err) {
@@ -769,7 +770,7 @@ export default function WelcomePage() {
   const handleSurveySubmit = (data: any) => {
     console.log("📨 handleSurveySubmit called with data:", data);
     setSurveyData(data);
-    setShowSurvey(false);
+    // Don't hide survey immediately - let the loading state handle it
     handleSubmit();
   }
       

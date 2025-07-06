@@ -525,7 +525,6 @@ export default React.memo(function SurveyComponent({
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
             <Shield className="w-6 h-6 text-white" />
           </div>
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">الشروط والأحكام</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">يرجى قراءة والموافقة على الشروط التالية</p>
@@ -619,12 +618,11 @@ export default React.memo(function SurveyComponent({
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
           <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-sm mx-4">
             <div className="flex flex-col items-center gap-4 text-center">
-              <div className="relative">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
-                  <Loader2 className="w-8 h-8 text-white animate-spin" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
+                          <div className="relative">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
+                <Loader2 className="w-8 h-8 text-white animate-spin" />
               </div>
+            </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">جاري تحليل البيانات</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">يرجى الانتظار بينما نقوم بتحليل إجاباتك وتوليد التوصيات...</p>
@@ -681,7 +679,6 @@ export default React.memo(function SurveyComponent({
                           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
                             {currentPage * questionsPerPage + index + 1}
                           </div>
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
                         </div>
                         <div className="flex-1">
                           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2 text-right leading-relaxed">

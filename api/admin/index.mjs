@@ -242,10 +242,7 @@ export default async function handler(req, res) {
             .from("participants")
             .select("assigned_number")
             .eq("match_id", STATIC_MATCH_ID)
-            .not("q1", "is", null)
-            .not("q2", "is", null)
-            .not("q3", "is", null)
-            .not("q4", "is", null)
+            .not("survey_data", "is", null)
 
           if (formError) {
             console.error("Form completed error:", formError);
@@ -367,10 +364,7 @@ export default async function handler(req, res) {
           .from("participants")
           .select("assigned_number")
           .eq("match_id", STATIC_MATCH_ID)
-          .not("q1", "is", null)
-          .not("q2", "is", null)
-          .not("q3", "is", null)
-          .not("q4", "is", null)
+          .not("survey_data", "is", null)
 
         if (formError) return res.status(500).json({ error: formError.message })
 

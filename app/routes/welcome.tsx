@@ -533,7 +533,11 @@ export default function WelcomePage() {
           if (data.summary) {
             setPersonalitySummary(data.summary)
           }
-          const hasFilledForm = data.q1 && data.q2 && data.q3 && data.q4;
+          // Check if user has filled the survey using new structure
+          const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
+          if (hasFilledForm) {
+            setSurveyData(data.survey_data);
+          }
           setStep(-1);
           const res2 = await fetch("/api/admin", {
             method: "POST",

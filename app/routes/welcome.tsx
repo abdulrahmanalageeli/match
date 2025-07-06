@@ -2077,7 +2077,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 }`} />
               </div>
               <h3 className={`text-lg font-semibold text-center mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                بانتظار المنظّم لبدء الجولة الثانية...
+                بانتظار المنظّم لبدء الجولة {currentRound + 1}...
     </h3>
               <p className={`text-center text-sm italic mb-6 ${
                 dark ? "text-slate-300" : "text-gray-600"

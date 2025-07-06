@@ -21,8 +21,8 @@ const surveyQuestions = [
     question: "الجنس: ما هو جنسك؟",
     type: "radio",
     options: [
-      { value: "male", label: "ذكر" },
-      { value: "female", label: "أنثى" }
+      { value: "ذكر", label: "ذكر" },
+      { value: "أنثى", label: "أنثى" }
     ],
     required: true
   },
@@ -31,11 +31,11 @@ const surveyQuestions = [
     question: "الفئة العمرية: أي فئة عمرية تناسب عمرك؟",
     type: "radio",
     options: [
-      { value: "under20", label: "أقل من 20 سنة" },
-      { value: "20-30", label: "20-30 سنة" },
-      { value: "31-40", label: "31-40 سنة" },
-      { value: "41-50", label: "41-50 سنة" },
-      { value: "over50", label: "أكبر من 50 سنة" }
+      { value: "أقل من 20 سنة", label: "أقل من 20 سنة" },
+      { value: "20-30 سنة", label: "20-30 سنة" },
+      { value: "31-40 سنة", label: "31-40 سنة" },
+      { value: "41-50 سنة", label: "41-50 سنة" },
+      { value: "أكبر من 50 سنة", label: "أكبر من 50 سنة" }
     ],
     required: true
   },
@@ -44,9 +44,9 @@ const surveyQuestions = [
     question: "هدف المشاركة: ما الهدف الأساسي من مشاركتك في هذا اللقاء؟",
     type: "radio",
     options: [
-      { value: "friendship", label: "تكوين صداقات فقط" },
-      { value: "romantic", label: "البحث عن علاقة رومانسية جادة" },
-      { value: "open", label: "منفتح على الصداقة والعلاقة" }
+      { value: "تكوين صداقات فقط", label: "تكوين صداقات فقط" },
+      { value: "البحث عن علاقة رومانسية جادة", label: "البحث عن علاقة رومانسية جادة" },
+      { value: "منفتح على الصداقة والعلاقة", label: "منفتح على الصداقة والعلاقة" }
     ],
     required: true
   },
@@ -55,9 +55,9 @@ const surveyQuestions = [
     question: "المستوى التعليمي: ما هو أعلى مستوى تعليمي وصلت إليه؟",
     type: "radio",
     options: [
-      { value: "highschool", label: "ثانوي أو أقل" },
-      { value: "bachelor", label: "بكالوريوس" },
-      { value: "masters", label: "ماجستير/دكتوراه أو أعلى" }
+      { value: "ثانوي أو أقل", label: "ثانوي أو أقل" },
+      { value: "بكالوريوس", label: "بكالوريوس" },
+      { value: "ماجستير/دكتوراه أو أعلى", label: "ماجستير/دكتوراه أو أعلى" }
     ],
     required: true
   },
@@ -66,14 +66,14 @@ const surveyQuestions = [
     question: "القيم الجوهرية: ما هي أهم ثلاث قيم تمثّلك وتريد أن يشاركك الطرف الآخر بها؟",
     type: "checkbox",
     options: [
-      { value: "honesty", label: "الأمانة" },
-      { value: "ambition", label: "الطموح" },
-      { value: "independence", label: "الاستقلالية" },
-      { value: "familyLove", label: "حب العائلة" },
-      { value: "spirituality", label: "الروحانية أو التدين" },
-      { value: "openness", label: "الانفتاح وتقبل الآخر" },
-      { value: "emotionalStability", label: "الاستقرار العاطفي" },
-      { value: "humor", label: "الحس الفكاهي" }
+      { value: "الأمانة", label: "الأمانة" },
+      { value: "الطموح", label: "الطموح" },
+      { value: "الاستقلالية", label: "الاستقلالية" },
+      { value: "حب العائلة", label: "حب العائلة" },
+      { value: "الروحانية أو التدين", label: "الروحانية أو التدين" },
+      { value: "الانفتاح وتقبل الآخر", label: "الانفتاح وتقبل الآخر" },
+      { value: "الاستقرار العاطفي", label: "الاستقرار العاطفي" },
+      { value: "الحس الفكاهي", label: "الحس الفكاهي" }
     ],
     maxSelections: 3,
     required: true
@@ -83,9 +83,9 @@ const surveyQuestions = [
     question: "مدى الانفتاح الذهني: أي العبارة الأقرب لك؟",
     type: "radio",
     options: [
-      { value: "traditional", label: "تقليدي وملتزم دينيًا" },
-      { value: "balanced", label: "متوازن بين التقاليد والانفتاح" },
-      { value: "fullyOpen", label: "منفتح بالكامل" }
+      { value: "تقليدي وملتزم دينيًا", label: "تقليدي وملتزم دينيًا" },
+      { value: "متوازن بين التقاليد والانفتاح", label: "متوازن بين التقاليد والانفتاح" },
+      { value: "منفتح بالكامل", label: "منفتح بالكامل" }
     ],
     required: true
   },
@@ -94,8 +94,8 @@ const surveyQuestions = [
     question: "نمط عطلة نهاية الأسبوع المفضل:",
     type: "radio",
     options: [
-      { value: "social", label: "حضور فعاليات أو مقابلة أصدقاء" },
-      { value: "quiet", label: "الجلوس في المنزل أو بجو هادئ" }
+      { value: "حضور فعاليات أو مقابلة أصدقاء", label: "حضور فعاليات أو مقابلة أصدقاء" },
+      { value: "الجلوس في المنزل أو بجو هادئ", label: "الجلوس في المنزل أو بجو هادئ" }
     ],
     required: true
   },
@@ -104,8 +104,8 @@ const surveyQuestions = [
     question: "طريقة التفكير واستقبال المعلومات:",
     type: "radio",
     options: [
-      { value: "practical", label: "أركز على الواقع والتفاصيل" },
-      { value: "imaginative", label: "أُحب الخيال والرؤية المستقبلية" }
+      { value: "أركز على الواقع والتفاصيل", label: "أركز على الواقع والتفاصيل" },
+      { value: "أُحب الخيال والرؤية المستقبلية", label: "أُحب الخيال والرؤية المستقبلية" }
     ],
     required: true
   },
@@ -114,8 +114,8 @@ const surveyQuestions = [
     question: "اتخاذ القرارات:",
     type: "radio",
     options: [
-      { value: "logical", label: "أعتمد على المنطق والعقل" },
-      { value: "emotional", label: "أعتمد على المشاعر والجانب الإنساني" }
+      { value: "أعتمد على المنطق والعقل", label: "أعتمد على المنطق والعقل" },
+      { value: "أعتمد على المشاعر والجانب الإنساني", label: "أعتمد على المشاعر والجانب الإنساني" }
     ],
     required: true
   },
@@ -124,8 +124,8 @@ const surveyQuestions = [
     question: "التنظيم والعفوية:",
     type: "radio",
     options: [
-      { value: "organized", label: "أحب الجداول والخطط" },
-      { value: "spontaneous", label: "أحب العفوية والمرونة" }
+      { value: "أحب الجداول والخطط", label: "أحب الجداول والخطط" },
+      { value: "أحب العفوية والمرونة", label: "أحب العفوية والمرونة" }
     ],
     required: true
   },
@@ -134,8 +134,8 @@ const surveyQuestions = [
     question: "أسلوب التعبير العاطفي:",
     type: "radio",
     options: [
-      { value: "direct", label: "صريح ومباشر" },
-      { value: "reserved", label: "كتوم وأحتاج وقت" }
+      { value: "صريح ومباشر", label: "صريح ومباشر" },
+      { value: "كتوم وأحتاج وقت", label: "كتوم وأحتاج وقت" }
     ],
     required: true
   },
@@ -144,8 +144,8 @@ const surveyQuestions = [
     question: "المغامرة مقابل الاستقرار:",
     type: "radio",
     options: [
-      { value: "adventure", label: "أبحث عن التجربة والتجديد دائمًا" },
-      { value: "stability", label: "أفضّل الراحة والاستقرار" }
+      { value: "أبحث عن التجربة والتجديد دائمًا", label: "أبحث عن التجربة والتجديد دائمًا" },
+      { value: "أفضّل الراحة والاستقرار", label: "أفضّل الراحة والاستقرار" }
     ],
     required: true
   },
@@ -154,8 +154,8 @@ const surveyQuestions = [
     question: "النشاط اليومي:",
     type: "radio",
     options: [
-      { value: "morning", label: "صباحي" },
-      { value: "night", label: "ليلي" }
+      { value: "صباحي", label: "صباحي" },
+      { value: "ليلي", label: "ليلي" }
     ],
     required: true
   },
@@ -164,9 +164,9 @@ const surveyQuestions = [
     question: "علاقتك بالعائلة:",
     type: "radio",
     options: [
-      { value: "strong", label: "قوية جدًا وأتوقع نفس الشيء من الطرف الآخر" },
-      { value: "balanced", label: "متوازنة" },
-      { value: "independent", label: "مستقلة ولا أتوقع مشاركة عائلية" }
+      { value: "قوية جدًا وأتوقع نفس الشيء من الطرف الآخر", label: "قوية جدًا وأتوقع نفس الشيء من الطرف الآخر" },
+      { value: "متوازنة", label: "متوازنة" },
+      { value: "مستقلة ولا أتوقع مشاركة عائلية", label: "مستقلة ولا أتوقع مشاركة عائلية" }
     ],
     required: true
   },
@@ -175,10 +175,10 @@ const surveyQuestions = [
     question: "هل ترغب في إنجاب أطفال مستقبلًا؟",
     type: "radio",
     options: [
-      { value: "yes", label: "نعم" },
-      { value: "maybe", label: "ربما لاحقًا" },
-      { value: "no", label: "لا" },
-      { value: "unsure", label: "غير متأكد" }
+      { value: "نعم", label: "نعم" },
+      { value: "ربما لاحقًا", label: "ربما لاحقًا" },
+      { value: "لا", label: "لا" },
+      { value: "غير متأكد", label: "غير متأكد" }
     ],
     required: true
   },
@@ -187,9 +187,9 @@ const surveyQuestions = [
     question: "كيف تتعامل مع الخلافات؟",
     type: "radio",
     options: [
-      { value: "direct", label: "أواجه مباشرة وبهدوء" },
-      { value: "time", label: "أحتاج بعض الوقت ثم أناقش" },
-      { value: "avoid", label: "أتجنب المواجهة غالبًا" }
+      { value: "أواجه مباشرة وبهدوء", label: "أواجه مباشرة وبهدوء" },
+      { value: "أحتاج بعض الوقت ثم أناقش", label: "أحتاج بعض الوقت ثم أناقش" },
+      { value: "أتجنب المواجهة غالبًا", label: "أتجنب المواجهة غالبًا" }
     ],
     required: true
   },
@@ -198,15 +198,15 @@ const surveyQuestions = [
     question: "الهوايات: اختر 3 فقط من التالية:",
     type: "checkbox",
     options: [
-      { value: "reading", label: "القراءة" },
-      { value: "movies", label: "الأفلام والمسلسلات" },
-      { value: "sports", label: "الرياضة" },
-      { value: "gaming", label: "ألعاب الفيديو" },
-      { value: "travel", label: "السفر" },
-      { value: "nature", label: "الطبيعة والكشتات" },
-      { value: "cooking", label: "الطبخ" },
-      { value: "volunteering", label: "التطوع والخدمة" },
-      { value: "music", label: "الموسيقى" }
+      { value: "القراءة", label: "القراءة" },
+      { value: "الأفلام والمسلسلات", label: "الأفلام والمسلسلات" },
+      { value: "الرياضة", label: "الرياضة" },
+      { value: "ألعاب الفيديو", label: "ألعاب الفيديو" },
+      { value: "السفر", label: "السفر" },
+      { value: "الطبيعة والكشتات", label: "الطبيعة والكشتات" },
+      { value: "الطبخ", label: "الطبخ" },
+      { value: "التطوع والخدمة", label: "التطوع والخدمة" },
+      { value: "الموسيقى", label: "الموسيقى" }
     ],
     maxSelections: 3,
     required: true
@@ -216,8 +216,8 @@ const surveyQuestions = [
     question: "وصف نمط الطاقة:",
     type: "radio",
     options: [
-      { value: "energetic", label: "نشيط ومتحرك" },
-      { value: "calm", label: "هادئ ومسترخٍ" }
+      { value: "نشيط ومتحرك", label: "نشيط ومتحرك" },
+      { value: "هادئ ومسترخٍ", label: "هادئ ومسترخٍ" }
     ],
     required: true
   },
@@ -233,20 +233,20 @@ const surveyQuestions = [
     question: "مدى أهمية الصحة والرياضة:",
     type: "radio",
     options: [
-      { value: "veryImportant", label: "مهمة جدًا" },
-      { value: "moderate", label: "معتدلة" },
-      { value: "notImportant", label: "غير مهمة" }
+      { value: "مهمة جدًا", label: "مهمة جدًا" },
+      { value: "معتدلة", label: "معتدلة" },
+      { value: "غير مهمة", label: "غير مهمة" }
     ],
     required: true
   },
   {
     id: "smokingAlcohol",
-    question: "موقفك من التدخين/الكحول:",
+    question: "موقفك من التدخين:",
     type: "radio",
     options: [
-      { value: "noProblem", label: "لا مشكلة" },
-      { value: "lightAcceptable", label: "مقبول إذا كان خفيف" },
-      { value: "notAcceptable", label: "لا أقبل إطلاقًا" }
+      { value: "لا مشكلة", label: "لا مشكلة" },
+      { value: "مقبول إذا كان خفيف", label: "مقبول إذا كان خفيف" },
+      { value: "لا أقبل إطلاقًا", label: "لا أقبل إطلاقًا" }
     ],
     required: true
   },
@@ -255,9 +255,9 @@ const surveyQuestions = [
     question: "مدى اهتمامك بالنظافة والتنظيم:",
     type: "radio",
     options: [
-      { value: "veryImportant", label: "أحب النظام والنظافة دائمًا" },
-      { value: "flexible", label: "مرن وبعض الفوضى لا تزعجني" },
-      { value: "notImportant", label: "لا أهتم كثيرًا" }
+      { value: "أحب النظام والنظافة دائمًا", label: "أحب النظام والنظافة دائمًا" },
+      { value: "مرن وبعض الفوضى لا تزعجني", label: "مرن وبعض الفوضى لا تزعجني" },
+      { value: "لا أهتم كثيرًا", label: "لا أهتم كثيرًا" }
     ],
     required: true
   },
@@ -266,9 +266,9 @@ const surveyQuestions = [
     question: "رأيك في الحيوانات الأليفة:",
     type: "radio",
     options: [
-      { value: "love", label: "أحبها" },
-      { value: "okay", label: "لا مانع" },
-      { value: "dislike", label: "لا أحبها أو لدي حساسية" }
+      { value: "أحبها", label: "أحبها" },
+      { value: "لا مانع", label: "لا مانع" },
+      { value: "لا أحبها أو لدي حساسية", label: "لا أحبها أو لدي حساسية" }
     ],
     required: true
   },
@@ -277,9 +277,9 @@ const surveyQuestions = [
     question: "ما الذي يمثّل نظرتك للعلاقة العاطفية الناجحة؟",
     type: "radio",
     options: [
-      { value: "stable", label: "علاقة مستقرة وطويلة المدى مبنية على الالتزام والخصوصية" },
-      { value: "flexible", label: "علاقة مرنة يمكن أن تتطوّر تدريجيًا حسب الظروف" },
-      { value: "individual", label: "أؤمن بأن العلاقات تختلف من شخص لآخر ولا أضع نمطًا محددًا" }
+      { value: "علاقة مستقرة وطويلة المدى مبنية على الالتزام والخصوصية", label: "علاقة مستقرة وطويلة المدى مبنية على الالتزام والخصوصية" },
+      { value: "علاقة مرنة يمكن أن تتطوّر تدريجيًا حسب الظروف", label: "علاقة مرنة يمكن أن تتطوّر تدريجيًا حسب الظروف" },
+      { value: "أؤمن بأن العلاقات تختلف من شخص لآخر ولا أضع نمطًا محددًا", label: "أؤمن بأن العلاقات تختلف من شخص لآخر ولا أضع نمطًا محددًا" }
     ],
     required: true
   },

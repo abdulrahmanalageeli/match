@@ -2702,59 +2702,59 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
       {/* History Detail Modal */}
       {showHistoryDetail && selectedHistoryItem && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`max-w-sm w-full rounded-xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} max-h-[90vh] overflow-y-auto`}>
-            <div className="flex justify-between items-center mb-4 p-4 pb-2">
-              <h3 className={`text-lg font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
-              <Button variant="ghost" size="sm" onClick={() => setShowHistoryDetail(false)}><X className="w-4 h-4" /></Button>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`max-w-lg w-auto mx-4 rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
+              <Button variant="ghost" onClick={() => setShowHistoryDetail(false)}><X /></Button>
             </div>
             
-            <div className="space-y-4 px-4 pb-4">
+            <div className="space-y-6">
               {/* Match Header */}
-              <div className={`text-center p-4 rounded-lg border ${dark ? "bg-slate-700/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center ${dark ? "bg-blue-600/20 border-blue-400" : "bg-blue-100 border-blue-300"}`}>
-                    <span className={`text-lg font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>#{assignedNumber}</span>
+              <div className={`text-center p-6 rounded-xl border ${dark ? "bg-slate-700/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-blue-600/20 border-blue-400" : "bg-blue-100 border-blue-300"}`}>
+                    <span className={`text-2xl font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>#{assignedNumber}</span>
                   </div>
-                  <div className={`text-2xl ${dark ? "text-slate-300" : "text-gray-500"}`}>×</div>
-                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center ${dark ? "bg-cyan-600/20 border-cyan-400" : "bg-cyan-100 border-cyan-300"}`}>
-                    <span className={`text-lg font-bold ${dark ? "text-cyan-200" : "text-cyan-700"}`}>#{selectedHistoryItem.with}</span>
+                  <div className={`text-3xl ${dark ? "text-slate-300" : "text-gray-500"}`}>×</div>
+                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-cyan-600/20 border-cyan-400" : "bg-cyan-100 border-cyan-300"}`}>
+                    <span className={`text-2xl font-bold ${dark ? "text-cyan-200" : "text-cyan-700"}`}>#{selectedHistoryItem.with}</span>
                   </div>
                 </div>
-                <h4 className={`text-base font-semibold mb-1 ${dark ? "text-slate-200" : "text-gray-800"}`}>الجولة {selectedHistoryItem.round}</h4>
-                <div className={`text-3xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</div>
-                <div className={`text-xs ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
+                <h4 className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>الجولة {selectedHistoryItem.round}</h4>
+                <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</div>
+                <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
               </div>
 
               {/* Compatibility Details */}
-              <div className={`p-3 rounded-lg border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                <h5 className={`font-semibold mb-2 text-sm ${dark ? "text-slate-200" : "text-gray-800"}`}>سبب التوافق</h5>
-                <p className={`text-xs leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>{selectedHistoryItem.reason}</p>
+              <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>سبب التوافق</h5>
+                <p className={`text-sm leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>{selectedHistoryItem.reason}</p>
               </div>
 
               {/* Match Details */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className={`p-3 rounded-lg border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                  <h5 className={`font-semibold mb-1 text-xs ${dark ? "text-slate-200" : "text-gray-800"}`}>رقم الطاولة</h5>
-                  <p className={`text-sm font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
+              <div className="grid grid-cols-2 gap-4">
+                <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>رقم الطاولة</h5>
+                  <p className={`text-lg font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
                     {selectedHistoryItem.table_number || "غير محدد"}
                   </p>
                 </div>
-                <div className={`p-3 rounded-lg border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                  <h5 className={`font-semibold mb-1 text-xs ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع التطابق</h5>
-                  <p className={`text-sm font-bold ${dark ? "text-blue-300" : "text-blue-600"}`}>
+                <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع التطابق</h5>
+                  <p className={`text-lg font-bold ${dark ? "text-blue-300" : "text-blue-600"}`}>
                     {selectedHistoryItem.type}
                   </p>
                 </div>
               </div>
 
               {/* Compatibility Score Bar */}
-              <div className={`p-3 rounded-lg border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
+              <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <div className="flex justify-between items-center mb-2">
-                  <h5 className={`font-semibold text-xs ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
-                  <span className={`font-bold text-sm ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</span>
+                  <h5 className={`font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
+                  <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</span>
                 </div>
-                <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
+                <div className={`w-full h-3 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
                       selectedHistoryItem.score >= 80 ? "bg-green-500" :
@@ -2773,10 +2773,9 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               </div>
             </div>
 
-            <div className="flex justify-center p-4 pt-0">
+            <div className="flex justify-center mt-6">
               <Button
                 onClick={() => setShowHistoryDetail(false)}
-                size="sm"
                 className="spring-btn bg-gradient-to-r from-blue-600 to-cyan-700 hover:from-blue-700 hover:to-cyan-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
               >
                 إغلاق

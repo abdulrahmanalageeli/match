@@ -136,19 +136,48 @@ export default async function handler(req, res) {
     })
 
     // Create context from both participants' survey responses
+    const requestingData = requestingParticipant.survey_data?.answers || {};
+    const otherData = otherParticipant.survey_data?.answers || {};
+    
     const surveyContext = `
       Participant ${requestingParticipant.assigned_number}:
-      - Free time activities: ${requestingParticipant.survey_data?.answers?.q1 || ''}
-      - Travel destination: ${requestingParticipant.survey_data?.answers?.q2 || ''}
-      - Favorite hobby: ${requestingParticipant.survey_data?.answers?.q3 || ''}
-      - Dream skill to learn: ${requestingParticipant.survey_data?.answers?.q4 || ''}
+      - Gender: ${requestingData.gender || 'Not specified'}
+      - Age Group: ${requestingData.ageGroup || 'Not specified'}
+      - Participation Goal: ${requestingData.participationGoal || 'Not specified'}
+      - Education Level: ${requestingData.educationLevel || 'Not specified'}
+      - Core Values: ${Array.isArray(requestingData.coreValues) ? requestingData.coreValues.join(', ') : requestingData.coreValues || 'Not specified'}
+      - Mental Openness: ${requestingData.mentalOpenness || 'Not specified'}
+      - Weekend Style: ${requestingData.weekendStyle || 'Not specified'}
+      - Thinking Style: ${requestingData.thinkingStyle || 'Not specified'}
+      - Decision Making: ${requestingData.decisionMaking || 'Not specified'}
+      - Organization Style: ${requestingData.organizationStyle || 'Not specified'}
+      - Emotional Expression: ${requestingData.emotionalExpression || 'Not specified'}
+      - Adventure vs Stability: ${requestingData.adventureVsStability || 'Not specified'}
+      - Daily Activity: ${requestingData.dailyActivity || 'Not specified'}
+      - Family Relationship: ${requestingData.familyRelationship || 'Not specified'}
+      - Children Desire: ${requestingData.childrenDesire || 'Not specified'}
+      - Conflict Resolution: ${requestingData.conflictResolution || 'Not specified'}
+      - Hobbies: ${Array.isArray(requestingData.hobbies) ? requestingData.hobbies.join(', ') : requestingData.hobbies || 'Not specified'}
       ${requestingParticipant.summary ? `- Personality Summary: ${requestingParticipant.summary}` : ''}
 
       Participant ${otherParticipant.assigned_number}:
-      - Free time activities: ${otherParticipant.survey_data?.answers?.q1 || ''}
-      - Travel destination: ${otherParticipant.survey_data?.answers?.q2 || ''}
-      - Favorite hobby: ${otherParticipant.survey_data?.answers?.q3 || ''}
-      - Dream skill to learn: ${otherParticipant.survey_data?.answers?.q4 || ''}
+      - Gender: ${otherData.gender || 'Not specified'}
+      - Age Group: ${otherData.ageGroup || 'Not specified'}
+      - Participation Goal: ${otherData.participationGoal || 'Not specified'}
+      - Education Level: ${otherData.educationLevel || 'Not specified'}
+      - Core Values: ${Array.isArray(otherData.coreValues) ? otherData.coreValues.join(', ') : otherData.coreValues || 'Not specified'}
+      - Mental Openness: ${otherData.mentalOpenness || 'Not specified'}
+      - Weekend Style: ${otherData.weekendStyle || 'Not specified'}
+      - Thinking Style: ${otherData.thinkingStyle || 'Not specified'}
+      - Decision Making: ${otherData.decisionMaking || 'Not specified'}
+      - Organization Style: ${otherData.organizationStyle || 'Not specified'}
+      - Emotional Expression: ${otherData.emotionalExpression || 'Not specified'}
+      - Adventure vs Stability: ${otherData.adventureVsStability || 'Not specified'}
+      - Daily Activity: ${otherData.dailyActivity || 'Not specified'}
+      - Family Relationship: ${otherData.familyRelationship || 'Not specified'}
+      - Children Desire: ${otherData.childrenDesire || 'Not specified'}
+      - Conflict Resolution: ${otherData.conflictResolution || 'Not specified'}
+      - Hobbies: ${Array.isArray(otherData.hobbies) ? otherData.hobbies.join(', ') : otherData.hobbies || 'Not specified'}
       ${otherParticipant.summary ? `- Personality Summary: ${otherParticipant.summary}` : ''}
     `
 

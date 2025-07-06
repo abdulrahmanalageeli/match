@@ -5,7 +5,7 @@ import { createContext, useContext } from "react"
 import { CheckIcon, LoaderCircleIcon } from "lucide-react"
 import { Slot } from "radix-ui"
 
-import { cn } from "@/registry/default/lib/utils"
+import { cn } from "../../lib/utils"
 
 // Types
 type StepperContextValue = {

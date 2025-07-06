@@ -5,4 +5,19 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [tailwindcss(), reactRouter(), tsconfigPaths()],
+  build: {
+    sourcemap: false,
+    minify: 'esbuild',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined,
+      },
+    },
+  },
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
+  },
 });

@@ -5,7 +5,7 @@ import { ItemInstance } from "@headless-tree/core"
 import { ChevronDownIcon } from "lucide-react"
 import { Slot } from "radix-ui"
 
-import { cn } from "@/registry/default/lib/utils"
+import { cn } from "../../lib/utils"
 
 interface TreeContextValue<T = any> {
   indent: number

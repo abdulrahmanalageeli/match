@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { Command as CommandPrimitive, useCommandState } from "cmdk"
 import { XIcon } from "lucide-react"
 
-import { cn } from "@/registry/default/lib/utils"
+import { cn } from "../../lib/utils"
 import {
   Command,
   CommandGroup,

@@ -1732,14 +1732,20 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     سيتم جمع بياناتك وفقاً لمعايير حماية البيانات السعودية
                   </p>
                   <Button
-                    onClick={() => setShowSurvey(true)}
+                    onClick={() => {
+                      console.log("🔘 ابدأ الاستبيان button clicked")
+                      setShowSurvey(true)
+                    }}
                     className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                   >
                     ابدأ الاستبيان
                   </Button>
                 </div>
               ) : (
-                <SurveyComponent onSubmit={handleSurveySubmit} />
+                <>
+                  {console.log("🎯 SurveyComponent is being rendered")}
+                  <SurveyComponent onSubmit={handleSurveySubmit} />
+                </>
               )}
             </div>
 

@@ -295,6 +295,7 @@ const surveyQuestions = [
 const questionsPerPage = 5
 
 export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyData) => void }) {
+  console.log("🚀 SurveyComponent mounted")
   const [currentPage, setCurrentPage] = useState(0)
   const [surveyData, setSurveyData] = useState<SurveyData>({
     answers: {},
@@ -675,7 +676,10 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
 
           {currentPage === totalPages - 1 ? (
             <Button
-              onClick={handleSubmit}
+              onClick={() => {
+                console.log("🔘 إرسال الاستبيان button clicked")
+                handleSubmit()
+              }}
               disabled={!surveyData.termsAccepted || !surveyData.dataConsent}
               className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
             >

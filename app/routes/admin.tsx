@@ -182,8 +182,8 @@ export default function AdminPage() {
 
   const filteredParticipants = participants.filter(p => 
     p.assigned_number.toString().includes(searchTerm) ||
-    p.q1?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.q2?.toLowerCase().includes(searchTerm.toLowerCase())
+    (p.survey_data?.answers?.gender?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   const phaseConfig = {
@@ -675,10 +675,10 @@ export default function AdminPage() {
                   
                   <div className="space-y-2">
                     <div className="text-xs text-slate-400 truncate italic">
-                      "{p.q1 || "No response"}"
+                      "Gender: {p.survey_data?.answers?.gender || "No response"}"
                     </div>
                     <div className="text-xs text-slate-400 truncate italic">
-                      "{p.q2 || "No response"}"
+                      "Age: {p.survey_data?.answers?.ageGroup || "No response"}"
                     </div>
                   </div>
                 </div>
@@ -746,10 +746,10 @@ export default function AdminPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <div><span className="text-slate-400">Q1:</span> <span className="text-white">{detailParticipant.q1 || "No response"}</span></div>
-                  <div><span className="text-slate-400">Q2:</span> <span className="text-white">{detailParticipant.q2 || "No response"}</span></div>
-                  <div><span className="text-slate-400">Q3:</span> <span className="text-white">{detailParticipant.q3 || "No response"}</span></div>
-                  <div><span className="text-slate-400">Q4:</span> <span className="text-white">{detailParticipant.q4 || "No response"}</span></div>
+                  <div><span className="text-slate-400">Gender:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.gender || "No response"}</span></div>
+                  <div><span className="text-slate-400">Age Group:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.ageGroup || "No response"}</span></div>
+                  <div><span className="text-slate-400">Goal:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.participationGoal || "No response"}</span></div>
+                  <div><span className="text-slate-400">Education:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.educationLevel || "No response"}</span></div>
                 </div>
               </div>
             </div>

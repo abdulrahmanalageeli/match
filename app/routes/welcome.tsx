@@ -2741,7 +2741,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </p>
                 </div>
                 <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع التطابق</h5>
+                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع المباراة</h5>
                   <p className={`text-lg font-bold ${dark ? "text-blue-300" : "text-blue-600"}`}>
                     {selectedHistoryItem.type}
                   </p>

@@ -378,8 +378,27 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
   }
 
   const handleSubmit = () => {
+    // Validate all required questions
+    for (const question of surveyQuestions) {
+      if (question.required) {
+        const value = surveyData.answers[question.id];
+        if (Array.isArray(value)) {
+          if (!value || value.length === 0) {
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+        } else {
+          if (!value || value === "") {
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+        }
+      }
+    }
     if (surveyData.termsAccepted && surveyData.dataConsent) {
-      onSubmit(surveyData)
+      onSubmit(surveyData);
+    } else {
+      alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
   }
 
@@ -400,11 +419,11 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
                   <RadioGroupItem 
                     value={option.value} 
                     id={`${question.id}-${option.value}`} 
-                    className="w-5 h-5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+                    className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
                   />
                   <Label 
                     htmlFor={`${question.id}-${option.value}`} 
-                    className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
                   >
                     {option.label}
                   </Label>
@@ -426,11 +445,11 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
                     onCheckedChange={(checked) => 
                       handleCheckboxChange(question.id, option.value, checked as boolean)
                     }
-                    className="w-5 h-5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+                    className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
                   />
                   <Label 
                     htmlFor={`${question.id}-${option.value}`} 
-                    className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
                   >
                     {option.label}
                   </Label>
@@ -438,7 +457,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
               </div>
             ))}
             {question.maxSelections && (
-              <p className="text-sm text-gray-500 dark:text-gray-400 text-right mt-3 bg-white/50 dark:bg-slate-700/50 px-4 py-2 rounded-xl">
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-right mt-3 bg-white/50 dark:bg-slate-700/50 px-4 py-2 rounded-lg">
                 اختر {question.maxSelections} فقط
               </p>
             )}
@@ -452,9 +471,9 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
               value={value as string || ""}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
               placeholder={question.placeholder}
-              className="min-h-[80px] text-right border-2 border-gray-200 dark:border-slate-600 rounded-2xl px-6 py-4 text-lg transition-all duration-300 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm resize-none"
+              className="min-h-[48px] text-right border-2 border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-base transition-all duration-300 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm resize-none"
             />
-            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
           </div>
         )
 
@@ -476,7 +495,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
         <p className="text-lg text-gray-600 dark:text-gray-400">يرجى قراءة والموافقة على الشروط التالية</p>
       </div>
 
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-700 rounded-3xl p-8 border-2 border-blue-200 dark:border-blue-700 shadow-xl">
+      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-700 rounded-3xl p-4 border-2 border-blue-200 dark:border-blue-700 shadow-xl">
         <div className="flex items-center gap-3 mb-6">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
             <AlertTriangle className="w-5 h-5 text-white" />
@@ -523,32 +542,32 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
 
       <div className="space-y-6">
         <div className="group">
-          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-2xl p-6 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-2xl p-4 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
             <Checkbox
               id="terms"
               checked={surveyData.termsAccepted}
               onCheckedChange={(checked) => 
                 setSurveyData(prev => ({ ...prev, termsAccepted: checked as boolean }))
               }
-              className="w-6 h-6 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+              className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
             />
-            <Label htmlFor="terms" className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
+            <Label htmlFor="terms" className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
               أوافق على الشروط والأحكام
             </Label>
           </div>
         </div>
 
         <div className="group">
-          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-2xl p-6 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-2xl p-4 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
             <Checkbox
               id="dataConsent"
               checked={surveyData.dataConsent}
               onCheckedChange={(checked) => 
                 setSurveyData(prev => ({ ...prev, dataConsent: checked as boolean }))
               }
-              className="w-6 h-6 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+              className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
             />
-            <Label htmlFor="dataConsent" className="text-right cursor-pointer text-lg font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
+            <Label htmlFor="dataConsent" className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
               أوافق على معالجة بياناتي الشخصية وفقاً لسياسة الخصوصية
             </Label>
           </div>
@@ -592,7 +611,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
         {/* Survey Content */}
         <div className="space-y-6">
           {currentPage === totalPages - 1 ? (
-            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 p-8">
+            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 p-4">
               {renderTermsPage()}
             </div>
           ) : (
@@ -601,16 +620,16 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
                   .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage)
                   .map((question, index) => (
                     <div key={question.id} className="group animate-slide-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 p-8 transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] hover:bg-white/90 dark:hover:bg-slate-800/90 hover:animate-glow">
+                      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-slate-700/50 p-4 transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] hover:bg-white/90 dark:hover:bg-slate-800/90 hover:animate-glow">
                       <div className="flex items-start gap-4">
                         <div className="relative">
-                          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-lg">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-base shadow">
                             {currentPage * questionsPerPage + index + 1}
                           </div>
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-6 text-right leading-relaxed">
+                          <h3 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-3 text-right leading-relaxed">
                             {question.question}
                           </h3>
                           <div className="space-y-4">
@@ -631,7 +650,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
             onClick={prevPage}
             disabled={currentPage === 0}
             variant="outline"
-            className="flex items-center gap-3 px-6 py-3 rounded-2xl border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-lg disabled:opacity-50"
+            className="flex items-center gap-3 px-4 py-2 rounded-lg border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300 hover:shadow-lg disabled:opacity-50"
           >
             <ChevronRight className="w-5 h-5" />
             <span className="font-medium">السابق</span>
@@ -641,7 +660,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
             <Button
               onClick={handleSubmit}
               disabled={!surveyData.termsAccepted || !surveyData.dataConsent}
-              className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+              className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none"
             >
               <CheckCircle className="w-5 h-5" />
               <span>إرسال الاستبيان</span>
@@ -650,7 +669,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
             <Button
               onClick={nextPage}
               disabled={!isPageValid(currentPage)}
-              className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-bold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:transform-none"
+              className="flex items-center gap-3 px-4 py-2 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none"
             >
               <span>التالي</span>
               <ChevronLeft className="w-5 h-5" />

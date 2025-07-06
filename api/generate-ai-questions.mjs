@@ -187,21 +187,16 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content: `You are a master of creating fun, engaging conversation starters that feel natural and encourage people to open up. Your goal is to create questions that feel like they're coming from a friend who really gets them.
+          content: `You are an expert conversation designer who creates questions that spark deep, endless conversations. Your questions should be so engaging that people lose track of time talking about them.
 
-Based on the survey responses from both participants, generate 5 fun, conversational questions that will:
-1. **Feel natural and casual** - Questions that sound like they're coming from a friend, not a therapist or academic
-2. **Spark storytelling** - Questions that invite people to share interesting stories and experiences
-3. **Be personalized** - Use their hobbies, interests, and personality traits to create questions that feel tailor-made
-4. **Encourage follow-up** - Questions that naturally lead to "oh really? tell me more!" moments
-5. **Be fun and light** - Avoid heavy, philosophical questions. Focus on enjoyable topics that make people smile
+Based on the survey responses from both participants, generate 5 unique questions that will:
+1. **Light up the conversation** - Questions that make people's eyes sparkle and get them excited to share
+2. **Create endless talk** - Questions that naturally lead to follow-up questions and deeper discussions
+3. **Be highly personalized** - Use their specific interests, hobbies, and personality traits to create questions that feel tailor-made for them
+4. **Reveal compatibility** - Questions that help them discover shared interests and complementary traits
+5. **Feel magical** - Questions so good that people will think "wow, this AI really understands us"
 
-Examples of good questions:
-- "ما هو أغرب شيء حدث لك هذا الأسبوع؟" (What's the weirdest thing that happened to you this week?)
-- "لو كان بإمكانك السفر إلى أي مكان غداً، أين ستذهب؟" (If you could travel anywhere tomorrow, where would you go?)
-- "ما هو أكثر شيء يضحكك في الأفلام؟" (What makes you laugh the most in movies?)
-
-Avoid formal, academic questions like "هل تعتقد أن الوضوح العاطفي..." Instead, make questions feel like natural conversation starters between friends.
+Make the questions feel like they were crafted specifically for these two people based on their unique combination of interests and personalities. The questions should be so good that people will be amazed by how well they fit their conversation.
 
 Return ONLY a JSON array with exactly 5 question strings in Arabic, no additional formatting or keys. Example format:
 ["Question 1 in Arabic?", "Question 2 in Arabic?", "Question 3 in Arabic?", "Question 4 in Arabic?", "Question 5 in Arabic?"]`
@@ -253,18 +248,18 @@ Return ONLY a JSON array with exactly 5 question strings in Arabic, no additiona
     // Ensure we have exactly 5 questions, use fallbacks if needed
     if (questions.length === 0) {
       questions = [
-        "ما هو أغرب شيء حدث لك هذا الأسبوع؟",
-        "لو كان بإمكانك السفر إلى أي مكان غداً، أين ستذهب؟",
-        "ما هو أكثر شيء يضحكك في الأفلام؟",
-        "ما هو أفضل طعام جربته في حياتك؟",
-        "لو كان بإمكانك تعلم أي مهارة جديدة، ماذا ستختار؟"
+        "ما هو أكثر شيء يجعلك تشعر بالامتنان في حياتك؟",
+        "لو كان بإمكانك العودة بالزمن، ما هو الشيء الذي ستغيره؟",
+        "ما هو الحلم الذي لم تتحقق منه بعد؟",
+        "ما هو أكثر شيء يضحكك في الحياة؟",
+        "لو كان بإمكانك تعليم العالم شيئاً واحداً، ماذا سيكون؟"
       ]
     }
 
     // Ensure we have exactly 5 questions
     questions = questions.slice(0, 5)
     while (questions.length < 5) {
-      questions.push("ما هو أغرب شيء حدث لك هذا الأسبوع؟")
+      questions.push("ما هو أكثر شيء يجعلك تشعر بالسعادة؟")
     }
 
     // Store the questions in the database
@@ -295,11 +290,11 @@ Return ONLY a JSON array with exactly 5 question strings in Arabic, no additiona
     return res.status(200).json({
       success: true,
       questions: [
-        "ما هو أغرب شيء حدث لك هذا الأسبوع؟",
-        "لو كان بإمكانك السفر إلى أي مكان غداً، أين ستذهب؟",
-        "ما هو أكثر شيء يضحكك في الأفلام؟",
-        "ما هو أفضل طعام جربته في حياتك؟",
-        "لو كان بإمكانك تعلم أي مهارة جديدة، ماذا ستختار؟"
+        "ما هو أكثر شيء يجعلك تشعر بالامتنان في حياتك؟",
+        "لو كان بإمكانك العودة بالزمن، ما هو الشيء الذي ستغيره؟",
+        "ما هو الحلم الذي لم تتحقق منه بعد؟",
+        "ما هو أكثر شيء يضحكك في الحياة؟",
+        "لو كان بإمكانك تعليم العالم شيئاً واحداً، ماذا سيكون؟"
       ]
     })
   }

@@ -212,8 +212,14 @@ export default async function handler(req, res) {
         }
         surveyResponses.push(`نظرة العلاقة: ${relationshipMap[answers.relationshipView] || answers.relationshipView}`)
       }
-      if (answers.redLines && answers.redLines.length > 0) {
-        surveyResponses.push(`الخطوط الحمراء: ${answers.redLines.join('، ')}`)
+      const redLinesRaw = answers.redLines;
+      const redLines = Array.isArray(redLinesRaw)
+        ? redLinesRaw
+        : typeof redLinesRaw === "string"
+          ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
+          : [];
+      if (redLines.length > 0) {
+        surveyResponses.push(`الخطوط الحمراء: ${redLines.join('، ')}`)
       }
       
       prompt = surveyResponses.map(response => `- ${response}`).join("\n")
@@ -409,8 +415,14 @@ export default async function handler(req, res) {
         }
         surveyResponses.push(`نظرة العلاقة: ${relationshipMap[responses.relationshipView] || responses.relationshipView}`)
       }
-      if (responses.redLines && responses.redLines.length > 0) {
-        surveyResponses.push(`الخطوط الحمراء: ${responses.redLines.join('، ')}`)
+      const redLinesRaw = responses.redLines;
+      const redLines = Array.isArray(redLinesRaw)
+        ? redLinesRaw
+        : typeof redLinesRaw === "string"
+          ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
+          : [];
+      if (redLines.length > 0) {
+        surveyResponses.push(`الخطوط الحمراء: ${redLines.join('، ')}`)
       }
       
       prompt = surveyResponses.map(response => `- ${response}`).join("\n")

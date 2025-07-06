@@ -29,6 +29,284 @@ import MatchResult from "./MatchResult"
 import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
 import SurveyComponent from "../components/SurveyComponent"
 
+// Import survey questions for validation
+const surveyQuestions = [
+  {
+    id: "gender",
+    question: "الجنس:",
+    type: "radio",
+    options: [
+      { value: "male", label: "ذكر" },
+      { value: "female", label: "أنثى" }
+    ],
+    required: true
+  },
+  {
+    id: "ageGroup",
+    question: "الفئة العمرية: أي فئة عمرية تناسب عمرك؟",
+    type: "radio",
+    options: [
+      { value: "under20", label: "أقل من 20 سنة" },
+      { value: "20-30", label: "20-30 سنة" },
+      { value: "31-40", label: "31-40 سنة" },
+      { value: "41-50", label: "41-50 سنة" },
+      { value: "over50", label: "أكبر من 50 سنة" }
+    ],
+    required: true
+  },
+  {
+    id: "participationGoal",
+    question: "هدف المشاركة: ما الهدف الأساسي من مشاركتك في هذا اللقاء؟",
+    type: "radio",
+    options: [
+      { value: "friendship", label: "تكوين صداقات فقط" },
+      { value: "romantic", label: "البحث عن علاقة رومانسية جادة" },
+      { value: "open", label: "منفتح على الصداقة والعلاقة" }
+    ],
+    required: true
+  },
+  {
+    id: "educationLevel",
+    question: "المستوى التعليمي: ما هو أعلى مستوى تعليمي وصلت إليه؟",
+    type: "radio",
+    options: [
+      { value: "highschool", label: "ثانوي أو أقل" },
+      { value: "bachelor", label: "بكالوريوس" },
+      { value: "masters", label: "ماجستير/دكتوراه أو أعلى" }
+    ],
+    required: true
+  },
+  {
+    id: "coreValues",
+    question: "القيم الجوهرية: ما هي أهم ثلاث قيم تمثّلك وتريد أن يشاركك الطرف الآخر بها؟",
+    type: "checkbox",
+    options: [
+      { value: "honesty", label: "الأمانة" },
+      { value: "ambition", label: "الطموح" },
+      { value: "independence", label: "الاستقلالية" },
+      { value: "familyLove", label: "حب العائلة" },
+      { value: "spirituality", label: "الروحانية أو التدين" },
+      { value: "openness", label: "الانفتاح وتقبل الآخر" },
+      { value: "emotionalStability", label: "الاستقرار العاطفي" },
+      { value: "humor", label: "الحس الفكاهي" }
+    ],
+    maxSelections: 3,
+    required: true
+  },
+  {
+    id: "mentalOpenness",
+    question: "مدى الانفتاح الذهني: أي العبارة الأقرب لك؟",
+    type: "radio",
+    options: [
+      { value: "traditional", label: "تقليدي وملتزم دينيًا" },
+      { value: "balanced", label: "متوازن بين التقاليد والانفتاح" },
+      { value: "fullyOpen", label: "منفتح بالكامل" }
+    ],
+    required: true
+  },
+  {
+    id: "weekendStyle",
+    question: "نمط عطلة نهاية الأسبوع المفضل:",
+    type: "radio",
+    options: [
+      { value: "social", label: "حضور فعاليات أو مقابلة أصدقاء" },
+      { value: "quiet", label: "الجلوس في المنزل أو بجو هادئ" }
+    ],
+    required: true
+  },
+  {
+    id: "thinkingStyle",
+    question: "طريقة التفكير واستقبال المعلومات:",
+    type: "radio",
+    options: [
+      { value: "practical", label: "أركز على الواقع والتفاصيل" },
+      { value: "imaginative", label: "أُحب الخيال والرؤية المستقبلية" }
+    ],
+    required: true
+  },
+  {
+    id: "decisionMaking",
+    question: "اتخاذ القرارات:",
+    type: "radio",
+    options: [
+      { value: "logical", label: "أعتمد على المنطق والعقل" },
+      { value: "emotional", label: "أعتمد على المشاعر والجانب الإنساني" }
+    ],
+    required: true
+  },
+  {
+    id: "organizationStyle",
+    question: "التنظيم والعفوية:",
+    type: "radio",
+    options: [
+      { value: "organized", label: "أحب الجداول والخطط" },
+      { value: "spontaneous", label: "أحب العفوية والمرونة" }
+    ],
+    required: true
+  },
+  {
+    id: "emotionalExpression",
+    question: "أسلوب التعبير العاطفي:",
+    type: "radio",
+    options: [
+      { value: "direct", label: "صريح ومباشر" },
+      { value: "reserved", label: "كتوم وأحتاج وقت" }
+    ],
+    required: true
+  },
+  {
+    id: "adventureVsStability",
+    question: "المغامرة مقابل الاستقرار:",
+    type: "radio",
+    options: [
+      { value: "adventure", label: "أبحث عن التجربة والتجديد دائمًا" },
+      { value: "stability", label: "أفضّل الراحة والاستقرار" }
+    ],
+    required: true
+  },
+  {
+    id: "dailyActivity",
+    question: "النشاط اليومي:",
+    type: "radio",
+    options: [
+      { value: "morning", label: "صباحي" },
+      { value: "night", label: "ليلي" }
+    ],
+    required: true
+  },
+  {
+    id: "familyRelationship",
+    question: "علاقتك بالعائلة:",
+    type: "radio",
+    options: [
+      { value: "strong", label: "قوية جدًا وأتوقع نفس الشيء من الطرف الآخر" },
+      { value: "balanced", label: "متوازنة" },
+      { value: "independent", label: "مستقلة ولا أتوقع مشاركة عائلية" }
+    ],
+    required: true
+  },
+  {
+    id: "childrenDesire",
+    question: "هل ترغب في إنجاب أطفال مستقبلًا؟",
+    type: "radio",
+    options: [
+      { value: "yes", label: "نعم" },
+      { value: "maybe", label: "ربما لاحقًا" },
+      { value: "no", label: "لا" },
+      { value: "unsure", label: "غير متأكد" }
+    ],
+    required: true
+  },
+  {
+    id: "conflictResolution",
+    question: "كيف تتعامل مع الخلافات؟",
+    type: "radio",
+    options: [
+      { value: "direct", label: "أواجه مباشرة وبهدوء" },
+      { value: "time", label: "أحتاج بعض الوقت ثم أناقش" },
+      { value: "avoid", label: "أتجنب المواجهة غالبًا" }
+    ],
+    required: true
+  },
+  {
+    id: "hobbies",
+    question: "الهوايات: اختر 3 فقط من التالية:",
+    type: "checkbox",
+    options: [
+      { value: "reading", label: "القراءة" },
+      { value: "movies", label: "الأفلام والمسلسلات" },
+      { value: "sports", label: "الرياضة" },
+      { value: "gaming", label: "ألعاب الفيديو" },
+      { value: "travel", label: "السفر" },
+      { value: "nature", label: "الطبيعة والكشتات" },
+      { value: "cooking", label: "الطبخ" },
+      { value: "volunteering", label: "التطوع والخدمة" },
+      { value: "music", label: "الموسيقى" }
+    ],
+    maxSelections: 3,
+    required: true
+  },
+  {
+    id: "energyPattern",
+    question: "وصف نمط الطاقة:",
+    type: "radio",
+    options: [
+      { value: "energetic", label: "نشيط ومتحرك" },
+      { value: "calm", label: "هادئ ومسترخٍ" }
+    ],
+    required: true
+  },
+  {
+    id: "dietaryPreferences",
+    question: "النظام الغذائي أو تفضيلات الطعام:",
+    type: "text",
+    placeholder: "مثال: آكل كل شيء – نباتي – لا أحب المأكولات البحرية – حمية خاصة...",
+    required: true
+  },
+  {
+    id: "healthImportance",
+    question: "مدى أهمية الصحة والرياضة:",
+    type: "radio",
+    options: [
+      { value: "veryImportant", label: "مهمة جدًا" },
+      { value: "moderate", label: "معتدلة" },
+      { value: "notImportant", label: "غير مهمة" }
+    ],
+    required: true
+  },
+  {
+    id: "smokingAlcohol",
+    question: "موقفك من التدخين/الكحول:",
+    type: "radio",
+    options: [
+      { value: "noProblem", label: "لا مشكلة" },
+      { value: "lightAcceptable", label: "مقبول إذا كان خفيف" },
+      { value: "notAcceptable", label: "لا أقبل إطلاقًا" }
+    ],
+    required: true
+  },
+  {
+    id: "cleanlinessInterest",
+    question: "مدى اهتمامك بالنظافة والتنظيم:",
+    type: "radio",
+    options: [
+      { value: "veryImportant", label: "أحب النظام والنظافة دائمًا" },
+      { value: "flexible", label: "مرن وبعض الفوضى لا تزعجني" },
+      { value: "notImportant", label: "لا أهتم كثيرًا" }
+    ],
+    required: true
+  },
+  {
+    id: "petsOpinion",
+    question: "رأيك في الحيوانات الأليفة:",
+    type: "radio",
+    options: [
+      { value: "love", label: "أحبها" },
+      { value: "okay", label: "لا مانع" },
+      { value: "dislike", label: "لا أحبها أو لدي حساسية" }
+    ],
+    required: true
+  },
+  {
+    id: "relationshipView",
+    question: "ما الذي يمثّل نظرتك للعلاقة العاطفية الناجحة؟",
+    type: "radio",
+    options: [
+      { value: "stable", label: "علاقة مستقرة وطويلة المدى مبنية على الالتزام والخصوصية" },
+      { value: "flexible", label: "علاقة مرنة يمكن أن تتطوّر تدريجيًا حسب الظروف" },
+      { value: "individual", label: "أؤمن بأن العلاقات تختلف من شخص لآخر ولا أضع نمطًا محددًا" }
+    ],
+    required: true
+  },
+  {
+    id: "redLines",
+    question: "الخطوط الحمراء: ما هي أهم 3 صفات أو تصرفات تعتبرها غير قابلة للتسامح في علاقة (عاطفية أو صداقة)؟",
+    type: "text",
+    placeholder: "مثال: الكذب، التدخين، عدم النظافة",
+    required: true
+  }
+]
+
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
   const stepLabels = ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
   // Reverse for RTL
@@ -404,8 +682,18 @@ export default function WelcomePage() {
   }
   
   const handleSubmit = async () => {
-    if (!surveyData) {
+    if (!surveyData || !surveyData.answers || Object.keys(surveyData.answers).length === 0) {
       alert("يرجى إكمال الاستبيان أولاً")
+      return
+    }
+
+    // Check if all required questions are answered
+    const requiredQuestions = surveyQuestions.filter(q => q.required)
+    const answeredQuestions = Object.keys(surveyData.answers)
+    
+    const missingQuestions = requiredQuestions.filter(q => !answeredQuestions.includes(q.id))
+    if (missingQuestions.length > 0) {
+      alert("يرجى إكمال جميع الأسئلة المطلوبة")
       return
     }
 

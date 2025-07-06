@@ -10,31 +10,7 @@ import { Progress } from "../../components/ui/progress"
 import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle } from "lucide-react"
 
 interface SurveyData {
-  gender: string
-  ageGroup: string
-  participationGoal: string
-  educationLevel: string
-  coreValues: string[]
-  mentalOpenness: string
-  weekendStyle: string
-  thinkingStyle: string
-  decisionMaking: string
-  organizationStyle: string
-  emotionalExpression: string
-  adventureVsStability: string
-  dailyActivity: string
-  familyRelationship: string
-  childrenDesire: string
-  conflictResolution: string
-  hobbies: string[]
-  energyPattern: string
-  dietaryPreferences: string
-  healthImportance: string
-  smokingAlcohol: string
-  cleanlinessInterest: string
-  petsOpinion: string
-  relationshipView: string
-  redLines: string[]
+  answers: Record<string, string | string[]>
   termsAccepted: boolean
   dataConsent: boolean
 }
@@ -316,36 +292,12 @@ const surveyQuestions = [
   }
 ]
 
-const questionsPerPage = 3
+const questionsPerPage = 5
 
 export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyData) => void }) {
   const [currentPage, setCurrentPage] = useState(0)
   const [surveyData, setSurveyData] = useState<SurveyData>({
-    gender: "",
-    ageGroup: "",
-    participationGoal: "",
-    educationLevel: "",
-    coreValues: [],
-    mentalOpenness: "",
-    weekendStyle: "",
-    thinkingStyle: "",
-    decisionMaking: "",
-    organizationStyle: "",
-    emotionalExpression: "",
-    adventureVsStability: "",
-    dailyActivity: "",
-    familyRelationship: "",
-    childrenDesire: "",
-    conflictResolution: "",
-    hobbies: [],
-    energyPattern: "",
-    dietaryPreferences: "",
-    healthImportance: "",
-    smokingAlcohol: "",
-    cleanlinessInterest: "",
-    petsOpinion: "",
-    relationshipView: "",
-    redLines: [],
+    answers: {},
     termsAccepted: false,
     dataConsent: false
   })
@@ -356,13 +308,16 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
   const handleInputChange = (questionId: string, value: string | string[]) => {
     setSurveyData(prev => ({
       ...prev,
-      [questionId]: value
+      answers: {
+        ...prev.answers,
+        [questionId]: value
+      }
     }))
   }
 
   const handleCheckboxChange = (questionId: string, value: string, checked: boolean) => {
     setSurveyData(prev => {
-      const currentValues = (prev as any)[questionId] as string[]
+      const currentValues = (prev.answers[questionId] as string[]) || []
       if (checked) {
         const question = surveyQuestions.find(q => q.id === questionId)
         if (question?.maxSelections && currentValues.length >= question.maxSelections) {
@@ -370,12 +325,18 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
         }
         return {
           ...prev,
-          [questionId]: [...currentValues, value]
+          answers: {
+            ...prev.answers,
+            [questionId]: [...currentValues, value]
+          }
         }
       } else {
         return {
           ...prev,
-          [questionId]: currentValues.filter(v => v !== value)
+          answers: {
+            ...prev.answers,
+            [questionId]: currentValues.filter(v => v !== value)
+          }
         }
       }
     })
@@ -391,11 +352,11 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
     
     for (let i = startIndex; i < endIndex; i++) {
       const question = surveyQuestions[i]
-      const value = surveyData[question.id as keyof SurveyData]
+      const value = surveyData.answers[question.id]
       
       if (question.required) {
         if (Array.isArray(value)) {
-          if (value.length === 0) return false
+          if (!value || value.length === 0) return false
         } else {
           if (!value || value === "") return false
         }
@@ -423,13 +384,13 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
   }
 
   const renderQuestion = (question: any) => {
-    const value = surveyData[question.id as keyof SurveyData]
+    const value = surveyData.answers[question.id]
 
     switch (question.type) {
       case "radio":
         return (
           <RadioGroup
-            value={value as string}
+            value={value as string || ""}
             onValueChange={(val) => handleInputChange(question.id, val)}
             className="space-y-4"
           >
@@ -461,7 +422,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
                 <div className="flex items-center space-x-4 space-x-reverse">
                   <Checkbox
                     id={`${question.id}-${option.value}`}
-                    checked={(value as string[]).includes(option.value)}
+                    checked={(value as string[] || []).includes(option.value)}
                     onCheckedChange={(checked) => 
                       handleCheckboxChange(question.id, option.value, checked as boolean)
                     }
@@ -488,10 +449,10 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
         return (
           <div className="relative">
             <Textarea
-              value={value as string}
+              value={value as string || ""}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
               placeholder={question.placeholder}
-              className="min-h-[120px] text-right border-2 border-gray-200 dark:border-slate-600 rounded-2xl px-6 py-4 text-lg transition-all duration-300 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm resize-none"
+              className="min-h-[80px] text-right border-2 border-gray-200 dark:border-slate-600 rounded-2xl px-6 py-4 text-lg transition-all duration-300 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm resize-none"
             />
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
           </div>

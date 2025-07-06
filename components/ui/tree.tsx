@@ -1,195 +1,175 @@
 "use client"
 
 import * as React from "react"
-import { ItemInstance } from "@headless-tree/core"
-import { ChevronDownIcon } from "lucide-react"
-import { Slot } from "radix-ui"
+import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
+import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "../../lib/utils"
 
-interface TreeContextValue<T = any> {
+interface TreeContextValue {
   indent: number
-  currentItem?: ItemInstance<T>
-  tree?: any
 }
 
 const TreeContext = React.createContext<TreeContextValue>({
   indent: 20,
-  currentItem: undefined,
-  tree: undefined,
 })
 
-function useTreeContext<T = any>() {
-  return React.useContext(TreeContext) as TreeContextValue<T>
+function useTreeContext() {
+  return React.useContext(TreeContext)
 }
 
 interface TreeProps extends React.HTMLAttributes<HTMLDivElement> {
   indent?: number
-  tree?: any
 }
 
-function Tree({ indent = 20, tree, className, ...props }: TreeProps) {
-  const containerProps =
-    tree && typeof tree.getContainerProps === "function"
-      ? tree.getContainerProps()
-      : {}
-  const mergedProps = { ...props, ...containerProps }
-
-  // Extract style from mergedProps to merge with our custom styles
-  const { style: propStyle, ...otherProps } = mergedProps
-
-  // Merge styles
-  const mergedStyle = {
-    ...propStyle,
-    "--tree-indent": `${indent}px`,
-  } as React.CSSProperties
-
+function Tree({ indent = 20, className, ...props }: TreeProps) {
   return (
-    <TreeContext.Provider value={{ indent, tree }}>
+    <TreeContext.Provider value={{ indent }}>
       <div
         data-slot="tree"
-        style={mergedStyle}
+        style={{ "--tree-indent": `${indent}px` } as React.CSSProperties}
         className={cn("flex flex-col", className)}
-        {...otherProps}
+        {...props}
       />
     </TreeContext.Provider>
   )
 }
 
-interface TreeItemProps<T = any>
-  extends React.HTMLAttributes<HTMLButtonElement> {
-  item: ItemInstance<T>
-  indent?: number
+interface TreeItemProps extends React.HTMLAttributes<HTMLButtonElement> {
+  level?: number
   asChild?: boolean
 }
 
-function TreeItem<T = any>({
-  item,
+function TreeItem({
+  level = 0,
   className,
   asChild,
   children,
   ...props
-}: Omit<TreeItemProps<T>, "indent">) {
-  const { indent } = useTreeContext<T>()
+}: TreeItemProps) {
+  const { indent } = useTreeContext()
 
-  const itemProps = typeof item.getProps === "function" ? item.getProps() : {}
-  const mergedProps = { ...props, ...itemProps }
-
-  // Extract style from mergedProps to merge with our custom styles
-  const { style: propStyle, ...otherProps } = mergedProps
-
-  // Merge styles
-  const mergedStyle = {
-    ...propStyle,
-    "--tree-padding": `${item.getItemMeta().level * indent}px`,
-  } as React.CSSProperties
-
-  const Comp = asChild ? Slot.Root : "button"
+  const Comp = asChild ? Slot : "button"
 
   return (
-    <TreeContext.Provider value={{ indent, currentItem: item }}>
-      <Comp
-        data-slot="tree-item"
-        style={mergedStyle}
-        className={cn(
-          "z-10 ps-(--tree-padding) outline-hidden select-none not-last:pb-0.5 focus:z-20 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-          className
-        )}
-        data-focus={
-          typeof item.isFocused === "function"
-            ? item.isFocused() || false
-            : undefined
-        }
-        data-folder={
-          typeof item.isFolder === "function"
-            ? item.isFolder() || false
-            : undefined
-        }
-        data-selected={
-          typeof item.isSelected === "function"
-            ? item.isSelected() || false
-            : undefined
-        }
-        data-drag-target={
-          typeof item.isDragTarget === "function"
-            ? item.isDragTarget() || false
-            : undefined
-        }
-        data-search-match={
-          typeof item.isMatchingSearch === "function"
-            ? item.isMatchingSearch() || false
-            : undefined
-        }
-        aria-expanded={item.isExpanded()}
-        {...otherProps}
-      >
-        {children}
-      </Comp>
-    </TreeContext.Provider>
-  )
-}
-
-interface TreeItemLabelProps<T = any>
-  extends React.HTMLAttributes<HTMLSpanElement> {
-  item?: ItemInstance<T>
-}
-
-function TreeItemLabel<T = any>({
-  item: propItem,
-  children,
-  className,
-  ...props
-}: TreeItemLabelProps<T>) {
-  const { currentItem } = useTreeContext<T>()
-  const item = propItem || currentItem
-
-  if (!item) {
-    console.warn("TreeItemLabel: No item provided via props or context")
-    return null
-  }
-
-  return (
-    <span
-      data-slot="tree-item-label"
+    <Comp
+      data-slot="tree-item"
+      style={{ "--tree-padding": `${level * indent}px` } as React.CSSProperties}
       className={cn(
-        "in-focus-visible:ring-ring/50 bg-background hover:bg-accent in-data-[selected=true]:bg-accent in-data-[selected=true]:text-accent-foreground in-data-[drag-target=true]:bg-accent flex items-center gap-1 rounded-sm px-2 py-1.5 text-sm transition-colors not-in-data-[folder=true]:ps-7 in-focus-visible:ring-[3px] in-data-[search-match=true]:bg-blue-50! [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50",
         className
       )}
       {...props}
     >
-      {item.isFolder() && (
-        <ChevronDownIcon className="text-muted-foreground size-4 in-aria-[expanded=false]:-rotate-90" />
+      {children}
+    </Comp>
+  )
+}
+
+interface TreeItemLabelProps extends React.HTMLAttributes<HTMLSpanElement> {
+  expanded?: boolean
+  isFolder?: boolean
+}
+
+function TreeItemLabel({
+  expanded = false,
+  isFolder = false,
+  children,
+  className,
+  ...props
+}: TreeItemLabelProps) {
+  return (
+    <span
+      data-slot="tree-item-label"
+      className={cn(
+        "flex items-center gap-1 rounded-sm px-2 py-1.5 text-sm transition-colors",
+        className
       )}
-      {children ||
-        (typeof item.getItemName === "function" ? item.getItemName() : null)}
+      {...props}
+    >
+      {isFolder && (
+        expanded ? (
+          <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />
+        )
+      )}
+      {children}
     </span>
   )
 }
 
-function TreeDragLine({
+function TreeTrigger({
+  asChild = false,
   className,
+  children,
   ...props
-}: React.HTMLAttributes<HTMLDivElement>) {
-  const { tree } = useTreeContext()
+}: React.ComponentProps<"button"> & { asChild?: boolean }) {
+  const Comp = asChild ? Slot : "button"
 
-  if (!tree || typeof tree.getDragLineStyle !== "function") {
-    console.warn(
-      "TreeDragLine: No tree provided via context or tree does not have getDragLineStyle method"
-    )
-    return null
-  }
-
-  const dragLine = tree.getDragLineStyle()
   return (
-    <div
-      style={dragLine}
+    <Comp
+      data-slot="tree-trigger"
       className={cn(
-        "bg-primary before:bg-background before:border-primary absolute z-30 -mt-px h-0.5 w-[unset] before:absolute before:-top-[3px] before:left-0 before:size-2 before:rounded-full before:border-2",
+        "flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50",
         className
       )}
+      {...props}
+    >
+      {children}
+    </Comp>
+  )
+}
+
+function TreeContent({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="tree-content"
+      className={cn("ml-6", className)}
       {...props}
     />
   )
 }
 
-export { Tree, TreeItem, TreeItemLabel, TreeDragLine }
+function TreeIcon({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="tree-icon"
+      className={cn("flex h-4 w-4 items-center justify-center", className)}
+      {...props}
+    >
+      <ChevronRightIcon className="h-3 w-3" />
+    </div>
+  )
+}
+
+function TreeIconExpanded({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="tree-icon-expanded"
+      className={cn("flex h-4 w-4 items-center justify-center", className)}
+      {...props}
+    >
+      <ChevronDownIcon className="h-3 w-3" />
+    </div>
+  )
+}
+
+export {
+  Tree,
+  TreeItem,
+  TreeItemLabel,
+  TreeTrigger,
+  TreeContent,
+  TreeIcon,
+  TreeIconExpanded,
+}

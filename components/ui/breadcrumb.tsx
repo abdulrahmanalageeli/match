@@ -1,6 +1,6 @@
 import * as React from "react"
 import { ChevronRightIcon, MoreHorizontal } from "lucide-react"
-import { Slot } from "radix-ui"
+import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "../../lib/utils"
 
@@ -32,18 +32,21 @@ function BreadcrumbItem({ className, ...props }: React.ComponentProps<"li">) {
 }
 
 function BreadcrumbLink({
-  asChild,
+  asChild = false,
   className,
   ...props
 }: React.ComponentProps<"a"> & {
   asChild?: boolean
 }) {
-  const Comp = asChild ? Slot.Root : "a"
+  const Comp = asChild ? Slot : "a"
 
   return (
     <Comp
       data-slot="breadcrumb-link"
-      className={cn("hover:text-foreground transition-colors", className)}
+      className={cn(
+        "hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+        className
+      )}
       {...props}
     />
   )
@@ -72,10 +75,10 @@ function BreadcrumbSeparator({
       data-slot="breadcrumb-separator"
       role="presentation"
       aria-hidden="true"
-      className={className}
+      className={cn("[&>svg]:size-3.5", className)}
       {...props}
     >
-      {children ?? <ChevronRightIcon size={16} />}
+      {children ?? <ChevronRightIcon />}
     </li>
   )
 }
@@ -89,10 +92,10 @@ function BreadcrumbEllipsis({
       data-slot="breadcrumb-ellipsis"
       role="presentation"
       aria-hidden="true"
-      className={cn("flex size-5 items-center justify-center", className)}
+      className={cn("flex h-9 w-9 items-center justify-center", className)}
       {...props}
     >
-      <MoreHorizontal size={16} />
+      <MoreHorizontal className="h-4 w-4" />
       <span className="sr-only">More</span>
     </span>
   )

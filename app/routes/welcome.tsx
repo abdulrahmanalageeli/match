@@ -1724,6 +1724,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 }`}>أجب على الأسئلة التالية لتحليل شخصيتك بدقة</p>
               </div>
 
+              {console.log("Current showSurvey state:", showSurvey)}
               {!showSurvey ? (
                 <div className="text-center space-y-4">
                   <p className={`text-sm ${
@@ -1735,6 +1736,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     onClick={() => {
                       alert("Button clicked!")
                       console.log("🔘 ابدأ الاستبيان button clicked")
+                      console.log("showSurvey will be set to true")
                       setShowSurvey(true)
                     }}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 shadow-sm hover:bg-primary/90 h-9 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"

@@ -12,11 +12,18 @@ export default async (req, res) => {
   }
 
   try {
-    const { assigned_number, q1, q2, q3, q4, summary } = req.body
+    const { assigned_number, q1, q2, q3, q4, summary, survey_data } = req.body
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
     if (!req.body?.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
-    if (!req.body?.q1 || !req.body?.q2 || !req.body?.q3 || !req.body?.q4) return res.status(400).json({ error: 'Missing form responses' })
+    
+    // Check for either old form data or new survey data
+    const hasOldForm = q1 && q2 && q3 && q4
+    const hasNewSurvey = survey_data
+    
+    if (!hasOldForm && !hasNewSurvey) {
+      return res.status(400).json({ error: 'Missing form responses or survey data' })
+    }
 
     const { data: existing, error: existingError } = await supabase
       .from("participants")
@@ -28,15 +35,20 @@ export default async (req, res) => {
 
     const updateFields = {}
 
-    // Allow saving q1–q4 only if all exist
-    if (q1 && q2 && q3 && q4) {
+    // Handle old form data
+    if (hasOldForm) {
       updateFields.q1 = q1
       updateFields.q2 = q2
       updateFields.q3 = q3
       updateFields.q4 = q4
     }
 
-    // Allow saving summary alone or with full form
+    // Handle new survey data
+    if (hasNewSurvey) {
+      updateFields.survey_data = survey_data
+    }
+
+    // Allow saving summary alone or with form data
     if (summary) {
       updateFields.summary = summary
     }

@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
+import SurveyComponent from "../components/SurveyComponent"
 
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
   const stepLabels = ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
@@ -116,7 +117,7 @@ export default function WelcomePage() {
     overallRating: ""
   })
   const token = useSearchParams()[0].get("token")
-const [isResolving, setIsResolving] = useState(true)
+  const [isResolving, setIsResolving] = useState(true)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
@@ -140,6 +141,8 @@ const [isResolving, setIsResolving] = useState(true)
   const [conversationStarters, setConversationStarters] = useState<string[]>([])
   const [showConversationStarters, setShowConversationStarters] = useState(false)
   const [generatingStarters, setGeneratingStarters] = useState(false)
+  const [surveyData, setSurveyData] = useState<any>(null)
+  const [showSurvey, setShowSurvey] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -401,34 +404,31 @@ const [isResolving, setIsResolving] = useState(true)
   }
   
   const handleSubmit = async () => {
+    if (!surveyData) {
+      alert("يرجى إكمال الاستبيان أولاً")
+      return
+    }
+
     setLoading(true)
     try {
-      // 1. Save participant
+      // 1. Save participant with survey data
       const res1 = await fetch("/api/save-participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assigned_number: assignedNumber,
-          q1: freeTime,
-          q2: friendDesc,
-          q3: preference,
-          q4: uniqueTrait,
+          survey_data: surveyData,
         }),
       })
       const data1 = await res1.json()
       if (!res1.ok) throw new Error(data1.error)
   
-      // 2. Generate summary
+      // 2. Generate summary based on survey data
       const res2 = await fetch("/api/generate-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          responses: {
-            q1: freeTime,
-            q2: friendDesc,
-            q3: preference,
-            q4: uniqueTrait,
-          },
+          responses: surveyData,
         }),
       })
       const data2 = await res2.json()
@@ -451,6 +451,12 @@ const [isResolving, setIsResolving] = useState(true)
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSurveySubmit = (data: any) => {
+    setSurveyData(data)
+    setShowSurvey(false)
+    handleSubmit()
   }
       
   type MatchResultEntry = {
@@ -1384,7 +1390,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
         {/* خطوة 2 */}
         {step === 2 && (
-          <section className="space-y-6 text-right animate-in slide-in-from-bottom-4 duration-700">
+          <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
               dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
             }`}>
@@ -1417,7 +1423,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <div className={`absolute bottom-2 right-2 w-2 h-2 border-r-2 border-b-2 rounded-br ${
                       dark ? "border-cyan-400/60" : "border-blue-500/60"
                     }`}></div>
-            </div>
+                  </div>
 
                   {/* Floating particles around the icon */}
                   <div className="absolute -top-2 -left-2 w-2 h-2 bg-cyan-400/60 rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
@@ -1426,86 +1432,36 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 </div>
                 <h2 className={`text-xl font-bold text-center ${
                   dark ? "text-slate-200" : "text-gray-800"
-                }`}>تحليل الشخصية الذكي</h2>
+                }`}>استبيان التوافق الشامل</h2>
+                <p className={`text-sm text-center ${
+                  dark ? "text-slate-300" : "text-gray-600"
+                }`}>أجب على الأسئلة التالية لتحليل شخصيتك بدقة</p>
               </div>
 
-              <form className="space-y-6 max-w-md mx-auto">
-                <div className="space-y-3">
-                  <label className={`block text-sm font-medium ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>وش تسوي بوقتك الفاضي؟</label>
-                <input
-                  type="text"
-                  value={freeTime}
-                  onChange={(e) => setFreeTime(e.target.value)}
-                    className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
-                      dark 
-                        ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
-                    }`}
-                    placeholder="اكتب إجابتك هنا..."
-                />
-              </div>
-
-                <div className="space-y-3">
-                  <label className={`block text-sm font-medium ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>كيف يوصفونك أصحابك؟</label>
-                <input
-                  type="text"
-                  value={friendDesc}
-                  onChange={(e) => setFriendDesc(e.target.value)}
-                    className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
-                      dark 
-                        ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
-                    }`}
-                    placeholder="اكتب إجابتك هنا..."
-                />
-              </div>
-
-                <div className="space-y-3">
-                  <label className={`block text-sm font-medium ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>تميل أكثر لـ:</label>
-                <select
-                  value={preference}
-                  onChange={(e) => setPreference(e.target.value)}
-                    className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
-                      dark 
-                        ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
-                    }`}
+              {!showSurvey ? (
+                <div className="text-center space-y-4">
+                  <p className={`text-sm ${
+                    dark ? "text-slate-300" : "text-gray-600"
+                  }`}>
+                    سيتم جمع بياناتك وفقاً لمعايير حماية البيانات السعودية
+                  </p>
+                  <Button
+                    onClick={() => setShowSurvey(true)}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                   >
-                    <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر وحدة</option>
-                    <option value="alone" className={dark ? "bg-slate-800" : "bg-white"}>جلسة هادئة بين شخصين</option>
-                    <option value="group" className={dark ? "bg-slate-800" : "bg-white"}>نشاط ممتع مع مجموعة</option>
-                </select>
-              </div>
-
-                <div className="space-y-3">
-                  <label className={`block text-sm font-medium ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>وش يميزك عن غيرك؟</label>
-                <input
-                  type="text"
-                  value={uniqueTrait}
-                  onChange={(e) => setUniqueTrait(e.target.value)}
-                    className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${
-                      dark 
-                        ? "border-slate-400/30 bg-white/10 text-white placeholder-slate-300/50 focus:ring-slate-400/30 focus:border-slate-400"
-                        : "border-blue-400/30 bg-white/90 text-gray-800 placeholder-gray-500/50 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"
-                    }`}
-                    placeholder="اكتب إجابتك هنا..."
-                />
-              </div>
-            </form>
+                    ابدأ الاستبيان
+                  </Button>
+                </div>
+              ) : (
+                <SurveyComponent onSubmit={handleSurveySubmit} />
+              )}
             </div>
 
-            <div className="flex justify-center gap-3">
-              <FancyPreviousButton onClick={previous} label="رجوع" />
-              <FancyNextButton onClick={handleSubmit} label={loading ? "جاري التحليل..." : "ارسال وبدء"} />
-            </div>
+            {!showSurvey && (
+              <div className="flex justify-center gap-3">
+                <FancyPreviousButton onClick={previous} label="رجوع" />
+              </div>
+            )}
           </section>
         )}
 

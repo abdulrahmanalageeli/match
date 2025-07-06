@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import { X } from "lucide-react"
 
@@ -20,14 +20,40 @@ import {
   UserCheck,
   MessageSquare,
   Activity,
+  CheckCircle,
+  LockKeyhole,
+  Search,
+  CheckSquare,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Timeline, TimelineItem } from "../../components/ui/timeline"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
+import { Badge } from "../../components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
+import { Progress } from "../../components/ui/progress"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
+import { Checkbox } from "../../components/ui/checkbox"
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
+import { Label } from "../../components/ui/label"
+import { Textarea } from "../../components/ui/textarea"
+import { Input } from "../../components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
+import { Slider } from "../../components/ui/slider"
+import { Switch } from "../../components/ui/switch"
+import { Avatar as AvatarComponent } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
 import SurveyComponent from "../components/SurveyComponent"
+
+interface SurveyData {
+  answers: Record<string, string | string[]>
+  termsAccepted: boolean
+  dataConsent: boolean
+}
 
 // Import survey questions for validation
 const surveyQuestions = [
@@ -419,7 +445,11 @@ export default function WelcomePage() {
   const [conversationStarters, setConversationStarters] = useState<string[]>([])
   const [showConversationStarters, setShowConversationStarters] = useState(false)
   const [generatingStarters, setGeneratingStarters] = useState(false)
-  const [surveyData, setSurveyData] = useState<any>(null)
+  const [surveyData, setSurveyData] = useState<SurveyData>({
+    answers: {},
+    termsAccepted: false,
+    dataConsent: false
+  })
   const [showSurvey, setShowSurvey] = useState(false)
 
   const prompts = [
@@ -1743,7 +1773,11 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               ) : (
                 <>
                   {console.log("🎯 SurveyComponent is being rendered")}
-                  <SurveyComponent onSubmit={handleSurveySubmit} />
+                  <SurveyComponent 
+                    onSubmit={handleSurveySubmit} 
+                    surveyData={surveyData}
+                    setSurveyData={setSurveyData}
+                  />
                 </>
               )}
             </div>

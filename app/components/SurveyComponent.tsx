@@ -1,4 +1,4 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "../../components/ui/button"
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
@@ -294,58 +294,66 @@ const surveyQuestions = [
 
 const questionsPerPage = 5
 
-export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyData) => void }) {
+export default function SurveyComponent({ 
+  onSubmit, 
+  surveyData, 
+  setSurveyData 
+}: { 
+  onSubmit: (data: SurveyData) => void
+  surveyData: SurveyData
+  setSurveyData: (data: SurveyData) => void
+}) {
   console.log("🚀 SurveyComponent mounted")
+  
+  useEffect(() => {
+    return () => {
+      console.log("🚨 SurveyComponent unmounted!")
+    };
+  }, []);
+  
   const [currentPage, setCurrentPage] = useState(0)
-  const [surveyData, setSurveyData] = useState<SurveyData>({
-    answers: {},
-    termsAccepted: false,
-    dataConsent: false
-  })
 
   const totalPages = Math.ceil(surveyQuestions.length / questionsPerPage) + 1 // +1 for terms page
   const progress = ((currentPage + 1) / totalPages) * 100
 
   const handleInputChange = (questionId: string, value: string | string[]) => {
     console.log(`📝 Input change for ${questionId}:`, value)
-    setSurveyData(prev => {
-      const newData = {
-        ...prev,
-        answers: {
-          ...prev.answers,
-          [questionId]: value
-        }
+    const newData = {
+      ...surveyData,
+      answers: {
+        ...surveyData.answers,
+        [questionId]: value
       }
-      console.log(`📊 Updated surveyData:`, newData)
-      return newData
-    })
+    }
+    console.log(`📊 Updated surveyData:`, newData)
+    setSurveyData(newData)
   }
 
   const handleCheckboxChange = (questionId: string, value: string, checked: boolean) => {
-    setSurveyData(prev => {
-      const currentValues = (prev.answers[questionId] as string[]) || []
-      if (checked) {
-        const question = surveyQuestions.find(q => q.id === questionId)
-        if (question?.maxSelections && currentValues.length >= question.maxSelections) {
-          return prev // Don't add if max reached
-        }
-        return {
-          ...prev,
-          answers: {
-            ...prev.answers,
-            [questionId]: [...currentValues, value]
-          }
-        }
-      } else {
-        return {
-          ...prev,
-          answers: {
-            ...prev.answers,
-            [questionId]: currentValues.filter(v => v !== value)
-          }
+    const currentValues = (surveyData.answers[questionId] as string[]) || []
+    if (checked) {
+      const question = surveyQuestions.find(q => q.id === questionId)
+      if (question?.maxSelections && currentValues.length >= question.maxSelections) {
+        return // Don't add if max reached
+      }
+      const newData = {
+        ...surveyData,
+        answers: {
+          ...surveyData.answers,
+          [questionId]: [...currentValues, value]
         }
       }
-    })
+      setSurveyData(newData)
+    } else {
+      const newData = {
+        ...surveyData,
+        answers: {
+          ...surveyData.answers,
+          [questionId]: currentValues.filter(v => v !== value)
+        }
+      }
+      setSurveyData(newData)
+    }
   }
 
   const isPageValid = (page: number) => {
@@ -565,7 +573,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
               id="terms"
               checked={surveyData.termsAccepted}
               onCheckedChange={(checked) => 
-                setSurveyData(prev => ({ ...prev, termsAccepted: checked as boolean }))
+                setSurveyData({ ...surveyData, termsAccepted: checked as boolean })
               }
               className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
             />
@@ -581,7 +589,7 @@ export default function SurveyComponent({ onSubmit }: { onSubmit: (data: SurveyD
               id="dataConsent"
               checked={surveyData.dataConsent}
               onCheckedChange={(checked) => 
-                setSurveyData(prev => ({ ...prev, dataConsent: checked as boolean }))
+                setSurveyData({ ...surveyData, dataConsent: checked as boolean })
               }
               className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
             />

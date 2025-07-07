@@ -1142,11 +1142,16 @@ export default function WelcomePage() {
   useEffect(() => {
     if (!assignedNumber) return;
 
-    // On conversation start, store start time and duration
     if (conversationStarted) {
-      const now = Date.now();
-      localStorage.setItem(`conversationStartTimestamp_${assignedNumber}`, String(now));
-      localStorage.setItem(`conversationDuration_${assignedNumber}`, String(conversationTimer));
+      const startKey = `conversationStartTimestamp_${assignedNumber}`;
+      const durationKey = `conversationDuration_${assignedNumber}`;
+      const alreadyStarted = localStorage.getItem(startKey);
+      const alreadyDuration = localStorage.getItem(durationKey);
+      if (!alreadyStarted || !alreadyDuration) {
+        const now = Date.now();
+        localStorage.setItem(startKey, String(now));
+        localStorage.setItem(durationKey, String(conversationTimer));
+      }
     } else {
       // If conversation is not started, clear any previous timer data
       localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);

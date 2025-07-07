@@ -1027,9 +1027,9 @@ export default function WelcomePage() {
   // Conversation timer effect
   useEffect(() => {
     if (!conversationStarted || conversationTimer <= 0 || emergencyPaused) return
-  
+
     const interval = setInterval(() => {
-      setConversationTimer((prev) => {
+      setConversationTimer(prev => {
         if (prev <= 1) {
           clearInterval(interval)
           setModalStep("feedback")
@@ -1038,9 +1038,10 @@ export default function WelcomePage() {
         return prev - 1
       })
     }, 1000)
-  
+
     return () => clearInterval(interval)
-  }, [conversationStarted, conversationTimer, emergencyPaused])
+    // Only depend on conversationStarted and emergencyPaused
+  }, [conversationStarted, emergencyPaused])
 
   // Announcement progress effect
   useEffect(() => {

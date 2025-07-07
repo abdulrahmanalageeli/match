@@ -859,8 +859,10 @@ export default function WelcomePage() {
   )
   
   const startConversation = () => {
-    setConversationStarted(true)
-  }
+    if (!conversationStarted) {
+      setConversationStarted(true);
+    }
+  };
 
   const skipConversation = () => {
     setConversationTimer(0)

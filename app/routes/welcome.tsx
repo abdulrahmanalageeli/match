@@ -728,29 +728,6 @@ export default function WelcomePage() {
           
           // Reset conversation and modal state on phase transitions to prevent stuck states
           if (data.phase && data.phase.startsWith("round_")) {
-            // Reset conversation state when entering a new round
-            setConversationStarted(false);
-            setConversationTimer(300);
-            setModalStep(null);
-            setIsScoreRevealed(false);
-            setShowConversationStarters(false);
-            setConversationStarters([]);
-            setGeneratingStarters(false);
-            setShowHistory(false);
-            setShowHistoryDetail(false);
-            setSelectedHistoryItem(null);
-            setAnimationStep(0);
-            setFeedbackAnswers({
-              enjoyment: "",
-              connection: "",
-              wouldMeetAgain: "",
-              overallRating: ""
-            });
-            setTypewriterCompleted(false);
-          }
-          
-          // Handle phase transitions
-          if (data.phase && data.phase.startsWith("round_")) {
             const roundNumber = parseInt(data.phase.split('_')[1]);
             if (
               (step === 3 || step === 5) &&
@@ -758,10 +735,25 @@ export default function WelcomePage() {
             ) {
               await fetchMatches(roundNumber);
               setStep(4);
+              // Only reset conversation state when round/phase actually changes
               setConversationTimer(300);
               setConversationStarted(false);
               setModalStep(null);
               setIsScoreRevealed(false);
+              setShowConversationStarters(false);
+              setConversationStarters([]);
+              setGeneratingStarters(false);
+              setShowHistory(false);
+              setShowHistoryDetail(false);
+              setSelectedHistoryItem(null);
+              setAnimationStep(0);
+              setFeedbackAnswers({
+                enjoyment: "",
+                connection: "",
+                wouldMeetAgain: "",
+                overallRating: ""
+              });
+              setTypewriterCompleted(false);
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
             }

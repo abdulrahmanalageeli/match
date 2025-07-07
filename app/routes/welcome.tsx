@@ -1123,6 +1123,85 @@ export default function WelcomePage() {
     }
   }, [token])
 
+  // Persist conversation timer in localStorage
+  useEffect(() => {
+    if (!assignedNumber) return;
+    localStorage.setItem(`timer_${assignedNumber}`, String(conversationTimer));
+  }, [conversationTimer, assignedNumber]);
+
+  // Restore conversation timer from localStorage on mount/assignedNumber change
+  useEffect(() => {
+    if (!assignedNumber) return;
+    const saved = localStorage.getItem(`timer_${assignedNumber}`);
+    if (saved !== null) {
+      setConversationTimer(Number(saved));
+    }
+  }, [assignedNumber]);
+
+  // Persistent countdown timer logic
+  useEffect(() => {
+    if (!assignedNumber) return;
+
+    // On conversation start, store start time and duration
+    if (conversationStarted) {
+      const now = Date.now();
+      localStorage.setItem(`conversationStartTimestamp_${assignedNumber}`, String(now));
+      localStorage.setItem(`conversationDuration_${assignedNumber}`, String(conversationTimer));
+    } else {
+      // If conversation is not started, clear any previous timer data
+      localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
+      localStorage.removeItem(`conversationDuration_${assignedNumber}`);
+    }
+  }, [conversationStarted, assignedNumber, conversationTimer]);
+
+  // On mount/assignedNumber change, restore timer if conversation was started
+  useEffect(() => {
+    if (!assignedNumber) return;
+    const startTimestamp = localStorage.getItem(`conversationStartTimestamp_${assignedNumber}`);
+    const duration = localStorage.getItem(`conversationDuration_${assignedNumber}`);
+    if (startTimestamp && duration) {
+      const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
+      const remaining = Math.max(Number(duration) - elapsed, 0);
+      setConversationTimer(remaining);
+      if (remaining > 0) {
+        setConversationStarted(true);
+      } else {
+        setConversationStarted(false);
+        setModalStep("feedback");
+        localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
+        localStorage.removeItem(`conversationDuration_${assignedNumber}`);
+      }
+    }
+  }, [assignedNumber]);
+
+  // Timer effect: always calculate based on start time if conversation is started
+  useEffect(() => {
+    if (!conversationStarted || emergencyPaused || !assignedNumber) return;
+
+    const interval = setInterval(() => {
+      const startTimestamp = localStorage.getItem(`conversationStartTimestamp_${assignedNumber}`);
+      const duration = localStorage.getItem(`conversationDuration_${assignedNumber}`);
+      if (startTimestamp && duration) {
+        const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
+        const remaining = Math.max(Number(duration) - elapsed, 0);
+        setConversationTimer(remaining);
+        if (remaining <= 0) {
+          setConversationStarted(false);
+          setModalStep("feedback");
+          localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
+          localStorage.removeItem(`conversationDuration_${assignedNumber}`);
+          clearInterval(interval);
+        }
+      } else {
+        setConversationStarted(false);
+        setModalStep("feedback");
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [conversationStarted, emergencyPaused, assignedNumber]);
+
   // Registration UI if no token
   if (!token) {
     return (

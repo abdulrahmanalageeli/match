@@ -1132,19 +1132,32 @@ export default function WelcomePage() {
   // Restore conversation timer from localStorage on mount/assignedNumber change
   useEffect(() => {
     if (!assignedNumber) return;
-    const saved = localStorage.getItem(`timer_${assignedNumber}`);
     const startKey = `conversationStartTimestamp_${assignedNumber}`;
     const durationKey = `conversationDuration_${assignedNumber}`;
-    const alreadyStarted = localStorage.getItem(startKey);
-    const alreadyDuration = localStorage.getItem(durationKey);
-    if (saved !== null) {
-      setConversationTimer(Number(saved));
-      // If timer exists but no timestamp/duration, set them now
-      if ((!alreadyStarted || !alreadyDuration) && Number(saved) > 0) {
-        const now = Date.now();
-        localStorage.setItem(startKey, String(now));
-        localStorage.setItem(durationKey, String(saved));
+    const timerKey = `timer_${assignedNumber}`;
+    const startTimestamp = localStorage.getItem(startKey);
+    const duration = localStorage.getItem(durationKey);
+    if (startTimestamp && duration) {
+      const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
+      const remaining = Math.max(Number(duration) - elapsed, 0);
+      setConversationTimer(remaining);
+      if (remaining > 0) {
+        setConversationStarted(true);
+      } else {
+        setConversationStarted(false);
+        setModalStep("feedback");
+        localStorage.removeItem(startKey);
+        localStorage.removeItem(durationKey);
       }
+    } else {
+      // Fallback to timer snapshot if present
+      const saved = localStorage.getItem(timerKey);
+      if (saved !== null) {
+        setConversationTimer(Number(saved));
+      } else {
+        setConversationTimer(300); // Only use default if nothing is found
+      }
+      setConversationStarted(false);
     }
   }, [assignedNumber]);
 

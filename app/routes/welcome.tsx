@@ -688,9 +688,12 @@ export default function WelcomePage() {
         
         // Reset conversation state if emergency pause is active
         if (data.emergency_paused) {
-          setConversationStarted(false);
-          setConversationTimer(300);
-          setModalStep(null);
+          // Only reset if not in active conversation to avoid interrupting users
+          if (!conversationStarted || conversationTimer <= 0) {
+            setConversationStarted(false);
+            setConversationTimer(300);
+            setModalStep(null);
+          }
         }
 
         // Handle step transitions based on phase changes
@@ -724,25 +727,28 @@ export default function WelcomePage() {
           
           // Reset conversation and modal state on phase transitions to prevent stuck states
           if (data.phase && data.phase.startsWith("round_")) {
-            // Reset conversation state when entering a new round
-            setConversationStarted(false);
-            setConversationTimer(300);
-            setModalStep(null);
-            setIsScoreRevealed(false);
-            setShowConversationStarters(false);
-            setConversationStarters([]);
-            setGeneratingStarters(false);
-            setShowHistory(false);
-            setShowHistoryDetail(false);
-            setSelectedHistoryItem(null);
-            setAnimationStep(0);
-            setFeedbackAnswers({
-              enjoyment: "",
-              connection: "",
-              wouldMeetAgain: "",
-              overallRating: ""
-            });
-            setTypewriterCompleted(false);
+            // Only reset conversation state if user is not actively in a conversation
+            // This prevents interrupting ongoing conversations
+            if (!conversationStarted || conversationTimer <= 0) {
+              setConversationStarted(false);
+              setConversationTimer(300);
+              setModalStep(null);
+              setIsScoreRevealed(false);
+              setShowConversationStarters(false);
+              setConversationStarters([]);
+              setGeneratingStarters(false);
+              setShowHistory(false);
+              setShowHistoryDetail(false);
+              setSelectedHistoryItem(null);
+              setAnimationStep(0);
+              setFeedbackAnswers({
+                enjoyment: "",
+                connection: "",
+                wouldMeetAgain: "",
+                overallRating: ""
+              });
+              setTypewriterCompleted(false);
+            }
           }
           
           // Handle phase transitions
@@ -1043,7 +1049,7 @@ export default function WelcomePage() {
       return
     }
 
-    const duration = 10000 // 10 seconds
+    const duration = 15000 // 15 seconds - increased for better readability
     const interval = 100 // Update every 100ms
     const increment = (interval / duration) * 100
 
@@ -1923,13 +1929,8 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </p>
                   <button
                     onClick={() => {
-                      alert("Button clicked!")
                       console.log("🔘 ابدأ الاستبيان button clicked")
-                      console.log("showSurvey will be set to true")
                       setShowSurvey(true)
-                      setTimeout(() => {
-                        alert("showSurvey should now be true")
-                      }, 100)
                     }}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 shadow-sm hover:bg-primary/90 h-9 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                   >

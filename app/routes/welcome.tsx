@@ -778,8 +778,16 @@ export default function WelcomePage() {
             // If user has completed the form and is in analysis, stay in analysis
             // even if phase is "form" - they already completed it
             
-            // Reset form filled prompt when entering form phase
-            setShowFormFilledPrompt(false);
+            // Handle form filled prompt logic
+            if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+              // User has completed the form, show the prompt if not already shown
+              if (!showFormFilledPrompt && step === 2) {
+                setShowFormFilledPrompt(true);
+              }
+            } else {
+              // User hasn't completed the form, hide the prompt
+              setShowFormFilledPrompt(false);
+            }
           } else if (data.phase === "waiting") {
             if (step === 2) setStep(3);
             // If user is already on step 3 (analysis/waiting) and refreshes, stay there

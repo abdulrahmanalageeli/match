@@ -572,10 +572,23 @@ export default function WelcomePage() {
                   setStep(3); // Show analysis/waiting
                 } else if (phaseData.phase === "group_phase") {
                   setStep(7); // Show group phase
+                } else if (phaseData.phase === "waiting") {
+                  // User completed form and we're in waiting phase
+                  setStep(3); // Show analysis/waiting
                 }
               } else {
                 // In form phase and already filled form, show prompt
                 setShowFormFilledPrompt(true);
+              }
+            } else {
+              // User hasn't filled form yet, check current phase
+              if (phaseData.phase === "form") {
+                setStep(2); // Show form
+              } else if (phaseData.phase === "waiting") {
+                setStep(2); // Still show form even in waiting phase if not filled
+              } else if (phaseData.phase && phaseData.phase.startsWith("round_")) {
+                // User missed the form phase, show a message or redirect
+                setStep(2); // Show form anyway
               }
             }
             // --- END NEW LOGIC ---
@@ -635,6 +648,26 @@ export default function WelcomePage() {
           setCurrentRound(data.current_round || 1);
           setTotalRounds(data.total_rounds || 4);
           
+          // Check if user has completed the form (only if we don't already have survey data)
+          if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+            try {
+              const userRes = await fetch("/api/token-handler", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "resolve", secure_token: secureToken }),
+              });
+              const userData = await userRes.json();
+              if (userData.success && userData.survey_data && userData.survey_data.answers) {
+                setSurveyData(userData.survey_data);
+                if (userData.summary) {
+                  setPersonalitySummary(userData.summary);
+                }
+              }
+            } catch (err) {
+              console.error("Failed to fetch user data during polling:", err);
+            }
+          }
+          
           // Handle phase transitions
           if (data.phase && data.phase.startsWith("round_")) {
             const roundNumber = parseInt(data.phase.split('_')[1]);
@@ -659,8 +692,25 @@ export default function WelcomePage() {
             if (step === -1) setStep(0); // Welcome landing page -> System intro
             if (step === 0) setStep(2); // System intro -> Form (skip step 1 since we have token)
             if (step === 1) setStep(2); // Form -> Analysis
+            
+            // If user is on step 3 (analysis) but we're back in form phase, go to form
+            if (step === 3) {
+              setStep(2); // Go back to form
+            }
           } else if (data.phase === "waiting") {
             if (step === 2) setStep(3);
+            // If user is already on step 3 (analysis/waiting) and refreshes, stay there
+            // This ensures users don't get stuck if they refresh during waiting phase
+            
+            // If user hasn't completed the form but we're in waiting phase, show form
+            if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
+              setStep(2); // Go back to form
+            }
+            
+            // If user has completed the form and is on step 2, move to step 3
+            if (step === 2 && surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+              setStep(3); // Move to analysis
+            }
           }
         }
       } catch (err) {

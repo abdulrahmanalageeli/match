@@ -34,19 +34,19 @@ export default async (req, res) => {
 
     // Handle survey data (only if present)
     if (survey_data) {
-      const answers = req.body.survey_data?.answers || {};
-      const redLinesRaw = answers.redLines;
-      const redLines = Array.isArray(redLinesRaw)
-        ? redLinesRaw
-        : typeof redLinesRaw === "string"
-          ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
-          : [];
-      updateFields.survey_data = {
-        ...survey_data,
-        answers: {
-          ...answers,
-          redLines,
-        },
+    const answers = req.body.survey_data?.answers || {};
+    const redLinesRaw = answers.redLines;
+    const redLines = Array.isArray(redLinesRaw)
+      ? redLinesRaw
+      : typeof redLinesRaw === "string"
+        ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
+        : [];
+    updateFields.survey_data = {
+      ...survey_data,
+      answers: {
+        ...answers,
+        redLines,
+      },
       }
     }
 

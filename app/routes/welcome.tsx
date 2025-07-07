@@ -424,6 +424,7 @@ export default function WelcomePage() {
   const [isResolving, setIsResolving] = useState(true)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
+  const [typewriterCompleted, setTypewriterCompleted] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
   const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
@@ -496,11 +497,18 @@ export default function WelcomePage() {
     if (!analysisStarted || !personalitySummary || personalitySummary === "ما تم إنشاء ملخص.") {
       setTypewriterText("")
       setIsTyping(false)
+      setTypewriterCompleted(false)
+      return
+    }
+
+    // Don't restart if already completed
+    if (typewriterCompleted && typewriterText === personalitySummary) {
       return
     }
 
     setIsTyping(true)
     setTypewriterText("")
+    setTypewriterCompleted(false)
     
     let index = 0
     const typeInterval = setInterval(() => {
@@ -510,6 +518,7 @@ export default function WelcomePage() {
       } else {
         clearInterval(typeInterval)
         setIsTyping(false)
+        setTypewriterCompleted(true)
       }
     }, 30) // Speed of typing
 
@@ -531,7 +540,10 @@ export default function WelcomePage() {
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
           if (data.summary) {
+            console.log("📖 Loaded summary from database:", data.summary)
             setPersonalitySummary(data.summary)
+          } else {
+            console.log("📖 No summary found in database")
           }
           // Check if user has filled the survey using new structure
           const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
@@ -561,6 +573,7 @@ export default function WelcomePage() {
           setAnalysisStarted(false);
           setTypewriterText("");
           setIsTyping(false);
+          setTypewriterCompleted(false);
           
           setStep(-1);
           const res2 = await fetch("/api/admin", {
@@ -690,7 +703,8 @@ export default function WelcomePage() {
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
                 setSurveyData(userData.survey_data);
-                if (userData.summary) {
+                if (userData.summary && userData.summary !== personalitySummary) {
+                  console.log("🔄 Updating summary from polling:", userData.summary)
                   setPersonalitySummary(userData.summary);
                 }
               }
@@ -719,6 +733,7 @@ export default function WelcomePage() {
               wouldMeetAgain: "",
               overallRating: ""
             });
+            setTypewriterCompleted(false);
           }
           
           // Handle phase transitions
@@ -768,11 +783,12 @@ export default function WelcomePage() {
               setStep(3); // Move to analysis
             }
             
-            // Reset analysis state when entering waiting phase to ensure typewriter works
-            if (step === 3 && personalitySummary) {
+            // Only reset analysis state if it hasn't been started yet
+            if (step === 3 && personalitySummary && !analysisStarted) {
               setAnalysisStarted(true);
               setTypewriterText("");
               setIsTyping(true);
+              setTypewriterCompleted(false);
             }
           }
         }
@@ -858,15 +874,29 @@ export default function WelcomePage() {
         }),
       })
       const data2 = await res2.json()
-      setPersonalitySummary(data2.summary || "ما قدرنا نولّد تحليل شخصيتك.")
-      await fetch("/api/save-participant", {
+      const newSummary = data2.summary || "ما قدرنا نولّد تحليل شخصيتك."
+      console.log("📝 Generated new summary:", newSummary)
+      setPersonalitySummary(newSummary)
+      // Reset typewriter state for new summary
+      setTypewriterCompleted(false)
+      setTypewriterText("")
+      setIsTyping(false)
+      
+      // Save the new summary to database
+      const saveRes = await fetch("/api/save-participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assigned_number: assignedNumber,
-          summary: data2.summary || "ما قدرنا نولّد تحليل شخصيتك.",
+          summary: newSummary,
         }),
       })
+      
+      if (!saveRes.ok) {
+        console.error("❌ Failed to save summary to database")
+      } else {
+        console.log("✅ Summary saved to database successfully")
+      }
       // Hide survey and move to waiting/analysis step after successful submission
       setShowSurvey(false)
       setAnalysisStarted(true)

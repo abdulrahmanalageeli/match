@@ -550,6 +550,28 @@ export default function WelcomePage() {
         if (data.success) {
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
+          // Restore persistent timer if present (do this last)
+const timerKey = `conversationStartTimestamp_${data.assigned_number}`;
+const durationKey = `conversationDuration_${data.assigned_number}`;
+const startTimestamp = localStorage.getItem(timerKey);
+const duration = localStorage.getItem(durationKey);
+if (startTimestamp && duration) {
+  const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
+  const remaining = Math.max(Number(duration) - elapsed, 0);
+  if (remaining > 0) {
+    setConversationTimer(remaining);
+    setConversationStarted(true);
+  } else {
+    setConversationTimer(0);
+    setConversationStarted(false);
+    setModalStep("feedback");
+    localStorage.removeItem(timerKey);
+    localStorage.removeItem(durationKey);
+  }
+} else {
+  setConversationStarted(false);
+  setConversationTimer(300);
+}
           if (data.summary) {
             console.log("📖 Loaded summary from database:", data.summary)
             setPersonalitySummary(data.summary)
@@ -1206,6 +1228,8 @@ export default function WelcomePage() {
 
     return () => clearInterval(interval);
   }, [conversationStarted, emergencyPaused, assignedNumber]);
+
+  // Restore persistent timer if present (do this last)
 
   // Registration UI if no token
   if (!token) {

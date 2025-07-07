@@ -425,7 +425,6 @@ export default function WelcomePage() {
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
-  const [lastProcessedSummary, setLastProcessedSummary] = useState("")
   const [currentRound, setCurrentRound] = useState(1)
   const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
@@ -499,33 +498,22 @@ export default function WelcomePage() {
       setTypewriterText("")
       setIsTyping(false)
       setTypewriterCompleted(false)
-      setLastProcessedSummary("")
       return
     }
 
-    // Don't restart if we've already processed this exact summary
-    if (lastProcessedSummary === personalitySummary && typewriterCompleted) {
-      console.log("🔄 Typewriter: Already processed this summary, skipping")
+    // If typewriter is already completed, don't restart
+    if (typewriterCompleted) {
       return
     }
 
-    // Don't restart if already completed for current summary
-    if (typewriterCompleted && typewriterText === personalitySummary) {
-      console.log("🔄 Typewriter: Already completed for current summary, skipping")
-      return
-    }
-
-    // Don't restart if the summary is empty or invalid
+    // If the summary is empty or invalid, don't start
     if (!personalitySummary || personalitySummary.trim() === "") {
-      console.log("🔄 Typewriter: Empty summary, skipping")
       return
     }
 
-    console.log("🔄 Typewriter: Starting new typewriter effect for summary:", personalitySummary.substring(0, 50) + "...")
+    console.log("🔄 Typewriter: Starting typewriter effect")
     setIsTyping(true)
     setTypewriterText("")
-    setTypewriterCompleted(false)
-    setLastProcessedSummary(personalitySummary)
     
     let index = 0
     const typeInterval = setInterval(() => {
@@ -537,7 +525,7 @@ export default function WelcomePage() {
         setTypewriterText(personalitySummary) // Ensure final text is set
         setIsTyping(false)
         setTypewriterCompleted(true)
-        console.log("🔄 Typewriter: Completed for summary")
+        console.log("🔄 Typewriter: Completed - STOPPING FOREVER")
       }
     }, 30) // Speed of typing
 
@@ -593,7 +581,6 @@ export default function WelcomePage() {
           setTypewriterText("");
           setIsTyping(false);
           setTypewriterCompleted(false);
-          setLastProcessedSummary("");
           
           setStep(-1);
           const res2 = await fetch("/api/admin", {
@@ -756,7 +743,6 @@ export default function WelcomePage() {
               overallRating: ""
             });
             setTypewriterCompleted(false);
-            setLastProcessedSummary("");
           }
           
           // Handle phase transitions
@@ -806,13 +792,10 @@ export default function WelcomePage() {
               setStep(3); // Move to analysis
             }
             
-            // Only reset analysis state if it hasn't been started yet
-            if (step === 3 && personalitySummary && !analysisStarted) {
+            // Don't restart analysis if typewriter is already completed
+            if (step === 3 && personalitySummary && !analysisStarted && !typewriterCompleted) {
+              console.log("🔄 Real-time polling: Starting analysis for waiting phase")
               setAnalysisStarted(true);
-              setTypewriterText("");
-              setIsTyping(true);
-              setTypewriterCompleted(false);
-              setLastProcessedSummary("");
             }
           }
         }
@@ -905,7 +888,6 @@ export default function WelcomePage() {
       setTypewriterCompleted(false)
       setTypewriterText("")
       setIsTyping(false)
-      setLastProcessedSummary("")
       
       // Save the new summary to database
       const saveRes = await fetch("/api/save-participant", {

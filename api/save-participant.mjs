@@ -17,9 +17,9 @@ export default async (req, res) => {
 
     if (!req.body?.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
     
-    // Check for survey data
-    if (!survey_data) {
-      return res.status(400).json({ error: 'Missing survey data' })
+    // Check for either survey data or summary
+    if (!survey_data && !summary) {
+      return res.status(400).json({ error: 'Missing survey data or summary' })
     }
 
     const { data: existing, error: existingError } = await supabase
@@ -32,20 +32,22 @@ export default async (req, res) => {
 
     const updateFields = {}
 
-    // Handle survey data
-    const answers = req.body.survey_data?.answers || {};
-    const redLinesRaw = answers.redLines;
-    const redLines = Array.isArray(redLinesRaw)
-      ? redLinesRaw
-      : typeof redLinesRaw === "string"
-        ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
-        : [];
-    updateFields.survey_data = {
-      ...survey_data,
-      answers: {
-        ...answers,
-        redLines,
-      },
+    // Handle survey data (only if present)
+    if (survey_data) {
+      const answers = req.body.survey_data?.answers || {};
+      const redLinesRaw = answers.redLines;
+      const redLines = Array.isArray(redLinesRaw)
+        ? redLinesRaw
+        : typeof redLinesRaw === "string"
+          ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
+          : [];
+      updateFields.survey_data = {
+        ...survey_data,
+        answers: {
+          ...answers,
+          redLines,
+        },
+      }
     }
 
     // Allow saving summary alone or with form data

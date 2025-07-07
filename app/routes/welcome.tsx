@@ -1134,6 +1134,7 @@ export default function WelcomePage() {
     if (!assignedNumber) return;
     const startKey = `conversationStartTimestamp_${assignedNumber}`;
     const durationKey = `conversationDuration_${assignedNumber}`;
+    const timerKey = `timer_${assignedNumber}`;
     const startTimestamp = localStorage.getItem(startKey);
     const duration = localStorage.getItem(durationKey);
     if (startTimestamp && duration) {
@@ -1149,7 +1150,13 @@ export default function WelcomePage() {
         localStorage.removeItem(durationKey);
       }
     } else {
-      setConversationTimer(300); // Only use default if nothing is found
+      // Fallback to timer snapshot if present
+      const saved = localStorage.getItem(timerKey);
+      if (saved !== null) {
+        setConversationTimer(Number(saved));
+      } else {
+        setConversationTimer(300); // Only use default if nothing is found
+      }
       setConversationStarted(false);
     }
   }, [assignedNumber]);

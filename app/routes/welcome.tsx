@@ -538,6 +538,30 @@ export default function WelcomePage() {
           if (hasFilledForm) {
             setSurveyData(data.survey_data);
           }
+          
+          // Reset all states to prevent stuck states on refresh
+          setConversationStarted(false);
+          setConversationTimer(300);
+          setModalStep(null);
+          setIsScoreRevealed(false);
+          setShowConversationStarters(false);
+          setConversationStarters([]);
+          setGeneratingStarters(false);
+          setShowHistory(false);
+          setShowHistoryDetail(false);
+          setSelectedHistoryItem(null);
+          setAnimationStep(0);
+          setFeedbackAnswers({
+            enjoyment: "",
+            connection: "",
+            wouldMeetAgain: "",
+            overallRating: ""
+          });
+          setShowFormFilledPrompt(false);
+          setAnalysisStarted(false);
+          setTypewriterText("");
+          setIsTyping(false);
+          
           setStep(-1);
           const res2 = await fetch("/api/admin", {
             method: "POST",
@@ -641,6 +665,13 @@ export default function WelcomePage() {
           time: data.announcement_time
         })
         setEmergencyPaused(data.emergency_paused || false)
+        
+        // Reset conversation state if emergency pause is active
+        if (data.emergency_paused) {
+          setConversationStarted(false);
+          setConversationTimer(300);
+          setModalStep(null);
+        }
 
         // Handle step transitions based on phase changes
         if (assignedNumber) {
@@ -666,6 +697,28 @@ export default function WelcomePage() {
             } catch (err) {
               console.error("Failed to fetch user data during polling:", err);
             }
+          }
+          
+          // Reset conversation and modal state on phase transitions to prevent stuck states
+          if (data.phase && data.phase.startsWith("round_")) {
+            // Reset conversation state when entering a new round
+            setConversationStarted(false);
+            setConversationTimer(300);
+            setModalStep(null);
+            setIsScoreRevealed(false);
+            setShowConversationStarters(false);
+            setConversationStarters([]);
+            setGeneratingStarters(false);
+            setShowHistory(false);
+            setShowHistoryDetail(false);
+            setSelectedHistoryItem(null);
+            setAnimationStep(0);
+            setFeedbackAnswers({
+              enjoyment: "",
+              connection: "",
+              wouldMeetAgain: "",
+              overallRating: ""
+            });
           }
           
           // Handle phase transitions
@@ -697,6 +750,9 @@ export default function WelcomePage() {
             if (step === 3) {
               setStep(2); // Go back to form
             }
+            
+            // Reset form filled prompt when entering form phase
+            setShowFormFilledPrompt(false);
           } else if (data.phase === "waiting") {
             if (step === 2) setStep(3);
             // If user is already on step 3 (analysis/waiting) and refreshes, stay there
@@ -710,6 +766,13 @@ export default function WelcomePage() {
             // If user has completed the form and is on step 2, move to step 3
             if (step === 2 && surveyData.answers && Object.keys(surveyData.answers).length > 0) {
               setStep(3); // Move to analysis
+            }
+            
+            // Reset analysis state when entering waiting phase to ensure typewriter works
+            if (step === 3 && personalitySummary) {
+              setAnalysisStarted(true);
+              setTypewriterText("");
+              setIsTyping(true);
             }
           }
         }

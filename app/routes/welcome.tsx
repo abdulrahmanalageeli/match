@@ -1133,8 +1133,18 @@ export default function WelcomePage() {
   useEffect(() => {
     if (!assignedNumber) return;
     const saved = localStorage.getItem(`timer_${assignedNumber}`);
+    const startKey = `conversationStartTimestamp_${assignedNumber}`;
+    const durationKey = `conversationDuration_${assignedNumber}`;
+    const alreadyStarted = localStorage.getItem(startKey);
+    const alreadyDuration = localStorage.getItem(durationKey);
     if (saved !== null) {
       setConversationTimer(Number(saved));
+      // If timer exists but no timestamp/duration, set them now
+      if ((!alreadyStarted || !alreadyDuration) && Number(saved) > 0) {
+        const now = Date.now();
+        localStorage.setItem(startKey, String(now));
+        localStorage.setItem(durationKey, String(saved));
+      }
     }
   }, [assignedNumber]);
 

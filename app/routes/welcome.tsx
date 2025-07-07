@@ -2405,118 +2405,29 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 }`} />
               </div>
               
-              {!conversationStarted ? (
+              {!conversationStarted || conversationTimer <= 0 ? (
+                // Show this block if conversation has NOT started or timer expired
                 <>
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
                     توأم روحك في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
-                  
-                  <div className={`text-center mb-4 p-3 rounded-xl border ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <p className={`text-lg font-semibold ${
-                      dark ? "text-slate-200" : "text-gray-700"
-                    }`}>
-                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
-                    </p>
-                  </div>
-
-                  <div className={`rounded-xl p-4 border mb-6 ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label="التالي"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                      </button>
-                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                      <button
-                        type="button"
-                        aria-label="السابق"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronRightIcon className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* AI Questions Generator */}
-                  {secureToken && (
-                    <div className="mb-6">
-                      <AIQuestionsGenerator 
-                        secureToken={secureToken}
-                        dark={dark}
-                        currentRound={currentRound}
-                      />
-                    </div>
-                  )}
-
+                  // ... existing code ...
                   <div className="flex justify-center gap-3">
                     <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
                     <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
                   </div>
                 </>
               ) : (
+                // Show this block if conversation has started and timer is running
                 <>
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
                     حوار مع رقم {matchResult} (الجولة {currentRound})
                   </h3>
-                  
-                  <div className={`text-center mb-4 p-3 rounded-xl border ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <p className={`text-lg font-semibold ${
-                      dark ? "text-slate-200" : "text-gray-700"
-                    }`}>
-                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
-                    </p>
-                  </div>
-
-                  <div className={`rounded-xl p-4 border mb-6 ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label="التالي"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                      </button>
-                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                      <button
-                        type="button"
-                        aria-label="السابق"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronRightIcon className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-
+                  // ... existing code ...
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
                     dark 
                       ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
@@ -2536,7 +2447,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       {formatTime(conversationTimer)}
                     </p>
                   </div>
-
                   <div className="flex justify-center">
                     <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
                   </div>

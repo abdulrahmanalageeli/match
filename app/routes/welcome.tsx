@@ -1164,15 +1164,18 @@ export default function WelcomePage() {
     if (startTimestamp && duration) {
       const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
       const remaining = Math.max(Number(duration) - elapsed, 0);
-      setConversationTimer(remaining);
       if (remaining > 0) {
-        setConversationStarted(true);
+        setConversationTimer(remaining);
+        setConversationStarted(true); // Ensure timer UI is shown immediately
       } else {
+        setConversationTimer(0);
         setConversationStarted(false);
         setModalStep("feedback");
         localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
         localStorage.removeItem(`conversationDuration_${assignedNumber}`);
       }
+    } else {
+      setConversationStarted(false);
     }
   }, [assignedNumber]);
 
@@ -3020,7 +3023,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 </div>
               </div>
             </div>
-
             <div className="flex justify-center mt-6">
               <Button
                 onClick={() => setShowHistoryDetail(false)}
@@ -3033,7 +3035,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
         </div>
       )}
 
-      {/* Floating previous matches card */}
     </div>
   )
 }

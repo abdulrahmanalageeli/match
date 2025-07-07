@@ -425,6 +425,7 @@ export default function WelcomePage() {
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
+  const [lastProcessedSummary, setLastProcessedSummary] = useState("")
   const [currentRound, setCurrentRound] = useState(1)
   const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
@@ -498,17 +499,33 @@ export default function WelcomePage() {
       setTypewriterText("")
       setIsTyping(false)
       setTypewriterCompleted(false)
+      setLastProcessedSummary("")
       return
     }
 
-    // Don't restart if already completed
+    // Don't restart if we've already processed this exact summary
+    if (lastProcessedSummary === personalitySummary && typewriterCompleted) {
+      console.log("🔄 Typewriter: Already processed this summary, skipping")
+      return
+    }
+
+    // Don't restart if already completed for current summary
     if (typewriterCompleted && typewriterText === personalitySummary) {
+      console.log("🔄 Typewriter: Already completed for current summary, skipping")
       return
     }
 
+    // Don't restart if the summary is empty or invalid
+    if (!personalitySummary || personalitySummary.trim() === "") {
+      console.log("🔄 Typewriter: Empty summary, skipping")
+      return
+    }
+
+    console.log("🔄 Typewriter: Starting new typewriter effect for summary:", personalitySummary.substring(0, 50) + "...")
     setIsTyping(true)
     setTypewriterText("")
     setTypewriterCompleted(false)
+    setLastProcessedSummary(personalitySummary)
     
     let index = 0
     const typeInterval = setInterval(() => {
@@ -517,8 +534,10 @@ export default function WelcomePage() {
         index++
       } else {
         clearInterval(typeInterval)
+        setTypewriterText(personalitySummary) // Ensure final text is set
         setIsTyping(false)
         setTypewriterCompleted(true)
+        console.log("🔄 Typewriter: Completed for summary")
       }
     }, 30) // Speed of typing
 
@@ -574,6 +593,7 @@ export default function WelcomePage() {
           setTypewriterText("");
           setIsTyping(false);
           setTypewriterCompleted(false);
+          setLastProcessedSummary("");
           
           setStep(-1);
           const res2 = await fetch("/api/admin", {
@@ -703,10 +723,12 @@ export default function WelcomePage() {
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
                 setSurveyData(userData.survey_data);
-                if (userData.summary && userData.summary !== personalitySummary) {
-                  console.log("🔄 Updating summary from polling:", userData.summary)
-                  setPersonalitySummary(userData.summary);
-                }
+                              if (userData.summary && userData.summary !== personalitySummary) {
+                console.log("🔄 Updating summary from polling:", userData.summary)
+                setPersonalitySummary(userData.summary);
+              } else if (userData.summary === personalitySummary) {
+                console.log("🔄 Summary unchanged, skipping update")
+              }
               }
             } catch (err) {
               console.error("Failed to fetch user data during polling:", err);
@@ -734,6 +756,7 @@ export default function WelcomePage() {
               overallRating: ""
             });
             setTypewriterCompleted(false);
+            setLastProcessedSummary("");
           }
           
           // Handle phase transitions
@@ -789,6 +812,7 @@ export default function WelcomePage() {
               setTypewriterText("");
               setIsTyping(true);
               setTypewriterCompleted(false);
+              setLastProcessedSummary("");
             }
           }
         }
@@ -881,6 +905,7 @@ export default function WelcomePage() {
       setTypewriterCompleted(false)
       setTypewriterText("")
       setIsTyping(false)
+      setLastProcessedSummary("")
       
       // Save the new summary to database
       const saveRes = await fetch("/api/save-participant", {

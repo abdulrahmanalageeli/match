@@ -770,10 +770,13 @@ export default function WelcomePage() {
             if (step === 0) setStep(2); // System intro -> Form (skip step 1 since we have token)
             if (step === 1) setStep(2); // Form -> Analysis
             
-            // If user is on step 3 (analysis) but we're back in form phase, go to form
-            if (step === 3) {
-              setStep(2); // Go back to form
+            // If user is on step 3 (analysis) but we're back in form phase, 
+            // only go back to form if they haven't completed the form yet
+            if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
+              setStep(2); // Go back to form only if form not completed
             }
+            // If user has completed the form and is in analysis, stay in analysis
+            // even if phase is "form" - they already completed it
             
             // Reset form filled prompt when entering form phase
             setShowFormFilledPrompt(false);
@@ -1928,32 +1931,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               ) : (
                 <>
                   {console.log("🎯 SurveyComponent is being rendered")}
-                  <SurveyComponent
-                    onSubmit={handleSurveySubmit}
-                    surveyData={surveyData}
-                    setSurveyData={setSurveyData}
-                    loading={loading}
-                  />
-                  
-                  {/* Show "Go to Analysis" button if user has already filled the form */}
-                  {surveyData.answers && Object.keys(surveyData.answers).length > 0 && (
-                    <div className="mt-6 text-center">
-                      <div className={`text-sm mb-3 ${
-                        dark ? "text-slate-300" : "text-gray-600"
-                      }`}>
-                        ✅ لقد أكملت الاستبيان مسبقاً
-                      </div>
-                      <button
-                        onClick={() => {
-                          setStep(3); // Go to analysis
-                          setAnalysisStarted(true);
-                        }}
-                        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 shadow-sm hover:bg-primary/90 h-9 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
-                      >
-                        الانتقال إلى التحليل
-                      </button>
-                    </div>
-                  )}
+                                  <SurveyComponent
+                  onSubmit={handleSurveySubmit}
+                  surveyData={surveyData}
+                  setSurveyData={setSurveyData}
+                  loading={loading}
+                />
                 </>
               )}
             </div>

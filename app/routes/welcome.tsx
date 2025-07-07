@@ -563,8 +563,6 @@ export default function WelcomePage() {
           }
           
           // Reset all states to prevent stuck states on refresh
-          setConversationStarted(false);
-          setConversationTimer(300);
           setModalStep(null);
           setIsScoreRevealed(false);
           setShowConversationStarters(false);

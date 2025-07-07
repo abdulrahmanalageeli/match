@@ -465,6 +465,10 @@ export default function WelcomePage() {
   ];
   const [promptIndex, setPromptIndex] = useState(0);
 
+  // Add these refs near the top of your component
+  const lastRoundRef = useRef<number | null>(null);
+  const lastPhaseRef = useRef<string | null>(null);
+
   // Typewriter effect for welcome message
   useEffect(() => {
     if (step !== -1 || !assignedNumber) {
@@ -748,66 +752,75 @@ export default function WelcomePage() {
           // Handle phase transitions
           if (data.phase && data.phase.startsWith("round_")) {
             const roundNumber = parseInt(data.phase.split('_')[1]);
-            if (step === 3 || step === 5) { // From waiting to round
+            if (
+              (step === 3 || step === 5) &&
+              (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase)
+            ) {
               await fetchMatches(roundNumber);
               setStep(4);
-              // Reset conversation state for new round
               setConversationTimer(300);
               setConversationStarted(false);
               setModalStep(null);
               setIsScoreRevealed(false);
+              lastRoundRef.current = roundNumber;
+              lastPhaseRef.current = data.phase;
             }
-          } else if (data.phase && data.phase.startsWith("waiting_")) {
-            if (step === 4) { // From round to waiting
-              setStep(5);
+          } else {
+            // If not in a round phase, reset the refs so the next round triggers the reset
+            lastRoundRef.current = null;
+            lastPhaseRef.current = null;
+          }
+          // ... rest of polling logic ...
+        } else if (data.phase && data.phase.startsWith("waiting_")) {
+          if (step === 4) { // From round to waiting
+            setStep(5);
+          }
+        } else if (data.phase === "group_phase") {
+          if (step !== 7) {
+            setStep(7);
+          }
+        } else if (data.phase === "form") {
+          if (step === -1) setStep(0); // Welcome landing page -> System intro
+          if (step === 0) setStep(2); // System intro -> Form (skip step 1 since we have token)
+          if (step === 1) setStep(2); // Form -> Analysis
+          
+          // If user is on step 3 (analysis) but we're back in form phase, 
+          // only go back to form if they haven't completed the form yet
+          if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
+            setStep(2); // Go back to form only if form not completed
+          }
+          // If user has completed the form and is in analysis, stay in analysis
+          // even if phase is "form" - they already completed it
+          
+          // Handle form filled prompt logic
+          if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+            // User has completed the form, show the prompt if not already shown
+            if (!showFormFilledPrompt && step === 2) {
+              setShowFormFilledPrompt(true);
             }
-          } else if (data.phase === "group_phase") {
-            if (step !== 7) {
-              setStep(7);
-            }
-          } else if (data.phase === "form") {
-            if (step === -1) setStep(0); // Welcome landing page -> System intro
-            if (step === 0) setStep(2); // System intro -> Form (skip step 1 since we have token)
-            if (step === 1) setStep(2); // Form -> Analysis
-            
-            // If user is on step 3 (analysis) but we're back in form phase, 
-            // only go back to form if they haven't completed the form yet
-            if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
-              setStep(2); // Go back to form only if form not completed
-            }
-            // If user has completed the form and is in analysis, stay in analysis
-            // even if phase is "form" - they already completed it
-            
-            // Handle form filled prompt logic
-            if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
-              // User has completed the form, show the prompt if not already shown
-              if (!showFormFilledPrompt && step === 2) {
-                setShowFormFilledPrompt(true);
-              }
-            } else {
-              // User hasn't completed the form, hide the prompt
-              setShowFormFilledPrompt(false);
-            }
-          } else if (data.phase === "waiting") {
-            if (step === 2) setStep(3);
-            // If user is already on step 3 (analysis/waiting) and refreshes, stay there
-            // This ensures users don't get stuck if they refresh during waiting phase
-            
-            // If user hasn't completed the form but we're in waiting phase, show form
-            if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
-              setStep(2); // Go back to form
-            }
-            
-            // If user has completed the form and is on step 2, move to step 3
-            if (step === 2 && surveyData.answers && Object.keys(surveyData.answers).length > 0) {
-              setStep(3); // Move to analysis
-            }
-            
-            // Don't restart analysis if typewriter is already completed
-            if (step === 3 && personalitySummary && !analysisStarted && !typewriterCompleted) {
-              console.log("🔄 Real-time polling: Starting analysis for waiting phase")
-              setAnalysisStarted(true);
-            }
+          } else {
+            // User hasn't completed the form, hide the prompt
+            setShowFormFilledPrompt(false);
+          }
+        } else if (data.phase === "waiting") {
+          if (step === 2) setStep(3);
+          // If user is already on step 3 (analysis/waiting) and refreshes, stay there
+          // This ensures users don't get stuck if they refresh during waiting phase
+          
+          // If user hasn't completed the form but we're in waiting phase, show form
+          if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
+            setStep(2); // Go back to form
+          }
+          
+          // If user has completed the form and is on step 2, move to step 3
+          if (step === 2 && surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+            setStep(3); // Move to analysis
+          }
+          
+          // Don't restart analysis if typewriter is already completed
+          if (step === 3 && personalitySummary && !analysisStarted && !typewriterCompleted) {
+            console.log("🔄 Real-time polling: Starting analysis for waiting phase")
+            setAnalysisStarted(true);
           }
         }
       } catch (err) {

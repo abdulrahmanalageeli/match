@@ -693,8 +693,14 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setConversationTimer(300);
           setModalStep(null);
-          // Database timer cleanup is handled automatically by the API
-          console.log("🚨 Emergency pause: timer will be handled by database");
+          // Clear localStorage timer data during emergency pause
+          if (assignedNumber) {
+            const startKey = `conversationStartTimestamp_${assignedNumber}`;
+            const durationKey = `conversationDuration_${assignedNumber}`;
+            localStorage.removeItem(startKey);
+            localStorage.removeItem(durationKey);
+            console.log("🚨 Emergency pause: localStorage timer data cleared");
+          }
         }
 
         // Handle step transitions based on phase changes
@@ -754,6 +760,14 @@ export default function WelcomePage() {
                 overallRating: ""
               });
               setTypewriterCompleted(false);
+              // Clear localStorage timer data for fresh start in new round
+              if (assignedNumber) {
+                const startKey = `conversationStartTimestamp_${assignedNumber}`;
+                const durationKey = `conversationDuration_${assignedNumber}`;
+                localStorage.removeItem(startKey);
+                localStorage.removeItem(durationKey);
+                console.log("🔄 Phase transition: localStorage timer data cleared for new round");
+              }
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
             }
@@ -874,6 +888,14 @@ export default function WelcomePage() {
     if (assignedNumber && currentRound) {
       finishDatabaseTimer(currentRound);
       console.log("⏭️ Conversation skipped, database timer finished");
+    }
+    // Clear localStorage timer data to reset for next conversation
+    if (assignedNumber) {
+      const startKey = `conversationStartTimestamp_${assignedNumber}`;
+      const durationKey = `conversationDuration_${assignedNumber}`;
+      localStorage.removeItem(startKey);
+      localStorage.removeItem(durationKey);
+      console.log("🧹 localStorage timer data cleared for next conversation");
     }
   }
   
@@ -1236,20 +1258,35 @@ export default function WelcomePage() {
           setConversationStarted(true);
           console.log(`🔄 Database timer restored: ${timerStatus.remaining_time}s remaining`);
         } else if (timerStatus.status === 'finished') {
-          // Timer has finished, show feedback
+          // Timer has finished, show feedback and clear localStorage
           setConversationTimer(0);
           setConversationStarted(false);
           setModalStep("feedback");
-          console.log("⏰ Database timer finished, showing feedback");
+          // Clear localStorage timer data to reset for next conversation
+          const startKey = `conversationStartTimestamp_${assignedNumber}`;
+          const durationKey = `conversationDuration_${assignedNumber}`;
+          localStorage.removeItem(startKey);
+          localStorage.removeItem(durationKey);
+          console.log("⏰ Database timer finished, localStorage cleared for next conversation");
         } else {
-          // No active timer, set default
+          // No active timer, set default and clear localStorage
           setConversationTimer(300);
           setConversationStarted(false);
+          const startKey = `conversationStartTimestamp_${assignedNumber}`;
+          const durationKey = `conversationDuration_${assignedNumber}`;
+          localStorage.removeItem(startKey);
+          localStorage.removeItem(durationKey);
+          console.log("🔄 No active timer, localStorage cleared for fresh start");
         }
       } else {
-        // No timer data in database, set default
+        // No timer data in database, set default and clear localStorage
         setConversationTimer(300);
         setConversationStarted(false);
+        const startKey = `conversationStartTimestamp_${assignedNumber}`;
+        const durationKey = `conversationDuration_${assignedNumber}`;
+        localStorage.removeItem(startKey);
+        localStorage.removeItem(durationKey);
+        console.log("🔄 No timer data in database, localStorage cleared for fresh start");
       }
     };
 
@@ -1280,12 +1317,24 @@ export default function WelcomePage() {
           // Timer finished, show feedback
           setConversationStarted(false);
           setModalStep("feedback");
+          // Clear localStorage timer data to reset for next conversation
+          const startKey = `conversationStartTimestamp_${assignedNumber}`;
+          const durationKey = `conversationDuration_${assignedNumber}`;
+          localStorage.removeItem(startKey);
+          localStorage.removeItem(durationKey);
+          console.log("⏰ Timer finished, localStorage cleared for next conversation");
           clearInterval(interval);
         }
       } else {
         // Missing timer data, stop timer
         setConversationStarted(false);
         setModalStep("feedback");
+        // Clear localStorage timer data to reset for next conversation
+        const startKey = `conversationStartTimestamp_${assignedNumber}`;
+        const durationKey = `conversationDuration_${assignedNumber}`;
+        localStorage.removeItem(startKey);
+        localStorage.removeItem(durationKey);
+        console.log("❌ Missing timer data, localStorage cleared for next conversation");
         clearInterval(interval);
       }
     }, 1000);

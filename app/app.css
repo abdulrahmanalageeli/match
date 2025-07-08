@@ -308,15 +308,25 @@ body {
 
 .sleek-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #22d3ee #1e293b; /* thumb color, track color */
+  scrollbar-color: rgba(34,211,238,0.4) transparent; /* thumb color, track color */
 }
 .sleek-scrollbar::-webkit-scrollbar {
   width: 8px;
+  background: transparent;
 }
 .sleek-scrollbar::-webkit-scrollbar-thumb {
-  background: #22d3ee;
+  background: rgba(34,211,238,0.4); /* cyan, translucent */
   border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  transition: background 0.2s;
+}
+.sleek-scrollbar:hover::-webkit-scrollbar-thumb {
+  background: rgba(34,211,238,0.7);
 }
 .sleek-scrollbar::-webkit-scrollbar-track {
   background: transparent;
+}
+.sleek-scrollbar::-webkit-scrollbar-button {
+  display: none;
 }

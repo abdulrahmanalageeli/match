@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react"
-import { UserRound, Info, Gauge, ChevronDown, ChevronUp, Search, Star } from "lucide-react"
+import { UserRound, Info, Gauge, ChevronDown, ChevronUp, Search, Star, RefreshCw } from "lucide-react"
 
 interface MatchResult {
   with: string
@@ -17,6 +17,8 @@ export default function MatrixPage() {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
   const [scoreFilter, setScoreFilter] = useState(0)
   const [search, setSearch] = useState("")
+  const [swapModal, setSwapModal] = useState<{open: boolean, match: MatchResult|null}>({open: false, match: null})
+  const [swapping, setSwapping] = useState(false)
 
   useEffect(() => {
     const fetchAllMatches = async () => {
@@ -68,6 +70,48 @@ export default function MatrixPage() {
   // UI helpers
   const toggleRound = (round: number) => {
     setExpandedRounds(prev => ({ ...prev, [round]: !prev[round] }))
+  }
+
+  // Swap handler
+  const handleSwap = async () => {
+    if (!swapModal.match) return
+    setSwapping(true)
+    try {
+      const res = await fetch("/api/get-my-matches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "swap-participants",
+          round: swapModal.match.round,
+          with: swapModal.match.with,
+          partner: swapModal.match.partner
+        })
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSwapModal({open: false, match: null})
+        // Refresh matrix
+        setLoading(true)
+        const res2 = await fetch("/api/get-my-matches", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "all-matches" })
+        })
+        const data2 = await res2.json()
+        const sorted = (data2.matches || []).sort(
+          (a: MatchResult, b: MatchResult) =>
+            (a.round ?? 99) - (b.round ?? 99) || b.score - a.score
+        )
+        setMatches(sorted)
+      } else {
+        alert(data.error || "فشل التبديل")
+      }
+    } catch (err) {
+      alert("حدث خطأ أثناء التبديل")
+    } finally {
+      setSwapping(false)
+      setLoading(false)
+    }
   }
 
   return (
@@ -136,6 +180,14 @@ export default function MatrixPage() {
                                 <Star className="w-4 h-4" /> الأعلى
                               </div>
                             )}
+                            {/* Swap button */}
+                            <button
+                              className="absolute top-3 right-3 bg-cyan-700/80 hover:bg-cyan-500 text-white rounded-full p-2 shadow transition"
+                              title="تبديل المشاركين"
+                              onClick={() => setSwapModal({open: true, match})}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </button>
                             {/* Layer 1: Names and type */}
                             <div className="flex items-center justify-between mb-3 text-sm text-cyan-200">
                               <div className="flex items-center gap-1">
@@ -186,6 +238,26 @@ export default function MatrixPage() {
           })
         )}
       </div>
+      {/* Swap Modal */}
+      {swapModal.open && swapModal.match && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-slate-800/90 rounded-2xl p-8 shadow-2xl border-2 border-cyan-400 max-w-md w-full">
+            <h2 className="text-xl font-bold text-cyan-200 mb-4">تبديل المشاركين</h2>
+            <p className="mb-6 text-cyan-100">هل أنت متأكد أنك تريد تبديل المشاركين <span className="font-bold">#{swapModal.match.with}</span> و <span className="font-bold">#{swapModal.match.partner}</span> في هذه المباراة؟</p>
+            <div className="flex gap-4 justify-end">
+              <button
+                className="px-6 py-2 rounded-lg bg-gray-600 text-white hover:bg-gray-700 font-bold"
+                onClick={() => setSwapModal({open: false, match: null})}
+              >إلغاء</button>
+              <button
+                className="px-6 py-2 rounded-lg bg-cyan-600 text-white hover:bg-cyan-700 font-bold"
+                onClick={handleSwap}
+                disabled={swapping}
+              >{swapping ? "...جاري التبديل" : "تأكيد التبديل"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

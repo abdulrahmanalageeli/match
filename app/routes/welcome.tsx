@@ -452,6 +452,7 @@ export default function WelcomePage() {
     dataConsent: false
   })
   const [showSurvey, setShowSurvey] = useState(false)
+  const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -884,6 +885,7 @@ export default function WelcomePage() {
     setConversationTimer(0)
     setConversationStarted(false)
     setModalStep("feedback")
+    setPartnerStartedTimer(false) // Reset partner notification
     // Finish database timer when conversation is skipped
     if (assignedNumber && currentRound) {
       finishDatabaseTimer(currentRound);
@@ -1303,6 +1305,33 @@ export default function WelcomePage() {
     }
   }, [conversationStarted, assignedNumber, currentRound, conversationTimer]);
 
+  // Real-time timer synchronization for matched participants
+  useEffect(() => {
+    if (!assignedNumber || !currentRound || conversationStarted) return;
+
+    const checkPartnerTimer = async () => {
+      const timerStatus = await getDatabaseTimerStatus(currentRound);
+      
+      if (timerStatus && timerStatus.success && timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
+        // Partner has started the timer, automatically start it for this participant
+        console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
+        setConversationTimer(timerStatus.remaining_time);
+        setConversationStarted(true);
+        setPartnerStartedTimer(true);
+        
+        // Show notification for 3 seconds
+        setTimeout(() => {
+          setPartnerStartedTimer(false);
+        }, 3000);
+      }
+    };
+
+    // Check every 2 seconds for partner timer activity
+    const interval = setInterval(checkPartnerTimer, 2000);
+
+    return () => clearInterval(interval);
+  }, [assignedNumber, currentRound, conversationStarted]);
+
   // Main timer effect - polls database for timer status
   useEffect(() => {
     if (!conversationStarted || emergencyPaused || !assignedNumber || !currentRound) return;
@@ -1314,15 +1343,16 @@ export default function WelcomePage() {
         if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
           setConversationTimer(timerStatus.remaining_time);
         } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
-          // Timer finished, show feedback
+          // Timer finished (either by this participant or partner), show feedback
           setConversationStarted(false);
           setModalStep("feedback");
+          setPartnerStartedTimer(false); // Reset partner notification
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
           localStorage.removeItem(startKey);
           localStorage.removeItem(durationKey);
-          console.log("⏰ Timer finished, localStorage cleared for next conversation");
+          console.log("⏰ Timer finished (by partner or self), localStorage cleared for next conversation");
           clearInterval(interval);
         }
       } else {
@@ -2294,6 +2324,20 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               
               {!conversationStarted ? (
                 <>
+                  {/* Partner Timer Notification */}
+                  {partnerStartedTimer && (
+                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
+                      dark 
+                        ? "bg-green-500/20 border-green-400/40 text-green-200" 
+                        : "bg-green-100/50 border-green-400/40 text-green-700"
+                    }`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="font-semibold">شريكك بدأ الحوار! جاري بدء المؤقت...</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
@@ -2628,6 +2672,20 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               
               {!conversationStarted ? (
                 <>
+                  {/* Partner Timer Notification */}
+                  {partnerStartedTimer && (
+                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
+                      dark 
+                        ? "bg-green-500/20 border-green-400/40 text-green-200" 
+                        : "bg-green-100/50 border-green-400/40 text-green-700"
+                    }`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="font-semibold">أحد أعضاء مجموعتك بدأ الحوار! جاري بدء المؤقت...</span>
+                      </div>
+                    </div>
+                  )}
+                  
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>

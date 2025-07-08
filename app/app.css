@@ -315,14 +315,14 @@ body {
   background: transparent;
 }
 .sleek-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(34,211,238,0.4); /* cyan, translucent */
+  background: rgba(34, 211, 238, 0.050); /* cyan, translucent */
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: padding-box;
   transition: background 0.2s;
 }
 .sleek-scrollbar:hover::-webkit-scrollbar-thumb {
-  background: rgba(34,211,238,0.5);
+  background: rgba(34,211,238,0.15);
 }
 .sleek-scrollbar::-webkit-scrollbar-track {
   background: transparent;
@@ -334,4 +334,23 @@ body {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+}
+
+/* Hide scrollbar arrows (buttons) everywhere, all browsers that support it */
+::-webkit-scrollbar-button,
+::-webkit-scrollbar-button:single-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  opacity: 0 !important;
+}
+
+/* For Firefox, try to minimize scrollbar buttons and style scrollbar */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34,211,238,0.15) transparent;
 }

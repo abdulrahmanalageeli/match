@@ -1372,8 +1372,12 @@ export default function WelcomePage() {
               setPartnerStartedTimer(false);
             }, 3000);
           } else if (conversationStarted && !timerEnded) {
-            // Sync timer with database
-            setConversationTimer(timerStatus.remaining_time);
+            // Sync timer with database - only if there's a significant difference
+            const timeDiff = Math.abs(conversationTimer - timerStatus.remaining_time);
+            if (timeDiff > 3) { // Only sync if difference is more than 3 seconds
+              console.log(`🔄 Syncing timer: local=${conversationTimer}, db=${timerStatus.remaining_time}`);
+              setConversationTimer(timerStatus.remaining_time);
+            }
           }
         } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
           // Timer finished in database
@@ -1395,13 +1399,20 @@ export default function WelcomePage() {
             setTimeout(() => {
               setPartnerEndedTimer(false);
             }, 3000);
+          } else if (!conversationStarted && !timerEnded) {
+            // Timer finished but we weren't in conversation - partner ended it
+            console.log(`⏰ Partner ended timer while we were inactive`);
+            setPartnerEndedTimer(true);
+            setTimeout(() => {
+              setPartnerEndedTimer(false);
+            }, 3000);
           }
         }
       }
     }, 2000); // Poll every 2 seconds
 
     return () => clearInterval(interval);
-  }, [assignedNumber, currentRound, conversationStarted, timerEnded, emergencyPaused]);
+  }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused]);
 
   // Registration UI if no token
   if (!token) {

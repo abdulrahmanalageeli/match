@@ -453,8 +453,6 @@ export default function WelcomePage() {
   })
   const [showSurvey, setShowSurvey] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
-  const [partnerAction, setPartnerAction] = useState<'started' | 'finished' | 'skipped' | null>(null)
-  const [isEndingConversation, setIsEndingConversation] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -884,12 +882,10 @@ export default function WelcomePage() {
   };
 
   const skipConversation = () => {
-    setIsEndingConversation(true); // Prevent timer synchronization interference
     setConversationTimer(0)
     setConversationStarted(false)
     setModalStep("feedback")
     setPartnerStartedTimer(false) // Reset partner notification
-    setPartnerAction(null) // Reset partner action
     // Finish database timer when conversation is skipped
     if (assignedNumber && currentRound) {
       finishDatabaseTimer(currentRound);
@@ -903,10 +899,6 @@ export default function WelcomePage() {
       localStorage.removeItem(durationKey);
       console.log("🧹 localStorage timer data cleared for next conversation");
     }
-    // Reset the flag after a short delay to allow the database update to propagate
-    setTimeout(() => {
-      setIsEndingConversation(false);
-    }, 3000);
   }
   
   const handleSubmit = async () => {
@@ -1315,56 +1307,22 @@ export default function WelcomePage() {
 
   // Real-time timer synchronization for matched participants
   useEffect(() => {
-    if (!assignedNumber || !currentRound) return;
+    if (!assignedNumber || !currentRound || conversationStarted) return;
 
     const checkPartnerTimer = async () => {
       const timerStatus = await getDatabaseTimerStatus(currentRound);
       
       if (timerStatus && timerStatus.success && timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
-        if (!conversationStarted && !isEndingConversation) {
-          // Partner has started the timer, automatically start it for this participant
-          console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
-          setConversationTimer(timerStatus.remaining_time);
-          setConversationStarted(true);
-          setPartnerStartedTimer(true);
-          setPartnerAction('started');
-          
-          // Show notification for 3 seconds
-          setTimeout(() => {
-            setPartnerStartedTimer(false);
-            setPartnerAction(null);
-          }, 3000);
-        }
-      } else if (timerStatus && timerStatus.success && timerStatus.status === 'finished') {
-        if (conversationStarted && !isEndingConversation) {
-          // Partner has finished the timer, end conversation for this participant too
-          console.log(`⏰ Partner finished timer for participant ${assignedNumber}`);
-          setConversationStarted(false);
-          setModalStep("feedback");
-          setPartnerStartedTimer(true);
-          setPartnerAction('finished');
-          
-          // Show notification for 3 seconds
-          setTimeout(() => {
-            setPartnerStartedTimer(false);
-            setPartnerAction(null);
-          }, 3000);
-        }
-      } else if (!timerStatus || !timerStatus.success) {
-        if (conversationStarted && !isEndingConversation) {
-          // Partner has skipped or ended the conversation, end for this participant too
-          console.log(`⏭️ Partner skipped/ended conversation for participant ${assignedNumber}`);
-          setConversationStarted(false);
-          setModalStep("feedback");
-          setPartnerStartedTimer(true);
-          setPartnerAction('skipped');
-          
-          // Show notification for 3 seconds
-          setTimeout(() => {
-            setPartnerStartedTimer(false);
-            setPartnerAction(null);
-          }, 3000);
-        }
+        // Partner has started the timer, automatically start it for this participant
+        console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
+        setConversationTimer(timerStatus.remaining_time);
+        setConversationStarted(true);
+        setPartnerStartedTimer(true);
+        
+        // Show notification for 3 seconds
+        setTimeout(() => {
+          setPartnerStartedTimer(false);
+        }, 3000);
       }
     };
 
@@ -1372,7 +1330,7 @@ export default function WelcomePage() {
     const interval = setInterval(checkPartnerTimer, 2000);
 
     return () => clearInterval(interval);
-  }, [assignedNumber, currentRound, conversationStarted, isEndingConversation]);
+  }, [assignedNumber, currentRound, conversationStarted]);
 
   // Main timer effect - polls database for timer status
   useEffect(() => {
@@ -1386,9 +1344,9 @@ export default function WelcomePage() {
           setConversationTimer(timerStatus.remaining_time);
         } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
           // Timer finished (either by this participant or partner), show feedback
-          setIsEndingConversation(true); // Prevent timer synchronization interference
           setConversationStarted(false);
           setModalStep("feedback");
+          setPartnerStartedTimer(false); // Reset partner notification
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
@@ -1396,14 +1354,9 @@ export default function WelcomePage() {
           localStorage.removeItem(durationKey);
           console.log("⏰ Timer finished (by partner or self), localStorage cleared for next conversation");
           clearInterval(interval);
-          // Reset the flag after a short delay
-          setTimeout(() => {
-            setIsEndingConversation(false);
-          }, 3000);
         }
       } else {
         // Missing timer data, stop timer
-        setIsEndingConversation(true); // Prevent timer synchronization interference
         setConversationStarted(false);
         setModalStep("feedback");
         // Clear localStorage timer data to reset for next conversation
@@ -1413,10 +1366,6 @@ export default function WelcomePage() {
         localStorage.removeItem(durationKey);
         console.log("❌ Missing timer data, localStorage cleared for next conversation");
         clearInterval(interval);
-        // Reset the flag after a short delay
-        setTimeout(() => {
-          setIsEndingConversation(false);
-        }, 3000);
       }
     }, 1000);
 
@@ -2378,22 +2327,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   {/* Partner Timer Notification */}
                   {partnerStartedTimer && (
                     <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
-                      partnerAction === 'started' 
-                        ? (dark ? "bg-green-500/20 border-green-400/40 text-green-200" : "bg-green-100/50 border-green-400/40 text-green-700")
-                        : partnerAction === 'finished'
-                        ? (dark ? "bg-blue-500/20 border-blue-400/40 text-blue-200" : "bg-blue-100/50 border-blue-400/40 text-blue-700")
-                        : (dark ? "bg-orange-500/20 border-orange-400/40 text-orange-200" : "bg-orange-100/50 border-orange-400/40 text-orange-700")
+                      dark 
+                        ? "bg-green-500/20 border-green-400/40 text-green-200" 
+                        : "bg-green-100/50 border-green-400/40 text-green-700"
                     }`}>
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${
-                          partnerAction === 'started' ? 'bg-green-400' : 
-                          partnerAction === 'finished' ? 'bg-blue-400' : 'bg-orange-400'
-                        }`}></div>
-                        <span className="font-semibold">
-                          {partnerAction === 'started' && "شريكك بدأ الحوار! جاري بدء المؤقت..."}
-                          {partnerAction === 'finished' && "شريكك أنهى الحوار! جاري إظهار التقييم..."}
-                          {partnerAction === 'skipped' && "شريكك تخطى الحوار! جاري إظهار التقييم..."}
-                        </span>
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="font-semibold">شريكك بدأ الحوار! جاري بدء المؤقت...</span>
                       </div>
                     </div>
                   )}
@@ -2735,22 +2675,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   {/* Partner Timer Notification */}
                   {partnerStartedTimer && (
                     <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
-                      partnerAction === 'started' 
-                        ? (dark ? "bg-green-500/20 border-green-400/40 text-green-200" : "bg-green-100/50 border-green-400/40 text-green-700")
-                        : partnerAction === 'finished'
-                        ? (dark ? "bg-blue-500/20 border-blue-400/40 text-blue-200" : "bg-blue-100/50 border-blue-400/40 text-blue-700")
-                        : (dark ? "bg-orange-500/20 border-orange-400/40 text-orange-200" : "bg-orange-100/50 border-orange-400/40 text-orange-700")
+                      dark 
+                        ? "bg-green-500/20 border-green-400/40 text-green-200" 
+                        : "bg-green-100/50 border-green-400/40 text-green-700"
                     }`}>
                       <div className="flex items-center justify-center gap-2">
-                        <div className={`w-2 h-2 rounded-full animate-pulse ${
-                          partnerAction === 'started' ? 'bg-green-400' : 
-                          partnerAction === 'finished' ? 'bg-blue-400' : 'bg-orange-400'
-                        }`}></div>
-                        <span className="font-semibold">
-                          {partnerAction === 'started' && "أحد أعضاء مجموعتك بدأ الحوار! جاري بدء المؤقت..."}
-                          {partnerAction === 'finished' && "أحد أعضاء مجموعتك أنهى الحوار! جاري إظهار التقييم..."}
-                          {partnerAction === 'skipped' && "أحد أعضاء مجموعتك تخطى الحوار! جاري إظهار التقييم..."}
-                        </span>
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="font-semibold">أحد أعضاء مجموعتك بدأ الحوار! جاري بدء المؤقت...</span>
                       </div>
                     </div>
                   )}

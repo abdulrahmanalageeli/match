@@ -335,23 +335,3 @@ body {
   width: 0 !important;
   height: 0 !important;
 }
-
-/* Hide scrollbar arrows (buttons) everywhere, all browsers that support it */
-*, *::before, *::after,
-::-webkit-scrollbar-button,
-::-webkit-scrollbar-button:single-button {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  outline: none !important;
-  opacity: 0 !important;
-}
-
-/* For Firefox, try to minimize scrollbar buttons and style scrollbar */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(34,211,238,0.15) transparent;
-}

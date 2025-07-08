@@ -1266,14 +1266,14 @@ export default function WelcomePage() {
           // Restore active timer from database
           setConversationTimer(timerStatus.remaining_time);
           setConversationStarted(true);
-          setTimerEnded(false); // Reset manual end flag when restoring timer
+          setTimerEnded(false); // Reset timer ended flag when restoring timer
           console.log(`🔄 Database timer restored: ${timerStatus.remaining_time}s remaining`);
         } else if (timerStatus.status === 'finished') {
           // Timer has finished, show feedback and clear localStorage
           setConversationTimer(0);
           setConversationStarted(false);
           setModalStep("feedback");
-          setTimerEnded(false); // Reset manual end flag
+          setTimerEnded(true); // Set timer ended flag
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
@@ -1284,7 +1284,7 @@ export default function WelcomePage() {
           // No active timer, set default and clear localStorage
           setConversationTimer(300);
           setConversationStarted(false);
-          setTimerEnded(false); // Reset manual end flag
+          setTimerEnded(false); // Reset timer ended flag
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
           localStorage.removeItem(startKey);
@@ -1315,33 +1315,9 @@ export default function WelcomePage() {
     startDatabaseTimer(currentRound, conversationTimer);
   }, [conversationStarted, assignedNumber, currentRound, conversationTimer]);
 
-  // Check for partner timer when conversation starts
-  useEffect(() => {
-    if (!assignedNumber || !currentRound || conversationStarted || timerEnded) return;
 
-    const checkPartnerTimer = async () => {
-      const timerStatus = await getDatabaseTimerStatus(currentRound);
-      
-      if (timerStatus && timerStatus.success && timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
-        // Partner has started the timer, automatically start it for this participant
-        console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
-        setConversationTimer(timerStatus.remaining_time);
-        setConversationStarted(true);
-        setPartnerStartedTimer(true);
-        setTimerEnded(false);
-        
-        // Show notification for 3 seconds
-        setTimeout(() => {
-          setPartnerStartedTimer(false);
-        }, 3000);
-      }
-    };
 
-    // Check once when this effect runs
-    checkPartnerTimer();
-  }, [assignedNumber, currentRound, conversationStarted, timerEnded]);
-
-  // Simple timer effect - just countdown locally
+  // Local countdown timer (backup)
   useEffect(() => {
     if (!conversationStarted || conversationTimer <= 0 || emergencyPaused || timerEnded) return;
 
@@ -1352,6 +1328,10 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setModalStep("feedback");
           setTimerEnded(true);
+          // Finish database timer
+          if (assignedNumber && currentRound) {
+            finishDatabaseTimer(currentRound);
+          }
           return 0;
         }
         return prev - 1;
@@ -1359,7 +1339,7 @@ export default function WelcomePage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [conversationStarted, conversationTimer, emergencyPaused, timerEnded]);
+  }, [conversationStarted, conversationTimer, emergencyPaused, timerEnded, assignedNumber, currentRound]);
 
   // Cleanup effect for component unmount or assignedNumber change
   useEffect(() => {
@@ -1368,6 +1348,60 @@ export default function WelcomePage() {
       // No need for manual cleanup here
     };
   }, [assignedNumber, conversationStarted, conversationTimer]);
+
+  // Real-time timer synchronization with database polling
+  useEffect(() => {
+    if (!assignedNumber || !currentRound || emergencyPaused) return;
+
+    const interval = setInterval(async () => {
+      const timerStatus = await getDatabaseTimerStatus(currentRound);
+      
+      if (timerStatus && timerStatus.success) {
+        if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
+          // Timer is active in database
+          if (!conversationStarted && !timerEnded) {
+            // Partner started timer, auto-start for this participant
+            console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
+            setConversationTimer(timerStatus.remaining_time);
+            setConversationStarted(true);
+            setPartnerStartedTimer(true);
+            setTimerEnded(false);
+            
+            // Show notification for 3 seconds
+            setTimeout(() => {
+              setPartnerStartedTimer(false);
+            }, 3000);
+          } else if (conversationStarted && !timerEnded) {
+            // Sync timer with database
+            setConversationTimer(timerStatus.remaining_time);
+          }
+        } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
+          // Timer finished in database
+          if (conversationStarted && !timerEnded) {
+            console.log(`⏰ Timer finished in database, ending for participant ${assignedNumber}`);
+            setConversationStarted(false);
+            setModalStep("feedback");
+            setPartnerStartedTimer(false);
+            setPartnerEndedTimer(true);
+            setTimerEnded(true);
+            
+            // Clear localStorage timer data
+            const startKey = `conversationStartTimestamp_${assignedNumber}`;
+            const durationKey = `conversationDuration_${assignedNumber}`;
+            localStorage.removeItem(startKey);
+            localStorage.removeItem(durationKey);
+            
+            // Show notification for 3 seconds
+            setTimeout(() => {
+              setPartnerEndedTimer(false);
+            }, 3000);
+          }
+        }
+      }
+    }, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [assignedNumber, currentRound, conversationStarted, timerEnded, emergencyPaused]);
 
   // Registration UI if no token
   if (!token) {

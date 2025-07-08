@@ -3129,7 +3129,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
       {/* History Detail Modal */}
       {showHistoryDetail && selectedHistoryItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+          <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} max-h-[90vh] overflow-y-auto`}>
             <div className="flex justify-between items-center mb-6">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
               <Button variant="ghost" onClick={() => setShowHistoryDetail(false)}><X /></Button>
@@ -3173,7 +3173,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </p>
                 </div>
               </div>
-
               {/* Compatibility Score Bar */}
               <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <div className="flex justify-between items-center mb-2">

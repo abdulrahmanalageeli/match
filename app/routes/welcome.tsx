@@ -693,11 +693,8 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setConversationTimer(300);
           setModalStep(null);
-          // Clean up timer data during emergency pause
-          if (assignedNumber) {
-            cleanupTimerData(assignedNumber);
-            console.log("🚨 Emergency pause: timer data cleaned up");
-          }
+          // Database timer cleanup is handled automatically by the API
+          console.log("🚨 Emergency pause: timer will be handled by database");
         }
 
         // Handle step transitions based on phase changes
@@ -864,8 +861,8 @@ export default function WelcomePage() {
   const startConversation = () => {
     if (!conversationStarted) {
       setConversationStarted(true);
-      // Timer will be automatically saved by the useEffect when conversationStarted changes
-      console.log("🚀 Conversation started, timer will be saved");
+      // Database timer will be started by the useEffect when conversationStarted changes
+      console.log("🚀 Conversation started, database timer will be started");
     }
   };
 
@@ -873,10 +870,10 @@ export default function WelcomePage() {
     setConversationTimer(0)
     setConversationStarted(false)
     setModalStep("feedback")
-    // Clean up localStorage timer data
-    if (assignedNumber) {
-      cleanupTimerData(assignedNumber);
-      console.log("⏭️ Conversation skipped, timer data cleaned up");
+    // Finish database timer when conversation is skipped
+    if (assignedNumber && currentRound) {
+      finishDatabaseTimer(currentRound);
+      console.log("⏭️ Conversation skipped, database timer finished");
     }
   }
   
@@ -1112,25 +1109,93 @@ export default function WelcomePage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  // Timer utility functions
-  const getTimerKeys = (assignedNumber: number) => ({
-    startKey: `conversationStartTimestamp_${assignedNumber}`,
-    durationKey: `conversationDuration_${assignedNumber}`
-  });
-
-  const cleanupTimerData = (assignedNumber: number) => {
-    const { startKey, durationKey } = getTimerKeys(assignedNumber);
-    localStorage.removeItem(startKey);
-    localStorage.removeItem(durationKey);
-    console.log("🧹 Timer data cleaned up");
+  // Database timer utility functions
+  const startDatabaseTimer = async (round: number, duration: number = 300) => {
+    if (!assignedNumber) return false;
+    
+    try {
+      const res = await fetch("/api/timer-handler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start",
+          assigned_number: assignedNumber,
+          round: round,
+          duration: duration,
+          match_type: phase === "group_phase" ? "group" : "individual"
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log("🚀 Database timer started:", data);
+        return true;
+      } else {
+        console.error("Failed to start database timer:", res.status);
+        return false;
+      }
+    } catch (err) {
+      console.error("Error starting database timer:", err);
+      return false;
+    }
   };
 
-  const saveTimerData = (assignedNumber: number, duration: number) => {
-    const { startKey, durationKey } = getTimerKeys(assignedNumber);
-    const now = Date.now();
-    localStorage.setItem(startKey, String(now));
-    localStorage.setItem(durationKey, String(duration));
-    console.log(`💾 Timer session saved: ${duration}s duration`);
+  const getDatabaseTimerStatus = async (round: number) => {
+    if (!assignedNumber) return null;
+    
+    try {
+      const res = await fetch("/api/timer-handler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-status",
+          assigned_number: assignedNumber,
+          round: round,
+          match_type: phase === "group_phase" ? "group" : "individual"
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log("📊 Database timer status:", data);
+        return data;
+      } else {
+        console.error("Failed to get database timer status:", res.status);
+        return null;
+      }
+    } catch (err) {
+      console.error("Error getting database timer status:", err);
+      return null;
+    }
+  };
+
+  const finishDatabaseTimer = async (round: number) => {
+    if (!assignedNumber) return false;
+    
+    try {
+      const res = await fetch("/api/timer-handler", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "finish",
+          assigned_number: assignedNumber,
+          round: round,
+          match_type: phase === "group_phase" ? "group" : "individual"
+        }),
+      });
+      
+      if (res.ok) {
+        const data = await res.json();
+        console.log("⏰ Database timer finished:", data);
+        return true;
+      } else {
+        console.error("Failed to finish database timer:", res.status);
+        return false;
+      }
+    } catch (err) {
+      console.error("Error finishing database timer:", err);
+      return false;
+    }
   };
 
 
@@ -1157,79 +1222,64 @@ export default function WelcomePage() {
     }
   }, [token])
 
-  // Timer persistence and restoration logic
+  // Database timer persistence and restoration logic
   useEffect(() => {
-    if (!assignedNumber) return;
+    if (!assignedNumber || !currentRound) return;
 
-    const { startKey, durationKey } = getTimerKeys(assignedNumber);
-    
-    // Check if there's an existing timer session
-    const startTimestamp = localStorage.getItem(startKey);
-    const duration = localStorage.getItem(durationKey);
-    
-    if (startTimestamp && duration) {
-      const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
-      const remaining = Math.max(Number(duration) - elapsed, 0);
+    const checkDatabaseTimer = async () => {
+      const timerStatus = await getDatabaseTimerStatus(currentRound);
       
-      if (remaining > 0) {
-        // Restore active timer
-        setConversationTimer(remaining);
-        setConversationStarted(true);
-        console.log(`🔄 Timer restored: ${remaining}s remaining`);
-      } else {
-        // Timer has expired, clean up and show feedback
-        setConversationTimer(0);
-        setConversationStarted(false);
-        setModalStep("feedback");
-        cleanupTimerData(assignedNumber);
-      }
-    } else {
-      // No existing timer, set default
-      setConversationTimer(300);
-      setConversationStarted(false);
-    }
-  }, [assignedNumber]);
-
-  // Save timer state when conversation starts
-  useEffect(() => {
-    if (!assignedNumber) return;
-
-    const { startKey, durationKey } = getTimerKeys(assignedNumber);
-
-    if (conversationStarted) {
-      // Check if timer is already saved to avoid overwriting
-      const existingStart = localStorage.getItem(startKey);
-      if (!existingStart) {
-        // Save new timer session
-        saveTimerData(assignedNumber, conversationTimer);
-      }
-    } else {
-      // Clear timer data when conversation is not active
-      cleanupTimerData(assignedNumber);
-    }
-  }, [conversationStarted, assignedNumber, conversationTimer]);
-
-  // Main timer effect - calculates remaining time based on start timestamp
-  useEffect(() => {
-    if (!conversationStarted || emergencyPaused || !assignedNumber) return;
-
-    const { startKey, durationKey } = getTimerKeys(assignedNumber);
-
-    const interval = setInterval(() => {
-      const startTimestamp = localStorage.getItem(startKey);
-      const duration = localStorage.getItem(durationKey);
-      
-      if (startTimestamp && duration) {
-        const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
-        const remaining = Math.max(Number(duration) - elapsed, 0);
-        
-        setConversationTimer(remaining);
-        
-        if (remaining <= 0) {
-          // Timer finished, clean up and show feedback
+      if (timerStatus && timerStatus.success) {
+        if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
+          // Restore active timer from database
+          setConversationTimer(timerStatus.remaining_time);
+          setConversationStarted(true);
+          console.log(`🔄 Database timer restored: ${timerStatus.remaining_time}s remaining`);
+        } else if (timerStatus.status === 'finished') {
+          // Timer has finished, show feedback
+          setConversationTimer(0);
           setConversationStarted(false);
           setModalStep("feedback");
-          cleanupTimerData(assignedNumber);
+          console.log("⏰ Database timer finished, showing feedback");
+        } else {
+          // No active timer, set default
+          setConversationTimer(300);
+          setConversationStarted(false);
+        }
+      } else {
+        // No timer data in database, set default
+        setConversationTimer(300);
+        setConversationStarted(false);
+      }
+    };
+
+    checkDatabaseTimer();
+  }, [assignedNumber, currentRound]);
+
+  // Database timer state management
+  useEffect(() => {
+    if (!assignedNumber || !currentRound) return;
+
+    if (conversationStarted) {
+      // Start database timer when conversation starts
+      startDatabaseTimer(currentRound, conversationTimer);
+    }
+  }, [conversationStarted, assignedNumber, currentRound, conversationTimer]);
+
+  // Main timer effect - polls database for timer status
+  useEffect(() => {
+    if (!conversationStarted || emergencyPaused || !assignedNumber || !currentRound) return;
+
+    const interval = setInterval(async () => {
+      const timerStatus = await getDatabaseTimerStatus(currentRound);
+      
+      if (timerStatus && timerStatus.success) {
+        if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
+          setConversationTimer(timerStatus.remaining_time);
+        } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
+          // Timer finished, show feedback
+          setConversationStarted(false);
+          setModalStep("feedback");
           clearInterval(interval);
         }
       } else {
@@ -1241,18 +1291,13 @@ export default function WelcomePage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [conversationStarted, emergencyPaused, assignedNumber]);
+  }, [conversationStarted, emergencyPaused, assignedNumber, currentRound]);
 
   // Cleanup effect for component unmount or assignedNumber change
   useEffect(() => {
     return () => {
-      // Clean up timer data when component unmounts or assignedNumber changes
-      if (assignedNumber) {
-        // Only clean up if timer has finished or conversation is not active
-        if (!conversationStarted || conversationTimer <= 0) {
-          cleanupTimerData(assignedNumber);
-        }
-      }
+      // Database timer cleanup is handled automatically by the API
+      // No need for manual cleanup here
     };
   }, [assignedNumber, conversationStarted, conversationTimer]);
 

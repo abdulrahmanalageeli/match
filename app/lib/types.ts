@@ -24,6 +24,9 @@ export interface MatchResult {
   round: number
   table_number?: number
   match_type?: string
+  conversation_start_time?: string
+  conversation_duration?: number
+  conversation_status?: 'pending' | 'active' | 'finished'
 }
 
 export interface GroupMatch {
@@ -34,6 +37,9 @@ export interface GroupMatch {
   reason: string
   match_id: string
   table_number?: number
+  conversation_start_time?: string
+  conversation_duration?: number
+  conversation_status?: 'pending' | 'active' | 'finished'
 }
 
 export interface EventState {

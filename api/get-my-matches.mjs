@@ -91,55 +91,6 @@ export default async function handler(req, res) {
         return res.status(200).json({ matches: [...results, ...groupResults] })
       }
 
-      // Swap participants in a match
-      if (action === "swap-participants") {
-        const { round, with: withNum, partner: partnerNum } = req.body;
-        if (!round || !withNum || !partnerNum) {
-          return res.status(400).json({ error: "Missing round, with, or partner parameter" });
-        }
-        // Find the match with both participants
-        const { data: matches, error } = await supabase
-          .from("match_results")
-          .select("*")
-          .eq("match_id", match_id)
-          .eq("round", round)
-          .or(`participant_a_number.eq.${withNum},participant_b_number.eq.${withNum},participant_c_number.eq.${withNum},participant_d_number.eq.${withNum}`)
-        if (error || !matches || matches.length === 0) {
-          return res.status(404).json({ error: "Match not found" });
-        }
-        // Find the correct match row
-        const match = matches.find(m => [m.participant_a_number, m.participant_b_number, m.participant_c_number, m.participant_d_number].includes(partnerNum));
-        if (!match) {
-          return res.status(404).json({ error: "Match with both participants not found" });
-        }
-        // Swap the two numbers in the row
-        const fields = ["participant_a_number", "participant_b_number", "participant_c_number", "participant_d_number"];
-        const updated = { ...match };
-        let idx1 = -1, idx2 = -1;
-        for (let i = 0; i < fields.length; i++) {
-          if (match[fields[i]] === withNum) idx1 = i;
-          if (match[fields[i]] === partnerNum) idx2 = i;
-        }
-        if (idx1 === -1 || idx2 === -1) {
-          return res.status(400).json({ error: "Participants not found in match" });
-        }
-        // Swap
-        updated[fields[idx1]] = partnerNum;
-        updated[fields[idx2]] = withNum;
-        // Update in DB
-        const { error: updateError } = await supabase
-          .from("match_results")
-          .update({
-            [fields[idx1]]: partnerNum,
-            [fields[idx2]]: withNum
-          })
-          .eq("id", match.id);
-        if (updateError) {
-          return res.status(500).json({ error: "Failed to update match" });
-        }
-        return res.status(200).json({ success: true });
-      }
-
       if (!assigned_number) {
         return res.status(400).json({ error: "assigned_number is required" })
       }

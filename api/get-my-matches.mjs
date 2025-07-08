@@ -11,6 +11,86 @@ export default async function handler(req, res) {
       const { assigned_number, round, match_type = "individual", action } = req.body
       const match_id = "00000000-0000-0000-0000-000000000000"
 
+      // New endpoint for matrix: return all matches
+      if (action === "all-matches") {
+        // Individual matches
+        const { data: matches, error } = await supabase
+          .from("match_results")
+          .select("*")
+          .eq("match_id", match_id)
+          .order("round", { ascending: true })
+
+        if (error) {
+          console.error("Match error (matrix):", error)
+          return res.status(500).json({ error: "Failed to fetch matches" })
+        }
+
+        // For each match, return all pairs (A-B, C-D, etc. if present)
+        const results = []
+        for (const match of matches || []) {
+          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0)
+          if (participantNumbers.length === 2) {
+            // Pair
+            results.push({
+              with: participantNumbers[0],
+              partner: participantNumbers[1],
+              type: match.match_type || "غير محدد",
+              reason: match.reason || "السبب غير متوفر",
+              score: match.compatibility_score ?? 0,
+              round: match.round ?? 1,
+              table_number: match.table_number || null,
+            })
+            results.push({
+              with: participantNumbers[1],
+              partner: participantNumbers[0],
+              type: match.match_type || "غير محدد",
+              reason: match.reason || "السبب غير متوفر",
+              score: match.compatibility_score ?? 0,
+              round: match.round ?? 1,
+              table_number: match.table_number || null,
+            })
+          } else if (participantNumbers.length > 2) {
+            // For group matches stored as individual, show all pairs
+            for (let i = 0; i < participantNumbers.length; i++) {
+              for (let j = 0; j < participantNumbers.length; j++) {
+                if (i !== j) {
+                  results.push({
+                    with: participantNumbers[i],
+                    partner: participantNumbers[j],
+                    type: match.match_type || "غير محدد",
+                    reason: match.reason || "السبب غير متوفر",
+                    score: match.compatibility_score ?? 0,
+                    round: match.round ?? 1,
+                    table_number: match.table_number || null,
+                  })
+                }
+              }
+            }
+          }
+        }
+
+        // Group matches
+        const { data: groupMatches, error: groupError } = await supabase
+          .from("group_matches")
+          .select("*")
+          .eq("match_id", match_id)
+
+        if (groupError) {
+          console.error("Group match error (matrix):", groupError)
+          return res.status(500).json({ error: "Failed to fetch group matches" })
+        }
+
+        const groupResults = (groupMatches || []).map(match => ({
+          group_id: match.group_id,
+          participants: match.participant_numbers,
+          reason: match.reason || "السبب غير متوفر",
+          score: match.compatibility_score ?? 0,
+          table_number: match.table_number || null,
+        }))
+
+        return res.status(200).json({ matches: [...results, ...groupResults] })
+      }
+
       if (!assigned_number) {
         return res.status(400).json({ error: "assigned_number is required" })
       }

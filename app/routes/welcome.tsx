@@ -863,25 +863,33 @@ export default function WelcomePage() {
   
   const startConversation = () => {
     if (!conversationStarted) {
+      console.log("🚀 Conversation started, database timer will be started");
       setConversationStarted(true);
       setTimerEnded(false); // Reset manual end flag when starting conversation
+      setPartnerStartedTimer(false); // Reset partner notifications
+      setPartnerEndedTimer(false);
       // Database timer will be started by the useEffect when conversationStarted changes
-      console.log("🚀 Conversation started, database timer will be started");
     }
   };
 
   const skipConversation = () => {
+    console.log("🛑 Timer manually ended by user")
     setConversationTimer(0)
     setConversationStarted(false)
     setModalStep("feedback")
     setPartnerStartedTimer(false) // Reset partner notification
     setPartnerEndedTimer(false) // Reset partner ended notification
     setTimerEnded(true) // Mark timer as manually ended
-    console.log("🛑 Timer manually ended by user")
+    
     // Finish database timer when conversation is skipped
     if (assignedNumber && currentRound) {
-      finishDatabaseTimer(currentRound);
-      console.log("⏭️ Conversation skipped, database timer finished");
+      finishDatabaseTimer(currentRound).then((success) => {
+        if (success) {
+          console.log("⏭️ Conversation skipped, database timer finished");
+        } else {
+          console.error("❌ Failed to finish database timer on skip");
+        }
+      });
     }
   }
   
@@ -1041,23 +1049,7 @@ export default function WelcomePage() {
     }
   }
   
-  // Conversation timer effect
-  useEffect(() => {
-    if (!conversationStarted || conversationTimer <= 0 || emergencyPaused) return
-  
-    const interval = setInterval(() => {
-      setConversationTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval)
-          setModalStep("feedback")
-          return 0
-        }
-        return prev - 1
-      })
-    }, 1000)
-  
-    return () => clearInterval(interval)
-  }, [conversationStarted, conversationTimer, emergencyPaused])
+
 
   // Announcement progress effect
   useEffect(() => {
@@ -1136,8 +1128,15 @@ export default function WelcomePage() {
       
       if (res.ok) {
         const data = await res.json();
-        console.log("🚀 Database timer started:", data);
-        return true;
+        console.log("🚀 Database timer response:", data);
+        
+        // Handle case where timer is already active
+        if (data.message === "Timer already active") {
+          console.log("🔄 Timer already active, syncing with existing timer");
+          return true;
+        }
+        
+        return data.success;
       } else {
         console.error("Failed to start database timer:", res.status);
         return false;
@@ -1165,7 +1164,6 @@ export default function WelcomePage() {
       
       if (res.ok) {
         const data = await res.json();
-        console.log("📊 Database timer status:", data);
         return data;
       } else {
         console.error("Failed to get database timer status:", res.status);
@@ -1195,7 +1193,7 @@ export default function WelcomePage() {
       if (res.ok) {
         const data = await res.json();
         console.log("⏰ Database timer finished:", data);
-        return true;
+        return data.success;
       } else {
         console.error("Failed to finish database timer:", res.status);
         return false;
@@ -1230,96 +1228,24 @@ export default function WelcomePage() {
     }
   }, [token])
 
-  // Database timer persistence and restoration logic
-  useEffect(() => {
-    if (!assignedNumber || !currentRound) return;
-
-    const checkDatabaseTimer = async () => {
-      const timerStatus = await getDatabaseTimerStatus(currentRound);
-      
-      if (timerStatus && timerStatus.success) {
-        if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
-          // Restore active timer from database
-          setConversationTimer(timerStatus.remaining_time);
-          setConversationStarted(true);
-          setTimerEnded(false); // Reset timer ended flag when restoring timer
-          console.log(`🔄 Database timer restored: ${timerStatus.remaining_time}s remaining`);
-        } else if (timerStatus.status === 'finished') {
-          // Timer has finished, show feedback
-          setConversationTimer(0);
-          setConversationStarted(false);
-          setModalStep("feedback");
-          setTimerEnded(true); // Set timer ended flag
-          console.log("⏰ Database timer finished");
-        } else {
-          // No active timer, set default
-          setConversationTimer(300);
-          setConversationStarted(false);
-          setTimerEnded(false); // Reset timer ended flag
-          console.log("🔄 No active timer, using default");
-        }
-      } else {
-        // No timer data in database, set default
-        setConversationTimer(300);
-        setConversationStarted(false);
-        setTimerEnded(false); // Reset timer ended flag
-        console.log("🔄 No timer data in database, using default");
-      }
-    };
-
-    checkDatabaseTimer();
-  }, [assignedNumber, currentRound]);
-
-  // Start database timer when conversation starts
-  useEffect(() => {
-    if (!assignedNumber || !currentRound || !conversationStarted) return;
-    
-    // Start database timer when conversation starts
-    startDatabaseTimer(currentRound, conversationTimer);
-  }, [conversationStarted, assignedNumber, currentRound, conversationTimer]);
-
-
-
-  // Local countdown timer (backup)
-  useEffect(() => {
-    if (!conversationStarted || conversationTimer <= 0 || emergencyPaused || timerEnded) return;
-
-    const interval = setInterval(() => {
-      setConversationTimer((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          setConversationStarted(false);
-          setModalStep("feedback");
-          setTimerEnded(true);
-          // Finish database timer
-          if (assignedNumber && currentRound) {
-            finishDatabaseTimer(currentRound);
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [conversationStarted, conversationTimer, emergencyPaused, timerEnded, assignedNumber, currentRound]);
-
-  // Cleanup effect for component unmount or assignedNumber change
-  useEffect(() => {
-    return () => {
-      // Database timer cleanup is handled automatically by the API
-      // No need for manual cleanup here
-    };
-  }, [assignedNumber, conversationStarted, conversationTimer]);
-
-  // Real-time timer synchronization with database polling
+  // Unified timer management system
   useEffect(() => {
     if (!assignedNumber || !currentRound || emergencyPaused) return;
 
-    const interval = setInterval(async () => {
-      const timerStatus = await getDatabaseTimerStatus(currentRound);
-      
-      if (timerStatus && timerStatus.success) {
+    let syncInterval: NodeJS.Timeout;
+    let localInterval: NodeJS.Timeout;
+
+    const syncWithDatabase = async () => {
+      try {
+        const timerStatus = await getDatabaseTimerStatus(currentRound);
+        
+        if (!timerStatus || !timerStatus.success) {
+          console.log("🔄 No timer status from database, using defaults");
+          return;
+        }
+
+        console.log(`🔄 Database timer status: ${timerStatus.status}, remaining: ${timerStatus.remaining_time}s`);
+
         if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
           // Timer is active in database
           if (!conversationStarted && !timerEnded) {
@@ -1364,12 +1290,82 @@ export default function WelcomePage() {
               setPartnerEndedTimer(false);
             }, 3000);
           }
+        } else if (timerStatus.status === 'not_started') {
+          // No timer active, reset to default state
+          if (conversationStarted || timerEnded) {
+            console.log("🔄 No timer active in database, resetting to default");
+            setConversationTimer(300);
+            setConversationStarted(false);
+            setTimerEnded(false);
+            setPartnerStartedTimer(false);
+            setPartnerEndedTimer(false);
+          }
         }
+      } catch (error) {
+        console.error("Error syncing with database:", error);
       }
-    }, 2000); // Poll every 2 seconds
+    };
 
-    return () => clearInterval(interval);
+    // Initial sync
+    syncWithDatabase();
+
+    // Set up polling interval
+    syncInterval = setInterval(syncWithDatabase, 2000);
+
+    // Set up local countdown (only when conversation is active)
+    if (conversationStarted && !timerEnded && conversationTimer > 0) {
+      localInterval = setInterval(() => {
+        setConversationTimer((prev) => {
+          if (prev <= 1) {
+            // Local timer finished, finish in database
+            console.log("⏰ Local timer finished, finishing in database");
+            setConversationStarted(false);
+            setModalStep("feedback");
+            setTimerEnded(true);
+            finishDatabaseTimer(currentRound);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      if (syncInterval) clearInterval(syncInterval);
+      if (localInterval) clearInterval(localInterval);
+    };
   }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused]);
+
+  // Start database timer when conversation starts
+  useEffect(() => {
+    if (!assignedNumber || !currentRound || !conversationStarted) return;
+    
+    const startTimer = async () => {
+      try {
+        const result = await startDatabaseTimer(currentRound, 300); // Always use 300 seconds
+        if (result) {
+          console.log("🚀 Database timer started successfully");
+        } else {
+          console.error("❌ Failed to start database timer");
+        }
+      } catch (error) {
+        console.error("Error starting database timer:", error);
+      }
+    };
+
+    startTimer();
+  }, [conversationStarted, assignedNumber, currentRound]);
+
+  // Reset timer state when round changes
+  useEffect(() => {
+    if (assignedNumber && currentRound) {
+      setConversationTimer(300);
+      setConversationStarted(false);
+      setTimerEnded(false);
+      setPartnerStartedTimer(false);
+      setPartnerEndedTimer(false);
+    }
+  }, [currentRound, assignedNumber]);
 
   // Registration UI if no token
   if (!token) {

@@ -115,7 +115,33 @@ async function handleTimerAction(req, res, supabase, match_id) {
       const duration = req.body.duration || 300 // Default 5 minutes
 
       if (match_type === "group") {
-        // Update group match timer
+        // Update group match timer - only if not already active
+        const { data: existingGroup, error: checkError } = await supabase
+          .from("group_matches")
+          .select("conversation_status, conversation_start_time")
+          .eq("match_id", match_id)
+          .contains("participant_numbers", [assigned_number])
+          .single()
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found"
+          console.error("Error checking group timer status:", checkError)
+          return res.status(500).json({ error: "Failed to check group timer status" })
+        }
+
+        // Only start if not already active or if timer has finished
+        if (existingGroup && existingGroup.conversation_status === 'active' && existingGroup.conversation_start_time) {
+          // Timer already active, return current status
+          const remaining = calculateRemainingTime(existingGroup.conversation_start_time, duration)
+          return res.status(200).json({ 
+            success: true, 
+            start_time: existingGroup.conversation_start_time,
+            duration: duration,
+            remaining_time: remaining,
+            status: 'active',
+            message: "Timer already active"
+          })
+        }
+
         const { error } = await supabase
           .from("group_matches")
           .update({
@@ -131,7 +157,34 @@ async function handleTimerAction(req, res, supabase, match_id) {
           return res.status(500).json({ error: "Failed to start group timer" })
         }
       } else {
-        // Update individual match timer
+        // Update individual match timer - only if not already active
+        const { data: existingMatch, error: checkError } = await supabase
+          .from("match_results")
+          .select("conversation_status, conversation_start_time, conversation_duration")
+          .eq("match_id", match_id)
+          .eq("round", round)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
+          .single()
+
+        if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found"
+          console.error("Error checking individual timer status:", checkError)
+          return res.status(500).json({ error: "Failed to check individual timer status" })
+        }
+
+        // Only start if not already active or if timer has finished
+        if (existingMatch && existingMatch.conversation_status === 'active' && existingMatch.conversation_start_time) {
+          // Timer already active, return current status
+          const remaining = calculateRemainingTime(existingMatch.conversation_start_time, existingMatch.conversation_duration || duration)
+          return res.status(200).json({ 
+            success: true, 
+            start_time: existingMatch.conversation_start_time,
+            duration: existingMatch.conversation_duration || duration,
+            remaining_time: remaining,
+            status: 'active',
+            message: "Timer already active"
+          })
+        }
+
         const { error } = await supabase
           .from("match_results")
           .update({
@@ -153,6 +206,8 @@ async function handleTimerAction(req, res, supabase, match_id) {
         success: true, 
         start_time: now,
         duration: duration,
+        remaining_time: duration,
+        status: 'active',
         message: "Timer started successfully"
       })
 
@@ -172,20 +227,38 @@ async function handleTimerAction(req, res, supabase, match_id) {
           .single()
 
         if (error) {
+          if (error.code === 'PGRST116') { // Not found
+            return res.status(200).json({
+              success: true,
+              start_time: null,
+              duration: null,
+              status: 'not_started',
+              remaining_time: 0
+            })
+          }
           console.error("Error getting group timer status:", error)
           return res.status(500).json({ error: "Failed to get group timer status" })
         }
 
         if (!groupMatch) {
-          return res.status(404).json({ error: "Group match not found" })
+          return res.status(200).json({
+            success: true,
+            start_time: null,
+            duration: null,
+            status: 'not_started',
+            remaining_time: 0
+          })
         }
+
+        const remaining = calculateRemainingTime(groupMatch.conversation_start_time, groupMatch.conversation_duration)
+        const status = remaining > 0 && groupMatch.conversation_status === 'active' ? 'active' : 'finished'
 
         return res.status(200).json({
           success: true,
           start_time: groupMatch.conversation_start_time,
           duration: groupMatch.conversation_duration,
-          status: groupMatch.conversation_status,
-          remaining_time: calculateRemainingTime(groupMatch.conversation_start_time, groupMatch.conversation_duration)
+          status: status,
+          remaining_time: remaining
         })
 
       } else {
@@ -199,20 +272,38 @@ async function handleTimerAction(req, res, supabase, match_id) {
           .single()
 
         if (error) {
+          if (error.code === 'PGRST116') { // Not found
+            return res.status(200).json({
+              success: true,
+              start_time: null,
+              duration: null,
+              status: 'not_started',
+              remaining_time: 0
+            })
+          }
           console.error("Error getting individual timer status:", error)
           return res.status(500).json({ error: "Failed to get individual timer status" })
         }
 
         if (!match) {
-          return res.status(404).json({ error: "Match not found" })
+          return res.status(200).json({
+            success: true,
+            start_time: null,
+            duration: null,
+            status: 'not_started',
+            remaining_time: 0
+          })
         }
+
+        const remaining = calculateRemainingTime(match.conversation_start_time, match.conversation_duration)
+        const status = remaining > 0 && match.conversation_status === 'active' ? 'active' : 'finished'
 
         return res.status(200).json({
           success: true,
           start_time: match.conversation_start_time,
           duration: match.conversation_duration,
-          status: match.conversation_status,
-          remaining_time: calculateRemainingTime(match.conversation_start_time, match.conversation_duration)
+          status: status,
+          remaining_time: remaining
         })
       }
 

@@ -891,6 +891,7 @@ export default function WelcomePage() {
     setConversationStarted(false)
     setModalStep("feedback")
     setPartnerStartedTimer(false) // Reset partner notification
+    setPartnerEndedTimer(false) // Reset partner ended notification
     setTimerManuallyEnded(true) // Mark timer as manually ended
     console.log("🛑 Timer manually ended by user")
     // Finish database timer when conversation is skipped
@@ -1347,12 +1348,18 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setModalStep("feedback");
           setPartnerStartedTimer(false);
+          setPartnerEndedTimer(true);
           setTimerManuallyEnded(true); // Mark as manually ended to prevent re-starting
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
           localStorage.removeItem(startKey);
           localStorage.removeItem(durationKey);
+          
+          // Show notification for 3 seconds
+          setTimeout(() => {
+            setPartnerEndedTimer(false);
+          }, 3000);
         }
       }
     };
@@ -1383,6 +1390,7 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setModalStep("feedback");
           setPartnerStartedTimer(false); // Reset partner notification
+          setPartnerEndedTimer(false); // Reset partner ended notification
           setTimerManuallyEnded(false); // Reset manual end flag
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
@@ -2362,7 +2370,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               
               {!conversationStarted ? (
                 <>
-                  {/* Partner Timer Notification */}
+                  {/* Partner Timer Notifications */}
                   {partnerStartedTimer && (
                     <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
                       dark 
@@ -2372,6 +2380,19 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                         <span className="font-semibold">شريكك بدأ الحوار! جاري بدء المؤقت...</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {partnerEndedTimer && (
+                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
+                      dark 
+                        ? "bg-orange-500/20 border-orange-400/40 text-orange-200" 
+                        : "bg-orange-100/50 border-orange-400/40 text-orange-700"
+                    }`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                        <span className="font-semibold">شريكك أنهى الحوار! جاري الانتقال للتقييم...</span>
                       </div>
                     </div>
                   )}
@@ -2710,7 +2731,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               
               {!conversationStarted ? (
                 <>
-                  {/* Partner Timer Notification */}
+                  {/* Partner Timer Notifications */}
                   {partnerStartedTimer && (
                     <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
                       dark 
@@ -2720,6 +2741,19 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <div className="flex items-center justify-center gap-2">
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                         <span className="font-semibold">أحد أعضاء مجموعتك بدأ الحوار! جاري بدء المؤقت...</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {partnerEndedTimer && (
+                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
+                      dark 
+                        ? "bg-orange-500/20 border-orange-400/40 text-orange-200" 
+                        : "bg-orange-100/50 border-orange-400/40 text-orange-700"
+                    }`}>
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
+                        <span className="font-semibold">أحد أعضاء مجموعتك أنهى الحوار! جاري الانتقال للتقييم...</span>
                       </div>
                     </div>
                   )}

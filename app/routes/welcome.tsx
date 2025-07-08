@@ -456,6 +456,7 @@ export default function WelcomePage() {
   const [partnerEndedTimer, setPartnerEndedTimer] = useState(false)
   const [timerEnded, setTimerEnded] = useState(false)
   const [lastTimerStatus, setLastTimerStatus] = useState<string | null>(null)
+  const [timerWasStarted, setTimerWasStarted] = useState(false);
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -1236,6 +1237,7 @@ export default function WelcomePage() {
           setLastTimerStatus(currentStatus);
           
           if (currentStatus === 'active') {
+            setTimerWasStarted(true);
             // Timer is active in database
             if (!conversationStarted && !timerEnded) {
               // Partner started timer, auto-start for this participant
@@ -1273,11 +1275,12 @@ export default function WelcomePage() {
               }, 3000);
             } else if (!conversationStarted && !timerEnded) {
               // Timer finished but we weren't in conversation - partner ended it
-              console.log(`⏰ Partner ended timer while we were inactive`);
-              setPartnerEndedTimer(true);
-              setTimeout(() => {
-                setPartnerEndedTimer(false);
-              }, 3000);
+              if (timerWasStarted) {
+                setPartnerEndedTimer(true);
+                setTimeout(() => {
+                  setPartnerEndedTimer(false);
+                }, 3000);
+              }
             } else if (timerEnded) {
               // We already ended the timer manually, don't show notification
               console.log(`⏰ Timer finished in database, but we already ended it manually`);
@@ -1292,6 +1295,7 @@ export default function WelcomePage() {
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
             }
+            setTimerWasStarted(false);
           }
         } else {
           // Status hasn't changed, just sync timer if active

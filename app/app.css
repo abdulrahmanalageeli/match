@@ -305,3 +305,18 @@ body {
 .spring-btn:active {
   transform: scale(0.96);
 }
+
+.sleek-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #22d3ee #1e293b; /* thumb color, track color */
+}
+.sleek-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+.sleek-scrollbar::-webkit-scrollbar-thumb {
+  background: #22d3ee;
+  border-radius: 8px;
+}
+.sleek-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}

@@ -1114,7 +1114,7 @@ export default function WelcomePage() {
     if (!assignedNumber) return false;
     
     try {
-      const res = await fetch("/api/timer-handler", {
+      const res = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1144,7 +1144,7 @@ export default function WelcomePage() {
     if (!assignedNumber) return null;
     
     try {
-      const res = await fetch("/api/timer-handler", {
+      const res = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1173,7 +1173,7 @@ export default function WelcomePage() {
     if (!assignedNumber) return false;
     
     try {
-      const res = await fetch("/api/timer-handler", {
+      const res = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

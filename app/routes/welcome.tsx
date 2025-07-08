@@ -454,6 +454,7 @@ export default function WelcomePage() {
   const [showSurvey, setShowSurvey] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
   const [partnerAction, setPartnerAction] = useState<'started' | 'finished' | 'skipped' | null>(null)
+  const [isEndingConversation, setIsEndingConversation] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -883,6 +884,7 @@ export default function WelcomePage() {
   };
 
   const skipConversation = () => {
+    setIsEndingConversation(true); // Prevent timer synchronization interference
     setConversationTimer(0)
     setConversationStarted(false)
     setModalStep("feedback")
@@ -901,6 +903,10 @@ export default function WelcomePage() {
       localStorage.removeItem(durationKey);
       console.log("🧹 localStorage timer data cleared for next conversation");
     }
+    // Reset the flag after a short delay to allow the database update to propagate
+    setTimeout(() => {
+      setIsEndingConversation(false);
+    }, 3000);
   }
   
   const handleSubmit = async () => {
@@ -1309,7 +1315,7 @@ export default function WelcomePage() {
 
   // Real-time timer synchronization for matched participants
   useEffect(() => {
-    if (!assignedNumber || !currentRound) return;
+    if (!assignedNumber || !currentRound || isEndingConversation) return;
 
     const checkPartnerTimer = async () => {
       const timerStatus = await getDatabaseTimerStatus(currentRound);
@@ -1331,8 +1337,10 @@ export default function WelcomePage() {
         }
       } else if (timerStatus && timerStatus.success && timerStatus.status === 'finished') {
         if (conversationStarted) {
-          // Partner has finished the timer, show notification
+          // Partner has finished the timer, end conversation for this participant too
           console.log(`⏰ Partner finished timer for participant ${assignedNumber}`);
+          setConversationStarted(false);
+          setModalStep("feedback");
           setPartnerStartedTimer(true);
           setPartnerAction('finished');
           
@@ -1344,8 +1352,10 @@ export default function WelcomePage() {
         }
       } else if (!timerStatus || !timerStatus.success) {
         if (conversationStarted) {
-          // Partner has skipped or ended the conversation
+          // Partner has skipped or ended the conversation, end for this participant too
           console.log(`⏭️ Partner skipped/ended conversation for participant ${assignedNumber}`);
+          setConversationStarted(false);
+          setModalStep("feedback");
           setPartnerStartedTimer(true);
           setPartnerAction('skipped');
           
@@ -1362,7 +1372,7 @@ export default function WelcomePage() {
     const interval = setInterval(checkPartnerTimer, 2000);
 
     return () => clearInterval(interval);
-  }, [assignedNumber, currentRound, conversationStarted]);
+  }, [assignedNumber, currentRound, conversationStarted, isEndingConversation]);
 
   // Main timer effect - polls database for timer status
   useEffect(() => {
@@ -1376,6 +1386,7 @@ export default function WelcomePage() {
           setConversationTimer(timerStatus.remaining_time);
         } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
           // Timer finished (either by this participant or partner), show feedback
+          setIsEndingConversation(true); // Prevent timer synchronization interference
           setConversationStarted(false);
           setModalStep("feedback");
           setPartnerStartedTimer(false); // Reset partner notification
@@ -1387,9 +1398,14 @@ export default function WelcomePage() {
           localStorage.removeItem(durationKey);
           console.log("⏰ Timer finished (by partner or self), localStorage cleared for next conversation");
           clearInterval(interval);
+          // Reset the flag after a short delay
+          setTimeout(() => {
+            setIsEndingConversation(false);
+          }, 3000);
         }
       } else {
         // Missing timer data, stop timer
+        setIsEndingConversation(true); // Prevent timer synchronization interference
         setConversationStarted(false);
         setModalStep("feedback");
         // Clear localStorage timer data to reset for next conversation
@@ -1399,6 +1415,10 @@ export default function WelcomePage() {
         localStorage.removeItem(durationKey);
         console.log("❌ Missing timer data, localStorage cleared for next conversation");
         clearInterval(interval);
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          setIsEndingConversation(false);
+        }, 3000);
       }
     }, 1000);
 

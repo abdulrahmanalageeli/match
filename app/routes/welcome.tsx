@@ -996,13 +996,13 @@ export default function WelcomePage() {
         setTableNumber(currentRoundMatch.table_number)
         
         // Incrementally add to history if not already present
-        setHistoryMatches(prev => {
-          const exists = prev.some(m => m.with === currentRoundMatch.with && m.round === currentRoundMatch.round)
-          if (!exists) {
-            return [...prev, currentRoundMatch]
-          }
-          return prev
-        })
+        // setHistoryMatches(prev => {
+        //   const exists = prev.some(m => m.with === currentRoundMatch.with && m.round === currentRoundMatch.round)
+        //   if (!exists) {
+        //     return [...prev, currentRoundMatch]
+        //   }
+        //   return prev
+        // })
       }
     } catch (err) {
       console.error("Error fetching matches:", err)

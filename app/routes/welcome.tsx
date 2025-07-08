@@ -455,6 +455,7 @@ export default function WelcomePage() {
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
   const [partnerEndedTimer, setPartnerEndedTimer] = useState(false)
   const [timerEnded, setTimerEnded] = useState(false)
+  const [lastTimerStatus, setLastTimerStatus] = useState<string | null>(null)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -1246,59 +1247,76 @@ export default function WelcomePage() {
 
         console.log(`🔄 Database timer status: ${timerStatus.status}, remaining: ${timerStatus.remaining_time}s`);
 
-        if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
-          // Timer is active in database
-          if (!conversationStarted && !timerEnded) {
-            // Partner started timer, auto-start for this participant
-            console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
-            setConversationTimer(timerStatus.remaining_time);
-            setConversationStarted(true);
-            setPartnerStartedTimer(true);
-            setTimerEnded(false);
-            
-            // Show notification for 3 seconds
-            setTimeout(() => {
+        // Only show notifications when status actually changes
+        const currentStatus = timerStatus.status === 'active' && timerStatus.remaining_time > 0 ? 'active' : 
+                            timerStatus.status === 'finished' || timerStatus.remaining_time <= 0 ? 'finished' : 'not_started';
+        
+        if (currentStatus !== lastTimerStatus) {
+          setLastTimerStatus(currentStatus);
+          
+          if (currentStatus === 'active') {
+            // Timer is active in database
+            if (!conversationStarted && !timerEnded) {
+              // Partner started timer, auto-start for this participant
+              console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
+              setConversationTimer(timerStatus.remaining_time);
+              setConversationStarted(true);
+              setPartnerStartedTimer(true);
+              setTimerEnded(false);
+              
+              // Show notification for 3 seconds
+              setTimeout(() => {
+                setPartnerStartedTimer(false);
+              }, 3000);
+            } else if (conversationStarted && !timerEnded) {
+              // Sync timer with database - only if there's a significant difference
+              const timeDiff = Math.abs(conversationTimer - timerStatus.remaining_time);
+              if (timeDiff > 3) { // Only sync if difference is more than 3 seconds
+                console.log(`🔄 Syncing timer: local=${conversationTimer}, db=${timerStatus.remaining_time}`);
+                setConversationTimer(timerStatus.remaining_time);
+              }
+            }
+          } else if (currentStatus === 'finished') {
+            // Timer finished in database
+            if (conversationStarted && !timerEnded) {
+              console.log(`⏰ Timer finished in database, ending for participant ${assignedNumber}`);
+              setConversationStarted(false);
+              setModalStep("feedback");
               setPartnerStartedTimer(false);
-            }, 3000);
-          } else if (conversationStarted && !timerEnded) {
-            // Sync timer with database - only if there's a significant difference
+              setPartnerEndedTimer(true);
+              setTimerEnded(true);
+              
+              // Show notification for 3 seconds
+              setTimeout(() => {
+                setPartnerEndedTimer(false);
+              }, 3000);
+            } else if (!conversationStarted && !timerEnded) {
+              // Timer finished but we weren't in conversation - partner ended it
+              console.log(`⏰ Partner ended timer while we were inactive`);
+              setPartnerEndedTimer(true);
+              setTimeout(() => {
+                setPartnerEndedTimer(false);
+              }, 3000);
+            }
+          } else if (currentStatus === 'not_started') {
+            // No timer active, reset to default state
+            if (conversationStarted || timerEnded) {
+              console.log("🔄 No timer active in database, resetting to default");
+              setConversationTimer(300);
+              setConversationStarted(false);
+              setTimerEnded(false);
+              setPartnerStartedTimer(false);
+              setPartnerEndedTimer(false);
+            }
+          }
+        } else {
+          // Status hasn't changed, just sync timer if active
+          if (currentStatus === 'active' && conversationStarted && !timerEnded) {
             const timeDiff = Math.abs(conversationTimer - timerStatus.remaining_time);
             if (timeDiff > 3) { // Only sync if difference is more than 3 seconds
               console.log(`🔄 Syncing timer: local=${conversationTimer}, db=${timerStatus.remaining_time}`);
               setConversationTimer(timerStatus.remaining_time);
             }
-          }
-        } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
-          // Timer finished in database
-          if (conversationStarted && !timerEnded) {
-            console.log(`⏰ Timer finished in database, ending for participant ${assignedNumber}`);
-            setConversationStarted(false);
-            setModalStep("feedback");
-            setPartnerStartedTimer(false);
-            setPartnerEndedTimer(true);
-            setTimerEnded(true);
-            
-            // Show notification for 3 seconds
-            setTimeout(() => {
-              setPartnerEndedTimer(false);
-            }, 3000);
-          } else if (!conversationStarted && !timerEnded) {
-            // Timer finished but we weren't in conversation - partner ended it
-            console.log(`⏰ Partner ended timer while we were inactive`);
-            setPartnerEndedTimer(true);
-            setTimeout(() => {
-              setPartnerEndedTimer(false);
-            }, 3000);
-          }
-        } else if (timerStatus.status === 'not_started') {
-          // No timer active, reset to default state
-          if (conversationStarted || timerEnded) {
-            console.log("🔄 No timer active in database, resetting to default");
-            setConversationTimer(300);
-            setConversationStarted(false);
-            setTimerEnded(false);
-            setPartnerStartedTimer(false);
-            setPartnerEndedTimer(false);
           }
         }
       } catch (error) {
@@ -1334,7 +1352,7 @@ export default function WelcomePage() {
       if (syncInterval) clearInterval(syncInterval);
       if (localInterval) clearInterval(localInterval);
     };
-  }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused]);
+  }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused, lastTimerStatus]);
 
   // Start database timer when conversation starts
   useEffect(() => {
@@ -1364,6 +1382,7 @@ export default function WelcomePage() {
       setTimerEnded(false);
       setPartnerStartedTimer(false);
       setPartnerEndedTimer(false);
+      setLastTimerStatus(null); // Reset status tracking for new round
     }
   }, [currentRound, assignedNumber]);
 

@@ -873,26 +873,7 @@ export default function WelcomePage() {
     }
   };
 
-  const skipConversation = () => {
-    console.log("🛑 Timer manually ended by user")
-    setConversationTimer(0)
-    setConversationStarted(false)
-    setModalStep("feedback")
-    setPartnerStartedTimer(false) // Reset partner notification
-    setPartnerEndedTimer(false) // Reset partner ended notification
-    setTimerEnded(true) // Mark timer as manually ended
-    
-    // Finish database timer when conversation is skipped
-    if (assignedNumber && currentRound) {
-      finishDatabaseTimer(currentRound).then((success) => {
-        if (success) {
-          console.log("⏭️ Conversation skipped, database timer finished");
-        } else {
-          console.error("❌ Failed to finish database timer on skip");
-        }
-      });
-    }
-  }
+
   
   const handleSubmit = async () => {
     console.log("🚀 handleSubmit called with surveyData:", surveyData);
@@ -2417,8 +2398,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </div>
                   )}
 
-            <div className="flex justify-center gap-3">
-                    <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
+            <div className="flex justify-center">
                     <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
                   </div>
                 </>
@@ -2623,8 +2603,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     توأم روحك في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
                   // ... existing code ...
-                  <div className="flex justify-center gap-3">
-                    <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
+                  <div className="flex justify-center">
                     <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
                   </div>
                 </>
@@ -2778,8 +2757,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </div>
                   )}
 
-                  <div className="flex justify-center gap-3">
-                    <FancyPreviousButton onClick={skipConversation} label="تخطي الحوار" />
+                  <div className="flex justify-center">
                     <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
                   </div>
                 </>

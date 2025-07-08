@@ -453,6 +453,7 @@ export default function WelcomePage() {
   })
   const [showSurvey, setShowSurvey] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
+  const [timerManuallyEnded, setTimerManuallyEnded] = useState(false)
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -694,6 +695,7 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setConversationTimer(300);
           setModalStep(null);
+          setTimerManuallyEnded(false); // Reset manual end flag during emergency pause
           // Clear localStorage timer data during emergency pause
           if (assignedNumber) {
             const startKey = `conversationStartTimestamp_${assignedNumber}`;
@@ -761,6 +763,7 @@ export default function WelcomePage() {
                 overallRating: ""
               });
               setTypewriterCompleted(false);
+              setTimerManuallyEnded(false); // Reset manual end flag for new round
               // Clear localStorage timer data for fresh start in new round
               if (assignedNumber) {
                 const startKey = `conversationStartTimestamp_${assignedNumber}`;
@@ -876,6 +879,7 @@ export default function WelcomePage() {
   const startConversation = () => {
     if (!conversationStarted) {
       setConversationStarted(true);
+      setTimerManuallyEnded(false); // Reset manual end flag when starting conversation
       // Database timer will be started by the useEffect when conversationStarted changes
       console.log("🚀 Conversation started, database timer will be started");
     }
@@ -886,6 +890,8 @@ export default function WelcomePage() {
     setConversationStarted(false)
     setModalStep("feedback")
     setPartnerStartedTimer(false) // Reset partner notification
+    setTimerManuallyEnded(true) // Mark timer as manually ended
+    console.log("🛑 Timer manually ended by user")
     // Finish database timer when conversation is skipped
     if (assignedNumber && currentRound) {
       finishDatabaseTimer(currentRound);
@@ -1258,12 +1264,14 @@ export default function WelcomePage() {
           // Restore active timer from database
           setConversationTimer(timerStatus.remaining_time);
           setConversationStarted(true);
+          setTimerManuallyEnded(false); // Reset manual end flag when restoring timer
           console.log(`🔄 Database timer restored: ${timerStatus.remaining_time}s remaining`);
         } else if (timerStatus.status === 'finished') {
           // Timer has finished, show feedback and clear localStorage
           setConversationTimer(0);
           setConversationStarted(false);
           setModalStep("feedback");
+          setTimerManuallyEnded(false); // Reset manual end flag
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
@@ -1274,6 +1282,7 @@ export default function WelcomePage() {
           // No active timer, set default and clear localStorage
           setConversationTimer(300);
           setConversationStarted(false);
+          setTimerManuallyEnded(false); // Reset manual end flag
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
           localStorage.removeItem(startKey);
@@ -1284,6 +1293,7 @@ export default function WelcomePage() {
         // No timer data in database, set default and clear localStorage
         setConversationTimer(300);
         setConversationStarted(false);
+        setTimerManuallyEnded(false); // Reset manual end flag
         const startKey = `conversationStartTimestamp_${assignedNumber}`;
         const durationKey = `conversationDuration_${assignedNumber}`;
         localStorage.removeItem(startKey);
@@ -1307,22 +1317,42 @@ export default function WelcomePage() {
 
   // Real-time timer synchronization for matched participants
   useEffect(() => {
-    if (!assignedNumber || !currentRound || conversationStarted) return;
+    if (!assignedNumber || !currentRound || conversationStarted || timerManuallyEnded) {
+      if (timerManuallyEnded) {
+        console.log("🛑 Partner timer sync blocked - timer was manually ended");
+      }
+      return;
+    }
 
     const checkPartnerTimer = async () => {
       const timerStatus = await getDatabaseTimerStatus(currentRound);
       
-      if (timerStatus && timerStatus.success && timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
-        // Partner has started the timer, automatically start it for this participant
-        console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
-        setConversationTimer(timerStatus.remaining_time);
-        setConversationStarted(true);
-        setPartnerStartedTimer(true);
-        
-        // Show notification for 3 seconds
-        setTimeout(() => {
+      if (timerStatus && timerStatus.success) {
+        if (timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
+          // Partner has started the timer, automatically start it for this participant
+          console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
+          setConversationTimer(timerStatus.remaining_time);
+          setConversationStarted(true);
+          setPartnerStartedTimer(true);
+          setTimerManuallyEnded(false); // Reset manual end flag when partner starts timer
+          
+          // Show notification for 3 seconds
+          setTimeout(() => {
+            setPartnerStartedTimer(false);
+          }, 3000);
+        } else if (timerStatus.status === 'finished' || timerStatus.remaining_time <= 0) {
+          // Partner has finished the timer, automatically end it for this participant
+          console.log(`⏰ Partner finished timer, auto-ending for participant ${assignedNumber}`);
+          setConversationStarted(false);
+          setModalStep("feedback");
           setPartnerStartedTimer(false);
-        }, 3000);
+          setTimerManuallyEnded(true); // Mark as manually ended to prevent re-starting
+          // Clear localStorage timer data to reset for next conversation
+          const startKey = `conversationStartTimestamp_${assignedNumber}`;
+          const durationKey = `conversationDuration_${assignedNumber}`;
+          localStorage.removeItem(startKey);
+          localStorage.removeItem(durationKey);
+        }
       }
     };
 
@@ -1330,11 +1360,16 @@ export default function WelcomePage() {
     const interval = setInterval(checkPartnerTimer, 2000);
 
     return () => clearInterval(interval);
-  }, [assignedNumber, currentRound, conversationStarted]);
+  }, [assignedNumber, currentRound, conversationStarted, timerManuallyEnded]);
 
   // Main timer effect - polls database for timer status
   useEffect(() => {
-    if (!conversationStarted || emergencyPaused || !assignedNumber || !currentRound) return;
+    if (!conversationStarted || emergencyPaused || !assignedNumber || !currentRound || timerManuallyEnded) {
+      if (timerManuallyEnded) {
+        console.log("🛑 Main timer effect blocked - timer was manually ended");
+      }
+      return;
+    }
 
     const interval = setInterval(async () => {
       const timerStatus = await getDatabaseTimerStatus(currentRound);
@@ -1347,6 +1382,7 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setModalStep("feedback");
           setPartnerStartedTimer(false); // Reset partner notification
+          setTimerManuallyEnded(false); // Reset manual end flag
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;
@@ -1359,6 +1395,7 @@ export default function WelcomePage() {
         // Missing timer data, stop timer
         setConversationStarted(false);
         setModalStep("feedback");
+        setTimerManuallyEnded(false); // Reset manual end flag
         // Clear localStorage timer data to reset for next conversation
         const startKey = `conversationStartTimestamp_${assignedNumber}`;
         const durationKey = `conversationDuration_${assignedNumber}`;
@@ -1370,7 +1407,7 @@ export default function WelcomePage() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [conversationStarted, emergencyPaused, assignedNumber, currentRound]);
+  }, [conversationStarted, emergencyPaused, assignedNumber, currentRound, timerManuallyEnded]);
 
   // Cleanup effect for component unmount or assignedNumber change
   useEffect(() => {

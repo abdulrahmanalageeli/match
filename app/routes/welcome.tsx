@@ -1315,13 +1315,13 @@ export default function WelcomePage() {
 
   // Real-time timer synchronization for matched participants
   useEffect(() => {
-    if (!assignedNumber || !currentRound || isEndingConversation) return;
+    if (!assignedNumber || !currentRound) return;
 
     const checkPartnerTimer = async () => {
       const timerStatus = await getDatabaseTimerStatus(currentRound);
       
       if (timerStatus && timerStatus.success && timerStatus.status === 'active' && timerStatus.remaining_time > 0) {
-        if (!conversationStarted) {
+        if (!conversationStarted && !isEndingConversation) {
           // Partner has started the timer, automatically start it for this participant
           console.log(`🔄 Partner started timer, auto-starting for participant ${assignedNumber}`);
           setConversationTimer(timerStatus.remaining_time);
@@ -1336,7 +1336,7 @@ export default function WelcomePage() {
           }, 3000);
         }
       } else if (timerStatus && timerStatus.success && timerStatus.status === 'finished') {
-        if (conversationStarted) {
+        if (conversationStarted && !isEndingConversation) {
           // Partner has finished the timer, end conversation for this participant too
           console.log(`⏰ Partner finished timer for participant ${assignedNumber}`);
           setConversationStarted(false);
@@ -1351,7 +1351,7 @@ export default function WelcomePage() {
           }, 3000);
         }
       } else if (!timerStatus || !timerStatus.success) {
-        if (conversationStarted) {
+        if (conversationStarted && !isEndingConversation) {
           // Partner has skipped or ended the conversation, end for this participant too
           console.log(`⏭️ Partner skipped/ended conversation for participant ${assignedNumber}`);
           setConversationStarted(false);
@@ -1389,8 +1389,6 @@ export default function WelcomePage() {
           setIsEndingConversation(true); // Prevent timer synchronization interference
           setConversationStarted(false);
           setModalStep("feedback");
-          setPartnerStartedTimer(false); // Reset partner notification
-          setPartnerAction(null); // Reset partner action
           // Clear localStorage timer data to reset for next conversation
           const startKey = `conversationStartTimestamp_${assignedNumber}`;
           const durationKey = `conversationDuration_${assignedNumber}`;

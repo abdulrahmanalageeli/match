@@ -2324,10 +2324,10 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {!conversationStarted ? (
                 <>
                   {/* Partner Timer Notifications */}
-                  {partnerStartedTimer && (
+                  {showPartnerStartedNotification && (
                     <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
-                      dark 
-                        ? "bg-green-500/20 border-green-400/40 text-green-200" 
+                      dark
+                        ? "bg-green-500/20 border-green-400/40 text-green-200"
                         : "bg-green-100/50 border-green-400/40 text-green-700"
                     }`}>
                       <div className="flex items-center justify-center gap-2">

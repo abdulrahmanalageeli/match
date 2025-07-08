@@ -223,10 +223,14 @@ async function handleTimerAction(req, res, supabase, match_id) {
       }
 
       if (match_type === "group") {
-        // Update group match timer status
+        // Update group match timer status and clear timer data
         const { error } = await supabase
           .from("group_matches")
-          .update({ conversation_status: 'finished' })
+          .update({ 
+            conversation_status: 'finished',
+            conversation_start_time: null,
+            conversation_duration: null
+          })
           .eq("match_id", match_id)
           .contains("participant_numbers", [assigned_number])
 
@@ -235,10 +239,14 @@ async function handleTimerAction(req, res, supabase, match_id) {
           return res.status(500).json({ error: "Failed to finish group timer" })
         }
       } else {
-        // Update individual match timer status
+        // Update individual match timer status and clear timer data
         const { error } = await supabase
           .from("match_results")
-          .update({ conversation_status: 'finished' })
+          .update({ 
+            conversation_status: 'finished',
+            conversation_start_time: null,
+            conversation_duration: null
+          })
           .eq("match_id", match_id)
           .eq("round", round)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
@@ -266,7 +274,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
 
 // Helper function to calculate remaining time
 function calculateRemainingTime(startTime, duration) {
-  if (!startTime) return null
+  if (!startTime || !duration) return 0 // Return 0 if timer is finished or not started
   
   const start = new Date(startTime).getTime()
   const now = Date.now()

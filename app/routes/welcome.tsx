@@ -693,6 +693,11 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setConversationTimer(300);
           setModalStep(null);
+          // Clean up timer data during emergency pause
+          if (assignedNumber) {
+            cleanupTimerData(assignedNumber);
+            console.log("🚨 Emergency pause: timer data cleaned up");
+          }
         }
 
         // Handle step transitions based on phase changes
@@ -859,12 +864,20 @@ export default function WelcomePage() {
   const startConversation = () => {
     if (!conversationStarted) {
       setConversationStarted(true);
+      // Timer will be automatically saved by the useEffect when conversationStarted changes
+      console.log("🚀 Conversation started, timer will be saved");
     }
   };
 
   const skipConversation = () => {
     setConversationTimer(0)
+    setConversationStarted(false)
     setModalStep("feedback")
+    // Clean up localStorage timer data
+    if (assignedNumber) {
+      cleanupTimerData(assignedNumber);
+      console.log("⏭️ Conversation skipped, timer data cleaned up");
+    }
   }
   
   const handleSubmit = async () => {
@@ -1099,6 +1112,27 @@ export default function WelcomePage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Timer utility functions
+  const getTimerKeys = (assignedNumber: number) => ({
+    startKey: `conversationStartTimestamp_${assignedNumber}`,
+    durationKey: `conversationDuration_${assignedNumber}`
+  });
+
+  const cleanupTimerData = (assignedNumber: number) => {
+    const { startKey, durationKey } = getTimerKeys(assignedNumber);
+    localStorage.removeItem(startKey);
+    localStorage.removeItem(durationKey);
+    console.log("🧹 Timer data cleaned up");
+  };
+
+  const saveTimerData = (assignedNumber: number, duration: number) => {
+    const { startKey, durationKey } = getTimerKeys(assignedNumber);
+    const now = Date.now();
+    localStorage.setItem(startKey, String(now));
+    localStorage.setItem(durationKey, String(duration));
+    console.log(`💾 Timer session saved: ${duration}s duration`);
+  };
+
 
 
   useEffect(() => {
@@ -1123,107 +1157,83 @@ export default function WelcomePage() {
     }
   }, [token])
 
-  // Persist conversation timer in localStorage
+  // Timer persistence and restoration logic
   useEffect(() => {
     if (!assignedNumber) return;
-    localStorage.setItem(`timer_${assignedNumber}`, String(conversationTimer));
-  }, [conversationTimer, assignedNumber]);
 
-  // Restore conversation timer from localStorage on mount/assignedNumber change
-  useEffect(() => {
-    if (!assignedNumber) return;
-    const startKey = `conversationStartTimestamp_${assignedNumber}`;
-    const durationKey = `conversationDuration_${assignedNumber}`;
-    const timerKey = `timer_${assignedNumber}`;
+    const { startKey, durationKey } = getTimerKeys(assignedNumber);
+    
+    // Check if there's an existing timer session
     const startTimestamp = localStorage.getItem(startKey);
     const duration = localStorage.getItem(durationKey);
+    
     if (startTimestamp && duration) {
       const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
       const remaining = Math.max(Number(duration) - elapsed, 0);
-      setConversationTimer(remaining);
+      
       if (remaining > 0) {
-        setConversationStarted(true);
-      } else {
-        setConversationStarted(false);
-        setModalStep("feedback");
-        localStorage.removeItem(startKey);
-        localStorage.removeItem(durationKey);
-      }
-    } else {
-      // Fallback to timer snapshot if present
-      const saved = localStorage.getItem(timerKey);
-      if (saved !== null) {
-        setConversationTimer(Number(saved));
-      } else {
-        setConversationTimer(300); // Only use default if nothing is found
-      }
-      setConversationStarted(false);
-    }
-  }, [assignedNumber]);
-
-  // Persistent countdown timer logic
-  useEffect(() => {
-    if (!assignedNumber) return;
-
-    if (conversationStarted) {
-      const startKey = `conversationStartTimestamp_${assignedNumber}`;
-      const durationKey = `conversationDuration_${assignedNumber}`;
-      const alreadyStarted = localStorage.getItem(startKey);
-      const alreadyDuration = localStorage.getItem(durationKey);
-      if (!alreadyStarted || !alreadyDuration) {
-        const now = Date.now();
-        localStorage.setItem(startKey, String(now));
-        localStorage.setItem(durationKey, String(conversationTimer));
-      }
-    } else {
-      // If conversation is not started, clear any previous timer data
-      localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
-      localStorage.removeItem(`conversationDuration_${assignedNumber}`);
-    }
-  }, [conversationStarted, assignedNumber, conversationTimer]);
-
-  // On mount/assignedNumber change, restore timer if conversation was started
-  useEffect(() => {
-    if (!assignedNumber) return;
-    const startTimestamp = localStorage.getItem(`conversationStartTimestamp_${assignedNumber}`);
-    const duration = localStorage.getItem(`conversationDuration_${assignedNumber}`);
-    if (startTimestamp && duration) {
-      const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
-      const remaining = Math.max(Number(duration) - elapsed, 0);
-      if (remaining > 0) {
+        // Restore active timer
         setConversationTimer(remaining);
-        setConversationStarted(true); // Ensure timer UI is shown immediately
+        setConversationStarted(true);
+        console.log(`🔄 Timer restored: ${remaining}s remaining`);
       } else {
+        // Timer has expired, clean up and show feedback
         setConversationTimer(0);
         setConversationStarted(false);
         setModalStep("feedback");
-        localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
-        localStorage.removeItem(`conversationDuration_${assignedNumber}`);
+        cleanupTimerData(assignedNumber);
       }
     } else {
+      // No existing timer, set default
+      setConversationTimer(300);
       setConversationStarted(false);
     }
   }, [assignedNumber]);
 
-  // Timer effect: always calculate based on start time if conversation is started
+  // Save timer state when conversation starts
+  useEffect(() => {
+    if (!assignedNumber) return;
+
+    const { startKey, durationKey } = getTimerKeys(assignedNumber);
+
+    if (conversationStarted) {
+      // Check if timer is already saved to avoid overwriting
+      const existingStart = localStorage.getItem(startKey);
+      if (!existingStart) {
+        // Save new timer session
+        saveTimerData(assignedNumber, conversationTimer);
+      }
+    } else {
+      // Clear timer data when conversation is not active
+      cleanupTimerData(assignedNumber);
+    }
+  }, [conversationStarted, assignedNumber, conversationTimer]);
+
+  // Main timer effect - calculates remaining time based on start timestamp
   useEffect(() => {
     if (!conversationStarted || emergencyPaused || !assignedNumber) return;
 
+    const { startKey, durationKey } = getTimerKeys(assignedNumber);
+
     const interval = setInterval(() => {
-      const startTimestamp = localStorage.getItem(`conversationStartTimestamp_${assignedNumber}`);
-      const duration = localStorage.getItem(`conversationDuration_${assignedNumber}`);
+      const startTimestamp = localStorage.getItem(startKey);
+      const duration = localStorage.getItem(durationKey);
+      
       if (startTimestamp && duration) {
         const elapsed = Math.floor((Date.now() - Number(startTimestamp)) / 1000);
         const remaining = Math.max(Number(duration) - elapsed, 0);
+        
         setConversationTimer(remaining);
+        
         if (remaining <= 0) {
+          // Timer finished, clean up and show feedback
           setConversationStarted(false);
           setModalStep("feedback");
-          localStorage.removeItem(`conversationStartTimestamp_${assignedNumber}`);
-          localStorage.removeItem(`conversationDuration_${assignedNumber}`);
+          cleanupTimerData(assignedNumber);
           clearInterval(interval);
         }
       } else {
+        // Missing timer data, stop timer
         setConversationStarted(false);
         setModalStep("feedback");
         clearInterval(interval);
@@ -1232,6 +1242,19 @@ export default function WelcomePage() {
 
     return () => clearInterval(interval);
   }, [conversationStarted, emergencyPaused, assignedNumber]);
+
+  // Cleanup effect for component unmount or assignedNumber change
+  useEffect(() => {
+    return () => {
+      // Clean up timer data when component unmounts or assignedNumber changes
+      if (assignedNumber) {
+        // Only clean up if timer has finished or conversation is not active
+        if (!conversationStarted || conversationTimer <= 0) {
+          cleanupTimerData(assignedNumber);
+        }
+      }
+    };
+  }, [assignedNumber, conversationStarted, conversationTimer]);
 
   // Registration UI if no token
   if (!token) {

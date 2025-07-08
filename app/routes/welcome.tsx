@@ -453,6 +453,7 @@ export default function WelcomePage() {
   })
   const [showSurvey, setShowSurvey] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
+  const [partnerEndedTimer, setPartnerEndedTimer] = useState(false)
   const [timerManuallyEnded, setTimerManuallyEnded] = useState(false)
 
   const prompts = [

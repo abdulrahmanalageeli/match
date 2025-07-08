@@ -1297,6 +1297,9 @@ export default function WelcomePage() {
               setTimeout(() => {
                 setPartnerEndedTimer(false);
               }, 3000);
+            } else if (timerEnded) {
+              // We already ended the timer manually, don't show notification
+              console.log(`⏰ Timer finished in database, but we already ended it manually`);
             }
           } else if (currentStatus === 'not_started') {
             // No timer active, reset to default state

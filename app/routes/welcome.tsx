@@ -457,6 +457,7 @@ export default function WelcomePage() {
   const [timerEnded, setTimerEnded] = useState(false)
   const [lastTimerStatus, setLastTimerStatus] = useState<string | null>(null)
   const [timerWasStarted, setTimerWasStarted] = useState(false);
+  const [showPartnerStartedNotification, setShowPartnerStartedNotification] = useState(false);
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -1237,6 +1238,10 @@ export default function WelcomePage() {
           setLastTimerStatus(currentStatus);
           
           if (currentStatus === 'active') {
+            if (!timerWasStarted) {
+              setShowPartnerStartedNotification(true);
+              setTimeout(() => setShowPartnerStartedNotification(false), 3000);
+            }
             setTimerWasStarted(true);
             // Timer is active in database
             if (!conversationStarted && !timerEnded) {
@@ -3210,6 +3215,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               </Button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Partner Started Notification */}
+      {showPartnerStartedNotification && (
+        <div className={`fixed top-8 right-1/2 translate-x-1/2 z-50 bg-green-500/90 text-white px-6 py-3 rounded-xl shadow-lg text-lg font-bold animate-in fade-in duration-300`}>
+          شريكك بدأ الحوار!
         </div>
       )}
 

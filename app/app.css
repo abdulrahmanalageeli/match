@@ -337,6 +337,7 @@ body {
 }
 
 /* Hide scrollbar arrows (buttons) everywhere, all browsers that support it */
+*, *::before, *::after,
 ::-webkit-scrollbar-button,
 ::-webkit-scrollbar-button:single-button {
   display: none !important;

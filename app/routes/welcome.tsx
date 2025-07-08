@@ -696,15 +696,7 @@ export default function WelcomePage() {
           setConversationStarted(false);
           setConversationTimer(300);
           setModalStep(null);
-          setTimerEnded(false); // Reset manual end flag during emergency pause
-          // Clear localStorage timer data during emergency pause
-          if (assignedNumber) {
-            const startKey = `conversationStartTimestamp_${assignedNumber}`;
-            const durationKey = `conversationDuration_${assignedNumber}`;
-            localStorage.removeItem(startKey);
-            localStorage.removeItem(durationKey);
-            console.log("🚨 Emergency pause: localStorage timer data cleared");
-          }
+          setTimerEnded(false); // Reset timer ended flag during emergency pause
         }
 
         // Handle step transitions based on phase changes
@@ -764,15 +756,7 @@ export default function WelcomePage() {
                 overallRating: ""
               });
               setTypewriterCompleted(false);
-              setTimerEnded(false); // Reset manual end flag for new round
-              // Clear localStorage timer data for fresh start in new round
-              if (assignedNumber) {
-                const startKey = `conversationStartTimestamp_${assignedNumber}`;
-                const durationKey = `conversationDuration_${assignedNumber}`;
-                localStorage.removeItem(startKey);
-                localStorage.removeItem(durationKey);
-                console.log("🔄 Phase transition: localStorage timer data cleared for new round");
-              }
+              setTimerEnded(false); // Reset timer ended flag for new round
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
             }
@@ -898,14 +882,6 @@ export default function WelcomePage() {
     if (assignedNumber && currentRound) {
       finishDatabaseTimer(currentRound);
       console.log("⏭️ Conversation skipped, database timer finished");
-    }
-    // Clear localStorage timer data to reset for next conversation
-    if (assignedNumber) {
-      const startKey = `conversationStartTimestamp_${assignedNumber}`;
-      const durationKey = `conversationDuration_${assignedNumber}`;
-      localStorage.removeItem(startKey);
-      localStorage.removeItem(durationKey);
-      console.log("🧹 localStorage timer data cleared for next conversation");
     }
   }
   
@@ -1269,38 +1245,25 @@ export default function WelcomePage() {
           setTimerEnded(false); // Reset timer ended flag when restoring timer
           console.log(`🔄 Database timer restored: ${timerStatus.remaining_time}s remaining`);
         } else if (timerStatus.status === 'finished') {
-          // Timer has finished, show feedback and clear localStorage
+          // Timer has finished, show feedback
           setConversationTimer(0);
           setConversationStarted(false);
           setModalStep("feedback");
           setTimerEnded(true); // Set timer ended flag
-          // Clear localStorage timer data to reset for next conversation
-          const startKey = `conversationStartTimestamp_${assignedNumber}`;
-          const durationKey = `conversationDuration_${assignedNumber}`;
-          localStorage.removeItem(startKey);
-          localStorage.removeItem(durationKey);
-          console.log("⏰ Database timer finished, localStorage cleared for next conversation");
+          console.log("⏰ Database timer finished");
         } else {
-          // No active timer, set default and clear localStorage
+          // No active timer, set default
           setConversationTimer(300);
           setConversationStarted(false);
           setTimerEnded(false); // Reset timer ended flag
-          const startKey = `conversationStartTimestamp_${assignedNumber}`;
-          const durationKey = `conversationDuration_${assignedNumber}`;
-          localStorage.removeItem(startKey);
-          localStorage.removeItem(durationKey);
-          console.log("🔄 No active timer, localStorage cleared for fresh start");
+          console.log("🔄 No active timer, using default");
         }
       } else {
-        // No timer data in database, set default and clear localStorage
+        // No timer data in database, set default
         setConversationTimer(300);
         setConversationStarted(false);
-        setTimerEnded(false); // Reset manual end flag
-        const startKey = `conversationStartTimestamp_${assignedNumber}`;
-        const durationKey = `conversationDuration_${assignedNumber}`;
-        localStorage.removeItem(startKey);
-        localStorage.removeItem(durationKey);
-        console.log("🔄 No timer data in database, localStorage cleared for fresh start");
+        setTimerEnded(false); // Reset timer ended flag
+        console.log("🔄 No timer data in database, using default");
       }
     };
 
@@ -1388,12 +1351,6 @@ export default function WelcomePage() {
             setPartnerStartedTimer(false);
             setPartnerEndedTimer(true);
             setTimerEnded(true);
-            
-            // Clear localStorage timer data
-            const startKey = `conversationStartTimestamp_${assignedNumber}`;
-            const durationKey = `conversationDuration_${assignedNumber}`;
-            localStorage.removeItem(startKey);
-            localStorage.removeItem(durationKey);
             
             // Show notification for 3 seconds
             setTimeout(() => {

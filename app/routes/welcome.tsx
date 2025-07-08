@@ -2482,7 +2482,24 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
 
                   <div className="flex justify-center">
-                    <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
+                    <FancyNextButton onClick={() => {
+                      console.log("🛑 Timer manually ended by user")
+                      setConversationTimer(0)
+                      setConversationStarted(false)
+                      setModalStep("feedback")
+                      setPartnerStartedTimer(false)
+                      setPartnerEndedTimer(false)
+                      setTimerEnded(true)
+                      if (assignedNumber && currentRound) {
+                        finishDatabaseTimer(currentRound).then((success) => {
+                          if (success) {
+                            console.log("⏭️ Conversation ended, database timer finished");
+                          } else {
+                            console.error("❌ Failed to finish database timer on end");
+                          }
+                        });
+                      }
+                    }} label="إنهاء الحوار" />
                   </div>
                 </>
               )}
@@ -2636,7 +2653,24 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </p>
                   </div>
                   <div className="flex justify-center">
-                    <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
+                    <FancyNextButton onClick={() => {
+                      console.log("🛑 Timer manually ended by user")
+                      setConversationTimer(0)
+                      setConversationStarted(false)
+                      setModalStep("feedback")
+                      setPartnerStartedTimer(false)
+                      setPartnerEndedTimer(false)
+                      setTimerEnded(true)
+                      if (assignedNumber && currentRound) {
+                        finishDatabaseTimer(currentRound).then((success) => {
+                          if (success) {
+                            console.log("⏭️ Conversation ended, database timer finished");
+                          } else {
+                            console.error("❌ Failed to finish database timer on end");
+                          }
+                        });
+                      }
+                    }} label="إنهاء الحوار" />
                   </div>
                 </>
               )}
@@ -2830,7 +2864,24 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
 
                   <div className="flex justify-center">
-                    <FancyNextButton onClick={skipConversation} label="إنهاء الحوار" />
+                    <FancyNextButton onClick={() => {
+                      console.log("🛑 Timer manually ended by user")
+                      setConversationTimer(0)
+                      setConversationStarted(false)
+                      setModalStep("feedback")
+                      setPartnerStartedTimer(false)
+                      setPartnerEndedTimer(false)
+                      setTimerEnded(true)
+                      if (assignedNumber && currentRound) {
+                        finishDatabaseTimer(currentRound).then((success) => {
+                          if (success) {
+                            console.log("⏭️ Conversation ended, database timer finished");
+                          } else {
+                            console.error("❌ Failed to finish database timer on end");
+                          }
+                        });
+                      }
+                    }} label="إنهاء الحوار" />
                   </div>
                 </>
               )}

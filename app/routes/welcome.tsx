@@ -2370,32 +2370,20 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               </p>
             </div>
 
-                  <div className={`rounded-xl p-4 border mb-6 ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label="التالي"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                      </button>
-                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                      <button
-                        type="button"
-                        aria-label="السابق"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronRightIcon className="w-5 h-5" />
-                      </button>
-                    </div>
+                  <div className="flex justify-center mb-6">
+                    <button
+                      onClick={() => setShowPromptTopicsModal(true)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
+                        dark
+                          ? "bg-gradient-to-r from-cyan-700 to-blue-700 text-white border-2 border-cyan-400/30 hover:bg-cyan-800"
+                          : "bg-gradient-to-r from-cyan-200 to-blue-200 text-blue-900 border-2 border-cyan-400/30 hover:bg-cyan-100"
+                      } animate-in slide-in-from-bottom-4`}
+                      style={{ boxShadow: dark ? '0 4px 24px 0 #22d3ee33' : '0 4px 24px 0 #06b6d433' }}
+                      aria-label="أسئلة للنقاش"
+                    >
+                      <Sparkles className="w-6 h-6 animate-pulse" />
+                      أسئلة للنقاش
+                    </button>
                   </div>
 
                   {/* AI Questions Generator */}
@@ -2433,32 +2421,20 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </p>
                   </div>
 
-                  <div className={`rounded-xl p-4 border mb-6 ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label="التالي"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                      </button>
-                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                      <button
-                        type="button"
-                        aria-label="السابق"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronRightIcon className="w-5 h-5" />
-                      </button>
-                    </div>
+                  <div className="flex justify-center mb-6">
+                    <button
+                      onClick={() => setShowPromptTopicsModal(true)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
+                        dark
+                          ? "bg-gradient-to-r from-cyan-700 to-blue-700 text-white border-2 border-cyan-400/30 hover:bg-cyan-800"
+                          : "bg-gradient-to-r from-cyan-200 to-blue-200 text-blue-900 border-2 border-cyan-400/30 hover:bg-cyan-100"
+                      } animate-in slide-in-from-bottom-4`}
+                      style={{ boxShadow: dark ? '0 4px 24px 0 #22d3ee33' : '0 4px 24px 0 #06b6d433' }}
+                      aria-label="أسئلة للنقاش"
+                    >
+                      <Sparkles className="w-6 h-6 animate-pulse" />
+                      أسئلة للنقاش
+                    </button>
                   </div>
 
                   {/* AI Questions Generator */}

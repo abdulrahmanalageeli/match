@@ -160,13 +160,12 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                               : depth === "medium"
                               ? "bg-white dark:bg-slate-900 border-green-100 dark:border-slate-700 text-green-800 dark:text-green-300"
                               : "bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-700 text-purple-800 dark:text-purple-300"
-                          }`}
+                          } w-[90vw] max-w-xs sm:w-auto sm:max-w-none`}
                           onClick={() => setSelectedTopic(topic)}
                           aria-label={`اختر موضوع: ${topic.title}`}
-                          style={{ minWidth: 0 }}
                         >
                           {topic.icon}
-                          <span className="truncate max-w-[90px] sm:max-w-none">{topic.title}</span>
+                          <span className="whitespace-nowrap overflow-hidden text-ellipsis w-full text-right">{topic.title}</span>
                           <ChevronLeft className="w-4 h-4 opacity-60" />
                         </button>
                       ))}

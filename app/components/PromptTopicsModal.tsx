@@ -105,12 +105,12 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent
-        className={`max-w-xl w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
+        className={`max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
         dir="rtl"
         aria-label="أسئلة للنقاش"
       >
-        <DialogHeader className="flex flex-row items-center justify-between px-6 pt-5 pb-2 border-b border-slate-200 dark:border-slate-700 z-10 relative bg-inherit sticky top-0">
-          <DialogTitle className="text-lg font-bold flex items-center gap-2">
+        <DialogHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-2 border-b border-slate-200 dark:border-slate-700 z-10 relative bg-inherit sticky top-0">
+          <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-cyan-500" />
             أسئلة للنقاش
           </DialogTitle>
@@ -119,11 +119,11 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
           </Button>
         </DialogHeader>
         {/* Depth Stepper - subtle accent only */}
-        <div className="flex items-center justify-between gap-2 px-6 pt-3 pb-2 z-10 relative">
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 pt-3 pb-2 z-10 relative">
           {depthOrder.map((depth, idx) => (
             <div key={depth} className="flex-1 flex flex-col items-center">
               <div
-                className={`w-7 h-7 flex items-center justify-center rounded-full border transition-all duration-300 ${
+                className={`w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-full border transition-all duration-300 ${
                   selectedTopic && selectedTopic.depth === depth
                     ? `bg-cyan-50 dark:bg-slate-800 border-cyan-400 scale-110` :
                   !selectedTopic && idx === 0
@@ -134,27 +134,27 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                 }`}
                 aria-label={depthLabels[depth]}
               >
-                <Sparkles className={`w-4 h-4 ${depth === "shallow" ? "text-cyan-400" : depth === "medium" ? "text-green-400" : "text-purple-400"}`} />
+                <Sparkles className={`w-5 h-5 sm:w-4 sm:h-4 ${depth === "shallow" ? "text-cyan-400" : depth === "medium" ? "text-green-400" : "text-purple-400"}`} />
               </div>
-              <span className={`mt-1 text-xs font-medium ${selectedTopic && selectedTopic.depth === depth ? "text-cyan-500" : dark ? "text-slate-400" : "text-gray-500"}`}>{depthLabels[depth]}</span>
+              <span className={`mt-1 text-[11px] sm:text-xs font-medium ${selectedTopic && selectedTopic.depth === depth ? "text-cyan-500" : dark ? "text-slate-400" : "text-gray-500"}`}>{depthLabels[depth]}</span>
             </div>
           ))}
         </div>
-        <div className="p-6 pt-2 min-h-[350px] max-h-[70vh] overflow-y-auto z-10 relative" tabIndex={0}>
+        <div className="p-3 sm:p-6 pt-2 min-h-[300px] sm:min-h-[350px] max-h-[70vh] sm:max-h-[70vh] max-h-[65vh] overflow-y-auto z-10 relative" tabIndex={0}>
           {!selectedTopic ? (
             <>
-              <div className="mb-6 text-center">
-                <p className="text-base font-medium opacity-80">اختر موضوعاً لبدء النقاش. المواضيع مرتبة من الأسهل إلى الأعمق.</p>
+              <div className="mb-4 sm:mb-6 text-center">
+                <p className="text-sm sm:text-base font-medium opacity-80">اختر موضوعاً لبدء النقاش. المواضيع مرتبة من الأسهل إلى الأعمق.</p>
               </div>
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {depthOrder.map(depth => (
                   <div key={depth}>
-                    <div className={`mb-2 text-sm font-bold ${depth === "shallow" ? "text-cyan-500" : depth === "medium" ? "text-green-500" : "text-purple-500"}`}>{depthLabels[depth]}</div>
-                    <div className="flex flex-wrap gap-3">
+                    <div className={`mb-2 text-xs sm:text-sm font-bold ${depth === "shallow" ? "text-cyan-500" : depth === "medium" ? "text-green-500" : "text-purple-500"}`}>{depthLabels[depth]}</div>
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                       {promptTopics.filter(t => t.depth === depth).map(topic => (
                         <button
                           key={topic.id}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-lg border font-semibold text-base transition-all duration-200 hover:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 ${
+                          className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border font-semibold text-sm sm:text-base transition-all duration-200 hover:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 ${
                             depth === "shallow"
                               ? "bg-white dark:bg-slate-900 border-cyan-100 dark:border-slate-700 text-cyan-800 dark:text-cyan-300"
                               : depth === "medium"
@@ -163,9 +163,10 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                           }`}
                           onClick={() => setSelectedTopic(topic)}
                           aria-label={`اختر موضوع: ${topic.title}`}
+                          style={{ minWidth: 0 }}
                         >
                           {topic.icon}
-                          {topic.title}
+                          <span className="truncate max-w-[90px] sm:max-w-none">{topic.title}</span>
                           <ChevronLeft className="w-4 h-4 opacity-60" />
                         </button>
                       ))}
@@ -177,25 +178,25 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
           ) : (
             <div>
               {/* Sticky topic header for long lists */}
-              <div className="flex items-center gap-2 mb-4 sticky top-0 bg-inherit z-20 pb-2">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4 sticky top-0 bg-inherit z-20 pb-2">
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                   <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                 </Button>
-                <span className="text-lg font-bold flex items-center gap-2">{selectedTopic.icon} {selectedTopic.title}</span>
+                <span className="text-base sm:text-lg font-bold flex items-center gap-2">{selectedTopic.icon} {selectedTopic.title}</span>
               </div>
               {selectedTopic.questions.length === 0 ? (
-                <div className="text-center py-12 text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
+                <div className="text-center py-8 sm:py-12 text-base sm:text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
               ) : (
                 <div className="space-y-2">
                   {selectedTopic.questions.map((q, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 p-3 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-200 group"
+                      className="flex items-center gap-2 p-2 sm:p-3 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-200 group"
                       tabIndex={0}
                       aria-label={`سؤال ${i + 1}: ${q}`}
                     >
-                      <span className="font-bold text-base text-slate-500 dark:text-slate-400 w-6 text-center">{i + 1}.</span>
-                      <span className="flex-1 text-base">{q}</span>
+                      <span className="font-bold text-sm sm:text-base text-slate-500 dark:text-slate-400 w-6 text-center">{i + 1}.</span>
+                      <span className="flex-1 text-sm sm:text-base">{q}</span>
                       <Button
                         variant="ghost"
                         size="icon"

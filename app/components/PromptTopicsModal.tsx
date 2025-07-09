@@ -111,7 +111,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogContent
-        className={`max-w-lg w-full rounded-2xl p-0 overflow-hidden border-0 relative ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
+        className={`max-w-lg w-full rounded-2xl p-0 overflow-hidden border-0 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
         dir="rtl"
         aria-label="أسئلة للنقاش"
       >

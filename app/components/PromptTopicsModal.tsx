@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 
@@ -40,7 +40,7 @@ const promptTopics = [
     id: "interests",
     title: "الهوايات والاهتمامات",
     depth: "shallow",
-    icon: <MessageSquare className="w-5 h-5 text-blue-400" />,
+    icon: <Heart className="w-5 h-5 text-cyan-400" />,
     questions: [
       "ما هي هواياتك المفضلة ولماذا؟",
       "هل هناك نشاط جديد ترغب في تجربته؟",
@@ -69,7 +69,7 @@ const promptTopics = [
     id: "values",
     title: "القيم والمبادئ",
     depth: "medium",
-    icon: <Sparkles className="w-5 h-5 text-green-400" />,
+    icon: <Gem className="w-5 h-5 text-green-500" />,
     questions: [
       "ما هي القيم التي تعتبرها أساسية في حياتك؟",
       "هل هناك مبدأ لا تتنازل عنه أبداً؟",
@@ -98,7 +98,7 @@ const promptTopics = [
     id: "relationships",
     title: "العلاقات والتواصل",
     depth: "medium",
-    icon: <MessageSquare className="w-5 h-5 text-pink-400" />,
+    icon: <Users className="w-5 h-5 text-green-500" />,
     questions: [
       "ما الذي تبحث عنه في صديق أو شريك؟",
       "كيف تعبر عن مشاعرك عادةً؟",
@@ -127,7 +127,7 @@ const promptTopics = [
     id: "dreams",
     title: "الأحلام والطموحات",
     depth: "deep",
-    icon: <Sparkles className="w-5 h-5 text-purple-400" />,
+    icon: <Rocket className="w-5 h-5 text-purple-500" />,
     questions: [
       "ما هو أكبر حلم تسعى لتحقيقه؟",
       "ما هي العقبة الأكبر التي واجهتها في طريقك؟",
@@ -156,7 +156,7 @@ const promptTopics = [
     id: "philosophy",
     title: "أسئلة عميقة وفلسفية",
     depth: "deep",
-    icon: <MessageSquare className="w-5 h-5 text-yellow-400" />,
+    icon: <Brain className="w-5 h-5 text-purple-500" />,
     questions: [
       "ما هو معنى السعادة بالنسبة لك؟",
       "هل تؤمن أن كل شيء يحدث لسبب؟",
@@ -185,7 +185,7 @@ const promptTopics = [
     id: "scenarios",
     title: "أسئلة مواقف افتراضية",
     depth: "medium",
-    icon: <Sparkles className="w-5 h-5 text-orange-400" />,
+    icon: <HelpCircle className="w-5 h-5 text-orange-500" />,
     questions: [
       "لو استيقظت فجأة في بلد جديد، ما أول شيء ستفعله؟",
       "لو ربحت مليون دولار، كيف ستتصرف؟",
@@ -304,12 +304,13 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
           ) : (
             <div>
               {/* Sticky topic header for long lists */}
-              <div className="flex items-center gap-2 mb-3 sm:mb-4 sticky top-0 bg-inherit z-20 pb-2">
+              <div className="flex items-center gap-2 mb-3 sm:mb-4 sticky top-0 z-20 pb-2 bg-white dark:bg-slate-900 shadow-md" style={{paddingTop: 8, paddingBottom: 8}}>
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                   <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                 </Button>
                 <span className="text-base sm:text-lg font-bold flex items-center gap-2">{selectedTopic.icon} {selectedTopic.title}</span>
               </div>
+              <div style={{height: 8}} /> {/* Spacer to ensure first question is not covered by sticky header */}
               {selectedTopic.questions.length === 0 ? (
                 <div className="text-center py-8 sm:py-12 text-base sm:text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
               ) : (

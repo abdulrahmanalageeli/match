@@ -310,7 +310,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                 </Button>
                 <span className="text-base sm:text-lg font-bold flex items-center gap-2">{selectedTopic.icon} {selectedTopic.title}</span>
               </div>
-              <div className="space-y-2 overflow-y-auto max-h-[60vh] hide-scrollbar">
+              <div className="space-y-2 overflow-y-auto max-h-[60vh] scrollbar-none">
                 {selectedTopic.questions.length === 0 ? (
                   <div className="text-center py-8 sm:py-12 text-base sm:text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
                 ) : (

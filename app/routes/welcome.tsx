@@ -48,6 +48,7 @@ import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
 import SurveyComponent from "../components/SurveyComponent"
+import PromptTopicsModal from "../components/PromptTopicsModal"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -458,6 +459,7 @@ export default function WelcomePage() {
   const [lastTimerStatus, setLastTimerStatus] = useState<string | null>(null)
   const [timerWasStarted, setTimerWasStarted] = useState(false);
   const [showPartnerStartedNotification, setShowPartnerStartedNotification] = useState(false);
+  const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -3224,6 +3226,25 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
           شريكك بدأ الحوار!
         </div>
       )}
+
+      {/* Prompts/Questions Floating Button */}
+      {(step === 4 || step === 5 || step === 6 || step === 7) && (
+        <button
+          onClick={() => setShowPromptTopicsModal(true)}
+          className={`fixed bottom-8 left-8 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
+            dark
+              ? "bg-gradient-to-r from-cyan-700 to-blue-700 text-white border-2 border-cyan-400/30 hover:bg-cyan-800"
+              : "bg-gradient-to-r from-cyan-200 to-blue-200 text-blue-900 border-2 border-cyan-400/30 hover:bg-cyan-100"
+          } animate-in slide-in-from-bottom-4`}
+          style={{ boxShadow: dark ? '0 4px 24px 0 #22d3ee33' : '0 4px 24px 0 #06b6d433' }}
+        >
+          <Sparkles className="w-6 h-6 animate-pulse" />
+          أسئلة للنقاش
+        </button>
+      )}
+
+      {/* Prompts/Questions Modal */}
+      <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
     </div>
   )

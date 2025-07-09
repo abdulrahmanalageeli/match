@@ -304,13 +304,13 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
           ) : (
             <div>
               {/* Sticky topic header for long lists */}
-              <div className="flex items-center gap-2 mb-3 sm:mb-4 sticky top-0 z-20 pb-2 bg-white dark:bg-slate-900 shadow-md" style={{paddingTop: 8, paddingBottom: 8}}>
+              <div id="sticky-header" className="flex items-center gap-2 mb-0 sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-md" style={{paddingTop: 14, paddingBottom: 14, minHeight: 56}}>
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                   <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                 </Button>
                 <span className="text-base sm:text-lg font-bold flex items-center gap-2">{selectedTopic.icon} {selectedTopic.title}</span>
               </div>
-              <div style={{height: 8}} /> {/* Spacer to ensure first question is not covered by sticky header */}
+              <div style={{height: 56}} /> {/* Spacer to ensure first question is not covered by sticky header (matches sticky header minHeight) */}
               {selectedTopic.questions.length === 0 ? (
                 <div className="text-center py-8 sm:py-12 text-base sm:text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
               ) : (

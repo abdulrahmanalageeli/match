@@ -303,18 +303,18 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
             </>
           ) : (
             <>
-              {/* Sticky topic header for long lists - now directly under stepper, minimal spacing */}
-              <div className="flex items-center gap-2 sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-lg py-2">
+              {/* Topic header now outside scrollable area, directly under stepper */}
+              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-lg py-2">
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                   <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                 </Button>
                 <span className="text-base sm:text-lg font-bold flex items-center gap-2">{selectedTopic.icon} {selectedTopic.title}</span>
               </div>
-              {selectedTopic.questions.length === 0 ? (
-                <div className="text-center py-8 sm:py-12 text-base sm:text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
-              ) : (
-                <div className="space-y-2">
-                  {selectedTopic.questions.map((q, i) => (
+              <div className="space-y-2 overflow-y-auto max-h-[60vh]">
+                {selectedTopic.questions.length === 0 ? (
+                  <div className="text-center py-8 sm:py-12 text-base sm:text-lg font-semibold text-cyan-500">لا توجد أسئلة لهذا الموضوع بعد.</div>
+                ) : (
+                  selectedTopic.questions.map((q, i) => (
                     <div
                       key={i}
                       className="flex items-center gap-2 p-2 sm:p-3 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-200 group"
@@ -341,9 +341,9 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                         <ChevronRight className="w-5 h-5 text-cyan-500 group-hover:scale-125 transition-transform" />
                       </Button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </>
           )}
         </div>

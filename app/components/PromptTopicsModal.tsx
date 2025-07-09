@@ -304,7 +304,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
           ) : (
             <div>
               {/* Sticky topic header for long lists - now inside scrollable area, no spacer */}
-              <div className="flex items-center gap-2 sticky top-0 z-30 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-sm py-3">
+              <div className="flex items-center gap-2 sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-lg py-3">
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                   <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                 </Button>

@@ -462,6 +462,9 @@ export default function WelcomePage() {
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
   const [showHistoryBox, setShowHistoryBox] = useState(false);
   const [historyBoxPosition, setHistoryBoxPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const historyBoxRef = useRef<HTMLDivElement>(null);
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -491,6 +494,43 @@ export default function WelcomePage() {
     });
     setShowHistoryBox(!showHistoryBox); // Toggle visibility
   };
+
+  // Drag functionality for history modal
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!historyBoxRef.current) return;
+    
+    const rect = historyBoxRef.current.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+    setIsDragging(true);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    setHistoryBoxPosition({
+      x: e.clientX - dragOffset.x,
+      y: e.clientY - dragOffset.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, dragOffset]);
 
   // Typewriter effect for welcome message
   useEffect(() => {
@@ -2246,9 +2286,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <div 
                   ref={historyIconRef}
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                    dark 
-                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    showHistoryBox 
+                      ? dark 
+                        ? "border-cyan-400 bg-cyan-700/70 shadow-cyan-400/50" 
+                        : "border-cyan-500 bg-cyan-300/70 shadow-cyan-400/50"
+                      : dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2256,12 +2300,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Clock className={`w-5 h-5 ${
-                      dark ? "text-cyan-300" : "text-cyan-700"
+                    <Clock className={`w-5 h-5 transition-colors ${
+                      showHistoryBox 
+                        ? dark ? "text-cyan-100" : "text-cyan-800"
+                        : dark ? "text-cyan-300" : "text-cyan-700"
                     }`} />
                   </div>
                   {/* Notification dot */}
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
+                    showHistoryBox ? "animate-none" : "animate-pulse"
+                  }`}></div>
                 </div>
               )}
 
@@ -2344,9 +2392,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                    dark 
-                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    showHistoryBox 
+                      ? dark 
+                        ? "border-cyan-400 bg-cyan-700/70 shadow-cyan-400/50" 
+                        : "border-cyan-500 bg-cyan-300/70 shadow-cyan-400/50"
+                      : dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2354,12 +2406,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Clock className={`w-5 h-5 ${
-                      dark ? "text-cyan-300" : "text-cyan-700"
+                    <Clock className={`w-5 h-5 transition-colors ${
+                      showHistoryBox 
+                        ? dark ? "text-cyan-100" : "text-cyan-800"
+                        : dark ? "text-cyan-300" : "text-cyan-700"
                     }`} />
                   </div>
                   {/* Notification dot */}
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
+                    showHistoryBox ? "animate-none" : "animate-pulse"
+                  }`}></div>
                 </div>
               )}
 
@@ -2565,9 +2621,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                    dark 
-                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    showHistoryBox 
+                      ? dark 
+                        ? "border-cyan-400 bg-cyan-700/70 shadow-cyan-400/50" 
+                        : "border-cyan-500 bg-cyan-300/70 shadow-cyan-400/50"
+                      : dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2575,12 +2635,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Clock className={`w-5 h-5 ${
-                      dark ? "text-cyan-300" : "text-cyan-700"
+                    <Clock className={`w-5 h-5 transition-colors ${
+                      showHistoryBox 
+                        ? dark ? "text-cyan-100" : "text-cyan-800"
+                        : dark ? "text-cyan-300" : "text-cyan-700"
                     }`} />
                   </div>
                   {/* Notification dot */}
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
+                    showHistoryBox ? "animate-none" : "animate-pulse"
+                  }`}></div>
                 </div>
               )}
 
@@ -2665,9 +2729,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                    dark 
-                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    showHistoryBox 
+                      ? dark 
+                        ? "border-cyan-400 bg-cyan-700/70 shadow-cyan-400/50" 
+                        : "border-cyan-500 bg-cyan-300/70 shadow-cyan-400/50"
+                      : dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2675,12 +2743,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Clock className={`w-5 h-5 ${
-                      dark ? "text-cyan-300" : "text-cyan-700"
+                    <Clock className={`w-5 h-5 transition-colors ${
+                      showHistoryBox 
+                        ? dark ? "text-cyan-100" : "text-cyan-800"
+                        : dark ? "text-cyan-300" : "text-cyan-700"
                     }`} />
                   </div>
                   {/* Notification dot */}
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
+                    showHistoryBox ? "animate-none" : "animate-pulse"
+                  }`}></div>
                 </div>
               )}
 
@@ -2782,9 +2854,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                    dark 
-                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    showHistoryBox 
+                      ? dark 
+                        ? "border-cyan-400 bg-cyan-700/70 shadow-cyan-400/50" 
+                        : "border-cyan-500 bg-cyan-300/70 shadow-cyan-400/50"
+                      : dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2792,12 +2868,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   }}
                 >
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Clock className={`w-5 h-5 ${
-                      dark ? "text-cyan-300" : "text-cyan-700"
+                    <Clock className={`w-5 h-5 transition-colors ${
+                      showHistoryBox 
+                        ? dark ? "text-cyan-100" : "text-cyan-800"
+                        : dark ? "text-cyan-300" : "text-cyan-700"
                     }`} />
                   </div>
                   {/* Notification dot */}
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
+                    showHistoryBox ? "animate-none" : "animate-pulse"
+                  }`}></div>
                 </div>
               )}
 
@@ -3203,60 +3283,82 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {/* Floating History Box */}
         {showHistoryBox && historyMatches.length > 0 && (
           <div
-            className="fixed z-50 pointer-events-auto"
+            ref={historyBoxRef}
+            className={`fixed z-50 pointer-events-auto ${isDragging ? 'cursor-grabbing' : ''}`}
             style={{
               left: `${historyBoxPosition.x}px`,
               top: `${historyBoxPosition.y}px`,
             }}
           >
-            <div className={`w-60 rounded-2xl p-4 shadow-2xl border-2 backdrop-blur-xl transition-all duration-300 transform animate-in fade-in slide-in-from-bottom-2 ${
+            <div className={`w-60 rounded-2xl shadow-2xl border-2 backdrop-blur-xl transition-all duration-300 transform animate-in fade-in slide-in-from-bottom-2 ${
               dark 
                 ? "bg-slate-800/95 border-slate-600/50 shadow-black/50" 
                 : "bg-white/95 border-gray-200/50 shadow-gray-900/20"
             }`}>
-              <h4 className={`text-base font-bold mb-3 flex items-center gap-2 ${
-                dark ? "text-cyan-200" : "text-cyan-700"
-              }`}>
-                <Clock className="w-4 h-4" /> 
-                اللقاءات السابقة
-              </h4>
-              <div className="space-y-2">
-                {historyMatches.map((m: MatchResultEntry, i: number) => (
-                  <div 
-                    key={i} 
-                    className={`flex items-center justify-between text-sm rounded-lg px-3 py-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
-                      dark 
-                        ? "bg-slate-700/50 text-slate-100 hover:bg-slate-700/70 border border-slate-600/30" 
-                        : "bg-gray-100/70 text-gray-800 hover:bg-gray-100 border border-gray-200/50"
-                    }`}
-                    onClick={() => {
-                      setSelectedHistoryItem(m);
-                      setShowHistoryDetail(true);
-                      setShowHistoryBox(false);
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-lg">#{m.with}</span>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
+              {/* Draggable Header */}
+              <div 
+                className={`flex items-center justify-between p-4 pb-2 cursor-grab active:cursor-grabbing ${
+                  dark ? "text-cyan-200" : "text-cyan-700"
+                }`}
+                onMouseDown={handleMouseDown}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" /> 
+                  <h4 className="text-base font-bold">اللقاءات السابقة</h4>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowHistoryBox(false);
+                  }}
+                  className={`p-1 rounded-full hover:bg-black/10 transition-colors ${
+                    dark ? "hover:bg-white/10" : "hover:bg-black/10"
+                  }`}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {/* Content */}
+              <div className="px-4 pb-4">
+                <div className="space-y-2">
+                  {historyMatches.map((m: MatchResultEntry, i: number) => (
+                    <div 
+                      key={i} 
+                      className={`flex items-center justify-between text-sm rounded-lg px-3 py-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
                         dark 
-                          ? "bg-slate-800/50 text-slate-300" 
-                          : "bg-gray-200/70 text-gray-600"
-                      }`}>
-                        ج{m.round}
-                      </span>
+                          ? "bg-slate-700/50 text-slate-100 hover:bg-slate-700/70 border border-slate-600/30" 
+                          : "bg-gray-100/70 text-gray-800 hover:bg-gray-100 border border-gray-200/50"
+                      }`}
+                      onClick={() => {
+                        setSelectedHistoryItem(m);
+                        setShowHistoryDetail(true);
+                        setShowHistoryBox(false);
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-lg">#{m.with}</span>
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          dark 
+                            ? "bg-slate-800/50 text-slate-300" 
+                            : "bg-gray-200/70 text-gray-600"
+                        }`}>
+                          ج{m.round}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`font-bold text-sm ${
+                          m.score >= 80 ? "text-green-500" :
+                          m.score >= 60 ? "text-yellow-500" :
+                          m.score >= 40 ? "text-orange-500" :
+                          "text-red-500"
+                        }`}>
+                          {m.score}%
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className={`font-bold text-sm ${
-                        m.score >= 80 ? "text-green-500" :
-                        m.score >= 60 ? "text-yellow-500" :
-                        m.score >= 40 ? "text-orange-500" :
-                        "text-red-500"
-                      }`}>
-                        {m.score}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           </div>

@@ -460,6 +460,9 @@ export default function WelcomePage() {
   const [timerWasStarted, setTimerWasStarted] = useState(false);
   const [showPartnerStartedNotification, setShowPartnerStartedNotification] = useState(false);
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
+  const [showHistoryPopover, setShowHistoryPopover] = useState(false);
+  const historyPopoverRef = useRef<HTMLDivElement>(null);
+  const historyIconRef = useRef<HTMLButtonElement>(null);
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -3206,6 +3209,58 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
+      {/* History Popover */}
+      {showHistoryPopover && (
+        <div
+          ref={historyPopoverRef}
+          onMouseEnter={() => setShowHistoryPopover(true)}
+          onMouseLeave={() => setShowHistoryPopover(false)}
+          className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 max-w-xs bg-white/90 dark:bg-slate-900/95 border border-cyan-400/30 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50 animate-fade-in transition-all duration-200`}
+          style={{ minWidth: '220px' }}
+        >
+          <h4 className="text-base font-bold text-cyan-700 dark:text-cyan-200 mb-2 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-cyan-400" /> اللقاءات السابقة
+          </h4>
+          <div className="space-y-1 max-h-56 overflow-y-auto sleek-scrollbar">
+            {historyMatches.length === 0 ? (
+              <p className="text-center text-gray-500 dark:text-slate-300 text-sm">لا يوجد سجل بعد.</p>
+            ) : (
+              historyMatches.filter(m => typeof step === 'number' && step === 4 ? m.round <= currentRound : true).map((m: MatchResultEntry, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between text-cyan-900 dark:text-cyan-100 text-sm bg-cyan-100/40 dark:bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-cyan-200/80 dark:hover:bg-white/10 transition-all duration-200"
+                  onClick={() => {
+                    setSelectedHistoryItem(m);
+                    setShowHistoryDetail(true);
+                    setShowHistoryPopover(false);
+                  }}
+                >
+                  <span className="font-bold">#{m.with}</span>
+                  <span>{m.score}%</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+      {/* New history icon trigger */}
+      <div className="relative flex items-center">
+        <button
+          ref={historyIconRef}
+          type="button"
+          aria-label="اللقاءات السابقة"
+          className={`group p-1 rounded-full border-2 transition-all duration-200 focus:outline-none ${dark ? 'border-cyan-400/40 bg-slate-800 hover:bg-cyan-900/30' : 'border-cyan-400/40 bg-white hover:bg-cyan-100/60'}`}
+          onClick={() => setShowHistoryPopover((v) => !v)}
+          onMouseEnter={() => setShowHistoryPopover(true)}
+          onMouseLeave={() => setTimeout(() => setShowHistoryPopover(false), 200)}
+        >
+          <Sparkles className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
+          {/* Tooltip */}
+          <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-cyan-700 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap shadow-lg z-50">
+            اللقاءات السابقة
+          </span>
+        </button>
+      </div>
     </div>
   )
 }

@@ -3174,18 +3174,51 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         (بعد التقييم سوف يظهر التقييم الحقيقي)
                       </p>
                       <div className="relative">
-                        <input
-                          type="range"
-                          min="0"
-                          max="100"
-                          step="5"
-                          value={100 - feedbackAnswers.compatibilityRate}
-                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value) }))}
-                          className="w-full h-3 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-400/30 transition-all duration-300"
-                          style={{
-                            background: `linear-gradient(to right, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} 0%, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} 100%)`
-                          }}
-                        />
+                        <div className="relative group">
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={100 - feedbackAnswers.compatibilityRate}
+                            onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value) }))}
+                            className="w-full h-2 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300 
+                              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
+                              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
+                              [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2 
+                              [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all 
+                              [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-110 
+                              hover:[&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:border-solid
+                              [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full 
+                              [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to right, 
+                                ${feedbackAnswers.compatibilityRate >= 80 ? '#059669' : 
+                                  feedbackAnswers.compatibilityRate >= 60 ? '#d97706' : '#dc2626'} 0%, 
+                                ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : 
+                                  feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} ${Math.max(feedbackAnswers.compatibilityRate - 2, 0)}%, 
+                                ${feedbackAnswers.compatibilityRate >= 80 ? '#34d399' : 
+                                  feedbackAnswers.compatibilityRate >= 60 ? '#fbbf24' : '#f87171'} ${feedbackAnswers.compatibilityRate}%, 
+                                ${dark ? '#475569' : '#cbd5e1'} ${Math.min(feedbackAnswers.compatibilityRate + 2, 100)}%, 
+                                ${dark ? '#334155' : '#e2e8f0'} 100%)`,
+                              boxShadow: `inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)`,
+                              '--thumb-color': feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : 
+                                feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'
+                            } as React.CSSProperties & { '--thumb-color': string }}
+                          />
+                          <style>
+                            {`
+                              input[type="range"]::-webkit-slider-thumb {
+                                border-color: ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : 
+                                  feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} !important;
+                              }
+                              input[type="range"]::-moz-range-thumb {
+                                border-color: ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : 
+                                  feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} !important;
+                              }
+                            `}
+                          </style>
+                        </div>
                         <div className="flex justify-between text-xs mt-2" dir="ltr">
                           <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>0%</span>
                           <span className={`font-bold text-lg ${

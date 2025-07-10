@@ -431,11 +431,13 @@ export default function WelcomePage() {
   const [conversationTimer, setConversationTimer] = useState(300) // 5 minutes
   const [feedbackAnswers, setFeedbackAnswers] = useState({
     compatibilityRate: 50, // 0-100 scale
-    conversationQuality: "",
-    personalConnection: "",
-    sharedInterests: "",
-    comfortLevel: "",
-    wouldMeetAgain: "",
+    conversationQuality: 3, // 1-5 scale
+    personalConnection: 3, // 1-5 scale
+    sharedInterests: 3, // 1-5 scale
+    comfortLevel: 3, // 1-5 scale
+    communicationStyle: 3, // 1-5 scale
+    wouldMeetAgain: 3, // 1-5 scale
+    overallExperience: 3, // 1-5 scale
     recommendations: ""
   })
   const token = useSearchParams()[0].get("token")
@@ -668,11 +670,13 @@ export default function WelcomePage() {
           setAnimationStep(0);
           setFeedbackAnswers({
             compatibilityRate: 50,
-            conversationQuality: "",
-            personalConnection: "",
-            sharedInterests: "",
-            comfortLevel: "",
-            wouldMeetAgain: "",
+            conversationQuality: 3,
+            personalConnection: 3,
+            sharedInterests: 3,
+            comfortLevel: 3,
+            communicationStyle: 3,
+            wouldMeetAgain: 3,
+            overallExperience: 3,
             recommendations: ""
           });
           setShowFormFilledPrompt(false);
@@ -845,11 +849,13 @@ export default function WelcomePage() {
               setAnimationStep(0);
                         setFeedbackAnswers({
             compatibilityRate: 50,
-            conversationQuality: "",
-            personalConnection: "",
-            sharedInterests: "",
-            comfortLevel: "",
-            wouldMeetAgain: "",
+            conversationQuality: 3,
+            personalConnection: 3,
+            sharedInterests: 3,
+            comfortLevel: 3,
+            communicationStyle: 3,
+            wouldMeetAgain: 3,
+            overallExperience: 3,
             recommendations: ""
           });
               setTypewriterCompleted(false);
@@ -3144,11 +3150,11 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                           min="0"
                           max="100"
                           step="5"
-                          value={feedbackAnswers.compatibilityRate}
-                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: parseInt(e.target.value) }))}
+                          value={100 - feedbackAnswers.compatibilityRate}
+                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value) }))}
                           className="w-full h-3 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-400/30 transition-all duration-300"
                           style={{
-                            background: `linear-gradient(to left, ${dark ? '#475569' : '#e5e7eb'} 0%, ${dark ? '#475569' : '#e5e7eb'} ${100 - feedbackAnswers.compatibilityRate}%, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} ${100 - feedbackAnswers.compatibilityRate}%, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} 100%)`
+                            background: `linear-gradient(to right, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} 0%, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} 100%)`
                           }}
                         />
                         <div className="flex justify-between text-xs mt-2">
@@ -3165,155 +3171,173 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                     </div>
 
-                    {/* Conversation Quality */}
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        كيف تقيم جودة المحادثة؟
-                      </label>
-                                             <div className="grid grid-cols-2 gap-2">
-                         {[
-                           { value: "excellent", label: "ممتاز", icon: Star, color: "from-green-500 to-green-600" },
-                           { value: "good", label: "جيد", icon: ThumbsUp, color: "from-blue-500 to-blue-600" },
-                           { value: "average", label: "متوسط", icon: Meh, color: "from-yellow-500 to-yellow-600" },
-                           { value: "poor", label: "ضعيف", icon: ThumbsDown, color: "from-red-500 to-red-600" }
-                         ].map((option) => (
-                                                     <button
-                             key={option.value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, conversationQuality: option.value }))}
-                             className={`p-3 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-2 ${
-                               feedbackAnswers.conversationQuality === option.value
-                                 ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                                        {/* Conversation Quality Scale */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         جودة المحادثة (1 = ضعيف جداً، 5 = ممتاز)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, conversationQuality: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.conversationQuality === value
+                                 ? "bg-blue-500 text-white border-blue-500 shadow-lg"
                                  : dark
                                    ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
                                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                              }`}
                            >
-                             <option.icon className="w-4 h-4" />
-                             <span className="text-sm">{option.label}</span>
+                             {value}
                            </button>
-                        ))}
-                      </div>
-                    </div>
+                         ))}
+                       </div>
+                     </div>
 
-                    {/* Personal Connection */}
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        هل شعرت بتواصل شخصي مع شريك المحادثة؟
-                      </label>
-                                             <div className="flex gap-2">
-                         {[
-                           { value: "strong", label: "قوي جداً", icon: ZapIcon, color: "from-green-500 to-green-600" },
-                           { value: "moderate", label: "متوسط", icon: Handshake, color: "from-blue-500 to-blue-600" },
-                           { value: "weak", label: "ضعيف", icon: HelpCircle, color: "from-yellow-500 to-yellow-600" },
-                           { value: "none", label: "لا يوجد", icon: Ban, color: "from-red-500 to-red-600" }
-                         ].map((option) => (
-                                                     <button
-                             key={option.value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, personalConnection: option.value }))}
-                             className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm flex items-center justify-center gap-1 ${
-                               feedbackAnswers.personalConnection === option.value
-                                 ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                     {/* Personal Connection Scale */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         التواصل الشخصي (1 = لا يوجد، 5 = قوي جداً)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, personalConnection: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.personalConnection === value
+                                 ? "bg-green-500 text-white border-green-500 shadow-lg"
                                  : dark
                                    ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
                                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                              }`}
                            >
-                             <option.icon className="w-3 h-3" />
-                             <span>{option.label}</span>
+                             {value}
                            </button>
-                        ))}
-                      </div>
-                    </div>
+                         ))}
+                       </div>
+                     </div>
 
-                    {/* Shared Interests */}
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        هل وجدت اهتمامات مشتركة؟
-                      </label>
-                                             <div className="flex gap-2">
-                         {[
-                           { value: "many", label: "كثيرة", icon: Target, color: "from-green-500 to-green-600" },
-                           { value: "some", label: "بعض الشيء", icon: Search, color: "from-blue-500 to-blue-600" },
-                           { value: "few", label: "قليلة", icon: FileText, color: "from-yellow-500 to-yellow-600" },
-                           { value: "none", label: "لا يوجد", icon: XCircle, color: "from-red-500 to-red-600" }
-                         ].map((option) => (
-                                                     <button
-                             key={option.value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, sharedInterests: option.value }))}
-                             className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm flex items-center justify-center gap-1 ${
-                               feedbackAnswers.sharedInterests === option.value
-                                 ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                     {/* Shared Interests Scale */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         الاهتمامات المشتركة (1 = لا يوجد، 5 = كثيرة جداً)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, sharedInterests: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.sharedInterests === value
+                                 ? "bg-purple-500 text-white border-purple-500 shadow-lg"
                                  : dark
                                    ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
                                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                              }`}
                            >
-                             <option.icon className="w-3 h-3" />
-                             <span>{option.label}</span>
+                             {value}
                            </button>
-                        ))}
-                      </div>
-                    </div>
+                         ))}
+                       </div>
+                     </div>
 
-                    {/* Comfort Level */}
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        مستوى الراحة أثناء المحادثة
-                      </label>
-                                             <div className="flex gap-2">
-                         {[
-                           { value: "very_comfortable", label: "مرتاح جداً", icon: Smile, color: "from-green-500 to-green-600" },
-                           { value: "comfortable", label: "مرتاح", icon: CheckCircle, color: "from-blue-500 to-blue-600" },
-                           { value: "neutral", label: "عادي", icon: Meh, color: "from-yellow-500 to-yellow-600" },
-                           { value: "uncomfortable", label: "غير مرتاح", icon: Frown, color: "from-red-500 to-red-600" }
-                         ].map((option) => (
-                                                     <button
-                             key={option.value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, comfortLevel: option.value }))}
-                             className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm flex items-center justify-center gap-1 ${
-                               feedbackAnswers.comfortLevel === option.value
-                                 ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                     {/* Comfort Level Scale */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         مستوى الراحة (1 = غير مرتاح، 5 = مرتاح جداً)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, comfortLevel: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.comfortLevel === value
+                                 ? "bg-cyan-500 text-white border-cyan-500 shadow-lg"
                                  : dark
                                    ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
                                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                              }`}
                            >
-                             <option.icon className="w-3 h-3" />
-                             <span>{option.label}</span>
+                             {value}
                            </button>
-                        ))}
-                      </div>
-                    </div>
+                         ))}
+                       </div>
+                     </div>
 
-                    {/* Would Meet Again */}
-                    <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        هل تود مقابلة هذا الشخص مرة أخرى؟
-                      </label>
-                                             <div className="flex gap-2">
-                         {[
-                           { value: "definitely", label: "بالتأكيد!", icon: CheckCircle, color: "from-green-500 to-green-600" },
-                           { value: "maybe", label: "ربما", icon: HelpCircle, color: "from-blue-500 to-blue-600" },
-                           { value: "probably_not", label: "غالباً لا", icon: AlertCircle, color: "from-yellow-500 to-yellow-600" },
-                           { value: "no", label: "لا", icon: XCircle, color: "from-red-500 to-red-600" }
-                         ].map((option) => (
-                                                     <button
-                             key={option.value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: option.value }))}
-                             className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm flex items-center justify-center gap-1 ${
-                               feedbackAnswers.wouldMeetAgain === option.value
-                                 ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                     {/* Communication Style Match */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         توافق أسلوب التواصل (1 = مختلف جداً، 5 = متطابق تماماً)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, communicationStyle: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.communicationStyle === value
+                                 ? "bg-orange-500 text-white border-orange-500 shadow-lg"
                                  : dark
                                    ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
                                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
                              }`}
                            >
-                             <option.icon className="w-3 h-3" />
-                             <span>{option.label}</span>
+                             {value}
                            </button>
-                        ))}
-                      </div>
-                    </div>
+                         ))}
+                       </div>
+                     </div>
+
+                     {/* Would Meet Again Scale */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         الرغبة في مقابلة مرة أخرى (1 = أبداً، 5 = بالتأكيد)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.wouldMeetAgain === value
+                                 ? "bg-red-500 text-white border-red-500 shadow-lg"
+                                 : dark
+                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                             }`}
+                           >
+                             {value}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
+
+                     {/* Overall Experience Scale */}
+                     <div>
+                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         التقييم العام للتجربة (1 = سيء، 5 = ممتاز)
+                       </label>
+                       <div className="flex items-center justify-between gap-2">
+                         {[1, 2, 3, 4, 5].map((value) => (
+                           <button
+                             key={value}
+                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, overallExperience: value }))}
+                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                               feedbackAnswers.overallExperience === value
+                                 ? "bg-indigo-500 text-white border-indigo-500 shadow-lg"
+                                 : dark
+                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                             }`}
+                           >
+                             {value}
+                           </button>
+                         ))}
+                       </div>
+                     </div>
 
                                          {/* Optional Recommendations */}
                      <div>

@@ -1919,6 +1919,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
       }`}
       dir="rtl"
     >
+      {/* Offline Warning */}
+      {!isOnline && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in slide-in-from-top-4 duration-500">
+          <div className="bg-red-500/90 backdrop-blur-sm border border-red-400 rounded-xl px-4 py-3 flex items-center gap-3 text-white shadow-lg">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+            <span className="text-sm font-medium">لا يوجد اتصال بالإنترنت - يرجى التحقق من الاتصال</span>
+          </div>
+        </div>
+      )}
+
       {/* Announcement Banner */}
       {announcement?.message && (
         <div className="fixed top-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-top-4 duration-500">

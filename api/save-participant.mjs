@@ -12,14 +12,88 @@ export default async (req, res) => {
   }
 
   try {
-    const { assigned_number, summary, survey_data } = req.body
+    const { assigned_number, summary, survey_data, feedback, round } = req.body
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
     if (!req.body?.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
     
-    // Check for either survey data or summary
-    if (!survey_data && !summary) {
-      return res.status(400).json({ error: 'Missing survey data or summary' })
+    // Check for either survey data, summary, or feedback
+    if (!survey_data && !summary && !feedback) {
+      return res.status(400).json({ error: 'Missing survey data, summary, or feedback' })
+    }
+
+    // Handle feedback saving
+    if (feedback && round) {
+      const {
+        compatibilityRate,
+        conversationQuality,
+        personalConnection,
+        sharedInterests,
+        comfortLevel,
+        communicationStyle,
+        wouldMeetAgain,
+        overallExperience,
+        recommendations
+      } = feedback
+
+      // Check if feedback already exists for this participant and round
+      const { data: existingFeedback, error: existingFeedbackError } = await supabase
+        .from("match_feedback")
+        .select("id")
+        .eq("match_id", match_id)
+        .eq("participant_number", assigned_number)
+        .eq("round", round)
+
+      if (existingFeedbackError) {
+        console.error("Error checking existing feedback:", existingFeedbackError)
+        throw new Error("Database query failed")
+      }
+
+      const feedbackData = {
+        match_id,
+        participant_number: assigned_number,
+        round,
+        compatibility_rate: compatibilityRate,
+        conversation_quality: conversationQuality,
+        personal_connection: personalConnection,
+        shared_interests: sharedInterests,
+        comfort_level: comfortLevel,
+        communication_style: communicationStyle,
+        would_meet_again: wouldMeetAgain,
+        overall_experience: overallExperience,
+        recommendations: recommendations || null,
+        submitted_at: new Date().toISOString()
+      }
+
+      if (existingFeedback && existingFeedback.length > 0) {
+        // Update existing feedback
+        const { error: updateFeedbackError } = await supabase
+          .from("match_feedback")
+          .update(feedbackData)
+          .eq("match_id", match_id)
+          .eq("participant_number", assigned_number)
+          .eq("round", round)
+
+        if (updateFeedbackError) {
+          console.error("Error updating feedback:", updateFeedbackError)
+          throw new Error("Failed to update feedback")
+        }
+      } else {
+        // Insert new feedback
+        const { error: insertFeedbackError } = await supabase
+          .from("match_feedback")
+          .insert([feedbackData])
+
+        if (insertFeedbackError) {
+          console.error("Error inserting feedback:", insertFeedbackError)
+          throw new Error("Failed to save feedback")
+        }
+      }
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Feedback saved successfully" 
+      })
     }
 
     const { data: existing, error: existingError } = await supabase

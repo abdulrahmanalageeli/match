@@ -1160,7 +1160,33 @@ export default function WelcomePage() {
     return () => clearInterval(timer)
   }, [announcement?.message])
 
-  const submitFeedback = () => {
+  const submitFeedback = async () => {
+    // Save feedback to database
+    if (assignedNumber && currentRound) {
+      try {
+        const response = await fetch("/api/save-participant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            assigned_number: assignedNumber,
+            round: currentRound,
+            feedback: feedbackAnswers
+          }),
+        })
+
+        const data = await response.json()
+        if (!response.ok) {
+          console.error("Failed to save feedback:", data.error)
+          // Continue with UI updates even if saving fails
+        } else {
+          console.log("✅ Feedback saved successfully")
+        }
+      } catch (error) {
+        console.error("Error saving feedback:", error)
+        // Continue with UI updates even if saving fails
+      }
+    }
+
     setIsScoreRevealed(true)
     setModalStep("result")
     

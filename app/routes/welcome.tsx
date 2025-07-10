@@ -3168,7 +3168,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     {/* Compatibility Rate Slider */}
                     <div>
                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        درجة التوافق مع شريك المحادثة
+                       (بعد التقييم سوف يظهر التقييم الحقيقي) درجة التوافق مع شريك المحادثة
                       </label>
                       <div className="relative">
                         <input
@@ -3200,168 +3200,238 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                         {/* Conversation Quality Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         جودة المحادثة (1 = ضعيف جداً، 5 = ممتاز)
+                         جودة المحادثة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = ضعيف جداً، 5 = ممتاز)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, conversationQuality: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.conversationQuality === value
-                                 ? "bg-blue-500 text-white border-blue-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, conversationQuality: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.conversationQuality === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 
                      {/* Personal Connection Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         التواصل الشخصي (1 = لا يوجد، 5 = قوي جداً)
+                         القيم المشتركة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = قوي جداً)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, personalConnection: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.personalConnection === value
-                                 ? "bg-green-500 text-white border-green-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, personalConnection: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.personalConnection === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 
                      {/* Shared Interests Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         الاهتمامات المشتركة (1 = لا يوجد، 5 = كثيرة جداً)
+                         الاهتمامات المشتركة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = كثيرة جداً)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, sharedInterests: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.sharedInterests === value
-                                 ? "bg-purple-500 text-white border-purple-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, sharedInterests: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.sharedInterests === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 
                      {/* Comfort Level Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         مستوى الراحة (1 = غير مرتاح، 5 = مرتاح جداً)
+                         مستوى الراحة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = غير مرتاح، 5 = مرتاح جداً)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, comfortLevel: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.comfortLevel === value
-                                 ? "bg-cyan-500 text-white border-cyan-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, comfortLevel: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.comfortLevel === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 
                      {/* Communication Style Match */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         توافق أسلوب التواصل (1 = مختلف جداً، 5 = متطابق تماماً)
+                         توافق أسلوب التواصل <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = مختلف جداً، 5 = متطابق تماماً)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, communicationStyle: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.communicationStyle === value
-                                 ? "bg-orange-500 text-white border-orange-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, communicationStyle: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.communicationStyle === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 
                      {/* Would Meet Again Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         الرغبة في مقابلة مرة أخرى (1 = أبداً، 5 = بالتأكيد)
+                         الرغبة في مقابلة مرة أخرى <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = أبداً، 5 = بالتأكيد)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.wouldMeetAgain === value
-                                 ? "bg-red-500 text-white border-red-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.wouldMeetAgain === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 
                      {/* Overall Experience Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         التقييم العام للتجربة (1 = سيء، 5 = ممتاز)
+                         التقييم العام للتجربة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = سيء، 5 = ممتاز)</span>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
-                         {[1, 2, 3, 4, 5].map((value) => (
-                           <button
-                             key={value}
-                             onClick={() => setFeedbackAnswers(prev => ({ ...prev, overallExperience: value }))}
-                             className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
-                               feedbackAnswers.overallExperience === value
-                                 ? "bg-indigo-500 text-white border-indigo-500 shadow-lg"
-                                 : dark
-                                   ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
-                                   : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-                             }`}
-                           >
-                             {value}
-                           </button>
-                         ))}
+                         {[1, 2, 3, 4, 5].map((value) => {
+                           const getColor = (v: number) => {
+                             if (v === 1) return "bg-red-500 border-red-500"
+                             if (v === 2) return "bg-orange-500 border-orange-500"
+                             if (v === 3) return "bg-yellow-500 border-yellow-500"
+                             if (v === 4) return "bg-lime-500 border-lime-500"
+                             if (v === 5) return "bg-green-500 border-green-500"
+                             return ""
+                           }
+                           return (
+                             <button
+                               key={value}
+                               onClick={() => setFeedbackAnswers(prev => ({ ...prev, overallExperience: value }))}
+                               className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
+                                 feedbackAnswers.overallExperience === value
+                                   ? `${getColor(value)} text-white shadow-lg`
+                                   : dark
+                                     ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                     : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                               }`}
+                             >
+                               {value}
+                             </button>
+                           )
+                         })}
                        </div>
                      </div>
 

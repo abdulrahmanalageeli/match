@@ -2241,33 +2241,32 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
-                {/* History Icon */}
-                {historyMatches.length > 0 && (
-                  <div 
-                    ref={historyIconRef}
-                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                      dark 
-                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHistoryIconClick(e);
-                    }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-cyan-300" : "text-cyan-700"
-                      }`} />
-                    </div>
-                    {/* Notification dot */}
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+              {/* History Icon - Left corner */}
+              {historyMatches.length > 0 && (
+                <div 
+                  ref={historyIconRef}
+                  className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                    dark 
+                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHistoryIconClick(e);
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Clock className={`w-5 h-5 ${
+                      dark ? "text-cyan-300" : "text-cyan-700"
+                    }`} />
                   </div>
-                )}
-                
-                {/* Player Avatar */}
+                  {/* Notification dot */}
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Player Avatar - Right corner (original position) */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
                   <Avatar className={`w-12 h-12 border-2 shadow-lg ${
                     dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
@@ -2341,32 +2340,31 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
-                {/* History Icon */}
-                {historyMatches.length > 0 && (
-                  <div 
-                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                      dark 
-                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHistoryIconClick(e);
-                    }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-cyan-300" : "text-cyan-700"
-                      }`} />
-                    </div>
-                    {/* Notification dot */}
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+              {/* History Icon - Left corner */}
+              {historyMatches.length > 0 && (
+                <div 
+                  className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                    dark 
+                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHistoryIconClick(e);
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Clock className={`w-5 h-5 ${
+                      dark ? "text-cyan-300" : "text-cyan-700"
+                    }`} />
                   </div>
-                )}
-                
-                {/* Player Avatar */}
+                  {/* Notification dot */}
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Player Avatar - Right corner (original position) */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
                   <Avatar className={`w-12 h-12 border-2 shadow-lg ${
                     dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
@@ -2563,32 +2561,31 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
-                {/* History Icon */}
-                {historyMatches.length > 0 && (
-                  <div 
-                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                      dark 
-                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHistoryIconClick(e);
-                    }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-cyan-300" : "text-cyan-700"
-                      }`} />
-                    </div>
-                    {/* Notification dot */}
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+              {/* History Icon - Left corner */}
+              {historyMatches.length > 0 && (
+                <div 
+                  className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                    dark 
+                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHistoryIconClick(e);
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Clock className={`w-5 h-5 ${
+                      dark ? "text-cyan-300" : "text-cyan-700"
+                    }`} />
                   </div>
-                )}
-                
-                {/* Player Avatar */}
+                  {/* Notification dot */}
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Player Avatar - Right corner (original position) */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
                   <Avatar className={`w-12 h-12 border-2 shadow-lg ${
                     dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
@@ -2664,32 +2661,31 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
-                {/* History Icon */}
-                {historyMatches.length > 0 && (
-                  <div 
-                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                      dark 
-                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHistoryIconClick(e);
-                    }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-cyan-300" : "text-cyan-700"
-                      }`} />
-                    </div>
-                    {/* Notification dot */}
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+              {/* History Icon - Left corner */}
+              {historyMatches.length > 0 && (
+                <div 
+                  className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                    dark 
+                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHistoryIconClick(e);
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Clock className={`w-5 h-5 ${
+                      dark ? "text-cyan-300" : "text-cyan-700"
+                    }`} />
                   </div>
-                )}
-                
-                {/* Player Avatar */}
+                  {/* Notification dot */}
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Player Avatar - Right corner (original position) */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
                   <Avatar className={`w-12 h-12 border-2 shadow-lg ${
                     dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
@@ -2782,32 +2778,31 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
-                {/* History Icon */}
-                {historyMatches.length > 0 && (
-                  <div 
-                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                      dark 
-                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleHistoryIconClick(e);
-                    }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-cyan-300" : "text-cyan-700"
-                      }`} />
-                    </div>
-                    {/* Notification dot */}
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+              {/* History Icon - Left corner */}
+              {historyMatches.length > 0 && (
+                <div 
+                  className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                    dark 
+                      ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                      : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                  }`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleHistoryIconClick(e);
+                  }}
+                >
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Clock className={`w-5 h-5 ${
+                      dark ? "text-cyan-300" : "text-cyan-700"
+                    }`} />
                   </div>
-                )}
-                
-                {/* Player Avatar */}
+                  {/* Notification dot */}
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Player Avatar - Right corner (original position) */}
+              <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
                   <Avatar className={`w-12 h-12 border-2 shadow-lg ${
                     dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"

@@ -460,26 +460,8 @@ export default function WelcomePage() {
   const [timerWasStarted, setTimerWasStarted] = useState(false);
   const [showPartnerStartedNotification, setShowPartnerStartedNotification] = useState(false);
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
-  const [showHistoryPopover, setShowHistoryPopover] = useState(false);
-  const historyPopoverRef = useRef<HTMLDivElement>(null);
-  const historyIconRef = useRef<HTMLButtonElement>(null);
-
-  // Click-away listener for history popover
-  useEffect(() => {
-    if (!showHistoryPopover) return;
-    function handleClick(e: MouseEvent) {
-      if (
-        historyPopoverRef.current &&
-        !historyPopoverRef.current.contains(e.target as Node) &&
-        e.target instanceof Node &&
-        !(e.target as HTMLElement).closest('[aria-label="عرض اللقاءات السابقة"]')
-      ) {
-        setShowHistoryPopover(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [showHistoryPopover]);
+  const [showHistoryBox, setShowHistoryBox] = useState(false);
+  const [historyBoxPosition, setHistoryBoxPosition] = useState({ x: 0, y: 0 });
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -496,6 +478,25 @@ export default function WelcomePage() {
   // Add these refs near the top of your component
   const lastRoundRef = useRef<number | null>(null);
   const lastPhaseRef = useRef<string | null>(null);
+  const historyIconRef = useRef<HTMLDivElement | null>(null);
+
+  // Helper function to handle history icon interactions
+  const handleHistoryIconHover = (event: React.MouseEvent) => {
+    if (historyMatches.length === 0) return;
+    
+    const rect = event.currentTarget.getBoundingClientRect();
+    setHistoryBoxPosition({
+      x: rect.left - 240, // Position to the left of the icon
+      y: rect.bottom + 8  // Position below the icon
+    });
+    setShowHistoryBox(true);
+  };
+
+  const handleHistoryIconLeave = () => {
+    setTimeout(() => {
+      setShowHistoryBox(false);
+    }, 300); // Small delay to allow moving to the box
+  };
 
   // Typewriter effect for welcome message
   useEffect(() => {
@@ -2247,66 +2248,45 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex flex-row-reverse items-center gap-2">
+              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+                {/* History Icon */}
+                {historyMatches.length > 0 && (
+                  <div 
+                    ref={historyIconRef}
+                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                      dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    }`}
+                    onMouseEnter={handleHistoryIconHover}
+                    onMouseLeave={handleHistoryIconLeave}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHistoryIconHover(e);
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Sparkles className={`w-5 h-5 ${
+                        dark ? "text-cyan-300" : "text-cyan-700"
+                      }`} />
+                    </div>
+                    {/* Notification dot */}
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  </div>
+                )}
+                
+                {/* Player Avatar */}
                 <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"}`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"}`}>
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
-                {/* New history icon trigger */}
-                <div className="relative flex items-center">
-                  <button
-                    ref={historyIconRef}
-                    type="button"
-                    aria-label="اللقاءات السابقة"
-                    className={`group p-1 rounded-full border-2 transition-all duration-200 focus:outline-none ${dark ? 'border-cyan-400/40 bg-slate-800 hover:bg-cyan-900/30' : 'border-cyan-400/40 bg-white hover:bg-cyan-100/60'}`}
-                    onClick={() => setShowHistoryPopover((v) => !v)}
-                    onMouseEnter={() => setShowHistoryPopover(true)}
-                    onMouseLeave={() => setTimeout(() => setShowHistoryPopover(false), 200)}
-                  >
-                    <Sparkles className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    {/* Tooltip */}
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-cyan-700 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap shadow-lg z-50">
-                      اللقاءات السابقة
-                    </span>
-                  </button>
-                  {/* Popover */}
-                  {showHistoryPopover && (
-                    <div
-                      ref={historyPopoverRef}
-                      onMouseEnter={() => setShowHistoryPopover(true)}
-                      onMouseLeave={() => setShowHistoryPopover(false)}
-                      className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 max-w-xs bg-white/90 dark:bg-slate-900/95 border border-cyan-400/30 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50 animate-fade-in transition-all duration-200`}
-                      style={{ minWidth: '220px' }}
-                    >
-                      <h4 className="text-base font-bold text-cyan-700 dark:text-cyan-200 mb-2 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> اللقاءات السابقة
-                      </h4>
-                      <div className="space-y-1 max-h-56 overflow-y-auto sleek-scrollbar">
-                        {historyMatches.length === 0 ? (
-                          <p className="text-center text-gray-500 dark:text-slate-300 text-sm">لا يوجد سجل بعد.</p>
-                        ) : (
-                          historyMatches.filter(m => (typeof step === 'number' && (step as number) === 4 ? m.round <= currentRound : true)).map((m: MatchResultEntry, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-cyan-900 dark:text-cyan-100 text-sm bg-cyan-100/40 dark:bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-cyan-200/80 dark:hover:bg-white/10 transition-all duration-200"
-                              onClick={() => {
-                                setSelectedHistoryItem(m);
-                                setShowHistoryDetail(true);
-                                setShowHistoryPopover(false);
-                              }}
-                            >
-                              <span className="font-bold">#{m.with}</span>
-                              <span>{m.score}%</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2370,66 +2350,44 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex flex-row-reverse items-center gap-2">
+              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+                {/* History Icon */}
+                {historyMatches.length > 0 && (
+                  <div 
+                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                      dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    }`}
+                    onMouseEnter={handleHistoryIconHover}
+                    onMouseLeave={handleHistoryIconLeave}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHistoryIconHover(e);
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Sparkles className={`w-5 h-5 ${
+                        dark ? "text-cyan-300" : "text-cyan-700"
+                      }`} />
+                    </div>
+                    {/* Notification dot */}
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  </div>
+                )}
+                
+                {/* Player Avatar */}
                 <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"}`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"}`}>
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
-                {/* New history icon trigger */}
-                <div className="relative flex items-center">
-                  <button
-                    ref={historyIconRef}
-                    type="button"
-                    aria-label="اللقاءات السابقة"
-                    className={`group p-1 rounded-full border-2 transition-all duration-200 focus:outline-none ${dark ? 'border-cyan-400/40 bg-slate-800 hover:bg-cyan-900/30' : 'border-cyan-400/40 bg-white hover:bg-cyan-100/60'}`}
-                    onClick={() => setShowHistoryPopover((v) => !v)}
-                    onMouseEnter={() => setShowHistoryPopover(true)}
-                    onMouseLeave={() => setTimeout(() => setShowHistoryPopover(false), 200)}
-                  >
-                    <Sparkles className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    {/* Tooltip */}
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-cyan-700 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap shadow-lg z-50">
-                      اللقاءات السابقة
-                    </span>
-                  </button>
-                  {/* Popover */}
-                  {showHistoryPopover && (
-                    <div
-                      ref={historyPopoverRef}
-                      onMouseEnter={() => setShowHistoryPopover(true)}
-                      onMouseLeave={() => setShowHistoryPopover(false)}
-                      className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 max-w-xs bg-white/90 dark:bg-slate-900/95 border border-cyan-400/30 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50 animate-fade-in transition-all duration-200`}
-                      style={{ minWidth: '220px' }}
-                    >
-                      <h4 className="text-base font-bold text-cyan-700 dark:text-cyan-200 mb-2 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> اللقاءات السابقة
-                      </h4>
-                      <div className="space-y-1 max-h-56 overflow-y-auto sleek-scrollbar">
-                        {historyMatches.length === 0 ? (
-                          <p className="text-center text-gray-500 dark:text-slate-300 text-sm">لا يوجد سجل بعد.</p>
-                        ) : (
-                          historyMatches.filter(m => (typeof step === 'number' && (step as number) === 4 ? m.round <= currentRound : true)).map((m: MatchResultEntry, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-cyan-900 dark:text-cyan-100 text-sm bg-cyan-100/40 dark:bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-cyan-200/80 dark:hover:bg-white/10 transition-all duration-200"
-                              onClick={() => {
-                                setSelectedHistoryItem(m);
-                                setShowHistoryDetail(true);
-                                setShowHistoryPopover(false);
-                              }}
-                            >
-                              <span className="font-bold">#{m.with}</span>
-                              <span>{m.score}%</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2616,66 +2574,44 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex flex-row-reverse items-center gap-2">
+              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+                {/* History Icon */}
+                {historyMatches.length > 0 && (
+                  <div 
+                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                      dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    }`}
+                    onMouseEnter={handleHistoryIconHover}
+                    onMouseLeave={handleHistoryIconLeave}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHistoryIconHover(e);
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Sparkles className={`w-5 h-5 ${
+                        dark ? "text-cyan-300" : "text-cyan-700"
+                      }`} />
+                    </div>
+                    {/* Notification dot */}
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  </div>
+                )}
+                
+                {/* Player Avatar */}
                 <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"}`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"}`}>
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
-                {/* New history icon trigger */}
-                <div className="relative flex items-center">
-                  <button
-                    ref={historyIconRef}
-                    type="button"
-                    aria-label="اللقاءات السابقة"
-                    className={`group p-1 rounded-full border-2 transition-all duration-200 focus:outline-none ${dark ? 'border-cyan-400/40 bg-slate-800 hover:bg-cyan-900/30' : 'border-cyan-400/40 bg-white hover:bg-cyan-100/60'}`}
-                    onClick={() => setShowHistoryPopover((v) => !v)}
-                    onMouseEnter={() => setShowHistoryPopover(true)}
-                    onMouseLeave={() => setTimeout(() => setShowHistoryPopover(false), 200)}
-                  >
-                    <Sparkles className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    {/* Tooltip */}
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-cyan-700 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap shadow-lg z-50">
-                      اللقاءات السابقة
-                    </span>
-                  </button>
-                  {/* Popover */}
-                  {showHistoryPopover && (
-                    <div
-                      ref={historyPopoverRef}
-                      onMouseEnter={() => setShowHistoryPopover(true)}
-                      onMouseLeave={() => setShowHistoryPopover(false)}
-                      className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 max-w-xs bg-white/90 dark:bg-slate-900/95 border border-cyan-400/30 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50 animate-fade-in transition-all duration-200`}
-                      style={{ minWidth: '220px' }}
-                    >
-                      <h4 className="text-base font-bold text-cyan-700 dark:text-cyan-200 mb-2 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> اللقاءات السابقة
-                      </h4>
-                      <div className="space-y-1 max-h-56 overflow-y-auto sleek-scrollbar">
-                        {historyMatches.length === 0 ? (
-                          <p className="text-center text-gray-500 dark:text-slate-300 text-sm">لا يوجد سجل بعد.</p>
-                        ) : (
-                          historyMatches.filter(m => (typeof step === 'number' && (step as number) === 4 ? m.round <= currentRound : true)).map((m: MatchResultEntry, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-cyan-900 dark:text-cyan-100 text-sm bg-cyan-100/40 dark:bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-cyan-200/80 dark:hover:bg-white/10 transition-all duration-200"
-                              onClick={() => {
-                                setSelectedHistoryItem(m);
-                                setShowHistoryDetail(true);
-                                setShowHistoryPopover(false);
-                              }}
-                            >
-                              <span className="font-bold">#{m.with}</span>
-                              <span>{m.score}%</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2741,66 +2677,44 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex flex-row-reverse items-center gap-2">
+              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+                {/* History Icon */}
+                {historyMatches.length > 0 && (
+                  <div 
+                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                      dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    }`}
+                    onMouseEnter={handleHistoryIconHover}
+                    onMouseLeave={handleHistoryIconLeave}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHistoryIconHover(e);
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Sparkles className={`w-5 h-5 ${
+                        dark ? "text-cyan-300" : "text-cyan-700"
+                      }`} />
+                    </div>
+                    {/* Notification dot */}
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  </div>
+                )}
+                
+                {/* Player Avatar */}
                 <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"}`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"}`}>
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
-                {/* New history icon trigger */}
-                <div className="relative flex items-center">
-                  <button
-                    ref={historyIconRef}
-                    type="button"
-                    aria-label="اللقاءات السابقة"
-                    className={`group p-1 rounded-full border-2 transition-all duration-200 focus:outline-none ${dark ? 'border-cyan-400/40 bg-slate-800 hover:bg-cyan-900/30' : 'border-cyan-400/40 bg-white hover:bg-cyan-100/60'}`}
-                    onClick={() => setShowHistoryPopover((v) => !v)}
-                    onMouseEnter={() => setShowHistoryPopover(true)}
-                    onMouseLeave={() => setTimeout(() => setShowHistoryPopover(false), 200)}
-                  >
-                    <Sparkles className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    {/* Tooltip */}
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-cyan-700 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap shadow-lg z-50">
-                      اللقاءات السابقة
-                    </span>
-                  </button>
-                  {/* Popover */}
-                  {showHistoryPopover && (
-                    <div
-                      ref={historyPopoverRef}
-                      onMouseEnter={() => setShowHistoryPopover(true)}
-                      onMouseLeave={() => setShowHistoryPopover(false)}
-                      className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 max-w-xs bg-white/90 dark:bg-slate-900/95 border border-cyan-400/30 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50 animate-fade-in transition-all duration-200`}
-                      style={{ minWidth: '220px' }}
-                    >
-                      <h4 className="text-base font-bold text-cyan-700 dark:text-cyan-200 mb-2 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> اللقاءات السابقة
-                      </h4>
-                      <div className="space-y-1 max-h-56 overflow-y-auto sleek-scrollbar">
-                        {historyMatches.length === 0 ? (
-                          <p className="text-center text-gray-500 dark:text-slate-300 text-sm">لا يوجد سجل بعد.</p>
-                        ) : (
-                          historyMatches.filter(m => (typeof step === 'number' && (step as number) === 4 ? m.round <= currentRound : true)).map((m: MatchResultEntry, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-cyan-900 dark:text-cyan-100 text-sm bg-cyan-100/40 dark:bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-cyan-200/80 dark:hover:bg-white/10 transition-all duration-200"
-                              onClick={() => {
-                                setSelectedHistoryItem(m);
-                                setShowHistoryDetail(true);
-                                setShowHistoryPopover(false);
-                              }}
-                            >
-                              <span className="font-bold">#{m.with}</span>
-                              <span>{m.score}%</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -2883,71 +2797,49 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex flex-row-reverse items-center gap-2">
+              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+                {/* History Icon */}
+                {historyMatches.length > 0 && (
+                  <div 
+                    className={`relative w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                      dark 
+                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
+                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
+                    }`}
+                    onMouseEnter={handleHistoryIconHover}
+                    onMouseLeave={handleHistoryIconLeave}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleHistoryIconHover(e);
+                    }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <Sparkles className={`w-5 h-5 ${
+                        dark ? "text-cyan-300" : "text-cyan-700"
+                      }`} />
+                    </div>
+                    {/* Notification dot */}
+                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white animate-pulse"></div>
+                  </div>
+                )}
+                
+                {/* Player Avatar */}
                 <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"}`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"}`}>
+                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
+                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
+                  }`}>
+                    <AvatarFallback className={`text-sm font-semibold text-white ${
+                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
+                    }`}>
                       {assignedNumber ?? "؟"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
                 </div>
-                {/* New history icon trigger */}
-                <div className="relative flex items-center">
-                  <button
-                    ref={historyIconRef}
-                    type="button"
-                    aria-label="اللقاءات السابقة"
-                    className={`group p-1 rounded-full border-2 transition-all duration-200 focus:outline-none ${dark ? 'border-cyan-400/40 bg-slate-800 hover:bg-cyan-900/30' : 'border-cyan-400/40 bg-white hover:bg-cyan-100/60'}`}
-                    onClick={() => setShowHistoryPopover((v) => !v)}
-                    onMouseEnter={() => setShowHistoryPopover(true)}
-                    onMouseLeave={() => setTimeout(() => setShowHistoryPopover(false), 200)}
-                  >
-                    <Sparkles className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    {/* Tooltip */}
-                    <span className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded bg-cyan-700 text-white text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap shadow-lg z-50">
-                      اللقاءات السابقة
-                    </span>
-                  </button>
-                  {/* Popover */}
-                  {showHistoryPopover && (
-                    <div
-                      ref={historyPopoverRef}
-                      onMouseEnter={() => setShowHistoryPopover(true)}
-                      onMouseLeave={() => setShowHistoryPopover(false)}
-                      className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 max-w-xs bg-white/90 dark:bg-slate-900/95 border border-cyan-400/30 rounded-2xl shadow-2xl backdrop-blur-xl p-4 z-50 animate-fade-in transition-all duration-200`}
-                      style={{ minWidth: '220px' }}
-                    >
-                      <h4 className="text-base font-bold text-cyan-700 dark:text-cyan-200 mb-2 flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-cyan-400" /> اللقاءات السابقة
-                      </h4>
-                      <div className="space-y-1 max-h-56 overflow-y-auto sleek-scrollbar">
-                        {historyMatches.length === 0 ? (
-                          <p className="text-center text-gray-500 dark:text-slate-300 text-sm">لا يوجد سجل بعد.</p>
-                        ) : (
-                          historyMatches.filter(m => (typeof step === 'number' && (step as number) === 4 ? m.round <= currentRound : true)).map((m: MatchResultEntry, i: number) => (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-cyan-900 dark:text-cyan-100 text-sm bg-cyan-100/40 dark:bg-white/5 rounded-lg px-2 py-1 cursor-pointer hover:bg-cyan-200/80 dark:hover:bg-white/10 transition-all duration-200"
-                              onClick={() => {
-                                setSelectedHistoryItem(m);
-                                setShowHistoryDetail(true);
-                                setShowHistoryPopover(false);
-                              }}
-                            >
-                              <span className="font-bold">#{m.with}</span>
-                              <span>{m.score}%</span>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div className="flex justify-center mb-4">
-                <Users className={`w-12 h-12 animate-pulse ${
+                <Users className={`w-12 h-12 animate-bounce ${
                   dark ? "text-slate-400" : "text-gray-600"
                 }`} />
               </div>
@@ -3327,11 +3219,81 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
         </div>
       )}
 
-      {/* Floating previous matches card */}
 
 
-      {/* History Detail Modal */}
-      {showHistoryDetail && selectedHistoryItem && (
+              {/* Floating History Box */}
+        {showHistoryBox && historyMatches.length > 0 && (
+          <div
+            className="fixed z-50 pointer-events-auto"
+            style={{
+              left: `${historyBoxPosition.x}px`,
+              top: `${historyBoxPosition.y}px`,
+            }}
+            onMouseEnter={() => setShowHistoryBox(true)}
+            onMouseLeave={handleHistoryIconLeave}
+          >
+            <div className={`w-60 rounded-2xl p-4 shadow-2xl border-2 backdrop-blur-xl transition-all duration-300 transform animate-in fade-in slide-in-from-bottom-2 ${
+              dark 
+                ? "bg-slate-800/95 border-slate-600/50 shadow-black/50" 
+                : "bg-white/95 border-gray-200/50 shadow-gray-900/20"
+            }`}>
+              <h4 className={`text-base font-bold mb-3 flex items-center gap-2 ${
+                dark ? "text-cyan-200" : "text-cyan-700"
+              }`}>
+                <Sparkles className="w-4 h-4" /> 
+                اللقاءات السابقة
+              </h4>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {historyMatches.slice(0, 5).map((m: MatchResultEntry, i: number) => (
+                  <div 
+                    key={i} 
+                    className={`flex items-center justify-between text-sm rounded-lg px-3 py-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                      dark 
+                        ? "bg-slate-700/50 text-slate-100 hover:bg-slate-700/70 border border-slate-600/30" 
+                        : "bg-gray-100/70 text-gray-800 hover:bg-gray-100 border border-gray-200/50"
+                    }`}
+                    onClick={() => {
+                      setSelectedHistoryItem(m);
+                      setShowHistoryDetail(true);
+                      setShowHistoryBox(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-lg">#{m.with}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        dark 
+                          ? "bg-slate-800/50 text-slate-300" 
+                          : "bg-gray-200/70 text-gray-600"
+                      }`}>
+                        ج{m.round}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className={`font-bold text-sm ${
+                        m.score >= 80 ? "text-green-500" :
+                        m.score >= 60 ? "text-yellow-500" :
+                        m.score >= 40 ? "text-orange-500" :
+                        "text-red-500"
+                      }`}>
+                        {m.score}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {historyMatches.length > 5 && (
+                  <div className={`text-center text-xs py-2 ${
+                    dark ? "text-slate-400" : "text-gray-500"
+                  }`}>
+                    +{historyMatches.length - 5} المزيد
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* History Detail Modal */}
+        {showHistoryDetail && selectedHistoryItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto sleek-scrollbar`}>
             <div className="flex justify-between items-center mb-6">
@@ -3422,67 +3384,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
-
-
-
-      {/* History FAB (Floating Action Button) */}
-      {historyMatches.length > 0 && (
-        <div className="fixed bottom-6 left-6 z-50 flex flex-col items-start">
-          <button
-            aria-label="عرض اللقاءات السابقة"
-            className={`group flex items-center gap-2 px-4 py-3 rounded-full shadow-xl border-2 border-cyan-400/60 bg-gradient-to-r from-cyan-600 to-blue-700 text-white font-bold text-lg transition-all duration-200 hover:scale-105 focus:outline-none relative ${showHistoryPopover ? 'ring-4 ring-cyan-300/30' : ''}`}
-            style={{ minWidth: '56px' }}
-            onClick={() => setShowHistoryPopover((v) => !v)}
-          >
-            <Sparkles className="w-7 h-7 text-white drop-shadow" />
-            <span className="hidden sm:inline">اللقاءات السابقة</span>
-            {/* Badge with count */}
-            <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs font-bold rounded-full px-2 py-0.5 shadow-lg border-2 border-white">{historyMatches.length}</span>
-          </button>
-          {/* Popover */}
-          {showHistoryPopover && (
-            <div
-              ref={historyPopoverRef}
-              className="mt-3 w-80 max-w-xs bg-white dark:bg-slate-900 border-2 border-cyan-400/40 rounded-2xl shadow-2xl backdrop-blur-xl p-5 z-50 animate-fade-in transition-all duration-200"
-              style={{ minWidth: '260px' }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-bold text-cyan-700 dark:text-cyan-200 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-cyan-400" /> اللقاءات السابقة
-                </h4>
-                <button
-                  aria-label="إغلاق سجل اللقاءات"
-                  className="p-2 rounded-full hover:bg-cyan-100 dark:hover:bg-slate-700 transition"
-                  onClick={() => setShowHistoryPopover(false)}
-                >
-                  <X className="w-5 h-5 text-cyan-700 dark:text-cyan-200" />
-                </button>
-              </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto sleek-scrollbar">
-                {historyMatches.length === 0 ? (
-                  <p className="text-center text-gray-500 dark:text-slate-300 text-base">لا يوجد سجل بعد.</p>
-                ) : (
-                  historyMatches.filter(m => (typeof step === 'number' && (step as number) === 4 ? m.round <= currentRound : true)).map((m: MatchResultEntry, i: number) => (
-                    <button
-                      key={i}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-cyan-100/60 dark:bg-slate-800/60 hover:bg-cyan-200 dark:hover:bg-slate-700 text-cyan-900 dark:text-cyan-100 font-semibold text-base shadow-sm border border-cyan-200 dark:border-slate-700 transition-all duration-150 cursor-pointer gap-2"
-                      onClick={() => {
-                        setSelectedHistoryItem(m);
-                        setShowHistoryDetail(true);
-                        setShowHistoryPopover(false);
-                      }}
-                    >
-                      <span className="font-bold text-lg">#{m.with}</span>
-                      <span className="text-cyan-700 dark:text-cyan-300 font-bold">{m.score}%</span>
-                      <span className="text-xs bg-cyan-200 dark:bg-slate-700 text-cyan-800 dark:text-cyan-100 rounded px-2 py-0.5 ml-2">الجولة {m.round}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
 
     </div>
   )

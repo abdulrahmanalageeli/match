@@ -3183,7 +3183,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                             background: `linear-gradient(to right, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} 0%, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} 100%)`
                           }}
                         />
-                        <div className="flex justify-between text-xs mt-2">
+                        <div className="flex justify-between text-xs mt-2" dir="ltr">
                           <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>0%</span>
                           <span className={`font-bold text-lg ${
                             feedbackAnswers.compatibilityRate >= 80 ? "text-green-500" :
@@ -3202,7 +3202,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          جودة المحادثة (1 = ضعيف جداً، 5 = ممتاز)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}
@@ -3226,7 +3226,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          التواصل الشخصي (1 = لا يوجد، 5 = قوي جداً)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}
@@ -3250,7 +3250,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          الاهتمامات المشتركة (1 = لا يوجد، 5 = كثيرة جداً)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}
@@ -3274,7 +3274,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          مستوى الراحة (1 = غير مرتاح، 5 = مرتاح جداً)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}
@@ -3298,7 +3298,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          توافق أسلوب التواصل (1 = مختلف جداً، 5 = متطابق تماماً)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}
@@ -3322,7 +3322,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          الرغبة في مقابلة مرة أخرى (1 = أبداً، 5 = بالتأكيد)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}
@@ -3346,7 +3346,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          التقييم العام للتجربة (1 = سيء، 5 = ممتاز)
                        </label>
-                       <div className="flex items-center justify-between gap-2">
+                       <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => (
                            <button
                              key={value}

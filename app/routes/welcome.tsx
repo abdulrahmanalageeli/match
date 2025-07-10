@@ -3167,9 +3167,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <div className="space-y-6">
                     {/* Compatibility Rate Slider */}
                     <div>
-                      <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                       (بعد التقييم سوف يظهر التقييم الحقيقي) درجة التوافق مع شريك المحادثة
+                                            <label className={`block text-sm font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        درجة التوافق مع شريك المحادثة
                       </label>
+                      <p className={`text-xs font-normal opacity-60 mb-3 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                        (بعد التقييم سوف يظهر التقييم الحقيقي)
+                      </p>
                       <div className="relative">
                         <input
                           type="range"

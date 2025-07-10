@@ -416,10 +416,13 @@ export default function WelcomePage() {
   const [conversationStarted, setConversationStarted] = useState(false)
   const [conversationTimer, setConversationTimer] = useState(300) // 5 minutes
   const [feedbackAnswers, setFeedbackAnswers] = useState({
-    enjoyment: "",
-    connection: "",
+    compatibilityRate: 50, // 0-100 scale
+    conversationQuality: "",
+    personalConnection: "",
+    sharedInterests: "",
+    comfortLevel: "",
     wouldMeetAgain: "",
-    overallRating: ""
+    recommendations: ""
   })
   const token = useSearchParams()[0].get("token")
   const [isResolving, setIsResolving] = useState(true)
@@ -465,6 +468,7 @@ export default function WelcomePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const historyBoxRef = useRef<HTMLDivElement>(null);
+  const feedbackRef = useRef<HTMLDivElement>(null);
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -531,6 +535,19 @@ export default function WelcomePage() {
       };
     }
   }, [isDragging, dragOffset]);
+
+  // Auto-scroll to feedback when it appears
+  useEffect(() => {
+    if (modalStep === "feedback" && feedbackRef.current) {
+      // Small delay to ensure the modal is fully rendered
+      setTimeout(() => {
+        feedbackRef.current?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
+    }
+  }, [modalStep]);
 
   // Typewriter effect for welcome message
   useEffect(() => {
@@ -636,10 +653,13 @@ export default function WelcomePage() {
           setSelectedHistoryItem(null);
           setAnimationStep(0);
           setFeedbackAnswers({
-            enjoyment: "",
-            connection: "",
+            compatibilityRate: 50,
+            conversationQuality: "",
+            personalConnection: "",
+            sharedInterests: "",
+            comfortLevel: "",
             wouldMeetAgain: "",
-            overallRating: ""
+            recommendations: ""
           });
           setShowFormFilledPrompt(false);
           setAnalysisStarted(false);
@@ -809,12 +829,15 @@ export default function WelcomePage() {
               setShowHistoryDetail(false);
               setSelectedHistoryItem(null);
               setAnimationStep(0);
-              setFeedbackAnswers({
-                enjoyment: "",
-                connection: "",
-                wouldMeetAgain: "",
-                overallRating: ""
-              });
+                        setFeedbackAnswers({
+            compatibilityRate: 50,
+            conversationQuality: "",
+            personalConnection: "",
+            sharedInterests: "",
+            comfortLevel: "",
+            wouldMeetAgain: "",
+            recommendations: ""
+          });
               setTypewriterCompleted(false);
               setTimerEnded(false); // Reset timer ended flag for new round
               lastRoundRef.current = roundNumber;
@@ -3089,75 +3112,215 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
         {/* Main feedback/result + previous matches layout */}
         {modalStep && (
-          <div className="flex flex-col md:flex-row gap-6 w-full max-w-4xl mx-auto mt-12">
+          <div ref={feedbackRef} className="flex flex-col md:flex-row gap-6 w-full max-w-4xl mx-auto mt-12">
             {/* Main Content */}
             <div className="flex-1 min-w-0">
               {modalStep === "feedback" ? (
                 <>
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>تقييم المحادثة</h3>
-                  <div className="space-y-4">
+                  <div className="space-y-6">
+                    {/* Compatibility Rate Slider */}
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>كيف استمتعت بالمحادثة؟</label>
-                      <select
-                        value={feedbackAnswers.enjoyment}
-                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, enjoyment: e.target.value }))}
-                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                    >
-                      <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
-                      <option value="excellent" className={dark ? "bg-slate-800" : "bg-white"}>ممتاز</option>
-                      <option value="good" className={dark ? "bg-slate-800" : "bg-white"}>جيد</option>
-                      <option value="average" className={dark ? "bg-slate-800" : "bg-white"}>متوسط</option>
-                      <option value="poor" className={dark ? "bg-slate-800" : "bg-white"}>ضعيف</option>
-                    </select>
+                      <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        درجة التوافق مع شريك المحادثة
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={feedbackAnswers.compatibilityRate}
+                          onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: parseInt(e.target.value) }))}
+                          className="w-full h-3 rounded-lg appearance-none cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-400/30 transition-all duration-300"
+                          style={{
+                            background: `linear-gradient(to right, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} 0%, ${feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} ${feedbackAnswers.compatibilityRate}%, ${dark ? '#475569' : '#e5e7eb'} 100%)`
+                          }}
+                        />
+                        <div className="flex justify-between text-xs mt-2">
+                          <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>0%</span>
+                          <span className={`font-bold text-lg ${
+                            feedbackAnswers.compatibilityRate >= 80 ? "text-green-500" :
+                            feedbackAnswers.compatibilityRate >= 60 ? "text-yellow-500" :
+                            "text-red-500"
+                          }`}>
+                            {feedbackAnswers.compatibilityRate}%
+                          </span>
+                          <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>100%</span>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Conversation Quality */}
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل شعرت بتواصل جيد؟</label>
-                      <select
-                        value={feedbackAnswers.connection}
-                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, connection: e.target.value }))}
-                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                      >
-                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
-                        <option value="yes" className={dark ? "bg-slate-800" : "bg-white"}>نعم</option>
-                        <option value="somewhat" className={dark ? "bg-slate-800" : "bg-white"}>نوعاً ما</option>
-                        <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
-                      </select>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        كيف تقيم جودة المحادثة؟
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[
+                          { value: "excellent", label: "ممتاز 🌟", color: "from-green-500 to-green-600" },
+                          { value: "good", label: "جيد 👍", color: "from-blue-500 to-blue-600" },
+                          { value: "average", label: "متوسط 😐", color: "from-yellow-500 to-yellow-600" },
+                          { value: "poor", label: "ضعيف 😞", color: "from-red-500 to-red-600" }
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => setFeedbackAnswers(prev => ({ ...prev, conversationQuality: option.value }))}
+                            className={`p-3 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 ${
+                              feedbackAnswers.conversationQuality === option.value
+                                ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                                : dark
+                                  ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* Personal Connection */}
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>هل تود مقابلته مرة أخرى؟</label>
-                      <select
-                        value={feedbackAnswers.wouldMeetAgain}
-                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: e.target.value }))}
-                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                      >
-                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر إجابة</option>
-                        <option value="definitely" className={dark ? "bg-slate-800" : "bg-white"}>بالتأكيد</option>
-                        <option value="maybe" className={dark ? "bg-slate-800" : "bg-white"}>ربما</option>
-                        <option value="no" className={dark ? "bg-slate-800" : "bg-white"}>لا</option>
-                      </select>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        هل شعرت بتواصل شخصي مع شريك المحادثة؟
+                      </label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: "strong", label: "قوي جداً 💪", color: "from-green-500 to-green-600" },
+                          { value: "moderate", label: "متوسط 🤝", color: "from-blue-500 to-blue-600" },
+                          { value: "weak", label: "ضعيف 🤷", color: "from-yellow-500 to-yellow-600" },
+                          { value: "none", label: "لا يوجد ❌", color: "from-red-500 to-red-600" }
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => setFeedbackAnswers(prev => ({ ...prev, personalConnection: option.value }))}
+                            className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm ${
+                              feedbackAnswers.personalConnection === option.value
+                                ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                                : dark
+                                  ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+
+                    {/* Shared Interests */}
                     <div>
-                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>التقييم العام (من 1 إلى 5)</label>
-                      <select
-                        value={feedbackAnswers.overallRating}
-                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, overallRating: e.target.value }))}
-                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 ${dark ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400" : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm"}`}
-                      >
-                        <option value="" className={dark ? "bg-slate-800" : "bg-white"}>اختر تقييم</option>
-                        <option value="5" className={dark ? "bg-slate-800" : "bg-white"}>5 - ممتاز</option>
-                        <option value="4" className={dark ? "bg-slate-800" : "bg-white"}>4 - جيد جداً</option>
-                        <option value="3" className={dark ? "bg-slate-800" : "bg-white"}>3 - جيد</option>
-                        <option value="2" className={dark ? "bg-slate-800" : "bg-white"}>2 - مقبول</option>
-                        <option value="1" className={dark ? "bg-slate-800" : "bg-white"}>1 - ضعيف</option>
-                      </select>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        هل وجدت اهتمامات مشتركة؟
+                      </label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: "many", label: "كثيرة 🎯", color: "from-green-500 to-green-600" },
+                          { value: "some", label: "بعض الشيء 🔍", color: "from-blue-500 to-blue-600" },
+                          { value: "few", label: "قليلة 📝", color: "from-yellow-500 to-yellow-600" },
+                          { value: "none", label: "لا يوجد 🚫", color: "from-red-500 to-red-600" }
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => setFeedbackAnswers(prev => ({ ...prev, sharedInterests: option.value }))}
+                            className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm ${
+                              feedbackAnswers.sharedInterests === option.value
+                                ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                                : dark
+                                  ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Comfort Level */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        مستوى الراحة أثناء المحادثة
+                      </label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: "very_comfortable", label: "مرتاح جداً 😊", color: "from-green-500 to-green-600" },
+                          { value: "comfortable", label: "مرتاح 🙂", color: "from-blue-500 to-blue-600" },
+                          { value: "neutral", label: "عادي 😐", color: "from-yellow-500 to-yellow-600" },
+                          { value: "uncomfortable", label: "غير مرتاح 😔", color: "from-red-500 to-red-600" }
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => setFeedbackAnswers(prev => ({ ...prev, comfortLevel: option.value }))}
+                            className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm ${
+                              feedbackAnswers.comfortLevel === option.value
+                                ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                                : dark
+                                  ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Would Meet Again */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        هل تود مقابلة هذا الشخص مرة أخرى؟
+                      </label>
+                      <div className="flex gap-2">
+                        {[
+                          { value: "definitely", label: "بالتأكيد! 🎉", color: "from-green-500 to-green-600" },
+                          { value: "maybe", label: "ربما 🤔", color: "from-blue-500 to-blue-600" },
+                          { value: "probably_not", label: "غالباً لا 😕", color: "from-yellow-500 to-yellow-600" },
+                          { value: "no", label: "لا 🚫", color: "from-red-500 to-red-600" }
+                        ].map((option) => (
+                          <button
+                            key={option.value}
+                            onClick={() => setFeedbackAnswers(prev => ({ ...prev, wouldMeetAgain: option.value }))}
+                            className={`flex-1 p-2 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 text-sm ${
+                              feedbackAnswers.wouldMeetAgain === option.value
+                                ? `bg-gradient-to-r ${option.color} text-white border-transparent shadow-lg`
+                                : dark
+                                  ? "border-slate-400/30 bg-white/10 text-slate-200 hover:bg-white/20"
+                                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Optional Recommendations */}
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        توصيات أو نصائح (اختياري) 💡
+                      </label>
+                      <textarea
+                        value={feedbackAnswers.recommendations}
+                        onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, recommendations: e.target.value }))}
+                        placeholder="شاركنا أي توصيات أو نصائح لتحسين تجربة المحادثة..."
+                        rows={3}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 resize-none ${
+                          dark 
+                            ? "border-slate-400/30 bg-white/10 text-white focus:ring-slate-400/30 focus:border-slate-400 placeholder-slate-400" 
+                            : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm placeholder-gray-500"
+                        }`}
+                      />
                     </div>
                   </div>
-                  <div className="flex justify-center gap-3 mt-6">
+
+                  <div className="flex justify-center gap-3 mt-8">
                     <Button
                       onClick={submitFeedback}
-                      className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105"
+                      className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3"
                     >
-                      إرسال التقييم
+                      إرسال التقييم 📤
                     </Button>
                   </div>
                 </>

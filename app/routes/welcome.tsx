@@ -481,21 +481,15 @@ export default function WelcomePage() {
   const historyIconRef = useRef<HTMLDivElement | null>(null);
 
   // Helper function to handle history icon interactions
-  const handleHistoryIconHover = (event: React.MouseEvent) => {
+  const handleHistoryIconClick = (event: React.MouseEvent) => {
     if (historyMatches.length === 0) return;
     
     const rect = event.currentTarget.getBoundingClientRect();
     setHistoryBoxPosition({
-      x: rect.left - 240, // Position to the left of the icon
+      x: rect.right + 8, // Position to the right of the icon
       y: rect.bottom + 8  // Position below the icon
     });
-    setShowHistoryBox(true);
-  };
-
-  const handleHistoryIconLeave = () => {
-    setTimeout(() => {
-      setShowHistoryBox(false);
-    }, 300); // Small delay to allow moving to the box
+    setShowHistoryBox(!showHistoryBox); // Toggle visibility
   };
 
   // Typewriter effect for welcome message
@@ -2248,7 +2242,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
                 {/* History Icon */}
                 {historyMatches.length > 0 && (
                   <div 
@@ -2258,15 +2252,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
                         : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                     }`}
-                    onMouseEnter={handleHistoryIconHover}
-                    onMouseLeave={handleHistoryIconLeave}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleHistoryIconHover(e);
+                      handleHistoryIconClick(e);
                     }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Sparkles className={`w-5 h-5 ${
+                      <Clock className={`w-5 h-5 ${
                         dark ? "text-cyan-300" : "text-cyan-700"
                       }`} />
                     </div>
@@ -2350,7 +2342,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
                 {/* History Icon */}
                 {historyMatches.length > 0 && (
                   <div 
@@ -2359,15 +2351,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
                         : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                     }`}
-                    onMouseEnter={handleHistoryIconHover}
-                    onMouseLeave={handleHistoryIconLeave}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleHistoryIconHover(e);
+                      handleHistoryIconClick(e);
                     }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Sparkles className={`w-5 h-5 ${
+                      <Clock className={`w-5 h-5 ${
                         dark ? "text-cyan-300" : "text-cyan-700"
                       }`} />
                     </div>
@@ -2574,7 +2564,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
                 {/* History Icon */}
                 {historyMatches.length > 0 && (
                   <div 
@@ -2583,15 +2573,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
                         : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                     }`}
-                    onMouseEnter={handleHistoryIconHover}
-                    onMouseLeave={handleHistoryIconLeave}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleHistoryIconHover(e);
+                      handleHistoryIconClick(e);
                     }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Sparkles className={`w-5 h-5 ${
+                      <Clock className={`w-5 h-5 ${
                         dark ? "text-cyan-300" : "text-cyan-700"
                       }`} />
                     </div>
@@ -2677,7 +2665,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
                 {/* History Icon */}
                 {historyMatches.length > 0 && (
                   <div 
@@ -2686,15 +2674,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
                         : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                     }`}
-                    onMouseEnter={handleHistoryIconHover}
-                    onMouseLeave={handleHistoryIconLeave}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleHistoryIconHover(e);
+                      handleHistoryIconClick(e);
                     }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Sparkles className={`w-5 h-5 ${
+                      <Clock className={`w-5 h-5 ${
                         dark ? "text-cyan-300" : "text-cyan-700"
                       }`} />
                     </div>
@@ -2797,7 +2783,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* Player Avatar - Positioned outside as part of the box design */}
-              <div className="absolute -top-3 -right-3 z-10 flex items-center gap-2">
+              <div className="absolute -top-3 -left-3 z-10 flex items-center gap-2">
                 {/* History Icon */}
                 {historyMatches.length > 0 && (
                   <div 
@@ -2806,15 +2792,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
                         : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
                     }`}
-                    onMouseEnter={handleHistoryIconHover}
-                    onMouseLeave={handleHistoryIconLeave}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleHistoryIconHover(e);
+                      handleHistoryIconClick(e);
                     }}
                   >
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <Sparkles className={`w-5 h-5 ${
+                      <Clock className={`w-5 h-5 ${
                         dark ? "text-cyan-300" : "text-cyan-700"
                       }`} />
                     </div>
@@ -3229,8 +3213,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               left: `${historyBoxPosition.x}px`,
               top: `${historyBoxPosition.y}px`,
             }}
-            onMouseEnter={() => setShowHistoryBox(true)}
-            onMouseLeave={handleHistoryIconLeave}
           >
             <div className={`w-60 rounded-2xl p-4 shadow-2xl border-2 backdrop-blur-xl transition-all duration-300 transform animate-in fade-in slide-in-from-bottom-2 ${
               dark 
@@ -3240,11 +3222,11 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               <h4 className={`text-base font-bold mb-3 flex items-center gap-2 ${
                 dark ? "text-cyan-200" : "text-cyan-700"
               }`}>
-                <Sparkles className="w-4 h-4" /> 
+                <Clock className="w-4 h-4" /> 
                 اللقاءات السابقة
               </h4>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {historyMatches.slice(0, 5).map((m: MatchResultEntry, i: number) => (
+              <div className="space-y-2">
+                {historyMatches.map((m: MatchResultEntry, i: number) => (
                   <div 
                     key={i} 
                     className={`flex items-center justify-between text-sm rounded-lg px-3 py-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
@@ -3280,13 +3262,6 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </div>
                   </div>
                 ))}
-                {historyMatches.length > 5 && (
-                  <div className={`text-center text-xs py-2 ${
-                    dark ? "text-slate-400" : "text-gray-500"
-                  }`}>
-                    +{historyMatches.length - 5} المزيد
-                  </div>
-                )}
               </div>
             </div>
           </div>

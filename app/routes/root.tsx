@@ -39,16 +39,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
-import { OfflineIndicator } from "../components/OfflineIndicator"
-import { NetworkProvider } from "../lib/networkContext"
-
 export default function App() {
-  return (
-    <NetworkProvider>
-      <OfflineIndicator />
-      <Outlet />
-    </NetworkProvider>
-  );
+  return <Outlet />;
 }
 
 export function ErrorBoundary({ error }: any) {

@@ -483,7 +483,7 @@ export default function WelcomePage() {
   const [historyBoxPosition, setHistoryBoxPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
-
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
 
@@ -566,7 +566,19 @@ export default function WelcomePage() {
     }
   }, [modalStep]);
 
+  // Online/Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Typewriter effect for welcome message
   useEffect(() => {
@@ -1891,6 +1903,16 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
   
   return (
     <>
+      {/* Global Offline Warning - Always visible when offline */}
+      {!isOnline && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[9999] animate-in slide-in-from-top-4 duration-500">
+          <div className="bg-red-500/95 backdrop-blur-sm border border-red-400 rounded-xl px-4 py-3 flex items-center gap-3 text-white shadow-2xl">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 animate-pulse" />
+            <span className="text-sm font-medium">لا يوجد اتصال بالإنترنت - يرجى التحقق من الاتصال</span>
+          </div>
+        </div>
+      )}
+      
       <div
         className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden ${
           dark

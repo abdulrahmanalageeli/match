@@ -23,10 +23,10 @@ interface SurveyData {
 }
 
 const surveyQuestions = [
-  // MBTI Questions 1-3: Extraversion (E) vs Introversion (I) - Keep most identifying questions
+  // MBTI Questions 1-12
   {
     id: "mbti_1",
-    question: "🔁 الانبساط (E) مقابل الانطواء (I) - السؤال 1",
+    question: "السؤال 1",
     description: "أحب التفاعل مع الناس وأشعر بالطاقة بعد اللقاءات",
     type: "radio",
     options: [
@@ -38,7 +38,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_2",
-    question: "🔁 الانبساط (E) مقابل الانطواء (I) - السؤال 2",
+    question: "السؤال 2",
     description: "تفضيل نوع اللقاءات",
     type: "radio",
     options: [
@@ -50,7 +50,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_3",
-    question: "🔁 الانبساط (E) مقابل الانطواء (I) - السؤال 3",
+    question: "السؤال 3",
     description: "الحاجة للوحدة أو التفاعل",
     type: "radio",
     options: [
@@ -60,10 +60,9 @@ const surveyQuestions = [
     required: true,
     category: "EI"
   },
-  // MBTI Questions 4-6: Sensing (S) vs Intuition (N) - Keep most identifying questions
   {
     id: "mbti_4",
-    question: "🔮 الإحساس (S) مقابل الحدس (N) - السؤال 4",
+    question: "السؤال 4",
     description: "التركيز على الواقع أم المستقبل",
     type: "radio",
     options: [
@@ -75,7 +74,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_5",
-    question: "🔮 الإحساس (S) مقابل الحدس (N) - السؤال 5",
+    question: "السؤال 5",
     description: "الاعتماد على التجربة أم الحدس",
     type: "radio",
     options: [
@@ -87,7 +86,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_6",
-    question: "🔮 الإحساس (S) مقابل الحدس (N) - السؤال 6",
+    question: "السؤال 6",
     description: "التفاصيل أم الصورة الكاملة",
     type: "radio",
     options: [
@@ -97,10 +96,9 @@ const surveyQuestions = [
     required: true,
     category: "SN"
   },
-  // MBTI Questions 7-9: Thinking (T) vs Feeling (F) - Keep most identifying questions
   {
     id: "mbti_7",
-    question: "💡 التفكير (T) مقابل الشعور (F) - السؤال 7",
+    question: "السؤال 7",
     description: "أساس اتخاذ القرارات",
     type: "radio",
     options: [
@@ -112,7 +110,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_8",
-    question: "💡 التفكير (T) مقابل الشعور (F) - السؤال 8",
+    question: "السؤال 8",
     description: "قول الحقيقة أم مراعاة المشاعر",
     type: "radio",
     options: [
@@ -124,7 +122,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_9",
-    question: "💡 التفكير (T) مقابل الشعور (F) - السؤال 9",
+    question: "السؤال 9",
     description: "الأولوية للعدالة أم المشاعر",
     type: "radio",
     options: [
@@ -134,10 +132,9 @@ const surveyQuestions = [
     required: true,
     category: "TF"
   },
-  // MBTI Questions 10-12: Judging (J) vs Perceiving (P) - Keep most identifying questions
   {
     id: "mbti_10",
-    question: "📋 الحكم (J) مقابل التلقائية (P) - السؤال 10",
+    question: "السؤال 10",
     description: "التخطيط أم المرونة",
     type: "radio",
     options: [
@@ -149,7 +146,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_11",
-    question: "📋 الحكم (J) مقابل التلقائية (P) - السؤال 11",
+    question: "السؤال 11",
     description: "التعامل مع تغيير الخطط",
     type: "radio",
     options: [
@@ -161,7 +158,7 @@ const surveyQuestions = [
   },
   {
     id: "mbti_12",
-    question: "📋 الحكم (J) مقابل التلقائية (P) - السؤال 12",
+    question: "السؤال 12",
     description: "إدارة المهام",
     type: "radio",
     options: [
@@ -174,7 +171,7 @@ const surveyQuestions = [
   // Attachment Style Questions 13-17
   {
     id: "attachment_1",
-    question: "🔒 اختبار أسلوب التعلّق - السؤال 13",
+    question: "السؤال 13",
     description: "كيف تشعر إذا لم يتواصل معك صديقك المقرّب لعدة أيام؟",
     type: "radio",
     options: [
@@ -188,7 +185,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_2",
-    question: "🔒 اختبار أسلوب التعلّق - السؤال 14",
+    question: "السؤال 14",
     description: "كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟",
     type: "radio",
     options: [
@@ -202,7 +199,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_3",
-    question: "🔒 اختبار أسلوب التعلّق - السؤال 15",
+    question: "السؤال 15",
     description: "ما شعورك تجاه القرب العاطفي من الآخرين؟",
     type: "radio",
     options: [
@@ -216,7 +213,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_4",
-    question: "🔒 اختبار أسلوب التعلّق - السؤال 16",
+    question: "السؤال 16",
     description: "عندما تمرّ بوقت صعب، كيف تتعامل مع الأصدقاء؟",
     type: "radio",
     options: [
@@ -230,7 +227,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_5",
-    question: "🔒 اختبار أسلوب التعلّق - السؤال 17",
+    question: "السؤال 17",
     description: "ما رأيك في العلاقات المقربة طويلة المدى؟",
     type: "radio",
     options: [
@@ -245,7 +242,7 @@ const surveyQuestions = [
   // Lifestyle Questions 23-27
   {
     id: "lifestyle_1",
-    question: "⏰ اختبار نمط الحياة - السؤال 23",
+    question: "السؤال 23",
     description: "في أي وقت من اليوم تكون عادة في أفضل حالتك؟",
     type: "radio",
     options: [
@@ -258,7 +255,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_2",
-    question: "📱 اختبار نمط الحياة - السؤال 24",
+    question: "السؤال 24",
     description: "كم تفضل أن تتواصل مع صديقك المقرّب؟",
     type: "radio",
     options: [
@@ -271,7 +268,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_3",
-    question: "🏠 اختبار نمط الحياة - السؤال 25",
+    question: "السؤال 25",
     description: "كم تهمك المساحة الشخصية في علاقات الصداقة؟",
     type: "radio",
     options: [
@@ -284,7 +281,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_4",
-    question: "📅 اختبار نمط الحياة - السؤال 26",
+    question: "السؤال 26",
     description: "كيف تفضل أن تدير وقتك عادة؟",
     type: "radio",
     options: [
@@ -297,7 +294,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_5",
-    question: "🎉 اختبار نمط الحياة - السؤال 27",
+    question: "السؤال 27",
     description: "كيف تحب تقضي نهاية الأسبوع غالبًا؟",
     type: "radio",
     options: [
@@ -311,7 +308,7 @@ const surveyQuestions = [
   // Core Values Questions 28-32
   {
     id: "core_values_1",
-    question: "⚖️ اختبار القيم الأساسية - السؤال 28",
+    question: "السؤال 28",
     description: "الصدق أم الحفاظ على العلاقة؟ صديقك ارتكب خطأ بسيط في العمل وطلب منك ألا تتدخل. فجأة، مديرك يسألك: \"هل كنت تعرف عن هذا؟\"",
     type: "radio",
     options: [
@@ -324,7 +321,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_2",
-    question: "🎯 اختبار القيم الأساسية - السؤال 29",
+    question: "السؤال 29",
     description: "الطموح أم الاستقرار؟ صديقك قرر يترك وظيفة مستقرة ويبدأ مشروعًا من الصفر. يسألك عن رأيك بصراحة.",
     type: "radio",
     options: [
@@ -337,7 +334,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_3",
-    question: "🤝 اختبار القيم الأساسية - السؤال 30",
+    question: "السؤال 30",
     description: "التقبل أم التشابه؟ بدأت تقترب من شخص تختلف معه في الدين أو القيم الثقافية، لكنه محترم. هل تعتقد أن علاقتكما ستنجح؟",
     type: "radio",
     options: [
@@ -350,7 +347,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_4",
-    question: "🔗 اختبار القيم الأساسية - السؤال 31",
+    question: "السؤال 31",
     description: "الاعتماد أم الاستقلال؟ تمر بمرحلة صعبة، وصديقك المقرب لم يتواصل معك كثيرًا، لكنه قال إنه \"يعرف إنك تفضل الخصوصية.\"",
     type: "radio",
     options: [
@@ -363,7 +360,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_5",
-    question: "🛡️ اختبار القيم الأساسية - السؤال 32",
+    question: "السؤال 32",
     description: "الواجب الشخصي أم الحرية الفردية؟ صديقك قطع علاقته بشخص آخر لأنه أخطأ، ويطلب منك أن تفعل الشيء نفسه. الشخص الآخر لم يخطئ في حقك مباشرة.",
     type: "radio",
     options: [
@@ -377,7 +374,7 @@ const surveyQuestions = [
   // Vibe and Compatibility Questions 33-34
   {
     id: "vibe_1",
-    question: "👤 اختبار التوافق الشخصي - السؤال 33",
+    question: "السؤال 33",
     description: "وصفك لنفسك اجتماعياً - كيف تتصرف غالبًا مع الناس؟ صف شخصيتك وأسلوبك في المواقف الاجتماعية لما تكون مرتاح.",
     type: "text",
     placeholder: "مثال: أحب الضحك والمزح، أكون هادئ في البداية لكن أنفتح بسرعة، أحب الحديث عن الأفكار العميقة...",
@@ -386,7 +383,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_2",
-    question: "💭 اختبار التوافق الشخصي - السؤال 34",
+    question: "السؤال 34",
     description: "وصف الشخص اللي ترتاح له - كيف تتخيل الشخص اللي ترتاح له؟ صف طريقة تفكيره، أسلوبه، أو نوع الجو اللي يخلق لك راحة.",
     type: "text",
     placeholder: "مثال: أحب الشخص الصادق والمتفهم، اللي يقدر الهدوء أحياناً والمرح أحياناً أخرى، يحب النقاش الذكي...",
@@ -396,7 +393,7 @@ const surveyQuestions = [
   // Communication Style Questions 35-39
   {
     id: "communication_1",
-    question: "💬 اختبار أسلوب التواصل - السؤال 35",
+    question: "السؤال 35",
     description: "إذا شعرت أن صديقك تخطى حدودك بطريقة أزعجتك، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -410,7 +407,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_2",
-    question: "💬 اختبار أسلوب التواصل - السؤال 36",
+    question: "السؤال 36",
     description: "عندما تحتاج إلى شيء من شخص مقرّب، كيف تطلبه عادة؟",
     type: "radio",
     options: [
@@ -424,7 +421,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_3",
-    question: "💬 اختبار أسلوب التواصل - السؤال 37",
+    question: "السؤال 37",
     description: "إذا لم يعجبك رأي في نقاش جماعي، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -438,7 +435,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_4",
-    question: "💬 اختبار أسلوب التواصل - السؤال 38",
+    question: "السؤال 38",
     description: "عندما تشعر بالتوتر أو الغضب، كيف تُعبّر عنه؟",
     type: "radio",
     options: [
@@ -452,7 +449,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_5",
-    question: "💬 اختبار أسلوب التواصل - السؤال 39",
+    question: "السؤال 39",
     description: "كيف تُعبّر عن رأيك عندما لا توافق أحدًا مقرّبًا منك؟",
     type: "radio",
     options: [
@@ -1067,7 +1064,6 @@ export default function SurveyComponent({
                           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
                             {currentPage * questionsPerPage + index + 1}
                           </div>
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
                         </div>
                         <div className="flex-1">
                           <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2 text-right leading-relaxed">

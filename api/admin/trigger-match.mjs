@@ -285,8 +285,10 @@ export default async function handler(req, res) {
 
     // Calculate MBTI-based compatibility for all pairs
     const compatibilityScores = []
+    console.log(`🔄 Starting compatibility calculation for ${pairs.length} pairs...`)
     
     for (const [a, b] of pairs) {
+      console.log(`\n📊 Calculating compatibility between Player ${a.assigned_number} and Player ${b.assigned_number}:`)
       const aMBTI = a.survey_data?.mbtiType
       const bMBTI = b.survey_data?.mbtiType
       const aAttachment = a.survey_data?.attachmentStyle
@@ -300,24 +302,31 @@ export default async function handler(req, res) {
       
       // Calculate MBTI compatibility (up to 10% of total score)
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
+      console.log(`🧠 MBTI Compatibility - Player ${a.assigned_number} (${aMBTI || 'غير محدد'}) vs Player ${b.assigned_number} (${bMBTI || 'غير محدد'}): ${mbtiScore}%`)
       
       // Calculate attachment style compatibility (15% if best match, 5% otherwise)
       const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
+      console.log(`🔗 Attachment Compatibility - Player ${a.assigned_number} (${aAttachment || 'غير محدد'}) vs Player ${b.assigned_number} (${bAttachment || 'غير محدد'}): ${attachmentScore}%`)
       
       // Calculate communication style compatibility (up to 25% of total score)
       const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
+      console.log(`💬 Communication Compatibility - Player ${a.assigned_number} (${aCommunication || 'غير محدد'}) vs Player ${b.assigned_number} (${bCommunication || 'غير محدد'}): ${communicationScore}%`)
       
       // Calculate lifestyle compatibility (up to 15% of total score)
       const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
+      console.log(`⏰ Lifestyle Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${lifestyleScore}%`)
       
       // Calculate core values compatibility (up to 20% of total score)
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
+      console.log(`⚖️ Core Values Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${coreValuesScore}%`)
       
       // Calculate vibe compatibility using AI (up to 15% of total score)
       const vibeScore = await calculateVibeCompatibility(a, b)
+      console.log(`✨ Vibe Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${vibeScore}%`)
       
       // Total score so far (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe = up to 100%)
       const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
+      console.log(`🎯 TOTAL COMPATIBILITY - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${totalScore}% (MBTI: ${mbtiScore}% + Attachment: ${attachmentScore}% + Communication: ${communicationScore}% + Lifestyle: ${lifestyleScore}% + Core Values: ${coreValuesScore}% + Vibe: ${vibeScore}%)`)
       
       const reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
       

@@ -178,11 +178,15 @@ function calculateCoreValuesCompatibility(values1, values2) {
 // Function to calculate vibe compatibility using AI (up to 15% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
-    // Get vibe descriptions
-    const aVibeDescription = participantA.survey_data?.vibeDescription || ""
-    const aIdealPersonDescription = participantA.survey_data?.idealPersonDescription || ""
-    const bVibeDescription = participantB.survey_data?.vibeDescription || ""
-    const bIdealPersonDescription = participantB.survey_data?.idealPersonDescription || ""
+    // Get vibe descriptions (from top level or derive from answers)
+    const aVibeDescription = participantA.survey_data?.vibeDescription || 
+      participantA.survey_data?.answers?.vibe_1 || ""
+    const aIdealPersonDescription = participantA.survey_data?.idealPersonDescription || 
+      participantA.survey_data?.answers?.vibe_2 || ""
+    const bVibeDescription = participantB.survey_data?.vibeDescription || 
+      participantB.survey_data?.answers?.vibe_1 || ""
+    const bIdealPersonDescription = participantB.survey_data?.idealPersonDescription || 
+      participantB.survey_data?.answers?.vibe_2 || ""
 
     console.log(`🔍 Vibe descriptions for ${participantA.assigned_number} vs ${participantB.assigned_number}:`)
     console.log(`  Player ${participantA.assigned_number} vibe: "${aVibeDescription}"`)
@@ -318,17 +322,34 @@ export default async function handler(req, res) {
       const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
       const aCommunication = a.communication_style || a.survey_data?.communicationStyle
       const bCommunication = b.communication_style || b.survey_data?.communicationStyle
-      const aLifestyle = a.survey_data?.lifestylePreferences
-      const bLifestyle = b.survey_data?.lifestylePreferences
-      const aCoreValues = a.survey_data?.coreValues
-      const bCoreValues = b.survey_data?.coreValues
+      // Get lifestyle preferences (from top level or derive from answers)
+      const aLifestyle = a.survey_data?.lifestylePreferences || 
+        (a.survey_data?.answers ? 
+          [a.survey_data.answers.lifestyle_1, a.survey_data.answers.lifestyle_2, a.survey_data.answers.lifestyle_3, a.survey_data.answers.lifestyle_4, a.survey_data.answers.lifestyle_5].join(',') : 
+          null)
+      const bLifestyle = b.survey_data?.lifestylePreferences || 
+        (b.survey_data?.answers ? 
+          [b.survey_data.answers.lifestyle_1, b.survey_data.answers.lifestyle_2, b.survey_data.answers.lifestyle_3, b.survey_data.answers.lifestyle_4, b.survey_data.answers.lifestyle_5].join(',') : 
+          null)
+      
+      // Get core values (from top level or derive from answers)
+      const aCoreValues = a.survey_data?.coreValues || 
+        (a.survey_data?.answers ? 
+          [a.survey_data.answers.core_values_1, a.survey_data.answers.core_values_2, a.survey_data.answers.core_values_3, a.survey_data.answers.core_values_4, a.survey_data.answers.core_values_5].join(',') : 
+          null)
+      const bCoreValues = b.survey_data?.coreValues || 
+        (b.survey_data?.answers ? 
+          [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
+          null)
       
       // Debug: Log the values being used for calculations
       console.log(`🔍 Values being used for calculations:`)
       console.log(`  Player ${a.assigned_number}: MBTI=${aMBTI}, Attachment=${aAttachment}, Communication=${aCommunication}`)
       console.log(`  Player ${a.assigned_number}: Lifestyle=${aLifestyle}, CoreValues=${aCoreValues}`)
+      console.log(`  Player ${a.assigned_number}: Vibe=${a.survey_data?.vibeDescription || a.survey_data?.answers?.vibe_1 || 'missing'}, Ideal=${a.survey_data?.idealPersonDescription || a.survey_data?.answers?.vibe_2 || 'missing'}`)
       console.log(`  Player ${b.assigned_number}: MBTI=${bMBTI}, Attachment=${bAttachment}, Communication=${bCommunication}`)
       console.log(`  Player ${b.assigned_number}: Lifestyle=${bLifestyle}, CoreValues=${bCoreValues}`)
+      console.log(`  Player ${b.assigned_number}: Vibe=${b.survey_data?.vibeDescription || b.survey_data?.answers?.vibe_1 || 'missing'}, Ideal=${b.survey_data?.idealPersonDescription || b.survey_data?.answers?.vibe_2 || 'missing'}`)
       
       // Calculate MBTI compatibility (up to 10% of total score)
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
@@ -382,10 +403,10 @@ export default async function handler(req, res) {
         bLifestyle: bLifestyle,
         aCoreValues: aCoreValues,
         bCoreValues: bCoreValues,
-        aVibeDescription: a.survey_data?.vibeDescription || '',
-        bVibeDescription: b.survey_data?.vibeDescription || '',
-        aIdealPersonDescription: a.survey_data?.idealPersonDescription || '',
-        bIdealPersonDescription: b.survey_data?.idealPersonDescription || ''
+        aVibeDescription: a.survey_data?.vibeDescription || a.survey_data?.answers?.vibe_1 || '',
+        bVibeDescription: b.survey_data?.vibeDescription || b.survey_data?.answers?.vibe_1 || '',
+        aIdealPersonDescription: a.survey_data?.idealPersonDescription || a.survey_data?.answers?.vibe_2 || '',
+        bIdealPersonDescription: b.survey_data?.idealPersonDescription || b.survey_data?.answers?.vibe_2 || ''
       })
     }
 

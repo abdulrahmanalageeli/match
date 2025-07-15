@@ -983,45 +983,38 @@ export default function WelcomePage() {
 
 
   
-  const handleSubmit = async () => {
-    console.log("🚀 handleSubmit called with surveyData:", surveyData);
-    if (!surveyData || !surveyData.answers || Object.keys(surveyData.answers).length === 0) {
-      console.log("❌ surveyData.answers is empty or undefined", surveyData);
+  const handleSubmit = async (submittedData?: any) => {
+    const dataToUse = submittedData || surveyData;
+    console.log("🚀 handleSubmit called with data:", dataToUse);
+    if (!dataToUse || !dataToUse.answers || Object.keys(dataToUse.answers).length === 0) {
+      console.log("❌ survey data answers is empty or undefined", dataToUse);
       alert("يرجى إكمال الاستبيان أولاً");
       return;
     }
     setLoading(true)
     try {
-      // 1. Save participant with survey data
+      // 1. Save participant with survey data (including calculated personality types)
       const res1 = await fetch("/api/save-participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assigned_number: assignedNumber,
-          survey_data: surveyData,
+          survey_data: dataToUse,
         }),
       })
       const data1 = await res1.json()
       if (!res1.ok) throw new Error(data1.error)
   
-      // 2. Generate summary based on survey data
-      const res2 = await fetch("/api/generate-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          responses: surveyData,
-        }),
-      })
-      const data2 = await res2.json()
-      const newSummary = data2.summary || "ما قدرنا نولّد تحليل شخصيتك."
-      console.log("📝 Generated new summary:", newSummary)
+      // 2. Skip AI summary generation for now
+      const newSummary = "تم حفظ بياناتك بنجاح. سيتم تحليل شخصيتك قريباً."
+      console.log("📝 Using default summary:", newSummary)
       setPersonalitySummary(newSummary)
       // Reset typewriter state for new summary
       setTypewriterCompleted(false)
       setTypewriterText("")
       setIsTyping(false)
       
-      // Save the new summary to database
+      // Save the default summary to database
       const saveRes = await fetch("/api/save-participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1042,7 +1035,7 @@ export default function WelcomePage() {
       setStep(3)
     } catch (err) {
       console.error("Submit error:", err)
-      setPersonalitySummary("ما قدرنا نولّد تحليل شخصيتك.")
+      setPersonalitySummary("تم حفظ بياناتك بنجاح.")
       // Don't auto-advance on error either
     } finally {
       setLoading(false)
@@ -1053,7 +1046,7 @@ export default function WelcomePage() {
     console.log("📨 handleSurveySubmit called with data:", data);
     setSurveyData(data);
     // Don't hide survey immediately - let the loading state handle it
-    handleSubmit();
+    handleSubmit(data);
   }
       
   type MatchResultEntry = {

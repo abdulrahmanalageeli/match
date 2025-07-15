@@ -175,10 +175,10 @@ const surveyQuestions = [
     description: "كيف تشعر إذا لم يتواصل معك صديقك المقرّب لعدة أيام؟",
     type: "radio",
     options: [
-      { value: "A", label: "A. أتفهم أنه مشغول، ولا أشعر بقلق" },
-      { value: "B", label: "B. أبدأ بالتفكير أنني فعلت شيئًا خاطئًا" },
-      { value: "C", label: "C. لا أحب الاعتماد على أحد كثيرًا من الأساس" },
-      { value: "D", label: "D. أشعر بالتوتر الشديد وأتردد بين الاقتراب والانسحاب" }
+      { value: "أ", label: "أ. أتفهم أنه مشغول، ولا أشعر بقلق" },
+      { value: "ب", label: "ب. أبدأ بالتفكير أنني فعلت شيئًا خاطئًا" },
+      { value: "ج", label: "ج. لا أحب الاعتماد على أحد كثيرًا من الأساس" },
+      { value: "د", label: "د. أشعر بالتوتر الشديد وأتردد بين الاقتراب والانسحاب" }
     ],
     required: true,
     category: "attachment"
@@ -189,10 +189,10 @@ const surveyQuestions = [
     description: "كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟",
     type: "radio",
     options: [
-      { value: "A", label: "A. أواجهه بهدوء وأحاول التفاهم" },
-      { value: "B", label: "B. أقلق من مواجهته وأفضل أن أبقى منزعجًا بصمت" },
-      { value: "C", label: "C. أنسحب وأحاول تجاهل الموقف أو الشخص" },
-      { value: "D", label: "D. أتصرف بشكل متناقض؛ أقترب جدًا ثم أبتعد فجأة" }
+      { value: "أ", label: "أ. أواجهه بهدوء وأحاول التفاهم" },
+      { value: "ب", label: "ب. أقلق من مواجهته وأفضل أن أبقى منزعجًا بصمت" },
+      { value: "ج", label: "ج. أنسحب وأحاول تجاهل الموقف أو الشخص" },
+      { value: "د", label: "د. أتصرف بشكل متناقض؛ أقترب جدًا ثم أبتعد فجأة" }
     ],
     required: true,
     category: "attachment"
@@ -203,10 +203,10 @@ const surveyQuestions = [
     description: "ما شعورك تجاه القرب العاطفي من الآخرين؟",
     type: "radio",
     options: [
-      { value: "A", label: "A. أشعر بالراحة، وأعرف كيف أُعبّر عن نفسي" },
-      { value: "B", label: "B. أحتاج دائمًا إلى طمأنة الطرف الآخر لي" },
-      { value: "C", label: "C. لا أرتاح كثيرًا في العلاقات القريبة" },
-      { value: "D", label: "D. أحب القرب، لكن أخاف أن أُرفض أو أُجرح" }
+      { value: "أ", label: "أ. أشعر بالراحة، وأعرف كيف أُعبّر عن نفسي" },
+      { value: "ب", label: "ب. أحتاج دائمًا إلى طمأنة الطرف الآخر لي" },
+      { value: "ج", label: "ج. لا أرتاح كثيرًا في العلاقات القريبة" },
+      { value: "د", label: "د. أحب القرب، لكن أخاف أن أُرفض أو أُجرح" }
     ],
     required: true,
     category: "attachment"
@@ -217,10 +217,10 @@ const surveyQuestions = [
     description: "عندما تمرّ بوقت صعب، كيف تتعامل مع الأصدقاء؟",
     type: "radio",
     options: [
-      { value: "A", label: "A. أشاركهم مشاعري وأثق بدعمهم" },
-      { value: "B", label: "B. أحتاجهم بشدة وأتضايق إن لم يستجيبوا فورًا" },
-      { value: "C", label: "C. أفضّل حل مشاكلي لوحدي" },
-      { value: "D", label: "D. أحيانًا أطلب الدعم ثم أندم وأغلق على نفسي" }
+      { value: "أ", label: "أ. أشاركهم مشاعري وأثق بدعمهم" },
+      { value: "ب", label: "ب. أحتاجهم بشدة وأتضايق إن لم يستجيبوا فورًا" },
+      { value: "ج", label: "ج. أفضّل حل مشاكلي لوحدي" },
+      { value: "د", label: "د. أحيانًا أطلب الدعم ثم أندم وأغلق على نفسي" }
     ],
     required: true,
     category: "attachment"
@@ -231,10 +231,10 @@ const surveyQuestions = [
     description: "ما رأيك في العلاقات المقربة طويلة المدى؟",
     type: "radio",
     options: [
-      { value: "A", label: "A. أراها صحّية وأحب وجودها في حياتي" },
-      { value: "B", label: "B. أراها مهمّة لكنني أخاف فقدانها" },
-      { value: "C", label: "C. أفضل العلاقات الخفيفة والمرنة" },
-      { value: "D", label: "D. أريدها ولكن أرتبك وأتجنّبها إذا شعرت بالضغط" }
+      { value: "أ", label: "أ. أراها صحّية وأحب وجودها في حياتي" },
+      { value: "ب", label: "ب. أراها مهمّة لكنني أخاف فقدانها" },
+      { value: "ج", label: "ج. أفضل العلاقات الخفيفة والمرنة" },
+      { value: "د", label: "د. أريدها ولكن أرتبك وأتجنّبها إذا شعرت بالضغط" }
     ],
     required: true,
     category: "attachment"
@@ -371,25 +371,7 @@ const surveyQuestions = [
     required: true,
     category: "core_values"
   },
-  // Vibe and Compatibility Questions 33-34
-  {
-    id: "vibe_1",
-    question: "السؤال 33",
-    description: "وصفك لنفسك اجتماعياً - كيف تتصرف غالبًا مع الناس؟ صف شخصيتك وأسلوبك في المواقف الاجتماعية لما تكون مرتاح.",
-    type: "text",
-    placeholder: "مثال: أحب الضحك والمزح، أكون هادئ في البداية لكن أنفتح بسرعة، أحب الحديث عن الأفكار العميقة...",
-    required: true,
-    category: "vibe"
-  },
-  {
-    id: "vibe_2",
-    question: "السؤال 34",
-    description: "وصف الشخص اللي ترتاح له - كيف تتخيل الشخص اللي ترتاح له؟ صف طريقة تفكيره، أسلوبه، أو نوع الجو اللي يخلق لك راحة.",
-    type: "text",
-    placeholder: "مثال: أحب الشخص الصادق والمتفهم، اللي يقدر الهدوء أحياناً والمرح أحياناً أخرى، يحب النقاش الذكي...",
-    required: true,
-    category: "vibe"
-  },
+
   // Communication Style Questions 35-39
   {
     id: "communication_1",
@@ -460,6 +442,25 @@ const surveyQuestions = [
     ],
     required: true,
     category: "communication"
+  },
+  // Vibe and Compatibility Questions 40-41 (moved to end)
+  {
+    id: "vibe_1",
+    question: "السؤال 40",
+    description: "وصفك لنفسك اجتماعياً - كيف تتصرف غالبًا مع الناس؟ صف شخصيتك وأسلوبك في المواقف الاجتماعية لما تكون مرتاح.",
+    type: "text",
+    placeholder: "مثال: أحب الضحك والمزح، أكون هادئ في البداية لكن أنفتح بسرعة، أحب الحديث عن الأفكار العميقة...",
+    required: true,
+    category: "vibe"
+  },
+  {
+    id: "vibe_2",
+    question: "السؤال 41",
+    description: "وصف الشخص اللي ترتاح له - كيف تتخيل الشخص اللي ترتاح له؟ صف طريقة تفكيره، أسلوبه، أو نوع الجو اللي يخلق لك راحة.",
+    type: "text",
+    placeholder: "مثال: أحب الشخص الصادق والمتفهم، اللي يقدر الهدوء أحياناً والمرح أحياناً أخرى، يحب النقاش الذكي...",
+    required: true,
+    category: "vibe"
   }
 ]
 
@@ -510,10 +511,10 @@ const calculateMBTIType = (answers: Record<string, string | string[]>): string =
 // Function to calculate attachment style
 const calculateAttachmentStyle = (answers: Record<string, string | string[]>): string => {
   const counts = {
-    A: 0, // Secure
-    B: 0, // Anxious
-    C: 0, // Avoidant
-    D: 0  // Fearful/Disorganized
+    أ: 0, // Secure
+    ب: 0, // Anxious
+    ج: 0, // Avoidant
+    د: 0  // Fearful/Disorganized
   }
 
   // Count answers for attachment style questions
@@ -521,19 +522,19 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
     const questionId = `attachment_${i}`
     const answer = answers[questionId] as string
     
-    if (answer && (answer === 'A' || answer === 'B' || answer === 'C' || answer === 'D')) {
+    if (answer && (answer === 'أ' || answer === 'ب' || answer === 'ج' || answer === 'د')) {
       counts[answer]++
     }
   }
 
   // Find the style with the highest count (minimum 3 for clear classification)
-  const maxCount = Math.max(counts.A, counts.B, counts.C, counts.D)
+  const maxCount = Math.max(counts.أ, counts.ب, counts.ج, counts.د)
   
   if (maxCount >= 3) {
-    if (counts.A === maxCount) return 'Secure'
-    if (counts.B === maxCount) return 'Anxious'
-    if (counts.C === maxCount) return 'Avoidant'
-    if (counts.D === maxCount) return 'Fearful'
+    if (counts.أ === maxCount) return 'Secure'
+    if (counts.ب === maxCount) return 'Anxious'
+    if (counts.ج === maxCount) return 'Avoidant'
+    if (counts.د === maxCount) return 'Fearful'
   }
 
   // Handle mixed patterns
@@ -542,12 +543,12 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
   
   if (first[1] === second[1] && first[1] >= 2) {
     // Mixed pattern - return combination of top two
-    const styleMap = { A: 'Secure', B: 'Anxious', C: 'Avoidant', D: 'Fearful' }
+    const styleMap = { أ: 'Secure', ب: 'Anxious', ج: 'Avoidant', د: 'Fearful' }
     return `Mixed (${styleMap[first[0] as keyof typeof styleMap]}-${styleMap[second[0] as keyof typeof styleMap]})`
   }
 
   // Default to the most common answer
-  const styleMap = { A: 'Secure', B: 'Anxious', C: 'Avoidant', D: 'Fearful' }
+  const styleMap = { أ: 'Secure', ب: 'Anxious', ج: 'Avoidant', د: 'Fearful' }
   return styleMap[first[0] as keyof typeof styleMap] || 'Secure'
 }
 
@@ -830,19 +831,19 @@ export default function SurveyComponent({
           <RadioGroup
             value={value as string || ""}
             onValueChange={(val) => handleInputChange(question.id, val)}
-            className="space-y-3"
+            className="space-y-4 mt-4"
           >
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
-                <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="flex items-start space-x-4 space-x-reverse">
                   <RadioGroupItem 
                     value={option.value} 
                     id={`${question.id}-${option.value}`} 
-                    className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+                    className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20 mt-0.5 flex-shrink-0"
                   />
                   <Label 
                     htmlFor={`${question.id}-${option.value}`} 
-                    className="text-right cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
                   >
                     {option.label}
                   </Label>
@@ -854,21 +855,21 @@ export default function SurveyComponent({
 
       case "checkbox":
         return (
-          <div className="space-y-3">
+          <div className="space-y-4 mt-4">
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
-                <div className="flex items-center space-x-3 space-x-reverse">
+                <div className="flex items-start space-x-4 space-x-reverse">
                   <Checkbox
                     id={`${question.id}-${option.value}`}
                     checked={(value as string[] || []).includes(option.value)}
                     onCheckedChange={(checked) => 
                       handleCheckboxChange(question.id, option.value, checked as boolean)
                     }
-                    className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
+                    className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20 mt-0.5 flex-shrink-0"
                   />
                   <Label 
                     htmlFor={`${question.id}-${option.value}`} 
-                    className="text-right cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
                   >
                     {option.label}
                   </Label>
@@ -876,7 +877,7 @@ export default function SurveyComponent({
               </div>
             ))}
             {question.maxSelections && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-2 bg-white/50 dark:bg-slate-700/50 px-3 py-1.5 rounded-lg">
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-3 bg-white/50 dark:bg-slate-700/50 px-3 py-1.5 rounded-lg">
                 اختر {question.maxSelections} فقط
               </p>
             )}
@@ -885,7 +886,7 @@ export default function SurveyComponent({
 
       case "text":
         return (
-          <div className="relative">
+          <div className="relative mt-4">
             <Textarea
               value={value as string || ""}
               onChange={(e) => handleInputChange(question.id, e.target.value)}
@@ -1066,9 +1067,14 @@ export default function SurveyComponent({
                           </div>
                         </div>
                         <div className="flex-1">
-                          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2 text-right leading-relaxed">
+                          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 text-right leading-relaxed">
                             {question.question}
                           </h3>
+                          {question.description && (
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 text-right leading-relaxed">
+                              {question.description}
+                            </p>
+                          )}
                           <div className="space-y-3">
                             {renderQuestion(question)}
                           </div>

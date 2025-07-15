@@ -675,10 +675,13 @@ export default function AdminPage() {
                   
                   <div className="space-y-2">
                     <div className="text-xs text-slate-400 truncate italic">
-                      "Gender: {p.survey_data?.answers?.gender || "No response"}"
+                      "MBTI: {p.survey_data?.mbtiType || p.mbti_personality_type || "No response"}"
                     </div>
                     <div className="text-xs text-slate-400 truncate italic">
-                      "Age: {p.survey_data?.answers?.ageGroup || "No response"}"
+                      "Attachment: {p.survey_data?.attachmentStyle || p.attachment_style || "No response"}"
+                    </div>
+                    <div className="text-xs text-slate-400 truncate italic">
+                      "Communication: {p.survey_data?.communicationStyle || p.communication_style || "No response"}"
                     </div>
                   </div>
                 </div>
@@ -746,10 +749,13 @@ export default function AdminPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <div><span className="text-slate-400">Gender:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.gender || "No response"}</span></div>
-                  <div><span className="text-slate-400">Age Group:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.ageGroup || "No response"}</span></div>
-                  <div><span className="text-slate-400">Goal:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.participationGoal || "No response"}</span></div>
-                  <div><span className="text-slate-400">Education:</span> <span className="text-white">{detailParticipant.survey_data?.answers?.educationLevel || "No response"}</span></div>
+                  <div><span className="text-slate-400">MBTI Type:</span> <span className="text-white">{detailParticipant.survey_data?.mbtiType || detailParticipant.mbti_personality_type || "No response"}</span></div>
+                  <div><span className="text-slate-400">Attachment Style:</span> <span className="text-white">{detailParticipant.survey_data?.attachmentStyle || detailParticipant.attachment_style || "No response"}</span></div>
+                  <div><span className="text-slate-400">Communication Style:</span> <span className="text-white">{detailParticipant.survey_data?.communicationStyle || detailParticipant.communication_style || "No response"}</span></div>
+                  <div><span className="text-slate-400">Lifestyle Preferences:</span> <span className="text-white">{detailParticipant.survey_data?.lifestylePreferences || "No response"}</span></div>
+                  <div><span className="text-slate-400">Core Values:</span> <span className="text-white">{detailParticipant.survey_data?.coreValues || "No response"}</span></div>
+                  <div><span className="text-slate-400">Vibe Description:</span> <span className="text-white">{detailParticipant.survey_data?.vibeDescription || "No response"}</span></div>
+                  <div><span className="text-slate-400">Ideal Person:</span> <span className="text-white">{detailParticipant.survey_data?.idealPersonDescription || "No response"}</span></div>
                 </div>
               </div>
             </div>

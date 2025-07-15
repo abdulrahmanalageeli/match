@@ -266,7 +266,7 @@ export default async function handler(req, res) {
   try {
     const { data: participants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style")
       .eq("match_id", match_id)
 
     if (error) throw error
@@ -289,12 +289,13 @@ export default async function handler(req, res) {
     
     for (const [a, b] of pairs) {
       console.log(`\n📊 Calculating compatibility between Player ${a.assigned_number} and Player ${b.assigned_number}:`)
-      const aMBTI = a.survey_data?.mbtiType
-      const bMBTI = b.survey_data?.mbtiType
-      const aAttachment = a.survey_data?.attachmentStyle
-      const bAttachment = b.survey_data?.attachmentStyle
-      const aCommunication = a.survey_data?.communicationStyle
-      const bCommunication = b.survey_data?.communicationStyle
+      // Use dedicated columns first, fallback to survey_data
+      const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
+      const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
+      const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
+      const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
+      const aCommunication = a.communication_style || a.survey_data?.communicationStyle
+      const bCommunication = b.communication_style || b.survey_data?.communicationStyle
       const aLifestyle = a.survey_data?.lifestylePreferences
       const bLifestyle = b.survey_data?.lifestylePreferences
       const aCoreValues = a.survey_data?.coreValues
@@ -340,7 +341,22 @@ export default async function handler(req, res) {
         communicationScore: communicationScore,
         lifestyleScore: lifestyleScore,
         coreValuesScore: coreValuesScore,
-        vibeScore: vibeScore
+        vibeScore: vibeScore,
+        // Store personality data for later use
+        aMBTI: aMBTI,
+        bMBTI: bMBTI,
+        aAttachment: aAttachment,
+        bAttachment: bAttachment,
+        aCommunication: aCommunication,
+        bCommunication: bCommunication,
+        aLifestyle: aLifestyle,
+        bLifestyle: bLifestyle,
+        aCoreValues: aCoreValues,
+        bCoreValues: bCoreValues,
+        aVibeDescription: a.survey_data?.vibeDescription || '',
+        bVibeDescription: b.survey_data?.vibeDescription || '',
+        aIdealPersonDescription: a.survey_data?.idealPersonDescription || '',
+        bIdealPersonDescription: b.survey_data?.idealPersonDescription || ''
       })
     }
 
@@ -380,7 +396,29 @@ export default async function handler(req, res) {
             compatibility_score: pair.score,
             reason: pair.reason,
             match_id,
-            round
+            round,
+            // Add personality type data
+            participant_a_mbti_type: pair.aMBTI,
+            participant_b_mbti_type: pair.bMBTI,
+            participant_a_attachment_style: pair.aAttachment,
+            participant_b_attachment_style: pair.bAttachment,
+            participant_a_communication_style: pair.aCommunication,
+            participant_b_communication_style: pair.bCommunication,
+            participant_a_lifestyle_preferences: pair.aLifestyle,
+            participant_b_lifestyle_preferences: pair.bLifestyle,
+            participant_a_core_values: pair.aCoreValues,
+            participant_b_core_values: pair.bCoreValues,
+            participant_a_vibe_description: pair.aVibeDescription,
+            participant_b_vibe_description: pair.bVibeDescription,
+            participant_a_ideal_person_description: pair.aIdealPersonDescription,
+            participant_b_ideal_person_description: pair.bIdealPersonDescription,
+            // Add score breakdown
+            mbti_compatibility_score: pair.mbtiScore,
+            attachment_compatibility_score: pair.attachmentScore,
+            communication_compatibility_score: pair.communicationScore,
+            lifestyle_compatibility_score: pair.lifestyleScore,
+            core_values_compatibility_score: pair.coreValuesScore,
+            vibe_compatibility_score: pair.vibeScore
           })
         }
       }

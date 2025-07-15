@@ -122,6 +122,21 @@ export default async (req, res) => {
         redLines,
       },
       }
+      
+      // Also save MBTI personality type to dedicated column
+      if (survey_data.mbtiType) {
+        updateFields.mbti_personality_type = survey_data.mbtiType
+      }
+      
+      // Also save attachment style to dedicated column
+      if (survey_data.attachmentStyle) {
+        updateFields.attachment_style = survey_data.attachmentStyle
+      }
+      
+      // Also save communication style to dedicated column
+      if (survey_data.communicationStyle) {
+        updateFields.communication_style = survey_data.communicationStyle
+      }
     }
 
     // Allow saving summary alone or with form data

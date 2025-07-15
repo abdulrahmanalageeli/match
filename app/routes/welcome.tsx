@@ -68,6 +68,9 @@ interface SurveyData {
   answers: Record<string, string | string[]>
   termsAccepted: boolean
   dataConsent: boolean
+  mbtiType?: string
+  attachmentStyle?: string
+  communicationStyle?: string
 }
 
 // Import survey questions for validation

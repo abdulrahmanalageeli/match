@@ -2,10 +2,17 @@ export interface Participant {
   id: string
   assigned_number: number
   table_number?: number
-  q1?: string
-  q2?: string
-  q3?: string
-  q4?: string
+  survey_data?: {
+    answers: Record<string, string | string[]>
+    termsAccepted: boolean
+    dataConsent: boolean
+    mbtiType?: string
+    attachmentStyle?: string
+    communicationStyle?: string
+  }
+  mbti_personality_type?: string
+  attachment_style?: string
+  communication_style?: string
   summary?: string
   secure_token: string
   match_id: string
@@ -72,11 +79,17 @@ export interface TokenRequest {
 
 export interface SaveParticipantRequest {
   assigned_number: number
-  q1?: string
-  q2?: string
-  q3?: string
-  q4?: string
+  survey_data?: {
+    answers: Record<string, string | string[]>
+    termsAccepted: boolean
+    dataConsent: boolean
+    mbtiType?: string
+    attachmentStyle?: string
+    communicationStyle?: string
+  }
   summary?: string
+  feedback?: any
+  round?: number
 }
 
 export interface GenerateSummaryRequest {

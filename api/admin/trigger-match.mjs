@@ -422,7 +422,7 @@ export default async function handler(req, res) {
           roundMatches.push({
             participant_a_number: pair.a,
             participant_b_number: pair.b,
-            compatibility_score: pair.score,
+            compatibility_score: Math.round(pair.score),
             reason: pair.reason,
             match_id,
             round,

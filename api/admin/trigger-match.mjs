@@ -43,7 +43,24 @@ function calculateMBTICompatibility(type1, type2) {
   } else if (compatibility.top3 === type2 || compatibility.bonus.includes(type2)) {
     return 5 // Top 3 or bonus match gets 5%
   } else {
-    return 0 // No match gets 0%
+    // If not in top matches, compare individual letters
+    let sharedLetters = 0
+    for (let i = 0; i < 4; i++) {
+      if (type1[i] === type2[i]) {
+        sharedLetters++
+      }
+    }
+    
+    // Score based on shared letters
+    if (sharedLetters === 3) {
+      return 10 // 3 letters shared gets 10%
+    } else if (sharedLetters === 2) {
+      return 5 // 2 letters shared gets 5%
+    } else if (sharedLetters === 1) {
+      return 2.5 // 1 letter shared gets 2.5%
+    } else {
+      return 0 // No letters shared gets 0%
+    }
   }
 }
 
@@ -124,15 +141,28 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     return 0 // Invalid format
   }
   
-  // Calculate similarity: 3% for each matching answer
-  let matches = 0
+  // Calculate similarity with partial credit for adjacent choices
+  let totalScore = 0
   for (let i = 0; i < 5; i++) {
-    if (prefs1[i] === prefs2[i]) {
-      matches++
+    const val1 = prefs1[i]
+    const val2 = prefs2[i]
+    
+    if (val1 === val2) {
+      // Exact match = full points
+      totalScore += 3
+    } else if (
+      (val1 === 'أ' && val2 === 'ب') || (val1 === 'ب' && val2 === 'أ') ||
+      (val1 === 'ب' && val2 === 'ج') || (val1 === 'ج' && val2 === 'ب')
+    ) {
+      // Adjacent choices = partial points
+      totalScore += 1.5
+    } else {
+      // Opposite choices (أ vs ج) = no points
+      totalScore += 0
     }
   }
   
-  return matches * 3 // 3% per match, max 15% if all 5 match
+  return totalScore // Max 15% if all 5 match exactly
 }
 
 // Function to calculate core values compatibility score (up to 20% of total)

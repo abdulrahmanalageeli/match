@@ -106,17 +106,7 @@ export default function AdminPage() {
     fetchParticipants()
   }
 
-  const triggerMatching = async () => {
-    if (!confirm("Are you sure you want to trigger the matching for all participants?")) return
-    setLoading(true)
-    const res = await fetch("/api/admin/trigger-match", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    })
-    const data = await res.json()
-    alert(`✅ Done.\n\n${data.analysis}`)
-    fetchParticipants()
-  }
+
 
   const openMatrix = () => {
     window.open("/matrix", "_blank", "width=1000,height=800")
@@ -516,22 +506,18 @@ export default function AdminPage() {
 
               <button
                 onClick={async () => {
-                  if (!confirm("Are you sure you want to generate matches for the current round?")) return
+                  if (!confirm("Are you sure you want to generate matches using the new personality-based algorithm?")) return
                   setLoading(true)
-                  const res = await fetch("/api/generate-matches", {
+                  const res = await fetch("/api/admin/trigger-match", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                                round: safeCurrentPhase.startsWith("round_") ? parseInt(safeCurrentPhase.split('_')[1]) : 1,
-          match_type: safeCurrentPhase === "group_phase" ? "group" : "individual"
-                    }),
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ ${data.analysis}`)
+                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
                     fetchParticipants()
                   } else {
-                    alert("❌ Failed to generate matches")
+                    alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                   }
                   setLoading(false)
                 }}

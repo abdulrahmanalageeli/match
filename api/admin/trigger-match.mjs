@@ -184,8 +184,14 @@ async function calculateVibeCompatibility(participantA, participantB) {
     const bVibeDescription = participantB.survey_data?.vibeDescription || ""
     const bIdealPersonDescription = participantB.survey_data?.idealPersonDescription || ""
 
+    console.log(`🔍 Vibe descriptions for ${participantA.assigned_number} vs ${participantB.assigned_number}:`)
+    console.log(`  Player ${participantA.assigned_number} vibe: "${aVibeDescription}"`)
+    console.log(`  Player ${participantA.assigned_number} ideal: "${aIdealPersonDescription}"`)
+    console.log(`  Player ${participantB.assigned_number} vibe: "${bVibeDescription}"`)
+    console.log(`  Player ${participantB.assigned_number} ideal: "${bIdealPersonDescription}"`)
+
     if (!aVibeDescription || !aIdealPersonDescription || !bVibeDescription || !bIdealPersonDescription) {
-      console.warn("Missing vibe descriptions, using default score")
+      console.warn("❌ Missing vibe descriptions, using default score")
       return 7 // Default average score
     }
 
@@ -274,6 +280,22 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "Not enough participants" })
     }
 
+    // Debug: Log retrieved participant data
+    console.log("🔍 Retrieved participants data:")
+    participants.forEach(p => {
+      console.log(`Player ${p.assigned_number}:`)
+      console.log(`  - MBTI (column): ${p.mbti_personality_type}`)
+      console.log(`  - Attachment (column): ${p.attachment_style}`)
+      console.log(`  - Communication (column): ${p.communication_style}`)
+      console.log(`  - Survey Data MBTI: ${p.survey_data?.mbtiType}`)
+      console.log(`  - Survey Data Attachment: ${p.survey_data?.attachmentStyle}`)
+      console.log(`  - Survey Data Communication: ${p.survey_data?.communicationStyle}`)
+      console.log(`  - Survey Data Lifestyle: ${p.survey_data?.lifestylePreferences}`)
+      console.log(`  - Survey Data Core Values: ${p.survey_data?.coreValues}`)
+      console.log(`  - Survey Data Vibe: ${p.survey_data?.vibeDescription}`)
+      console.log(`  - Survey Data Ideal: ${p.survey_data?.idealPersonDescription}`)
+    })
+
     const numbers = participants.map(p => p.assigned_number)
     const pairs = []
 
@@ -300,6 +322,13 @@ export default async function handler(req, res) {
       const bLifestyle = b.survey_data?.lifestylePreferences
       const aCoreValues = a.survey_data?.coreValues
       const bCoreValues = b.survey_data?.coreValues
+      
+      // Debug: Log the values being used for calculations
+      console.log(`🔍 Values being used for calculations:`)
+      console.log(`  Player ${a.assigned_number}: MBTI=${aMBTI}, Attachment=${aAttachment}, Communication=${aCommunication}`)
+      console.log(`  Player ${a.assigned_number}: Lifestyle=${aLifestyle}, CoreValues=${aCoreValues}`)
+      console.log(`  Player ${b.assigned_number}: MBTI=${bMBTI}, Attachment=${bAttachment}, Communication=${bCommunication}`)
+      console.log(`  Player ${b.assigned_number}: Lifestyle=${bLifestyle}, CoreValues=${bCoreValues}`)
       
       // Calculate MBTI compatibility (up to 10% of total score)
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)

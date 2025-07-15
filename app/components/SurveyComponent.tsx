@@ -835,7 +835,7 @@ export default function SurveyComponent({
           >
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
-                <div className="flex items-start space-x-4 space-x-reverse">
+                <div className="flex items-start space-x-5 space-x-reverse">
                   <RadioGroupItem 
                     value={option.value} 
                     id={`${question.id}-${option.value}`} 
@@ -858,7 +858,7 @@ export default function SurveyComponent({
           <div className="space-y-4 mt-4">
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
-                <div className="flex items-start space-x-4 space-x-reverse">
+                <div className="flex items-start space-x-5 space-x-reverse">
                   <Checkbox
                     id={`${question.id}-${option.value}`}
                     checked={(value as string[] || []).includes(option.value)}
@@ -962,7 +962,7 @@ export default function SurveyComponent({
 
       <div className="space-y-4">
         <div className="group">
-          <div className="flex items-center space-x-3 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
             <Checkbox
               id="terms"
               checked={surveyData.termsAccepted}
@@ -978,7 +978,7 @@ export default function SurveyComponent({
         </div>
 
         <div className="group">
-          <div className="flex items-center space-x-3 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
             <Checkbox
               id="dataConsent"
               checked={surveyData.dataConsent}

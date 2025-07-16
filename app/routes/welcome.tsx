@@ -2142,59 +2142,48 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
               {/* Personality Analysis Visual */}
               {surveyData.answers && Object.keys(surveyData.answers).length > 0 ? (
-                <div className="space-y-12 max-w-6xl mx-auto">
-                  {/* Hero Profile Section */}
-                  <div className={`relative rounded-3xl overflow-hidden shadow-2xl ${
-                    dark ? "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800" : "bg-gradient-to-br from-white via-gray-50 to-white"
+                <div className="w-full max-w-md mx-auto space-y-6">
+                  {/* Profile Header */}
+                  <div className={`text-center p-6 rounded-2xl shadow-lg ${
+                    dark ? "bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600/30" : "bg-gradient-to-br from-white to-gray-50 border border-gray-200/50"
                   }`}>
-                    {/* Animated Background */}
-                    <div className="absolute inset-0 overflow-hidden">
-                      <div className={`absolute -top-1/2 -right-1/2 w-full h-full rounded-full blur-3xl opacity-20 animate-pulse ${
-                        dark ? "bg-gradient-to-br from-cyan-400 to-blue-600" : "bg-gradient-to-br from-blue-400 to-purple-500"
-                      }`}></div>
-                      <div className={`absolute -bottom-1/2 -left-1/2 w-full h-full rounded-full blur-3xl opacity-20 animate-pulse delay-1000 ${
-                        dark ? "bg-gradient-to-br from-purple-400 to-pink-600" : "bg-gradient-to-br from-purple-400 to-pink-500"
-                      }`}></div>
+                    <div className={`inline-flex items-center justify-center w-20 h-20 rounded-full shadow-xl mb-4 ${
+                      dark ? "bg-gradient-to-br from-cyan-500 to-blue-600" : "bg-gradient-to-br from-blue-500 to-purple-600"
+                    }`}>
+                      <span className="text-2xl font-bold text-white">#{assignedNumber}</span>
                     </div>
+                    <h2 className={`text-xl font-bold mb-2 ${
+                      dark ? "text-white" : "text-gray-800"
+                    }`}>تحليل شخصيتك</h2>
+                    <p className={`text-sm ${
+                      dark ? "text-slate-300" : "text-gray-600"
+                    }`}>بناءً على إجاباتك في الاستبيان</p>
+                  </div>
 
-                    <div className="relative p-12">
-                      {/* Profile Header */}
-                      <div className="text-center mb-16">
-                        <div className={`inline-flex items-center justify-center w-32 h-32 rounded-full shadow-2xl mb-8 ${
-                          dark ? "bg-gradient-to-br from-cyan-500 to-blue-600 border-4 border-cyan-300/30" : "bg-gradient-to-br from-blue-500 to-purple-600 border-4 border-blue-300/30"
-                        }`}>
-                          <span className="text-5xl font-bold text-white">#{assignedNumber}</span>
-                        </div>
-                        <h2 className={`text-4xl font-bold mb-4 ${
-                          dark ? "text-white" : "text-gray-800"
-                        }`}>تحليل شخصيتك</h2>
-                        <p className={`text-xl ${
-                          dark ? "text-slate-300" : "text-gray-600"
-                        }`}>بناءً على إجاباتك في الاستبيان</p>
-                      </div>
-
-                      {/* Main Personality Traits */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-                        
-                        {/* MBTI Type */}
-                        {surveyData.mbtiType && (
-                          <div className={`relative group rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
-                            dark ? "bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border-2 border-blue-400/30" : "bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200/50"
-                          }`}>
-                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
-                              <Brain className="w-8 h-8 text-white" />
-                            </div>
-                            <div className="mt-4 text-center">
-                              <h3 className={`text-2xl font-bold mb-4 ${
-                                dark ? "text-blue-300" : "text-blue-700"
-                              }`}>نمط الشخصية</h3>
-                              <div className={`text-6xl font-bold mb-4 ${
+                  {/* Personality Traits Stack */}
+                  <div className="space-y-4">
+                    
+                    {/* MBTI Type */}
+                    {surveyData.mbtiType && (
+                      <div className={`p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                        dark ? "bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-400/30" : "bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200/50"
+                      }`}>
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+                            <Brain className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-semibold ${
+                              dark ? "text-blue-300" : "text-blue-700"
+                            }`}>نمط الشخصية</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-2xl font-bold ${
                                 dark ? "text-blue-200" : "text-blue-600"
                               }`}>
                                 {surveyData.mbtiType}
-                              </div>
-                              <p className={`text-lg font-semibold ${
-                                dark ? "text-blue-200" : "text-blue-600"
+                              </span>
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                dark ? "bg-blue-500/20 text-blue-200" : "bg-blue-100 text-blue-700"
                               }`}>
                                 {surveyData.mbtiType === 'ENFP' ? 'المُلهم المتحمس' :
                                  surveyData.mbtiType === 'INFP' ? 'الوسيط المثالي' :
@@ -2213,24 +2202,28 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.mbtiType === 'ESTJ' ? 'المُدير المُنظم' :
                                  surveyData.mbtiType === 'ISTJ' ? 'المُدقق المُخلص' :
                                  'نمط فريد'}
-                              </p>
+                              </span>
                             </div>
                           </div>
-                        )}
+                        </div>
+                      </div>
+                    )}
 
-                        {/* Attachment Style */}
-                        {surveyData.attachmentStyle && (
-                          <div className={`relative group rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
-                            dark ? "bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-2 border-purple-400/30" : "bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200/50"
-                          }`}>
-                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                              <Heart className="w-8 h-8 text-white" />
-                            </div>
-                            <div className="mt-4 text-center">
-                              <h3 className={`text-2xl font-bold mb-4 ${
-                                dark ? "text-purple-300" : "text-purple-700"
-                              }`}>نمط التعلق</h3>
-                              <div className={`text-4xl font-bold mb-4 ${
+                    {/* Attachment Style */}
+                    {surveyData.attachmentStyle && (
+                      <div className={`p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                        dark ? "bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-400/30" : "bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200/50"
+                      }`}>
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+                            <Heart className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-semibold ${
+                              dark ? "text-purple-300" : "text-purple-700"
+                            }`}>نمط التعلق</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-xl font-bold ${
                                 dark ? "text-purple-200" : "text-purple-600"
                               }`}>
                                 {surveyData.attachmentStyle === 'secure' ? 'آمن' :
@@ -2238,116 +2231,125 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.attachmentStyle === 'avoidant' ? 'تجنبي' :
                                  surveyData.attachmentStyle === 'disorganized' ? 'مضطرب' :
                                  surveyData.attachmentStyle}
-                              </div>
-                              <p className={`text-lg ${
-                                dark ? "text-purple-200" : "text-purple-600"
-                              }`}>
-                                {surveyData.attachmentStyle === 'secure' ? 'يشعر بالأمان في العلاقات' :
-                                 surveyData.attachmentStyle === 'anxious' ? 'يحتاج للطمأنينة المستمرة' :
-                                 surveyData.attachmentStyle === 'avoidant' ? 'يفضل الاستقلالية' :
-                                 surveyData.attachmentStyle === 'disorganized' ? 'مشاعر متضاربة' :
-                                 'نمط فريد'}
-                              </p>
+                              </span>
                             </div>
+                            <p className={`text-xs mt-1 ${
+                              dark ? "text-purple-200/70" : "text-purple-600/70"
+                            }`}>
+                              {surveyData.attachmentStyle === 'secure' ? 'يشعر بالأمان في العلاقات' :
+                               surveyData.attachmentStyle === 'anxious' ? 'يحتاج للطمأنينة المستمرة' :
+                               surveyData.attachmentStyle === 'avoidant' ? 'يفضل الاستقلالية' :
+                               surveyData.attachmentStyle === 'disorganized' ? 'مشاعر متضاربة' :
+                               'نمط فريد'}
+                            </p>
                           </div>
-                        )}
+                        </div>
+                      </div>
+                    )}
 
-                        {/* Communication Style */}
-                        {surveyData.communicationStyle && (
-                          <div className={`relative group rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
-                            dark ? "bg-gradient-to-br from-green-600/20 to-emerald-600/20 border-2 border-green-400/30" : "bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200/50"
-                          }`}>
-                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                              <MessageSquare className="w-8 h-8 text-white" />
-                            </div>
-                            <div className="mt-4 text-center">
-                              <h3 className={`text-2xl font-bold mb-4 ${
-                                dark ? "text-green-300" : "text-green-700"
-                              }`}>أسلوب التواصل</h3>
-                              <div className={`text-4xl font-bold mb-4 ${
+                    {/* Communication Style */}
+                    {surveyData.communicationStyle && (
+                      <div className={`p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                        dark ? "bg-gradient-to-r from-green-600/20 to-emerald-600/20 border border-green-400/30" : "bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200/50"
+                      }`}>
+                        <div className="flex items-center gap-4">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
+                            <MessageSquare className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-semibold ${
+                              dark ? "text-green-300" : "text-green-700"
+                            }`}>أسلوب التواصل</h3>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-xl font-bold ${
                                 dark ? "text-green-200" : "text-green-600"
                               }`}>
                                 {surveyData.communicationStyle === 'direct' ? 'مباشر' :
                                  surveyData.communicationStyle === 'indirect' ? 'غير مباشر' :
                                  surveyData.communicationStyle === 'assertive' ? 'حازم' :
                                  surveyData.communicationStyle === 'passive' ? 'سلبي' :
-                                 surveyData.communicationStyle}
-                              </div>
-                              <p className={`text-lg ${
-                                dark ? "text-green-200" : "text-green-600"
-                              }`}>
-                                {surveyData.communicationStyle === 'direct' ? 'يقول ما يفكر به بوضوح' :
-                                 surveyData.communicationStyle === 'indirect' ? 'يستخدم الإشارات الخفية' :
-                                 surveyData.communicationStyle === 'assertive' ? 'يعبر عن آرائه بثقة' :
-                                 surveyData.communicationStyle === 'passive' ? 'يفضل الاستماع أكثر' :
-                                 'أسلوب فريد'}
-                              </p>
+                                 surveyData.communicationStyle.includes('direct') ? 'مباشر' :
+                                 surveyData.communicationStyle.includes('assertive') ? 'حازم' :
+                                 surveyData.communicationStyle.includes('passive') ? 'سلبي' :
+                                 'متوازن'}
+                              </span>
                             </div>
+                            <p className={`text-xs mt-1 ${
+                              dark ? "text-green-200/70" : "text-green-600/70"
+                            }`}>
+                              {surveyData.communicationStyle === 'direct' ? 'يقول ما يفكر به بوضوح' :
+                               surveyData.communicationStyle === 'indirect' ? 'يستخدم الإشارات الخفية' :
+                               surveyData.communicationStyle === 'assertive' ? 'يعبر عن آرائه بثقة' :
+                               surveyData.communicationStyle === 'passive' ? 'يفضل الاستماع أكثر' :
+                               surveyData.communicationStyle.includes('direct') ? 'يقول ما يفكر به بوضوح' :
+                               surveyData.communicationStyle.includes('assertive') ? 'يعبر عن آرائه بثقة' :
+                               surveyData.communicationStyle.includes('passive') ? 'يفضل الاستماع أكثر' :
+                               'يوازن بين الأساليب المختلفة'}
+                            </p>
                           </div>
-                        )}
-
+                        </div>
                       </div>
+                    )}
 
-                      {/* Secondary Traits */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        
-                        {/* Core Values */}
-                        {surveyData.coreValues && (
-                          <div className={`rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-orange-600/20 to-red-600/20 border-2 border-orange-400/30" : "bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200/50"
-                          }`}>
-                            <div className="flex items-center gap-4 mb-6">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
-                                <Star className="w-6 h-6 text-white" />
-                              </div>
-                              <h3 className={`text-2xl font-bold ${
-                                dark ? "text-orange-300" : "text-orange-700"
-                              }`}>القيم الأساسية</h3>
-                            </div>
-                            <p className={`text-lg leading-relaxed ${
-                              dark ? "text-orange-200" : "text-orange-700"
+                    {/* Core Values */}
+                    {surveyData.coreValues && (
+                      <div className={`p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                        dark ? "bg-gradient-to-r from-orange-600/20 to-red-600/20 border border-orange-400/30" : "bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200/50"
+                      }`}>
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                            <Star className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-semibold mb-2 ${
+                              dark ? "text-orange-300" : "text-orange-700"
+                            }`}>القيم الأساسية</h3>
+                            <p className={`text-sm leading-relaxed ${
+                              dark ? "text-orange-200/90" : "text-orange-700/90"
                             }`}>
                               {surveyData.coreValues}
                             </p>
                           </div>
-                        )}
+                        </div>
+                      </div>
+                    )}
 
-                        {/* Lifestyle Preferences */}
-                        {surveyData.lifestylePreferences && (
-                          <div className={`rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-teal-600/20 to-cyan-600/20 border-2 border-teal-400/30" : "bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200/50"
-                          }`}>
-                            <div className="flex items-center gap-4 mb-6">
-                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
-                                <Activity className="w-6 h-6 text-white" />
-                              </div>
-                              <h3 className={`text-2xl font-bold ${
-                                dark ? "text-teal-300" : "text-teal-700"
-                              }`}>نمط الحياة</h3>
-                            </div>
-                            <p className={`text-lg leading-relaxed ${
-                              dark ? "text-teal-200" : "text-teal-700"
+                    {/* Lifestyle Preferences */}
+                    {surveyData.lifestylePreferences && (
+                      <div className={`p-4 rounded-2xl shadow-lg transition-all duration-300 hover:shadow-xl ${
+                        dark ? "bg-gradient-to-r from-teal-600/20 to-cyan-600/20 border border-teal-400/30" : "bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200/50"
+                      }`}>
+                        <div className="flex items-start gap-4">
+                          <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
+                            <Activity className="w-6 h-6 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className={`text-sm font-semibold mb-2 ${
+                              dark ? "text-teal-300" : "text-teal-700"
+                            }`}>نمط الحياة</h3>
+                            <p className={`text-sm leading-relaxed ${
+                              dark ? "text-teal-200/90" : "text-teal-700/90"
                             }`}>
                               {surveyData.lifestylePreferences}
                             </p>
                           </div>
-                        )}
-
+                        </div>
                       </div>
-                    </div>
+                    )}
+
                   </div>
                 </div>
               ) : (
-                <div className={`text-center p-12 rounded-2xl shadow-xl ${
-                  dark ? "bg-slate-800/50 border-2 border-slate-600/30" : "bg-white border-2 border-gray-200/50"
+                <div className={`text-center p-8 rounded-2xl shadow-lg max-w-md mx-auto ${
+                  dark ? "bg-slate-800/50 border border-slate-600/30" : "bg-white border border-gray-200/50"
                 }`}>
-                  <Brain className={`w-24 h-24 mx-auto mb-6 ${
+                  <Brain className={`w-16 h-16 mx-auto mb-4 ${
                     dark ? "text-slate-400" : "text-gray-400"
                   }`} />
-                  <h3 className={`text-2xl font-bold mb-4 ${
+                  <h3 className={`text-lg font-bold mb-2 ${
                     dark ? "text-slate-200" : "text-gray-700"
                   }`}>لم يتم العثور على بيانات الشخصية</h3>
-                  <p className={`text-lg ${
+                  <p className={`text-sm ${
                     dark ? "text-slate-400" : "text-gray-500"
                   }`}>يرجى التأكد من إكمال الاستبيان أولاً</p>
                 </div>

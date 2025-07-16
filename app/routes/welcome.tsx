@@ -2142,47 +2142,58 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
               {/* Personality Analysis Visual */}
               {surveyData.answers && Object.keys(surveyData.answers).length > 0 ? (
-                <div className="space-y-6 max-w-4xl mx-auto">
-                  {/* Main Profile Card */}
-                  <div className={`relative rounded-2xl overflow-hidden shadow-2xl ${
-                    dark ? "bg-gradient-to-br from-slate-800 to-slate-900 border border-slate-600/30" : "bg-gradient-to-br from-white to-gray-50 border border-gray-200/50"
+                <div className="space-y-12 max-w-6xl mx-auto">
+                  {/* Hero Profile Section */}
+                  <div className={`relative rounded-3xl overflow-hidden shadow-2xl ${
+                    dark ? "bg-gradient-to-br from-slate-800 via-slate-900 to-slate-800" : "bg-gradient-to-br from-white via-gray-50 to-white"
                   }`}>
-                    {/* Background Pattern */}
-                    <div className="absolute inset-0 opacity-5">
-                      <div className="absolute inset-0" style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23${dark ? 'ffffff' : '000000'}' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
-                      }}></div>
+                    {/* Animated Background */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      <div className={`absolute -top-1/2 -right-1/2 w-full h-full rounded-full blur-3xl opacity-20 animate-pulse ${
+                        dark ? "bg-gradient-to-br from-cyan-400 to-blue-600" : "bg-gradient-to-br from-blue-400 to-purple-500"
+                      }`}></div>
+                      <div className={`absolute -bottom-1/2 -left-1/2 w-full h-full rounded-full blur-3xl opacity-20 animate-pulse delay-1000 ${
+                        dark ? "bg-gradient-to-br from-purple-400 to-pink-600" : "bg-gradient-to-br from-purple-400 to-pink-500"
+                      }`}></div>
                     </div>
 
-                    <div className="relative p-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="relative p-12">
+                      {/* Profile Header */}
+                      <div className="text-center mb-16">
+                        <div className={`inline-flex items-center justify-center w-32 h-32 rounded-full shadow-2xl mb-8 ${
+                          dark ? "bg-gradient-to-br from-cyan-500 to-blue-600 border-4 border-cyan-300/30" : "bg-gradient-to-br from-blue-500 to-purple-600 border-4 border-blue-300/30"
+                        }`}>
+                          <span className="text-5xl font-bold text-white">#{assignedNumber}</span>
+                        </div>
+                        <h2 className={`text-4xl font-bold mb-4 ${
+                          dark ? "text-white" : "text-gray-800"
+                        }`}>تحليل شخصيتك</h2>
+                        <p className={`text-xl ${
+                          dark ? "text-slate-300" : "text-gray-600"
+                        }`}>بناءً على إجاباتك في الاستبيان</p>
+                      </div>
+
+                      {/* Main Personality Traits */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
                         
                         {/* MBTI Type */}
                         {surveyData.mbtiType && (
-                          <div className={`col-span-1 p-6 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border-blue-400/30" : "bg-gradient-to-br from-blue-100 to-cyan-100 border-blue-300/50"
+                          <div className={`relative group rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
+                            dark ? "bg-gradient-to-br from-blue-600/20 to-cyan-600/20 border-2 border-blue-400/30" : "bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200/50"
                           }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-blue-500/30" : "bg-blue-200/70"
-                              }`}>
-                                <Brain className={`w-6 h-6 ${
-                                  dark ? "text-blue-200" : "text-blue-700"
-                                }`} />
-                              </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-blue-200" : "text-blue-700"
-                              }`}>نمط الشخصية</h4>
+                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center shadow-lg">
+                              <Brain className="w-8 h-8 text-white" />
                             </div>
-                            <div className={`text-center p-4 rounded-lg ${
-                              dark ? "bg-blue-500/10" : "bg-blue-50"
-                            }`}>
-                              <div className={`text-3xl font-bold mb-2 ${
-                                dark ? "text-blue-300" : "text-blue-600"
+                            <div className="mt-4 text-center">
+                              <h3 className={`text-2xl font-bold mb-4 ${
+                                dark ? "text-blue-300" : "text-blue-700"
+                              }`}>نمط الشخصية</h3>
+                              <div className={`text-6xl font-bold mb-4 ${
+                                dark ? "text-blue-200" : "text-blue-600"
                               }`}>
                                 {surveyData.mbtiType}
                               </div>
-                              <div className={`text-sm font-medium ${
+                              <p className={`text-lg font-semibold ${
                                 dark ? "text-blue-200" : "text-blue-600"
                               }`}>
                                 {surveyData.mbtiType === 'ENFP' ? 'المُلهم المتحمس' :
@@ -2202,33 +2213,25 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.mbtiType === 'ESTJ' ? 'المُدير المُنظم' :
                                  surveyData.mbtiType === 'ISTJ' ? 'المُدقق المُخلص' :
                                  'نمط فريد'}
-                              </div>
+                              </p>
                             </div>
                           </div>
                         )}
 
                         {/* Attachment Style */}
                         {surveyData.attachmentStyle && (
-                          <div className={`col-span-1 p-6 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-purple-500/20 to-pink-500/20 border-purple-400/30" : "bg-gradient-to-br from-purple-100 to-pink-100 border-purple-300/50"
+                          <div className={`relative group rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
+                            dark ? "bg-gradient-to-br from-purple-600/20 to-pink-600/20 border-2 border-purple-400/30" : "bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200/50"
                           }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-purple-500/30" : "bg-purple-200/70"
-                              }`}>
-                                <Heart className={`w-6 h-6 ${
-                                  dark ? "text-purple-200" : "text-purple-700"
-                                }`} />
-                              </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-purple-200" : "text-purple-700"
-                              }`}>نمط التعلق</h4>
+                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                              <Heart className="w-8 h-8 text-white" />
                             </div>
-                            <div className={`text-center p-4 rounded-lg ${
-                              dark ? "bg-purple-500/10" : "bg-purple-50"
-                            }`}>
-                              <div className={`text-xl font-bold mb-2 ${
-                                dark ? "text-purple-300" : "text-purple-600"
+                            <div className="mt-4 text-center">
+                              <h3 className={`text-2xl font-bold mb-4 ${
+                                dark ? "text-purple-300" : "text-purple-700"
+                              }`}>نمط التعلق</h3>
+                              <div className={`text-4xl font-bold mb-4 ${
+                                dark ? "text-purple-200" : "text-purple-600"
                               }`}>
                                 {surveyData.attachmentStyle === 'secure' ? 'آمن' :
                                  surveyData.attachmentStyle === 'anxious' ? 'قلق' :
@@ -2236,7 +2239,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.attachmentStyle === 'disorganized' ? 'مضطرب' :
                                  surveyData.attachmentStyle}
                               </div>
-                              <div className={`text-sm ${
+                              <p className={`text-lg ${
                                 dark ? "text-purple-200" : "text-purple-600"
                               }`}>
                                 {surveyData.attachmentStyle === 'secure' ? 'يشعر بالأمان في العلاقات' :
@@ -2244,33 +2247,25 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.attachmentStyle === 'avoidant' ? 'يفضل الاستقلالية' :
                                  surveyData.attachmentStyle === 'disorganized' ? 'مشاعر متضاربة' :
                                  'نمط فريد'}
-                              </div>
+                              </p>
                             </div>
                           </div>
                         )}
 
                         {/* Communication Style */}
                         {surveyData.communicationStyle && (
-                          <div className={`col-span-1 p-6 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-400/30" : "bg-gradient-to-br from-green-100 to-emerald-100 border-green-300/50"
+                          <div className={`relative group rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 hover:shadow-2xl ${
+                            dark ? "bg-gradient-to-br from-green-600/20 to-emerald-600/20 border-2 border-green-400/30" : "bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200/50"
                           }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-green-500/30" : "bg-green-200/70"
-                              }`}>
-                                <MessageSquare className={`w-6 h-6 ${
-                                  dark ? "text-green-200" : "text-green-700"
-                                }`} />
-                              </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-green-200" : "text-green-700"
-                              }`}>أسلوب التواصل</h4>
+                            <div className="absolute -top-4 -right-4 w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                              <MessageSquare className="w-8 h-8 text-white" />
                             </div>
-                            <div className={`text-center p-4 rounded-lg ${
-                              dark ? "bg-green-500/10" : "bg-green-50"
-                            }`}>
-                              <div className={`text-xl font-bold mb-2 ${
-                                dark ? "text-green-300" : "text-green-600"
+                            <div className="mt-4 text-center">
+                              <h3 className={`text-2xl font-bold mb-4 ${
+                                dark ? "text-green-300" : "text-green-700"
+                              }`}>أسلوب التواصل</h3>
+                              <div className={`text-4xl font-bold mb-4 ${
+                                dark ? "text-green-200" : "text-green-600"
                               }`}>
                                 {surveyData.communicationStyle === 'direct' ? 'مباشر' :
                                  surveyData.communicationStyle === 'indirect' ? 'غير مباشر' :
@@ -2278,7 +2273,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.communicationStyle === 'passive' ? 'سلبي' :
                                  surveyData.communicationStyle}
                               </div>
-                              <div className={`text-sm ${
+                              <p className={`text-lg ${
                                 dark ? "text-green-200" : "text-green-600"
                               }`}>
                                 {surveyData.communicationStyle === 'direct' ? 'يقول ما يفكر به بوضوح' :
@@ -2286,124 +2281,55 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                                  surveyData.communicationStyle === 'assertive' ? 'يعبر عن آرائه بثقة' :
                                  surveyData.communicationStyle === 'passive' ? 'يفضل الاستماع أكثر' :
                                  'أسلوب فريد'}
-                              </div>
+                              </p>
                             </div>
                           </div>
                         )}
 
+                      </div>
+
+                      {/* Secondary Traits */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        
                         {/* Core Values */}
                         {surveyData.coreValues && (
-                          <div className={`col-span-1 md:col-span-2 lg:col-span-3 p-6 rounded-xl border-2 backdrop-blur-sm ${
-                            dark ? "bg-gradient-to-br from-orange-500/20 to-red-500/20 border-orange-400/30" : "bg-gradient-to-br from-orange-100 to-red-100 border-orange-300/50"
+                          <div className={`rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 ${
+                            dark ? "bg-gradient-to-br from-orange-600/20 to-red-600/20 border-2 border-orange-400/30" : "bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200/50"
                           }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-orange-500/30" : "bg-orange-200/70"
-                              }`}>
-                                <Star className={`w-6 h-6 ${
-                                  dark ? "text-orange-200" : "text-orange-700"
-                                }`} />
+                            <div className="flex items-center gap-4 mb-6">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
+                                <Star className="w-6 h-6 text-white" />
                               </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-orange-200" : "text-orange-700"
-                              }`}>القيم الأساسية</h4>
+                              <h3 className={`text-2xl font-bold ${
+                                dark ? "text-orange-300" : "text-orange-700"
+                              }`}>القيم الأساسية</h3>
                             </div>
-                            <div className={`p-4 rounded-lg ${
-                              dark ? "bg-orange-500/10" : "bg-orange-50"
+                            <p className={`text-lg leading-relaxed ${
+                              dark ? "text-orange-200" : "text-orange-700"
                             }`}>
-                              <p className={`text-center text-lg leading-relaxed ${
-                                dark ? "text-orange-200" : "text-orange-700"
-                              }`}>
-                                {surveyData.coreValues}
-                              </p>
-                            </div>
+                              {surveyData.coreValues}
+                            </p>
                           </div>
                         )}
 
                         {/* Lifestyle Preferences */}
                         {surveyData.lifestylePreferences && (
-                          <div className={`col-span-1 md:col-span-2 p-6 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-teal-500/20 to-cyan-500/20 border-teal-400/30" : "bg-gradient-to-br from-teal-100 to-cyan-100 border-teal-300/50"
+                          <div className={`rounded-2xl p-8 shadow-xl transition-all duration-500 hover:scale-105 ${
+                            dark ? "bg-gradient-to-br from-teal-600/20 to-cyan-600/20 border-2 border-teal-400/30" : "bg-gradient-to-br from-teal-50 to-cyan-50 border-2 border-teal-200/50"
                           }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-teal-500/30" : "bg-teal-200/70"
-                              }`}>
-                                <Activity className={`w-6 h-6 ${
-                                  dark ? "text-teal-200" : "text-teal-700"
-                                }`} />
+                            <div className="flex items-center gap-4 mb-6">
+                              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-teal-500 to-cyan-500 flex items-center justify-center">
+                                <Activity className="w-6 h-6 text-white" />
                               </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-teal-200" : "text-teal-700"
-                              }`}>نمط الحياة</h4>
+                              <h3 className={`text-2xl font-bold ${
+                                dark ? "text-teal-300" : "text-teal-700"
+                              }`}>نمط الحياة</h3>
                             </div>
-                            <div className={`p-4 rounded-lg ${
-                              dark ? "bg-teal-500/10" : "bg-teal-50"
+                            <p className={`text-lg leading-relaxed ${
+                              dark ? "text-teal-200" : "text-teal-700"
                             }`}>
-                              <p className={`text-center text-lg leading-relaxed ${
-                                dark ? "text-teal-200" : "text-teal-700"
-                              }`}>
-                                {surveyData.lifestylePreferences}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Vibe Description */}
-                        {surveyData.vibeDescription && (
-                          <div className={`col-span-1 p-6 rounded-xl border-2 backdrop-blur-sm transition-all duration-300 hover:scale-105 ${
-                            dark ? "bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-400/30" : "bg-gradient-to-br from-indigo-100 to-purple-100 border-indigo-300/50"
-                          }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-indigo-500/30" : "bg-indigo-200/70"
-                              }`}>
-                                <Sparkles className={`w-6 h-6 ${
-                                  dark ? "text-indigo-200" : "text-indigo-700"
-                                }`} />
-                              </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-indigo-200" : "text-indigo-700"
-                              }`}>الأجواء</h4>
-                            </div>
-                            <div className={`p-4 rounded-lg ${
-                              dark ? "bg-indigo-500/10" : "bg-indigo-50"
-                            }`}>
-                              <p className={`text-center text-base leading-relaxed ${
-                                dark ? "text-indigo-200" : "text-indigo-700"
-                              }`}>
-                                {surveyData.vibeDescription}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Ideal Person */}
-                        {surveyData.idealPersonDescription && (
-                          <div className={`col-span-1 md:col-span-2 lg:col-span-3 p-6 rounded-xl border-2 backdrop-blur-sm ${
-                            dark ? "bg-gradient-to-br from-rose-500/20 to-pink-500/20 border-rose-400/30" : "bg-gradient-to-br from-rose-100 to-pink-100 border-rose-300/50"
-                          }`}>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className={`p-3 rounded-full ${
-                                dark ? "bg-rose-500/30" : "bg-rose-200/70"
-                              }`}>
-                                <Target className={`w-6 h-6 ${
-                                  dark ? "text-rose-200" : "text-rose-700"
-                                }`} />
-                              </div>
-                              <h4 className={`text-lg font-bold ${
-                                dark ? "text-rose-200" : "text-rose-700"
-                              }`}>الشخص المثالي</h4>
-                            </div>
-                            <div className={`p-4 rounded-lg ${
-                              dark ? "bg-rose-500/10" : "bg-rose-50"
-                            }`}>
-                              <p className={`text-center text-lg leading-relaxed ${
-                                dark ? "text-rose-200" : "text-rose-700"
-                              }`}>
-                                {surveyData.idealPersonDescription}
-                              </p>
-                            </div>
+                              {surveyData.lifestylePreferences}
+                            </p>
                           </div>
                         )}
 
@@ -2412,14 +2338,18 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
                 </div>
               ) : (
-                <div className={`text-center p-8 rounded-xl border-2 ${
-                  dark ? "bg-slate-500/20 border-slate-400/30 text-slate-300" : "bg-gray-100 border-gray-300/50 text-gray-600"
+                <div className={`text-center p-12 rounded-2xl shadow-xl ${
+                  dark ? "bg-slate-800/50 border-2 border-slate-600/30" : "bg-white border-2 border-gray-200/50"
                 }`}>
-                  <Brain className={`w-16 h-16 mx-auto mb-4 ${
-                    dark ? "text-slate-400" : "text-gray-500"
+                  <Brain className={`w-24 h-24 mx-auto mb-6 ${
+                    dark ? "text-slate-400" : "text-gray-400"
                   }`} />
-                  <p className="text-lg font-semibold">لم يتم العثور على بيانات الشخصية</p>
-                  <p className="text-sm mt-2">يرجى التأكد من إكمال الاستبيان أولاً</p>
+                  <h3 className={`text-2xl font-bold mb-4 ${
+                    dark ? "text-slate-200" : "text-gray-700"
+                  }`}>لم يتم العثور على بيانات الشخصية</h3>
+                  <p className={`text-lg ${
+                    dark ? "text-slate-400" : "text-gray-500"
+                  }`}>يرجى التأكد من إكمال الاستبيان أولاً</p>
                 </div>
               )}
 

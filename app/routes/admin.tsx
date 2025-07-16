@@ -528,6 +528,30 @@ export default function AdminPage() {
               </button>
 
               <button
+                onClick={async () => {
+                  if (!confirm("Generate matches without AI vibe analysis? (All participants will get full vibe score)")) return
+                  setLoading(true)
+                  const res = await fetch("/api/admin/trigger-match", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ skipAI: true }),
+                  })
+                  const data = await res.json()
+                  if (res.ok) {
+                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
+                    fetchParticipants()
+                  } else {
+                    alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
+                  }
+                  setLoading(false)
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-xl transition-all duration-300"
+              >
+                <RefreshCcw className="w-4 h-4" />
+                Generate (No AI)
+              </button>
+
+              <button
                 onClick={openMatrix}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-xl transition-all duration-300"
               >

@@ -301,6 +301,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
+  const { skipAI = false } = req.body || {}
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
@@ -402,8 +403,8 @@ export default async function handler(req, res) {
       console.log(`⚖️ Core Values Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${coreValuesScore}%`)
       
       // Calculate vibe compatibility using AI (up to 15% of total score)
-      const vibeScore = await calculateVibeCompatibility(a, b)
-      console.log(`✨ Vibe Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${vibeScore}%`)
+      const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(a, b)
+      console.log(`✨ Vibe Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${vibeScore}% ${skipAI ? '(AI skipped)' : ''}`)
       
       // Total score so far (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe = up to 100%)
       const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
@@ -524,7 +525,7 @@ export default async function handler(req, res) {
     if (insertError) throw insertError
 
     return res.status(200).json({
-      message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe)`,
+      message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe${skipAI ? ' - AI skipped' : ''})`,
       count: finalMatches.length,
       results: finalMatches
     })

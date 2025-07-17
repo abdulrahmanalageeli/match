@@ -2126,352 +2126,45 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               </div>
 
               <div className="flex justify-center mb-4">
-                <div className="relative">
-                  <div className={`w-16 h-16 rounded-full border-2 shadow-2xl flex items-center justify-center ${
-                    dark ? "bg-gradient-to-br from-purple-600 to-pink-600 border-purple-400/50" : "bg-gradient-to-br from-purple-500 to-pink-500 border-purple-400/50"
-                  }`}>
-                    <UserCheck className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                <Brain className={`w-12 h-12 animate-pulse ${
+                  dark ? "text-slate-400" : "text-gray-600"
+                }`} />
+              </div>
+              <h3 className={`text-lg font-semibold text-center mb-6 ${
+                dark ? "text-slate-200" : "text-gray-800"
+              }`}>تحليل شخصيتك</h3>
+            <div
+              dir="rtl"
+                className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
+                  dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Zap className={`w-5 h-5 ${
+                    dark ? "text-slate-300" : "text-gray-500"
+                  }`} />
+                  <h4 className={`text-sm font-medium ${
+                    dark ? "text-slate-200" : "text-gray-700"
+                  }`}>الذكاء الاصطناعي يحلل...</h4>
+                </div>
+                <div className={`text-sm text-right leading-relaxed italic min-h-[4rem] ${
+                  dark ? "text-slate-300" : "text-gray-600"
+                }`}>
+                  {loading ? (
+                    <div className="flex items-center gap-2">
+                      <div className={`animate-spin rounded-full h-4 w-4 border-b-2 ${
+                        dark ? "border-slate-400" : "border-gray-400"
+                      }`}></div>
+                      جاري تحليل شخصيتك...
+                    </div>
+                  ) : (
+                    <div>
+                      {typewriterText}
+                      {isTyping && <span className="animate-pulse">|</span>}
+                    </div>
+                  )}
                 </div>
               </div>
-
-              <h3 className={`text-xl font-bold text-center mb-8 ${
-                dark ? "text-slate-200" : "text-gray-800"
-              }`}>ملف شخصيتك</h3>
-
-              {/* Neural Network Personality Analysis */}
-              {surveyData.answers && Object.keys(surveyData.answers).length > 0 ? (
-                <div className="w-full max-w-sm mx-auto relative overflow-hidden">
-                  {/* Background Neural Network Effects */}
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {/* Animated Neural Pathways */}
-                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 300 300">
-                      {/* Central to Top Connection */}
-                      <path
-                        d="M150 150 L150 70"
-                        stroke={dark ? "#22d3ee" : "#06b6d4"}
-                        strokeWidth="2"
-                        fill="none"
-                        strokeDasharray="4,4"
-                        className="animate-pulse"
-                      />
-                      {/* Central to Bottom Left Connection */}
-                      <path
-                        d="M150 150 L80 230"
-                        stroke={dark ? "#a855f7" : "#9333ea"}
-                        strokeWidth="2"
-                        fill="none"
-                        strokeDasharray="4,4"
-                        className="animate-pulse"
-                        style={{ animationDelay: '0.3s' }}
-                      />
-                      {/* Central to Bottom Right Connection */}
-                      <path
-                        d="M150 150 L220 230"
-                        stroke={dark ? "#10b981" : "#059669"}
-                        strokeWidth="2"
-                        fill="none"
-                        strokeDasharray="4,4"
-                        className="animate-pulse"
-                        style={{ animationDelay: '0.6s' }}
-                      />
-                      
-                      {/* Animated Synaptic Pulses */}
-                      <circle
-                        cx="150"
-                        cy="110"
-                        r="2"
-                        fill={dark ? "#22d3ee" : "#06b6d4"}
-                        className="animate-ping"
-                        style={{ animationDelay: '1s' }}
-                      />
-                      <circle
-                        cx="115"
-                        cy="190"
-                        r="2"
-                        fill={dark ? "#a855f7" : "#9333ea"}
-                        className="animate-ping"
-                        style={{ animationDelay: '1.3s' }}
-                      />
-                      <circle
-                        cx="185"
-                        cy="190"
-                        r="2"
-                        fill={dark ? "#10b981" : "#059669"}
-                        className="animate-ping"
-                        style={{ animationDelay: '1.6s' }}
-                      />
-                    </svg>
-                  </div>
-
-                  {/* Neural Network Layout */}
-                  <div className="relative z-10 p-4">
-                    {/* Central Core - MBTI Type */}
-                    {surveyData.mbtiType && (
-                      <div className="flex justify-center mb-12">
-                        <div className="relative group">
-                          {/* Pulsing Aura */}
-                          <div className={`absolute inset-0 rounded-full animate-pulse ${
-                            dark ? "bg-gradient-to-r from-cyan-400/20 to-blue-500/20" : "bg-gradient-to-r from-cyan-300/30 to-blue-400/30"
-                          }`} style={{ transform: 'scale(1.2)' }}></div>
-                          
-                          {/* Central Nucleus */}
-                          <div className={`relative w-24 h-24 rounded-full border-3 backdrop-blur-xl shadow-xl transition-all duration-500 group-hover:scale-110 ${
-                            dark 
-                              ? "bg-gradient-to-br from-cyan-500/90 to-blue-600/90 border-cyan-300/50 shadow-cyan-500/30" 
-                              : "bg-gradient-to-br from-cyan-400/90 to-blue-500/90 border-cyan-200/50 shadow-cyan-400/30"
-                          }`}>
-                            {/* Neural Activity Indicators */}
-                            <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full animate-ping"></div>
-                            <div className="absolute -bottom-1 -left-1 w-3 h-3 bg-gradient-to-br from-purple-400 to-pink-500 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
-                            
-                            {/* Core Content */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                              <Brain className="w-5 h-5 text-white mb-1 animate-pulse" />
-                              <div className="text-lg font-bold text-white tracking-wide">
-                                {surveyData.mbtiType}
-                              </div>
-                              <div className={`text-xs font-medium mt-1 px-1 py-0.5 rounded-full ${
-                                dark ? "bg-white/20 text-white/90" : "bg-white/30 text-white"
-                              }`}>
-                                {surveyData.mbtiType === 'ENFP' ? 'المُلهم' :
-                                 surveyData.mbtiType === 'INFP' ? 'الوسيط' :
-                                 surveyData.mbtiType === 'ENFJ' ? 'المُعلم' :
-                                 surveyData.mbtiType === 'INFJ' ? 'المُدافع' :
-                                 surveyData.mbtiType === 'ENTP' ? 'المُبدع' :
-                                 surveyData.mbtiType === 'INTP' ? 'المُفكر' :
-                                 surveyData.mbtiType === 'ENTJ' ? 'القائد' :
-                                 surveyData.mbtiType === 'INTJ' ? 'المُهندس' :
-                                 surveyData.mbtiType === 'ESFP' ? 'المُؤدي' :
-                                 surveyData.mbtiType === 'ISFP' ? 'المُغامر' :
-                                 surveyData.mbtiType === 'ESFJ' ? 'المُساعد' :
-                                 surveyData.mbtiType === 'ISFJ' ? 'المُدافع' :
-                                 surveyData.mbtiType === 'ESTP' ? 'المُقاول' :
-                                 surveyData.mbtiType === 'ISTP' ? 'الحرفي' :
-                                 surveyData.mbtiType === 'ESTJ' ? 'المُدير' :
-                                 surveyData.mbtiType === 'ISTJ' ? 'المُدقق' :
-                                 'فريد'}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* MBTI Description */}
-                          <div className={`absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-center ${
-                            dark ? "text-cyan-300" : "text-cyan-600"
-                          }`}>
-                            <div className="text-xs font-medium whitespace-nowrap">
-                              {surveyData.mbtiType === 'ENFP' ? 'متحمس ومبدع' :
-                               surveyData.mbtiType === 'INFP' ? 'مثالي وحساس' :
-                               surveyData.mbtiType === 'ENFJ' ? 'كاريزمي ومؤثر' :
-                               surveyData.mbtiType === 'INFJ' ? 'حكيم ومتفهم' :
-                               surveyData.mbtiType === 'ENTP' ? 'مناقش ومبتكر' :
-                               surveyData.mbtiType === 'INTP' ? 'منطقي ومفكر' :
-                               surveyData.mbtiType === 'ENTJ' ? 'طموح ومنظم' :
-                               surveyData.mbtiType === 'INTJ' ? 'استراتيجي ومستقل' :
-                               surveyData.mbtiType === 'ESFP' ? 'مرح وتلقائي' :
-                               surveyData.mbtiType === 'ISFP' ? 'حساس ومرن' :
-                               surveyData.mbtiType === 'ESFJ' ? 'ودود ومساعد' :
-                               surveyData.mbtiType === 'ISFJ' ? 'حامي ومخلص' :
-                               surveyData.mbtiType === 'ESTP' ? 'عملي ومغامر' :
-                               surveyData.mbtiType === 'ISTP' ? 'متأقلم وماهر' :
-                               surveyData.mbtiType === 'ESTJ' ? 'منظم وقيادي' :
-                               surveyData.mbtiType === 'ISTJ' ? 'مخلص ومدقق' :
-                               'شخصية فريدة'}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Neural Nodes - Personality Traits */}
-                    <div className="relative">
-                      {/* Top Node - Communication Style */}
-                      {surveyData.communicationStyle && (
-                        <div className="absolute -top-6 left-1/2 transform -translate-x-1/2">
-                          <div className="relative group">
-                            {/* Connection Line Visual */}
-                            <div className={`absolute -bottom-12 left-1/2 w-0.5 h-12 transform -translate-x-1/2 ${
-                              dark ? "bg-gradient-to-b from-green-400 to-transparent" : "bg-gradient-to-b from-green-500 to-transparent"
-                            }`}></div>
-                            
-                            {/* Node Container */}
-                            <div className={`relative w-16 h-16 rounded-full border-2 backdrop-blur-xl shadow-lg transition-all duration-500 group-hover:scale-110 ${
-                              dark 
-                                ? "bg-gradient-to-br from-green-500/80 to-emerald-600/80 border-green-300/50 shadow-green-500/30" 
-                                : "bg-gradient-to-br from-green-400/80 to-emerald-500/80 border-green-200/50 shadow-green-400/30"
-                            }`}>
-                              {/* Synapse Indicator */}
-                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-300 rounded-full animate-pulse"></div>
-                              
-                              {/* Node Content */}
-                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                <MessageSquare className="w-4 h-4 text-white mb-1" />
-                                <div className="text-xs font-bold text-white">
-                                  {surveyData.communicationStyle === 'direct' ? 'مباشر' :
-                                   surveyData.communicationStyle === 'indirect' ? 'غير مباشر' :
-                                   surveyData.communicationStyle === 'assertive' ? 'حازم' :
-                                   surveyData.communicationStyle === 'passive' ? 'سلبي' :
-                                   surveyData.communicationStyle.includes('direct') ? 'مباشر' :
-                                   surveyData.communicationStyle.includes('assertive') ? 'حازم' :
-                                   surveyData.communicationStyle.includes('passive') ? 'سلبي' :
-                                   'متوازن'}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Communication Description */}
-                            <div className={`absolute -top-6 left-1/2 transform -translate-x-1/2 text-center ${
-                              dark ? "text-green-300" : "text-green-600"
-                            }`}>
-                              <div className="text-xs font-medium whitespace-nowrap">
-                                {surveyData.communicationStyle === 'direct' ? 'واضح ومباشر' :
-                                 surveyData.communicationStyle === 'indirect' ? 'دبلوماسي ولطيف' :
-                                 surveyData.communicationStyle === 'assertive' ? 'واثق ومؤثر' :
-                                 surveyData.communicationStyle === 'passive' ? 'مستمع جيد' :
-                                 surveyData.communicationStyle.includes('direct') ? 'واضح ومباشر' :
-                                 surveyData.communicationStyle.includes('assertive') ? 'واثق ومؤثر' :
-                                 surveyData.communicationStyle.includes('passive') ? 'مستمع جيد' :
-                                 'متوازن ومرن'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Bottom Left Node - Attachment Style */}
-                      {surveyData.attachmentStyle && (
-                        <div className="absolute top-12 -left-4">
-                          <div className="relative group">
-                            {/* Connection Line Visual */}
-                            <div className={`absolute -top-6 right-3 w-12 h-0.5 transform rotate-45 ${
-                              dark ? "bg-gradient-to-r from-purple-400 to-transparent" : "bg-gradient-to-r from-purple-500 to-transparent"
-                            }`}></div>
-                            
-                            {/* Node Container */}
-                            <div className={`relative w-16 h-16 rounded-full border-2 backdrop-blur-xl shadow-lg transition-all duration-500 group-hover:scale-110 ${
-                              dark 
-                                ? "bg-gradient-to-br from-purple-500/80 to-pink-600/80 border-purple-300/50 shadow-purple-500/30" 
-                                : "bg-gradient-to-br from-purple-400/80 to-pink-500/80 border-purple-200/50 shadow-purple-400/30"
-                            }`}>
-                              {/* Synapse Indicator */}
-                              <div className="absolute -top-1 -right-1 w-2 h-2 bg-purple-300 rounded-full animate-pulse" style={{ animationDelay: '0.3s' }}></div>
-                              
-                              {/* Node Content */}
-                              <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                                <Heart className="w-4 h-4 text-white mb-1" />
-                                <div className="text-xs font-bold text-white">
-                                  {surveyData.attachmentStyle === 'secure' ? 'آمن' :
-                                   surveyData.attachmentStyle === 'anxious' ? 'قلق' :
-                                   surveyData.attachmentStyle === 'avoidant' ? 'تجنبي' :
-                                   surveyData.attachmentStyle === 'disorganized' ? 'مضطرب' :
-                                   'مميز'}
-                                </div>
-                              </div>
-                            </div>
-                            
-                            {/* Attachment Description */}
-                            <div className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center ${
-                              dark ? "text-purple-300" : "text-purple-600"
-                            }`}>
-                              <div className="text-xs font-medium whitespace-nowrap">
-                                {surveyData.attachmentStyle === 'secure' ? 'مستقر عاطفياً' :
-                                 surveyData.attachmentStyle === 'anxious' ? 'يحتاج طمأنة' :
-                                 surveyData.attachmentStyle === 'avoidant' ? 'مستقل جداً' :
-                                 surveyData.attachmentStyle === 'disorganized' ? 'مشاعر متقلبة' :
-                                 'نمط مميز'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Bottom Right Node - Player ID */}
-                      <div className="absolute top-12 -right-4">
-                        <div className="relative group">
-                          {/* Connection Line Visual */}
-                          <div className={`absolute -top-6 left-3 w-12 h-0.5 transform -rotate-45 ${
-                            dark ? "bg-gradient-to-l from-orange-400 to-transparent" : "bg-gradient-to-l from-orange-500 to-transparent"
-                          }`}></div>
-                          
-                          {/* Node Container */}
-                          <div className={`relative w-16 h-16 rounded-full border-2 backdrop-blur-xl shadow-lg transition-all duration-500 group-hover:scale-110 ${
-                            dark 
-                              ? "bg-gradient-to-br from-orange-500/80 to-red-600/80 border-orange-300/50 shadow-orange-500/30" 
-                              : "bg-gradient-to-br from-orange-400/80 to-red-500/80 border-orange-200/50 shadow-orange-400/30"
-                          }`}>
-                            {/* Synapse Indicator */}
-                            <div className="absolute -top-1 -right-1 w-2 h-2 bg-orange-300 rounded-full animate-pulse" style={{ animationDelay: '0.6s' }}></div>
-                            
-                            {/* Node Content */}
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-                              <UserCheck className="w-4 h-4 text-white mb-1" />
-                              <div className="text-sm font-bold text-white">
-                                #{assignedNumber}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {/* Player ID Description */}
-                          <div className={`absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-center ${
-                            dark ? "text-orange-300" : "text-orange-600"
-                          }`}>
-                            <div className="text-xs font-medium whitespace-nowrap">
-                              رقم المشارك
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Neural Activity Indicators */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {/* Floating Synapses */}
-                      {[...Array(6)].map((_, i) => (
-                        <div
-                          key={i}
-                          className={`absolute w-1.5 h-1.5 rounded-full opacity-60 animate-ping ${
-                            i % 3 === 0 ? "bg-cyan-400" : i % 3 === 1 ? "bg-purple-400" : "bg-green-400"
-                          }`}
-                          style={{
-                            left: `${25 + (i * 12) % 50}%`,
-                            top: `${25 + (i * 15) % 50}%`,
-                            animationDelay: `${i * 0.3}s`,
-                            animationDuration: `${2 + (i % 3)}s`
-                          }}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Neural Network Label */}
-                  <div className="text-center mt-6">
-                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm border text-xs ${
-                      dark 
-                        ? "bg-slate-800/50 border-slate-600/30 text-slate-200" 
-                        : "bg-white/50 border-gray-200/30 text-gray-700"
-                    }`}>
-                      <Sparkles className="w-3 h-3" />
-                      <span className="font-medium">الشبكة العصبية لشخصيتك</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className={`text-center p-8 rounded-2xl shadow-lg max-w-md mx-auto ${
-                  dark ? "bg-slate-800/50 border border-slate-600/30" : "bg-white border border-gray-200/50"
-                }`}>
-                  <Brain className={`w-16 h-16 mx-auto mb-4 ${
-                    dark ? "text-slate-400" : "text-gray-400"
-                  }`} />
-                  <h3 className={`text-lg font-bold mb-2 ${
-                    dark ? "text-slate-200" : "text-gray-700"
-                  }`}>لم يتم العثور على بيانات الشخصية</h3>
-                  <p className={`text-sm ${
-                    dark ? "text-slate-400" : "text-gray-500"
-                  }`}>يرجى التأكد من إكمال الاستبيان أولاً</p>
-                </div>
-              )}
-
               <div className="mt-8 flex flex-col items-center justify-center">
                 <div className={`flex items-center gap-2 px-4 py-3 rounded-xl font-bold text-lg shadow-lg border-2 ${
                   dark ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30 text-blue-200' : 'bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30 text-blue-700'
@@ -2481,6 +2174,8 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 </div>
               </div>
             </div>
+
+            {/* Users wait for host to move them to next phase */}
           </section>
         )}
 

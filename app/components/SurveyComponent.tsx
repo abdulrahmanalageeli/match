@@ -443,24 +443,69 @@ const surveyQuestions = [
     required: true,
     category: "communication"
   },
-  // Vibe and Compatibility Questions 40-41 (moved to end)
+  // Vibe and Compatibility Questions 40-45 (moved to end)
   {
     id: "vibe_1",
     question: "السؤال 40",
-    description: "وصفك لنفسك اجتماعياً - كيف تتصرف غالبًا مع الناس؟ صف شخصيتك وأسلوبك في المواقف الاجتماعية لما تكون مرتاح.",
+    description: "كيف توصف الويكند المثالي بالنسبه لك؟",
     type: "text",
-    placeholder: "مثال: أحب الضحك والمزح، أكون هادئ في البداية لكن أنفتح بسرعة، أحب الحديث عن الأفكار العميقة...",
+    placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
     required: true,
-    category: "vibe"
+    category: "vibe",
+    maxLength: 100
   },
   {
     id: "vibe_2",
     question: "السؤال 41",
-    description: "وصف الشخص اللي ترتاح له - كيف تتخيل الشخص اللي ترتاح له؟ صف طريقة تفكيره، أسلوبه، أو نوع الجو اللي يخلق لك راحة.",
+    description: "عدد خمس هوايات تستمتع فيها؟",
     type: "text",
-    placeholder: "مثال: أحب الشخص الصادق والمتفهم، اللي يقدر الهدوء أحياناً والمرح أحياناً أخرى، يحب النقاش الذكي...",
+    placeholder: "مثال: القراءة، السفر، الطبخ، الرسم، الرياضة...",
+    required: true,
+    category: "vibe",
+    maxLength: 100
+  },
+  {
+    id: "vibe_3",
+    question: "السؤال 42",
+    description: "لو بتروح حفل موسيقي، مين الفنان اللي تختار؟",
+    type: "text",
+    placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، Ed Sheeran، أو أي فنان تفضله...",
+    required: true,
+    category: "vibe",
+    maxLength: 100
+  },
+  {
+    id: "vibe_4",
+    question: "السؤال 43",
+    description: "هل تحب السوالف العميقه والفلسفية؟",
+    type: "radio",
+    options: [
+      { value: "نعم", label: "نعم، أحب النقاشات العميقة والفلسفية" },
+      { value: "لا", label: "لا، أفضل الحديث الخفيف والبسيط" },
+      { value: "أحياناً", label: "أحياناً، حسب المزاج والموقف" }
+    ],
     required: true,
     category: "vibe"
+  },
+  {
+    id: "vibe_5",
+    question: "السؤال 44",
+    description: "كيف يوصفونك اصدقائك بالعادة؟",
+    type: "text",
+    placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
+    required: true,
+    category: "vibe",
+    maxLength: 300
+  },
+  {
+    id: "vibe_6",
+    question: "السؤال 45",
+    description: "كيف تصف اصدقائك؟",
+    type: "text",
+    placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
+    required: true,
+    category: "vibe",
+    maxLength: 300
   }
 ]
 
@@ -636,14 +681,31 @@ const calculateCoreValues = (answers: Record<string, string | string[]>): string
   return values.join(',')
 }
 
-// Function to extract vibe description
+// Function to extract and merge vibe description from all 6 questions
 const extractVibeDescription = (answers: Record<string, string | string[]>): string => {
-  return (answers['vibe_1'] as string) || ''
+  const weekend = (answers['vibe_1'] as string) || ''
+  const hobbies = (answers['vibe_2'] as string) || ''
+  const music = (answers['vibe_3'] as string) || ''
+  const deepTalk = (answers['vibe_4'] as string) || ''
+  const friendsDescribe = (answers['vibe_5'] as string) || ''
+  const describeFriends = (answers['vibe_6'] as string) || ''
+  
+  // Create a structured, token-efficient prompt combining all answers
+  const structuredPrompt = [
+    weekend ? `Weekend: ${weekend}` : '',
+    hobbies ? `Hobbies: ${hobbies}` : '',
+    music ? `Music: ${music}` : '',
+    deepTalk ? `Deep conversations: ${deepTalk}` : '',
+    friendsDescribe ? `Friends describe me as: ${friendsDescribe}` : '',
+    describeFriends ? `I describe my friends as: ${describeFriends}` : ''
+  ].filter(Boolean).join(' | ')
+  
+  return structuredPrompt
 }
 
-// Function to extract ideal person description
+// Function to extract ideal person description (now empty as we merged everything into vibe description)
 const extractIdealPersonDescription = (answers: Record<string, string | string[]>): string => {
-  return (answers['vibe_2'] as string) || ''
+  return '' // No longer needed as all information is in vibeDescription
 }
 
 export default function SurveyComponent({ 
@@ -726,7 +788,12 @@ export default function SurveyComponent({
         if (Array.isArray(value)) {
           if (!value || value.length === 0) return false
         } else {
-          if (!value || value === "") return false
+          if (!value || value === "" || value.trim() === "") return false
+          
+          // Check character limit for text questions
+          if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
+            return false
+          }
         }
       }
     }
@@ -751,7 +818,7 @@ export default function SurveyComponent({
     console.log("📝 Terms accepted:", surveyData.termsAccepted)
     console.log("📝 Data consent:", surveyData.dataConsent)
     
-    // Validate all required questions
+    // Validate all required questions (including all 6 new vibe questions)
     for (const question of surveyQuestions) {
       if (question.required) {
         const value = surveyData.answers[question.id];
@@ -764,9 +831,16 @@ export default function SurveyComponent({
             return;
           }
         } else {
-          if (!value || value === "") {
+          if (!value || value === "" || value.trim() === "") {
             console.log(`❌ Missing string answer for ${question.id}`)
             alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+          
+          // Check character limit for text questions
+          if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
+            console.log(`❌ Text too long for ${question.id}: ${value.length} > ${question.maxLength}`)
+            alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
             return;
           }
         }
@@ -796,11 +870,11 @@ export default function SurveyComponent({
       const coreValues = calculateCoreValues(surveyData.answers)
       console.log("⚖️ Calculated Core Values:", coreValues)
       
-      // Extract vibe descriptions
+      // Extract vibe descriptions (now includes all 6 vibe questions combined)
       const vibeDescription = extractVibeDescription(surveyData.answers)
       const idealPersonDescription = extractIdealPersonDescription(surveyData.answers)
-      console.log("👤 Vibe Description:", vibeDescription)
-      console.log("💭 Ideal Person Description:", idealPersonDescription)
+      console.log("👤 Combined Vibe Profile:", vibeDescription)
+      console.log("💭 Ideal Person Description (deprecated):", idealPersonDescription)
       
       // Add all personality types to survey data
       const finalData = {
@@ -885,15 +959,40 @@ export default function SurveyComponent({
         )
 
       case "text":
+        const currentLength = (value as string || "").length
+        const maxLength = question.maxLength || 1000
+        const isOverLimit = currentLength > maxLength
+        
         return (
           <div className="relative mt-4">
             <Textarea
               value={value as string || ""}
-              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              onChange={(e) => {
+                const newValue = e.target.value
+                if (newValue.length <= maxLength) {
+                  handleInputChange(question.id, newValue)
+                }
+              }}
               placeholder={question.placeholder}
-              className="min-h-[40px] text-right border-2 border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm transition-all duration-300 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm resize-none"
+              className={`min-h-[40px] text-right border-2 rounded-lg px-3 py-1.5 text-sm transition-all duration-300 focus:ring-4 backdrop-blur-sm resize-none ${
+                isOverLimit 
+                  ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400 focus:ring-red-500/20 dark:focus:ring-red-400/20' 
+                  : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/20 dark:focus:ring-blue-400/20'
+              } bg-white/50 dark:bg-slate-700/50`}
             />
             <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
+            
+            {/* Character counter */}
+            <div className="flex justify-between items-center mt-2 text-xs">
+              <span className={`font-medium ${isOverLimit ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                {currentLength}/{maxLength} حرف
+              </span>
+              {isOverLimit && (
+                <span className="text-red-500 dark:text-red-400 font-medium">
+                  تجاوزت الحد المسموح
+                </span>
+              )}
+            </div>
           </div>
         )
 

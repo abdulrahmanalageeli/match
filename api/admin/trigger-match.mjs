@@ -208,37 +208,23 @@ function calculateCoreValuesCompatibility(values1, values2) {
 // Function to calculate vibe compatibility using AI (up to 15% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
-    // Get vibe descriptions (from top level or derive from answers)
-    const aVibeDescription = participantA.survey_data?.vibeDescription || 
-      participantA.survey_data?.answers?.vibe_1 || ""
-    const aIdealPersonDescription = participantA.survey_data?.idealPersonDescription || 
-      participantA.survey_data?.answers?.vibe_2 || ""
-    const bVibeDescription = participantB.survey_data?.vibeDescription || 
-      participantB.survey_data?.answers?.vibe_1 || ""
-    const bIdealPersonDescription = participantB.survey_data?.idealPersonDescription || 
-      participantB.survey_data?.answers?.vibe_2 || ""
+    // Get combined vibe descriptions from all 6 questions
+    const aVibeDescription = participantA.survey_data?.vibeDescription || ""
+    const bVibeDescription = participantB.survey_data?.vibeDescription || ""
 
-    console.log(`🔍 Vibe descriptions for ${participantA.assigned_number} vs ${participantB.assigned_number}:`)
-    console.log(`  Player ${participantA.assigned_number} vibe: "${aVibeDescription}"`)
-    console.log(`  Player ${participantA.assigned_number} ideal: "${aIdealPersonDescription}"`)
-    console.log(`  Player ${participantB.assigned_number} vibe: "${bVibeDescription}"`)
-    console.log(`  Player ${participantB.assigned_number} ideal: "${bIdealPersonDescription}"`)
+    console.log(`🔍 Combined vibe profiles for ${participantA.assigned_number} vs ${participantB.assigned_number}:`)
+    console.log(`  Player ${participantA.assigned_number} profile: "${aVibeDescription}"`)
+    console.log(`  Player ${participantB.assigned_number} profile: "${bVibeDescription}"`)
 
-    if (!aVibeDescription || !aIdealPersonDescription || !bVibeDescription || !bIdealPersonDescription) {
+    if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default score")
       return 7 // Default average score
     }
 
-    // Calculate compatibility: A's ideal vs B's self-description
-    const compatibilityAtoB = await calculateSingleVibeCompatibility(aIdealPersonDescription, bVibeDescription)
-    
-    // Calculate compatibility: B's ideal vs A's self-description
-    const compatibilityBtoA = await calculateSingleVibeCompatibility(bIdealPersonDescription, aVibeDescription)
+    // Calculate mutual compatibility between the two combined profiles
+    const compatibilityScore = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
 
-    // Average the two scores for mutual compatibility
-    const averageCompatibility = Math.round((compatibilityAtoB + compatibilityBtoA) / 2)
-
-    return averageCompatibility
+    return compatibilityScore
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
@@ -246,29 +232,46 @@ async function calculateVibeCompatibility(participantA, participantB) {
   }
 }
 
-// Helper function to calculate single vibe compatibility using AI
-async function calculateSingleVibeCompatibility(idealDescription, selfDescription) {
+// Helper function to calculate combined vibe compatibility using AI
+async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `أنت مساعد ذكي متخصص في تحليل التوافق الشخصي. 
+    const systemMessage = `أنت مساعد ذكي متخصص في تحليل التوافق الشخصي بين شخصين مع فهم عميق للثقافة العربية والسعودية.
 
-مهمتك هي مقارنة وصف الشخص المثالي مع وصف شخص حقيقي لنفسه، وتقييم مدى التوافق بينهما.
+مهمتك هي مقارنة ملفين شخصيين شاملين وتقييم مدى التوافق بينهما في الجوانب التالية:
+- أسلوب قضاء عطلة نهاية الأسبوع
+- الهوايات والاهتمامات
+- الذوق الموسيقي والفني
+- تفضيل المحادثات العميقة أم الخفيفة
+- كيف يصفهم الأصدقاء
+- كيف يصفون أصدقائهم
+
+مبادئ التقييم الذكي:
+1. **التوافق الموسيقي**: اعتبر الفنانين من نفس النوع أو الحقبة متوافقين (مثل: محمد عبده وخالد عبدالرحمن = طرب خليجي، أم كلثوم وعبد الحليم = طرب عربي كلاسيكي، Ed Sheeran وJohn Mayer = موسيقى غربية هادئة)
+
+2. **الهوايات المتشابهة**: اعتبر الأنشطة المترابطة متوافقة (مثل: القراءة والكتابة، الرياضة واللياقة، الطبخ والتذوق، السفر والتصوير، الألعاب والتكنولوجيا)
+
+3. **أسلوب نهاية الأسبوع**: اعتبر الأنشطة من نفس الطابع متوافقة (مثل: الأنشطة الاجتماعية معاً، الأنشطة الهادئة معاً، الأنشطة الخارجية معاً)
+
+4. **الصفات الشخصية**: ابحث عن التكامل وليس فقط التشابه (مثل: شخص "مضحك" مع شخص "يحب الضحك"، شخص "قائد" مع شخص "متعاون"، شخص "هادئ" مع شخص "مستمع")
+
+5. **المحادثات العميقة**: اعتبر "نعم" و"أحياناً" متوافقين نسبياً، و"لا" مع "نعم" أقل توافقاً
 
 قواعد التقييم:
-- إذا كان هناك تطابق كبير في الصفات والأسلوب: 12-15 نقطة
-- إذا كان هناك تطابق جيد مع بعض الاختلافات البسيطة: 8-11 نقطة  
-- إذا كان هناك تطابق متوسط: 5-7 نقاط
-- إذا كان هناك تطابق ضعيف أو لم يجب على السؤال بشكل صحيح: 3-4 نقاط
-- إذا كان هناك تعارض واضح في الصفات: 0-2 نقطة
+- إذا كان هناك تطابق كبير أو تكامل ممتاز في الاهتمامات والأسلوب: 12-15 نقطة
+- إذا كان هناك تطابق جيد أو تشابه قوي مع بعض الاختلافات المكملة: 8-11 نقطة  
+- إذا كان هناك تطابق متوسط أو تشابه في بعض الجوانب: 5-7 نقاط
+- إذا كان هناك تطابق ضعيف أو إجابات غير مفيدة: 3-4 نقاط
+- إذا كان هناك تعارض واضح في الاهتمامات والأسلوب: 0-2 نقطة
 
-يجب أن تكون صارماً وموضوعياً في التقييم. 
+يجب أن تكون ذكياً في التقييم وتفهم السياق الثقافي والاجتماعي. ركز على التوافق الحقيقي والتكامل الشخصي.
 
 أرجع رقماً فقط من 0 إلى 15 بدون أي نص إضافي.`
 
-    const userMessage = `الشخص المثالي المطلوب: "${idealDescription}"
+    const userMessage = `الملف الشخصي للشخص الأول: "${profileA}"
 
-وصف الشخص الحقيقي لنفسه: "${selfDescription}"
+الملف الشخصي للشخص الثاني: "${profileB}"
 
-قيّم التوافق من 0 إلى 15:`
+قيّم التوافق الشخصي بينهما من 0 إلى 15:`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -377,10 +380,10 @@ export default async function handler(req, res) {
       console.log(`🔍 Values being used for calculations:`)
       console.log(`  Player ${a.assigned_number}: MBTI=${aMBTI}, Attachment=${aAttachment}, Communication=${aCommunication}`)
       console.log(`  Player ${a.assigned_number}: Lifestyle=${aLifestyle}, CoreValues=${aCoreValues}`)
-      console.log(`  Player ${a.assigned_number}: Vibe=${a.survey_data?.vibeDescription || a.survey_data?.answers?.vibe_1 || 'missing'}, Ideal=${a.survey_data?.idealPersonDescription || a.survey_data?.answers?.vibe_2 || 'missing'}`)
+      console.log(`  Player ${a.assigned_number}: Combined Vibe Profile=${a.survey_data?.vibeDescription || 'missing'}`)
       console.log(`  Player ${b.assigned_number}: MBTI=${bMBTI}, Attachment=${bAttachment}, Communication=${bCommunication}`)
       console.log(`  Player ${b.assigned_number}: Lifestyle=${bLifestyle}, CoreValues=${bCoreValues}`)
-      console.log(`  Player ${b.assigned_number}: Vibe=${b.survey_data?.vibeDescription || b.survey_data?.answers?.vibe_1 || 'missing'}, Ideal=${b.survey_data?.idealPersonDescription || b.survey_data?.answers?.vibe_2 || 'missing'}`)
+      console.log(`  Player ${b.assigned_number}: Combined Vibe Profile=${b.survey_data?.vibeDescription || 'missing'}`)
       
       // Calculate MBTI compatibility (up to 10% of total score)
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
@@ -434,10 +437,8 @@ export default async function handler(req, res) {
         bLifestyle: bLifestyle,
         aCoreValues: aCoreValues,
         bCoreValues: bCoreValues,
-        aVibeDescription: a.survey_data?.vibeDescription || a.survey_data?.answers?.vibe_1 || '',
-        bVibeDescription: b.survey_data?.vibeDescription || b.survey_data?.answers?.vibe_1 || '',
-        aIdealPersonDescription: a.survey_data?.idealPersonDescription || a.survey_data?.answers?.vibe_2 || '',
-        bIdealPersonDescription: b.survey_data?.idealPersonDescription || b.survey_data?.answers?.vibe_2 || ''
+        aVibeDescription: a.survey_data?.vibeDescription || '',
+        bVibeDescription: b.survey_data?.vibeDescription || ''
       })
     }
 
@@ -451,16 +452,21 @@ export default async function handler(req, res) {
       })
 
     // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (2 ROUNDS) ---
+    console.log("🔄 Starting round-robin matching for", numbers.length, "participants")
     const finalMatches = []
     const matchedPairs = new Set() // Track pairs matched in any round
     const participantCount = numbers.length
     const rounds = 2
 
     for (let round = 1; round <= rounds; round++) {
+      console.log(`\n🎯 === ROUND ${round} MATCHING ===`)
       const used = new Set() // Track participants matched in this round
       const roundMatches = []
       // Sort all pairs globally by score (descending)
       const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
+      
+      console.log(`📊 Available pairs for round ${round}:`, sortedPairs.length)
+      
       for (const pair of sortedPairs) {
         const key = `${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`
         if (
@@ -468,6 +474,7 @@ export default async function handler(req, res) {
           !used.has(pair.b) &&
           !matchedPairs.has(key)
         ) {
+          console.log(`✅ Matching pair in round ${round}: ${pair.a} × ${pair.b} (score: ${pair.score}%)`)
           used.add(pair.a)
           used.add(pair.b)
           matchedPairs.add(key)
@@ -505,7 +512,11 @@ export default async function handler(req, res) {
       }
       // Handle odd participant: find unmatched with lowest score
       const unmatched = numbers.filter(n => !used.has(n))
+      console.log(`👥 Round ${round} matched participants:`, Array.from(used).sort((a, b) => a - b))
+      console.log(`🔍 Round ${round} unmatched participants:`, unmatched)
+      
       if (unmatched.length === 1) {
+        console.log(`🎯 Adding organizer match for participant ${unmatched[0]} in round ${round}`)
         roundMatches.push({
           participant_a_number: 0,
           participant_b_number: unmatched[0],
@@ -514,15 +525,39 @@ export default async function handler(req, res) {
           match_id,
           round
         })
+      } else if (unmatched.length > 1) {
+        console.warn(`⚠️ Multiple unmatched participants in round ${round}:`, unmatched)
       }
+      
+      console.log(`📋 Round ${round} final matches:`, roundMatches.length)
+      roundMatches.forEach(match => {
+        console.log(`  - ${match.participant_a_number} × ${match.participant_b_number} (${match.compatibility_score}%)`)
+      })
+      
       finalMatches.push(...roundMatches)
     }
 
+    // Clear existing matches before inserting new ones to prevent duplicates
+    console.log("🗑️ Clearing existing matches for match_id:", match_id)
+    const { error: deleteError } = await supabase
+      .from("match_results")
+      .delete()
+      .eq("match_id", match_id)
+
+    if (deleteError) {
+      console.error("🔥 Error clearing existing matches:", deleteError)
+      throw deleteError
+    }
+
+    console.log("💾 Inserting", finalMatches.length, "new matches")
     const { error: insertError } = await supabase
       .from("match_results")
       .insert(finalMatches)
 
-    if (insertError) throw insertError
+    if (insertError) {
+      console.error("🔥 Error inserting matches:", insertError)
+      throw insertError
+    }
 
     return res.status(200).json({
       message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe${skipAI ? ' - AI skipped' : ''})`,

@@ -172,6 +172,8 @@ export default function WelcomePage() {
   })
   const token = useSearchParams()[0].get("token")
   const [isResolving, setIsResolving] = useState(true)
+  const [tokenError, setTokenError] = useState<string | null>(null)
+  const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
@@ -367,7 +369,10 @@ export default function WelcomePage() {
 
   useEffect(() => {
     const resolveToken = async () => {
-      if (!token) return
+      if (!token) {
+        setIsResolving(false)
+        return
+      }
 
       try {
         const res = await fetch("/api/token-handler", {
@@ -376,7 +381,11 @@ export default function WelcomePage() {
           body: JSON.stringify({ action: "resolve", secure_token: token }),
         })
         const data = await res.json()
+        
         if (data.success) {
+          // Token is valid
+          setIsTokenValid(true)
+          setTokenError(null)
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
           if (data.summary) {
@@ -475,9 +484,16 @@ export default function WelcomePage() {
             }
             // --- END NEW LOGIC ---
           }
+        } else {
+          // Token is invalid
+          setIsTokenValid(false)
+          setTokenError(data.error || "الرابط غير صحيح أو منتهي الصلاحية")
+          console.error("Invalid token:", data.error)
         }
       } catch (err) {
         console.error("Error resolving token:", err)
+        setIsTokenValid(false)
+        setTokenError("حدث خطأ في التحقق من الرابط. يرجى المحاولة مرة أخرى.")
       } finally {
         setIsResolving(false)
       }
@@ -1238,6 +1254,122 @@ export default function WelcomePage() {
       setLastTimerStatus(null); // Reset status tracking for new round
     }
   }, [currentRound, assignedNumber]);
+
+  // Token validation loading UI
+  if (token && isResolving) {
+    return (
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
+                i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 4) * 20}px`,
+                top: `${10 + (i * 10) % 70}%`,
+                left: `${5 + (i * 13) % 85}%`,
+                animationDelay: `${i * 0.7}s`,
+                zIndex: 0,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+          <div className="max-w-md w-full">
+            <div className="bg-white/10 backdrop-blur-xl border border-cyan-400/30 rounded-2xl p-8 shadow-2xl">
+              <div className="text-center">
+                {/* Loading Icon */}
+                <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
+                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                
+                <h1 className="text-2xl font-bold text-white mb-4">جاري التحقق من الرابط</h1>
+                <p className="text-cyan-200 mb-6 leading-relaxed">
+                  يرجى الانتظار بينما نتحقق من صحة الرابط...
+                </p>
+                
+                <div className="flex justify-center">
+                  <div className="flex space-x-2">
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce"></div>
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Token validation error UI
+  if (token && !isResolving && isTokenValid === false) {
+    return (
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
+                i % 2 === 0 ? 'bg-red-400' : 'bg-orange-500'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 4) * 20}px`,
+                top: `${10 + (i * 10) % 70}%`,
+                left: `${5 + (i * 13) % 85}%`,
+                animationDelay: `${i * 0.7}s`,
+                zIndex: 0,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Main Content */}
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+          <div className="max-w-md w-full">
+            <div className="bg-white/10 backdrop-blur-xl border border-red-400/30 rounded-2xl p-8 shadow-2xl">
+              <div className="text-center">
+                {/* Error Icon */}
+                <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <XCircle className="w-10 h-10 text-white" />
+                </div>
+                
+                <h1 className="text-2xl font-bold text-white mb-4">خطأ في الرابط</h1>
+                <p className="text-red-200 mb-6 leading-relaxed">
+                  {tokenError}
+                </p>
+                
+                <div className="space-y-4">
+                  <button
+                    onClick={() => window.location.href = '/'}
+                    className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg"
+                  >
+                    العودة للصفحة الرئيسية
+                  </button>
+                  
+                  <div className="text-center">
+                    <p className="text-slate-400 text-sm mb-2">هل تحتاج مساعدة؟</p>
+                    <p className="text-slate-300 text-sm">
+                      تواصل مع المنظم للحصول على رابط صحيح
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Registration UI if no token
   if (!token) {

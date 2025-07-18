@@ -181,6 +181,24 @@ export default async function handler(req, res) {
         return res.status(200).json({ message: `Emergency ${paused ? 'pause' : 'resume'} set` })
       }
 
+      if (action === "set-total-rounds") {
+        const { total_rounds } = req.body
+        if (!total_rounds || total_rounds < 2 || total_rounds > 6) {
+          return res.status(400).json({ error: "Total rounds must be between 2 and 6" })
+        }
+        const { error } = await supabase
+          .from("event_state")
+          .upsert({ 
+            match_id: STATIC_MATCH_ID, 
+            total_rounds: total_rounds
+          }, { onConflict: "match_id" })
+        if (error) {
+          console.error("set-total-rounds error:", error);
+          return res.status(500).json({ error: error.message })
+        }
+        return res.status(200).json({ message: `Total rounds set to ${total_rounds}` })
+      }
+
       if (action === "get-event-state") {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase

@@ -49,6 +49,8 @@ export default function AdminPage() {
   const [waitingCount, setWaitingCount] = useState(0)
   const [totalParticipants, setTotalParticipants] = useState(0)
   const [participantStats, setParticipantStats] = useState<any>(null)
+  const [currentRounds, setCurrentRounds] = useState(2)
+  const [optimalRounds, setOptimalRounds] = useState(2)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -78,6 +80,7 @@ export default function AdminPage() {
         time: stateData.announcement_time
       })
       setEmergencyPaused(stateData.emergency_paused)
+      setCurrentRounds(stateData.total_rounds || 2)
       
       // Fetch participant stats
       const statsRes = await fetch("/api/admin", {
@@ -89,10 +92,58 @@ export default function AdminPage() {
       setParticipantStats(statsData)
       setWaitingCount(statsData.waiting_count || 0)
       setTotalParticipants(statsData.total_participants || 0)
+      
+      // Calculate optimal rounds based on participant count
+      calculateOptimalRounds(data.participants?.length || 0)
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const calculateOptimalRounds = (participantCount: number) => {
+    if (participantCount <= 0) {
+      setOptimalRounds(2)
+      return
+    }
+    
+    // Calculate optimal rounds to minimize repeats
+    // For n participants, we can have at most n/2 unique pairs per round
+    // We want to maximize unique pairs across all rounds
+    const maxPairsPerRound = Math.floor(participantCount / 2)
+    const totalPossiblePairs = (participantCount * (participantCount - 1)) / 2
+    
+    // Calculate how many rounds we can have before we need repeats
+    const optimalRounds = Math.floor(totalPossiblePairs / maxPairsPerRound)
+    
+    // Ensure at least 2 rounds and at most 6 rounds
+    const clampedRounds = Math.max(2, Math.min(6, optimalRounds))
+    setOptimalRounds(clampedRounds)
+  }
+
+  const updateRounds = async (newRounds: number) => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set-total-rounds",
+          total_rounds: newRounds
+        }),
+      })
+      
+      if (res.ok) {
+        setCurrentRounds(newRounds)
+        alert(`✅ Rounds updated to ${newRounds}`)
+        fetchParticipants()
+      } else {
+        const data = await res.json()
+        alert("❌ Failed to update rounds: " + (data.error || "Unknown error"))
+      }
+    } catch (err) {
+      console.error("Error updating rounds:", err)
+      alert("❌ Failed to update rounds")
     }
   }
 
@@ -578,6 +629,67 @@ export default function AdminPage() {
                 <AlertCircle className="w-4 h-4" />
                 {emergencyPaused ? "Resume" : "Emergency Pause"}
               </button>
+            </div>
+          </div>
+
+          {/* Round Control */}
+          <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white font-semibold">Round Configuration</h3>
+              <div className="flex items-center gap-2">
+                <span className="text-slate-400 text-sm">Optimal:</span>
+                <span className={`font-bold ${currentRounds === optimalRounds ? 'text-green-400' : 'text-yellow-400'}`}>
+                  {optimalRounds} rounds
+                </span>
+                {currentRounds !== optimalRounds && (
+                  <span className="text-yellow-400 text-xs">(recommended)</span>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-slate-300 text-sm">Current Rounds:</label>
+                  <select
+                    value={currentRounds}
+                    onChange={(e) => updateRounds(Number(e.target.value))}
+                    className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+                  >
+                    {[2, 3, 4, 5, 6].map(rounds => (
+                      <option key={rounds} value={rounds} style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>
+                        {rounds} rounds
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={() => updateRounds(optimalRounds)}
+                  className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <Settings className="w-3 h-3" />
+                  Use Optimal
+                </button>
+              </div>
+              <div className="text-slate-400 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span>Participants:</span>
+                  <span className="text-white">{participants.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Max pairs per round:</span>
+                  <span className="text-white">{Math.floor(participants.length / 2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total possible pairs:</span>
+                  <span className="text-white">{participants.length > 0 ? Math.floor((participants.length * (participants.length - 1)) / 2) : 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Repeats with {currentRounds} rounds:</span>
+                  <span className={`${currentRounds > optimalRounds ? 'text-yellow-400' : 'text-green-400'}`}>
+                    {participants.length > 0 ? Math.max(0, (currentRounds * Math.floor(participants.length / 2)) - Math.floor((participants.length * (participants.length - 1)) / 2)) : 0}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 

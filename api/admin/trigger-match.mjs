@@ -451,12 +451,29 @@ export default async function handler(req, res) {
         console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
       })
 
-    // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (2 ROUNDS) ---
+    // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (CONFIGURABLE ROUNDS) ---
     console.log("🔄 Starting round-robin matching for", numbers.length, "participants")
     const finalMatches = []
     const matchedPairs = new Set() // Track pairs matched in any round
     const participantCount = numbers.length
-    const rounds = 2
+    
+    // Get total rounds from environment or database
+    let rounds = 2 // Default fallback
+    try {
+      const { data: eventState, error: eventError } = await supabase
+        .from("event_state")
+        .select("total_rounds")
+        .eq("match_id", match_id)
+        .single()
+      
+      if (!eventError && eventState?.total_rounds) {
+        rounds = eventState.total_rounds
+      }
+    } catch (err) {
+      console.warn("Could not fetch total_rounds from database, using default:", rounds)
+    }
+    
+    console.log(`🎯 Using ${rounds} rounds for matching`)
 
     for (let round = 1; round <= rounds; round++) {
       console.log(`\n🎯 === ROUND ${round} MATCHING ===`)
@@ -524,11 +541,12 @@ export default async function handler(req, res) {
         
         // Look through all compatibility scores to find the best repeat match
         for (const pair of compatibilityScores) {
-          if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant) && 
-              !used.has(pair.a) && !used.has(pair.b)) {
-            // This is a potential repeat match
+          if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant)) {
+            // This is a potential repeat match - find the other participant
             const otherParticipant = pair.a === unmatchedParticipant ? pair.b : pair.a
-            if (pair.score > bestRepeatScore) {
+            
+            // Check if the other participant is available (not used in this round)
+            if (!used.has(otherParticipant) && pair.score > bestRepeatScore) {
               bestRepeatScore = pair.score
               bestRepeatMatch = {
                 participant_a_number: Math.min(unmatchedParticipant, otherParticipant),
@@ -587,10 +605,11 @@ export default async function handler(req, res) {
           let bestRepeatScore = -1
           
           for (const pair of compatibilityScores) {
-            if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant) && 
-                !used.has(pair.a) && !used.has(pair.b)) {
+            if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant)) {
               const otherParticipant = pair.a === unmatchedParticipant ? pair.b : pair.a
-              if (pair.score > bestRepeatScore) {
+              
+              // Check if the other participant is available (not used in this round)
+              if (!used.has(otherParticipant) && pair.score > bestRepeatScore) {
                 bestRepeatScore = pair.score
                 bestRepeatMatch = {
                   participant_a_number: Math.min(unmatchedParticipant, otherParticipant),

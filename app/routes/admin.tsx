@@ -603,6 +603,30 @@ export default function AdminPage() {
               </button>
 
               <button
+                onClick={async () => {
+                  if (!confirm("Generate group matches? This will create groups of 3-4 people based on MBTI compatibility.")) return
+                  setLoading(true)
+                  const res = await fetch("/api/admin/trigger-match", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ matchType: "group" }),
+                  })
+                  const data = await res.json()
+                  if (res.ok) {
+                    alert(`✅ ${data.message}\n\nGroups created: ${data.count}\n\nGroup details:\n${data.groups?.map((g: any) => `Group ${g.group_number}: [${g.participants.join(', ')}] - Score: ${g.score}%`).join('\n') || 'No details available'}`)
+                    fetchParticipants()
+                  } else {
+                    alert("❌ Failed to generate group matches: " + (data.error || "Unknown error"))
+                  }
+                  setLoading(false)
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
+              >
+                <Users className="w-4 h-4" />
+                Generate Groups
+              </button>
+
+              <button
                 onClick={openMatrix}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-xl transition-all duration-300"
               >

@@ -299,12 +299,258 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
   }
 }
 
+// Function to create groups of 4 (or 3) based on MBTI compatibility
+async function generateGroupMatches(participants, match_id) {
+  console.log("🎯 Starting group matching for", participants.length, "participants")
+  
+  if (participants.length < 3) {
+    throw new Error("Need at least 3 participants for group matching")
+  }
+
+  // Calculate MBTI compatibility scores for all pairs
+  const pairScores = []
+  for (let i = 0; i < participants.length; i++) {
+    for (let j = i + 1; j < participants.length; j++) {
+      const a = participants[i]
+      const b = participants[j]
+      
+      const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
+      const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
+      
+      const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
+      
+      pairScores.push({
+        participants: [a.assigned_number, b.assigned_number],
+        score: mbtiScore,
+        aMBTI,
+        bMBTI
+      })
+    }
+  }
+
+  // Sort pairs by MBTI compatibility (descending)
+  pairScores.sort((a, b) => b.score - a.score)
+  
+  console.log("📊 Top MBTI compatibility pairs:")
+  pairScores.slice(0, 10).forEach(pair => {
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${pair.score}% (${pair.aMBTI} × ${pair.bMBTI})`)
+  })
+
+  // Group formation algorithm
+  const groups = []
+  const usedParticipants = new Set()
+  const participantNumbers = participants.map(p => p.assigned_number)
+  
+  // Try to form groups of 4 first
+  while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
+    const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
+    const group = findBestGroup(availableParticipants, pairScores, 4)
+    
+    if (group) {
+      groups.push(group)
+      group.forEach(p => usedParticipants.add(p))
+      console.log(`✅ Created group of 4: [${group.join(', ')}]`)
+    } else {
+      // If we can't find a good group of 4, try 3
+      break
+    }
+  }
+  
+  // Handle remaining participants
+  const remainingParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
+  
+  if (remainingParticipants.length >= 3) {
+    if (remainingParticipants.length === 3) {
+      // Perfect group of 3
+      groups.push(remainingParticipants)
+      console.log(`✅ Created group of 3: [${remainingParticipants.join(', ')}]`)
+    } else if (remainingParticipants.length === 4) {
+      // Perfect group of 4
+      groups.push(remainingParticipants)
+      console.log(`✅ Created group of 4: [${remainingParticipants.join(', ')}]`)
+    } else if (remainingParticipants.length === 5) {
+      // Split into 3 + 2, but merge the 2 with the smallest existing group
+      const bestGroup3 = findBestGroup(remainingParticipants, pairScores, 3)
+      if (bestGroup3) {
+        groups.push(bestGroup3)
+        console.log(`✅ Created group of 3: [${bestGroup3.join(', ')}]`)
+        
+        const remaining2 = remainingParticipants.filter(p => !bestGroup3.includes(p))
+        // Find the smallest existing group and merge
+        if (groups.length > 1) {
+          const smallestGroupIndex = groups.findIndex(g => g.length === 3)
+          if (smallestGroupIndex !== -1 && smallestGroupIndex !== groups.length - 1) {
+            groups[smallestGroupIndex].push(...remaining2)
+            console.log(`✅ Merged 2 participants into existing group: [${groups[smallestGroupIndex].join(', ')}]`)
+          } else {
+            groups.push(remaining2)
+            console.log(`⚠️ Created small group of 2: [${remaining2.join(', ')}]`)
+          }
+        } else {
+          groups.push(remaining2)
+          console.log(`⚠️ Created small group of 2: [${remaining2.join(', ')}]`)
+        }
+      } else {
+        groups.push(remainingParticipants)
+        console.log(`✅ Created group of 5: [${remainingParticipants.join(', ')}]`)
+      }
+    } else {
+      // More than 5 remaining - try to split optimally
+      const bestGroup4 = findBestGroup(remainingParticipants, pairScores, 4)
+      if (bestGroup4) {
+        groups.push(bestGroup4)
+        console.log(`✅ Created group of 4: [${bestGroup4.join(', ')}]`)
+        const stillRemaining = remainingParticipants.filter(p => !bestGroup4.includes(p))
+        if (stillRemaining.length >= 3) {
+          groups.push(stillRemaining)
+          console.log(`✅ Created final group: [${stillRemaining.join(', ')}]`)
+        } else {
+          // Merge with existing group
+          if (groups.length > 1) {
+            const targetGroup = groups.find(g => g.length === 3)
+            if (targetGroup) {
+              targetGroup.push(...stillRemaining)
+              console.log(`✅ Merged remaining participants: [${targetGroup.join(', ')}]`)
+            } else {
+              groups.push(stillRemaining)
+              console.log(`⚠️ Created small final group: [${stillRemaining.join(', ')}]`)
+            }
+          }
+        }
+      } else {
+        groups.push(remainingParticipants)
+        console.log(`✅ Created large group: [${remainingParticipants.join(', ')}]`)
+      }
+    }
+  } else if (remainingParticipants.length > 0) {
+    // Less than 3 remaining - merge with existing groups
+    if (groups.length > 0) {
+      const targetGroup = groups.find(g => g.length === 3) || groups[0]
+      targetGroup.push(...remainingParticipants)
+      console.log(`✅ Merged remaining ${remainingParticipants.length} participants into existing group: [${targetGroup.join(', ')}]`)
+    } else {
+      groups.push(remainingParticipants)
+      console.log(`⚠️ Created small group: [${remainingParticipants.join(', ')}]`)
+    }
+  }
+
+  console.log(`📋 Final groups: ${groups.length} groups created`)
+  groups.forEach((group, index) => {
+    console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} participants)`)
+  })
+
+  // Convert groups to database format
+  const groupMatches = []
+  for (let i = 0; i < groups.length; i++) {
+    const group = groups[i]
+    const groupScore = calculateGroupMBTIScore(group, pairScores)
+    
+    // Create match record with participant_c_number and participant_d_number
+    const matchRecord = {
+      participant_a_number: group[0] || null,
+      participant_b_number: group[1] || null,
+      participant_c_number: group[2] || null,
+      participant_d_number: group[3] || null,
+      compatibility_score: Math.round(groupScore),
+      reason: `مجموعة من ${group.length} أشخاص بتوافق MBTI عالي (${Math.round(groupScore)}%)`,
+      match_id,
+      round: 0, // Group phase
+      group_number: i + 1,
+      table_number: i + 1,
+      is_repeat_match: false,
+      // Add personality data for all participants
+      participant_a_mbti_type: participants.find(p => p.assigned_number === group[0])?.mbti_personality_type || participants.find(p => p.assigned_number === group[0])?.survey_data?.mbtiType,
+      participant_b_mbti_type: participants.find(p => p.assigned_number === group[1])?.mbti_personality_type || participants.find(p => p.assigned_number === group[1])?.survey_data?.mbtiType,
+      // We'll store group info in the reason field for now since we don't have dedicated group columns for C and D personality types
+      mbti_compatibility_score: groupScore,
+      attachment_compatibility_score: 0,
+      communication_compatibility_score: 0,
+      lifestyle_compatibility_score: 0,
+      core_values_compatibility_score: 0,
+      vibe_compatibility_score: 0
+    }
+    
+    groupMatches.push(matchRecord)
+  }
+
+  return groupMatches
+}
+
+// Helper function to find the best group of specified size
+function findBestGroup(availableParticipants, pairScores, targetSize) {
+  if (availableParticipants.length < targetSize) return null
+  
+  // For groups of 3 or 4, we want to maximize the sum of MBTI compatibility scores
+  let bestGroup = null
+  let bestScore = -1
+  
+  // Generate all combinations of the target size
+  const combinations = getCombinations(availableParticipants, targetSize)
+  
+  for (const combination of combinations) {
+    const score = calculateGroupMBTIScore(combination, pairScores)
+    if (score > bestScore) {
+      bestScore = score
+      bestGroup = combination
+    }
+  }
+  
+  return bestGroup
+}
+
+// Helper function to calculate group MBTI compatibility score
+function calculateGroupMBTIScore(group, pairScores) {
+  let totalScore = 0
+  let pairCount = 0
+  
+  // Sum up all pairwise MBTI scores within the group
+  for (let i = 0; i < group.length; i++) {
+    for (let j = i + 1; j < group.length; j++) {
+      const pair = pairScores.find(p => 
+        (p.participants[0] === group[i] && p.participants[1] === group[j]) ||
+        (p.participants[0] === group[j] && p.participants[1] === group[i])
+      )
+      if (pair) {
+        totalScore += pair.score
+        pairCount++
+      }
+    }
+  }
+  
+  return pairCount > 0 ? totalScore / pairCount : 0
+}
+
+// Helper function to generate combinations
+function getCombinations(arr, size) {
+  if (size === 1) return arr.map(item => [item])
+  if (size === arr.length) return [arr]
+  if (size > arr.length) return []
+  
+  const combinations = []
+  
+  function backtrack(start, current) {
+    if (current.length === size) {
+      combinations.push([...current])
+      return
+    }
+    
+    for (let i = start; i < arr.length; i++) {
+      current.push(arr[i])
+      backtrack(i + 1, current)
+      current.pop()
+    }
+  }
+  
+  backtrack(0, [])
+  return combinations
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false } = req.body || {}
+  const { skipAI = false, matchType = "individual" } = req.body || {}
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
@@ -316,6 +562,53 @@ export default async function handler(req, res) {
     if (error) throw error
     if (!participants || participants.length < 2) {
       return res.status(400).json({ error: "Not enough participants" })
+    }
+
+    // Handle group matching
+    if (matchType === "group") {
+      console.log("🎯 Group matching requested")
+      
+      if (participants.length < 3) {
+        return res.status(400).json({ error: "Need at least 3 participants for group matching" })
+      }
+
+      const groupMatches = await generateGroupMatches(participants, match_id)
+
+      // Clear existing group matches
+      console.log("🗑️ Clearing existing group matches for match_id:", match_id)
+      const { error: deleteError } = await supabase
+        .from("match_results")
+        .delete()
+        .eq("match_id", match_id)
+        .eq("round", 0) // Group phase round
+
+      if (deleteError) {
+        console.error("🔥 Error clearing existing group matches:", deleteError)
+        throw deleteError
+      }
+
+      // Insert new group matches
+      console.log("💾 Inserting", groupMatches.length, "group matches")
+      const { error: insertError } = await supabase
+        .from("match_results")
+        .insert(groupMatches)
+
+      if (insertError) {
+        console.error("🔥 Error inserting group matches:", insertError)
+        throw insertError
+      }
+
+      return res.status(200).json({
+        message: `✅ Group matching complete - created ${groupMatches.length} groups`,
+        count: groupMatches.length,
+        results: groupMatches,
+        groups: groupMatches.map(match => ({
+          group_number: match.group_number,
+          participants: [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(p => p !== null),
+          score: match.compatibility_score,
+          table_number: match.table_number
+        }))
+      })
     }
 
     // Debug: Log retrieved participant data

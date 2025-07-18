@@ -969,6 +969,127 @@ export default function WelcomePage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  // Function to convert technical compatibility reason to natural Arabic description
+  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
+    if (!reason) return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+    
+    // Extract scores from the technical format
+    const mbtiMatch = reason.match(/MBTI:.*?\((\d+)%\)/)
+    const attachmentMatch = reason.match(/التعلق:.*?\((\d+)%\)/)
+    const communicationMatch = reason.match(/التواصل:.*?\((\d+)%\)/)
+    const lifestyleMatch = reason.match(/نمط الحياة:.*?\((\d+)%\)/)
+    const coreValuesMatch = reason.match(/القيم الأساسية:.*?\((\d+)%\)/)
+    const vibeMatch = reason.match(/التوافق الشخصي:.*?\((\d+)%\)/)
+    
+    const mbtiScore = mbtiMatch ? parseInt(mbtiMatch[1]) : 0
+    const attachmentScore = attachmentMatch ? parseInt(attachmentMatch[1]) : 0
+    const communicationScore = communicationMatch ? parseInt(communicationMatch[1]) : 0
+    const lifestyleScore = lifestyleMatch ? parseInt(lifestyleMatch[1]) : 0
+    const coreValuesScore = coreValuesMatch ? parseInt(coreValuesMatch[1]) : 0
+    const vibeScore = vibeMatch ? parseInt(vibeMatch[1]) : 0
+    
+    // Helper function to get strength level and color
+    const getStrengthLevel = (score: number, maxScore: number) => {
+      const percentage = (score / maxScore) * 100
+      if (percentage >= 80) return { level: "ممتاز", color: "text-emerald-400", bgColor: "bg-emerald-500/20", borderColor: "border-emerald-400/30" }
+      if (percentage >= 60) return { level: "جيد", color: "text-blue-400", bgColor: "bg-blue-500/20", borderColor: "border-blue-400/30" }
+      if (percentage >= 40) return { level: "متوسط", color: "text-yellow-400", bgColor: "bg-yellow-500/20", borderColor: "border-yellow-400/30" }
+      if (percentage >= 20) return { level: "ضعيف", color: "text-orange-400", bgColor: "bg-orange-500/20", borderColor: "border-orange-400/30" }
+      return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
+    }
+    
+    // Get strength levels for each component
+    const mbtiStrength = getStrengthLevel(mbtiScore, 10)
+    const attachmentStrength = getStrengthLevel(attachmentScore, 15)
+    const communicationStrength = getStrengthLevel(communicationScore, 25)
+    const lifestyleStrength = getStrengthLevel(lifestyleScore, 15)
+    const coreValuesStrength = getStrengthLevel(coreValuesScore, 20)
+    const vibeStrength = getStrengthLevel(vibeScore, 15)
+    
+    // Create natural language description
+    const components = []
+    
+    if (mbtiScore > 0) {
+      components.push({
+        name: "التوافق الشخصي",
+        strength: mbtiStrength.level,
+        color: mbtiStrength.color,
+        bgColor: mbtiStrength.bgColor,
+        borderColor: mbtiStrength.borderColor,
+        description: mbtiScore >= 7 ? "شخصيات متكاملة ومتوافقة" : 
+                    mbtiScore >= 5 ? "شخصيات متوازنة" : 
+                    "شخصيات مختلفة ومكملة"
+      })
+    }
+    
+    if (attachmentScore > 0) {
+      components.push({
+        name: "أسلوب التعلق",
+        strength: attachmentStrength.level,
+        color: attachmentStrength.color,
+        bgColor: attachmentStrength.bgColor,
+        borderColor: attachmentStrength.borderColor,
+        description: attachmentScore >= 12 ? "أنماط تعلق متوافقة ومستقرة" : 
+                    attachmentScore >= 8 ? "أنماط تعلق متوازنة" : 
+                    "أنماط تعلق مختلفة ومكملة"
+      })
+    }
+    
+    if (communicationScore > 0) {
+      components.push({
+        name: "أسلوب التواصل",
+        strength: communicationStrength.level,
+        color: communicationStrength.color,
+        bgColor: communicationStrength.bgColor,
+        borderColor: communicationStrength.borderColor,
+        description: communicationScore >= 20 ? "تواصل ممتاز ومتناغم" : 
+                    communicationScore >= 15 ? "تواصل جيد ومتوازن" : 
+                    "تواصل مختلف ومكمل"
+      })
+    }
+    
+    if (lifestyleScore > 0) {
+      components.push({
+        name: "نمط الحياة",
+        strength: lifestyleStrength.level,
+        color: lifestyleStrength.color,
+        bgColor: lifestyleStrength.bgColor,
+        borderColor: lifestyleStrength.borderColor,
+        description: lifestyleScore >= 12 ? "أنماط حياة متوافقة" : 
+                    lifestyleScore >= 8 ? "أنماط حياة متوازنة" : 
+                    "أنماط حياة مختلفة ومكملة"
+      })
+    }
+    
+    if (coreValuesScore > 0) {
+      components.push({
+        name: "القيم الأساسية",
+        strength: coreValuesStrength.level,
+        color: coreValuesStrength.color,
+        bgColor: coreValuesStrength.bgColor,
+        borderColor: coreValuesStrength.borderColor,
+        description: coreValuesScore >= 16 ? "قيم متطابقة ومتناغمة" : 
+                    coreValuesScore >= 12 ? "قيم متوازنة" : 
+                    "قيم مختلفة ومكملة"
+      })
+    }
+    
+    if (vibeScore > 0) {
+      components.push({
+        name: "التوافق الشخصي",
+        strength: vibeStrength.level,
+        color: vibeStrength.color,
+        bgColor: vibeStrength.bgColor,
+        borderColor: vibeStrength.borderColor,
+        description: vibeScore >= 12 ? "كيمياء شخصية ممتازة" : 
+                    vibeScore >= 8 ? "كيمياء شخصية جيدة" : 
+                    "كيمياء شخصية متوازنة"
+      })
+    }
+    
+    return { components, originalReason: reason }
+  }
+
   // Database timer utility functions
   const startDatabaseTimer = async (round: number, duration: number = 300) => {
     if (!assignedNumber) return false;
@@ -3372,12 +3493,40 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               ) : (
                 <>
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
-                  <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
-                    <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
-                    <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
-                    {isScoreRevealed && (
-                      <div className="mt-4">
-                        <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
+                                      <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
+                      <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
+                      <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
+                      {isScoreRevealed && (
+                        <div className="mt-4">
+                          {/* New formatted compatibility reason */}
+                          {(() => {
+                            const formattedReason = formatCompatibilityReason(matchReason)
+                            return (
+                              <div className="space-y-3">
+                                <h4 className={`text-lg font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
+                                    <div 
+                                      key={index}
+                                      className={`p-3 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                                    >
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-sm font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                          {component.name}
+                                        </span>
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${component.color} ${component.bgColor}`}>
+                                          {component.strength}
+                                        </span>
+                                      </div>
+                                      <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                        {component.description}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )
+                          })()}
                         {isRepeatMatch && (
                           <div className={`mt-4 p-4 rounded-xl border-2 ${dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100/50 border-amber-300/40"}`}>
                             <div className="flex items-center gap-2 mb-2">
@@ -3634,8 +3783,34 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
               {/* Compatibility Details */}
               <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>سبب التوافق</h5>
-                <p className={`text-sm leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>{selectedHistoryItem.reason}</p>
+                <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h5>
+                {(() => {
+                  const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason)
+                  return (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-2">
+                        {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
+                          <div 
+                            key={index}
+                            className={`p-2 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                          >
+                            <div className="flex items-center justify-between mb-1">
+                              <span className={`text-xs font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                {component.name}
+                              </span>
+                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${component.color} ${component.bgColor}`}>
+                                {component.strength}
+                              </span>
+                            </div>
+                            <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                              {component.description}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
               </div>
 
               {/* Match Details */}

@@ -152,6 +152,7 @@ export default function WelcomePage() {
   const [countdown, setCountdown] = useState(30)
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
+  const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
   const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
@@ -433,11 +434,13 @@ export default function WelcomePage() {
             setPhase("registration");
             setCurrentRound(1);
             setTotalRounds(4);
+            setIsRepeatMatch(false);
           } else {
             const phaseData = await res2.json();
             setPhase(phaseData.phase || "registration");
             setCurrentRound(phaseData.current_round || 1);
             setTotalRounds(phaseData.total_rounds || 4);
+            setIsRepeatMatch(false);
 
             // --- NEW LOGIC ---
             if (hasFilledForm) {
@@ -534,6 +537,7 @@ export default function WelcomePage() {
           // Update current round and total rounds
           setCurrentRound(data.current_round || 1);
           setTotalRounds(data.total_rounds || 4);
+          setIsRepeatMatch(false);
           
           // Check if user has completed the form (only if we don't already have survey data)
           if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
@@ -592,6 +596,7 @@ export default function WelcomePage() {
           });
               setTypewriterCompleted(false);
               setTimerEnded(false); // Reset timer ended flag for new round
+              setIsRepeatMatch(false); // Reset repeat match flag for new round
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
             }
@@ -665,6 +670,7 @@ export default function WelcomePage() {
   const restart = () => {
     setStep(-1)
     setPersonalitySummary("")
+    setIsRepeatMatch(false)
   }
   const previous = () => setStep((s) => Math.max(s - 1, -2))
 
@@ -782,6 +788,7 @@ export default function WelcomePage() {
     round: number
     table_number: number | null
     score: number
+    is_repeat_match?: boolean
   }
 
   type GroupMatchEntry = {
@@ -821,6 +828,7 @@ export default function WelcomePage() {
         setMatchReason(currentRoundMatch.reason)
         setCompatibilityScore(currentRoundMatch.score)
         setTableNumber(currentRoundMatch.table_number)
+        setIsRepeatMatch(currentRoundMatch.is_repeat_match || false)
         
         // Incrementally add to history if not already present
         // setHistoryMatches(prev => {
@@ -924,7 +932,8 @@ export default function WelcomePage() {
         reason: matchReason,
         round: currentRound,
         table_number: tableNumber,
-        score: compatibilityScore || 0
+        score: compatibilityScore || 0,
+        is_repeat_match: isRepeatMatch
       }
       
       setHistoryMatches(prev => {
@@ -3237,6 +3246,17 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     {isScoreRevealed && (
                       <div className="mt-4">
                         <p className={`text-base font-semibold italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{matchReason}</p>
+                        {isRepeatMatch && (
+                          <div className={`mt-4 p-4 rounded-xl border-2 ${dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100/50 border-amber-300/40"}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className={`w-5 h-5 ${dark ? "text-amber-300" : "text-amber-600"}`} />
+                              <span className={`font-bold ${dark ? "text-amber-200" : "text-amber-700"}`}>تكرار المباراة</span>
+                            </div>
+                            <p className={`text-sm ${dark ? "text-amber-100" : "text-amber-800"}`}>
+                              تم إعادة مباراتك مع شريك سابق لأن جميع المشاركين الآخرين كانوا مشغولين. يمكنك أخذ استراحة أو إعادة الجلوس مع نفس الشريك.
+                            </p>
+                          </div>
+                        )}
                         {currentRound === 1 && (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
@@ -3334,6 +3354,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <div className="flex items-center gap-2">
                       <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>#{m.with}</span>
                       <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-slate-700 text-slate-200" : "bg-blue-100 text-blue-700"}`}>الجولة {m.round}</span>
+                      {m.is_repeat_match && (
+                        <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-amber-600/70 text-amber-200" : "bg-amber-200/70 text-amber-700"}`}>
+                          <AlertTriangle className="w-3 h-3 inline mr-1" />
+                          تكرار
+                        </span>
+                      )}
                       <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}%</span>
                     </div>
                     <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
@@ -3412,6 +3438,15 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         }`}>
                           ج{m.round}
                         </span>
+                        {m.is_repeat_match && (
+                          <span className={`text-xs px-1 py-1 rounded-full ${
+                            dark 
+                              ? "bg-amber-600/70 text-amber-200" 
+                              : "bg-amber-200/70 text-amber-700"
+                          }`}>
+                            <AlertTriangle className="w-2 h-2 inline" />
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1">
                         <span className={`font-bold text-sm ${
@@ -3453,6 +3488,14 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
                 </div>
                 <h4 className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>الجولة {selectedHistoryItem.round}</h4>
+                {selectedHistoryItem.is_repeat_match && (
+                  <div className={`mb-2 p-2 rounded-lg ${dark ? "bg-amber-500/20 border border-amber-400/40" : "bg-amber-100/50 border border-amber-300/40"}`}>
+                    <div className="flex items-center justify-center gap-2">
+                      <AlertTriangle className={`w-4 h-4 ${dark ? "text-amber-300" : "text-amber-600"}`} />
+                      <span className={`text-sm font-bold ${dark ? "text-amber-200" : "text-amber-700"}`}>تكرار المباراة</span>
+                    </div>
+                  </div>
+                )}
                 <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</div>
                 <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
               </div>

@@ -485,6 +485,7 @@ export default async function handler(req, res) {
             reason: pair.reason,
             match_id,
             round,
+            is_repeat_match: false,
             // Add personality type data
             participant_a_mbti_type: pair.aMBTI,
             participant_b_mbti_type: pair.bMBTI,
@@ -510,23 +511,140 @@ export default async function handler(req, res) {
           })
         }
       }
-      // Handle odd participant: find unmatched with lowest score
+      // Handle unmatched participants
       const unmatched = numbers.filter(n => !used.has(n))
       console.log(`👥 Round ${round} matched participants:`, Array.from(used).sort((a, b) => a - b))
       console.log(`🔍 Round ${round} unmatched participants:`, unmatched)
       
       if (unmatched.length === 1) {
-        console.log(`🎯 Adding organizer match for participant ${unmatched[0]} in round ${round}`)
-        roundMatches.push({
-          participant_a_number: 0,
-          participant_b_number: unmatched[0],
-          compatibility_score: 0,
-          reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
-          match_id,
-          round
-        })
+        // Find the best available match for the unmatched participant, even if it's a repeat
+        const unmatchedParticipant = unmatched[0]
+        let bestRepeatMatch = null
+        let bestRepeatScore = -1
+        
+        // Look through all compatibility scores to find the best repeat match
+        for (const pair of compatibilityScores) {
+          if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant) && 
+              !used.has(pair.a) && !used.has(pair.b)) {
+            // This is a potential repeat match
+            const otherParticipant = pair.a === unmatchedParticipant ? pair.b : pair.a
+            if (pair.score > bestRepeatScore) {
+              bestRepeatScore = pair.score
+              bestRepeatMatch = {
+                participant_a_number: Math.min(unmatchedParticipant, otherParticipant),
+                participant_b_number: Math.max(unmatchedParticipant, otherParticipant),
+                compatibility_score: Math.round(pair.score),
+                reason: `تكرار المباراة من الجولة السابقة. يمكنك أخذ استراحة أو إعادة الجلوس مع نفس الشريك. ${pair.reason}`,
+                match_id,
+                round,
+                is_repeat_match: true,
+                // Add personality type data
+                participant_a_mbti_type: pair.a === unmatchedParticipant ? pair.aMBTI : pair.bMBTI,
+                participant_b_mbti_type: pair.a === unmatchedParticipant ? pair.bMBTI : pair.aMBTI,
+                participant_a_attachment_style: pair.a === unmatchedParticipant ? pair.aAttachment : pair.bAttachment,
+                participant_b_attachment_style: pair.a === unmatchedParticipant ? pair.bAttachment : pair.aAttachment,
+                participant_a_communication_style: pair.a === unmatchedParticipant ? pair.aCommunication : pair.bCommunication,
+                participant_b_communication_style: pair.a === unmatchedParticipant ? pair.bCommunication : pair.aCommunication,
+                participant_a_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.aLifestyle : pair.bLifestyle,
+                participant_b_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.bLifestyle : pair.aLifestyle,
+                participant_a_core_values: pair.a === unmatchedParticipant ? pair.aCoreValues : pair.bCoreValues,
+                participant_b_core_values: pair.a === unmatchedParticipant ? pair.bCoreValues : pair.aCoreValues,
+                participant_a_vibe_description: pair.a === unmatchedParticipant ? pair.aVibeDescription : pair.bVibeDescription,
+                participant_b_vibe_description: pair.a === unmatchedParticipant ? pair.bVibeDescription : pair.aVibeDescription,
+                // Add score breakdown
+                mbti_compatibility_score: pair.mbtiScore,
+                attachment_compatibility_score: pair.attachmentScore,
+                communication_compatibility_score: pair.communicationScore,
+                lifestyle_compatibility_score: pair.lifestyleScore,
+                core_values_compatibility_score: pair.coreValuesScore,
+                vibe_compatibility_score: pair.vibeScore
+              }
+            }
+          }
+        }
+        
+        if (bestRepeatMatch) {
+          console.log(`🔄 Adding repeat match for participant ${unmatchedParticipant} in round ${round}: ${bestRepeatMatch.participant_a_number} × ${bestRepeatMatch.participant_b_number} (score: ${bestRepeatMatch.compatibility_score}%)`)
+          roundMatches.push(bestRepeatMatch)
+        } else {
+          // Fallback to organizer match if no repeat match found
+          console.log(`🎯 Adding organizer match for participant ${unmatchedParticipant} in round ${round}`)
+          roundMatches.push({
+            participant_a_number: 0,
+            participant_b_number: unmatchedParticipant,
+            compatibility_score: 0,
+            reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
+            match_id,
+            round,
+            is_repeat_match: false
+          })
+        }
       } else if (unmatched.length > 1) {
         console.warn(`⚠️ Multiple unmatched participants in round ${round}:`, unmatched)
+        // Try to match the remaining participants with repeats if possible
+        for (const unmatchedParticipant of unmatched) {
+          let bestRepeatMatch = null
+          let bestRepeatScore = -1
+          
+          for (const pair of compatibilityScores) {
+            if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant) && 
+                !used.has(pair.a) && !used.has(pair.b)) {
+              const otherParticipant = pair.a === unmatchedParticipant ? pair.b : pair.a
+              if (pair.score > bestRepeatScore) {
+                bestRepeatScore = pair.score
+                bestRepeatMatch = {
+                  participant_a_number: Math.min(unmatchedParticipant, otherParticipant),
+                  participant_b_number: Math.max(unmatchedParticipant, otherParticipant),
+                  compatibility_score: Math.round(pair.score),
+                  reason: `تكرار المباراة من الجولة السابقة. يمكنك أخذ استراحة أو إعادة الجلوس مع نفس الشريك. ${pair.reason}`,
+                  match_id,
+                  round,
+                  is_repeat_match: true,
+                  // Add personality type data
+                  participant_a_mbti_type: pair.a === unmatchedParticipant ? pair.aMBTI : pair.bMBTI,
+                  participant_b_mbti_type: pair.a === unmatchedParticipant ? pair.bMBTI : pair.aMBTI,
+                  participant_a_attachment_style: pair.a === unmatchedParticipant ? pair.aAttachment : pair.bAttachment,
+                  participant_b_attachment_style: pair.a === unmatchedParticipant ? pair.bAttachment : pair.aAttachment,
+                  participant_a_communication_style: pair.a === unmatchedParticipant ? pair.aCommunication : pair.bCommunication,
+                  participant_b_communication_style: pair.a === unmatchedParticipant ? pair.bCommunication : pair.aCommunication,
+                  participant_a_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.aLifestyle : pair.bLifestyle,
+                  participant_b_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.bLifestyle : pair.aLifestyle,
+                  participant_a_core_values: pair.a === unmatchedParticipant ? pair.aCoreValues : pair.bCoreValues,
+                  participant_b_core_values: pair.a === unmatchedParticipant ? pair.bCoreValues : pair.aCoreValues,
+                  participant_a_vibe_description: pair.a === unmatchedParticipant ? pair.aVibeDescription : pair.bVibeDescription,
+                  participant_b_vibe_description: pair.a === unmatchedParticipant ? pair.bVibeDescription : pair.aVibeDescription,
+                  // Add score breakdown
+                  mbti_compatibility_score: pair.mbtiScore,
+                  attachment_compatibility_score: pair.attachmentScore,
+                  communication_compatibility_score: pair.communicationScore,
+                  lifestyle_compatibility_score: pair.lifestyleScore,
+                  core_values_compatibility_score: pair.coreValuesScore,
+                  vibe_compatibility_score: pair.vibeScore
+                }
+              }
+            }
+          }
+          
+          if (bestRepeatMatch) {
+            console.log(`🔄 Adding repeat match for participant ${unmatchedParticipant} in round ${round}: ${bestRepeatMatch.participant_a_number} × ${bestRepeatMatch.participant_b_number} (score: ${bestRepeatMatch.compatibility_score}%)`)
+            roundMatches.push(bestRepeatMatch)
+            used.add(bestRepeatMatch.participant_a_number)
+            used.add(bestRepeatMatch.participant_b_number)
+          } else {
+            // Fallback to organizer match
+            console.log(`🎯 Adding organizer match for participant ${unmatchedParticipant} in round ${round}`)
+            roundMatches.push({
+              participant_a_number: 0,
+              participant_b_number: unmatchedParticipant,
+              compatibility_score: 0,
+              reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
+              match_id,
+              round,
+              is_repeat_match: false
+            })
+            used.add(unmatchedParticipant)
+          }
+        }
       }
       
       console.log(`📋 Round ${round} final matches:`, roundMatches.length)

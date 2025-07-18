@@ -148,6 +148,7 @@ export default async function handler(req, res) {
             score: match.compatibility_score ?? 0,
             round: match.round ?? 1,
             table_number: match.table_number || null,
+            is_repeat_match: match.is_repeat_match || false,
           }
         })
 

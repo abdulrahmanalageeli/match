@@ -3021,9 +3021,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <Users className={`w-16 h-16 ${
                     dark ? "text-orange-400" : "text-orange-600"
                   } animate-pulse`} />
-                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-orange-400 rounded-full border-2 border-white flex items-center justify-center">
-                    <span className="text-xs font-bold text-white">{compatibilityScore ? Math.round(compatibilityScore) : "?"}</span>
-                  </div>
+                  {/* Removed compatibility score overlay for groups as it shows incorrect pair data */}
                 </div>
               </div>
               
@@ -3118,38 +3116,21 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
 
                   {/* Simple Group Conversation Starters */}
-                  <div className={`mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/30"
-                      : "bg-gradient-to-r from-purple-200/50 to-pink-200/50 border-purple-400/30"
-                  }`}>
-                    <div className={`rounded-xl p-4 border mb-6 ${
-                      dark 
-                        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                    }`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <button
-                          type="button"
-                          aria-label="التالي"
-                          className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                          onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                          disabled={prompts.length <= 1}
-                        >
-                          <ChevronLeftIcon className="w-5 h-5" />
-                        </button>
-                        <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                        <button
-                          type="button"
-                          aria-label="السابق"
-                          className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                          onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                          disabled={prompts.length <= 1}
-                        >
-                          <ChevronRightIcon className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
+                  {/* Comprehensive Questions Button for Group Phase */}
+                  <div className="flex justify-center mb-6">
+                    <button
+                      onClick={() => setShowPromptTopicsModal(true)}
+                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
+                        dark
+                          ? "bg-gradient-to-r from-orange-700 to-amber-700 text-white border-2 border-orange-400/30 hover:bg-orange-800"
+                          : "bg-gradient-to-r from-orange-200 to-amber-200 text-orange-900 border-2 border-orange-400/30 hover:bg-orange-100"
+                      } animate-in slide-in-from-bottom-4`}
+                      style={{ boxShadow: dark ? '0 4px 24px 0 #fb923c33' : '0 4px 24px 0 #f97316aa' }}
+                      aria-label="أسئلة شاملة للنقاش الجماعي"
+                    >
+                      <Sparkles className="w-6 h-6 animate-pulse" />
+                      أسئلة شاملة للنقاش
+                    </button>
                   </div>
 
                   <div className="flex justify-center">

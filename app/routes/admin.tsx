@@ -399,9 +399,7 @@ export default function AdminPage() {
               </span>
             </div>
             
-            <div className="text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded">
-              🚀 ALL phase changes are instant! Players update within 2s from any state
-            </div>
+
             
                          <select
                value={safeCurrentPhase}

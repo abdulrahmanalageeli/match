@@ -2950,38 +2950,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* History Icon - Left corner */}
-              {historyMatches.length > 0 && (
-                <div 
-                  className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                    showHistoryBox 
-                      ? dark 
-                        ? "border-cyan-400 bg-cyan-700/70 shadow-cyan-400/50" 
-                        : "border-cyan-500 bg-cyan-300/70 shadow-cyan-400/50"
-                      : dark 
-                        ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50" 
-                        : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50"
-                  }`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleHistoryIconClick(e);
-                  }}
-                >
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Clock className={`w-5 h-5 transition-colors ${
-                      showHistoryBox 
-                        ? dark ? "text-cyan-100" : "text-cyan-800"
-                        : dark ? "text-cyan-300" : "text-cyan-700"
-                    }`} />
-                  </div>
-                  {/* Notification dot */}
-                  <div className={`absolute -top-1 -right-1 w-3 h-3 bg-cyan-400 rounded-full border border-white ${
-                    showHistoryBox ? "animate-none" : "animate-pulse"
-                  }`}></div>
-                </div>
-              )}
-
-              {/* Player Avatar - Right corner (original position) */}
+              {/* Player Avatar - Right corner */}
               <div className="absolute -top-3 -right-3 z-10">
                 <div className="relative">
                   <Avatar className={`w-12 h-12 border-2 shadow-lg ${
@@ -2997,48 +2966,57 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 </div>
               </div>
 
-              <div className="flex justify-center mb-4">
-                <Users className={`w-12 h-12 animate-bounce ${
-                  dark ? "text-slate-400" : "text-gray-600"
-                }`} />
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <Users className={`w-16 h-16 ${
+                    dark ? "text-orange-400" : "text-orange-600"
+                  } animate-pulse`} />
+                  <div className="absolute -top-2 -right-2 w-6 h-6 bg-orange-400 rounded-full border-2 border-white flex items-center justify-center">
+                    <span className="text-xs font-bold text-white">{compatibilityScore ? Math.round(compatibilityScore) : "?"}</span>
+                  </div>
+                </div>
               </div>
               
               {!conversationStarted ? (
                 <>
-                  {/* Partner Timer Notifications */}
-                  {partnerStartedTimer && (
-                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
-                      dark 
-                        ? "bg-green-500/20 border-green-400/40 text-green-200" 
-                        : "bg-green-100/50 border-green-400/40 text-green-700"
-                    }`}>
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="font-semibold">أحد أعضاء مجموعتك بدأ الحوار! جاري بدء المؤقت...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {partnerEndedTimer && (
-                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
-                      dark 
-                        ? "bg-orange-500/20 border-orange-400/40 text-orange-200" 
-                        : "bg-orange-100/50 border-orange-400/40 text-orange-700"
-                    }`}>
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
-                        <span className="font-semibold">أحد أعضاء مجموعتك أنهى الحوار! جاري الانتقال للتقييم...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <h3 className={`text-xl font-bold text-center mb-4 ${
-                    dark ? "text-slate-200" : "text-gray-800"
+                  <h3 className={`text-2xl font-bold text-center mb-4 ${
+                    dark ? "text-orange-200" : "text-orange-800"
                   }`}>
-                    مجموعتك: {matchResult}
+                    🎯 المرحلة الجماعية
                   </h3>
-                  
-                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-orange-500/20 to-amber-500/20 border-orange-400/30"
+                      : "bg-gradient-to-r from-orange-200/50 to-amber-200/50 border-orange-400/30"
+                  }`}>
+                    <h4 className={`text-lg font-semibold mb-2 ${
+                      dark ? "text-orange-200" : "text-orange-800"
+                    }`}>
+                      أعضاء مجموعتك
+                    </h4>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {matchResult && matchResult.split(" ، ").map((participant: string, index: number) => (
+                        <div
+                          key={index}
+                          className={`px-3 py-1 rounded-full text-sm font-bold ${
+                            parseInt(participant) === assignedNumber
+                              ? dark 
+                                ? "bg-orange-600 text-white border-2 border-orange-400" 
+                                : "bg-orange-600 text-white border-2 border-orange-500"
+                              : dark
+                                ? "bg-orange-500/30 text-orange-200 border border-orange-400/50"
+                                : "bg-orange-200/70 text-orange-800 border border-orange-400/50"
+                          }`}
+                        >
+                          #{participant}
+                          {parseInt(participant) === assignedNumber && " (أنت)"}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className={`text-center mb-6 p-3 rounded-xl border ${
                     dark 
                       ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
                       : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
@@ -3046,97 +3024,75 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <p className={`text-lg font-semibold ${
                       dark ? "text-slate-200" : "text-gray-700"
                     }`}>
-                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                      {tableNumber ? `📍 اذهب إلى الطاولة رقم ${tableNumber}` : "⏳ سيتم إخبارك بالطاولة قريباً"}
                     </p>
                   </div>
 
-                  {/* Group Compatibility Analysis */}
-                  {matchReason && (
-                    <div className={`mb-6 p-4 rounded-xl border ${
-                      dark 
-                        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                    }`}>
-                      <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل توافق المجموعة</h4>
-                      {(() => {
-                        const formattedReason = formatCompatibilityReason(matchReason)
-                        return (
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
-                                <div 
-                                  key={index}
-                                  className={`p-3 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
-                                >
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className={`text-sm font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                                      {component.name}
-                                    </span>
-                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${component.color} ${component.bgColor}`}>
-                                      {component.strength}
-                                    </span>
-                                  </div>
-                                  <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                                    {component.description}
-                                  </p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )
-                      })()}
-                    </div>
-                  )}
-
-                  <div className={`rounded-xl p-4 border mb-6 ${
+                  {/* Group Conversation Tips */}
+                  <div className={`mb-6 p-4 rounded-xl border ${
                     dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                      ? "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30"
+                      : "bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30"
                   }`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label="التالي"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                      </button>
-                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                      <button
-                        type="button"
-                        aria-label="السابق"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronRightIcon className="w-5 h-5" />
-                      </button>
+                    <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-blue-200" : "text-blue-800"}`}>💡 نصائح للحوار الجماعي</h4>
+                    <div className="space-y-2">
+                      <div className={`flex items-start gap-2 text-sm ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        <span>•</span>
+                        <span>تأكد من إشراك جميع أعضاء المجموعة في الحوار</span>
+                      </div>
+                      <div className={`flex items-start gap-2 text-sm ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        <span>•</span>
+                        <span>استمع بعناية لآراء الجميع قبل المشاركة</span>
+                      </div>
+                      <div className={`flex items-start gap-2 text-sm ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        <span>•</span>
+                        <span>ابحث عن نقاط التشابه والاختلاف بينكم</span>
+                      </div>
+                      <div className={`flex items-start gap-2 text-sm ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        <span>•</span>
+                        <span>كن مفتوحاً لتجارب وخبرات مختلفة</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* AI Questions Generator */}
-                  {secureToken && (
-                    <div className="mb-6">
-                      <AIQuestionsGenerator 
-                        secureToken={secureToken}
-                        dark={dark}
-                        currentRound={currentRound}
-                      />
+                  {/* Simple Group Conversation Starters */}
+                  <div className={`mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/30"
+                      : "bg-gradient-to-r from-purple-200/50 to-pink-200/50 border-purple-400/30"
+                  }`}>
+                    <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-purple-200" : "text-purple-800"}`}>🗣️ مواضيع للنقاش</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {[
+                        "ما هو أكثر شيء تستمتعون به في أوقات فراغكم؟",
+                        "ما هي أحلامكم وطموحاتكم المستقبلية؟",
+                        "ما هي الصفة التي تقدرونها أكثر في الصداقة؟",
+                        "أين تفضلون قضاء العطلة المثالية؟"
+                      ].map((topic, index) => (
+                        <div 
+                          key={index}
+                          className={`p-2 rounded-lg text-sm text-center ${
+                            dark 
+                              ? "bg-purple-600/30 text-purple-200 border border-purple-500/50"
+                              : "bg-purple-200/70 text-purple-800 border border-purple-400/50"
+                          }`}
+                        >
+                          {topic}
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
 
                   <div className="flex justify-center">
-                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
+                    <FancyNextButton onClick={startConversation} label="🚀 ابدأ الحوار الجماعي" />
                   </div>
                 </>
               ) : (
                 <>
                   <h3 className={`text-xl font-bold text-center mb-4 ${
-                    dark ? "text-slate-200" : "text-gray-800"
+                    dark ? "text-orange-200" : "text-orange-800"
                   }`}>
-                    حوار جماعي مع {matchResult}
+                    🎯 حوار جماعي مع مجموعتك
                   </h3>
                   
                   <div className={`text-center mb-4 p-3 rounded-xl border ${
@@ -3147,36 +3103,8 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <p className={`text-lg font-semibold ${
                       dark ? "text-slate-200" : "text-gray-700"
                     }`}>
-                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
+                      {tableNumber ? `📍 الطاولة رقم ${tableNumber}` : "⏳ سيتم إخبارك بالطاولة قريباً"}
                     </p>
-                  </div>
-
-                  <div className={`rounded-xl p-4 border mb-6 ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-between gap-2">
-                      <button
-                        type="button"
-                        aria-label="التالي"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronLeftIcon className="w-5 h-5" />
-                      </button>
-                      <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
-                      <button
-                        type="button"
-                        aria-label="السابق"
-                        className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
-                        onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
-                        disabled={prompts.length <= 1}
-                      >
-                        <ChevronRightIcon className="w-5 h-5" />
-                      </button>
-                    </div>
                   </div>
 
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
@@ -3190,10 +3118,10 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       }`} />
                       <span className={`text-sm font-medium ${
                         dark ? "text-slate-200" : "text-gray-700"
-                      }`}>الوقت المتبقي:</span>
+                      }`}>الوقت المتبقي للحوار الجماعي:</span>
                     </div>
-                    <p className={`text-2xl font-bold ${
-                      dark ? "text-slate-200" : "text-gray-800"
+                    <p className={`text-3xl font-bold ${
+                      dark ? "text-orange-200" : "text-orange-800"
                     }`}>
                       {formatTime(conversationTimer)}
                     </p>
@@ -3201,7 +3129,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
 
                   <div className="flex justify-center">
                     <FancyNextButton onClick={() => {
-                      console.log("🛑 Timer manually ended by user")
+                      console.log("🛑 Group conversation ended by user")
                       setConversationTimer(0)
                       setConversationStarted(false)
                       setModalStep("feedback")
@@ -3209,15 +3137,15 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       setPartnerEndedTimer(false)
                       setTimerEnded(true)
                       if (assignedNumber && currentRound) {
-                        finishDatabaseTimer(currentRound).then((success) => {
+                        finishDatabaseTimer(0).then((success) => { // Use round 0 for group phase
                           if (success) {
-                            console.log("⏭️ Conversation ended, database timer finished");
+                            console.log("⏭️ Group conversation ended, database timer finished");
                           } else {
                             console.error("❌ Failed to finish database timer on end");
                           }
                         });
                       }
-                    }} label="إنهاء الحوار" />
+                    }} label="🏁 إنهاء الحوار الجماعي" />
                   </div>
                 </>
               )}

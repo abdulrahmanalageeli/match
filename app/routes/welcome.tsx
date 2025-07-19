@@ -2580,7 +2580,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    توأم روحك هو رقم {matchResult}
+                    {matchResult === "المنظم" ? "حوار مع المنظم" : `حوار مع رقم ${matchResult}`}
                   </h3>
                   
                   <div className={`text-center mb-4 p-3 rounded-xl border ${
@@ -2631,7 +2631,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    حوار مع رقم {matchResult}
+                    {matchResult === "المنظم" ? "حوار مع المنظم" : `حوار مع رقم ${matchResult}`}
                   </h3>
                   
                   <div className={`text-center mb-4 p-3 rounded-xl border ${
@@ -2904,7 +2904,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    حوار مع رقم {matchResult} (الجولة {currentRound})
+                    {matchResult === "المنظم" ? `حوار مع المنظم (الجولة ${currentRound})` : `حوار مع رقم ${matchResult} (الجولة ${currentRound})`}
                   </h3>
                   // ... existing code ...
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
@@ -3659,7 +3659,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     }}
                   >
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>#{m.with}</span>
+                      <span className={`font-bold text-lg ${dark ? "text-blue-200" : "text-blue-700"}`}>{m.with === "المنظم" ? "المنظم" : `#${m.with}`}</span>
                       <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-slate-700 text-slate-200" : "bg-blue-100 text-blue-700"}`}>الجولة {m.round}</span>
                       {m.is_repeat_match && (
                         <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-amber-600/70 text-amber-200" : "bg-amber-200/70 text-amber-700"}`}>
@@ -3737,7 +3737,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg">#{m.with}</span>
+                        <span className="font-bold text-lg">{m.with === "المنظم" ? "المنظم" : `#${m.with}`}</span>
                         <span className={`text-xs px-2 py-1 rounded-full ${
                           dark 
                             ? "bg-slate-800/50 text-slate-300" 
@@ -3791,7 +3791,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
                   <div className={`text-3xl ${dark ? "text-slate-300" : "text-gray-500"}`}>×</div>
                   <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-cyan-600/20 border-cyan-400" : "bg-cyan-100 border-cyan-300"}`}>
-                    <span className={`text-2xl font-bold ${dark ? "text-cyan-200" : "text-cyan-700"}`}>#{selectedHistoryItem.with}</span>
+                    <span className={`text-2xl font-bold ${dark ? "text-cyan-200" : "text-cyan-700"}`}>{selectedHistoryItem.with === "المنظم" ? "المنظم" : `#${selectedHistoryItem.with}`}</span>
                   </div>
                 </div>
                 <h4 className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>الجولة {selectedHistoryItem.round}</h4>

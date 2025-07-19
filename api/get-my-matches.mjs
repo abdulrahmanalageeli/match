@@ -28,7 +28,7 @@ export default async function handler(req, res) {
         // For each match, return all pairs (A-B, C-D, etc. if present)
         const results = []
         for (const match of matches || []) {
-          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0)
+          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0 && n !== 9999)
           if (participantNumbers.length === 2) {
             // Pair
             results.push({
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
         }
 
         const groupResults = (groupMatches || []).map(match => {
-          const allParticipants = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0)
+          const allParticipants = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0 && n !== 9999)
           
           return {
             group_id: `group_${match.group_number}`,
@@ -120,7 +120,7 @@ export default async function handler(req, res) {
         }
 
         const results = (groupMatches || []).map(match => {
-          const allParticipants = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0)
+          const allParticipants = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0 && n !== 9999)
           const otherParticipants = allParticipants.filter(p => p !== assigned_number)
           
           return {
@@ -148,12 +148,32 @@ export default async function handler(req, res) {
         }
 
         const results = (matches || []).map(match => {
-          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0)
-          const matchedWith = participantNumbers.filter(n => n.toString() !== assigned_number.toString())
+          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number]
+          const realParticipants = participantNumbers.filter(n => n && n > 0 && n !== 9999)
+          const hasOrganizer = participantNumbers.includes(9999)
+          
+          // Handle organizer matches specially
+          if (hasOrganizer) {
+            const actualParticipant = realParticipants.find(n => n.toString() === assigned_number.toString())
+            if (actualParticipant) {
+              return {
+                with: "المنظم",
+                partner: actualParticipant,
+                type: match.match_type || "مع المنظم",
+                reason: match.reason || "جلسة مع المنظم",
+                score: match.compatibility_score ?? 0,
+                round: match.round ?? 1,
+                table_number: match.table_number || null,
+                is_repeat_match: match.is_repeat_match || false,
+              }
+            }
+          }
+          
+          const matchedWith = realParticipants.filter(n => n.toString() !== assigned_number.toString())
           
           return {
             with: matchedWith,
-            partner: participantNumbers.filter(n => n.toString() === assigned_number.toString())[0] || null,
+            partner: realParticipants.filter(n => n.toString() === assigned_number.toString())[0] || null,
             type: match.match_type || "غير محدد",
             reason: match.reason || "السبب غير متوفر",
             score: match.compatibility_score ?? 0,

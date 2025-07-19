@@ -307,10 +307,10 @@ export default async function handler(req, res) {
               } else if (roundCompleted) {
                 const roundParticipants = new Set()
                 roundCompleted.forEach(match => {
-                  if (match.participant_a_number > 0) roundParticipants.add(match.participant_a_number)
-                  if (match.participant_b_number > 0) roundParticipants.add(match.participant_b_number)
-                  if (match.participant_c_number > 0) roundParticipants.add(match.participant_c_number)
-                  if (match.participant_d_number > 0) roundParticipants.add(match.participant_d_number)
+                  if (match.participant_a_number > 0 && match.participant_a_number !== 9999) roundParticipants.add(match.participant_a_number)
+                  if (match.participant_b_number > 0 && match.participant_b_number !== 9999) roundParticipants.add(match.participant_b_number)
+                  if (match.participant_c_number > 0 && match.participant_c_number !== 9999) roundParticipants.add(match.participant_c_number)
+                  if (match.participant_d_number > 0 && match.participant_d_number !== 9999) roundParticipants.add(match.participant_d_number)
                 })
                 waitingCount = roundParticipants.size
               }
@@ -328,10 +328,10 @@ export default async function handler(req, res) {
             } else if (allRoundsCompleted) {
               const allParticipants = new Set()
               allRoundsCompleted.forEach(match => {
-                if (match.participant_a_number > 0) allParticipants.add(match.participant_a_number)
-                if (match.participant_b_number > 0) allParticipants.add(match.participant_b_number)
-                if (match.participant_c_number > 0) allParticipants.add(match.participant_c_number)
-                if (match.participant_d_number > 0) allParticipants.add(match.participant_d_number)
+                if (match.participant_a_number > 0 && match.participant_a_number !== 9999) allParticipants.add(match.participant_a_number)
+                if (match.participant_b_number > 0 && match.participant_b_number !== 9999) allParticipants.add(match.participant_b_number)
+                if (match.participant_c_number > 0 && match.participant_c_number !== 9999) allParticipants.add(match.participant_c_number)
+                if (match.participant_d_number > 0 && match.participant_d_number !== 9999) allParticipants.add(match.participant_d_number)
               })
               waitingCount = allParticipants.size
             }
@@ -350,10 +350,10 @@ export default async function handler(req, res) {
             } else if (currentRoundMatches) {
               const currentParticipants = new Set()
               currentRoundMatches.forEach(match => {
-                if (match.participant_a_number > 0) currentParticipants.add(match.participant_a_number)
-                if (match.participant_b_number > 0) currentParticipants.add(match.participant_b_number)
-                if (match.participant_c_number > 0) currentParticipants.add(match.participant_c_number)
-                if (match.participant_d_number > 0) currentParticipants.add(match.participant_d_number)
+                if (match.participant_a_number > 0 && match.participant_a_number !== 9999) currentParticipants.add(match.participant_a_number)
+                if (match.participant_b_number > 0 && match.participant_b_number !== 9999) currentParticipants.add(match.participant_b_number)
+                if (match.participant_c_number > 0 && match.participant_c_number !== 9999) currentParticipants.add(match.participant_c_number)
+                if (match.participant_d_number > 0 && match.participant_d_number !== 9999) currentParticipants.add(match.participant_d_number)
               })
               currentRoundParticipants = currentParticipants.size
             }

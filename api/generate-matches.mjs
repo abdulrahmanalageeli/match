@@ -293,8 +293,8 @@ async function generateGlobalIndividualMatches(participants, match_id) {
         // No suitable match found, create a solo entry
         console.log(`Round ${round}: No suitable match for ${oddParticipant}, creating solo entry`);
         roundMatches.push({
-          participant_a_number: oddParticipant,  // Changed: Put the actual participant as participant_a
-          participant_b_number: 0,              // Changed: Put organizer as participant_b
+          participant_a_number: oddParticipant,  // The actual participant
+          participant_b_number: 9999,           // Use 9999 to represent organizer
           compatibility_score: 0,
           reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
           match_id,

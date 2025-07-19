@@ -99,13 +99,13 @@ export default async function handler(req, res) {
       };
     }
     
-    // Test that participant_b_number can be 0 (should succeed)
+    // Test that participant_b_number can be 9999 (organizer - should succeed)
     try {
       const { data: testData2, error: testError2 } = await supabase
         .from("match_results")
         .insert([{
           participant_a_number: 999,  // Valid positive integer
-          participant_b_number: 0,    // This should be allowed
+          participant_b_number: 9999, // This should be allowed (organizer)
           compatibility_score: 50,
           reason: "Test organizer match",
           match_id: match_id,
@@ -113,7 +113,7 @@ export default async function handler(req, res) {
         }])
       
       if (!testError2) {
-        console.log("✅ Successfully allowed participant_b_number = 0");
+        console.log("✅ Successfully allowed participant_b_number = 9999 (organizer)");
         results.participant_b_organizer = {
           working: true,
           error: null

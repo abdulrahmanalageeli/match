@@ -3187,7 +3187,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       setPartnerEndedTimer(false)
                       setTimerEnded(true)
                       if (assignedNumber && currentRound) {
-                        finishDatabaseTimer(0).then((success) => { // Use round 0 for group phase
+                        finishDatabaseTimer(currentRound).then((success) => { // Use actual currentRound for group phase
                           if (success) {
                             console.log("⏭️ Group conversation ended, database timer finished");
                           } else {
@@ -3555,7 +3555,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
                       <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>
                         {compatibilityScore !== null ? 
-                          (phase === "group_phase" ? `${compatibilityScore}/10` : `${compatibilityScore}/100`) 
+                          `${Math.round(compatibilityScore)}%`
                           : "غير متوفر"}
                       </div>
                       {isScoreRevealed && (

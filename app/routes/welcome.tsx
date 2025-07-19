@@ -463,6 +463,9 @@ export default function WelcomePage() {
                   setStep(3); // Show analysis/waiting
                 } else if (phaseData.phase === "group_phase") {
                   setStep(7); // Show group phase
+                  // Fetch group matches when loading in group phase
+                  console.log("🎯 Initial load: Fetching group matches for group_phase")
+                  fetchGroupMatches();
                 } else if (phaseData.phase === "waiting") {
                   // User completed form and we're in waiting phase
                   setStep(3); // Show analysis/waiting
@@ -507,6 +510,14 @@ export default function WelcomePage() {
       setPendingMatchRound(null)
     }
   }, [assignedNumber, pendingMatchRound])
+
+  // Handle group phase data loading
+  useEffect(() => {
+    if (assignedNumber && phase === "group_phase" && step === 7) {
+      console.log("🎯 Loading group matches for step 7", { assignedNumber, phase, step, matchResult })
+      fetchGroupMatches()
+    }
+  }, [assignedNumber, phase, step])
 
   // Combined real-time updates for all steps
   useEffect(() => {
@@ -629,6 +640,9 @@ export default function WelcomePage() {
         } else if (data.phase === "group_phase") {
           if (step !== 7) {
             setStep(7);
+            // Fetch group matches when entering group phase
+            console.log("🎯 Phase change: Fetching group matches for group_phase")
+            fetchGroupMatches();
           }
         } else if (data.phase === "form") {
           if (step === -1) setStep(0); // Welcome landing page -> System intro
@@ -861,22 +875,50 @@ export default function WelcomePage() {
   }
 
   const fetchGroupMatches = async () => {
+    if (!assignedNumber) {
+      console.warn("⚠️ Cannot fetch group matches: assignedNumber is null")
+      return
+    }
+    
+    console.log("🔍 Fetching group matches for participant:", assignedNumber)
     try {
       const myMatches = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assigned_number: assignedNumber, match_type: "group" }),
       })
+      
+      if (!myMatches.ok) {
+        console.error("Failed to fetch group matches:", myMatches.status, myMatches.statusText)
+        setMatchResult("؟")
+        setMatchReason("فشل في جلب بيانات المجموعة")
+        return
+      }
+      
       const data = await myMatches.json()
-      const matches = data.matches as GroupMatchEntry[]
+      console.log("📊 Group matches response:", data)
+      
+      const matches = data.matches || []
       const match = matches[0]
+      
       if (match) {
-        setMatchResult(match.participants.join(", "))
-        setMatchReason(match.reason)
+        // Include current user in the participants display
+        const allParticipants = [assignedNumber, ...match.participants].sort((a, b) => a - b)
+        console.log("👥 Group participants:", allParticipants)
+        
+        setMatchResult(allParticipants.join(" ، "))
+        setMatchReason(match.reason || "مجموعة بتوافق عالي")
         setTableNumber(match.table_number)
         setCompatibilityScore(match.score)
+      } else {
+        console.warn("⚠️ No group matches found")
+        setMatchResult("لم يتم العثور على مجموعة")
+        setMatchReason("لم يتم تكوين المجموعات بعد")
+        setTableNumber(null)
+        setCompatibilityScore(null)
       }
     } catch (err) {
+      console.error("❌ Error fetching group matches:", err)
       setMatchResult("؟")
       setMatchReason("صار خطأ بالتوافق، حاول مره ثانية.")
     }
@@ -3008,6 +3050,44 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </p>
                   </div>
 
+                  {/* Group Compatibility Analysis */}
+                  {matchReason && (
+                    <div className={`mb-6 p-4 rounded-xl border ${
+                      dark 
+                        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                    }`}>
+                      <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل توافق المجموعة</h4>
+                      {(() => {
+                        const formattedReason = formatCompatibilityReason(matchReason)
+                        return (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
+                                <div 
+                                  key={index}
+                                  className={`p-3 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                                >
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className={`text-sm font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                      {component.name}
+                                    </span>
+                                    <span className={`text-xs font-bold px-2 py-1 rounded-full ${component.color} ${component.bgColor}`}>
+                                      {component.strength}
+                                    </span>
+                                  </div>
+                                  <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                    {component.description}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })()}
+                    </div>
+                  )}
+
                   <div className={`rounded-xl p-4 border mb-6 ${
                     dark 
                       ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
@@ -3143,7 +3223,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               )}
     </div>
   </section>
-)}
+        )}
 
         {/* Main feedback/result + previous matches layout */}
         {modalStep && (

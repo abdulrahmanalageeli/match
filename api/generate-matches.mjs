@@ -268,7 +268,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
           reason: pair.reason,
           match_id,
           round,
-          table_number: Math.floor(roundMatches.length / 2) + 1
+          table_number: roundMatches.length + 1  // Dynamic table numbering: 1, 2, 3, 4...
         })
         
         usedPairs.add(pairKey)
@@ -326,7 +326,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
           reason: bestMatch.reason,
           match_id,
           round,
-          table_number: Math.floor(roundMatches.length / 2) + 1
+          table_number: roundMatches.length + 1
         })
         
         const pairKey = `${Math.min(bestMatch.participantA, bestMatch.participantB)}-${Math.max(bestMatch.participantA, bestMatch.participantB)}`
@@ -343,7 +343,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
           reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
           match_id,
           round,
-          table_number: Math.floor(roundMatches.length / 2) + 1
+          table_number: roundMatches.length + 1
         })
         participantRoundCount.set(oddParticipant, participantRoundCount.get(oddParticipant) + 1)
       }
@@ -378,47 +378,190 @@ async function generateGlobalIndividualMatches(participants, match_id) {
 }
 
 async function generateGroupMatches(participants, round, match_id) {
-  console.log(`Starting group matching for ${participants.length} participants`);
+  console.log(`Starting enhanced group matching for ${participants.length} participants`);
   
-  // For group phase, create groups of 3-4 people
+  // For group phase, create groups of 3-6 people with smart fallback handling
   const groups = []
   const shuffledParticipants = [...participants].sort(() => Math.random() - 0.5)
   
   console.log(`Shuffled ${shuffledParticipants.length} participants for grouping`);
   
-  // Create groups of 4, with the last group potentially being 3
-  for (let i = 0; i < shuffledParticipants.length; i += 4) {
-    const group = shuffledParticipants.slice(i, i + 4)
-    if (group.length >= 3) {
+  // Enhanced grouping algorithm with fallback support
+  let i = 0
+  while (i < shuffledParticipants.length) {
+    const remaining = shuffledParticipants.length - i
+    
+    if (remaining >= 4) {
+      // Create groups of 4 when possible
+      const group = shuffledParticipants.slice(i, i + 4)
       groups.push({
         group_id: `group_${groups.length + 1}`,
         participant_numbers: group.map(p => p.assigned_number),
         compatibility_score: 75, // Default group score
-        reason: "مجموعة منسجمة للعمل الجماعي",
+        reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
         match_id,
-        table_number: groups.length + 1
+        table_number: groups.length + 1,
+        // Support for up to 6 participants
+        participant_a: group[0]?.assigned_number || null,
+        participant_b: group[1]?.assigned_number || null,
+        participant_c: group[2]?.assigned_number || null,
+        participant_d: group[3]?.assigned_number || null,
+        participant_e: null, // Will be filled by fallback logic
+        participant_f: null  // Will be filled by fallback logic
       })
+      i += 4
+    } else if (remaining === 3) {
+      // Perfect group of 3
+      const group = shuffledParticipants.slice(i, i + 3)
+      groups.push({
+        group_id: `group_${groups.length + 1}`,
+        participant_numbers: group.map(p => p.assigned_number),
+        compatibility_score: 75,
+        reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
+        match_id,
+        table_number: groups.length + 1,
+        participant_a: group[0]?.assigned_number || null,
+        participant_b: group[1]?.assigned_number || null,
+        participant_c: group[2]?.assigned_number || null,
+        participant_d: null,
+        participant_e: null,
+        participant_f: null
+      })
+      i += 3
+    } else if (remaining === 2) {
+      // 2 extra people - add to most suitable existing group
+      const extras = shuffledParticipants.slice(i, i + 2)
+      if (groups.length > 0) {
+        // Find a group that can accommodate 2 more (current size <= 4)
+        const targetGroup = groups.find(g => g.participant_numbers.length <= 4)
+        if (targetGroup) {
+          targetGroup.participant_numbers.push(...extras.map(p => p.assigned_number))
+          targetGroup.reason = `مجموعة من ${targetGroup.participant_numbers.length} أشخاص للعمل الجماعي`
+          
+          // Update participant slots
+          if (targetGroup.participant_numbers.length === 5) {
+            targetGroup.participant_e = extras[0].assigned_number
+          } else if (targetGroup.participant_numbers.length === 6) {
+            targetGroup.participant_e = extras[0].assigned_number
+            targetGroup.participant_f = extras[1].assigned_number
+          }
+          
+          console.log(`✅ Added ${extras.length} participants to existing group: [${targetGroup.participant_numbers.join(', ')}]`)
+        } else {
+          // Create new small group
+          groups.push({
+            group_id: `group_${groups.length + 1}`,
+            participant_numbers: extras.map(p => p.assigned_number),
+            compatibility_score: 70,
+            reason: `مجموعة من ${extras.length} أشخاص للعمل الجماعي`,
+            match_id,
+            table_number: groups.length + 1,
+            participant_a: extras[0]?.assigned_number || null,
+            participant_b: extras[1]?.assigned_number || null,
+            participant_c: null,
+            participant_d: null,
+            participant_e: null,
+            participant_f: null
+          })
+        }
+      } else {
+        // No existing groups, create new group
+        groups.push({
+          group_id: `group_${groups.length + 1}`,
+          participant_numbers: extras.map(p => p.assigned_number),
+          compatibility_score: 70,
+          reason: `مجموعة من ${extras.length} أشخاص للعمل الجماعي`,
+          match_id,
+          table_number: groups.length + 1,
+          participant_a: extras[0]?.assigned_number || null,
+          participant_b: extras[1]?.assigned_number || null,
+          participant_c: null,
+          participant_d: null,
+          participant_e: null,
+          participant_f: null
+        })
+      }
+      i += 2
+    } else if (remaining === 1) {
+      // 1 extra person - add to most suitable existing group
+      const extra = shuffledParticipants[i]
+      if (groups.length > 0) {
+        // Find a group that can accommodate 1 more (current size <= 5)
+        const targetGroup = groups.find(g => g.participant_numbers.length <= 5)
+        if (targetGroup) {
+          targetGroup.participant_numbers.push(extra.assigned_number)
+          targetGroup.reason = `مجموعة من ${targetGroup.participant_numbers.length} أشخاص للعمل الجماعي`
+          
+          // Update participant slots
+          if (targetGroup.participant_numbers.length === 5) {
+            targetGroup.participant_e = extra.assigned_number
+          } else if (targetGroup.participant_numbers.length === 6) {
+            targetGroup.participant_f = extra.assigned_number
+          }
+          
+          console.log(`✅ Added 1 participant to existing group: [${targetGroup.participant_numbers.join(', ')}]`)
+        } else {
+          // All groups are full (6 people each), create new single-person group
+          groups.push({
+            group_id: `group_${groups.length + 1}`,
+            participant_numbers: [extra.assigned_number],
+            compatibility_score: 60,
+            reason: `مجموعة من شخص واحد`,
+            match_id,
+            table_number: groups.length + 1,
+            participant_a: extra.assigned_number,
+            participant_b: null,
+            participant_c: null,
+            participant_d: null,
+            participant_e: null,
+            participant_f: null
+          })
+        }
+      }
+      i += 1
+    } else {
+      break // Should not happen
     }
   }
 
-  console.log(`Created ${groups.length} groups`);
+  console.log(`Created ${groups.length} groups with enhanced fallback handling`);
+  groups.forEach((group, index) => {
+    console.log(`  Group ${index + 1}: [${group.participant_numbers.join(', ')}] (${group.participant_numbers.length} people)`)
+  })
 
-  // Save group matches to database
+  // Convert to database format for match_results table
+  const databaseGroups = groups.map(group => ({
+    participant_a_number: group.participant_a,
+    participant_b_number: group.participant_b,
+    participant_c_number: group.participant_c,
+    participant_d_number: group.participant_d,
+    participant_e_number: group.participant_e,  // New fallback slot
+    participant_f_number: group.participant_f,  // New fallback slot
+    compatibility_score: group.compatibility_score,
+    reason: group.reason,
+    match_id: group.match_id,
+    round: 0, // Group phase
+    group_number: parseInt(group.group_id.split('_')[1]),
+    table_number: group.table_number,
+    is_repeat_match: false
+  }))
+
+  // Save group matches to database (using match_results table)
   const { error: insertError } = await supabase
-    .from("group_matches")
-    .insert(groups)
+    .from("match_results")
+    .insert(databaseGroups)
 
   if (insertError) {
     console.error("Error inserting group matches:", insertError)
     throw new Error("Failed to save group matches")
   }
 
-  console.log(`Successfully saved ${groups.length} groups to database`);
+  console.log(`Successfully saved ${groups.length} enhanced groups to database`);
 
   return {
     success: true,
     groups: groups.length,
     participants: participants.length,
-    analysis: `تم إنشاء ${groups.length} مجموعة للجولة ${round}`
+    analysis: `تم إنشاء ${groups.length} مجموعة محسنة للجولة ${round} مع دعم الأشخاص الإضافيين`
   }
 }

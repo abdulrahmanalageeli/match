@@ -28,7 +28,14 @@ export default async function handler(req, res) {
         // For each match, return all pairs (A-B, C-D, etc. if present)
         const results = []
         for (const match of matches || []) {
-          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0 && n !== 9999)
+          const participantNumbers = [
+            match.participant_a_number, 
+            match.participant_b_number, 
+            match.participant_c_number, 
+            match.participant_d_number,
+            match.participant_e_number,  // New fallback participant
+            match.participant_f_number   // New fallback participant
+          ].filter(n => n && n > 0 && n !== 9999)
           if (participantNumbers.length === 2) {
             // Pair
             results.push({
@@ -82,7 +89,14 @@ export default async function handler(req, res) {
         }
 
         const groupResults = (groupMatches || []).map(match => {
-          const allParticipants = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0 && n !== 9999)
+          const allParticipants = [
+            match.participant_a_number, 
+            match.participant_b_number, 
+            match.participant_c_number, 
+            match.participant_d_number,
+            match.participant_e_number,  // New fallback participant
+            match.participant_f_number   // New fallback participant
+          ].filter(n => n && n > 0 && n !== 9999)
           
           return {
             group_id: `group_${match.group_number}`,
@@ -112,7 +126,7 @@ export default async function handler(req, res) {
           .select("*")
           .eq("match_id", match_id)
           .eq("round", 0) // Group phase round
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number}`)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
         if (groupError) {
           console.error("Group match error:", groupError)
@@ -120,7 +134,14 @@ export default async function handler(req, res) {
         }
 
         const results = (groupMatches || []).map(match => {
-          const allParticipants = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(n => n && n > 0 && n !== 9999)
+          const allParticipants = [
+            match.participant_a_number, 
+            match.participant_b_number, 
+            match.participant_c_number, 
+            match.participant_d_number,
+            match.participant_e_number,  // New fallback participant
+            match.participant_f_number   // New fallback participant
+          ].filter(n => n && n > 0 && n !== 9999)
           const otherParticipants = allParticipants.filter(p => p !== assigned_number)
           
           return {
@@ -139,7 +160,7 @@ export default async function handler(req, res) {
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number}`)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .order("round", { ascending: true })
 
         if (error) {
@@ -148,7 +169,14 @@ export default async function handler(req, res) {
         }
 
         const results = (matches || []).map(match => {
-          const participantNumbers = [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number]
+          const participantNumbers = [
+            match.participant_a_number, 
+            match.participant_b_number, 
+            match.participant_c_number, 
+            match.participant_d_number,
+            match.participant_e_number,  // New fallback participant
+            match.participant_f_number   // New fallback participant
+          ]
           const realParticipants = participantNumbers.filter(n => n && n > 0 && n !== 9999)
           const hasOrganizer = participantNumbers.includes(9999)
           

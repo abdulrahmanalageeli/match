@@ -3043,26 +3043,38 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <h4 className={`text-lg font-semibold mb-2 ${
                       dark ? "text-orange-200" : "text-orange-800"
                     }`}>
-                      أعضاء مجموعتك
+                      أعضاء مجموعتك ({matchResult ? matchResult.split(" ، ").length : 0} أشخاص)
                     </h4>
-                    <div className="flex flex-wrap justify-center gap-2">
+                    <div className="flex flex-wrap justify-center gap-2 max-w-lg mx-auto">
                       {matchResult && matchResult.split(" ، ").map((participant: string, index: number) => (
                         <div
                           key={index}
-                          className={`px-3 py-1 rounded-full text-sm font-bold ${
+                          className={`px-4 py-2 rounded-full text-sm font-bold transition-all duration-200 hover:scale-105 ${
                             parseInt(participant) === assignedNumber
                               ? dark 
-                                ? "bg-orange-600 text-white border-2 border-orange-400" 
-                                : "bg-orange-600 text-white border-2 border-orange-500"
+                                ? "bg-orange-600 text-white border-2 border-orange-400 shadow-lg animate-pulse" 
+                                : "bg-orange-600 text-white border-2 border-orange-500 shadow-lg animate-pulse"
                               : dark
-                                ? "bg-orange-500/30 text-orange-200 border border-orange-400/50"
-                                : "bg-orange-200/70 text-orange-800 border border-orange-400/50"
+                                ? "bg-orange-500/30 text-orange-200 border border-orange-400/50 hover:bg-orange-500/40"
+                                : "bg-orange-200/70 text-orange-800 border border-orange-400/50 hover:bg-orange-200/90"
                           }`}
                         >
                           #{participant}
                           {parseInt(participant) === assignedNumber && " (أنت)"}
                         </div>
                       ))}
+                    </div>
+                    {/* Group size indicator */}
+                    <div className={`mt-3 text-xs ${
+                      dark ? "text-orange-300" : "text-orange-700"
+                    }`}>
+                      {matchResult && (() => {
+                        const groupSize = matchResult.split(" ، ").length;
+                        if (groupSize <= 3) return "مجموعة صغيرة";
+                        if (groupSize === 4) return "مجموعة متوسطة";
+                        if (groupSize >= 5) return "مجموعة كبيرة";
+                        return "";
+                      })()}
                     </div>
                   </div>
 

@@ -299,9 +299,9 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
   }
 }
 
-// Function to create groups of 4 (or 3) based on MBTI compatibility
+// Function to create groups of 4 (or 3) based on MBTI compatibility with fallback support up to 6
 async function generateGroupMatches(participants, match_id) {
-  console.log("🎯 Starting group matching for", participants.length, "participants")
+  console.log("🎯 Starting enhanced group matching for", participants.length, "participants")
   
   if (participants.length < 3) {
     throw new Error("Need at least 3 participants for group matching")
@@ -336,132 +336,127 @@ async function generateGroupMatches(participants, match_id) {
     console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${pair.score}% (${pair.aMBTI} × ${pair.bMBTI})`)
   })
 
-  // Group formation algorithm
+  // Enhanced group formation algorithm with fallback support
   const groups = []
   const usedParticipants = new Set()
   const participantNumbers = participants.map(p => p.assigned_number)
   
-  // Try to form groups of 4 first
+  // Phase 1: Form core groups of 4 first
+  console.log("🔄 Phase 1: Creating core groups of 4")
   while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
     const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
     const group = findBestGroup(availableParticipants, pairScores, 4)
     
     if (group) {
-      groups.push(group)
+      groups.push([...group]) // Create a copy to allow modification
       group.forEach(p => usedParticipants.add(p))
-      console.log(`✅ Created group of 4: [${group.join(', ')}]`)
+      console.log(`✅ Created core group of 4: [${group.join(', ')}]`)
     } else {
-      // If we can't find a good group of 4, try 3
       break
     }
   }
   
-  // Handle remaining participants
+  // Phase 2: Handle remaining participants (1-3 people)
   const remainingParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
+  console.log(`🔄 Phase 2: Handling ${remainingParticipants.length} remaining participants:`, remainingParticipants)
   
-  if (remainingParticipants.length >= 3) {
-    if (remainingParticipants.length === 3) {
-      // Perfect group of 3
-      groups.push(remainingParticipants)
-      console.log(`✅ Created group of 3: [${remainingParticipants.join(', ')}]`)
-    } else if (remainingParticipants.length === 4) {
-      // Perfect group of 4
-      groups.push(remainingParticipants)
-      console.log(`✅ Created group of 4: [${remainingParticipants.join(', ')}]`)
-    } else if (remainingParticipants.length === 5) {
-      // Split into 3 + 2, but merge the 2 with the smallest existing group
-      const bestGroup3 = findBestGroup(remainingParticipants, pairScores, 3)
-      if (bestGroup3) {
-        groups.push(bestGroup3)
-        console.log(`✅ Created group of 3: [${bestGroup3.join(', ')}]`)
-        
-        const remaining2 = remainingParticipants.filter(p => !bestGroup3.includes(p))
-        // Find the smallest existing group and merge
-        if (groups.length > 1) {
-          const smallestGroupIndex = groups.findIndex(g => g.length === 3)
-          if (smallestGroupIndex !== -1 && smallestGroupIndex !== groups.length - 1) {
-            groups[smallestGroupIndex].push(...remaining2)
-            console.log(`✅ Merged 2 participants into existing group: [${groups[smallestGroupIndex].join(', ')}]`)
-          } else {
-            groups.push(remaining2)
-            console.log(`⚠️ Created small group of 2: [${remaining2.join(', ')}]`)
-          }
-        } else {
-          groups.push(remaining2)
-          console.log(`⚠️ Created small group of 2: [${remaining2.join(', ')}]`)
-        }
-      } else {
-        groups.push(remainingParticipants)
-        console.log(`✅ Created group of 5: [${remainingParticipants.join(', ')}]`)
-      }
+  if (remainingParticipants.length === 0) {
+    // Perfect groups of 4
+    console.log("✅ Perfect grouping achieved with groups of 4")
+  } else if (remainingParticipants.length === 1) {
+    // 1 extra person - add to most compatible group
+    const extraParticipant = remainingParticipants[0]
+    const bestGroupIndex = findMostCompatibleGroupForParticipant(extraParticipant, groups, pairScores)
+    groups[bestGroupIndex].push(extraParticipant)
+    console.log(`✅ Added participant ${extraParticipant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+  } else if (remainingParticipants.length === 2) {
+    // 2 extra people - add both to most compatible group OR split between two groups
+    const [extra1, extra2] = remainingParticipants
+    
+    // Check if we can add both to the same group (up to 6 people)
+    const bestGroupForBoth = findMostCompatibleGroupForParticipants([extra1, extra2], groups, pairScores)
+    
+    if (groups[bestGroupForBoth].length <= 4) {
+      // Add both to the same group
+      groups[bestGroupForBoth].push(extra1, extra2)
+      console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${bestGroupForBoth + 1}: [${groups[bestGroupForBoth].join(', ')}]`)
     } else {
-      // More than 5 remaining - try to split optimally
-      const bestGroup4 = findBestGroup(remainingParticipants, pairScores, 4)
-      if (bestGroup4) {
-        groups.push(bestGroup4)
-        console.log(`✅ Created group of 4: [${bestGroup4.join(', ')}]`)
-        const stillRemaining = remainingParticipants.filter(p => !bestGroup4.includes(p))
-        if (stillRemaining.length >= 3) {
-          groups.push(stillRemaining)
-          console.log(`✅ Created final group: [${stillRemaining.join(', ')}]`)
-        } else {
-          // Merge with existing group
-          if (groups.length > 1) {
-            const targetGroup = groups.find(g => g.length === 3)
-            if (targetGroup) {
-              targetGroup.push(...stillRemaining)
-              console.log(`✅ Merged remaining participants: [${targetGroup.join(', ')}]`)
-            } else {
-              groups.push(stillRemaining)
-              console.log(`⚠️ Created small final group: [${stillRemaining.join(', ')}]`)
-            }
-          }
-        }
-      } else {
-        groups.push(remainingParticipants)
-        console.log(`✅ Created large group: [${remainingParticipants.join(', ')}]`)
-      }
+      // Split between two different groups
+      const group1Index = findMostCompatibleGroupForParticipant(extra1, groups, pairScores)
+      groups[group1Index].push(extra1)
+      
+      const group2Index = findMostCompatibleGroupForParticipant(extra2, groups.map((g, i) => i === group1Index ? [...g] : g), pairScores)
+      groups[group2Index].push(extra2)
+      
+      console.log(`✅ Split participants: ${extra1} to group ${group1Index + 1}, ${extra2} to group ${group2Index + 1}`)
     }
-  } else if (remainingParticipants.length > 0) {
-    // Less than 3 remaining - merge with existing groups
-    if (groups.length > 0) {
-      const targetGroup = groups.find(g => g.length === 3) || groups[0]
-      targetGroup.push(...remainingParticipants)
-      console.log(`✅ Merged remaining ${remainingParticipants.length} participants into existing group: [${targetGroup.join(', ')}]`)
+  } else if (remainingParticipants.length === 3) {
+    // 3 extra people - create a new group OR distribute among existing groups
+    if (groups.length === 0) {
+      // No existing groups, create a group of 3
+      groups.push([...remainingParticipants])
+      console.log(`✅ Created new group of 3: [${remainingParticipants.join(', ')}]`)
     } else {
-      groups.push(remainingParticipants)
-      console.log(`⚠️ Created small group: [${remainingParticipants.join(', ')}]`)
+      // Distribute among existing groups (up to 2 per group to max 6)
+      const sortedByCompatibility = remainingParticipants.map(p => ({
+        participant: p,
+        bestGroupIndex: findMostCompatibleGroupForParticipant(p, groups, pairScores),
+        score: calculateParticipantGroupCompatibility(p, groups[findMostCompatibleGroupForParticipant(p, groups, pairScores)], pairScores)
+      })).sort((a, b) => b.score - a.score)
+      
+      for (const { participant, bestGroupIndex } of sortedByCompatibility) {
+        if (groups[bestGroupIndex].length < 6) {
+          groups[bestGroupIndex].push(participant)
+          console.log(`✅ Added participant ${participant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+        } else {
+          // Find another group with space
+          const alternativeGroupIndex = groups.findIndex(g => g.length < 6)
+          if (alternativeGroupIndex !== -1) {
+            groups[alternativeGroupIndex].push(participant)
+            console.log(`✅ Added participant ${participant} to alternative group ${alternativeGroupIndex + 1}: [${groups[alternativeGroupIndex].join(', ')}]`)
+          } else {
+            // Create new group if no space (shouldn't happen with proper distribution)
+            groups.push([participant])
+            console.log(`⚠️ Created single-person group for ${participant}`)
+          }
+        }
+      }
     }
   }
 
-  console.log(`📋 Final groups: ${groups.length} groups created`)
+  console.log(`🎯 Final groups (${groups.length} total):`);
   groups.forEach((group, index) => {
-    console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} participants)`)
-  })
+    console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} people)`);
+  });
 
-  // Convert groups to database format
+  // Convert groups to database format with support for up to 6 participants
   const groupMatches = []
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i]
     const groupScore = calculateGroupMBTIScore(group, pairScores)
     
-    // Create match record with participant_c_number and participant_d_number
+    // Assign table numbers: 1 to N/2 for pairs, but for groups use sequential numbering
+    const tableNumber = i + 1
+    
+    // Create match record with support for up to 6 participants (A, B, C, D, E, F)
     const matchRecord = {
       participant_a_number: group[0] || null,
       participant_b_number: group[1] || null,
       participant_c_number: group[2] || null,
       participant_d_number: group[3] || null,
+      participant_e_number: group[4] || null, // New fallback slot
+      participant_f_number: group[5] || null, // New fallback slot
       compatibility_score: Math.round(groupScore),
       reason: `مجموعة من ${group.length} أشخاص بتوافق MBTI عالي (${Math.round(groupScore)}%)`,
       match_id,
       round: 0, // Group phase
       group_number: i + 1,
-      table_number: i + 1,
+      table_number: tableNumber,
       is_repeat_match: false,
-      // Add personality data for all participants
+      // Add personality data for all participants (only first 4 for now due to column limitations)
       participant_a_mbti_type: participants.find(p => p.assigned_number === group[0])?.mbti_personality_type || participants.find(p => p.assigned_number === group[0])?.survey_data?.mbtiType,
       participant_b_mbti_type: participants.find(p => p.assigned_number === group[1])?.mbti_personality_type || participants.find(p => p.assigned_number === group[1])?.survey_data?.mbtiType,
-      // We'll store group info in the reason field for now since we don't have dedicated group columns for C and D personality types
+      // Store additional info in reason for participants E and F
       mbti_compatibility_score: groupScore,
       attachment_compatibility_score: 0,
       communication_compatibility_score: 0,
@@ -473,6 +468,7 @@ async function generateGroupMatches(participants, match_id) {
     groupMatches.push(matchRecord)
   }
 
+  console.log(`💾 Generated ${groupMatches.length} group match records`);
   return groupMatches
 }
 
@@ -496,6 +492,70 @@ function findBestGroup(availableParticipants, pairScores, targetSize) {
   }
   
   return bestGroup
+}
+
+// Helper function to find the most compatible group for a single participant
+function findMostCompatibleGroupForParticipant(participant, groups, pairScores) {
+  let bestGroupIndex = 0
+  let bestScore = -1
+  
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].length >= 6) continue // Skip full groups
+    
+    const score = calculateParticipantGroupCompatibility(participant, groups[i], pairScores)
+    if (score > bestScore) {
+      bestScore = score
+      bestGroupIndex = i
+    }
+  }
+  
+  return bestGroupIndex
+}
+
+// Helper function to find the most compatible group for multiple participants
+function findMostCompatibleGroupForParticipants(participants, groups, pairScores) {
+  let bestGroupIndex = 0
+  let bestScore = -1
+  
+  for (let i = 0; i < groups.length; i++) {
+    if (groups[i].length + participants.length > 6) continue // Skip if would exceed capacity
+    
+    let totalScore = 0
+    for (const participant of participants) {
+      totalScore += calculateParticipantGroupCompatibility(participant, groups[i], pairScores)
+    }
+    const avgScore = totalScore / participants.length
+    
+    if (avgScore > bestScore) {
+      bestScore = avgScore
+      bestGroupIndex = i
+    }
+  }
+  
+  return bestGroupIndex
+}
+
+// Helper function to calculate how compatible a participant is with a group
+function calculateParticipantGroupCompatibility(participant, group, pairScores) {
+  if (group.length === 0) return 0
+  
+  let totalScore = 0
+  let pairCount = 0
+  
+  for (const groupMember of group) {
+    // Find compatibility score between participant and group member
+    const pairScore = pairScores.find(pair => 
+      (pair.participants[0] === participant && pair.participants[1] === groupMember) ||
+      (pair.participants[0] === groupMember && pair.participants[1] === participant)
+    )
+    
+    if (pairScore) {
+      totalScore += pairScore.score
+      pairCount++
+    }
+  }
+  
+  return pairCount > 0 ? totalScore / pairCount : 0
 }
 
 // Helper function to calculate group MBTI compatibility score
@@ -821,6 +881,8 @@ export default async function handler(req, res) {
       
       console.log(`📊 Available pairs for round ${round}:`, sortedPairs.length)
       
+      let tableCounter = 1 // Dynamic table numbering starting from 1
+      
       for (const pair of sortedPairs) {
         const key = `${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`
         if (
@@ -828,7 +890,7 @@ export default async function handler(req, res) {
           !used.has(pair.b) &&
           !matchedPairs.has(key)
         ) {
-          console.log(`✅ Matching pair in round ${round}: ${pair.a} × ${pair.b} (score: ${pair.score}%)`)
+          console.log(`✅ Matching pair in round ${round}: ${pair.a} × ${pair.b} (score: ${pair.score}%) - Table ${tableCounter}`)
           used.add(pair.a)
           used.add(pair.b)
           matchedPairs.add(key)
@@ -840,6 +902,7 @@ export default async function handler(req, res) {
             match_id,
             round,
             is_repeat_match: false,
+            table_number: tableCounter, // Dynamic table assignment: 1 to N/2
             // Add personality type data
             participant_a_mbti_type: pair.aMBTI,
             participant_b_mbti_type: pair.bMBTI,
@@ -863,149 +926,52 @@ export default async function handler(req, res) {
             core_values_compatibility_score: pair.coreValuesScore,
             vibe_compatibility_score: pair.vibeScore
           })
+          
+          tableCounter++ // Increment for next pair
         }
       }
-      // Handle unmatched participants
-      const unmatched = numbers.filter(n => !used.has(n))
-      console.log(`👥 Round ${round} matched participants:`, Array.from(used).sort((a, b) => a - b))
-      console.log(`🔍 Round ${round} unmatched participants:`, unmatched)
-      
-      if (unmatched.length === 1) {
-        // Find the best available match for the unmatched participant, even if it's a repeat
-        const unmatchedParticipant = unmatched[0]
-        let bestRepeatMatch = null
-        let bestRepeatScore = -1
+
+      // Handle unmatched participants (odd number scenario)
+      const unmatchedInRound = numbers.filter(n => !used.has(n))
+      if (unmatchedInRound.length > 0) {
+        console.log(`🔄 Round ${round} has ${unmatchedInRound.length} unmatched participants:`, unmatchedInRound)
         
-        // Look through all compatibility scores to find the best repeat match
-        for (const pair of compatibilityScores) {
-          if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant)) {
-            // This is a potential repeat match - find the other participant
-            const otherParticipant = pair.a === unmatchedParticipant ? pair.b : pair.a
-            
-            // Check if the other participant is available (not used in this round)
-            if (!used.has(otherParticipant) && pair.score > bestRepeatScore) {
-              bestRepeatScore = pair.score
-              bestRepeatMatch = {
-                participant_a_number: Math.min(unmatchedParticipant, otherParticipant),
-                participant_b_number: Math.max(unmatchedParticipant, otherParticipant),
-                compatibility_score: Math.round(pair.score),
-                reason: `تكرار المباراة من الجولة السابقة. يمكنك أخذ استراحة أو إعادة الجلوس مع نفس الشريك. ${pair.reason}`,
-                match_id,
-                round,
-                is_repeat_match: true,
-                // Add personality type data
-                participant_a_mbti_type: pair.a === unmatchedParticipant ? pair.aMBTI : pair.bMBTI,
-                participant_b_mbti_type: pair.a === unmatchedParticipant ? pair.bMBTI : pair.aMBTI,
-                participant_a_attachment_style: pair.a === unmatchedParticipant ? pair.aAttachment : pair.bAttachment,
-                participant_b_attachment_style: pair.a === unmatchedParticipant ? pair.bAttachment : pair.aAttachment,
-                participant_a_communication_style: pair.a === unmatchedParticipant ? pair.aCommunication : pair.bCommunication,
-                participant_b_communication_style: pair.a === unmatchedParticipant ? pair.bCommunication : pair.aCommunication,
-                participant_a_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.aLifestyle : pair.bLifestyle,
-                participant_b_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.bLifestyle : pair.aLifestyle,
-                participant_a_core_values: pair.a === unmatchedParticipant ? pair.aCoreValues : pair.bCoreValues,
-                participant_b_core_values: pair.a === unmatchedParticipant ? pair.bCoreValues : pair.aCoreValues,
-                participant_a_vibe_description: pair.a === unmatchedParticipant ? pair.aVibeDescription : pair.bVibeDescription,
-                participant_b_vibe_description: pair.a === unmatchedParticipant ? pair.bVibeDescription : pair.aVibeDescription,
-                // Add score breakdown
-                mbti_compatibility_score: pair.mbtiScore,
-                attachment_compatibility_score: pair.attachmentScore,
-                communication_compatibility_score: pair.communicationScore,
-                lifestyle_compatibility_score: pair.lifestyleScore,
-                core_values_compatibility_score: pair.coreValuesScore,
-                vibe_compatibility_score: pair.vibeScore
-              }
-            }
-          }
-        }
-        
-        if (bestRepeatMatch) {
-          console.log(`🔄 Adding repeat match for participant ${unmatchedParticipant} in round ${round}: ${bestRepeatMatch.participant_a_number} × ${bestRepeatMatch.participant_b_number} (score: ${bestRepeatMatch.compatibility_score}%)`)
-          roundMatches.push(bestRepeatMatch)
-        } else {
-          // Fallback to organizer match if no repeat match found
-          console.log(`🎯 Adding organizer match for participant ${unmatchedParticipant} in round ${round}`)
+        // Match unmatched participants with organizer (ID 9999)
+        for (const unmatchedParticipant of unmatchedInRound) {
+          console.log(`✅ Matching unmatched participant ${unmatchedParticipant} with organizer (9999) - Table ${tableCounter}`)
+          
           roundMatches.push({
-            participant_a_number: unmatchedParticipant,  // The actual participant
-            participant_b_number: 9999,                  // Use 9999 to represent organizer
-            compatibility_score: 0,
-            reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
+            participant_a_number: unmatchedParticipant,
+            participant_b_number: 9999, // Organizer
+            compatibility_score: 70,
+            reason: "مباراة مع المنظم لضمان مشاركة جميع الأطراف",
             match_id,
             round,
-            is_repeat_match: false
+            is_repeat_match: false,
+            table_number: tableCounter, // Continue dynamic numbering
+            // Add default personality data for organizer matches
+            participant_a_mbti_type: participants.find(p => p.assigned_number === unmatchedParticipant)?.mbti_personality_type || participants.find(p => p.assigned_number === unmatchedParticipant)?.survey_data?.mbtiType,
+            participant_b_mbti_type: 'منظم',
+            participant_a_attachment_style: participants.find(p => p.assigned_number === unmatchedParticipant)?.attachment_style || participants.find(p => p.assigned_number === unmatchedParticipant)?.survey_data?.attachmentStyle,
+            participant_b_attachment_style: 'منظم',
+            participant_a_communication_style: participants.find(p => p.assigned_number === unmatchedParticipant)?.communication_style || participants.find(p => p.assigned_number === unmatchedParticipant)?.survey_data?.communicationStyle,
+            participant_b_communication_style: 'منظم',
+            mbti_compatibility_score: 70,
+            attachment_compatibility_score: 70,
+            communication_compatibility_score: 70,
+            lifestyle_compatibility_score: 70,
+            core_values_compatibility_score: 70,
+            vibe_compatibility_score: 70
           })
-        }
-      } else if (unmatched.length > 1) {
-        console.warn(`⚠️ Multiple unmatched participants in round ${round}:`, unmatched)
-        // Try to match the remaining participants with repeats if possible
-        for (const unmatchedParticipant of unmatched) {
-          let bestRepeatMatch = null
-          let bestRepeatScore = -1
           
-          for (const pair of compatibilityScores) {
-            if ((pair.a === unmatchedParticipant || pair.b === unmatchedParticipant)) {
-              const otherParticipant = pair.a === unmatchedParticipant ? pair.b : pair.a
-              
-              // Check if the other participant is available (not used in this round)
-              if (!used.has(otherParticipant) && pair.score > bestRepeatScore) {
-                bestRepeatScore = pair.score
-                bestRepeatMatch = {
-                  participant_a_number: Math.min(unmatchedParticipant, otherParticipant),
-                  participant_b_number: Math.max(unmatchedParticipant, otherParticipant),
-                  compatibility_score: Math.round(pair.score),
-                  reason: `تكرار المباراة من الجولة السابقة. يمكنك أخذ استراحة أو إعادة الجلوس مع نفس الشريك. ${pair.reason}`,
-                  match_id,
-                  round,
-                  is_repeat_match: true,
-                  // Add personality type data
-                  participant_a_mbti_type: pair.a === unmatchedParticipant ? pair.aMBTI : pair.bMBTI,
-                  participant_b_mbti_type: pair.a === unmatchedParticipant ? pair.bMBTI : pair.aMBTI,
-                  participant_a_attachment_style: pair.a === unmatchedParticipant ? pair.aAttachment : pair.bAttachment,
-                  participant_b_attachment_style: pair.a === unmatchedParticipant ? pair.bAttachment : pair.aAttachment,
-                  participant_a_communication_style: pair.a === unmatchedParticipant ? pair.aCommunication : pair.bCommunication,
-                  participant_b_communication_style: pair.a === unmatchedParticipant ? pair.bCommunication : pair.aCommunication,
-                  participant_a_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.aLifestyle : pair.bLifestyle,
-                  participant_b_lifestyle_preferences: pair.a === unmatchedParticipant ? pair.bLifestyle : pair.aLifestyle,
-                  participant_a_core_values: pair.a === unmatchedParticipant ? pair.aCoreValues : pair.bCoreValues,
-                  participant_b_core_values: pair.a === unmatchedParticipant ? pair.bCoreValues : pair.aCoreValues,
-                  participant_a_vibe_description: pair.a === unmatchedParticipant ? pair.aVibeDescription : pair.bVibeDescription,
-                  participant_b_vibe_description: pair.a === unmatchedParticipant ? pair.bVibeDescription : pair.aVibeDescription,
-                  // Add score breakdown
-                  mbti_compatibility_score: pair.mbtiScore,
-                  attachment_compatibility_score: pair.attachmentScore,
-                  communication_compatibility_score: pair.communicationScore,
-                  lifestyle_compatibility_score: pair.lifestyleScore,
-                  core_values_compatibility_score: pair.coreValuesScore,
-                  vibe_compatibility_score: pair.vibeScore
-                }
-              }
-            }
-          }
-          
-          if (bestRepeatMatch) {
-            console.log(`🔄 Adding repeat match for participant ${unmatchedParticipant} in round ${round}: ${bestRepeatMatch.participant_a_number} × ${bestRepeatMatch.participant_b_number} (score: ${bestRepeatMatch.compatibility_score}%)`)
-            roundMatches.push(bestRepeatMatch)
-            used.add(bestRepeatMatch.participant_a_number)
-            used.add(bestRepeatMatch.participant_b_number)
-          } else {
-            // Fallback to organizer match
-            console.log(`🎯 Adding organizer match for participant ${unmatchedParticipant} in round ${round}`)
-            roundMatches.push({
-              participant_a_number: unmatchedParticipant,  // The actual participant
-              participant_b_number: 9999,                  // Use 9999 to represent organizer
-              compatibility_score: 0,
-              reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
-              match_id,
-              round,
-              is_repeat_match: false
-            })
-            used.add(unmatchedParticipant)
-          }
+          tableCounter++
         }
       }
-      
-      console.log(`📋 Round ${round} final matches:`, roundMatches.length)
+
+      console.log(`🎯 Round ${round} completed: ${roundMatches.length} matches, ${roundMatches.filter(m => m.participant_b_number !== 9999).length} regular pairs + ${roundMatches.filter(m => m.participant_b_number === 9999).length} organizer matches`)
+      console.log(`📊 Tables assigned: 1 to ${tableCounter - 1}`)
       roundMatches.forEach(match => {
-        console.log(`  - ${match.participant_a_number} × ${match.participant_b_number} (${match.compatibility_score}%)`)
+        console.log(`  - Table ${match.table_number}: ${match.participant_a_number} × ${match.participant_b_number === 9999 ? 'Organizer' : match.participant_b_number} (${match.compatibility_score}%)`)
       })
       
       finalMatches.push(...roundMatches)

@@ -35,6 +35,7 @@ export default async function handler(req, res) {
         .from("participants")
         .select("id, assigned_number, table_number, survey_data, summary")
         .eq("match_id", STATIC_MATCH_ID)
+        .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
 
       if (error) {
@@ -57,6 +58,7 @@ export default async function handler(req, res) {
           .from("participants")
           .select("id, assigned_number, table_number, survey_data, summary")
           .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
 
         if (error) {
@@ -247,6 +249,7 @@ export default async function handler(req, res) {
             .from("participants")
             .select("assigned_number")
             .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)  // Exclude organizer participant
 
           if (totalError) {
             console.error("Total participants error:", totalError);
@@ -260,6 +263,7 @@ export default async function handler(req, res) {
             .from("participants")
             .select("assigned_number")
             .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)  // Exclude organizer participant
             .not("survey_data", "is", null)
 
           if (formError) {
@@ -382,6 +386,7 @@ export default async function handler(req, res) {
           .from("participants")
           .select("assigned_number")
           .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)  // Exclude organizer participant
           .not("survey_data", "is", null)
 
         if (formError) return res.status(500).json({ error: formError.message })

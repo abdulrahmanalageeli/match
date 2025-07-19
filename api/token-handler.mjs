@@ -22,6 +22,7 @@ export default async function handler(req, res) {
         .from("participants")
         .select("assigned_number")
         .eq("match_id", "00000000-0000-0000-0000-000000000000")
+        .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: false })
         .limit(1)
 
@@ -31,9 +32,14 @@ export default async function handler(req, res) {
       }
 
       // Calculate next number (start from 1 if no participants exist)
-      const nextNumber = existingParticipants && existingParticipants.length > 0 
+      let nextNumber = existingParticipants && existingParticipants.length > 0 
         ? existingParticipants[0].assigned_number + 1 
         : 1
+      
+      // Skip 9999 as it's reserved for organizer
+      if (nextNumber === 9999) {
+        nextNumber = 10000;
+      }
 
       // Check if this number already exists (race condition protection)
       const { data: existing, error: checkError } = await supabase

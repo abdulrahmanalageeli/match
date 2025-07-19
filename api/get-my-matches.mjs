@@ -172,7 +172,7 @@ export default async function handler(req, res) {
           const matchedWith = realParticipants.filter(n => n.toString() !== assigned_number.toString())
           
           return {
-            with: matchedWith,
+            with: matchedWith.length === 1 ? matchedWith[0] : matchedWith,  // Handle single participant vs array
             partner: realParticipants.filter(n => n.toString() === assigned_number.toString())[0] || null,
             type: match.match_type || "غير محدد",
             reason: match.reason || "السبب غير متوفر",

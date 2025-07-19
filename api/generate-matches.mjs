@@ -31,6 +31,7 @@ export default async function handler(req, res) {
       .from("participants")
       .select("assigned_number, survey_data")
       .eq("match_id", match_id)
+      .neq("assigned_number", 9999)  // Exclude organizer participant from matching
       .not("survey_data", "is", null)
 
     if (error) {
@@ -63,8 +64,51 @@ export default async function handler(req, res) {
   }
 }
 
+// Helper function to ensure organizer participant exists
+async function ensureOrganizerParticipant(match_id) {
+  const ORGANIZER_ID = 9999;
+  
+  // Check if organizer participant already exists
+  const { data: existing, error: checkError } = await supabase
+    .from("participants")
+    .select("assigned_number")
+    .eq("assigned_number", ORGANIZER_ID)
+    .eq("match_id", match_id)
+    .single();
+    
+  if (existing) {
+    console.log("✅ Organizer participant already exists");
+    return;
+  }
+  
+  if (checkError && checkError.code !== 'PGRST116') {
+    console.error("Error checking for organizer:", checkError);
+    return;
+  }
+  
+  // Create organizer participant
+  console.log("🏢 Creating organizer participant...");
+  const { error: insertError } = await supabase
+    .from("participants")
+    .insert([{
+      assigned_number: ORGANIZER_ID,
+      match_id: match_id,
+      is_host: true, // Mark as organizer/host
+    }]);
+    
+  if (insertError) {
+    console.error("Error creating organizer participant:", insertError);
+    throw new Error("Failed to create organizer participant");
+  }
+  
+  console.log("✅ Organizer participant created successfully");
+}
+
 async function generateGlobalIndividualMatches(participants, match_id) {
   console.log(`Starting global individual matching for ${participants.length} participants`);
+  
+  // Create organizer participant if it doesn't exist
+  await ensureOrganizerParticipant(match_id);
   
   // Generate all possible pairs
   const pairs = []

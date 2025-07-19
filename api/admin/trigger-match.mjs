@@ -545,6 +545,46 @@ function getCombinations(arr, size) {
   return combinations
 }
 
+// Helper function to ensure organizer participant exists
+async function ensureOrganizerParticipant(match_id) {
+  const ORGANIZER_ID = 9999;
+  
+  // Check if organizer participant already exists
+  const { data: existing, error: checkError } = await supabase
+    .from("participants")
+    .select("assigned_number")
+    .eq("assigned_number", ORGANIZER_ID)
+    .eq("match_id", match_id)
+    .single();
+    
+  if (existing) {
+    console.log("✅ Organizer participant already exists");
+    return;
+  }
+  
+  if (checkError && checkError.code !== 'PGRST116') {
+    console.error("Error checking for organizer:", checkError);
+    return;
+  }
+  
+  // Create organizer participant
+  console.log("🏢 Creating organizer participant...");
+  const { error: insertError } = await supabase
+    .from("participants")
+    .insert([{
+      assigned_number: ORGANIZER_ID,
+      match_id: match_id,
+      is_host: true, // Mark as organizer/host
+    }]);
+    
+  if (insertError) {
+    console.error("Error creating organizer participant:", insertError);
+    throw new Error("Failed to create organizer participant");
+  }
+  
+  console.log("✅ Organizer participant created successfully");
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
@@ -554,10 +594,14 @@ export default async function handler(req, res) {
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
+    // Ensure organizer participant exists for potential odd-participant matches
+    await ensureOrganizerParticipant(match_id);
+    
     const { data: participants, error } = await supabase
       .from("participants")
       .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style")
       .eq("match_id", match_id)
+      .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 
     if (error) throw error
     if (!participants || participants.length < 2) {

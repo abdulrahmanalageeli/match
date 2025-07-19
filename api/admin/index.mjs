@@ -81,9 +81,21 @@ export default async function handler(req, res) {
 
       if (action === "set-phase") {
         const { phase } = req.body
+        
+        // Extract current round from phase if it's a round phase
+        let current_round = 1;
+        if (phase && phase.startsWith("round_")) {
+          current_round = parseInt(phase.split('_')[1]) || 1;
+        }
+        
         const { error } = await supabase
           .from("event_state")
-          .upsert({ match_id: STATIC_MATCH_ID, phase }, { onConflict: "match_id" })
+          .upsert({ 
+            match_id: STATIC_MATCH_ID, 
+            phase, 
+            current_round,
+            total_rounds: 4
+          }, { onConflict: "match_id" })
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Phase updated" })
       }

@@ -592,13 +592,17 @@ export default function WelcomePage() {
           // Reset conversation and modal state on phase transitions to prevent stuck states
           if (data.phase && data.phase.startsWith("round_")) {
             const roundNumber = parseInt(data.phase.split('_')[1]);
-            if (
-              (step === 3 || step === 5) &&
-              (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase)
-            ) {
+            // Allow transition from any step when admin changes the round/phase
+            if (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase) {
+              console.log(`🔄 Phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
+              
+              // Fetch matches for the new round
               await fetchMatches(roundNumber);
+              
+              // Force transition to match display step
               setStep(4);
-              // Only reset conversation state when round/phase actually changes
+              
+              // Reset all conversation and UI states for clean transition
               setConversationTimer(300);
               setConversationStarted(false);
               setModalStep(null);
@@ -610,22 +614,30 @@ export default function WelcomePage() {
               setShowHistoryDetail(false);
               setSelectedHistoryItem(null);
               setAnimationStep(0);
-                        setFeedbackAnswers({
-            compatibilityRate: 50,
-            conversationQuality: 3,
-            personalConnection: 3,
-            sharedInterests: 3,
-            comfortLevel: 3,
-            communicationStyle: 3,
-            wouldMeetAgain: 3,
-            overallExperience: 3,
-            recommendations: ""
-          });
+              setFeedbackAnswers({
+                compatibilityRate: 50,
+                conversationQuality: 3,
+                personalConnection: 3,
+                sharedInterests: 3,
+                comfortLevel: 3,
+                communicationStyle: 3,
+                wouldMeetAgain: 3,
+                overallExperience: 3,
+                recommendations: ""
+              });
               setTypewriterCompleted(false);
               setTimerEnded(false); // Reset timer ended flag for new round
               setIsRepeatMatch(false); // Reset repeat match flag for new round
+              setPartnerStartedTimer(false); // Reset partner timer flags
+              setPartnerEndedTimer(false);
+              
+              // Update round state and tracking refs
+              setCurrentRound(roundNumber);
+              setTotalRounds(data.total_rounds || 4);
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
+              
+              console.log(`✅ Successfully transitioned to ${data.phase}`);
             }
           } else {
             // If not in a round phase, reset the refs so the next round triggers the reset
@@ -634,9 +646,12 @@ export default function WelcomePage() {
           }
           // ... rest of polling logic ...
         } else if (data.phase && data.phase.startsWith("waiting_")) {
-          if (step === 4) { // From round to waiting
-            setStep(5);
-          }
+          // Force transition to waiting step when admin changes to waiting phase
+          console.log(`🔄 Phase changed to waiting phase: ${data.phase}`);
+          setStep(5); // Always go to waiting step
+          setConversationStarted(false); // Stop any active conversations
+          setModalStep(null); // Clear any open modals
+          setTimerEnded(false); // Reset timer state
         } else if (data.phase === "group_phase") {
           if (step !== 7) {
             console.log("🎯 Phase changed to group_phase, switching to step 7")
@@ -647,9 +662,20 @@ export default function WelcomePage() {
             setModalStep(null);
             setIsScoreRevealed(false);
             setTimerEnded(false);
+            setPartnerStartedTimer(false);
+            setPartnerEndedTimer(false);
             // Fetch group matches when entering group phase
             console.log("🎯 Phase change: Fetching group matches for group_phase")
             fetchGroupMatches();
+          }
+        } else if (data.phase === "waiting") {
+          // Force transition to analysis/waiting step when admin changes to general waiting phase
+          if (step === 4) { // If currently in conversation
+            console.log(`🔄 Phase changed to waiting, transitioning from conversation to analysis`);
+            setStep(3); // Go to analysis/waiting
+            setConversationStarted(false);
+            setModalStep(null);
+            setTimerEnded(false);
           }
         } else if (data.phase === "form") {
           if (step === -1) setStep(0); // Welcome landing page -> System intro
@@ -694,11 +720,22 @@ export default function WelcomePage() {
             console.log("🔄 Real-time polling: Starting analysis for waiting phase")
             setAnalysisStarted(true);
           }
+        } else if (data.phase === "registration") {
+          // Handle admin forcing back to registration phase
+          if (step > 0) {
+            console.log(`🔄 Admin reset to registration phase, transitioning from step ${step} to step 0`);
+            setStep(0);
+            setConversationStarted(false);
+            setModalStep(null);
+            setTimerEnded(false);
+            setPartnerStartedTimer(false);
+            setPartnerEndedTimer(false);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
       }
-    }, 3000) // every 3 seconds
+    }, 2000) // every 2 seconds for better responsiveness to admin changes
   
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving])

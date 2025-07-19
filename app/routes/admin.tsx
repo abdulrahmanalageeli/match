@@ -201,7 +201,7 @@ export default function AdminPage() {
       alert("❌ Error: " + data.error)
     } else {
       setCurrentPhase(phase)
-      alert("✅ Phase updated to " + phase)
+      alert("✅ Phase updated to " + phase + "\n\nAll players will see this change within 2 seconds!")
     }
   }
 
@@ -397,6 +397,10 @@ export default function AdminPage() {
               <span className={`font-medium ${currentPhaseConfig.color}`}>
                 {currentPhaseConfig.label}
               </span>
+            </div>
+            
+            <div className="text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded">
+              Phase changes are immediate - all players update within 2s
             </div>
             
                          <select

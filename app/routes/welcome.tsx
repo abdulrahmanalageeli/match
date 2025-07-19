@@ -639,7 +639,14 @@ export default function WelcomePage() {
           }
         } else if (data.phase === "group_phase") {
           if (step !== 7) {
+            console.log("🎯 Phase changed to group_phase, switching to step 7")
             setStep(7);
+            // Reset conversation state for group phase
+            setConversationTimer(300);
+            setConversationStarted(false);
+            setModalStep(null);
+            setIsScoreRevealed(false);
+            setTimerEnded(false);
             // Fetch group matches when entering group phase
             console.log("🎯 Phase change: Fetching group matches for group_phase")
             fetchGroupMatches();
@@ -2982,7 +2989,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-2xl font-bold text-center mb-4 ${
                     dark ? "text-orange-200" : "text-orange-800"
                   }`}>
-                    🎯 المرحلة الجماعية
+                    المرحلة الجماعية
                   </h3>
 
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
@@ -3024,7 +3031,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <p className={`text-lg font-semibold ${
                       dark ? "text-slate-200" : "text-gray-700"
                     }`}>
-                      {tableNumber ? `📍 اذهب إلى الطاولة رقم ${tableNumber}` : "⏳ سيتم إخبارك بالطاولة قريباً"}
+                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
                     </p>
                   </div>
 
@@ -3034,7 +3041,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       ? "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30"
                       : "bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30"
                   }`}>
-                    <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-blue-200" : "text-blue-800"}`}>💡 نصائح للحوار الجماعي</h4>
+                    <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-blue-200" : "text-blue-800"}`}>نصائح للحوار الجماعي</h4>
                     <div className="space-y-2">
                       <div className={`flex items-start gap-2 text-sm ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         <span>•</span>
@@ -3061,30 +3068,37 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/30"
                       : "bg-gradient-to-r from-purple-200/50 to-pink-200/50 border-purple-400/30"
                   }`}>
-                    <h4 className={`text-lg font-bold text-center mb-3 ${dark ? "text-purple-200" : "text-purple-800"}`}>🗣️ مواضيع للنقاش</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      {[
-                        "ما هو أكثر شيء تستمتعون به في أوقات فراغكم؟",
-                        "ما هي أحلامكم وطموحاتكم المستقبلية؟",
-                        "ما هي الصفة التي تقدرونها أكثر في الصداقة؟",
-                        "أين تفضلون قضاء العطلة المثالية؟"
-                      ].map((topic, index) => (
-                        <div 
-                          key={index}
-                          className={`p-2 rounded-lg text-sm text-center ${
-                            dark 
-                              ? "bg-purple-600/30 text-purple-200 border border-purple-500/50"
-                              : "bg-purple-200/70 text-purple-800 border border-purple-400/50"
-                          }`}
+                    <div className={`rounded-xl p-4 border mb-6 ${
+                      dark 
+                        ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
+                        : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                    }`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          aria-label="التالي"
+                          className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                          onClick={() => setPromptIndex((i) => (i + 1) % prompts.length)}
+                          disabled={prompts.length <= 1}
                         >
-                          {topic}
-                        </div>
-                      ))}
+                          <ChevronLeftIcon className="w-5 h-5" />
+                        </button>
+                        <p className={`flex-1 text-center text-base font-medium ${dark ? "text-slate-200" : "text-blue-700"}`}>{prompts[promptIndex]}</p>
+                        <button
+                          type="button"
+                          aria-label="السابق"
+                          className="p-2 rounded-full hover:bg-slate-200/40 transition disabled:opacity-40"
+                          onClick={() => setPromptIndex((i) => (i - 1 + prompts.length) % prompts.length)}
+                          disabled={prompts.length <= 1}
+                        >
+                          <ChevronRightIcon className="w-5 h-5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
                   <div className="flex justify-center">
-                    <FancyNextButton onClick={startConversation} label="🚀 ابدأ الحوار الجماعي" />
+                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار الجماعي" />
                   </div>
                 </>
               ) : (
@@ -3092,7 +3106,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-orange-200" : "text-orange-800"
                   }`}>
-                    🎯 حوار جماعي مع مجموعتك
+                    حوار جماعي مع مجموعتك
                   </h3>
                   
                   <div className={`text-center mb-4 p-3 rounded-xl border ${
@@ -3103,7 +3117,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     <p className={`text-lg font-semibold ${
                       dark ? "text-slate-200" : "text-gray-700"
                     }`}>
-                      {tableNumber ? `📍 الطاولة رقم ${tableNumber}` : "⏳ سيتم إخبارك بالطاولة قريباً"}
+                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
                     </p>
                   </div>
 
@@ -3145,7 +3159,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                           }
                         });
                       }
-                    }} label="🏁 إنهاء الحوار الجماعي" />
+                    }} label="إنهاء الحوار الجماعي" />
                   </div>
                 </>
               )}
@@ -3503,7 +3517,11 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                                       <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
                       <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
-                      <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>{compatibilityScore !== null ? `${compatibilityScore}/100` : "غير متوفر"}</div>
+                      <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                        {compatibilityScore !== null ? 
+                          (phase === "group_phase" ? `${compatibilityScore}/10` : `${compatibilityScore}/100`) 
+                          : "غير متوفر"}
+                      </div>
                       {isScoreRevealed && (
                         <div className="mt-4">
                           {/* New formatted compatibility reason */}

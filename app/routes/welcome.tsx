@@ -646,51 +646,81 @@ export default function WelcomePage() {
           }
           // ... rest of polling logic ...
         } else if (data.phase && data.phase.startsWith("waiting_")) {
-          // Force transition to waiting step when admin changes to waiting phase
-          console.log(`🔄 Phase changed to waiting phase: ${data.phase}`);
+          // Force transition to waiting step when admin changes to waiting phase (from ANY step)
+          console.log(`🔄 Phase changed to waiting phase: ${data.phase} (from step ${step})`);
           setStep(5); // Always go to waiting step
           setConversationStarted(false); // Stop any active conversations
           setModalStep(null); // Clear any open modals
           setTimerEnded(false); // Reset timer state
+          setPartnerStartedTimer(false); // Reset partner timer flags
+          setPartnerEndedTimer(false);
+          setIsScoreRevealed(false); // Reset score reveal
+          setShowConversationStarters(false); // Clear conversation starters
+          setConversationStarters([]);
+          setGeneratingStarters(false);
+          console.log(`✅ Successfully transitioned to ${data.phase}`);
         } else if (data.phase === "group_phase") {
-          if (step !== 7) {
-            console.log("🎯 Phase changed to group_phase, switching to step 7")
-            setStep(7);
-            // Reset conversation state for group phase
-            setConversationTimer(300);
+          // Force transition to group phase (from ANY step)
+          console.log(`🎯 Phase changed to group_phase (from step ${step}), switching to step 7`)
+          setStep(7);
+          // Reset conversation state for group phase
+          setConversationTimer(300);
+          setConversationStarted(false);
+          setModalStep(null);
+          setIsScoreRevealed(false);
+          setTimerEnded(false);
+          setPartnerStartedTimer(false);
+          setPartnerEndedTimer(false);
+          setShowConversationStarters(false);
+          setConversationStarters([]);
+          setGeneratingStarters(false);
+          setShowHistory(false);
+          setShowHistoryDetail(false);
+          setSelectedHistoryItem(null);
+          setAnimationStep(0);
+          // Fetch group matches when entering group phase
+          console.log("🎯 Phase change: Fetching group matches for group_phase")
+          fetchGroupMatches();
+          console.log(`✅ Successfully transitioned to group_phase`);
+        } else if (data.phase === "waiting") {
+          // Force transition to analysis/waiting step when admin changes to general waiting phase (from ANY step)
+          console.log(`🔄 Phase changed to waiting (from step ${step}), transitioning to analysis`);
+          setStep(3); // Go to analysis/waiting
+          setConversationStarted(false);
+          setModalStep(null);
+          setTimerEnded(false);
+          setPartnerStartedTimer(false);
+          setPartnerEndedTimer(false);
+          setIsScoreRevealed(false);
+          setShowConversationStarters(false);
+          setConversationStarters([]);
+          setGeneratingStarters(false);
+          console.log(`✅ Successfully transitioned to waiting`);
+                } else if (data.phase === "form") {
+          // Handle transitions to form phase from different starting points
+          console.log(`🔄 Phase changed to form (from step ${step})`);
+          
+          if (step === -1) {
+            setStep(0); // Welcome landing page -> System intro
+          } else if (step === 0) {
+            setStep(2); // System intro -> Form (skip step 1 since we have token)
+          } else if (step === 1) {
+            setStep(2); // Form -> Analysis
+          } else if (step >= 3) {
+            // Force transition from later steps to form phase
+            setStep(2);
             setConversationStarted(false);
             setModalStep(null);
-            setIsScoreRevealed(false);
             setTimerEnded(false);
             setPartnerStartedTimer(false);
             setPartnerEndedTimer(false);
-            // Fetch group matches when entering group phase
-            console.log("🎯 Phase change: Fetching group matches for group_phase")
-            fetchGroupMatches();
+            setIsScoreRevealed(false);
+            setShowConversationStarters(false);
+            setConversationStarters([]);
+            setGeneratingStarters(false);
           }
-        } else if (data.phase === "waiting") {
-          // Force transition to analysis/waiting step when admin changes to general waiting phase
-          if (step === 4) { // If currently in conversation
-            console.log(`🔄 Phase changed to waiting, transitioning from conversation to analysis`);
-            setStep(3); // Go to analysis/waiting
-            setConversationStarted(false);
-            setModalStep(null);
-            setTimerEnded(false);
-          }
-        } else if (data.phase === "form") {
-          if (step === -1) setStep(0); // Welcome landing page -> System intro
-          if (step === 0) setStep(2); // System intro -> Form (skip step 1 since we have token)
-          if (step === 1) setStep(2); // Form -> Analysis
           
-          // If user is on step 3 (analysis) but we're back in form phase, 
-          // only go back to form if they haven't completed the form yet
-          if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
-            setStep(2); // Go back to form only if form not completed
-          }
-          // If user has completed the form and is in analysis, stay in analysis
-          // even if phase is "form" - they already completed it
-          
-          // Handle form filled prompt logic
+          // Handle form filled prompt logic for form phase
           if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
             // User has completed the form, show the prompt if not already shown
             if (!showFormFilledPrompt && step === 2) {
@@ -700,26 +730,7 @@ export default function WelcomePage() {
             // User hasn't completed the form, hide the prompt
             setShowFormFilledPrompt(false);
           }
-        } else if (data.phase === "waiting") {
-          if (step === 2) setStep(3);
-          // If user is already on step 3 (analysis/waiting) and refreshes, stay there
-          // This ensures users don't get stuck if they refresh during waiting phase
-          
-          // If user hasn't completed the form but we're in waiting phase, show form
-          if (step === 3 && (!surveyData.answers || Object.keys(surveyData.answers).length === 0)) {
-            setStep(2); // Go back to form
-          }
-          
-          // If user has completed the form and is on step 2, move to step 3
-          if (step === 2 && surveyData.answers && Object.keys(surveyData.answers).length > 0) {
-            setStep(3); // Move to analysis
-          }
-          
-          // Don't restart analysis if typewriter is already completed
-          if (step === 3 && personalitySummary && !analysisStarted && !typewriterCompleted) {
-            console.log("🔄 Real-time polling: Starting analysis for waiting phase")
-            setAnalysisStarted(true);
-          }
+          console.log(`✅ Successfully transitioned to form phase`);
         } else if (data.phase === "registration") {
           // Handle admin forcing back to registration phase
           if (step > 0) {

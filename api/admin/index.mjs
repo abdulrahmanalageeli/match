@@ -97,7 +97,7 @@ export default async function handler(req, res) {
             total_rounds: 4
           }, { onConflict: "match_id" })
         if (error) return res.status(500).json({ error: error.message })
-        return res.status(200).json({ message: "Phase updated" })
+        return res.status(200).json({ message: "Phase updated - all players will transition immediately" })
       }
 
       if (action === "set-table") {

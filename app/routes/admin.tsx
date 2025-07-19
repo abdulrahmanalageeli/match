@@ -201,7 +201,7 @@ export default function AdminPage() {
       alert("❌ Error: " + data.error)
     } else {
       setCurrentPhase(phase)
-      alert("✅ Phase updated to " + phase + "\n\nAll players will see this change within 2 seconds!")
+      alert("✅ Phase updated to " + phase + "\n\n🚀 All players will instantly transition from ANY state they're in!\n⚡ Change visible within 2 seconds!")
     }
   }
 
@@ -400,7 +400,7 @@ export default function AdminPage() {
             </div>
             
             <div className="text-xs text-slate-400 bg-slate-800/50 px-2 py-1 rounded">
-              Phase changes are immediate - all players update within 2s
+              🚀 ALL phase changes are instant! Players update within 2s from any state
             </div>
             
                          <select
@@ -546,7 +546,7 @@ export default function AdminPage() {
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ Phase advanced to ${data.new_phase}`)
+                    alert(`✅ Phase advanced to ${data.new_phase}\n\n🚀 All players instantly transition to new phase!\n⚡ Change visible within 2 seconds!`)
                     fetchParticipants()
                   } else {
                     alert("❌ Failed to advance phase")

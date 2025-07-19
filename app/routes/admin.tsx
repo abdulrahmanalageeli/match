@@ -187,6 +187,7 @@ export default function AdminPage() {
   }, [])
 
   const updatePhase = async (phase: string) => {
+    console.log(`🔄 Admin: Updating phase to ${phase}`);
     const res = await fetch("/api/admin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -198,8 +199,10 @@ export default function AdminPage() {
     })
     const data = await res.json()
     if (!res.ok) {
+      console.error(`❌ Admin: Failed to update phase to ${phase}:`, data.error);
       alert("❌ Error: " + data.error)
     } else {
+      console.log(`✅ Admin: Successfully updated phase to ${phase}`);
       setCurrentPhase(phase)
       alert("✅ Phase updated to " + phase + "\n\n🚀 All players will instantly transition from ANY state they're in!\n⚡ Change visible within 2 seconds!")
     }

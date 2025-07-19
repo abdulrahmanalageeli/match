@@ -561,10 +561,12 @@ export default function WelcomePage() {
 
         // Handle step transitions based on phase changes
         if (assignedNumber) {
-          // Update current round and total rounds
+          // Update current round and total rounds for ALL phase changes
           setCurrentRound(data.current_round || 1);
           setTotalRounds(data.total_rounds || 4);
           setIsRepeatMatch(false);
+          
+          console.log(`🔄 Polling detected phase: ${data.phase}, current step: ${step}`);
           
           // Check if user has completed the form (only if we don't already have survey data)
           if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
@@ -577,32 +579,29 @@ export default function WelcomePage() {
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
                 setSurveyData(userData.survey_data);
-                              if (userData.summary && userData.summary !== personalitySummary) {
-                console.log("🔄 Updating summary from polling:", userData.summary)
-                setPersonalitySummary(userData.summary);
-              } else if (userData.summary === personalitySummary) {
-                console.log("🔄 Summary unchanged, skipping update")
-              }
+                if (userData.summary && userData.summary !== personalitySummary) {
+                  console.log("🔄 Updating summary from polling:", userData.summary)
+                  setPersonalitySummary(userData.summary);
+                } else if (userData.summary === personalitySummary) {
+                  console.log("🔄 Summary unchanged, skipping update")
+                }
               }
             } catch (err) {
               console.error("Failed to fetch user data during polling:", err);
             }
           }
           
-          // Reset conversation and modal state on phase transitions to prevent stuck states
+          // HANDLE ALL PHASE TRANSITIONS
           if (data.phase && data.phase.startsWith("round_")) {
+            // Round phases (round_1, round_2, etc.)
             const roundNumber = parseInt(data.phase.split('_')[1]);
-            // Allow transition from any step when admin changes the round/phase
             if (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase) {
-              console.log(`🔄 Phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
+              console.log(`🔄 Round phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
               
-              // Fetch matches for the new round
               await fetchMatches(roundNumber);
-              
-              // Force transition to match display step
               setStep(4);
               
-              // Reset all conversation and UI states for clean transition
+              // Reset all states for clean transition
               setConversationTimer(300);
               setConversationStarted(false);
               setModalStep(null);
@@ -626,89 +625,20 @@ export default function WelcomePage() {
                 recommendations: ""
               });
               setTypewriterCompleted(false);
-              setTimerEnded(false); // Reset timer ended flag for new round
-              setIsRepeatMatch(false); // Reset repeat match flag for new round
-              setPartnerStartedTimer(false); // Reset partner timer flags
+              setTimerEnded(false);
+              setIsRepeatMatch(false);
+              setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
               
-              // Update round state and tracking refs
-              setCurrentRound(roundNumber);
-              setTotalRounds(data.total_rounds || 4);
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
               
               console.log(`✅ Successfully transitioned to ${data.phase}`);
             }
-          } else {
-            // If not in a round phase, reset the refs so the next round triggers the reset
-            lastRoundRef.current = null;
-            lastPhaseRef.current = null;
-          }
-          // ... rest of polling logic ...
-        } else if (data.phase && data.phase.startsWith("waiting_")) {
-          // Force transition to waiting step when admin changes to waiting phase (from ANY step)
-          console.log(`🔄 Phase changed to waiting phase: ${data.phase} (from step ${step})`);
-          setStep(5); // Always go to waiting step
-          setConversationStarted(false); // Stop any active conversations
-          setModalStep(null); // Clear any open modals
-          setTimerEnded(false); // Reset timer state
-          setPartnerStartedTimer(false); // Reset partner timer flags
-          setPartnerEndedTimer(false);
-          setIsScoreRevealed(false); // Reset score reveal
-          setShowConversationStarters(false); // Clear conversation starters
-          setConversationStarters([]);
-          setGeneratingStarters(false);
-          console.log(`✅ Successfully transitioned to ${data.phase}`);
-        } else if (data.phase === "group_phase") {
-          // Force transition to group phase (from ANY step)
-          console.log(`🎯 Phase changed to group_phase (from step ${step}), switching to step 7`)
-          setStep(7);
-          // Reset conversation state for group phase
-          setConversationTimer(300);
-          setConversationStarted(false);
-          setModalStep(null);
-          setIsScoreRevealed(false);
-          setTimerEnded(false);
-          setPartnerStartedTimer(false);
-          setPartnerEndedTimer(false);
-          setShowConversationStarters(false);
-          setConversationStarters([]);
-          setGeneratingStarters(false);
-          setShowHistory(false);
-          setShowHistoryDetail(false);
-          setSelectedHistoryItem(null);
-          setAnimationStep(0);
-          // Fetch group matches when entering group phase
-          console.log("🎯 Phase change: Fetching group matches for group_phase")
-          fetchGroupMatches();
-          console.log(`✅ Successfully transitioned to group_phase`);
-        } else if (data.phase === "waiting") {
-          // Force transition to analysis/waiting step when admin changes to general waiting phase (from ANY step)
-          console.log(`🔄 Phase changed to waiting (from step ${step}), transitioning to analysis`);
-          setStep(3); // Go to analysis/waiting
-          setConversationStarted(false);
-          setModalStep(null);
-          setTimerEnded(false);
-          setPartnerStartedTimer(false);
-          setPartnerEndedTimer(false);
-          setIsScoreRevealed(false);
-          setShowConversationStarters(false);
-          setConversationStarters([]);
-          setGeneratingStarters(false);
-          console.log(`✅ Successfully transitioned to waiting`);
-                } else if (data.phase === "form") {
-          // Handle transitions to form phase from different starting points
-          console.log(`🔄 Phase changed to form (from step ${step})`);
-          
-          if (step === -1) {
-            setStep(0); // Welcome landing page -> System intro
-          } else if (step === 0) {
-            setStep(2); // System intro -> Form (skip step 1 since we have token)
-          } else if (step === 1) {
-            setStep(2); // Form -> Analysis
-          } else if (step >= 3) {
-            // Force transition from later steps to form phase
-            setStep(2);
+          } else if (data.phase && data.phase.startsWith("waiting_")) {
+            // Waiting phases (waiting_2, waiting_3, etc.)
+            console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
+            setStep(5);
             setConversationStarted(false);
             setModalStep(null);
             setTimerEnded(false);
@@ -718,31 +648,91 @@ export default function WelcomePage() {
             setShowConversationStarters(false);
             setConversationStarters([]);
             setGeneratingStarters(false);
-          }
-          
-          // Handle form filled prompt logic for form phase
-          if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
-            // User has completed the form, show the prompt if not already shown
-            if (!showFormFilledPrompt && step === 2) {
-              setShowFormFilledPrompt(true);
-            }
-          } else {
-            // User hasn't completed the form, hide the prompt
-            setShowFormFilledPrompt(false);
-          }
-          console.log(`✅ Successfully transitioned to form phase`);
-        } else if (data.phase === "registration") {
-          // Handle admin forcing back to registration phase
-          if (step > 0) {
-            console.log(`🔄 Admin reset to registration phase, transitioning from step ${step} to step 0`);
-            setStep(0);
+            console.log(`✅ Successfully transitioned to ${data.phase}`);
+          } else if (data.phase === "group_phase") {
+            // Group phase
+            console.log(`🔄 Group phase change detected (from step ${step})`);
+            setStep(7);
+            setConversationTimer(300);
+            setConversationStarted(false);
+            setModalStep(null);
+            setIsScoreRevealed(false);
+            setTimerEnded(false);
+            setPartnerStartedTimer(false);
+            setPartnerEndedTimer(false);
+            setShowConversationStarters(false);
+            setConversationStarters([]);
+            setGeneratingStarters(false);
+            setShowHistory(false);
+            setShowHistoryDetail(false);
+            setSelectedHistoryItem(null);
+            setAnimationStep(0);
+            fetchGroupMatches();
+            console.log(`✅ Successfully transitioned to group_phase`);
+          } else if (data.phase === "waiting") {
+            // General waiting phase
+            console.log(`🔄 General waiting phase change detected (from step ${step})`);
+            setStep(3);
             setConversationStarted(false);
             setModalStep(null);
             setTimerEnded(false);
             setPartnerStartedTimer(false);
             setPartnerEndedTimer(false);
+            setIsScoreRevealed(false);
+            setShowConversationStarters(false);
+            setConversationStarters([]);
+            setGeneratingStarters(false);
+            console.log(`✅ Successfully transitioned to waiting`);
+          } else if (data.phase === "form") {
+            // Form phase
+            console.log(`🔄 Form phase change detected (from step ${step})`);
+            
+            if (step === -1) {
+              setStep(0);
+            } else if (step === 0) {
+              setStep(2);
+            } else if (step === 1) {
+              setStep(2);
+            } else if (step >= 3) {
+              setStep(2);
+              setConversationStarted(false);
+              setModalStep(null);
+              setTimerEnded(false);
+              setPartnerStartedTimer(false);
+              setPartnerEndedTimer(false);
+              setIsScoreRevealed(false);
+              setShowConversationStarters(false);
+              setConversationStarters([]);
+              setGeneratingStarters(false);
+            }
+            
+            // Handle form filled prompt logic
+            if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+              if (!showFormFilledPrompt && step === 2) {
+                setShowFormFilledPrompt(true);
+              }
+            } else {
+              setShowFormFilledPrompt(false);
+            }
+            console.log(`✅ Successfully transitioned to form phase`);
+          } else if (data.phase === "registration") {
+            // Registration phase
+            if (step > 0) {
+              console.log(`🔄 Registration phase change detected (from step ${step})`);
+              setStep(0);
+              setConversationStarted(false);
+              setModalStep(null);
+              setTimerEnded(false);
+              setPartnerStartedTimer(false);
+              setPartnerEndedTimer(false);
+              console.log(`✅ Successfully transitioned to registration`);
+            }
+          } else {
+            // Reset refs if not in a specific phase
+            lastRoundRef.current = null;
+            lastPhaseRef.current = null;
           }
-        }
+        } // End of assignedNumber check
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
       }
@@ -762,6 +752,11 @@ export default function WelcomePage() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
+
+  // Debug: Log step changes
+  useEffect(() => {
+    console.log(`🔄 Step changed to: ${step} (phase: ${phase})`);
+  }, [step, phase])
 
   const FancyNextButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
     <Button 

@@ -60,6 +60,81 @@ export default async function handler(req, res) {
     
     console.log("Database check results:", results);
     
+    // Test participant constraint validation
+    console.log("Testing participant constraints...");
+    
+    // Test that participant_a_number cannot be 0 (should fail)
+    try {
+      const { data: testData, error: testError } = await supabase
+        .from("match_results")
+        .insert([{
+          participant_a_number: 0,  // This should violate constraint
+          participant_b_number: 1,
+          compatibility_score: 50,
+          reason: "Test constraint",
+          match_id: match_id,
+          round: 999  // Use a test round
+        }])
+      
+      if (testError) {
+        console.log("✅ Correctly rejected participant_a_number = 0:", testError.message);
+        results.participant_a_constraint = {
+          working: true,
+          error: testError.message
+        };
+      } else {
+        console.log("❌ ERROR: Database allowed participant_a_number = 0");
+        results.participant_a_constraint = {
+          working: false,
+          error: "Database incorrectly allowed participant_a_number = 0"
+        };
+        // Clean up test data
+        await supabase.from("match_results").delete().eq("round", 999).eq("match_id", match_id);
+      }
+    } catch (err) {
+      console.log("✅ Constraint test failed as expected:", err.message);
+      results.participant_a_constraint = {
+        working: true,
+        error: err.message
+      };
+    }
+    
+    // Test that participant_b_number can be 0 (should succeed)
+    try {
+      const { data: testData2, error: testError2 } = await supabase
+        .from("match_results")
+        .insert([{
+          participant_a_number: 999,  // Valid positive integer
+          participant_b_number: 0,    // This should be allowed
+          compatibility_score: 50,
+          reason: "Test organizer match",
+          match_id: match_id,
+          round: 998  // Use another test round
+        }])
+      
+      if (!testError2) {
+        console.log("✅ Successfully allowed participant_b_number = 0");
+        results.participant_b_organizer = {
+          working: true,
+          error: null
+        };
+        // Clean up test data
+        await supabase.from("match_results").delete().eq("round", 998).eq("match_id", match_id);
+      } else {
+        console.log("❌ ERROR: Database rejected valid organizer match:", testError2.message);
+        results.participant_b_organizer = {
+          working: false,
+          error: testError2.message
+        };
+      }
+    } catch (err) {
+      console.log("❌ Organizer match test failed:", err.message);
+      results.participant_b_organizer = {
+        working: false,
+        error: err.message
+      };
+    }
+    
     return res.status(200).json({
       message: "Database schema check completed",
       results,

@@ -881,8 +881,8 @@ export default async function handler(req, res) {
           // Fallback to organizer match if no repeat match found
           console.log(`🎯 Adding organizer match for participant ${unmatchedParticipant} in round ${round}`)
           roundMatches.push({
-            participant_a_number: 0,
-            participant_b_number: unmatchedParticipant,
+            participant_a_number: unmatchedParticipant,  // Changed: Put the actual participant as participant_a
+            participant_b_number: 0,                     // Changed: Put organizer as participant_b
             compatibility_score: 0,
             reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
             match_id,
@@ -946,8 +946,8 @@ export default async function handler(req, res) {
             // Fallback to organizer match
             console.log(`🎯 Adding organizer match for participant ${unmatchedParticipant} in round ${round}`)
             roundMatches.push({
-              participant_a_number: 0,
-              participant_b_number: unmatchedParticipant,
+              participant_a_number: unmatchedParticipant,  // Changed: Put the actual participant as participant_a
+              participant_b_number: 0,                     // Changed: Put organizer as participant_b
               compatibility_score: 0,
               reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
               match_id,

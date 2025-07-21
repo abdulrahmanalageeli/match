@@ -1310,6 +1310,12 @@ export default function WelcomePage() {
 
     const syncWithDatabase = async () => {
       try {
+        // Skip timer sync for group phase - each participant manages their own timer
+        if (phase === "group_phase") {
+          console.log("🔄 Group phase detected, skipping timer sync");
+          return;
+        }
+
         const timerStatus = await getDatabaseTimerStatus(currentRound);
         
         if (!timerStatus || !timerStatus.success) {
@@ -1406,11 +1412,12 @@ export default function WelcomePage() {
       }
     };
 
-    // Initial sync
-    syncWithDatabase();
-
-    // Set up polling interval
-    syncInterval = setInterval(syncWithDatabase, 2000);
+    // Initial sync (skip for group phase)
+    if (phase !== "group_phase") {
+      syncWithDatabase();
+      // Set up polling interval
+      syncInterval = setInterval(syncWithDatabase, 2000);
+    }
 
     // Set up local countdown (only when conversation is active)
     if (conversationStarted && !timerEnded && conversationTimer > 0) {
@@ -1434,7 +1441,7 @@ export default function WelcomePage() {
       if (syncInterval) clearInterval(syncInterval);
       if (localInterval) clearInterval(localInterval);
     };
-  }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused, lastTimerStatus]);
+  }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused, lastTimerStatus, phase]);
 
   // Start database timer when conversation starts
   useEffect(() => {

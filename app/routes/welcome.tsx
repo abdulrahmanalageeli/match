@@ -3568,7 +3568,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
                       <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>
                         {compatibilityScore !== null ? 
-                          `${Math.round(compatibilityScore)}%`
+                          `${Math.round(phase === "group_phase" ? compatibilityScore * 10 : compatibilityScore)}%`
                           : "غير متوفر"}
                       </div>
                       {isScoreRevealed && (
@@ -3716,7 +3716,9 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                           تكرار
                         </span>
                       )}
-                      <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>{m.score}%</span>
+                      <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                        {m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
+                      </span>
                     </div>
                     <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
                   </div>
@@ -3806,12 +3808,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                       <div className="flex items-center gap-1">
                         <span className={`font-bold text-sm ${
-                          m.score >= 80 ? "text-green-500" :
-                          m.score >= 60 ? "text-yellow-500" :
-                          m.score >= 40 ? "text-orange-500" :
+                          (m.with.includes("،") ? m.score * 10 : m.score) >= 80 ? "text-green-500" :
+                          (m.with.includes("،") ? m.score * 10 : m.score) >= 60 ? "text-yellow-500" :
+                          (m.with.includes("،") ? m.score * 10 : m.score) >= 40 ? "text-orange-500" :
                           "text-red-500"
                         }`}>
-                          {m.score}%
+                          {m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
                         </span>
                       </div>
                     </div>
@@ -3852,7 +3854,9 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     </div>
                   </div>
                 )}
-                <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</div>
+                <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
+                  {selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
+                </div>
                 <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
               </div>
 
@@ -3907,17 +3911,19 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <div className="flex justify-between items-center mb-2">
                   <h5 className={`font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
-                  <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>{selectedHistoryItem.score}%</span>
+                  <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
+                    {selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
+                  </span>
                 </div>
                 <div className={`w-full h-3 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
-                      selectedHistoryItem.score >= 80 ? "bg-green-500" :
-                      selectedHistoryItem.score >= 60 ? "bg-yellow-500" :
-                      selectedHistoryItem.score >= 40 ? "bg-orange-500" :
+                      (selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 80 ? "bg-green-500" :
+                      (selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 60 ? "bg-yellow-500" :
+                      (selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 40 ? "bg-orange-500" :
                       "bg-red-500"
                     }`}
-                    style={{ width: `${selectedHistoryItem.score}%` }}
+                    style={{ width: `${selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs mt-1">

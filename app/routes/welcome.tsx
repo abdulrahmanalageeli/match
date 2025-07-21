@@ -650,25 +650,31 @@ export default function WelcomePage() {
             setGeneratingStarters(false);
             console.log(`✅ Successfully transitioned to ${data.phase}`);
           } else if (data.phase === "group_phase") {
-            // Group phase
-            console.log(`🔄 Group phase change detected (from step ${step})`);
-            setStep(7);
-            setConversationTimer(300);
-            setConversationStarted(false);
-            setModalStep(null);
-            setIsScoreRevealed(false);
-            setTimerEnded(false);
-            setPartnerStartedTimer(false);
-            setPartnerEndedTimer(false);
-            setShowConversationStarters(false);
-            setConversationStarters([]);
-            setGeneratingStarters(false);
-            setShowHistory(false);
-            setShowHistoryDetail(false);
-            setSelectedHistoryItem(null);
-            setAnimationStep(0);
-            fetchGroupMatches();
-            console.log(`✅ Successfully transitioned to group_phase`);
+            // Group phase - only reset if actually transitioning TO group phase
+            if (lastPhaseRef.current !== "group_phase") {
+              console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
+              setStep(7);
+              setConversationTimer(300);
+              setConversationStarted(false);
+              setModalStep(null);
+              setIsScoreRevealed(false);
+              setTimerEnded(false);
+              setPartnerStartedTimer(false);
+              setPartnerEndedTimer(false);
+              setShowConversationStarters(false);
+              setConversationStarters([]);
+              setGeneratingStarters(false);
+              setShowHistory(false);
+              setShowHistoryDetail(false);
+              setSelectedHistoryItem(null);
+              setAnimationStep(0);
+              fetchGroupMatches();
+              
+              lastPhaseRef.current = "group_phase";
+              console.log(`✅ Successfully transitioned to group_phase`);
+            } else {
+              console.log(`🔄 Already in group_phase, maintaining current timer state`);
+            }
           } else if (data.phase === "waiting") {
             // General waiting phase
             console.log(`🔄 General waiting phase change detected (from step ${step})`);

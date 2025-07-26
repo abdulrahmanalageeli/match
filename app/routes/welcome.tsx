@@ -1068,7 +1068,131 @@ export default function WelcomePage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-
+  // Function to convert technical compatibility reason to natural Arabic description
+  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
+    try {
+      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+      
+      // Extract scores from the technical format
+      const mbtiMatch = reason.match(/MBTI:.*?\((\d+)%\)/)
+      const attachmentMatch = reason.match(/التعلق:.*?\((\d+)%\)/)
+      const communicationMatch = reason.match(/التواصل:.*?\((\d+)%\)/)
+      const lifestyleMatch = reason.match(/نمط الحياة:.*?\((\d+)%\)/)
+      const coreValuesMatch = reason.match(/القيم الأساسية:.*?\((\d+)%\)/)
+      const vibeMatch = reason.match(/التوافق الشخصي:.*?\((\d+)%\)/)
+      
+      const mbtiScore = mbtiMatch ? parseInt(mbtiMatch[1]) || 0 : 0
+      const attachmentScore = attachmentMatch ? parseInt(attachmentMatch[1]) || 0 : 0
+      const communicationScore = communicationMatch ? parseInt(communicationMatch[1]) || 0 : 0
+      const lifestyleScore = lifestyleMatch ? parseInt(lifestyleMatch[1]) || 0 : 0
+      const coreValuesScore = coreValuesMatch ? parseInt(coreValuesMatch[1]) || 0 : 0
+      const vibeScore = vibeMatch ? parseInt(vibeMatch[1]) || 0 : 0
+    
+    // Helper function to get strength level and color
+    const getStrengthLevel = (score: number, maxScore: number) => {
+      const percentage = (score / maxScore) * 100
+      if (percentage >= 80) return { level: "ممتاز", color: "text-emerald-400", bgColor: "bg-emerald-500/20", borderColor: "border-emerald-400/30" }
+      if (percentage >= 60) return { level: "جيد", color: "text-blue-400", bgColor: "bg-blue-500/20", borderColor: "border-blue-400/30" }
+      if (percentage >= 40) return { level: "متوسط", color: "text-yellow-400", bgColor: "bg-yellow-500/20", borderColor: "border-yellow-400/30" }
+      if (percentage >= 20) return { level: "ضعيف", color: "text-orange-400", bgColor: "bg-orange-500/20", borderColor: "border-orange-400/30" }
+      return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
+    }
+    
+    // Get strength levels for each component
+    const mbtiStrength = getStrengthLevel(mbtiScore, 10)
+    const attachmentStrength = getStrengthLevel(attachmentScore, 15)
+    const communicationStrength = getStrengthLevel(communicationScore, 25)
+    const lifestyleStrength = getStrengthLevel(lifestyleScore, 15)
+    const coreValuesStrength = getStrengthLevel(coreValuesScore, 20)
+    const vibeStrength = getStrengthLevel(vibeScore, 15)
+    
+    // Create natural language description
+    const components = []
+    
+    if (mbtiScore > 0) {
+      components.push({
+        name: "التوافق الشخصي",
+        strength: mbtiStrength.level,
+        color: mbtiStrength.color,
+        bgColor: mbtiStrength.bgColor,
+        borderColor: mbtiStrength.borderColor,
+        description: mbtiScore >= 7 ? "شخصيات متكاملة ومتوافقة" : 
+                    mbtiScore >= 5 ? "شخصيات متوازنة" : 
+                    "شخصيات مختلفة ومكملة"
+      })
+    }
+    
+    if (attachmentScore > 0) {
+      components.push({
+        name: "أسلوب التعلق",
+        strength: attachmentStrength.level,
+        color: attachmentStrength.color,
+        bgColor: attachmentStrength.bgColor,
+        borderColor: attachmentStrength.borderColor,
+        description: attachmentScore >= 12 ? "أنماط تعلق متوافقة ومستقرة" : 
+                    attachmentScore >= 8 ? "أنماط تعلق متوازنة" : 
+                    "أنماط تعلق مختلفة ومكملة"
+      })
+    }
+    
+    if (communicationScore > 0) {
+      components.push({
+        name: "أسلوب التواصل",
+        strength: communicationStrength.level,
+        color: communicationStrength.color,
+        bgColor: communicationStrength.bgColor,
+        borderColor: communicationStrength.borderColor,
+        description: communicationScore >= 20 ? "تواصل ممتاز ومتناغم" : 
+                    communicationScore >= 15 ? "تواصل جيد ومتوازن" : 
+                    "تواصل مختلف ومكمل"
+      })
+    }
+    
+    if (lifestyleScore > 0) {
+      components.push({
+        name: "نمط الحياة",
+        strength: lifestyleStrength.level,
+        color: lifestyleStrength.color,
+        bgColor: lifestyleStrength.bgColor,
+        borderColor: lifestyleStrength.borderColor,
+        description: lifestyleScore >= 12 ? "أنماط حياة متوافقة" : 
+                    lifestyleScore >= 8 ? "أنماط حياة متوازنة" : 
+                    "أنماط حياة مختلفة ومكملة"
+      })
+    }
+    
+    if (coreValuesScore > 0) {
+      components.push({
+        name: "القيم الأساسية",
+        strength: coreValuesStrength.level,
+        color: coreValuesStrength.color,
+        bgColor: coreValuesStrength.bgColor,
+        borderColor: coreValuesStrength.borderColor,
+        description: coreValuesScore >= 16 ? "قيم متطابقة ومتناغمة" : 
+                    coreValuesScore >= 12 ? "قيم متوازنة" : 
+                    "قيم مختلفة ومكملة"
+      })
+    }
+    
+    if (vibeScore > 0) {
+      components.push({
+        name: "التوافق الشخصي",
+        strength: vibeStrength.level,
+        color: vibeStrength.color,
+        bgColor: vibeStrength.bgColor,
+        borderColor: vibeStrength.borderColor,
+        description: vibeScore >= 12 ? "كيمياء شخصية ممتازة" : 
+                    vibeScore >= 8 ? "كيمياء شخصية جيدة" : 
+                    "كيمياء شخصية متوازنة"
+      })
+    }
+    
+    return { components, originalReason: reason }
+    } catch (error) {
+      console.error("Error in formatCompatibilityReason:", error)
+      return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+    }
+  }
 
   // Database timer utility functions
   const startDatabaseTimer = async (round: number, duration: number = 300) => {
@@ -3447,7 +3571,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <>
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                                       <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
-                                                <div className="flex justify-center my-4">
+                      <div className="flex justify-center my-4">
                         <CircularProgressBar
                           progress={compatibilityScore !== null ? Math.round(phase === "group_phase" ? compatibilityScore * 10 : compatibilityScore) : 0}
                           size={180}
@@ -3457,12 +3581,35 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                       {isScoreRevealed && (
                         <div className="mt-4">
-                          <div className="space-y-3">
+                          {/* New formatted compatibility reason */}
+                          {(() => {
+                            const formattedReason = formatCompatibilityReason(matchReason)
+                            return (
+                              <div className="space-y-3">
                                 <h4 className={`text-lg font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h4>
-                                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                                  {matchReason}
-                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
+                                    <div 
+                                      key={index}
+                                      className={`p-3 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                                    >
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-sm font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                          {component.name}
+                                        </span>
+                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${component.color} ${component.bgColor}`}>
+                                          {component.strength}
+                                        </span>
+                                      </div>
+                                      <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                        {component.description}
+                                      </p>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
+                            )
+                          })()}
                         {isRepeatMatch && (
                           <div className={`mt-4 p-4 rounded-xl border-2 ${dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100/50 border-amber-300/40"}`}>
                             <div className="flex items-center gap-2 mb-2">
@@ -3474,9 +3621,24 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                             </p>
                           </div>
                         )}
-                        </div>
-                      )}
-                    </div>
+                        {currentRound === 1 && (
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
+                              <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
+                              <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
+                            </div>
+                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
+                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
+                            <div className="flex gap-2 mt-6">
+                              <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                              <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                              <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   {/* Only show buttons if NOT waiting for host */}
                   {!(currentRound === 1 && isScoreRevealed) && (
                     <div className="flex justify-center gap-3 mt-6">
@@ -3654,12 +3816,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                       <div className="flex items-center gap-1">
                         <span className={`font-bold text-sm ${
-                          (typeof m.with === 'string' && m.with.includes("،") ? m.score * 10 : m.score) >= 80 ? "text-green-500" :
-                          (typeof m.with === 'string' && m.with.includes("،") ? m.score * 10 : m.score) >= 60 ? "text-yellow-500" :
-                          (typeof m.with === 'string' && m.with.includes("،") ? m.score * 10 : m.score) >= 40 ? "text-orange-500" :
+                          (m.with.includes("،") ? m.score * 10 : m.score) >= 80 ? "text-green-500" :
+                          (m.with.includes("،") ? m.score * 10 : m.score) >= 60 ? "text-yellow-500" :
+                          (m.with.includes("،") ? m.score * 10 : m.score) >= 40 ? "text-orange-500" :
                           "text-red-500"
                         }`}>
-                          {typeof m.with === 'string' && m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
+                          {m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
                         </span>
                       </div>
                     </div>
@@ -3684,7 +3846,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               <div className={`text-center p-6 rounded-xl border ${dark ? "bg-slate-700/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <div className="flex items-center justify-center gap-4 mb-4">
                   <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-blue-600/20 border-blue-400" : "bg-blue-100 border-blue-300"}`}>
-                    <span className={`text-2xl font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>#{assignedNumber}</span>
+                    <span className={`text-2xl font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>#{assignedNumber || "?"}</span>
                   </div>
                   <div className={`text-3xl ${dark ? "text-slate-300" : "text-gray-500"}`}>×</div>
                   <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-cyan-600/20 border-cyan-400" : "bg-cyan-100 border-cyan-300"}`}>
@@ -3701,7 +3863,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
                 )}
                 <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
-                  {selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
+                  {selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
                 </div>
                 <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
               </div>
@@ -3709,9 +3871,42 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {/* Compatibility Details */}
               <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h5>
-                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                  {selectedHistoryItem.reason}
-                </p>
+                {(() => {
+                  try {
+                    const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason || "")
+                    return (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 gap-2">
+                          {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
+                            <div 
+                              key={index}
+                              className={`p-2 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className={`text-xs font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                  {component.name}
+                                </span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${component.color} ${component.bgColor}`}>
+                                  {component.strength}
+                                </span>
+                              </div>
+                              <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                {component.description}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  } catch (error) {
+                    console.error("Error formatting compatibility reason:", error)
+                    return (
+                      <div className={`text-center p-4 ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                        <p>معلومات التوافق غير متوفرة</p>
+                      </div>
+                    )
+                  }
+                })()}
               </div>
 
               {/* Match Details */}
@@ -3725,7 +3920,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                   <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع المباراة</h5>
                   <p className={`text-lg font-bold ${dark ? "text-blue-300" : "text-blue-600"}`}>
-                    {selectedHistoryItem.type}
+                    {selectedHistoryItem.type || "غير محدد"}
                   </p>
                 </div>
               </div>
@@ -3734,18 +3929,18 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <div className="flex justify-between items-center mb-2">
                   <h5 className={`font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
                   <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
-                    {selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
+                    {selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
                   </span>
                 </div>
                 <div className={`w-full h-3 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
-                      (selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 80 ? "bg-green-500" :
-                      (selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 60 ? "bg-yellow-500" :
-                      (selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 40 ? "bg-orange-500" :
+                      (selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 80 ? "bg-green-500" :
+                      (selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 60 ? "bg-yellow-500" :
+                      (selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 40 ? "bg-orange-500" :
                       "bg-red-500"
                     }`}
-                    style={{ width: `${selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score}%` }}
+                    style={{ width: `${selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs mt-1">

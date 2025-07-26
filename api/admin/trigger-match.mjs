@@ -380,7 +380,7 @@ async function generateGroupMatches(participants, match_id) {
       // Add both to the same group
       groups[bestGroupForBoth].push(extra1, extra2)
       console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${bestGroupForBoth + 1}: [${groups[bestGroupForBoth].join(', ')}]`)
-    } else {
+          } else {
       // Split between two different groups
       const group1Index = findMostCompatibleGroupForParticipant(extra1, groups, pairScores)
       groups[group1Index].push(extra1)
@@ -396,7 +396,7 @@ async function generateGroupMatches(participants, match_id) {
       // No existing groups, create a group of 3
       groups.push([...remainingParticipants])
       console.log(`✅ Created new group of 3: [${remainingParticipants.join(', ')}]`)
-    } else {
+        } else {
       // Distribute among existing groups (up to 2 per group to max 6)
       const sortedByCompatibility = remainingParticipants.map(p => ({
         participant: p,
@@ -408,13 +408,13 @@ async function generateGroupMatches(participants, match_id) {
         if (groups[bestGroupIndex].length < 6) {
           groups[bestGroupIndex].push(participant)
           console.log(`✅ Added participant ${participant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
-        } else {
+      } else {
           // Find another group with space
           const alternativeGroupIndex = groups.findIndex(g => g.length < 6)
           if (alternativeGroupIndex !== -1) {
             groups[alternativeGroupIndex].push(participant)
             console.log(`✅ Added participant ${participant} to alternative group ${alternativeGroupIndex + 1}: [${groups[alternativeGroupIndex].join(', ')}]`)
-          } else {
+    } else {
             // Create new group if no space (shouldn't happen with proper distribution)
             groups.push([participant])
             console.log(`⚠️ Created single-person group for ${participant}`)
@@ -965,8 +965,8 @@ export default async function handler(req, res) {
           })
           
           tableCounter++
-        }
-      }
+                }
+              }
 
       console.log(`🎯 Round ${round} completed: ${roundMatches.length} matches, ${roundMatches.filter(m => m.participant_b_number !== 9999).length} regular pairs + ${roundMatches.filter(m => m.participant_b_number === 9999).length} organizer matches`)
       console.log(`📊 Tables assigned: 1 to ${tableCounter - 1}`)

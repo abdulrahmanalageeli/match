@@ -63,6 +63,7 @@ import MatchResult from "./MatchResult"
 import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
 import SurveyComponent from "../components/SurveyComponent"
 import PromptTopicsModal from "../components/PromptTopicsModal"
+import CircularProgressBar from "../components/CircularProgressBar"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -579,12 +580,12 @@ export default function WelcomePage() {
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
                 setSurveyData(userData.survey_data);
-                if (userData.summary && userData.summary !== personalitySummary) {
-                  console.log("🔄 Updating summary from polling:", userData.summary)
-                  setPersonalitySummary(userData.summary);
-                } else if (userData.summary === personalitySummary) {
-                  console.log("🔄 Summary unchanged, skipping update")
-                }
+                              if (userData.summary && userData.summary !== personalitySummary) {
+                console.log("🔄 Updating summary from polling:", userData.summary)
+                setPersonalitySummary(userData.summary);
+              } else if (userData.summary === personalitySummary) {
+                console.log("🔄 Summary unchanged, skipping update")
+              }
               }
             } catch (err) {
               console.error("Failed to fetch user data during polling:", err);
@@ -613,17 +614,17 @@ export default function WelcomePage() {
               setShowHistoryDetail(false);
               setSelectedHistoryItem(null);
               setAnimationStep(0);
-              setFeedbackAnswers({
-                compatibilityRate: 50,
-                conversationQuality: 3,
-                personalConnection: 3,
-                sharedInterests: 3,
-                comfortLevel: 3,
-                communicationStyle: 3,
-                wouldMeetAgain: 3,
-                overallExperience: 3,
-                recommendations: ""
-              });
+                        setFeedbackAnswers({
+            compatibilityRate: 50,
+            conversationQuality: 3,
+            personalConnection: 3,
+            sharedInterests: 3,
+            comfortLevel: 3,
+            communicationStyle: 3,
+            wouldMeetAgain: 3,
+            overallExperience: 3,
+            recommendations: ""
+          });
               setTypewriterCompleted(false);
               setTimerEnded(false);
               setIsRepeatMatch(false);
@@ -634,8 +635,8 @@ export default function WelcomePage() {
               lastPhaseRef.current = data.phase;
               
               console.log(`✅ Successfully transitioned to ${data.phase}`);
-            }
-          } else if (data.phase && data.phase.startsWith("waiting_")) {
+          }
+        } else if (data.phase && data.phase.startsWith("waiting_")) {
             // Waiting phases (waiting_2, waiting_3, etc.)
             console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
             setStep(5);
@@ -649,16 +650,16 @@ export default function WelcomePage() {
             setConversationStarters([]);
             setGeneratingStarters(false);
             console.log(`✅ Successfully transitioned to ${data.phase}`);
-          } else if (data.phase === "group_phase") {
+        } else if (data.phase === "group_phase") {
             // Group phase - only reset if actually transitioning TO group phase
             if (lastPhaseRef.current !== "group_phase") {
               console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
-              setStep(7);
-              setConversationTimer(300);
-              setConversationStarted(false);
-              setModalStep(null);
-              setIsScoreRevealed(false);
-              setTimerEnded(false);
+            setStep(7);
+            setConversationTimer(300);
+            setConversationStarted(false);
+            setModalStep(null);
+            setIsScoreRevealed(false);
+            setTimerEnded(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
               setShowConversationStarters(false);
@@ -668,7 +669,7 @@ export default function WelcomePage() {
               setShowHistoryDetail(false);
               setSelectedHistoryItem(null);
               setAnimationStep(0);
-              fetchGroupMatches();
+            fetchGroupMatches();
               
               lastPhaseRef.current = "group_phase";
               console.log(`✅ Successfully transitioned to group_phase`);
@@ -689,7 +690,7 @@ export default function WelcomePage() {
             setConversationStarters([]);
             setGeneratingStarters(false);
             console.log(`✅ Successfully transitioned to waiting`);
-          } else if (data.phase === "form") {
+        } else if (data.phase === "form") {
             // Form phase
             console.log(`🔄 Form phase change detected (from step ${step})`);
             
@@ -711,15 +712,15 @@ export default function WelcomePage() {
               setConversationStarters([]);
               setGeneratingStarters(false);
             }
-            
-            // Handle form filled prompt logic
-            if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
-              if (!showFormFilledPrompt && step === 2) {
-                setShowFormFilledPrompt(true);
-              }
-            } else {
-              setShowFormFilledPrompt(false);
+          
+          // Handle form filled prompt logic
+          if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+            if (!showFormFilledPrompt && step === 2) {
+              setShowFormFilledPrompt(true);
             }
+          } else {
+            setShowFormFilledPrompt(false);
+          }
             console.log(`✅ Successfully transitioned to form phase`);
           } else if (data.phase === "registration") {
             // Registration phase
@@ -1420,9 +1421,9 @@ export default function WelcomePage() {
 
     // Initial sync (skip for group phase)
     if (phase !== "group_phase") {
-      syncWithDatabase();
-      // Set up polling interval
-      syncInterval = setInterval(syncWithDatabase, 2000);
+    syncWithDatabase();
+    // Set up polling interval
+    syncInterval = setInterval(syncWithDatabase, 2000);
     }
 
     // Set up local countdown (only when conversation is active)
@@ -3131,7 +3132,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   {/* Simple Group Conversation Starters */}
                   {/* Comprehensive Questions Button for Group Phase */}
                   <div className="flex justify-center mb-6">
-                    <button
+                        <button
                       onClick={() => setShowPromptTopicsModal(true)}
                       className={`flex items-center gap-2 px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
                         dark
@@ -3140,10 +3141,10 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       } animate-in slide-in-from-bottom-4`}
                       style={{ boxShadow: dark ? '0 4px 24px 0 #fb923c33' : '0 4px 24px 0 #f97316aa' }}
                       aria-label="أسئلة شاملة للنقاش الجماعي"
-                    >
+                        >
                       <Sparkles className="w-6 h-6 animate-pulse" />
                       أسئلة شاملة للنقاش
-                    </button>
+                        </button>
                   </div>
 
                   <div className="flex justify-center">
@@ -3565,11 +3566,13 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <>
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                                       <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
-                      <p className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>درجة التوافق النهائية</p>
-                      <div className={`text-3xl font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                        {compatibilityScore !== null ? 
-                          `${Math.round(phase === "group_phase" ? compatibilityScore * 10 : compatibilityScore)}%`
-                          : "غير متوفر"}
+                      <div className="flex justify-center my-4">
+                        <CircularProgressBar
+                          progress={compatibilityScore !== null ? Math.round(phase === "group_phase" ? compatibilityScore * 10 : compatibilityScore) : 0}
+                          size={180}
+                          strokeWidth={20}
+                          dark={dark}
+                        />
                       </div>
                       {isScoreRevealed && (
                         <div className="mt-4">

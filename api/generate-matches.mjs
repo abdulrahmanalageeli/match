@@ -393,7 +393,7 @@ async function generateGroupMatches(participants, round, match_id) {
     
     if (remaining >= 4) {
       // Create groups of 4 when possible
-      const group = shuffledParticipants.slice(i, i + 4)
+    const group = shuffledParticipants.slice(i, i + 4)
       groups.push({
         group_id: `group_${groups.length + 1}`,
         participant_numbers: group.map(p => p.assigned_number),

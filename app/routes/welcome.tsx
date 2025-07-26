@@ -3566,7 +3566,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <>
                   <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                                       <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
-                      <div className="flex justify-center my-4">
+                                                <div className="flex justify-center my-4">
                         <CircularProgressBar
                           progress={compatibilityScore !== null ? Math.round(phase === "group_phase" ? compatibilityScore * 10 : compatibilityScore) : 0}
                           size={180}
@@ -3576,35 +3576,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                       {isScoreRevealed && (
                         <div className="mt-4">
-                          {/* New formatted compatibility reason */}
-                          {(() => {
-                            const formattedReason = formatCompatibilityReason(matchReason)
-                            return (
-                              <div className="space-y-3">
+                          <div className="space-y-3">
                                 <h4 className={`text-lg font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
-                                    <div 
-                                      key={index}
-                                      className={`p-3 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
-                                    >
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-sm font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                                          {component.name}
-                                        </span>
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${component.color} ${component.bgColor}`}>
-                                          {component.strength}
-                                        </span>
-                                      </div>
-                                      <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                                        {component.description}
-                                      </p>
-                                    </div>
-                                  ))}
-                                </div>
+                                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                  {matchReason}
+                                </p>
                               </div>
-                            )
-                          })()}
                         {isRepeatMatch && (
                           <div className={`mt-4 p-4 rounded-xl border-2 ${dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100/50 border-amber-300/40"}`}>
                             <div className="flex items-center gap-2 mb-2">
@@ -3616,24 +3593,9 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                             </p>
                           </div>
                         )}
-                        {currentRound === 1 && (
-                          <div className="flex flex-col items-center justify-center py-8">
-                            <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
-                              <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
-                              <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
-                            </div>
-                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
-                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
-                            <div className="flex gap-2 mt-6">
-                              <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                        </div>
+                      )}
+                    </div>
                   {/* Only show buttons if NOT waiting for host */}
                   {!(currentRound === 1 && isScoreRevealed) && (
                     <div className="flex justify-center gap-3 mt-6">
@@ -3866,33 +3828,9 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               {/* Compatibility Details */}
               <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h5>
-                {(() => {
-                  const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason)
-                  return (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 gap-2">
-                        {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
-                          <div 
-                            key={index}
-                            className={`p-2 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
-                          >
-                            <div className="flex items-center justify-between mb-1">
-                              <span className={`text-xs font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                                {component.name}
-                              </span>
-                              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${component.color} ${component.bgColor}`}>
-                                {component.strength}
-                              </span>
-                            </div>
-                            <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                              {component.description}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )
-                })()}
+                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  {selectedHistoryItem.reason}
+                </p>
               </div>
 
               {/* Match Details */}

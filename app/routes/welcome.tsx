@@ -916,22 +916,16 @@ export default function WelcomePage() {
         setCompatibilityScore(currentRoundMatch.score)
         setTableNumber(currentRoundMatch.table_number)
         setIsRepeatMatch(currentRoundMatch.is_repeat_match || false)
+        
+        // Incrementally add to history if not already present
+        // setHistoryMatches(prev => {
+        //   const exists = prev.some(m => m.with === currentRoundMatch.with && m.round === currentRoundMatch.round)
+        //   if (!exists) {
+        //     return [...prev, currentRoundMatch]
+        //   }
+        //   return prev
+        // })
       }
-      
-      // Load all matches into history from database
-      const historyFromDB = matches.map((match: any) => ({
-        with: match.with,
-        type: match.type || "مباراة",
-        reason: match.reason,
-        round: match.round,
-        table_number: match.table_number,
-        score: match.score,
-        is_repeat_match: match.is_repeat_match || false
-      }))
-      
-      setHistoryMatches(historyFromDB)
-      console.log("📚 Loaded history from database:", historyFromDB)
-      
     } catch (err) {
       console.error("Error fetching matches:", err)
     }
@@ -1044,10 +1038,27 @@ export default function WelcomePage() {
     setIsScoreRevealed(true)
     setModalStep("result")
     
-    // Refresh history from database after feedback submission
-    if (assignedNumber) {
-      console.log("🔄 Refreshing history from database after feedback submission")
-      fetchMatches() // This will reload all matches from database
+    // Incrementally update history when feedback is submitted
+    if (assignedNumber && matchResult) {
+      // Add current match to history immediately
+      const currentMatch = {
+        with: matchResult,
+        type: "مباراة",
+        reason: matchReason,
+        round: currentRound,
+        table_number: tableNumber,
+        score: compatibilityScore || 0,
+        is_repeat_match: isRepeatMatch
+      }
+      
+      setHistoryMatches(prev => {
+        // Check if this match already exists in history
+        const exists = prev.some(m => m.with === currentMatch.with && m.round === currentMatch.round)
+        if (!exists) {
+          return [...prev, currentMatch]
+        }
+        return prev
+      })
     }
   }
 
@@ -1280,18 +1291,10 @@ export default function WelcomePage() {
 
 
 
-  // Load history from database when component mounts and when assignedNumber is available
-  useEffect(() => {
-    if (assignedNumber) {
-      console.log("🔄 Loading history from database for participant:", assignedNumber)
-      fetchMatches() // This will load all matches and populate history
-    }
-  }, [assignedNumber])
-
   useEffect(() => {
     if (modalStep === "result" && assignedNumber) {
-      // Refresh history when showing results
-      fetchMatches()
+      // History is now handled incrementally, no need to fetch all at once
+      // The history is updated when feedback is submitted and when matches are fetched
     }
   }, [modalStep, assignedNumber]);
 

@@ -4,7 +4,6 @@ interface CircularProgressBarProps {
   progress: number;
   size?: number;
   strokeWidth?: number;
-  color?: string;
   dark?: boolean;
 }
 
@@ -17,6 +16,7 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
   const [animatedProgress, setAnimatedProgress] = useState(0);
 
   useEffect(() => {
+    // Animate progress on change
     const animation = requestAnimationFrame(() => setAnimatedProgress(progress));
     return () => cancelAnimationFrame(animation);
   }, [progress]);
@@ -33,18 +33,28 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
       : 'text-red-400';
 
   const trackColor = dark ? 'stroke-slate-700' : 'stroke-gray-200';
-  const progressColor =
-    progress >= 80
-      ? 'stroke-green-500'
-      : progress >= 60
-      ? 'stroke-yellow-500'
-      : 'stroke-red-500';
+  
+  const gradientId = progress >= 80 ? 'green-gradient' : progress >= 60 ? 'yellow-gradient' : 'red-gradient';
 
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+    <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 transform">
+        <defs>
+          <linearGradient id="green-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#10b981" />
+            <stop offset="100%" stopColor="#6ee7b7" />
+          </linearGradient>
+          <linearGradient id="yellow-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#f59e0b" />
+            <stop offset="100%" stopColor="#facc15" />
+          </linearGradient>
+          <linearGradient id="red-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ef4444" />
+            <stop offset="100%" stopColor="#f87171" />
+          </linearGradient>
+        </defs>
         <circle
-          className={`${trackColor} transition-all duration-300`}
+          className={trackColor}
           strokeWidth={strokeWidth}
           stroke="currentColor"
           fill="transparent"
@@ -53,25 +63,27 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
           cy={size / 2}
         />
         <circle
-          className={`${progressColor} transition-all duration-1000 ease-out`}
+          stroke={`url(#${gradientId})`}
+          className="transition-all duration-1000 ease-out"
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          stroke="currentColor"
           fill="transparent"
           r={radius}
           cx={size / 2}
           cy={size / 2}
         />
       </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={`text-4xl font-bold ${scoreColor} transition-colors duration-300`}>
-          {Math.round(animatedProgress)}%
-        </span>
-        <span className={`text-sm font-medium ${dark ? 'text-slate-400' : 'text-gray-500'}`}>
-          التوافق
-        </span>
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="text-center">
+          <span className={`text-4xl font-bold ${scoreColor} transition-colors duration-300`}>
+            {Math.round(animatedProgress)}%
+          </span>
+          <span className={`block text-sm font-medium ${dark ? 'text-slate-400' : 'text-gray-500'}`}>
+            التوافق
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -3811,12 +3811,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                       <div className="flex items-center gap-1">
                         <span className={`font-bold text-sm ${
-                          (m.with.includes("،") ? m.score * 10 : m.score) >= 80 ? "text-green-500" :
-                          (m.with.includes("،") ? m.score * 10 : m.score) >= 60 ? "text-yellow-500" :
-                          (m.with.includes("،") ? m.score * 10 : m.score) >= 40 ? "text-orange-500" :
+                          (typeof m.with === 'string' && m.with.includes("،") ? m.score * 10 : m.score) >= 80 ? "text-green-500" :
+                          (typeof m.with === 'string' && m.with.includes("،") ? m.score * 10 : m.score) >= 60 ? "text-yellow-500" :
+                          (typeof m.with === 'string' && m.with.includes("،") ? m.score * 10 : m.score) >= 40 ? "text-orange-500" :
                           "text-red-500"
                         }`}>
-                          {m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
+                          {typeof m.with === 'string' && m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
                         </span>
                       </div>
                     </div>

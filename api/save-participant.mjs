@@ -137,6 +137,26 @@ export default async (req, res) => {
       if (survey_data.communicationStyle) {
         updateFields.communication_style = survey_data.communicationStyle
       }
+      
+      // Also save lifestyle preferences to dedicated column
+      if (survey_data.lifestylePreferences) {
+        updateFields.lifestyle_preferences = survey_data.lifestylePreferences
+      }
+      
+      // Also save core values to dedicated column
+      if (survey_data.coreValues) {
+        updateFields.core_values = survey_data.coreValues
+      }
+      
+      // Also save vibe description to dedicated column
+      if (survey_data.vibeDescription) {
+        updateFields.vibe_description = survey_data.vibeDescription
+      }
+      
+      // Also save ideal person description to dedicated column
+      if (survey_data.idealPersonDescription) {
+        updateFields.ideal_person_description = survey_data.idealPersonDescription
+      }
     }
 
     // Allow saving summary alone or with form data

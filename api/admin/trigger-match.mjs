@@ -708,7 +708,7 @@ export default async function handler(req, res) {
         results: groupMatches,
         groups: groupMatches.map(match => ({
           group_number: match.group_number,
-          participants: [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number].filter(p => p !== null),
+          participants: [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number, match.participant_e_number, match.participant_f_number].filter(p => p !== null),
           score: match.compatibility_score,
           table_number: match.table_number
         }))

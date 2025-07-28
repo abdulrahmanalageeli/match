@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { round, match_type = "individual" } = req.body
+      const { round, match_type = "محايد" } = req.body
   const match_id = "00000000-0000-0000-0000-000000000000"
 
   console.log(`Generating matches for round ${round}, type: ${match_type}`);
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
     console.log(`Starting ${match_type} matching for ${allParticipants.length} participants`);
 
-    if (match_type === "group") {
+    if (match_type === "محايد" && round === 0) {
       // Group matching logic
       const result = await generateGroupMatches(allParticipants, round, match_id)
       return res.status(200).json(result)

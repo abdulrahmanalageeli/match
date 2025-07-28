@@ -8,7 +8,7 @@ const supabase = createClient(
 export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
-      const { assigned_number, round, match_type = "individual", action } = req.body
+      const { assigned_number, round, match_type = "محايد", action } = req.body
       const match_id = "00000000-0000-0000-0000-000000000000"
 
       // New endpoint for matrix: return all matches
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
         return await handleTimerAction(req, res, supabase, match_id)
       }
 
-      if (match_type === "group") {
+      if (match_type === "محايد" && round === 0) {
         // Get group matches from match_results table (round = 0 for group phase)
         const { data: groupMatches, error: groupError } = await supabase
           .from("match_results")
@@ -254,13 +254,14 @@ async function handleTimerAction(req, res, supabase, match_id) {
       const now = new Date().toISOString()
       const duration = req.body.duration || 300 // Default 5 minutes
 
-      if (match_type === "group") {
+      if (match_type === "محايد" && round === 0) {
         // Update group match timer - only if not already active
         const { data: existingGroup, error: checkError } = await supabase
-          .from("group_matches")
+          .from("match_results")
           .select("conversation_status, conversation_start_time")
           .eq("match_id", match_id)
-          .contains("participant_numbers", [assigned_number])
+          .eq("round", 0)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .single()
 
         if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found"
@@ -283,14 +284,15 @@ async function handleTimerAction(req, res, supabase, match_id) {
         }
 
         const { error } = await supabase
-          .from("group_matches")
+          .from("match_results")
           .update({
             conversation_start_time: now,
             conversation_duration: duration,
             conversation_status: 'active'
           })
           .eq("match_id", match_id)
-          .contains("participant_numbers", [assigned_number])
+          .eq("round", 0)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
         if (error) {
           console.error("Error starting group timer:", error)
@@ -357,13 +359,14 @@ async function handleTimerAction(req, res, supabase, match_id) {
         return res.status(400).json({ error: "Missing round parameter" })
       }
 
-      if (match_type === "group") {
+      if (match_type === "محايد" && round === 0) {
         // Get group match timer status
         const { data: groupMatch, error } = await supabase
-          .from("group_matches")
+          .from("match_results")
           .select("conversation_start_time, conversation_duration, conversation_status")
           .eq("match_id", match_id)
-          .contains("participant_numbers", [assigned_number])
+          .eq("round", 0)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .single()
 
         if (error) {
@@ -453,17 +456,18 @@ async function handleTimerAction(req, res, supabase, match_id) {
         return res.status(400).json({ error: "Missing round parameter" })
       }
 
-      if (match_type === "group") {
+      if (match_type === "محايد" && round === 0) {
         // Update group match timer status and clear timer data
         const { error } = await supabase
-          .from("group_matches")
+          .from("match_results")
           .update({ 
             conversation_status: 'finished',
             conversation_start_time: null,
             conversation_duration: null
           })
           .eq("match_id", match_id)
-          .contains("participant_numbers", [assigned_number])
+          .eq("round", 0)
+          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
         if (error) {
           console.error("Error finishing group timer:", error)

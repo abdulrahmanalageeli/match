@@ -942,7 +942,7 @@ export default function WelcomePage() {
       const myMatches = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber, match_type: "group" }),
+        body: JSON.stringify({ assigned_number: assignedNumber, match_type: "محايد", round: 0 }),
       })
       
       if (!myMatches.ok) {
@@ -1207,7 +1207,7 @@ export default function WelcomePage() {
           assigned_number: assignedNumber,
           round: round,
           duration: duration,
-          match_type: phase === "group_phase" ? "group" : "individual"
+          match_type: phase === "group_phase" ? "محايد" : "محايد"
         }),
       });
       
@@ -1243,7 +1243,7 @@ export default function WelcomePage() {
           action: "get-status",
           assigned_number: assignedNumber,
           round: round,
-          match_type: phase === "group_phase" ? "group" : "individual"
+          match_type: phase === "group_phase" ? "محايد" : "محايد"
         }),
       });
       
@@ -1271,7 +1271,7 @@ export default function WelcomePage() {
           action: "finish",
           assigned_number: assignedNumber,
           round: round,
-          match_type: phase === "group_phase" ? "group" : "individual"
+          match_type: phase === "group_phase" ? "محايد" : "محايد"
         }),
       });
       

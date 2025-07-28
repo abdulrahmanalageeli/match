@@ -9,10 +9,18 @@ export interface Participant {
     mbtiType?: string
     attachmentStyle?: string
     communicationStyle?: string
+    lifestylePreferences?: string
+    coreValues?: string
+    vibeDescription?: string
+    idealPersonDescription?: string
   }
   mbti_personality_type?: string
   attachment_style?: string
   communication_style?: string
+  lifestyle_preferences?: string
+  core_values?: string
+  vibe_description?: string
+  ideal_person_description?: string
   summary?: string
   secure_token: string
   match_id: string
@@ -25,15 +33,45 @@ export interface MatchResult {
   id: string
   participant_a_number: number
   participant_b_number: number
+  participant_c_number?: number
+  participant_d_number?: number
+  participant_e_number?: number
+  participant_f_number?: number
   compatibility_score: number
   reason: string
   match_id: string
   round: number
   table_number?: number
   match_type?: string
+  group_number?: number
   conversation_start_time?: string
   conversation_duration?: number
   conversation_status?: 'pending' | 'active' | 'finished'
+  is_repeat_match?: boolean
+  
+  // Personality data for participants A and B
+  participant_a_mbti_type?: string
+  participant_b_mbti_type?: string
+  participant_a_attachment_style?: string
+  participant_b_attachment_style?: string
+  participant_a_communication_style?: string
+  participant_b_communication_style?: string
+  participant_a_lifestyle_preferences?: string
+  participant_b_lifestyle_preferences?: string
+  participant_a_core_values?: string
+  participant_b_core_values?: string
+  participant_a_vibe_description?: string
+  participant_b_vibe_description?: string
+  participant_a_ideal_person_description?: string
+  participant_b_ideal_person_description?: string
+  
+  // Granular compatibility scores
+  mbti_compatibility_score?: number
+  attachment_compatibility_score?: number
+  communication_compatibility_score?: number
+  lifestyle_compatibility_score?: number
+  core_values_compatibility_score?: number
+  vibe_compatibility_score?: number
 }
 
 export interface GroupMatch {

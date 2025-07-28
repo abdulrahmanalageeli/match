@@ -314,7 +314,7 @@ export default async function handler(req, res) {
             if (previousRound > 0) {
               const { data: roundCompleted, error: roundError } = await supabase
                 .from("match_results")
-                .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
+                .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number, participant_e_number, participant_f_number")
                 .eq("match_id", STATIC_MATCH_ID)
                 .eq("round", previousRound)
               
@@ -327,6 +327,8 @@ export default async function handler(req, res) {
                   if (match.participant_b_number > 0 && match.participant_b_number !== 9999) roundParticipants.add(match.participant_b_number)
                   if (match.participant_c_number > 0 && match.participant_c_number !== 9999) roundParticipants.add(match.participant_c_number)
                   if (match.participant_d_number > 0 && match.participant_d_number !== 9999) roundParticipants.add(match.participant_d_number)
+                  if (match.participant_e_number > 0 && match.participant_e_number !== 9999) roundParticipants.add(match.participant_e_number)
+                  if (match.participant_f_number > 0 && match.participant_f_number !== 9999) roundParticipants.add(match.participant_f_number)
                 })
                 waitingCount = roundParticipants.size
               }
@@ -335,7 +337,7 @@ export default async function handler(req, res) {
             // Count participants who completed all rounds
             const { data: allRoundsCompleted, error: allRoundsError } = await supabase
               .from("match_results")
-              .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
+              .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number, participant_e_number, participant_f_number")
               .eq("match_id", STATIC_MATCH_ID)
               .in("round", [1, 2, 3, 4])
             
@@ -348,6 +350,8 @@ export default async function handler(req, res) {
                 if (match.participant_b_number > 0 && match.participant_b_number !== 9999) allParticipants.add(match.participant_b_number)
                 if (match.participant_c_number > 0 && match.participant_c_number !== 9999) allParticipants.add(match.participant_c_number)
                 if (match.participant_d_number > 0 && match.participant_d_number !== 9999) allParticipants.add(match.participant_d_number)
+                if (match.participant_e_number > 0 && match.participant_e_number !== 9999) allParticipants.add(match.participant_e_number)
+                if (match.participant_f_number > 0 && match.participant_f_number !== 9999) allParticipants.add(match.participant_f_number)
               })
               waitingCount = allParticipants.size
             }
@@ -357,7 +361,7 @@ export default async function handler(req, res) {
           if (currentPhase.startsWith("round_")) {
             const { data: currentRoundMatches, error: currentRoundError } = await supabase
               .from("match_results")
-              .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number")
+              .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number, participant_e_number, participant_f_number")
               .eq("match_id", STATIC_MATCH_ID)
               .eq("round", currentRound)
             
@@ -370,6 +374,8 @@ export default async function handler(req, res) {
                 if (match.participant_b_number > 0 && match.participant_b_number !== 9999) currentParticipants.add(match.participant_b_number)
                 if (match.participant_c_number > 0 && match.participant_c_number !== 9999) currentParticipants.add(match.participant_c_number)
                 if (match.participant_d_number > 0 && match.participant_d_number !== 9999) currentParticipants.add(match.participant_d_number)
+                if (match.participant_e_number > 0 && match.participant_e_number !== 9999) currentParticipants.add(match.participant_e_number)
+                if (match.participant_f_number > 0 && match.participant_f_number !== 9999) currentParticipants.add(match.participant_f_number)
               })
               currentRoundParticipants = currentParticipants.size
             }

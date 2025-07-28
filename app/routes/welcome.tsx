@@ -239,14 +239,19 @@ export default function WelcomePage() {
 
   // Helper function to handle history icon interactions
   const handleHistoryIconClick = (event: React.MouseEvent) => {
-    if (historyMatches.length === 0) return;
-    
-    const rect = event.currentTarget.getBoundingClientRect();
-    setHistoryBoxPosition({
-      x: rect.right + 8, // Position to the right of the icon
-      y: rect.bottom + 8  // Position below the icon
-    });
-    setShowHistoryBox(!showHistoryBox); // Toggle visibility
+    try {
+      if (historyMatches.length === 0) return;
+      
+      const rect = event.currentTarget.getBoundingClientRect();
+      setHistoryBoxPosition({
+        x: rect.right + 8, // Position to the right of the icon
+        y: rect.bottom + 8  // Position below the icon
+      });
+      setShowHistoryBox(!showHistoryBox); // Toggle visibility
+    } catch (error) {
+      console.error("Error handling history icon click:", error)
+      setShowHistoryBox(false)
+    }
   };
 
   // Drag functionality for history modal
@@ -905,10 +910,13 @@ export default function WelcomePage() {
       }
       
       const data = await res.json()
+      console.log("API response data:", data)
       const matches = data.matches || []
+      console.log("Matches array:", matches)
       
       // Find current round match
       const currentRoundMatch = matches.find((m: MatchResultEntry) => m.round === round)
+      console.log("Current round match:", currentRoundMatch)
       
       if (currentRoundMatch) {
         setMatchResult(currentRoundMatch.with)
@@ -1052,12 +1060,18 @@ export default function WelcomePage() {
       }
       
       setHistoryMatches(prev => {
-        // Check if this match already exists in history
-        const exists = prev.some(m => m.with === currentMatch.with && m.round === currentMatch.round)
-        if (!exists) {
-          return [...prev, currentMatch]
+        try {
+          // Check if this match already exists in history
+          const exists = prev.some(m => m.with === currentMatch.with && m.round === currentMatch.round)
+          if (!exists) {
+            console.log("Adding match to history:", currentMatch)
+            return [...prev, currentMatch]
+          }
+          return prev
+        } catch (error) {
+          console.error("Error updating history matches:", error)
+          return prev
         }
-        return prev
       })
     }
   }
@@ -3711,8 +3725,14 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                     key={i} 
                     className="py-4 flex flex-col gap-1 cursor-pointer hover:bg-white/5 rounded-lg px-2 transition-all duration-200"
                     onClick={() => {
-                      setSelectedHistoryItem(m)
-                      setShowHistoryDetail(true)
+                      try {
+                        setSelectedHistoryItem(m)
+                        setShowHistoryDetail(true)
+                      } catch (error) {
+                        console.error("Error opening history detail:", error)
+                        setShowHistoryDetail(false)
+                        setSelectedHistoryItem(null)
+                      }
                     }}
                   >
                     <div className="flex items-center gap-2">
@@ -3725,10 +3745,10 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                         </span>
                       )}
                       <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                        {m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
+                        {m.with && typeof m.with === 'string' && m.with.includes("،") ? `${Math.round((m.score || 0) * 10)}%` : `${m.score || 0}%`}
                       </span>
                     </div>
-                    <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason}</div>
+                    <div className={`text-sm italic ${dark ? "text-slate-300" : "text-gray-600"}`}>{m.reason || "لا يوجد سبب محدد"}</div>
                   </div>
                 ))
               )}
@@ -3790,13 +3810,20 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                           : "bg-gray-100/70 text-gray-800 hover:bg-gray-100 border border-gray-200/50"
                       }`}
                       onClick={() => {
-                        setSelectedHistoryItem(m);
-                        setShowHistoryDetail(true);
-                        setShowHistoryBox(false);
+                        try {
+                          setSelectedHistoryItem(m);
+                          setShowHistoryDetail(true);
+                          setShowHistoryBox(false);
+                        } catch (error) {
+                          console.error("Error opening history detail from box:", error)
+                          setShowHistoryDetail(false)
+                          setSelectedHistoryItem(null)
+                          setShowHistoryBox(false)
+                        }
                       }}
                     >
                       <div className="flex items-center gap-2">
-                        <span className="font-bold text-lg">{m.with === "المنظم" ? "المنظم" : `#${m.with}`}</span>
+                        <span className="font-bold text-lg">{m.with === "المنظم" ? "المنظم" : `#${m.with || "?"}`}</span>
                         <span className={`text-xs px-2 py-1 rounded-full ${
                           dark 
                             ? "bg-slate-800/50 text-slate-300" 
@@ -3816,12 +3843,12 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                       </div>
                       <div className="flex items-center gap-1">
                         <span className={`font-bold text-sm ${
-                          (m.with.includes("،") ? m.score * 10 : m.score) >= 80 ? "text-green-500" :
-                          (m.with.includes("،") ? m.score * 10 : m.score) >= 60 ? "text-yellow-500" :
-                          (m.with.includes("،") ? m.score * 10 : m.score) >= 40 ? "text-orange-500" :
+                          (m.with && typeof m.with === 'string' && m.with.includes("،") ? (m.score || 0) * 10 : (m.score || 0)) >= 80 ? "text-green-500" :
+                          (m.with && typeof m.with === 'string' && m.with.includes("،") ? (m.score || 0) * 10 : (m.score || 0)) >= 60 ? "text-yellow-500" :
+                          (m.with && typeof m.with === 'string' && m.with.includes("،") ? (m.score || 0) * 10 : (m.score || 0)) >= 40 ? "text-orange-500" :
                           "text-red-500"
                         }`}>
-                          {m.with.includes("،") ? `${Math.round(m.score * 10)}%` : `${m.score}%`}
+                          {m.with && typeof m.with === 'string' && m.with.includes("،") ? `${Math.round((m.score || 0) * 10)}%` : `${m.score || 0}%`}
                         </span>
                       </div>
                     </div>
@@ -3838,7 +3865,10 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
           <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto sleek-scrollbar`}>
             <div className="flex justify-between items-center mb-6">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
-              <Button variant="ghost" onClick={() => setShowHistoryDetail(false)}><X /></Button>
+              <Button variant="ghost" onClick={() => {
+                setShowHistoryDetail(false)
+                setSelectedHistoryItem(null)
+              }}><X /></Button>
             </div>
             
             <div className="space-y-6">
@@ -3863,7 +3893,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                   </div>
                 )}
                 <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
-                  {selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
+                  {selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? `${Math.round((selectedHistoryItem.score || 0) * 10)}%` : `${selectedHistoryItem.score || 0}%`}
                 </div>
                 <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
               </div>
@@ -3873,28 +3903,42 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <h5 className={`font-semibold mb-3 ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h5>
                 {(() => {
                   try {
-                    const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason || "")
+                    if (!selectedHistoryItem || !selectedHistoryItem.reason) {
+                      return (
+                        <div className={`text-center p-4 ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                          <p>معلومات التوافق غير متوفرة</p>
+                        </div>
+                      )
+                    }
+                    
+                    const formattedReason = formatCompatibilityReason(selectedHistoryItem.reason)
                     return (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 gap-2">
-                          {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
-                            <div 
-                              key={index}
-                              className={`p-2 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className={`text-xs font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                                  {component.name}
-                                </span>
-                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${component.color} ${component.bgColor}`}>
-                                  {component.strength}
-                                </span>
+                          {formattedReason.components && formattedReason.components.length > 0 ? (
+                            formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
+                              <div 
+                                key={index}
+                                className={`p-2 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                              >
+                                <div className="flex items-center justify-between mb-1">
+                                  <span className={`text-xs font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                    {component.name}
+                                  </span>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${component.color} ${component.bgColor}`}>
+                                    {component.strength}
+                                  </span>
+                                </div>
+                                <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                  {component.description}
+                                </p>
                               </div>
-                              <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                                {component.description}
-                              </p>
+                            ))
+                          ) : (
+                            <div className={`text-center p-4 ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                              <p>{formattedReason.originalReason}</p>
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     )
@@ -3929,18 +3973,18 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
                 <div className="flex justify-between items-center mb-2">
                   <h5 className={`font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
                   <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
-                    {selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? `${Math.round(selectedHistoryItem.score * 10)}%` : `${selectedHistoryItem.score}%`}
+                    {selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? `${Math.round((selectedHistoryItem.score || 0) * 10)}%` : `${selectedHistoryItem.score || 0}%`}
                   </span>
                 </div>
                 <div className={`w-full h-3 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                   <div 
                     className={`h-full rounded-full transition-all duration-500 ${
-                      (selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 80 ? "bg-green-500" :
-                      (selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 60 ? "bg-yellow-500" :
-                      (selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score) >= 40 ? "bg-orange-500" :
+                      (selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)) >= 80 ? "bg-green-500" :
+                      (selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)) >= 60 ? "bg-yellow-500" :
+                      (selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)) >= 40 ? "bg-orange-500" :
                       "bg-red-500"
                     }`}
-                    style={{ width: `${selectedHistoryItem.with && selectedHistoryItem.with.includes("،") ? selectedHistoryItem.score * 10 : selectedHistoryItem.score}%` }}
+                    style={{ width: `${selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs mt-1">

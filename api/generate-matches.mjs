@@ -226,8 +226,8 @@ async function generateGlobalIndividualMatches(participants, match_id) {
   // Initialize participant round count
   participants.forEach(p => participantRoundCount.set(p.assigned_number, 0))
 
-  // Generate matches for all 4 rounds
-  for (let round = 1; round <= 4; round++) {
+  // Generate matches for 2 rounds (reduced from 4)
+  for (let round = 1; round <= 2; round++) {
     console.log(`\n=== Generating matches for round ${round} ===`);
     
     const roundMatches = []
@@ -256,8 +256,8 @@ async function generateGlobalIndividualMatches(participants, match_id) {
       if (!usedPairs.has(pairKey) && 
           !roundUsedParticipants.has(pair.participantA) && 
           !roundUsedParticipants.has(pair.participantB) &&
-          participantRoundCount.get(pair.participantA) < 4 &&
-          participantRoundCount.get(pair.participantB) < 4) {
+          participantRoundCount.get(pair.participantA) < 2 &&
+          participantRoundCount.get(pair.participantB) < 2) {
         
         console.log(`Round ${round}: Assigning ${pair.participantA}-${pair.participantB} (score: ${pair.score})`);
         
@@ -287,7 +287,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
     // Handle odd participants for this round
     const unusedInRound = participants
       .map(p => p.assigned_number)
-      .filter(num => !roundUsedParticipants.has(num) && participantRoundCount.get(num) < 4)
+      .filter(num => !roundUsedParticipants.has(num) && participantRoundCount.get(num) < 2)
 
     console.log(`Round ${round} unused participants:`, unusedInRound);
     

@@ -441,7 +441,7 @@ export default async function handler(req, res) {
         
         const phaseOrder = [
           "registration", "form", "waiting", "round_1", "waiting_2", 
-          "round_2", "waiting_3", "round_3", "waiting_4", "round_4", "group_phase"
+          "round_2", /* "waiting_3", "round_3", "waiting_4", "round_4", */ "group_phase"
         ]
         
         const currentIndex = phaseOrder.indexOf(currentPhase)

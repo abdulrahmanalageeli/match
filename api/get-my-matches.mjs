@@ -252,7 +252,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
       }
 
       const now = new Date().toISOString()
-      const duration = req.body.duration || 300 // Default 5 minutes
+      const duration = req.body.duration || 1800 // Default 30 minutes
 
       if (match_type === "محايد" && round === 0) {
         // Update group match timer - only if not already active

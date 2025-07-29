@@ -154,7 +154,7 @@ export default function WelcomePage() {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
   const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
-  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | null>(null)
+  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | /* "waiting_3" | "round_3" | "waiting_4" | "round_4" | */ "group_phase" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [isScoreRevealed, setIsScoreRevealed] = useState(false)
@@ -560,7 +560,7 @@ export default function WelcomePage() {
         // Reset conversation state if emergency pause is active
         if (data.emergency_paused) {
           setConversationStarted(false);
-          setConversationTimer(300);
+          setConversationTimer(1800);
           setModalStep(null);
           setTimerEnded(false); // Reset timer ended flag during emergency pause
         }
@@ -608,7 +608,7 @@ export default function WelcomePage() {
               setStep(4);
               
               // Reset all states for clean transition
-              setConversationTimer(300);
+              setConversationTimer(1800);
               setConversationStarted(false);
               setModalStep(null);
               setIsScoreRevealed(false);
@@ -660,7 +660,7 @@ export default function WelcomePage() {
             if (lastPhaseRef.current !== "group_phase") {
               console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
             setStep(7);
-            setConversationTimer(300);
+            setConversationTimer(1800);
             setConversationStarted(false);
             setModalStep(null);
             setIsScoreRevealed(false);
@@ -1209,7 +1209,7 @@ export default function WelcomePage() {
   }
 
   // Database timer utility functions
-  const startDatabaseTimer = async (round: number, duration: number = 300) => {
+  const startDatabaseTimer = async (round: number, duration: number = 1800) => {
     if (!assignedNumber) return false;
     
     try {
@@ -1415,7 +1415,7 @@ export default function WelcomePage() {
             // No timer active, reset to default state
             if (conversationStarted || timerEnded) {
               console.log("🔄 No timer active in database, resetting to default");
-              setConversationTimer(300);
+              setConversationTimer(1800);
               setConversationStarted(false);
               setTimerEnded(false);
               setPartnerStartedTimer(false);
@@ -1475,7 +1475,7 @@ export default function WelcomePage() {
     
     const startTimer = async () => {
       try {
-        const result = await startDatabaseTimer(currentRound, 300); // Always use 300 seconds
+        const result = await startDatabaseTimer(currentRound, 1800); // Always use 1800 seconds (30 minutes)
         if (result) {
           console.log("🚀 Database timer started successfully");
         } else {
@@ -1492,7 +1492,7 @@ export default function WelcomePage() {
   // Reset timer state when round changes
   useEffect(() => {
     if (assignedNumber && currentRound) {
-      setConversationTimer(300);
+      setConversationTimer(1800);
       setConversationStarted(false);
       setTimerEnded(false);
       setPartnerStartedTimer(false);
@@ -1943,7 +1943,7 @@ export default function WelcomePage() {
     )
   }
   
-if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "round_3" || phase === "round_4" || phase === "group_phase") && step === 0) {
+    if (!isResolving && (phase === "round_1" || phase === "round_2" || /* phase === "round_3" || phase === "round_4" || */ phase === "group_phase") && step === 0) {
   return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
@@ -2171,11 +2171,11 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               else if (phase === "round_1") timelineStep = 2; // Round 1
               else if (phase === "waiting_2") timelineStep = 2; // Round 1 (waiting for round 2)
               else if (phase === "round_2") timelineStep = 3; // Round 2
-              else if (phase === "waiting_3") timelineStep = 3; // Round 2 (waiting for round 3)
-              else if (phase === "round_3") timelineStep = 4; // Round 3
-              else if (phase === "waiting_4") timelineStep = 4; // Round 3 (waiting for round 4)
-              else if (phase === "round_4") timelineStep = 5; // Round 4
-              else if (phase === "group_phase") timelineStep = 6; // Groups (leftmost)
+              // else if (phase === "waiting_3") timelineStep = 3; // Round 2 (waiting for round 3)
+              // else if (phase === "round_3") timelineStep = 4; // Round 3
+              // else if (phase === "waiting_4") timelineStep = 4; // Round 3 (waiting for round 4)
+              // else if (phase === "round_4") timelineStep = 5; // Round 4
+              else if (phase === "group_phase") timelineStep = 4; // Groups (adjusted from 6 to 4)
               else {
                 // Fallback to step-based calculation if phase is not set
                 if (step === 0) timelineStep = 0; // Welcome screen -> Form
@@ -2192,7 +2192,7 @@ if (!isResolving && (phase === "round_1" || phase === "round_2" || phase === "ro
               console.log(`Timeline Debug: phase=${phase}, currentRound=${currentRound}, step=${step}, timelineStep=${timelineStep}`);
               return timelineStep;
             })()} 
-            totalSteps={7} 
+                            totalSteps={5} 
             dark={dark} 
             formCompleted={step >= 3}
             currentRound={currentRound}

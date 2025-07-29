@@ -89,7 +89,7 @@ export interface GroupMatch {
 
 export interface EventState {
   match_id: string
-  phase: 'registration' | 'form' | 'waiting' | 'round_1' | 'waiting_2' | 'round_2' | 'waiting_3' | 'round_3' | 'waiting_4' | 'round_4' | 'group_phase'
+  phase: 'registration' | 'form' | 'waiting' | 'round_1' | 'waiting_2' | 'round_2' | /* 'waiting_3' | 'round_3' | 'waiting_4' | 'round_4' | */ 'group_phase'
   announcement?: string
   announcement_type?: 'info' | 'warning' | 'error' | 'success'
   announcement_time?: string
@@ -161,7 +161,7 @@ export interface GroupMatchEntry {
   score: number
 }
 
-export type Phase = 'registration' | 'form' | 'waiting' | 'round_1' | 'waiting_2' | 'round_2' | 'waiting_3' | 'round_3' | 'waiting_4' | 'round_4' | 'group_phase'
+export type Phase = 'registration' | 'form' | 'waiting' | 'round_1' | 'waiting_2' | 'round_2' | /* 'waiting_3' | 'round_3' | 'waiting_4' | 'round_4' | */ 'group_phase'
 
 export interface PhaseConfig {
   label: string

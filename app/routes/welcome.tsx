@@ -560,7 +560,7 @@ export default function WelcomePage() {
         })
         setEmergencyPaused(data.emergency_paused || false)
         
-        // Handle global timer state
+        // Handle global timer state with improved synchronization
         if (data.global_timer_active && data.global_timer_start_time) {
           const startTime = new Date(data.global_timer_start_time).getTime()
           const now = new Date().getTime()
@@ -573,6 +573,7 @@ export default function WelcomePage() {
               setGlobalTimerActive(true)
               setConversationStarted(true)
               setTimerEnded(false)
+              setModalStep(null) // Clear any existing modal
             }
             setGlobalTimerStartTime(data.global_timer_start_time)
             setGlobalTimerDuration(data.global_timer_duration || 1800)
@@ -791,10 +792,10 @@ export default function WelcomePage() {
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
       }
-    }, 2000) // every 2 seconds for better responsiveness to admin changes
+    }, globalTimerActive ? 1000 : 2000) // More frequent polling when global timer is active
   
     return () => clearInterval(interval)
-  }, [step, currentRound, assignedNumber, isResolving])
+  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
     
   const next = () => setStep((s) => Math.min(s + 1, 6))
   const restart = () => {
@@ -1361,9 +1362,9 @@ export default function WelcomePage() {
     }
   }, [token])
 
-  // Unified timer management system
+  // Unified timer management system (disabled when global timer is active)
   useEffect(() => {
-    if (!assignedNumber || !currentRound || emergencyPaused) return;
+    if (!assignedNumber || !currentRound || emergencyPaused || globalTimerActive) return;
 
     let syncInterval: NodeJS.Timeout;
     let localInterval: NodeJS.Timeout;
@@ -1503,9 +1504,9 @@ export default function WelcomePage() {
     };
   }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused, lastTimerStatus, phase]);
 
-  // Start database timer when conversation starts
+  // Start database timer when conversation starts (disabled when global timer is active)
   useEffect(() => {
-    if (!assignedNumber || !currentRound || !conversationStarted) return;
+    if (!assignedNumber || !currentRound || !conversationStarted || globalTimerActive) return;
     
     const startTimer = async () => {
       try {
@@ -1534,6 +1535,28 @@ export default function WelcomePage() {
       setLastTimerStatus(null); // Reset status tracking for new round
     }
   }, [currentRound, assignedNumber]);
+
+  // Global timer local countdown effect
+  useEffect(() => {
+    if (!globalTimerActive || !globalTimerStartTime || conversationTimer <= 0) return;
+
+    const countdownInterval = setInterval(() => {
+      const startTime = new Date(globalTimerStartTime).getTime();
+      const now = new Date().getTime();
+      const elapsed = Math.floor((now - startTime) / 1000);
+      const remaining = Math.max(0, globalTimerDuration - elapsed);
+
+      if (remaining > 0) {
+        setConversationTimer(remaining);
+      } else {
+        // Timer expired locally, but let the polling handle the state change
+        setConversationTimer(0);
+        clearInterval(countdownInterval);
+      }
+    }, 1000);
+
+    return () => clearInterval(countdownInterval);
+  }, [globalTimerActive, globalTimerStartTime, globalTimerDuration]);
 
   // Token validation loading UI
   if (token && isResolving) {

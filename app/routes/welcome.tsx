@@ -159,7 +159,10 @@ export default function WelcomePage() {
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [isScoreRevealed, setIsScoreRevealed] = useState(false)
   const [conversationStarted, setConversationStarted] = useState(false)
-  const [conversationTimer, setConversationTimer] = useState(300) // 5 minutes
+  const [conversationTimer, setConversationTimer] = useState(1800) // 30 minutes
+  const [globalTimerActive, setGlobalTimerActive] = useState(false)
+  const [globalTimerStartTime, setGlobalTimerStartTime] = useState<string | null>(null)
+  const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
   const [feedbackAnswers, setFeedbackAnswers] = useState({
     compatibilityRate: 50, // 0-100 scale
     conversationQuality: 3, // 1-5 scale
@@ -557,6 +560,46 @@ export default function WelcomePage() {
         })
         setEmergencyPaused(data.emergency_paused || false)
         
+        // Handle global timer state
+        if (data.global_timer_active && data.global_timer_start_time) {
+          const startTime = new Date(data.global_timer_start_time).getTime()
+          const now = new Date().getTime()
+          const elapsed = Math.floor((now - startTime) / 1000)
+          const remaining = Math.max(0, (data.global_timer_duration || 1800) - elapsed)
+          
+          if (remaining > 0) {
+            if (!globalTimerActive) {
+              console.log("🚀 Global timer detected, starting conversation")
+              setGlobalTimerActive(true)
+              setConversationStarted(true)
+              setTimerEnded(false)
+            }
+            setGlobalTimerStartTime(data.global_timer_start_time)
+            setGlobalTimerDuration(data.global_timer_duration || 1800)
+            setConversationTimer(remaining)
+          } else {
+            // Timer expired
+            if (globalTimerActive) {
+              console.log("⏰ Global timer expired, showing feedback")
+              setGlobalTimerActive(false)
+              setConversationStarted(false)
+              setConversationTimer(0)
+              setTimerEnded(true)
+              setModalStep("feedback")
+            }
+          }
+        } else {
+          // No active global timer
+          if (globalTimerActive) {
+            console.log("🛑 Global timer ended by admin, showing feedback")
+            setGlobalTimerActive(false)
+            setConversationStarted(false)
+            setConversationTimer(0)
+            setTimerEnded(true)
+            setModalStep("feedback")
+          }
+        }
+        
         // Reset conversation state if emergency pause is active
         if (data.emergency_paused) {
           setConversationStarted(false);
@@ -794,16 +837,7 @@ export default function WelcomePage() {
     </Button>
   )
   
-  const startConversation = () => {
-    if (!conversationStarted) {
-      console.log("🚀 Conversation started, database timer will be started");
-      setConversationStarted(true);
-      setTimerEnded(false); // Reset manual end flag when starting conversation
-      setPartnerStartedTimer(false); // Reset partner notifications
-      setPartnerEndedTimer(false);
-      // Database timer will be started by the useEffect when conversationStarted changes
-    }
-  };
+  // startConversation function removed - now handled by global timer from admin
 
 
   
@@ -2697,8 +2731,17 @@ export default function WelcomePage() {
                     </div>
                   )}
 
-            <div className="flex justify-center">
-                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-slate-700/30 border-slate-600" 
+                      : "bg-blue-50 border-blue-200"
+                  }`}>
+                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                      انتظر بدء المنظم للمؤقت
+                    </p>
+                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                      سيبدأ المؤقت تلقائياً لجميع المشاركين في نفس الوقت
+                    </p>
                   </div>
                 </>
               ) : (
@@ -3158,8 +3201,17 @@ export default function WelcomePage() {
                         </button>
                   </div>
 
-                  <div className="flex justify-center">
-                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار الجماعي" />
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-slate-700/30 border-slate-600" 
+                      : "bg-blue-50 border-blue-200"
+                  }`}>
+                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                      انتظر بدء المنظم للمؤقت الجماعي
+                    </p>
+                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                      سيبدأ المؤقت تلقائياً لجميع المشاركين في نفس الوقت
+                    </p>
                   </div>
                 </>
               ) : (

@@ -54,6 +54,7 @@ export default function AdminPage() {
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
   const [globalTimerRemaining, setGlobalTimerRemaining] = useState(0)
   const [globalTimerRound, setGlobalTimerRound] = useState(1)
+  const [currentTime, setCurrentTime] = useState(new Date())
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -84,6 +85,18 @@ export default function AdminPage() {
       })
       setEmergencyPaused(stateData.emergency_paused)
       setCurrentRounds(stateData.total_rounds || 2)
+      
+      // Update global timer state
+      setGlobalTimerActive(stateData.global_timer_active || false)
+      setGlobalTimerRound(stateData.global_timer_round || 1)
+      
+      if (stateData.global_timer_active && stateData.global_timer_start_time) {
+        const startTime = new Date(stateData.global_timer_start_time).getTime()
+        const now = new Date().getTime()
+        const elapsed = Math.floor((now - startTime) / 1000)
+        const remaining = Math.max(0, (stateData.global_timer_duration || 1800) - elapsed)
+        setGlobalTimerRemaining(remaining)
+      }
       
       // Fetch participant stats
       const statsRes = await fetch("/api/admin", {
@@ -188,6 +201,26 @@ export default function AdminPage() {
       fetchParticipants()
     }
   }, [])
+
+  // Real-time clock update
+  useEffect(() => {
+    const clockInterval = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+
+    return () => clearInterval(clockInterval)
+  }, [])
+
+  // Update global timer countdown
+  useEffect(() => {
+    if (globalTimerActive && globalTimerRemaining > 0) {
+      const timerInterval = setInterval(() => {
+        setGlobalTimerRemaining(prev => Math.max(0, prev - 1))
+      }, 1000)
+
+      return () => clearInterval(timerInterval)
+    }
+  }, [globalTimerActive, globalTimerRemaining])
 
   const updatePhase = async (phase: string) => {
     console.log(`🔄 Admin: Updating phase to ${phase}`);
@@ -421,15 +454,39 @@ export default function AdminPage() {
               <p className="text-slate-400 text-sm">Participant Management System</p>
             </div>
           </div>
+
+          <div className="flex items-center gap-4">
+            {/* Current Time Display */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl">
+              <Clock className="w-4 h-4 text-blue-400" />
+              <div className="text-right">
+                <div className="text-white font-mono text-sm">
+                  {currentTime.toLocaleTimeString('ar-SA', { 
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  })}
+                </div>
+                <div className="text-slate-400 text-xs">
+                  {currentTime.toLocaleDateString('ar-SA', {
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short'
+                  })}
+                </div>
+              </div>
+            </div>
           
-          <div className="flex items-center gap-3">
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-all duration-300"
-            >
-              <LogOut className="w-4 h-4" />
-              Logout
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={logout}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 transition-all duration-300"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -718,7 +775,16 @@ export default function AdminPage() {
                     <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                       <span className="text-green-300 text-sm font-medium">
-                        Round {globalTimerRound} Active - {Math.floor(globalTimerRemaining / 60)}:{(globalTimerRemaining % 60).toString().padStart(2, '0')}
+                        Round {globalTimerRound} Active - {Math.floor(globalTimerRemaining / 60)}:{(globalTimerRemaining % 60).toString().padStart(2, '0')} remaining
+                      </span>
+                    </div>
+                  )}
+                  
+                  {!globalTimerActive && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-500/20 border border-slate-500/30 rounded-lg">
+                      <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                      <span className="text-slate-300 text-sm font-medium">
+                        No active timer
                       </span>
                     </div>
                   )}

@@ -472,7 +472,9 @@ export default async function handler(req, res) {
           current_round: currentRound
         })
       }
-    } else if (action === "start-global-timer") {
+    }
+
+    if (action === "start-global-timer") {
       try {
         const { match_id, round, duration = 1800 } = req.body
         const now = new Date().toISOString()
@@ -498,7 +500,9 @@ export default async function handler(req, res) {
         console.error("Error starting global timer:", err)
         return res.status(500).json({ error: "Failed to start global timer" })
       }
-    } else if (action === "end-global-timer") {
+    }
+
+    if (action === "end-global-timer") {
       try {
         const { match_id } = req.body
         

@@ -761,88 +761,213 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Timer Control Section */}
-          <div className="bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-blue-400" />
-                    <span className="font-medium text-blue-300">Global Timer Control</span>
-                  </div>
-                  
-                  {globalTimerActive && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-green-300 text-sm font-medium">
-                        Round {globalTimerRound} Active - {Math.floor(globalTimerRemaining / 60)}:{(globalTimerRemaining % 60).toString().padStart(2, '0')} remaining
-                      </span>
-                    </div>
-                  )}
-                  
-                  {!globalTimerActive && (
-                    <div className="flex items-center gap-2 px-3 py-1 bg-slate-500/20 border border-slate-500/30 rounded-lg">
-                      <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
-                      <span className="text-slate-300 text-sm font-medium">
-                        No active timer
-                      </span>
-                    </div>
-                  )}
-                </div>
+        </div>
+      </div>
 
+      {/* Control Panel */}
+      <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10">
+        <div className="max-w-6xl mx-auto p-6">
+          {/* Timer Control Section */}
+          <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  {!globalTimerActive ? (
-                    <>
-                      <button
-                        onClick={() => startGlobalTimer(1)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
-                      >
-                        <Clock className="w-4 h-4" />
-                        Start Round 1 Timer
-                      </button>
-                      <button
-                        onClick={() => startGlobalTimer(2)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
-                      >
-                        <Clock className="w-4 h-4" />
-                        Start Round 2 Timer
-                      </button>
-                      <button
-                        onClick={() => startGlobalTimer(0)}
-                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
-                      >
-                        <Clock className="w-4 h-4" />
-                        Start Group Timer
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      onClick={endGlobalTimer}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300"
-                    >
-                      <X className="w-4 h-4" />
-                      End Timer
-                    </button>
-                  )}
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <Clock className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-blue-300">Timer Control</h3>
+                    <p className="text-slate-400 text-sm">Manage session timers globally</p>
+                  </div>
                 </div>
+                
+                {globalTimerActive ? (
+                  <div className="flex items-center gap-3 px-4 py-2 bg-green-500/20 border border-green-500/30 rounded-xl">
+                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
+                    <div className="text-right">
+                      <div className="text-green-300 font-medium">
+                        {globalTimerRound === 0 ? 'Group Phase' : `Round ${globalTimerRound}`} Active
+                      </div>
+                      <div className="text-green-200 text-sm font-mono">
+                        {Math.floor(globalTimerRemaining / 60)}:{(globalTimerRemaining % 60).toString().padStart(2, '0')} remaining
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-2 bg-slate-500/20 border border-slate-500/30 rounded-xl">
+                    <div className="w-3 h-3 bg-slate-400 rounded-full"></div>
+                    <div className="text-slate-300 font-medium">
+                      No active timer
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                {!globalTimerActive ? (
+                  <>
+                    <button
+                      onClick={() => startGlobalTimer(1)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      <Clock className="w-4 h-4" />
+                      Round 1 (30min)
+                    </button>
+                    <button
+                      onClick={() => startGlobalTimer(2)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      <Clock className="w-4 h-4" />
+                      Round 2 (30min)
+                    </button>
+                    <button
+                      onClick={() => startGlobalTimer(0)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      <Users className="w-4 h-4" />
+                      Group (30min)
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={endGlobalTimer}
+                    className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-300 shadow-lg hover:shadow-xl"
+                  >
+                    <X className="w-4 h-4" />
+                    End Timer
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Round Control */}
-          <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">Round Configuration</h3>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-sm">Optimal:</span>
-                <span className={`font-bold ${currentRounds === optimalRounds ? 'text-green-400' : 'text-yellow-400'}`}>
-                  {optimalRounds} rounds
-                </span>
-                {currentRounds !== optimalRounds && (
-                  <span className="text-yellow-400 text-xs">(recommended)</span>
-                )}
+          {/* Action Controls */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Phase & Round Control */}
+            <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-purple-500/20 rounded-lg">
+                  <Settings className="w-5 h-5 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-purple-300">Phase Control</h3>
+                  <p className="text-slate-400 text-sm">Manage event phases</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${currentPhaseConfig.bg} border border-white/20 flex-1`}>
+                    <currentPhaseConfig.icon className={`w-4 h-4 ${currentPhaseConfig.color}`} />
+                    <span className={`font-medium ${currentPhaseConfig.color}`}>
+                      {currentPhaseConfig.label}
+                    </span>
+                  </div>
+                  
+                  <select
+                    value={safeCurrentPhase}
+                    onChange={(e) => updatePhase(e.target.value)}
+                    className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400/50 transition-all duration-300"
+                    style={{
+                      color: 'white',
+                      backgroundColor: 'rgba(15, 23, 42, 0.8)'
+                    }}
+                  >
+                    <option value="registration" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Registration</option>
+                    <option value="form" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Form</option>
+                    <option value="waiting" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting</option>
+                    <option value="round_1" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 1</option>
+                    <option value="waiting_2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Waiting 2</option>
+                    <option value="round_2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 2</option>
+                    <option value="group_phase" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Group Phase</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Total Rounds:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateRounds(Math.max(2, currentRounds - 1))}
+                      className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="px-3 py-1 bg-slate-700 rounded text-white font-medium min-w-[2rem] text-center">
+                      {currentRounds}
+                    </span>
+                    <button
+                      onClick={() => updateRounds(Math.min(6, currentRounds + 1))}
+                      className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <span className="text-slate-400 text-xs ml-2">
+                      (Optimal: {optimalRounds})
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-green-500/20 rounded-lg">
+                  <Activity className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-green-300">Quick Actions</h3>
+                  <p className="text-slate-400 text-sm">Common admin tasks</p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setManualNumber(null)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                  Refresh
+                </button>
+
+                <button
+                  onClick={openMatrix}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <Table2 className="w-4 h-4" />
+                  Matrix
+                </button>
+
+                <button
+                  onClick={() => setShowAnnouncementModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <Activity className="w-4 h-4" />
+                  Announce
+                </button>
+
+                <button
+                  onClick={toggleEmergencyPause}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm ${
+                    emergencyPaused
+                      ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+                      : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
+                  }`}
+                >
+                  <AlertCircle className="w-4 h-4" />
+                  {emergencyPaused ? "Resume" : "E-Pause"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Participants Section */}
+      <div className="relative z-10 flex-1 overflow-hidden">
+        <div className="max-w-6xl mx-auto p-6">
+          {/* Participants List */}
+          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">

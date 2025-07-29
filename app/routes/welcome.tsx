@@ -1526,9 +1526,9 @@ export default function WelcomePage() {
     startTimer();
   }, [conversationStarted, assignedNumber, currentRound]);
 
-  // Reset timer state when round changes
+  // Reset timer state when round changes (but don't interfere with global timer)
   useEffect(() => {
-    if (assignedNumber && currentRound) {
+    if (assignedNumber && currentRound && !globalTimerActive) {
       setConversationTimer(1800);
       setConversationStarted(false);
       setTimerEnded(false);
@@ -1536,7 +1536,17 @@ export default function WelcomePage() {
       setPartnerEndedTimer(false);
       setLastTimerStatus(null); // Reset status tracking for new round
     }
-  }, [currentRound, assignedNumber]);
+  }, [currentRound, assignedNumber, globalTimerActive]);
+
+  // Global timer activation effect
+  useEffect(() => {
+    if (globalTimerActive && globalTimerStartTime && globalTimerDuration) {
+      console.log("🚀 Participant: Activating global timer state")
+      setConversationStarted(true)
+      setTimerEnded(false)
+      setModalStep(null) // Clear any existing modal
+    }
+  }, [globalTimerActive, globalTimerStartTime, globalTimerDuration])
 
   // Global timer local countdown effect
   useEffect(() => {

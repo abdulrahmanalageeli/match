@@ -79,7 +79,7 @@ interface SurveyData {
 }
 
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
-  const stepLabels = ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
+  const stepLabels = ["المجموعات", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
   // Reverse for RTL
   const steps = Array.from({ length: totalSteps });
   return (
@@ -2161,8 +2161,8 @@ export default function WelcomePage() {
         {step >= 0 && (
           <SleekTimeline 
             currentStep={(() => {
-              // Timeline labels in RTL order: ["المجموعات", "الجولة ٤", "الجولة ٣", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"]
-              // RTL indices: 6=Groups, 5=Round4, 4=Round3, 3=Round2, 2=Round1, 1=Analysis, 0=Form
+              // Timeline labels in RTL order: ["المجموعات", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"]
+              // RTL indices: 4=Groups, 3=Round2, 2=Round1, 1=Analysis, 0=Form
               let timelineStep = 0;
               
               if (phase === "registration") timelineStep = 0; // Form (rightmost)
@@ -2184,8 +2184,7 @@ export default function WelcomePage() {
                 else if (step === 3) timelineStep = 1; // Analysis -> Analysis
                 else if (step === 4) timelineStep = 2 + (currentRound - 1); // Round X -> Round X
                 else if (step === 5) timelineStep = 2 + currentRound; // Waiting -> Next Round
-                else if (step === 6) timelineStep = 4; // Round 2 -> Round 2
-                else if (step === 7) timelineStep = 6; // Group phase -> Groups
+                else if (step === 7) timelineStep = 4; // Group phase -> Groups
                 else timelineStep = 0;
               }
               

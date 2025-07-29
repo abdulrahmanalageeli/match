@@ -51,6 +51,9 @@ export default function AdminPage() {
   const [participantStats, setParticipantStats] = useState<any>(null)
   const [currentRounds, setCurrentRounds] = useState(2)
   const [optimalRounds, setOptimalRounds] = useState(2)
+  const [globalTimerActive, setGlobalTimerActive] = useState(false)
+  const [globalTimerRemaining, setGlobalTimerRemaining] = useState(0)
+  const [globalTimerRound, setGlobalTimerRound] = useState(1)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -205,6 +208,46 @@ export default function AdminPage() {
       console.log(`✅ Admin: Successfully updated phase to ${phase}`);
       setCurrentPhase(phase)
       alert("✅ Phase updated to " + phase + "\n\n🚀 All players will instantly transition from ANY state they're in!\n⚡ Change visible within 2 seconds!")
+    }
+  }
+
+  const startGlobalTimer = async (round: number) => {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "start-global-timer",
+        match_id: "00000000-0000-0000-0000-000000000000",
+        round: round,
+        duration: 1800 // 30 minutes
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert("❌ Error starting timer: " + data.error)
+    } else {
+      setGlobalTimerActive(true)
+      setGlobalTimerRound(round)
+      alert(`✅ Global timer started for Round ${round}!\n⏰ 30 minutes timer is now active for all participants.`)
+    }
+  }
+
+  const endGlobalTimer = async () => {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "end-global-timer",
+        match_id: "00000000-0000-0000-0000-000000000000"
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      alert("❌ Error ending timer: " + data.error)
+    } else {
+      setGlobalTimerActive(false)
+      setGlobalTimerRemaining(0)
+      alert("✅ Global timer ended!\n⏹️ All participants will see feedback form.")
     }
   }
 
@@ -658,6 +701,65 @@ export default function AdminPage() {
                 <AlertCircle className="w-4 h-4" />
                 {emergencyPaused ? "Resume" : "Emergency Pause"}
               </button>
+            </div>
+          </div>
+
+          {/* Timer Control Section */}
+          <div className="bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">
+            <div className="max-w-4xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-blue-400" />
+                    <span className="font-medium text-blue-300">Global Timer Control</span>
+                  </div>
+                  
+                  {globalTimerActive && (
+                    <div className="flex items-center gap-2 px-3 py-1 bg-green-500/20 border border-green-500/30 rounded-lg">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span className="text-green-300 text-sm font-medium">
+                        Round {globalTimerRound} Active - {Math.floor(globalTimerRemaining / 60)}:{(globalTimerRemaining % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {!globalTimerActive ? (
+                    <>
+                      <button
+                        onClick={() => startGlobalTimer(1)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Start Round 1 Timer
+                      </button>
+                      <button
+                        onClick={() => startGlobalTimer(2)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Start Round 2 Timer
+                      </button>
+                      <button
+                        onClick={() => startGlobalTimer(0)}
+                        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
+                      >
+                        <Clock className="w-4 h-4" />
+                        Start Group Timer
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={endGlobalTimer}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300"
+                    >
+                      <X className="w-4 h-4" />
+                      End Timer
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

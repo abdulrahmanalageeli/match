@@ -373,7 +373,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
     matches: allMatches.length,
     participants: participants.length,
     rounds: 4,
-    analysis: `تم إنشاء ${allMatches.length} مباراة لجميع الجولات الأربع`
+            analysis: `تم إنشاء ${allMatches.length} مقابلة فردية لجميع الجولتين`
   }
 }
 

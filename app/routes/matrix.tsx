@@ -263,7 +263,7 @@ export default function MatrixPage() {
                                 <UserRound className="w-4 h-4 text-cyan-300" />
                                 <span>#{match.with} × #{match.partner}</span>
                               </div>
-                              <span className={`text-xs rounded px-2 py-0.5 ${match.type === 'مباراة' ? 'bg-cyan-700/30 text-cyan-200' : 'bg-pink-700/30 text-pink-200'}`}>{match.type}</span>
+                              <span className={`text-xs rounded px-2 py-0.5 ${match.type === 'مقابلة فردية' ? 'bg-cyan-700/30 text-cyan-200' : 'bg-pink-700/30 text-pink-200'}`}>{match.type}</span>
                             </div>
                             {/* Layer 2: Score with animated bar */}
                             <div className="flex flex-col items-center justify-center mb-2">

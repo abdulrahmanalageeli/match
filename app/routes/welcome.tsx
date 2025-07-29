@@ -1051,7 +1051,7 @@ export default function WelcomePage() {
       // Add current match to history immediately
       const currentMatch = {
         with: matchResult,
-        type: "مباراة",
+                      type: "مقابلة فردية",
         reason: matchReason,
         round: currentRound,
         table_number: tableNumber,
@@ -2768,25 +2768,17 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  <div className="flex justify-center">
-                    <FancyNextButton onClick={() => {
-                      console.log("🛑 Timer manually ended by user")
-                      setConversationTimer(0)
-                      setConversationStarted(false)
-                      setModalStep("feedback")
-                      setPartnerStartedTimer(false)
-                      setPartnerEndedTimer(false)
-                      setTimerEnded(true)
-                      if (assignedNumber && currentRound) {
-                        finishDatabaseTimer(currentRound).then((success) => {
-                          if (success) {
-                            console.log("⏭️ Conversation ended, database timer finished");
-                          } else {
-                            console.error("❌ Failed to finish database timer on end");
-                          }
-                        });
-                      }
-                    }} label="إنهاء الحوار" />
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-slate-700/30 border-slate-600" 
+                      : "bg-orange-50 border-orange-200"
+                  }`}>
+                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                      انتظر إنهاء المنظم للمؤقت
+                    </p>
+                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                      سينتهي المؤقت تلقائياً لجميع المشاركين في نفس الوقت
+                    </p>
                   </div>
                 </>
               )}
@@ -2968,9 +2960,18 @@ export default function WelcomePage() {
                   }`}>
                     توأم روحك في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
-                  // ... existing code ...
-                  <div className="flex justify-center">
-                    <FancyNextButton onClick={startConversation} label="ابدأ الحوار" />
+                  
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-slate-700/30 border-slate-600" 
+                      : "bg-blue-50 border-blue-200"
+                  }`}>
+                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                      انتظر بدء المنظم للمؤقت
+                    </p>
+                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                      سيبدأ المؤقت تلقائياً لجميع المشاركين في نفس الوقت
+                    </p>
                   </div>
                 </>
               ) : (
@@ -3001,25 +3002,17 @@ export default function WelcomePage() {
                       {formatTime(conversationTimer)}
                     </p>
                   </div>
-                  <div className="flex justify-center">
-                    <FancyNextButton onClick={() => {
-                      console.log("🛑 Timer manually ended by user")
-                      setConversationTimer(0)
-                      setConversationStarted(false)
-                      setModalStep("feedback")
-                      setPartnerStartedTimer(false)
-                      setPartnerEndedTimer(false)
-                      setTimerEnded(true)
-                      if (assignedNumber && currentRound) {
-                        finishDatabaseTimer(currentRound).then((success) => {
-                          if (success) {
-                            console.log("⏭️ Conversation ended, database timer finished");
-                          } else {
-                            console.error("❌ Failed to finish database timer on end");
-                          }
-                        });
-                      }
-                    }} label="إنهاء الحوار" />
+                  <div className={`text-center mb-6 p-4 rounded-xl border ${
+                    dark 
+                      ? "bg-slate-700/30 border-slate-600" 
+                      : "bg-orange-50 border-orange-200"
+                  }`}>
+                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                      انتظر إنهاء المنظم للمؤقت
+                    </p>
+                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                      سينتهي المؤقت تلقائياً لجميع المشاركين في نفس الوقت
+                    </p>
                   </div>
                 </>
               )}
@@ -3210,24 +3203,18 @@ export default function WelcomePage() {
                   </div>
 
                   <div className="flex justify-center">
-                    <FancyNextButton onClick={() => {
-                      console.log("🛑 Group conversation ended by user")
-                      setConversationTimer(0)
-                      setConversationStarted(false)
-                      setModalStep("feedback")
-                      setPartnerStartedTimer(false)
-                      setPartnerEndedTimer(false)
-                      setTimerEnded(true)
-                      if (assignedNumber && currentRound) {
-                        finishDatabaseTimer(currentRound).then((success) => { // Use actual currentRound for group phase
-                          if (success) {
-                            console.log("⏭️ Group conversation ended, database timer finished");
-                          } else {
-                            console.error("❌ Failed to finish database timer on end");
-                          }
-                        });
-                      }
-                    }} label="إنهاء الحوار الجماعي" />
+                    <div className={`text-center mb-6 p-4 rounded-xl border ${
+                      dark 
+                        ? "bg-slate-700/30 border-slate-600" 
+                        : "bg-orange-50 border-orange-200"
+                    }`}>
+                      <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                        انتظر إنهاء المنظم للمؤقت الجماعي
+                      </p>
+                      <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                        سينتهي المؤقت تلقائياً لجميع المشاركين في نفس الوقت
+                      </p>
+                    </div>
                   </div>
                 </>
               )}
@@ -3627,7 +3614,7 @@ export default function WelcomePage() {
                           <div className={`mt-4 p-4 rounded-xl border-2 ${dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100/50 border-amber-300/40"}`}>
                             <div className="flex items-center gap-2 mb-2">
                               <AlertTriangle className={`w-5 h-5 ${dark ? "text-amber-300" : "text-amber-600"}`} />
-                              <span className={`font-bold ${dark ? "text-amber-200" : "text-amber-700"}`}>تكرار المباراة</span>
+                              <span className={`font-bold ${dark ? "text-amber-200" : "text-amber-700"}`}>تكرار المقابلة</span>
                             </div>
                             <p className={`text-sm ${dark ? "text-amber-100" : "text-amber-800"}`}>
                               تم إعادة مباراتك مع شريك سابق لأن جميع المشاركين الآخرين كانوا مشغولين. يمكنك أخذ استراحة أو إعادة الجلوس مع نفس الشريك.
@@ -3887,7 +3874,7 @@ export default function WelcomePage() {
                   <div className={`mb-2 p-2 rounded-lg ${dark ? "bg-amber-500/20 border border-amber-400/40" : "bg-amber-100/50 border border-amber-300/40"}`}>
                     <div className="flex items-center justify-center gap-2">
                       <AlertTriangle className={`w-4 h-4 ${dark ? "text-amber-300" : "text-amber-600"}`} />
-                      <span className={`text-sm font-bold ${dark ? "text-amber-200" : "text-amber-700"}`}>تكرار المباراة</span>
+                      <span className={`text-sm font-bold ${dark ? "text-amber-200" : "text-amber-700"}`}>تكرار المقابلة</span>
                     </div>
                   </div>
                 )}
@@ -3961,7 +3948,7 @@ export default function WelcomePage() {
                   </p>
                 </div>
                 <div className={`p-4 rounded-xl border ${dark ? "bg-slate-700/30 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
-                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع المباراة</h5>
+                  <h5 className={`font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>نوع المقابلة</h5>
                   <p className={`text-lg font-bold ${dark ? "text-blue-300" : "text-blue-600"}`}>
                     {selectedHistoryItem.type || "غير محدد"}
                   </p>

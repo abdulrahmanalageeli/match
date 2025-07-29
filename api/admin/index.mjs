@@ -468,6 +468,57 @@ export default async function handler(req, res) {
           current_round: currentRound
         })
       }
+    } else if (action === "start-global-timer") {
+      try {
+        const { match_id, round, duration = 1800 } = req.body
+        const now = new Date().toISOString()
+        
+        // Update event state with global timer info
+        const { error } = await supabase
+          .from("event_state")
+          .update({
+            global_timer_active: true,
+            global_timer_start_time: now,
+            global_timer_duration: duration,
+            global_timer_round: round
+          })
+          .eq("match_id", match_id)
+        
+        if (error) {
+          console.error("Error starting global timer:", error)
+          return res.status(500).json({ error: "Failed to start global timer" })
+        }
+        
+        return res.status(200).json({ success: true, message: "Global timer started successfully" })
+      } catch (err) {
+        console.error("Error starting global timer:", err)
+        return res.status(500).json({ error: "Failed to start global timer" })
+      }
+    } else if (action === "end-global-timer") {
+      try {
+        const { match_id } = req.body
+        
+        // Update event state to end global timer
+        const { error } = await supabase
+          .from("event_state")
+          .update({
+            global_timer_active: false,
+            global_timer_start_time: null,
+            global_timer_duration: null,
+            global_timer_round: null
+          })
+          .eq("match_id", match_id)
+        
+        if (error) {
+          console.error("Error ending global timer:", error)
+          return res.status(500).json({ error: "Failed to end global timer" })
+        }
+        
+        return res.status(200).json({ success: true, message: "Global timer ended successfully" })
+      } catch (err) {
+        console.error("Error ending global timer:", err)
+        return res.status(500).json({ error: "Failed to end global timer" })
+      }
     }
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {

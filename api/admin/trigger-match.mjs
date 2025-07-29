@@ -944,7 +944,7 @@ export default async function handler(req, res) {
             participant_a_number: unmatchedParticipant,
             participant_b_number: 9999, // Organizer
             compatibility_score: 70,
-            reason: "مباراة مع المنظم لضمان مشاركة جميع الأطراف",
+            reason: "مقابلة مع المنظم لضمان مشاركة جميع الأطراف",
             match_id,
             round,
             is_repeat_match: false,

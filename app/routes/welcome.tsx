@@ -567,9 +567,11 @@ export default function WelcomePage() {
           const elapsed = Math.floor((now - startTime) / 1000)
           const remaining = Math.max(0, (data.global_timer_duration || 1800) - elapsed)
           
+          console.log(`🔄 Participant: Global timer data - active: ${data.global_timer_active}, remaining: ${remaining}s, round: ${data.global_timer_round}`)
+          
           if (remaining > 0) {
             if (!globalTimerActive) {
-              console.log("🚀 Global timer detected, starting conversation")
+              console.log("🚀 Participant: Global timer detected, starting conversation")
               setGlobalTimerActive(true)
               setConversationStarted(true)
               setTimerEnded(false)
@@ -581,7 +583,7 @@ export default function WelcomePage() {
           } else {
             // Timer expired
             if (globalTimerActive) {
-              console.log("⏰ Global timer expired, showing feedback")
+              console.log("⏰ Participant: Global timer expired, showing feedback")
               setGlobalTimerActive(false)
               setConversationStarted(false)
               setConversationTimer(0)
@@ -592,7 +594,7 @@ export default function WelcomePage() {
         } else {
           // No active global timer
           if (globalTimerActive) {
-            console.log("🛑 Global timer ended by admin, showing feedback")
+            console.log("🛑 Participant: Global timer ended by admin, showing feedback")
             setGlobalTimerActive(false)
             setConversationStarted(false)
             setConversationTimer(0)

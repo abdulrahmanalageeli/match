@@ -215,12 +215,19 @@ export default function AdminPage() {
   useEffect(() => {
     if (globalTimerActive && globalTimerRemaining > 0) {
       const timerInterval = setInterval(() => {
-        setGlobalTimerRemaining(prev => Math.max(0, prev - 1))
+        setGlobalTimerRemaining(prev => {
+          const newValue = Math.max(0, prev - 1)
+          if (newValue <= 0) {
+            // Timer expired, refresh to get latest state
+            fetchParticipants()
+          }
+          return newValue
+        })
       }, 1000)
 
       return () => clearInterval(timerInterval)
     }
-  }, [globalTimerActive, globalTimerRemaining])
+  }, [globalTimerActive]) // Remove globalTimerRemaining from dependencies
 
   const updatePhase = async (phase: string) => {
     console.log(`🔄 Admin: Updating phase to ${phase}`);
@@ -245,42 +252,69 @@ export default function AdminPage() {
   }
 
   const startGlobalTimer = async (round: number) => {
-    const res = await fetch("/api/admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "start-global-timer",
-        match_id: "00000000-0000-0000-0000-000000000000",
-        round: round,
-        duration: 1800 // 30 minutes
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      alert("❌ Error starting timer: " + data.error)
-    } else {
-      setGlobalTimerActive(true)
-      setGlobalTimerRound(round)
-      alert(`✅ Global timer started for Round ${round}!\n⏰ 30 minutes timer is now active for all participants.`)
+    console.log(`🚀 Admin: Starting global timer for round ${round}`)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "start-global-timer",
+          match_id: "00000000-0000-0000-0000-000000000000",
+          round: round,
+          duration: 1800 // 30 minutes
+        }),
+      })
+      const data = await res.json()
+      console.log("🔄 Start timer response:", data)
+      
+      if (!res.ok) {
+        console.error("❌ Error starting timer:", data.error)
+        alert("❌ Error starting timer: " + data.error)
+      } else {
+        console.log("✅ Timer started successfully")
+        setGlobalTimerActive(true)
+        setGlobalTimerRound(round)
+        setGlobalTimerRemaining(1800) // Set initial remaining time
+        alert(`✅ Global timer started for ${round === 0 ? 'Group Phase' : `Round ${round}`}!\n⏰ 30 minutes timer is now active for all participants.`)
+        
+        // Refresh to get updated state
+        setTimeout(() => fetchParticipants(), 500)
+      }
+    } catch (error) {
+      console.error("❌ Network error starting timer:", error)
+      alert("❌ Network error starting timer")
     }
   }
 
   const endGlobalTimer = async () => {
-    const res = await fetch("/api/admin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "end-global-timer",
-        match_id: "00000000-0000-0000-0000-000000000000"
-      }),
-    })
-    const data = await res.json()
-    if (!res.ok) {
-      alert("❌ Error ending timer: " + data.error)
-    } else {
-      setGlobalTimerActive(false)
-      setGlobalTimerRemaining(0)
-      alert("✅ Global timer ended!\n⏹️ All participants will see feedback form.")
+    console.log("🛑 Admin: Ending global timer")
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "end-global-timer",
+          match_id: "00000000-0000-0000-0000-000000000000"
+        }),
+      })
+      const data = await res.json()
+      console.log("🔄 End timer response:", data)
+      
+      if (!res.ok) {
+        console.error("❌ Error ending timer:", data.error)
+        alert("❌ Error ending timer: " + data.error)
+      } else {
+        console.log("✅ Timer ended successfully")
+        setGlobalTimerActive(false)
+        setGlobalTimerRemaining(0)
+        alert("✅ Global timer ended!\n⏹️ All participants will see feedback form.")
+        
+        // Refresh to get updated state
+        setTimeout(() => fetchParticipants(), 500)
+      }
+    } catch (error) {
+      console.error("❌ Network error ending timer:", error)
+      alert("❌ Network error ending timer")
     }
   }
 

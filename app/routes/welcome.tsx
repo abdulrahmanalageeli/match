@@ -163,6 +163,7 @@ export default function WelcomePage() {
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
   const [globalTimerStartTime, setGlobalTimerStartTime] = useState<string | null>(null)
   const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
+  const [timerRestored, setTimerRestored] = useState(false)
   const [feedbackAnswers, setFeedbackAnswers] = useState({
     compatibilityRate: 50, // 0-100 scale
     conversationQuality: 3, // 1-5 scale
@@ -477,6 +478,7 @@ export default function WelcomePage() {
                 setConversationStarted(true);
                 setConversationTimer(remaining);
                 setTimerEnded(false);
+                setTimerRestored(true); // Mark that timer was restored
               } else {
                 console.log("⏰ Timer expired, showing feedback");
                 setGlobalTimerActive(false);
@@ -591,30 +593,43 @@ export default function WelcomePage() {
         // Handle global timer state with improved synchronization
         console.log(`🔄 Participant: Received data - global_timer_active: ${data.global_timer_active}, global_timer_start_time: ${data.global_timer_start_time}, global_timer_duration: ${data.global_timer_duration}`)
         
-        if (data.global_timer_active && data.global_timer_start_time) {
-          const startTime = new Date(data.global_timer_start_time).getTime()
-          const now = new Date().getTime()
-          const elapsed = Math.floor((now - startTime) / 1000)
-          const remaining = Math.max(0, (data.global_timer_duration || 1800) - elapsed)
-          
-          console.log(`🔄 Participant: Global timer data - active: ${data.global_timer_active}, remaining: ${remaining}s, round: ${data.global_timer_round}, elapsed: ${elapsed}s`)
-          
-          if (remaining > 0) {
-            if (!globalTimerActive) {
-              console.log("🚀 Participant: Global timer detected, starting conversation")
-              setGlobalTimerActive(true)
-              setConversationStarted(true)
-              setTimerEnded(false)
-              setModalStep(null) // Clear any existing modal
+        // Only update timer state if it wasn't just restored (to prevent polling from overriding restored state)
+        if (!timerRestored || (data.global_timer_active && data.global_timer_start_time)) {
+          if (data.global_timer_active && data.global_timer_start_time) {
+            const startTime = new Date(data.global_timer_start_time).getTime()
+            const now = new Date().getTime()
+            const elapsed = Math.floor((now - startTime) / 1000)
+            const remaining = Math.max(0, (data.global_timer_duration || 1800) - elapsed)
+            
+            console.log(`🔄 Participant: Global timer data - active: ${data.global_timer_active}, remaining: ${remaining}s, round: ${data.global_timer_round}, elapsed: ${elapsed}s`)
+            
+            if (remaining > 0) {
+              if (!globalTimerActive) {
+                console.log("🚀 Participant: Global timer detected, starting conversation")
+                setGlobalTimerActive(true)
+                setConversationStarted(true)
+                setTimerEnded(false)
+                setModalStep(null) // Clear any existing modal
+              }
+              setGlobalTimerStartTime(data.global_timer_start_time)
+              setGlobalTimerDuration(data.global_timer_duration || 1800)
+              setConversationTimer(remaining)
+              console.log(`✅ Participant: Timer set to ${remaining}s`)
+            } else {
+              // Timer expired
+              if (globalTimerActive) {
+                console.log("⏰ Participant: Global timer expired, showing feedback")
+                setGlobalTimerActive(false)
+                setConversationStarted(false)
+                setConversationTimer(0)
+                setTimerEnded(true)
+                setModalStep("feedback")
+              }
             }
-            setGlobalTimerStartTime(data.global_timer_start_time)
-            setGlobalTimerDuration(data.global_timer_duration || 1800)
-            setConversationTimer(remaining)
-            console.log(`✅ Participant: Timer set to ${remaining}s`)
           } else {
-            // Timer expired
+            // No active global timer
             if (globalTimerActive) {
-              console.log("⏰ Participant: Global timer expired, showing feedback")
+              console.log("🛑 Participant: Global timer ended by admin, showing feedback")
               setGlobalTimerActive(false)
               setConversationStarted(false)
               setConversationTimer(0)
@@ -623,15 +638,12 @@ export default function WelcomePage() {
             }
           }
         } else {
-          // No active global timer
-          if (globalTimerActive) {
-            console.log("🛑 Participant: Global timer ended by admin, showing feedback")
-            setGlobalTimerActive(false)
-            setConversationStarted(false)
-            setConversationTimer(0)
-            setTimerEnded(true)
-            setModalStep("feedback")
-          }
+          console.log("🔄 Participant: Skipping timer update - timer was just restored")
+        }
+        
+        // Clear the restored flag after first polling cycle
+        if (timerRestored) {
+          setTimerRestored(false)
         }
         
         // Reset conversation state if emergency pause is active
@@ -1602,6 +1614,13 @@ export default function WelcomePage() {
 
     return () => clearInterval(countdownInterval);
   }, [globalTimerActive, globalTimerStartTime, globalTimerDuration]);
+
+  // Reset timer restored flag when timer ends
+  useEffect(() => {
+    if (!globalTimerActive && timerRestored) {
+      setTimerRestored(false)
+    }
+  }, [globalTimerActive, timerRestored])
 
   // Token validation loading UI
   if (token && isResolving) {

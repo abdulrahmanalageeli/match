@@ -165,6 +165,15 @@ export default function WelcomePage() {
   const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
   const [timerRestored, setTimerRestored] = useState(false)
   const [timerRestoreAttempted, setTimerRestoreAttempted] = useState(false)
+  
+  // Utility function to clear timer localStorage backup
+  const clearTimerLocalStorage = () => {
+    localStorage.removeItem('timerRestored');
+    localStorage.removeItem('timerStartTime');
+    localStorage.removeItem('timerDuration');
+    console.log("🔄 Cleared timer localStorage backup");
+  }
+  
   const [feedbackAnswers, setFeedbackAnswers] = useState({
     compatibilityRate: 50, // 0-100 scale
     conversationQuality: 3, // 1-5 scale
@@ -523,9 +532,7 @@ export default function WelcomePage() {
                   setTimerRestored(true);
                 } else {
                   console.log("⏰ localStorage timer expired, clearing backup");
-                  localStorage.removeItem('timerRestored');
-                  localStorage.removeItem('timerStartTime');
-                  localStorage.removeItem('timerDuration');
+                  clearTimerLocalStorage();
                 }
               }
             }
@@ -669,6 +676,9 @@ export default function WelcomePage() {
                 setConversationTimer(0)
                 setTimerEnded(true)
                 setModalStep("feedback")
+                
+                // Clear localStorage backup when timer expires naturally
+                clearTimerLocalStorage();
               }
             }
           } else {
@@ -680,6 +690,17 @@ export default function WelcomePage() {
               setConversationTimer(0)
               setTimerEnded(true)
               setModalStep("feedback")
+              
+              // Clear localStorage backup when admin ends timer
+              clearTimerLocalStorage();
+            } else if (data.global_timer_active === false && conversationStarted) {
+              // Timer was ended by admin but we weren't in global timer mode
+              console.log("🛑 Participant: Timer ended by admin while in conversation mode")
+              setConversationStarted(false)
+              setConversationTimer(0)
+              setTimerEnded(true)
+              setModalStep("feedback")
+              clearTimerLocalStorage();
             }
           }
         } else {
@@ -701,6 +722,10 @@ export default function WelcomePage() {
           setConversationTimer(1800);
           setModalStep(null);
           setTimerEnded(false); // Reset timer ended flag during emergency pause
+          
+          // Clear localStorage backup during emergency pause
+          clearTimerLocalStorage();
+          console.log("🔄 Cleared timer localStorage backup due to emergency pause");
         }
 
         // Handle step transitions based on phase changes
@@ -1689,6 +1714,10 @@ export default function WelcomePage() {
         // Timer expired locally, but let the polling handle the state change
         console.log("⏰ Global timer countdown expired locally");
         setConversationTimer(0);
+        
+        // Clear localStorage backup when timer expires locally
+        clearTimerLocalStorage();
+        
         clearInterval(countdownInterval);
       }
     }, 1000);
@@ -1704,10 +1733,7 @@ export default function WelcomePage() {
     if (!globalTimerActive && timerRestored) {
       setTimerRestored(false)
       // Clear localStorage backup
-      localStorage.removeItem('timerRestored');
-      localStorage.removeItem('timerStartTime');
-      localStorage.removeItem('timerDuration');
-      console.log("🔄 Cleared timer localStorage backup");
+      clearTimerLocalStorage();
     }
   }, [globalTimerActive, timerRestored])
 

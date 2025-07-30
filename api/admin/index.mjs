@@ -237,7 +237,7 @@ export default async function handler(req, res) {
               total_rounds: 4,
               global_timer_active: false,
               global_timer_start_time: null,
-              global_timer_duration: null,
+              global_timer_duration: 1800,
               global_timer_round: null
             })
           }
@@ -252,7 +252,11 @@ export default async function handler(req, res) {
           emergency_paused: data.emergency_paused || false,
           pause_time: data.pause_time,
           current_round: data.current_round || 1,
-          total_rounds: data.total_rounds || 4
+          total_rounds: data.total_rounds || 4,
+          global_timer_active: data.global_timer_active || false,
+          global_timer_start_time: data.global_timer_start_time,
+          global_timer_duration: data.global_timer_duration || 1800,
+          global_timer_round: data.global_timer_round
         })
       }
 

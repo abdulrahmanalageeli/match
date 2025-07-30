@@ -1368,7 +1368,8 @@ export default function WelcomePage() {
     }
   }, [token])
 
-  // Unified timer management system (disabled when global timer is active)
+  // Unified timer management system (DISABLED - using global timer instead)
+  /*
   useEffect(() => {
     if (!assignedNumber || !currentRound || emergencyPaused || globalTimerActive) return;
 
@@ -1509,6 +1510,7 @@ export default function WelcomePage() {
       if (localInterval) clearInterval(localInterval);
     };
   }, [assignedNumber, currentRound, conversationStarted, conversationTimer, timerEnded, emergencyPaused, lastTimerStatus, phase]);
+  */
 
   // Start database timer when conversation starts (disabled when global timer is active)
   useEffect(() => {

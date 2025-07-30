@@ -214,10 +214,13 @@ export default function AdminPage() {
   // Update global timer countdown
   useEffect(() => {
     if (globalTimerActive && globalTimerRemaining > 0) {
+      console.log(`⏰ Admin: Starting countdown from ${globalTimerRemaining}s`)
+      
       const timerInterval = setInterval(() => {
         setGlobalTimerRemaining(prev => {
           const newValue = Math.max(0, prev - 1)
           if (newValue <= 0) {
+            console.log("⏰ Admin: Timer expired locally")
             // Timer expired, refresh to get latest state
             fetchParticipants()
           }
@@ -225,9 +228,12 @@ export default function AdminPage() {
         })
       }, 1000)
 
-      return () => clearInterval(timerInterval)
+      return () => {
+        console.log("⏰ Admin: Clearing countdown interval")
+        clearInterval(timerInterval)
+      }
     }
-  }, [globalTimerActive]) // Remove globalTimerRemaining from dependencies
+  }, [globalTimerActive, globalTimerRemaining]) // Add globalTimerRemaining back to dependencies
 
   const updatePhase = async (phase: string) => {
     console.log(`🔄 Admin: Updating phase to ${phase}`);

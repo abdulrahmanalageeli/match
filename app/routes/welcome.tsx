@@ -535,6 +535,7 @@ export default function WelcomePage() {
 
     const interval = setInterval(async () => {
       try {
+        console.log("🔄 Participant: Polling for updates...")
         // Fetch both phase and event state in one call
         const res = await fetch("/api/admin", {
           method: "POST",
@@ -561,13 +562,15 @@ export default function WelcomePage() {
         setEmergencyPaused(data.emergency_paused || false)
         
         // Handle global timer state with improved synchronization
+        console.log(`🔄 Participant: Received data - global_timer_active: ${data.global_timer_active}, global_timer_start_time: ${data.global_timer_start_time}, global_timer_duration: ${data.global_timer_duration}`)
+        
         if (data.global_timer_active && data.global_timer_start_time) {
           const startTime = new Date(data.global_timer_start_time).getTime()
           const now = new Date().getTime()
           const elapsed = Math.floor((now - startTime) / 1000)
           const remaining = Math.max(0, (data.global_timer_duration || 1800) - elapsed)
           
-          console.log(`🔄 Participant: Global timer data - active: ${data.global_timer_active}, remaining: ${remaining}s, round: ${data.global_timer_round}`)
+          console.log(`🔄 Participant: Global timer data - active: ${data.global_timer_active}, remaining: ${remaining}s, round: ${data.global_timer_round}, elapsed: ${elapsed}s`)
           
           if (remaining > 0) {
             if (!globalTimerActive) {
@@ -580,6 +583,7 @@ export default function WelcomePage() {
             setGlobalTimerStartTime(data.global_timer_start_time)
             setGlobalTimerDuration(data.global_timer_duration || 1800)
             setConversationTimer(remaining)
+            console.log(`✅ Participant: Timer set to ${remaining}s`)
           } else {
             // Timer expired
             if (globalTimerActive) {
@@ -794,7 +798,7 @@ export default function WelcomePage() {
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
       }
-    }, globalTimerActive ? 1000 : 2000) // More frequent polling when global timer is active
+    }, 1000) // Always poll every second for better responsiveness
   
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])

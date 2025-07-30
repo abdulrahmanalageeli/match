@@ -673,7 +673,7 @@ export default function AdminPage() {
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
               >
                 <Table2 className="w-4 h-4" />
-                Auto Assign
+                Auto Assign Tables
               </button>
 
               <button
@@ -725,30 +725,6 @@ export default function AdminPage() {
 
               <button
                 onClick={async () => {
-                  if (!confirm("Generate matches without AI vibe analysis? (All participants will get full vibe score)")) return
-                  setLoading(true)
-                  const res = await fetch("/api/admin/trigger-match", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ skipAI: true }),
-                  })
-                  const data = await res.json()
-                  if (res.ok) {
-                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
-                    fetchParticipants()
-                  } else {
-                    alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
-                  }
-                  setLoading(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-xl transition-all duration-300"
-              >
-                <RefreshCcw className="w-4 h-4" />
-                Generate (No AI)
-              </button>
-
-              <button
-                onClick={async () => {
                   if (!confirm("Generate group matches? This will create groups of 3-4 people based on MBTI compatibility.")) return
                   setLoading(true)
                   const res = await fetch("/api/admin/trigger-match", {
@@ -769,34 +745,6 @@ export default function AdminPage() {
               >
                 <Users className="w-4 h-4" />
                 Generate Groups
-              </button>
-
-              <button
-                onClick={openMatrix}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-xl transition-all duration-300"
-              >
-                <BarChart3 className="w-4 h-4" />
-                Matrix
-              </button>
-
-              <button
-                onClick={() => setShowAnnouncementModal(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
-              >
-                <Activity className="w-4 h-4" />
-                Announce
-              </button>
-
-              <button
-                onClick={toggleEmergencyPause}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
-                  emergencyPaused
-                    ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
-                    : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
-                }`}
-              >
-                <AlertCircle className="w-4 h-4" />
-                {emergencyPaused ? "Resume" : "Emergency Pause"}
               </button>
             </div>
           </div>
@@ -972,9 +920,9 @@ export default function AdminPage() {
 
                 <button
                   onClick={openMatrix}
-                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-lg transition-all duration-300 text-sm"
                 >
-                  <Table2 className="w-4 h-4" />
+                  <BarChart3 className="w-4 h-4" />
                   Matrix
                 </button>
 
@@ -996,6 +944,30 @@ export default function AdminPage() {
                 >
                   <AlertCircle className="w-4 h-4" />
                   {emergencyPaused ? "Resume" : "E-Pause"}
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (!confirm("Generate matches without AI vibe analysis? (All participants will get full vibe score)")) return
+                    setLoading(true)
+                    const res = await fetch("/api/admin/trigger-match", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ skipAI: true }),
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                      alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
+                      fetchParticipants()
+                    } else {
+                      alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
+                    }
+                    setLoading(false)
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <RefreshCcw className="w-4 h-4" />
+                  Generate (No AI)
                 </button>
               </div>
             </div>

@@ -437,45 +437,72 @@ export default function WelcomePage() {
           setTypewriterCompleted(false);
           
           setStep(-1);
+          // Fetch current event state including timer state
           const res2 = await fetch("/api/admin", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              action: "event-phase",
+              action: "get-event-state",
               match_id: "00000000-0000-0000-0000-000000000000",
             }),
           });
           
           if (!res2.ok) {
-            console.error("Failed to fetch event phase:", res2.status, res2.statusText);
+            console.error("Failed to fetch event state:", res2.status, res2.statusText);
             // Set default values if API fails
             setPhase("registration");
             setCurrentRound(1);
             setTotalRounds(4);
             setIsRepeatMatch(false);
           } else {
-            const phaseData = await res2.json();
-            setPhase(phaseData.phase || "registration");
-            setCurrentRound(phaseData.current_round || 1);
-            setTotalRounds(phaseData.total_rounds || 4);
+            const eventData = await res2.json();
+            setPhase(eventData.phase || "registration");
+            setCurrentRound(eventData.current_round || 1);
+            setTotalRounds(eventData.total_rounds || 4);
             setIsRepeatMatch(false);
+            
+            // Restore timer state if active
+            if (eventData.global_timer_active && eventData.global_timer_start_time) {
+              console.log("🔄 Restoring timer state on page load");
+              const startTime = new Date(eventData.global_timer_start_time).getTime();
+              const now = new Date().getTime();
+              const elapsed = Math.floor((now - startTime) / 1000);
+              const remaining = Math.max(0, (eventData.global_timer_duration || 1800) - elapsed);
+              
+              if (remaining > 0) {
+                console.log(`✅ Restoring active timer with ${remaining}s remaining`);
+                setGlobalTimerActive(true);
+                setGlobalTimerStartTime(eventData.global_timer_start_time);
+                setGlobalTimerDuration(eventData.global_timer_duration || 1800);
+                setConversationStarted(true);
+                setConversationTimer(remaining);
+                setTimerEnded(false);
+              } else {
+                console.log("⏰ Timer expired, showing feedback");
+                setGlobalTimerActive(false);
+                setConversationStarted(false);
+                setConversationTimer(0);
+                setTimerEnded(true);
+                setModalStep("feedback");
+              }
+            }
 
             // --- NEW LOGIC ---
             if (hasFilledForm) {
-              if (phaseData.phase !== "form") {
+              if (eventData.phase !== "form") {
                 // Registration closed but user filled form, skip to correct step
-                if (phaseData.phase && phaseData.phase.startsWith("round_")) {
-                  const roundNumber = parseInt(phaseData.phase.split('_')[1]);
+                if (eventData.phase && eventData.phase.startsWith("round_")) {
+                  const roundNumber = parseInt(eventData.phase.split('_')[1]);
                   setPendingMatchRound(roundNumber);
                   setStep(4); // Show matches
-                } else if (phaseData.phase && phaseData.phase.startsWith("waiting_")) {
+                } else if (eventData.phase && eventData.phase.startsWith("waiting_")) {
                   setStep(3); // Show analysis/waiting
-                } else if (phaseData.phase === "group_phase") {
+                } else if (eventData.phase === "group_phase") {
                   setStep(7); // Show group phase
                   // Fetch group matches when loading in group phase
                   console.log("🎯 Initial load: Fetching group matches for group_phase")
                   fetchGroupMatches();
-                } else if (phaseData.phase === "waiting") {
+                } else if (eventData.phase === "waiting") {
                   // User completed form and we're in waiting phase
                   setStep(3); // Show analysis/waiting
                 }
@@ -485,11 +512,11 @@ export default function WelcomePage() {
               }
             } else {
               // User hasn't filled form yet, check current phase
-              if (phaseData.phase === "form") {
+              if (eventData.phase === "form") {
                 setStep(2); // Show form
-              } else if (phaseData.phase === "waiting") {
+              } else if (eventData.phase === "waiting") {
                 setStep(2); // Still show form even in waiting phase if not filled
-              } else if (phaseData.phase && phaseData.phase.startsWith("round_")) {
+              } else if (eventData.phase && eventData.phase.startsWith("round_")) {
                 // User missed the form phase, show a message or redirect
                 setStep(2); // Show form anyway
               }

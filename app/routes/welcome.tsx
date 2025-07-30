@@ -641,12 +641,15 @@ export default function WelcomePage() {
         // Handle global timer state with improved synchronization
         console.log(`🔄 Participant: Received data - global_timer_active: ${data.global_timer_active}, global_timer_start_time: ${data.global_timer_start_time}, global_timer_duration: ${data.global_timer_duration}`)
         
-        // Only update timer state if it wasn't just restored (to prevent polling from overriding restored state)
-        // AND if we have valid timer data from the server
-        // Add additional protection for recently restored timers
-        const shouldUpdateTimer = (!timerRestored || (data.global_timer_active && data.global_timer_start_time)) && data.global_timer_start_time;
+        // Handle timer state updates
+        // We need to handle both active timers and timer end scenarios
+        const hasActiveTimer = data.global_timer_active && data.global_timer_start_time;
+        const shouldUpdateActiveTimer = (!timerRestored || hasActiveTimer) && data.global_timer_start_time;
         
-        if (shouldUpdateTimer) {
+        console.log("🔄 Timer state debug - hasActiveTimer:", hasActiveTimer, "shouldUpdateActiveTimer:", shouldUpdateActiveTimer, "globalTimerActive:", globalTimerActive, "conversationStarted:", conversationStarted, "data.global_timer_active:", data.global_timer_active);
+        
+        // Handle active timer updates
+        if (shouldUpdateActiveTimer) {
           if (data.global_timer_active && data.global_timer_start_time) {
             const startTime = new Date(data.global_timer_start_time).getTime()
             const now = new Date().getTime()
@@ -681,30 +684,21 @@ export default function WelcomePage() {
                 clearTimerLocalStorage();
               }
             }
-          } else {
-            // No active global timer
-            if (globalTimerActive) {
-              console.log("🛑 Participant: Global timer ended by admin, showing feedback")
-              setGlobalTimerActive(false)
-              setConversationStarted(false)
-              setConversationTimer(0)
-              setTimerEnded(true)
-              setModalStep("feedback")
-              
-              // Clear localStorage backup when admin ends timer
-              clearTimerLocalStorage();
-            } else if (data.global_timer_active === false && conversationStarted) {
-              // Timer was ended by admin but we weren't in global timer mode
-              console.log("🛑 Participant: Timer ended by admin while in conversation mode")
-              setConversationStarted(false)
-              setConversationTimer(0)
-              setTimerEnded(true)
-              setModalStep("feedback")
-              clearTimerLocalStorage();
-            }
           }
         } else {
-          console.log("🔄 Participant: Skipping timer update - timer was just restored or no valid timer data")
+          console.log("🔄 Participant: Skipping active timer update - timer was just restored or no valid timer data")
+        }
+        
+        // Handle timer end scenarios (admin ending timer)
+        if (data.global_timer_active === false && (globalTimerActive || conversationStarted)) {
+          console.log("🛑 Participant: Timer ended by admin, showing feedback")
+          console.log("🛑 Debug - globalTimerActive:", globalTimerActive, "conversationStarted:", conversationStarted, "data.global_timer_active:", data.global_timer_active)
+          setGlobalTimerActive(false)
+          setConversationStarted(false)
+          setConversationTimer(0)
+          setTimerEnded(true)
+          setModalStep("feedback")
+          clearTimerLocalStorage();
         }
         
         // Clear the restored flag after first polling cycle, but only if we have valid timer data

@@ -798,7 +798,7 @@ export default function WelcomePage() {
   
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
-    
+
   const next = () => setStep((s) => Math.min(s + 1, 6))
   const restart = () => {
     setStep(-1)
@@ -856,8 +856,8 @@ export default function WelcomePage() {
     try {
       // 1. Save participant with survey data (including calculated personality types)
       const res1 = await fetch("/api/save-participant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           assigned_number: assignedNumber,
           survey_data: dataToUse,
@@ -939,14 +939,14 @@ export default function WelcomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assigned_number: assignedNumber })
-      })
-      
-      if (!res.ok) {
+        })
+
+        if (!res.ok) {
         console.error("Failed to fetch matches:", res.status, res.statusText)
         return
-      }
-      
-      const data = await res.json()
+        }
+
+        const data = await res.json()
       console.log("API response data:", data)
       const matches = data.matches || []
       console.log("Matches array:", matches)
@@ -1277,7 +1277,7 @@ export default function WelcomePage() {
         console.error("Failed to start database timer:", res.status);
         return false;
       }
-    } catch (err) {
+      } catch (err) {
       console.error("Error starting database timer:", err);
       return false;
     }
@@ -1452,8 +1452,8 @@ export default function WelcomePage() {
             // No timer active, reset to default state
             if (conversationStarted || timerEnded) {
               console.log("🔄 No timer active in database, resetting to default");
-              setConversationTimer(1800);
-              setConversationStarted(false);
+            setConversationTimer(1800);
+            setConversationStarted(false);
               setTimerEnded(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);

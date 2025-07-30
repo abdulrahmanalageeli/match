@@ -164,6 +164,7 @@ export default function WelcomePage() {
   const [globalTimerStartTime, setGlobalTimerStartTime] = useState<string | null>(null)
   const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
   const [timerRestored, setTimerRestored] = useState(false)
+  const [timerRestoreAttempted, setTimerRestoreAttempted] = useState(false)
   const [feedbackAnswers, setFeedbackAnswers] = useState({
     compatibilityRate: 50, // 0-100 scale
     conversationQuality: 3, // 1-5 scale
@@ -462,8 +463,9 @@ export default function WelcomePage() {
             setTotalRounds(eventData.total_rounds || 4);
             setIsRepeatMatch(false);
             
-            // Restore timer state if active
-            if (eventData.global_timer_active && eventData.global_timer_start_time) {
+            // Restore timer state if active (only attempt once per page load)
+            if (!timerRestoreAttempted && eventData.global_timer_active && eventData.global_timer_start_time) {
+              setTimerRestoreAttempted(true);
               console.log("🔄 Restoring timer state on page load");
               const startTime = new Date(eventData.global_timer_start_time).getTime();
               const now = new Date().getTime();
@@ -479,6 +481,13 @@ export default function WelcomePage() {
                 setConversationTimer(remaining);
                 setTimerEnded(false);
                 setTimerRestored(true); // Mark that timer was restored
+                
+                // Store timer state in localStorage as backup
+                localStorage.setItem('timerRestored', 'true');
+                localStorage.setItem('timerStartTime', eventData.global_timer_start_time);
+                localStorage.setItem('timerDuration', String(eventData.global_timer_duration || 1800));
+                
+                console.log("🔄 Timer restoration completed, timerRestored set to true");
               } else {
                 console.log("⏰ Timer expired, showing feedback");
                 setGlobalTimerActive(false);
@@ -486,6 +495,38 @@ export default function WelcomePage() {
                 setConversationTimer(0);
                 setTimerEnded(true);
                 setModalStep("feedback");
+              }
+            } else if (!timerRestoreAttempted) {
+              setTimerRestoreAttempted(true);
+              console.log("🔄 No active timer to restore from server");
+              
+              // Check localStorage as fallback
+              const localStorageTimerRestored = localStorage.getItem('timerRestored');
+              const localStorageStartTime = localStorage.getItem('timerStartTime');
+              const localStorageDuration = localStorage.getItem('timerDuration');
+              
+              if (localStorageTimerRestored === 'true' && localStorageStartTime && localStorageDuration) {
+                console.log("🔄 Attempting timer restoration from localStorage");
+                const startTime = new Date(localStorageStartTime).getTime();
+                const now = new Date().getTime();
+                const elapsed = Math.floor((now - startTime) / 1000);
+                const remaining = Math.max(0, parseInt(localStorageDuration) - elapsed);
+                
+                if (remaining > 0) {
+                  console.log(`✅ Restoring timer from localStorage with ${remaining}s remaining`);
+                  setGlobalTimerActive(true);
+                  setGlobalTimerStartTime(localStorageStartTime);
+                  setGlobalTimerDuration(parseInt(localStorageDuration));
+                  setConversationStarted(true);
+                  setConversationTimer(remaining);
+                  setTimerEnded(false);
+                  setTimerRestored(true);
+                } else {
+                  console.log("⏰ localStorage timer expired, clearing backup");
+                  localStorage.removeItem('timerRestored');
+                  localStorage.removeItem('timerStartTime');
+                  localStorage.removeItem('timerDuration');
+                }
               }
             }
 
@@ -594,7 +635,11 @@ export default function WelcomePage() {
         console.log(`🔄 Participant: Received data - global_timer_active: ${data.global_timer_active}, global_timer_start_time: ${data.global_timer_start_time}, global_timer_duration: ${data.global_timer_duration}`)
         
         // Only update timer state if it wasn't just restored (to prevent polling from overriding restored state)
-        if (!timerRestored || (data.global_timer_active && data.global_timer_start_time)) {
+        // AND if we have valid timer data from the server
+        // Add additional protection for recently restored timers
+        const shouldUpdateTimer = (!timerRestored || (data.global_timer_active && data.global_timer_start_time)) && data.global_timer_start_time;
+        
+        if (shouldUpdateTimer) {
           if (data.global_timer_active && data.global_timer_start_time) {
             const startTime = new Date(data.global_timer_start_time).getTime()
             const now = new Date().getTime()
@@ -638,12 +683,16 @@ export default function WelcomePage() {
             }
           }
         } else {
-          console.log("🔄 Participant: Skipping timer update - timer was just restored")
+          console.log("🔄 Participant: Skipping timer update - timer was just restored or no valid timer data")
         }
         
-        // Clear the restored flag after first polling cycle
-        if (timerRestored) {
-          setTimerRestored(false)
+        // Clear the restored flag after first polling cycle, but only if we have valid timer data
+        // Add a delay to ensure restored timer state is properly established
+        if (timerRestored && data.global_timer_start_time) {
+          setTimeout(() => {
+            console.log("🔄 Clearing timerRestored flag after delay");
+            setTimerRestored(false)
+          }, 2000) // Wait 2 seconds before clearing the flag
         }
         
         // Reset conversation state if emergency pause is active
@@ -696,34 +745,38 @@ export default function WelcomePage() {
               await fetchMatches(roundNumber);
               setStep(4);
               
-              // Reset all states for clean transition
-              setConversationTimer(1800);
-              setConversationStarted(false);
-              setModalStep(null);
-              setIsScoreRevealed(false);
-              setShowConversationStarters(false);
-              setConversationStarters([]);
-              setGeneratingStarters(false);
-              setShowHistory(false);
-              setShowHistoryDetail(false);
-              setSelectedHistoryItem(null);
-              setAnimationStep(0);
-                        setFeedbackAnswers({
-            compatibilityRate: 50,
-            conversationQuality: 3,
-            personalConnection: 3,
-            sharedInterests: 3,
-            comfortLevel: 3,
-            communicationStyle: 3,
-            wouldMeetAgain: 3,
-            overallExperience: 3,
-            recommendations: ""
-          });
-              setTypewriterCompleted(false);
-              setTimerEnded(false);
-              setIsRepeatMatch(false);
-              setPartnerStartedTimer(false);
-              setPartnerEndedTimer(false);
+              // Reset all states for clean transition (but preserve global timer state)
+              if (!globalTimerActive && !timerRestored) {
+                setConversationTimer(1800);
+                setConversationStarted(false);
+                setModalStep(null);
+                setIsScoreRevealed(false);
+                setShowConversationStarters(false);
+                setConversationStarters([]);
+                setGeneratingStarters(false);
+                setShowHistory(false);
+                setShowHistoryDetail(false);
+                setSelectedHistoryItem(null);
+                setAnimationStep(0);
+                          setFeedbackAnswers({
+              compatibilityRate: 50,
+              conversationQuality: 3,
+              personalConnection: 3,
+              sharedInterests: 3,
+              comfortLevel: 3,
+              communicationStyle: 3,
+              wouldMeetAgain: 3,
+              overallExperience: 3,
+              recommendations: ""
+            });
+                setTypewriterCompleted(false);
+                setTimerEnded(false);
+                setIsRepeatMatch(false);
+                setPartnerStartedTimer(false);
+                setPartnerEndedTimer(false);
+              } else {
+                console.log("🔄 Skipping timer reset - global timer active or timer was restored");
+              }
               
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
@@ -734,11 +787,16 @@ export default function WelcomePage() {
             // Waiting phases (waiting_2, waiting_3, etc.)
             console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
             setStep(5);
-            setConversationStarted(false);
-            setModalStep(null);
-            setTimerEnded(false);
-            setPartnerStartedTimer(false);
-            setPartnerEndedTimer(false);
+            // Only reset timer if not in global timer mode
+            if (!globalTimerActive && !timerRestored) {
+              setConversationStarted(false);
+              setModalStep(null);
+              setTimerEnded(false);
+              setPartnerStartedTimer(false);
+              setPartnerEndedTimer(false);
+            } else {
+              console.log("🔄 Skipping timer reset in waiting phase - global timer active or timer was restored");
+            }
             setIsScoreRevealed(false);
             setShowConversationStarters(false);
             setConversationStarters([]);
@@ -749,11 +807,13 @@ export default function WelcomePage() {
             if (lastPhaseRef.current !== "group_phase") {
               console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
             setStep(7);
-            setConversationTimer(1800);
-            setConversationStarted(false);
-            setModalStep(null);
-            setIsScoreRevealed(false);
-            setTimerEnded(false);
+            // Only reset timer if not in global timer mode
+            if (!globalTimerActive && !timerRestored) {
+              setConversationTimer(1800);
+              setConversationStarted(false);
+              setModalStep(null);
+              setIsScoreRevealed(false);
+              setTimerEnded(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
               setShowConversationStarters(false);
@@ -763,6 +823,9 @@ export default function WelcomePage() {
               setShowHistoryDetail(false);
               setSelectedHistoryItem(null);
               setAnimationStep(0);
+            } else {
+              console.log("🔄 Skipping timer reset in group phase - global timer active or timer was restored");
+            }
             fetchGroupMatches();
               
               lastPhaseRef.current = "group_phase";
@@ -774,11 +837,16 @@ export default function WelcomePage() {
             // General waiting phase
             console.log(`🔄 General waiting phase change detected (from step ${step})`);
             setStep(3);
-            setConversationStarted(false);
-            setModalStep(null);
-            setTimerEnded(false);
-            setPartnerStartedTimer(false);
-            setPartnerEndedTimer(false);
+            // Only reset timer if not in global timer mode
+            if (!globalTimerActive && !timerRestored) {
+              setConversationStarted(false);
+              setModalStep(null);
+              setTimerEnded(false);
+              setPartnerStartedTimer(false);
+              setPartnerEndedTimer(false);
+            } else {
+              console.log("🔄 Skipping timer reset in general waiting phase - global timer active or timer was restored");
+            }
             setIsScoreRevealed(false);
             setShowConversationStarters(false);
             setConversationStarters([]);
@@ -796,11 +864,16 @@ export default function WelcomePage() {
               setStep(2);
             } else if (step >= 3) {
               setStep(2);
-              setConversationStarted(false);
-              setModalStep(null);
-              setTimerEnded(false);
-              setPartnerStartedTimer(false);
-              setPartnerEndedTimer(false);
+              // Only reset timer if not in global timer mode
+              if (!globalTimerActive && !timerRestored) {
+                setConversationStarted(false);
+                setModalStep(null);
+                setTimerEnded(false);
+                setPartnerStartedTimer(false);
+                setPartnerEndedTimer(false);
+              } else {
+                console.log("🔄 Skipping timer reset in form phase - global timer active or timer was restored");
+              }
               setIsScoreRevealed(false);
               setShowConversationStarters(false);
               setConversationStarters([]);
@@ -821,11 +894,16 @@ export default function WelcomePage() {
             if (step > 0) {
               console.log(`🔄 Registration phase change detected (from step ${step})`);
               setStep(0);
-              setConversationStarted(false);
-              setModalStep(null);
-              setTimerEnded(false);
-              setPartnerStartedTimer(false);
-              setPartnerEndedTimer(false);
+              // Only reset timer if not in global timer mode
+              if (!globalTimerActive && !timerRestored) {
+                setConversationStarted(false);
+                setModalStep(null);
+                setTimerEnded(false);
+                setPartnerStartedTimer(false);
+                setPartnerEndedTimer(false);
+              } else {
+                console.log("🔄 Skipping timer reset in registration phase - global timer active or timer was restored");
+              }
               console.log(`✅ Successfully transitioned to registration`);
             }
           } else {
@@ -1571,9 +1649,9 @@ export default function WelcomePage() {
     startTimer();
   }, [conversationStarted, assignedNumber, currentRound]);
 
-  // Reset timer state when round changes (but don't interfere with global timer)
+  // Reset timer state when round changes (but don't interfere with global timer or restored timer)
   useEffect(() => {
-    if (assignedNumber && currentRound && !globalTimerActive) {
+    if (assignedNumber && currentRound && !globalTimerActive && !timerRestored) {
       setConversationTimer(1800);
       setConversationStarted(false);
       setTimerEnded(false);
@@ -1581,7 +1659,7 @@ export default function WelcomePage() {
       setPartnerEndedTimer(false);
       setLastTimerStatus(null); // Reset status tracking for new round
     }
-  }, [currentRound, assignedNumber, globalTimerActive]);
+  }, [currentRound, assignedNumber, globalTimerActive, timerRestored]);
 
   // Global timer activation effect
   useEffect(() => {
@@ -1597,6 +1675,8 @@ export default function WelcomePage() {
   useEffect(() => {
     if (!globalTimerActive || !globalTimerStartTime || conversationTimer <= 0) return;
 
+    console.log("🔄 Starting global timer countdown effect");
+
     const countdownInterval = setInterval(() => {
       const startTime = new Date(globalTimerStartTime).getTime();
       const now = new Date().getTime();
@@ -1607,18 +1687,27 @@ export default function WelcomePage() {
         setConversationTimer(remaining);
       } else {
         // Timer expired locally, but let the polling handle the state change
+        console.log("⏰ Global timer countdown expired locally");
         setConversationTimer(0);
         clearInterval(countdownInterval);
       }
     }, 1000);
 
-    return () => clearInterval(countdownInterval);
+    return () => {
+      console.log("🔄 Clearing global timer countdown interval");
+      clearInterval(countdownInterval);
+    };
   }, [globalTimerActive, globalTimerStartTime, globalTimerDuration]);
 
   // Reset timer restored flag when timer ends
   useEffect(() => {
     if (!globalTimerActive && timerRestored) {
       setTimerRestored(false)
+      // Clear localStorage backup
+      localStorage.removeItem('timerRestored');
+      localStorage.removeItem('timerStartTime');
+      localStorage.removeItem('timerDuration');
+      console.log("🔄 Cleared timer localStorage backup");
     }
   }, [globalTimerActive, timerRestored])
 

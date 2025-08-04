@@ -42,4 +42,39 @@ DROP TRIGGER IF EXISTS trigger_update_personality_types ON participants;
 CREATE TRIGGER trigger_update_personality_types
   BEFORE INSERT OR UPDATE ON participants
   FOR EACH ROW
-  EXECUTE FUNCTION update_personality_types_from_survey_data(); 
+  EXECUTE FUNCTION update_personality_types_from_survey_data();
+
+-- Add missing personality-related columns to match_results table
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_a_lifestyle_preferences TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_b_lifestyle_preferences TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_a_core_values TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_b_core_values TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_a_vibe_description TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_b_vibe_description TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_a_ideal_person_description TEXT;
+
+ALTER TABLE match_results 
+ADD COLUMN IF NOT EXISTS participant_b_ideal_person_description TEXT;
+
+-- Add comments for the new columns
+COMMENT ON COLUMN match_results.participant_a_lifestyle_preferences IS 'Lifestyle preferences for participant A';
+COMMENT ON COLUMN match_results.participant_b_lifestyle_preferences IS 'Lifestyle preferences for participant B';
+COMMENT ON COLUMN match_results.participant_a_core_values IS 'Core values for participant A';
+COMMENT ON COLUMN match_results.participant_b_core_values IS 'Core values for participant B';
+COMMENT ON COLUMN match_results.participant_a_vibe_description IS 'Vibe description for participant A';
+COMMENT ON COLUMN match_results.participant_b_vibe_description IS 'Vibe description for participant B';
+COMMENT ON COLUMN match_results.participant_a_ideal_person_description IS 'Ideal person description for participant A';
+COMMENT ON COLUMN match_results.participant_b_ideal_person_description IS 'Ideal person description for participant B'; 

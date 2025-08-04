@@ -17,10 +17,6 @@ export interface Participant {
   mbti_personality_type?: string
   attachment_style?: string
   communication_style?: string
-  lifestyle_preferences?: string
-  core_values?: string
-  vibe_description?: string
-  ideal_person_description?: string
   summary?: string
   secure_token: string
   match_id: string
@@ -124,6 +120,10 @@ export interface SaveParticipantRequest {
     mbtiType?: string
     attachmentStyle?: string
     communicationStyle?: string
+    lifestylePreferences?: string
+    coreValues?: string
+    vibeDescription?: string
+    idealPersonDescription?: string
   }
   summary?: string
   feedback?: any

@@ -230,6 +230,7 @@ export default function WelcomePage() {
   const [historyBoxPosition, setHistoryBoxPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [formFilledChoiceMade, setFormFilledChoiceMade] = useState(false); // Track if user has made choice about form filled prompt
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -879,16 +880,19 @@ export default function WelcomePage() {
             setConversationStarters([]);
             setGeneratingStarters(false);
             console.log(`✅ Successfully transitioned to waiting`);
-        } else if (data.phase === "form") {
+                  } else if (data.phase === "form") {
             // Form phase
             console.log(`🔄 Form phase change detected (from step ${step})`);
             
             if (step === -1) {
               setStep(0);
+              setFormFilledChoiceMade(false); // Reset choice when transitioning from initial state
             } else if (step === 0) {
               setStep(2);
+              setFormFilledChoiceMade(false); // Reset choice when transitioning from registration
             } else if (step === 1) {
               setStep(2);
+              setFormFilledChoiceMade(false); // Reset choice when transitioning from registration
             } else if (step >= 3) {
               setStep(2);
               // Only reset timer if not in global timer mode
@@ -905,10 +909,13 @@ export default function WelcomePage() {
               setShowConversationStarters(false);
               setConversationStarters([]);
               setGeneratingStarters(false);
+              // Reset form filled choice when returning to form phase from other phases
+              setFormFilledChoiceMade(false);
             }
           
-          // Handle form filled prompt logic
-          if (surveyData.answers && Object.keys(surveyData.answers).length > 0) {
+          // Handle form filled prompt logic - only show if user hasn't made a choice yet
+          // This prevents the prompt from appearing repeatedly after user makes their choice
+          if (surveyData.answers && Object.keys(surveyData.answers).length > 0 && !formFilledChoiceMade) {
             if (!showFormFilledPrompt && step === 2) {
               setShowFormFilledPrompt(true);
             }
@@ -1042,6 +1049,7 @@ export default function WelcomePage() {
       setShowSurvey(false)
       setAnalysisStarted(true)
       setStep(3)
+      setFormFilledChoiceMade(false) // Reset choice for future form submissions
     } catch (err) {
       console.error("Submit error:", err)
       setPersonalitySummary("تم حفظ بياناتك بنجاح.")
@@ -3930,8 +3938,10 @@ export default function WelcomePage() {
                 className="px-6 py-2 font-bold"
                 onClick={() => {
                   setShowFormFilledPrompt(false);
+                  setFormFilledChoiceMade(true);
                   setStep(2); // Stay on form
                   setAnalysisStarted(false);
+                  setShowSurvey(true); // Show survey for redo
                 }}
               >
                 إعادة تعبئة النموذج
@@ -3941,6 +3951,7 @@ export default function WelcomePage() {
                 variant="outline"
                 onClick={() => {
                   setShowFormFilledPrompt(false);
+                  setFormFilledChoiceMade(true);
                   setStep(3); // Go to analysis
                   setAnalysisStarted(true);
                 }}

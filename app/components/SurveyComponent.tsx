@@ -5,6 +5,7 @@ import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
 import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Input } from "../../components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
 import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
@@ -23,155 +24,38 @@ interface SurveyData {
 }
 
 const surveyQuestions = [
-  // MBTI Questions 1-12
+  // MBTI Personality Type Dropdown
   {
-    id: "mbti_1",
+    id: "mbti_type",
     question: "السؤال 1",
-    description: "أحب التفاعل مع الناس وأشعر بالطاقة بعد اللقاءات",
-    type: "radio",
+    description: "ما هو نوع شخصيتك حسب اختبار MBTI؟",
+    type: "select",
     options: [
-      { value: "أ", label: "أ. أحب التفاعل مع الناس وأشعر بالطاقة بعد اللقاءات" },
-      { value: "ب", label: "ب. أحب الجلوس مع نفسي، وأشعر بالإرهاق بعد التجمعات الطويلة" }
+      { value: "INTJ", label: "INTJ - المعماري" },
+      { value: "INTP", label: "INTP - المنطقي" },
+      { value: "ENTJ", label: "ENTJ - القائد" },
+      { value: "ENTP", label: "ENTP - المبتكر" },
+      { value: "INFJ", label: "INFJ - المستشار" },
+      { value: "INFP", label: "INFP - الوسيط" },
+      { value: "ENFJ", label: "ENFJ - المعلم" },
+      { value: "ENFP", label: "ENFP - المبدع" },
+      { value: "ISTJ", label: "ISTJ - المفتش" },
+      { value: "ISFJ", label: "ISFJ - المدافع" },
+      { value: "ESTJ", label: "ESTJ - المدير" },
+      { value: "ESFJ", label: "ESFJ - القنصل" },
+      { value: "ISTP", label: "ISTP - الحرفي" },
+      { value: "ISFP", label: "ISFP - المغامر" },
+      { value: "ESTP", label: "ESTP - المقنع" },
+      { value: "ESFP", label: "ESFP - الممثل" }
     ],
     required: true,
-    category: "EI"
+    category: "mbti",
+    helpText: "إذا كنت لا تعرف نوع شخصيتك، يمكنك اختبار مجاني على موقع 16personalities.com"
   },
-  {
-    id: "mbti_2",
-    question: "السؤال 2",
-    description: "تفضيل نوع اللقاءات",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أرتاح في اللقاءات الجماعية أو المناسبات الكبيرة" },
-      { value: "ب", label: "ب. أُفضل الجلسات الهادئة مع شخص أو اثنين" }
-    ],
-    required: true,
-    category: "EI"
-  },
-  {
-    id: "mbti_3",
-    question: "السؤال 3",
-    description: "الحاجة للوحدة أو التفاعل",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أشعر بالملل إذا بقيت وحيدًا وقتًا طويلًا" },
-      { value: "ب", label: "ب. أحتاج وقتًا لوحدي بعد أي تواصل اجتماعي" }
-    ],
-    required: true,
-    category: "EI"
-  },
-  {
-    id: "mbti_4",
-    question: "السؤال 4",
-    description: "التركيز على الواقع أم المستقبل",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أُركّز على الواقع وما يمكنني ملاحظته أو قياسه" },
-      { value: "ب", label: "ب. أُفكر كثيرًا بما قد يحدث في المستقبل" }
-    ],
-    required: true,
-    category: "SN"
-  },
-  {
-    id: "mbti_5",
-    question: "السؤال 5",
-    description: "الاعتماد على التجربة أم الحدس",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أعتمد على التجربة والخبرة المباشرة" },
-      { value: "ب", label: "ب. أثق بحدسي وتصوراتي" }
-    ],
-    required: true,
-    category: "SN"
-  },
-  {
-    id: "mbti_6",
-    question: "السؤال 6",
-    description: "التفاصيل أم الصورة الكاملة",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. ألاحظ التفاصيل الصغيرة التي يغفل عنها الآخرون" },
-      { value: "ب", label: "ب. أُفكر في الصورة الكاملة والهدف العام" }
-    ],
-    required: true,
-    category: "SN"
-  },
-  {
-    id: "mbti_7",
-    question: "السؤال 7",
-    description: "أساس اتخاذ القرارات",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أتخذ قراراتي بناءً على المنطق والتحليل" },
-      { value: "ب", label: "ب. أتخذ قراراتي بناءً على ما يشعر به الناس حولي" }
-    ],
-    required: true,
-    category: "TF"
-  },
-  {
-    id: "mbti_8",
-    question: "السؤال 8",
-    description: "قول الحقيقة أم مراعاة المشاعر",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أُفضل قول الحقيقة حتى لو كانت جارحة" },
-      { value: "ب", label: "ب. أُفضل مراعاة مشاعر الآخرين عند الحديث" }
-    ],
-    required: true,
-    category: "TF"
-  },
-  {
-    id: "mbti_9",
-    question: "السؤال 9",
-    description: "الأولوية للعدالة أم المشاعر",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أضع العدالة والموضوعية فوق أي شيء" },
-      { value: "ب", label: "ب. أضع مشاعر الآخرين في الحسبان حتى لو تعارضت مع المنطق" }
-    ],
-    required: true,
-    category: "TF"
-  },
-  {
-    id: "mbti_10",
-    question: "السؤال 10",
-    description: "التخطيط أم المرونة",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أُحب التخطيط المسبق وأشعر بالراحة عندما يكون كل شيء واضحًا" },
-      { value: "ب", label: "ب. أُحب ترك الخيارات مفتوحة وأتكيف مع ما يحدث" }
-    ],
-    required: true,
-    category: "JP"
-  },
-  {
-    id: "mbti_11",
-    question: "السؤال 11",
-    description: "التعامل مع تغيير الخطط",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أشعر بالقلق إذا تغيرت الخطط فجأة" },
-      { value: "ب", label: "ب. لا مشكلة لدي في التغيير المفاجئ، بل أراه ممتعًا أحيانًا" }
-    ],
-    required: true,
-    category: "JP"
-  },
-  {
-    id: "mbti_12",
-    question: "السؤال 12",
-    description: "إدارة المهام",
-    type: "radio",
-    options: [
-      { value: "أ", label: "أ. أضع لنفسي قائمة مهام وأحاول الالتزام بها" },
-      { value: "ب", label: "ب. أترك المهام تمشي مع الوقت دون ضغط" }
-    ],
-    required: true,
-    category: "JP"
-  },
-  // Attachment Style Questions 13-17
+  // Attachment Style Questions 2-6
   {
     id: "attachment_1",
-    question: "السؤال 13",
+    question: "السؤال 2",
     description: "كيف تشعر إذا لم يتواصل معك صديقك المقرّب لعدة أيام؟",
     type: "radio",
     options: [
@@ -185,7 +69,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_2",
-    question: "السؤال 14",
+    question: "السؤال 3",
     description: "كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟",
     type: "radio",
     options: [
@@ -199,7 +83,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_3",
-    question: "السؤال 15",
+    question: "السؤال 4",
     description: "ما شعورك تجاه القرب العاطفي من الآخرين؟",
     type: "radio",
     options: [
@@ -213,7 +97,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_4",
-    question: "السؤال 16",
+    question: "السؤال 5",
     description: "عندما تمرّ بوقت صعب، كيف تتعامل مع الأصدقاء؟",
     type: "radio",
     options: [
@@ -227,7 +111,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_5",
-    question: "السؤال 17",
+    question: "السؤال 6",
     description: "ما رأيك في العلاقات المقربة طويلة المدى؟",
     type: "radio",
     options: [
@@ -239,10 +123,10 @@ const surveyQuestions = [
     required: true,
     category: "attachment"
   },
-  // Lifestyle Questions 23-27
+  // Lifestyle Questions 7-11
   {
     id: "lifestyle_1",
-    question: "السؤال 23",
+    question: "السؤال 7",
     description: "في أي وقت من اليوم تكون عادة في أفضل حالتك؟",
     type: "radio",
     options: [
@@ -255,7 +139,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_2",
-    question: "السؤال 24",
+    question: "السؤال 8",
     description: "كم تفضل أن تتواصل مع صديقك المقرّب؟",
     type: "radio",
     options: [
@@ -268,7 +152,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_3",
-    question: "السؤال 25",
+    question: "السؤال 9",
     description: "كم تهمك المساحة الشخصية في علاقات الصداقة؟",
     type: "radio",
     options: [
@@ -281,7 +165,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_4",
-    question: "السؤال 26",
+    question: "السؤال 10",
     description: "كيف تفضل أن تدير وقتك عادة؟",
     type: "radio",
     options: [
@@ -294,7 +178,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_5",
-    question: "السؤال 27",
+    question: "السؤال 11",
     description: "كيف تحب تقضي نهاية الأسبوع غالبًا؟",
     type: "radio",
     options: [
@@ -305,10 +189,10 @@ const surveyQuestions = [
     required: true,
     category: "lifestyle"
   },
-  // Core Values Questions 28-32
+  // Core Values Questions 12-16
   {
     id: "core_values_1",
-    question: "السؤال 28",
+    question: "السؤال 12",
     description: "الصدق أم الحفاظ على العلاقة؟ صديقك ارتكب خطأ بسيط في العمل وطلب منك ألا تتدخل. فجأة، مديرك يسألك: \"هل كنت تعرف عن هذا؟\"",
     type: "radio",
     options: [
@@ -321,7 +205,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_2",
-    question: "السؤال 29",
+    question: "السؤال 13",
     description: "الطموح أم الاستقرار؟ صديقك قرر يترك وظيفة مستقرة ويبدأ مشروعًا من الصفر. يسألك عن رأيك بصراحة.",
     type: "radio",
     options: [
@@ -334,7 +218,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_3",
-    question: "السؤال 30",
+    question: "السؤال 14",
     description: "التقبل أم التشابه؟ بدأت تقترب من شخص تختلف معه في الدين أو القيم الثقافية، لكنه محترم. هل تعتقد أن علاقتكما ستنجح؟",
     type: "radio",
     options: [
@@ -347,7 +231,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_4",
-    question: "السؤال 31",
+    question: "السؤال 15",
     description: "الاعتماد أم الاستقلال؟ تمر بمرحلة صعبة، وصديقك المقرب لم يتواصل معك كثيرًا، لكنه قال إنه \"يعرف إنك تفضل الخصوصية.\"",
     type: "radio",
     options: [
@@ -360,7 +244,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_5",
-    question: "السؤال 32",
+    question: "السؤال 16",
     description: "الواجب الشخصي أم الحرية الفردية؟ صديقك قطع علاقته بشخص آخر لأنه أخطأ، ويطلب منك أن تفعل الشيء نفسه. الشخص الآخر لم يخطئ في حقك مباشرة.",
     type: "radio",
     options: [
@@ -372,10 +256,10 @@ const surveyQuestions = [
     category: "core_values"
   },
 
-  // Communication Style Questions 35-39
+  // Communication Style Questions 17-21
   {
     id: "communication_1",
-    question: "السؤال 35",
+    question: "السؤال 17",
     description: "إذا شعرت أن صديقك تخطى حدودك بطريقة أزعجتك، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -389,7 +273,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_2",
-    question: "السؤال 36",
+    question: "السؤال 18",
     description: "عندما تحتاج إلى شيء من شخص مقرّب، كيف تطلبه عادة؟",
     type: "radio",
     options: [
@@ -403,7 +287,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_3",
-    question: "السؤال 37",
+    question: "السؤال 19",
     description: "إذا لم يعجبك رأي في نقاش جماعي، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -417,7 +301,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_4",
-    question: "السؤال 38",
+    question: "السؤال 20",
     description: "عندما تشعر بالتوتر أو الغضب، كيف تُعبّر عنه؟",
     type: "radio",
     options: [
@@ -431,7 +315,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_5",
-    question: "السؤال 39",
+    question: "السؤال 21",
     description: "كيف تُعبّر عن رأيك عندما لا توافق أحدًا مقرّبًا منك؟",
     type: "radio",
     options: [
@@ -443,10 +327,10 @@ const surveyQuestions = [
     required: true,
     category: "communication"
   },
-  // Vibe and Compatibility Questions 40-45 (moved to end)
+  // Vibe and Compatibility Questions 22-27
   {
     id: "vibe_1",
-    question: "السؤال 40",
+    question: "السؤال 22",
     description: "كيف توصف الويكند المثالي بالنسبه لك؟",
     type: "text",
     placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
@@ -456,7 +340,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_2",
-    question: "السؤال 41",
+    question: "السؤال 23",
     description: "عدد خمس هوايات تستمتع فيها؟",
     type: "text",
     placeholder: "مثال: القراءة، السفر، الطبخ، الرسم، الرياضة...",
@@ -466,7 +350,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_3",
-    question: "السؤال 42",
+    question: "السؤال 24",
     description: "لو بتروح حفل موسيقي، مين الفنان اللي تختار؟",
     type: "text",
     placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، Ed Sheeran، أو أي فنان تفضله...",
@@ -476,7 +360,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_4",
-    question: "السؤال 43",
+    question: "السؤال 25",
     description: "هل تحب السوالف العميقه والفلسفية؟",
     type: "radio",
     options: [
@@ -489,7 +373,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_5",
-    question: "السؤال 44",
+    question: "السؤال 26",
     description: "كيف يوصفونك اصدقائك بالعادة؟",
     type: "text",
     placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
@@ -499,7 +383,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_6",
-    question: "السؤال 45",
+    question: "السؤال 27",
     description: "كيف تصف اصدقائك؟",
     type: "text",
     placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
@@ -511,46 +395,10 @@ const surveyQuestions = [
 
 const questionsPerPage = 5
 
-// Function to calculate MBTI personality type
-const calculateMBTIType = (answers: Record<string, string | string[]>): string => {
-  const categories = {
-    EI: { أ: 0, ب: 0 },
-    SN: { أ: 0, ب: 0 },
-    TF: { أ: 0, ب: 0 },
-    JP: { أ: 0, ب: 0 }
-  }
-
-  // Count answers for each MBTI category
-  for (let i = 1; i <= 12; i++) {
-    const questionId = `mbti_${i}`
-    const answer = answers[questionId] as string
-    
-    if (answer) {
-      if (i <= 3) {
-        // E/I questions
-        categories.EI[answer as 'أ' | 'ب']++
-      } else if (i <= 6) {
-        // S/N questions
-        categories.SN[answer as 'أ' | 'ب']++
-      } else if (i <= 9) {
-        // T/F questions
-        categories.TF[answer as 'أ' | 'ب']++
-      } else if (i <= 12) {
-        // J/P questions
-        categories.JP[answer as 'أ' | 'ب']++
-      }
-    }
-  }
-
-  // Determine personality type
-  const type = [
-    categories.EI.أ >= categories.EI.ب ? 'E' : 'I',
-    categories.SN.أ >= categories.SN.ب ? 'S' : 'N',
-    categories.TF.أ >= categories.TF.ب ? 'T' : 'F',
-    categories.JP.أ >= categories.JP.ب ? 'J' : 'P'
-  ].join('')
-
-  return type
+// Function to get MBTI personality type from dropdown
+const getMBTIType = (answers: Record<string, string | string[]>): string => {
+  const mbtiType = answers['mbti_type'] as string
+  return mbtiType || ''
 }
 
 // Function to calculate attachment style
@@ -562,7 +410,7 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
     د: 0  // Fearful/Disorganized
   }
 
-  // Count answers for attachment style questions
+  // Count answers for attachment style questions (now questions 2-6)
   for (let i = 1; i <= 5; i++) {
     const questionId = `attachment_${i}`
     const answer = answers[questionId] as string
@@ -606,7 +454,7 @@ const calculateCommunicationStyle = (answers: Record<string, string | string[]>)
     د: 0  // Passive-Aggressive
   }
 
-  // Count answers for communication style questions
+  // Count answers for communication style questions (now questions 17-21)
   for (let i = 1; i <= 5; i++) {
     const questionId = `communication_${i}`
     const answer = answers[questionId] as string
@@ -649,7 +497,7 @@ const calculateCommunicationStyle = (answers: Record<string, string | string[]>)
 const calculateLifestylePreferences = (answers: Record<string, string | string[]>): string => {
   const preferences = []
   
-  // Process each lifestyle question
+  // Process each lifestyle question (now questions 7-11)
   for (let i = 1; i <= 5; i++) {
     const questionId = `lifestyle_${i}`
     const answer = answers[questionId] as string
@@ -667,7 +515,7 @@ const calculateLifestylePreferences = (answers: Record<string, string | string[]
 const calculateCoreValues = (answers: Record<string, string | string[]>): string => {
   const values = []
   
-  // Process each core values question
+  // Process each core values question (now questions 12-16)
   for (let i = 1; i <= 5; i++) {
     const questionId = `core_values_${i}`
     const answer = answers[questionId] as string
@@ -818,7 +666,7 @@ export default function SurveyComponent({
     console.log("📝 Terms accepted:", surveyData.termsAccepted)
     console.log("📝 Data consent:", surveyData.dataConsent)
     
-    // Validate all required questions (including all 6 new vibe questions)
+    // Validate all required questions (including MBTI dropdown and all other questions)
     for (const question of surveyQuestions) {
       if (question.required) {
         const value = surveyData.answers[question.id];
@@ -850,27 +698,27 @@ export default function SurveyComponent({
     if (surveyData.termsAccepted && surveyData.dataConsent) {
       console.log("✅ All validations passed, calculating personality types")
       
-      // Calculate MBTI personality type
-      const mbtiType = calculateMBTIType(surveyData.answers)
-      console.log("🧠 Calculated MBTI Type:", mbtiType)
+      // Get MBTI personality type from dropdown
+      const mbtiType = getMBTIType(surveyData.answers)
+      console.log("🧠 MBTI Type from dropdown:", mbtiType)
       
-      // Calculate attachment style
+      // Calculate attachment style (questions 2-6)
       const attachmentStyle = calculateAttachmentStyle(surveyData.answers)
       console.log("🔒 Calculated Attachment Style:", attachmentStyle)
       
-      // Calculate communication style
+      // Calculate communication style (questions 17-21)
       const communicationStyle = calculateCommunicationStyle(surveyData.answers)
       console.log("💬 Calculated Communication Style:", communicationStyle)
       
-      // Calculate lifestyle preferences
+      // Calculate lifestyle preferences (questions 7-11)
       const lifestylePreferences = calculateLifestylePreferences(surveyData.answers)
       console.log("⏰ Calculated Lifestyle Preferences:", lifestylePreferences)
       
-      // Calculate core values
+      // Calculate core values (questions 12-16)
       const coreValues = calculateCoreValues(surveyData.answers)
       console.log("⚖️ Calculated Core Values:", coreValues)
       
-      // Extract vibe descriptions (now includes all 6 vibe questions combined)
+      // Extract vibe descriptions (questions 22-27)
       const vibeDescription = extractVibeDescription(surveyData.answers)
       const idealPersonDescription = extractIdealPersonDescription(surveyData.answers)
       console.log("👤 Combined Vibe Profile:", vibeDescription)
@@ -954,6 +802,42 @@ export default function SurveyComponent({
               <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-3 bg-white/50 dark:bg-slate-700/50 px-3 py-1.5 rounded-lg">
                 اختر {question.maxSelections} فقط
               </p>
+            )}
+          </div>
+        )
+
+      case "select":
+        return (
+          <div className="mt-4">
+            <Select
+              value={value as string || ""}
+              onValueChange={(val) => handleInputChange(question.id, val)}
+            >
+              <SelectTrigger className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm">
+                <SelectValue placeholder="اختر نوع شخصيتك" />
+              </SelectTrigger>
+              <SelectContent>
+                {question.options.map((option: any) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {question.helpText && (
+              <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <p className="text-xs text-blue-700 dark:text-blue-300 text-right">
+                  💡 {question.helpText}
+                </p>
+                <a 
+                  href="https://www.16personalities.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 underline mt-1 block text-right"
+                >
+                  اختبار مجاني على 16personalities.com
+                </a>
+              </div>
             )}
           </div>
         )

@@ -894,23 +894,29 @@ export default function WelcomePage() {
               setStep(2);
               setFormFilledChoiceMade(false); // Reset choice when transitioning from registration
             } else if (step >= 3) {
-              setStep(2);
-              // Only reset timer if not in global timer mode
-              if (!globalTimerActive && !timerRestored) {
-                setConversationStarted(false);
-                setModalStep(null);
-                setTimerEnded(false);
-                setPartnerStartedTimer(false);
-                setPartnerEndedTimer(false);
+              // Don't force users back to step 2 if they've already made their choice
+              // Only reset if they haven't made a choice yet
+              if (!formFilledChoiceMade) {
+                setStep(2);
+                // Only reset timer if not in global timer mode
+                if (!globalTimerActive && !timerRestored) {
+                  setConversationStarted(false);
+                  setModalStep(null);
+                  setTimerEnded(false);
+                  setPartnerStartedTimer(false);
+                  setPartnerEndedTimer(false);
+                } else {
+                  console.log("🔄 Skipping timer reset in form phase - global timer active or timer was restored");
+                }
+                setIsScoreRevealed(false);
+                setShowConversationStarters(false);
+                setConversationStarters([]);
+                setGeneratingStarters(false);
+                // Reset form filled choice when returning to form phase from other phases
+                setFormFilledChoiceMade(false);
               } else {
-                console.log("🔄 Skipping timer reset in form phase - global timer active or timer was restored");
+                console.log("🔄 User has already made their choice, staying on current step");
               }
-              setIsScoreRevealed(false);
-              setShowConversationStarters(false);
-              setConversationStarters([]);
-              setGeneratingStarters(false);
-              // Reset form filled choice when returning to form phase from other phases
-              setFormFilledChoiceMade(false);
             }
           
           // Handle form filled prompt logic - only show if user hasn't made a choice yet

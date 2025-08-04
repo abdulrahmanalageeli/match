@@ -1,10 +1,33 @@
 // /api/save-participant.mjs (Vercel serverless function)
 import { createClient } from "@supabase/supabase-js"
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
-)
+// Add better error logging
+const logError = (context, error) => {
+  console.error(`❌ ${context}:`, {
+    message: error.message,
+    code: error.code,
+    details: error.details,
+    hint: error.hint,
+    stack: error.stack
+  })
+}
+
+// Initialize Supabase client with error handling
+let supabase
+try {
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
+  
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+  
+  supabase = createClient(supabaseUrl, supabaseKey)
+  console.log('✅ Supabase client initialized successfully')
+} catch (error) {
+  console.error('❌ Failed to initialize Supabase client:', error)
+  throw error
+}
 
 export default async (req, res) => {
   if (req.method !== "POST") {
@@ -12,18 +35,30 @@ export default async (req, res) => {
   }
 
   try {
+    console.log('📨 Received request:', {
+      method: req.method,
+      body: req.body,
+      headers: req.headers
+    })
+
     const { assigned_number, summary, survey_data, feedback, round } = req.body
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
-    if (!req.body?.assigned_number) return res.status(400).json({ error: 'Missing assigned_number' })
+    if (!req.body?.assigned_number) {
+      console.error('❌ Missing assigned_number in request body')
+      return res.status(400).json({ error: 'Missing assigned_number' })
+    }
     
     // Check for either survey data, summary, or feedback
     if (!survey_data && !summary && !feedback) {
+      console.error('❌ Missing required data: survey_data, summary, or feedback')
       return res.status(400).json({ error: 'Missing survey data, summary, or feedback' })
     }
 
     // Handle feedback saving
     if (feedback && round) {
+      console.log('📝 Processing feedback for round:', round)
+      
       const {
         compatibilityRate,
         conversationQuality,
@@ -45,7 +80,7 @@ export default async (req, res) => {
         .eq("round", round)
 
       if (existingFeedbackError) {
-        console.error("Error checking existing feedback:", existingFeedbackError)
+        logError("Error checking existing feedback", existingFeedbackError)
         throw new Error("Database query failed")
       }
 
@@ -75,7 +110,7 @@ export default async (req, res) => {
           .eq("round", round)
 
         if (updateFeedbackError) {
-          console.error("Error updating feedback:", updateFeedbackError)
+          logError("Error updating feedback", updateFeedbackError)
           throw new Error("Failed to update feedback")
         }
       } else {
@@ -85,16 +120,19 @@ export default async (req, res) => {
           .insert([feedbackData])
 
         if (insertFeedbackError) {
-          console.error("Error inserting feedback:", insertFeedbackError)
+          logError("Error inserting feedback", insertFeedbackError)
           throw new Error("Failed to save feedback")
         }
       }
 
+      console.log('✅ Feedback saved successfully')
       return res.status(200).json({ 
         success: true, 
         message: "Feedback saved successfully" 
       })
     }
+
+    console.log('📝 Processing participant data for assigned_number:', assigned_number)
 
     const { data: existing, error: existingError } = await supabase
       .from("participants")
@@ -102,83 +140,93 @@ export default async (req, res) => {
       .eq("match_id", match_id)
       .eq("assigned_number", assigned_number)
 
-    if (existingError) throw existingError
+    if (existingError) {
+      logError("Error checking existing participant", existingError)
+      throw existingError
+    }
 
     const updateFields = {}
 
     // Handle survey data (only if present)
     if (survey_data) {
-    const answers = req.body.survey_data?.answers || {};
-    const redLinesRaw = answers.redLines;
-    const redLines = Array.isArray(redLinesRaw)
-      ? redLinesRaw
-      : typeof redLinesRaw === "string"
-        ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
-        : [];
-    updateFields.survey_data = {
-      ...survey_data,
-      answers: {
-        ...answers,
-        redLines,
-      },
+      console.log('📊 Processing survey data:', survey_data)
+      
+      const answers = req.body.survey_data?.answers || {};
+      const redLinesRaw = answers.redLines;
+      const redLines = Array.isArray(redLinesRaw)
+        ? redLinesRaw
+        : typeof redLinesRaw === "string"
+          ? redLinesRaw.split(",").map(s => s.trim()).filter(Boolean)
+          : [];
+      
+      // Prepare survey_data JSONB object according to schema
+      updateFields.survey_data = {
+        ...survey_data,
+        answers: {
+          ...answers,
+          redLines,
+        },
       }
       
-      // Also save MBTI personality type to dedicated column
-      if (survey_data.mbtiType) {
+      // Save MBTI personality type to dedicated column (4 characters max)
+      if (survey_data.mbtiType && survey_data.mbtiType.length === 4) {
         updateFields.mbti_personality_type = survey_data.mbtiType
+        console.log('🧠 MBTI Type:', survey_data.mbtiType)
       }
       
-      // Also save attachment style to dedicated column
+      // Save attachment style to dedicated column (must match constraint values)
       if (survey_data.attachmentStyle) {
-        updateFields.attachment_style = survey_data.attachmentStyle
+        const validAttachmentStyles = ['Secure', 'Anxious', 'Avoidant', 'Fearful']
+        if (validAttachmentStyles.includes(survey_data.attachmentStyle) || 
+            survey_data.attachmentStyle.startsWith('Mixed (')) {
+          updateFields.attachment_style = survey_data.attachmentStyle
+          console.log('🔒 Attachment Style:', survey_data.attachmentStyle)
+        }
       }
       
-      // Also save communication style to dedicated column
+      // Save communication style to dedicated column (must match constraint values)
       if (survey_data.communicationStyle) {
-        updateFields.communication_style = survey_data.communicationStyle
+        const validCommunicationStyles = ['Assertive', 'Passive', 'Aggressive', 'Passive-Aggressive']
+        if (validCommunicationStyles.includes(survey_data.communicationStyle)) {
+          updateFields.communication_style = survey_data.communicationStyle
+          console.log('💬 Communication Style:', survey_data.communicationStyle)
+        }
       }
       
-      // Also save lifestyle preferences to dedicated column
-      if (survey_data.lifestylePreferences) {
-        updateFields.lifestyle_preferences = survey_data.lifestylePreferences
-      }
-      
-      // Also save core values to dedicated column
-      if (survey_data.coreValues) {
-        updateFields.core_values = survey_data.coreValues
-      }
-      
-      // Also save vibe description to dedicated column
-      if (survey_data.vibeDescription) {
-        updateFields.vibe_description = survey_data.vibeDescription
-      }
-      
-      // Also save ideal person description to dedicated column
-      if (survey_data.idealPersonDescription) {
-        updateFields.ideal_person_description = survey_data.idealPersonDescription
-      }
+      // Note: lifestyle_preferences, core_values, vibe_description, ideal_person_description
+      // are not separate columns in the schema - they should be stored in survey_data JSONB
+      // The API was incorrectly trying to save them to non-existent columns
     }
 
     // Allow saving summary alone or with form data
     if (summary) {
       updateFields.summary = summary
+      console.log('📝 Summary:', summary)
     }
 
     if (Object.keys(updateFields).length === 0) {
+      console.error('❌ No valid fields to save')
       return res.status(400).json({ error: "No valid fields to save" })
     }
 
+    console.log('💾 Saving fields:', updateFields)
+
     if (existing && existing.length > 0) {
       // ✅ Update existing
+      console.log('🔄 Updating existing participant')
       const { error: updateError } = await supabase
         .from("participants")
         .update(updateFields)
         .eq("match_id", match_id)
         .eq("assigned_number", assigned_number)
 
-      if (updateError) throw updateError
+      if (updateError) {
+        logError("Update error", updateError)
+        throw updateError
+      }
     } else {
       // ✅ Insert new
+      console.log('➕ Inserting new participant')
       const { error: insertError } = await supabase.from("participants").insert([
         {
           assigned_number,
@@ -187,12 +235,16 @@ export default async (req, res) => {
           ...updateFields,
         },
       ])
-      if (insertError) throw insertError
+      if (insertError) {
+        logError("Insert error", insertError)
+        throw insertError
+      }
     }
 
+    console.log('✅ Participant data saved successfully')
     return res.status(200).json({ message: "Saved", match_id })
   } catch (err) {
-    console.error("Server Error:", err)
+    logError("Server Error", err)
     return res.status(500).json({ error: err.message || "Unexpected error" })
   }
 }

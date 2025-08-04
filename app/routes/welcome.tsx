@@ -755,6 +755,8 @@ export default function WelcomePage() {
           }
           
           // HANDLE ALL PHASE TRANSITIONS
+          console.log(`🔄 Phase transition check: current phase=${data.phase}, lastPhaseRef=${lastPhaseRef.current}, lastRoundRef=${lastRoundRef.current}, step=${step}`);
+          
           if (data.phase && data.phase.startsWith("round_")) {
             // Round phases (round_1, round_2, etc.)
             const roundNumber = parseInt(data.phase.split('_')[1]);
@@ -801,7 +803,7 @@ export default function WelcomePage() {
               lastPhaseRef.current = data.phase;
               
               console.log(`✅ Successfully transitioned to ${data.phase}`);
-          }
+            }
         } else if (data.phase && data.phase.startsWith("waiting_")) {
             // Waiting phases (waiting_2, waiting_3, etc.)
             console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
@@ -820,6 +822,12 @@ export default function WelcomePage() {
             setShowConversationStarters(false);
             setConversationStarters([]);
             setGeneratingStarters(false);
+            
+            // Update refs for waiting phase
+            const waitingRound = parseInt(data.phase.split('_')[1]);
+            lastRoundRef.current = waitingRound;
+            lastPhaseRef.current = data.phase;
+            
             console.log(`✅ Successfully transitioned to ${data.phase}`);
         } else if (data.phase === "group_phase") {
             // Group phase - only reset if actually transitioning TO group phase
@@ -2412,8 +2420,8 @@ export default function WelcomePage() {
                 else if (step === 1) timelineStep = 0; // Number entry -> Form
                 else if (step === 2) timelineStep = 0; // Form -> Form
                 else if (step === 3) timelineStep = 1; // Analysis -> Analysis
-                else if (step === 4) timelineStep = 2 + (currentRound - 1); // Round X -> Round X
-                else if (step === 5) timelineStep = 2 + currentRound; // Waiting -> Next Round
+                else if (step === 4) timelineStep = Math.min(2 + (currentRound - 1), 3); // Round X -> Round X (max 3 for Round 2)
+                else if (step === 5) timelineStep = Math.min(2 + currentRound, 3); // Waiting -> Next Round (max 3 for Round 2)
                 else if (step === 7) timelineStep = 4; // Group phase -> Groups
                 else timelineStep = 0;
               }

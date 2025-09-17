@@ -166,6 +166,10 @@ export default async (req, res) => {
           ...answers,
           redLines,
         },
+        // Personal information is included in the survey_data object
+        name: survey_data.name,
+        gender: survey_data.gender,
+        phoneNumber: survey_data.phoneNumber,
       }
       
       // Save MBTI personality type to dedicated column (4 characters max)

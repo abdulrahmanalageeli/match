@@ -13,6 +13,9 @@ export interface Participant {
     coreValues?: string
     vibeDescription?: string
     idealPersonDescription?: string
+    name?: string
+    gender?: string
+    phoneNumber?: string
   }
   mbti_personality_type?: string
   attachment_style?: string
@@ -124,6 +127,9 @@ export interface SaveParticipantRequest {
     coreValues?: string
     vibeDescription?: string
     idealPersonDescription?: string
+    name?: string
+    gender?: string
+    phoneNumber?: string
   }
   summary?: string
   feedback?: any

@@ -21,13 +21,49 @@ interface SurveyData {
   coreValues?: string
   vibeDescription?: string
   idealPersonDescription?: string
+  name?: string
+  gender?: string
+  phoneNumber?: string
 }
 
 const surveyQuestions = [
+  // Personal Information Questions
+  {
+    id: "name",
+    question: "السؤال 1",
+    description: "ما اسمك؟",
+    type: "text",
+    placeholder: "أدخل اسمك الكامل",
+    required: true,
+    category: "personal_info",
+    maxLength: 50
+  },
+  {
+    id: "gender",
+    question: "السؤال 2", 
+    description: "ما جنسك؟",
+    type: "radio",
+    options: [
+      { value: "male", label: "ذكر" },
+      { value: "female", label: "أنثى" }
+    ],
+    required: true,
+    category: "personal_info"
+  },
+  {
+    id: "phone_number",
+    question: "السؤال 3",
+    description: "ما رقم هاتفك؟ (لتواصلنا معك)",
+    type: "text",
+    placeholder: "مثال: +966501234567",
+    required: true,
+    category: "personal_info",
+    maxLength: 20
+  },
   // MBTI Personality Type Dropdown
   {
     id: "mbti_type",
-    question: "السؤال 1",
+    question: "السؤال 4",
     description: "ما هو نوع شخصيتك حسب اختبار MBTI؟",
     type: "select",
     options: [
@@ -52,10 +88,10 @@ const surveyQuestions = [
     category: "mbti",
     helpText: "إذا كنت لا تعرف نوع شخصيتك، يمكنك اختبار مجاني على موقع 16personalities.com"
   },
-  // Attachment Style Questions 2-6
+  // Attachment Style Questions 5-9
   {
     id: "attachment_1",
-    question: "السؤال 2",
+    question: "السؤال 5",
     description: "كيف تشعر إذا لم يتواصل معك صديقك المقرّب لعدة أيام؟",
     type: "radio",
     options: [
@@ -69,7 +105,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_2",
-    question: "السؤال 3",
+    question: "السؤال 6",
     description: "كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟",
     type: "radio",
     options: [
@@ -83,7 +119,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_3",
-    question: "السؤال 4",
+    question: "السؤال 7",
     description: "ما شعورك تجاه القرب العاطفي من الآخرين؟",
     type: "radio",
     options: [
@@ -97,7 +133,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_4",
-    question: "السؤال 5",
+    question: "السؤال 8",
     description: "عندما تمرّ بوقت صعب، كيف تتعامل مع الأصدقاء؟",
     type: "radio",
     options: [
@@ -111,7 +147,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_5",
-    question: "السؤال 6",
+    question: "السؤال 9",
     description: "ما رأيك في العلاقات المقربة طويلة المدى؟",
     type: "radio",
     options: [
@@ -123,10 +159,10 @@ const surveyQuestions = [
     required: true,
     category: "attachment"
   },
-  // Lifestyle Questions 7-11
+  // Lifestyle Questions 10-14
   {
     id: "lifestyle_1",
-    question: "السؤال 7",
+    question: "السؤال 10",
     description: "في أي وقت من اليوم تكون عادة في أفضل حالتك؟",
     type: "radio",
     options: [
@@ -139,7 +175,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_2",
-    question: "السؤال 8",
+    question: "السؤال 11",
     description: "كم تفضل أن تتواصل مع صديقك المقرّب؟",
     type: "radio",
     options: [
@@ -152,7 +188,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_3",
-    question: "السؤال 9",
+    question: "السؤال 12",
     description: "كم تهمك المساحة الشخصية في علاقات الصداقة؟",
     type: "radio",
     options: [
@@ -165,7 +201,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_4",
-    question: "السؤال 10",
+    question: "السؤال 13",
     description: "كيف تفضل أن تدير وقتك عادة؟",
     type: "radio",
     options: [
@@ -178,7 +214,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_5",
-    question: "السؤال 11",
+    question: "السؤال 14",
     description: "كيف تحب تقضي نهاية الأسبوع غالبًا؟",
     type: "radio",
     options: [
@@ -189,10 +225,10 @@ const surveyQuestions = [
     required: true,
     category: "lifestyle"
   },
-  // Core Values Questions 12-16
+  // Core Values Questions 15-19
   {
     id: "core_values_1",
-    question: "السؤال 12",
+    question: "السؤال 15",
     description: "الصدق أم الحفاظ على العلاقة؟ صديقك ارتكب خطأ بسيط في العمل وطلب منك ألا تتدخل. فجأة، مديرك يسألك: \"هل كنت تعرف عن هذا؟\"",
     type: "radio",
     options: [
@@ -205,7 +241,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_2",
-    question: "السؤال 13",
+    question: "السؤال 16",
     description: "الطموح أم الاستقرار؟ صديقك قرر يترك وظيفة مستقرة ويبدأ مشروعًا من الصفر. يسألك عن رأيك بصراحة.",
     type: "radio",
     options: [
@@ -218,7 +254,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_3",
-    question: "السؤال 14",
+    question: "السؤال 17",
     description: "التقبل أم التشابه؟ بدأت تقترب من شخص تختلف معه في الدين أو القيم الثقافية، لكنه محترم. هل تعتقد أن علاقتكما ستنجح؟",
     type: "radio",
     options: [
@@ -231,7 +267,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_4",
-    question: "السؤال 15",
+    question: "السؤال 18",
     description: "الاعتماد أم الاستقلال؟ تمر بمرحلة صعبة، وصديقك المقرب لم يتواصل معك كثيرًا، لكنه قال إنه \"يعرف إنك تفضل الخصوصية.\"",
     type: "radio",
     options: [
@@ -244,7 +280,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_5",
-    question: "السؤال 16",
+    question: "السؤال 19",
     description: "الواجب الشخصي أم الحرية الفردية؟ صديقك قطع علاقته بشخص آخر لأنه أخطأ، ويطلب منك أن تفعل الشيء نفسه. الشخص الآخر لم يخطئ في حقك مباشرة.",
     type: "radio",
     options: [
@@ -256,10 +292,10 @@ const surveyQuestions = [
     category: "core_values"
   },
 
-  // Communication Style Questions 17-21
+  // Communication Style Questions 20-24
   {
     id: "communication_1",
-    question: "السؤال 17",
+    question: "السؤال 20",
     description: "إذا شعرت أن صديقك تخطى حدودك بطريقة أزعجتك، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -273,7 +309,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_2",
-    question: "السؤال 18",
+    question: "السؤال 21",
     description: "عندما تحتاج إلى شيء من شخص مقرّب، كيف تطلبه عادة؟",
     type: "radio",
     options: [
@@ -287,7 +323,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_3",
-    question: "السؤال 19",
+    question: "السؤال 22",
     description: "إذا لم يعجبك رأي في نقاش جماعي، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -301,7 +337,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_4",
-    question: "السؤال 20",
+    question: "السؤال 23",
     description: "عندما تشعر بالتوتر أو الغضب، كيف تُعبّر عنه؟",
     type: "radio",
     options: [
@@ -315,7 +351,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_5",
-    question: "السؤال 21",
+    question: "السؤال 24",
     description: "كيف تُعبّر عن رأيك عندما لا توافق أحدًا مقرّبًا منك؟",
     type: "radio",
     options: [
@@ -327,10 +363,10 @@ const surveyQuestions = [
     required: true,
     category: "communication"
   },
-  // Vibe and Compatibility Questions 22-27
+  // Vibe and Compatibility Questions 25-30
   {
     id: "vibe_1",
-    question: "السؤال 22",
+    question: "السؤال 25",
     description: "كيف توصف الويكند المثالي بالنسبه لك؟",
     type: "text",
     placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
@@ -340,7 +376,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_2",
-    question: "السؤال 23",
+    question: "السؤال 26",
     description: "عدد خمس هوايات تستمتع فيها؟",
     type: "text",
     placeholder: "مثال: القراءة، السفر، الطبخ، الرسم، الرياضة...",
@@ -350,7 +386,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_3",
-    question: "السؤال 24",
+    question: "السؤال 27",
     description: "لو بتروح حفل موسيقي، مين الفنان اللي تختار؟",
     type: "text",
     placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، Ed Sheeran، أو أي فنان تفضله...",
@@ -360,7 +396,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_4",
-    question: "السؤال 25",
+    question: "السؤال 28",
     description: "هل تحب السوالف العميقه والفلسفية؟",
     type: "radio",
     options: [
@@ -373,7 +409,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_5",
-    question: "السؤال 26",
+    question: "السؤال 29",
     description: "كيف يوصفونك اصدقائك بالعادة؟",
     type: "text",
     placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
@@ -383,7 +419,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_6",
-    question: "السؤال 27",
+    question: "السؤال 30",
     description: "كيف تصف اصدقائك؟",
     type: "text",
     placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
@@ -410,7 +446,7 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
     د: 0  // Fearful/Disorganized
   }
 
-  // Count answers for attachment style questions (now questions 2-6)
+  // Count answers for attachment style questions (now questions 5-9)
   for (let i = 1; i <= 5; i++) {
     const questionId = `attachment_${i}`
     const answer = answers[questionId] as string
@@ -454,7 +490,7 @@ const calculateCommunicationStyle = (answers: Record<string, string | string[]>)
     د: 0  // Passive-Aggressive
   }
 
-  // Count answers for communication style questions (now questions 17-21)
+  // Count answers for communication style questions (now questions 20-24)
   for (let i = 1; i <= 5; i++) {
     const questionId = `communication_${i}`
     const answer = answers[questionId] as string
@@ -497,7 +533,7 @@ const calculateCommunicationStyle = (answers: Record<string, string | string[]>)
 const calculateLifestylePreferences = (answers: Record<string, string | string[]>): string => {
   const preferences = []
   
-  // Process each lifestyle question (now questions 7-11)
+  // Process each lifestyle question (now questions 10-14)
   for (let i = 1; i <= 5; i++) {
     const questionId = `lifestyle_${i}`
     const answer = answers[questionId] as string
@@ -515,7 +551,7 @@ const calculateLifestylePreferences = (answers: Record<string, string | string[]
 const calculateCoreValues = (answers: Record<string, string | string[]>): string => {
   const values = []
   
-  // Process each core values question (now questions 12-16)
+  // Process each core values question (now questions 15-19)
   for (let i = 1; i <= 5; i++) {
     const questionId = `core_values_${i}`
     const answer = answers[questionId] as string
@@ -529,7 +565,7 @@ const calculateCoreValues = (answers: Record<string, string | string[]>): string
   return values.join(',')
 }
 
-// Function to extract and merge vibe description from all 6 questions
+// Function to extract and merge vibe description from all 6 questions (now questions 25-30)
 const extractVibeDescription = (answers: Record<string, string | string[]>): string => {
   const weekend = (answers['vibe_1'] as string) || ''
   const hobbies = (answers['vibe_2'] as string) || ''
@@ -724,9 +760,17 @@ export default function SurveyComponent({
       console.log("👤 Combined Vibe Profile:", vibeDescription)
       console.log("💭 Ideal Person Description (deprecated):", idealPersonDescription)
       
-      // Add all personality types to survey data
+      // Extract personal information
+      const name = surveyData.answers['name'] as string
+      const gender = surveyData.answers['gender'] as string
+      const phoneNumber = surveyData.answers['phone_number'] as string
+      
+      // Add all personality types and personal info to survey data
       const finalData = {
         ...surveyData,
+        name,
+        gender,
+        phoneNumber,
         mbtiType,
         attachmentStyle,
         communicationStyle,
@@ -1085,7 +1129,6 @@ export default function SurveyComponent({
           {currentPage === totalPages - 1 ? (
             <Button
               onClick={() => {
-                console.log("🔘 إرسال الاستبيان button clicked")
                 handleSubmit()
               }}
               disabled={!surveyData.termsAccepted || !surveyData.dataConsent || loading}

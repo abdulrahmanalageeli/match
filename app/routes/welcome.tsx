@@ -76,6 +76,9 @@ interface SurveyData {
   coreValues?: string
   vibeDescription?: string
   idealPersonDescription?: string
+  name?: string
+  gender?: string
+  phoneNumber?: string
 }
 
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {

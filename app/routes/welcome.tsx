@@ -82,7 +82,7 @@ interface SurveyData {
 }
 
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
-  const stepLabels = ["المجموعات", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"];
+  const stepLabels = ["المجموعات", "الجولة ١", "تحليل", "النموذج"];
   // Reverse for RTL
   const steps = Array.from({ length: totalSteps });
   return (
@@ -157,7 +157,7 @@ export default function WelcomePage() {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
   const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
-  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | /* "waiting_3" | "round_3" | "waiting_4" | "round_4" | */ "group_phase" | null>(null)
+  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | /* "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | */ "group_phase" | null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [isScoreRevealed, setIsScoreRevealed] = useState(false)
@@ -762,9 +762,10 @@ export default function WelcomePage() {
           console.log(`🔄 Phase transition check: current phase=${data.phase}, lastPhaseRef=${lastPhaseRef.current}, lastRoundRef=${lastRoundRef.current}, step=${step}`);
           
           if (data.phase && data.phase.startsWith("round_")) {
-            // Round phases (round_1, round_2, etc.)
+            // Round phases (round_1 only - single round mode)
             const roundNumber = parseInt(data.phase.split('_')[1]);
-            if (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase) {
+            // Only handle round 1, comment out multi-round logic
+            if (roundNumber === 1 && (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase)) {
               console.log(`🔄 Round phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
               
               await fetchMatches(roundNumber);
@@ -809,7 +810,7 @@ export default function WelcomePage() {
               console.log(`✅ Successfully transitioned to ${data.phase}`);
             }
         } else if (data.phase && data.phase.startsWith("waiting_")) {
-            // Waiting phases (waiting_2, waiting_3, etc.)
+            // Waiting phases (waiting only - single round mode)
             console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
             setStep(5);
             // Only reset timer if not in global timer mode
@@ -1013,7 +1014,7 @@ export default function WelcomePage() {
     console.log("🚀 handleSubmit called with data:", dataToUse);
     if (!dataToUse || !dataToUse.answers || Object.keys(dataToUse.answers).length === 0) {
       console.log("❌ survey data answers is empty or undefined", dataToUse);
-      alert("يرجى إكمال الاستبيان أولاً");
+      // alert("يرجى إكمال الاستبيان أولاً");
       return;
     }
     setLoading(true)
@@ -2081,11 +2082,11 @@ export default function WelcomePage() {
                               // Redirect to the same page with the token
                               window.location.href = `/welcome?token=${data.secure_token}`
                             } else {
-                              alert("❌ فشل في الحصول على رقم")
+                              // alert("❌ فشل في الحصول على رقم")
                             }
                           } catch (err) {
                             console.error("Error creating token:", err)
-                            alert("❌ فشل في الحصول على رقم")
+                            // alert("❌ فشل في الحصول على رقم")
                           } finally {
                             setLoading(false)
                           }
@@ -2139,7 +2140,7 @@ export default function WelcomePage() {
                             if (token) {
                               window.location.href = `/welcome?token=${token}`
                             } else {
-                              alert("يرجى إدخال رمز صحيح")
+                              // alert("يرجى إدخال رمز صحيح")
                             }
                           }}
                           className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
@@ -2198,7 +2199,7 @@ export default function WelcomePage() {
     )
   }
   
-    if (!isResolving && (phase === "round_1" || phase === "round_2" || /* phase === "round_3" || phase === "round_4" || */ phase === "group_phase") && step === 0) {
+    if (!isResolving && (phase === "round_1" || /* phase === "round_2" || phase === "round_3" || phase === "round_4" || */ phase === "group_phase") && step === 0) {
   return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
@@ -2416,37 +2417,39 @@ export default function WelcomePage() {
         {step >= 0 && (
           <SleekTimeline 
             currentStep={(() => {
-              // Timeline labels in RTL order: ["المجموعات", "الجولة ٢", "الجولة ١", "تحليل", "النموذج"]
-              // RTL indices: 4=Groups, 3=Round2, 2=Round1, 1=Analysis, 0=Form
+              // Timeline labels in RTL order: ["المجموعات", "الجولة ١", "تحليل", "النموذج"]
+              // RTL indices: 3=Groups, 2=Round1, 1=Analysis, 0=Form
               let timelineStep = 0;
               
               if (phase === "registration") timelineStep = 0; // Form (rightmost)
               else if (phase === "form") timelineStep = 0; // Form (rightmost)
               else if (phase === "waiting") timelineStep = 1; // Analysis
               else if (phase === "round_1") timelineStep = 2; // Round 1
-              else if (phase === "waiting_2") timelineStep = 2; // Round 1 (waiting for round 2)
-              else if (phase === "round_2") timelineStep = 3; // Round 2
+              // Commented out multi-round logic
+              // else if (phase === "waiting_2") timelineStep = 2; // Round 1 (waiting for round 2)
+              // else if (phase === "round_2") timelineStep = 3; // Round 2
               // else if (phase === "waiting_3") timelineStep = 3; // Round 2 (waiting for round 3)
               // else if (phase === "round_3") timelineStep = 4; // Round 3
               // else if (phase === "waiting_4") timelineStep = 4; // Round 3 (waiting for round 4)
               // else if (phase === "round_4") timelineStep = 5; // Round 4
-              else if (phase === "group_phase") timelineStep = 4; // Groups (adjusted from 6 to 4)
+              else if (phase === "group_phase") timelineStep = 3; // Groups (adjusted for single round)
               else {
                 // Fallback to step-based calculation if phase is not set
                 if (step === 0) timelineStep = 0; // Welcome screen -> Form
                 else if (step === 1) timelineStep = 0; // Number entry -> Form
                 else if (step === 2) timelineStep = 0; // Form -> Form
                 else if (step === 3) timelineStep = 1; // Analysis -> Analysis
-                else if (step === 4) timelineStep = Math.min(2 + (currentRound - 1), 3); // Round X -> Round X (max 3 for Round 2)
-                else if (step === 5) timelineStep = Math.min(2 + currentRound, 3); // Waiting -> Next Round (max 3 for Round 2)
-                else if (step === 7) timelineStep = 4; // Group phase -> Groups
+                else if (step === 4) timelineStep = 2; // Round 1 -> Round 1
+                // Commented out multi-round logic
+                // else if (step === 5) timelineStep = Math.min(2 + currentRound, 3); // Waiting -> Next Round (max 3 for Round 2)
+                else if (step === 7) timelineStep = 3; // Group phase -> Groups
                 else timelineStep = 0;
               }
               
               console.log(`Timeline Debug: phase=${phase}, currentRound=${currentRound}, step=${step}, timelineStep=${timelineStep}`);
               return timelineStep;
             })()} 
-                            totalSteps={5} 
+                            totalSteps={4} 
             dark={dark} 
             formCompleted={step >= 3}
             currentRound={currentRound}
@@ -2600,11 +2603,11 @@ export default function WelcomePage() {
                         // Redirect to the same page with the token
                         window.location.href = `/welcome?token=${data.secure_token}`
                       } else {
-                        alert("❌ فشل في الحصول على رقم")
+                        // alert("❌ فشل في الحصول على رقم")
                       }
                     } catch (err) {
                       console.error("Error creating token:", err)
-                      alert("❌ فشل في الحصول على رقم")
+                      // alert("❌ فشل في الحصول على رقم")
                     } finally {
                       setLoading(false)
                     }
@@ -2678,12 +2681,12 @@ export default function WelcomePage() {
                   </p>
                   <button
                     onClick={() => {
-                      alert("Button clicked!")
+                      // alert("Button clicked!")
                       console.log("🔘 ابدأ الاستبيان button clicked")
                       console.log("showSurvey will be set to true")
                       setShowSurvey(true)
                       setTimeout(() => {
-                        alert("showSurvey should now be true")
+                        // alert("showSurvey should now be true")
                       }, 100)
                     }}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 shadow-sm hover:bg-primary/90 h-9 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"

@@ -855,7 +855,7 @@ export default async function handler(req, res) {
     const participantCount = numbers.length
     
     // Get total rounds from environment or database
-    let rounds = 2 // Default fallback
+    let rounds = 1 // Default fallback - single round mode
     try {
       const { data: eventState, error: eventError } = await supabase
         .from("event_state")

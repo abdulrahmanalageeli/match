@@ -94,7 +94,7 @@ export default async function handler(req, res) {
             match_id: STATIC_MATCH_ID, 
             phase, 
             current_round,
-            total_rounds: 4
+            total_rounds: 1
           }, { onConflict: "match_id" })
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Phase updated - all players will transition immediately" })
@@ -234,7 +234,7 @@ export default async function handler(req, res) {
               emergency_paused: false,
               pause_time: null,
               current_round: 1,
-              total_rounds: 4,
+              total_rounds: 1,
               global_timer_active: false,
               global_timer_start_time: null,
               global_timer_duration: 1800,
@@ -448,8 +448,8 @@ export default async function handler(req, res) {
         const { currentPhase } = req.body
         
         const phaseOrder = [
-          "registration", "form", "waiting", "round_1", "waiting_2", 
-          "round_2", /* "waiting_3", "round_3", "waiting_4", "round_4", */ "group_phase"
+          "registration", "form", "waiting", "round_1", /* "waiting_2", 
+          "round_2", "waiting_3", "round_3", "waiting_4", "round_4", */ "group_phase"
         ]
         
         const currentIndex = phaseOrder.indexOf(currentPhase)
@@ -466,7 +466,7 @@ export default async function handler(req, res) {
             match_id: STATIC_MATCH_ID, 
             phase: nextPhase,
             current_round: currentRound,
-            total_rounds: 4
+            total_rounds: 1
           }, { onConflict: "match_id" })
         
         if (error) return res.status(500).json({ error: error.message })

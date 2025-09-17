@@ -891,6 +891,43 @@ export default function SurveyComponent({
         const maxLength = question.maxLength || 1000
         const isOverLimit = currentLength > maxLength
         
+        // Use Input for phone number, Textarea for longer text
+        const isPhoneNumber = question.id === 'phone_number'
+        
+        if (isPhoneNumber) {
+          return (
+            <div className="relative mt-4">
+              <Input
+                value={value as string || ""}
+                onChange={(e) => {
+                  const newValue = e.target.value
+                  if (newValue.length <= maxLength) {
+                    handleInputChange(question.id, newValue)
+                  }
+                }}
+                placeholder={question.placeholder}
+                className={`text-right border-2 rounded-lg px-3 py-2 text-sm transition-all duration-300 focus:ring-4 backdrop-blur-sm ${
+                  isOverLimit 
+                    ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400 focus:ring-red-500/20 dark:focus:ring-red-400/20' 
+                    : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/20 dark:focus:ring-blue-400/20'
+                } bg-white/50 dark:bg-slate-700/50`}
+              />
+              
+              {/* Character counter */}
+              <div className="flex justify-between items-center mt-2 text-xs">
+                <span className={`font-medium ${isOverLimit ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                  {currentLength}/{maxLength} حرف
+                </span>
+                {isOverLimit && (
+                  <span className="text-red-500 dark:text-red-400 font-medium">
+                    تجاوزت الحد المسموح
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        }
+        
         return (
           <div className="relative mt-4">
             <Textarea

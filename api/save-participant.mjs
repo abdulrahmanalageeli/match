@@ -166,10 +166,17 @@ export default async (req, res) => {
           ...answers,
           redLines,
         },
-        // Personal information is included in the survey_data object
-        name: survey_data.name,
-        gender: survey_data.gender,
-        phoneNumber: survey_data.phoneNumber,
+      }
+
+      // Persist personal info to dedicated columns (no longer inside JSON)
+      if (typeof survey_data.name === 'string' && survey_data.name.trim()) {
+        updateFields.name = survey_data.name.trim()
+      }
+      if (typeof survey_data.gender === 'string' && survey_data.gender.trim()) {
+        updateFields.gender = survey_data.gender.trim()
+      }
+      if (typeof survey_data.phoneNumber === 'string' && survey_data.phoneNumber.trim()) {
+        updateFields.phone_number = survey_data.phoneNumber.trim()
       }
       
       // Save MBTI personality type to dedicated column (4 characters max)
@@ -199,7 +206,6 @@ export default async (req, res) => {
       
       // Note: lifestyle_preferences, core_values, vibe_description, ideal_person_description
       // are not separate columns in the schema - they should be stored in survey_data JSONB
-      // The API was incorrectly trying to save them to non-existent columns
     }
 
     // Allow saving summary alone or with form data

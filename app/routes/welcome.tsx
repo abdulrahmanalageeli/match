@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import { X } from "lucide-react"
+import logoPng from "../welcome/blindmatch.png"
 
 import {
   ChevronRightIcon,
@@ -1977,31 +1978,8 @@ export default function WelcomePage() {
                         <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-20 animate-spin" style={{ animationDuration: '8s' }}></div>
                         
                         {/* Logo Content */}
-                        <div className="relative flex items-center justify-center gap-4 sm:gap-6">
-                          {/* Left Icon */}
-                          <div className="relative">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center animate-pulse">
-                              <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                            </div>
-                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
-                          </div>
-                          
-                          {/* Text with Gradient */}
-                          <div className="relative">
-                            <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent font-extrabold text-2xl sm:text-4xl lg:text-6xl tracking-wider">
-                              التوافق الأعمى
-                            </span>
-                            {/* Text Glow Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 bg-clip-text text-transparent font-extrabold text-2xl sm:text-4xl lg:text-6xl tracking-wider blur-sm opacity-50 animate-pulse"></div>
-                          </div>
-                          
-                          {/* Right Icon */}
-                          <div className="relative">
-                            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center animate-pulse">
-                              <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                            </div>
-                            <div className="absolute -top-2 -right-2 w-4 h-4 bg-cyan-500 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
-                          </div>
+                        <div className="relative flex items-center justify-center">
+                          <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
                         </div>
                         
                         {/* Floating Particles */}
@@ -2037,10 +2015,8 @@ export default function WelcomePage() {
                   <div className="relative inline-block mb-6 sm:mb-8">
                     <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-xl sm:blur-2xl opacity-30 bg-gradient-to-r from-cyan-500 to-blue-600 animate-pulse"></div>
                     <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
-                      <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6">
-                        <Brain className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
-                        <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-cyan-200 animate-bounce" />
-                        <Heart className="w-8 h-8 sm:w-12 sm:h-12 text-white animate-pulse" />
+                      <div className="flex items-center justify-center mb-4 sm:mb-6">
+                        <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
                       </div>
                       <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
                         نظام التوافق الذكي

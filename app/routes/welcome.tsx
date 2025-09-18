@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
-import { X, Copy, Check, Bookmark, Save } from "lucide-react"
+import { X } from "lucide-react"
 
 import {
   ChevronRightIcon,
@@ -167,9 +167,6 @@ export default function WelcomePage() {
   const [globalTimerStartTime, setGlobalTimerStartTime] = useState<string | null>(null)
   const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
   const [timerRestored, setTimerRestored] = useState(false)
-  const [showTokenAlert, setShowTokenAlert] = useState(false)
-  const [userToken, setUserToken] = useState<string | null>(null)
-  const [tokenCopied, setTokenCopied] = useState(false)
   const [timerRestoreAttempted, setTimerRestoreAttempted] = useState(false)
   
   // Utility function to clear timer localStorage backup
@@ -178,19 +175,6 @@ export default function WelcomePage() {
     localStorage.removeItem('timerStartTime');
     localStorage.removeItem('timerDuration');
     console.log("🔄 Cleared timer localStorage backup");
-  }
-
-  // Copy token to clipboard
-  const copyTokenToClipboard = async () => {
-    if (userToken) {
-      try {
-        await navigator.clipboard.writeText(userToken);
-        setTokenCopied(true);
-        setTimeout(() => setTokenCopied(false), 2000);
-      } catch (err) {
-        console.error('Failed to copy token:', err);
-      }
-    }
   }
   
   const [feedbackAnswers, setFeedbackAnswers] = useState({
@@ -2269,112 +2253,6 @@ export default function WelcomePage() {
     </div>
   )
 }
-
-  // Token Alert Component
-  const TokenAlert = () => (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 rounded-2xl shadow-2xl border border-slate-600/50 max-w-md w-full mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 p-6 border-b border-slate-600/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center">
-                <Bookmark className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white">مرحباً بك!</h3>
-                <p className="text-sm text-cyan-200">تم إنشاء حسابك بنجاح</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowTokenAlert(false)}
-              className="w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 flex items-center justify-center transition-colors"
-            >
-              <X className="w-4 h-4 text-slate-300" />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 space-y-6">
-          {/* Token Display */}
-          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-600/30">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-medium text-slate-300">رقمك المخصص:</span>
-              <button
-                onClick={copyTokenToClipboard}
-                className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/50 hover:bg-slate-600/50 rounded-lg transition-colors text-sm"
-              >
-                {tokenCopied ? (
-                  <>
-                    <Check className="w-4 h-4 text-green-400" />
-                    <span className="text-green-400">تم النسخ!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-4 h-4 text-slate-300" />
-                    <span className="text-slate-300">نسخ</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700/50">
-              <code className="text-lg font-mono font-bold text-cyan-400 tracking-wider">
-                {userToken}
-              </code>
-            </div>
-          </div>
-
-          {/* Instructions */}
-          <div className="space-y-4">
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Save className="w-3 h-3 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white mb-1">احفظ هذا الرقم</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  هذا الرقم هو مفتاح الوصول إلى حسابك وتاريخك. احفظه في مكان آمن.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Bookmark className="w-3 h-3 text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-semibold text-white mb-1">احفظ الصفحة</h4>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  اضغط Ctrl+D (أو Cmd+D على Mac) لحفظ هذه الصفحة في المفضلة للعودة إليها لاحقاً.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Button */}
-          <button
-            onClick={() => setShowTokenAlert(false)}
-            className="w-full bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white font-semibold py-3 rounded-xl transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
-          >
-            فهمت، دعني أبدأ
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-
-  // Check if user just signed up (has token in URL but no assigned number yet)
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    
-    if (token && !assignedNumber && !showTokenAlert) {
-      // User just signed up, show the token alert
-      setUserToken(token);
-      setShowTokenAlert(true);
-    }
-  }, [assignedNumber, showTokenAlert]);
   
   return (
     <>
@@ -4402,9 +4280,6 @@ export default function WelcomePage() {
 
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
-
-      {/* Token Alert Modal */}
-      {showTokenAlert && <TokenAlert />}
 
       </div>
     </>

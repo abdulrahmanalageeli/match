@@ -2320,6 +2320,28 @@ export default function WelcomePage() {
   
   return (
     <>
+      {showTokenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`${dark ? "text-slate-100" : "text-gray-800"} text-lg font-bold`}>تم إنشاء حسابك بنجاح</h3>
+              <button onClick={() => setShowTokenModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`}>✕</button>
+            </div>
+            <p className={`${dark ? "text-slate-300" : "text-gray-600"} text-sm mb-3`}>هذا رمز الوصول الخاص بك. احتفظ به أو انسخه للعودة لاحقاً إلى تاريخك.</p>
+            <div className={`${dark ? "border-slate-600 bg-slate-900/40" : "border-gray-300 bg-gray-50"} flex items-center justify-between gap-2 rounded-xl border px-3 py-2 mb-3`}>
+              <div className={`${dark ? "text-cyan-300" : "text-blue-700"} font-mono text-sm select-all`}>{secureToken}</div>
+              <Button onClick={() => { if (secureToken) navigator.clipboard.writeText(secureToken) }} className="h-8 px-3 text-xs">نسخ</Button>
+            </div>
+            <div className={`${dark ? "bg-cyan-500/10 border border-cyan-400/20" : "bg-blue-50 border border-blue-200"} rounded-xl p-3 mb-4`}>
+              <p className={`${dark ? "text-cyan-200" : "text-blue-700"} text-xs`}>نصيحة: قم بحفظ هذه الصفحة في المفضلة حتى تعود بسهولة إلى رحلتك وتاريخك لاحقاً.</p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowTokenModal(false)} className="h-8 px-3 text-xs">حسناً</Button>
+              <Button onClick={() => { if (secureToken) { setShowTokenModal(false); window.history.replaceState(null, "", `/welcome?token=${secureToken}`) } }} className="h-8 px-3 text-xs">فتح الصفحة برمزك</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div
         className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden ${
           dark

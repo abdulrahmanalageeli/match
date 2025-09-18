@@ -2015,7 +2015,8 @@ export default function WelcomePage() {
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
-                      <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
+                      <img src={logoPng} alt="BlindMatch"   className="w-20 h-20 sm:w-28 sm:h-28 object-contain mx-auto"
+ />
 
                       <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
                         نظام التوافق الذكي

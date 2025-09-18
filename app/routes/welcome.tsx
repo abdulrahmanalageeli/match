@@ -2013,7 +2013,6 @@ export default function WelcomePage() {
                 {/* Header Section */}
                 <div className="text-center mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
-                    <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                         <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
                       </div>
@@ -2025,8 +2024,6 @@ export default function WelcomePage() {
                       </p>
                     </div>
                   </div>
-                </div>
-
                 {/* Features Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-200">

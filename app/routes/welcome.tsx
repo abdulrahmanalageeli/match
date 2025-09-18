@@ -190,7 +190,9 @@ export default function WelcomePage() {
     overallExperience: 3, // 1-5 scale
     recommendations: ""
   })
-  const token = useSearchParams()[0].get("token")
+  const searchParams = useSearchParams()[0]
+  const token = searchParams.get("token")
+  const showTokenFlag = searchParams.get("showToken") === "1"
   const [isResolving, setIsResolving] = useState(true)
   const [tokenError, setTokenError] = useState<string | null>(null)
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null)
@@ -414,6 +416,9 @@ export default function WelcomePage() {
           setTokenError(null)
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
+          if (showTokenFlag) {
+            setShowTokenModal(true)
+          }
           if (data.summary) {
             console.log("📖 Loaded summary from database:", data.summary)
             setPersonalitySummary(data.summary)
@@ -2081,8 +2086,8 @@ export default function WelcomePage() {
                             const data = await res.json()
                             if (data.secure_token) {
                               setAssignedNumber(data.assigned_number)
-                              setSecureToken(data.secure_token)
-                              setShowTokenModal(true)
+                              // Redirect to same page with token and flag to show modal on load
+                              window.location.href = `/welcome?token=${data.secure_token}&showToken=1`
                             } else {
                               // alert("❌ فشل في الحصول على رقم")
                             }
@@ -2640,8 +2645,8 @@ export default function WelcomePage() {
                       const data = await res.json()
                       if (data.secure_token) {
                         setAssignedNumber(data.assigned_number)
-                        setSecureToken(data.secure_token)
-                        setShowTokenModal(true)
+                        // Redirect to same page with token and flag to show modal on load
+                        window.location.href = `/welcome?token=${data.secure_token}&showToken=1`
                       } else {
                         // alert("❌ فشل في الحصول على رقم")
                       }

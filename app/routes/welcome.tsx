@@ -146,6 +146,8 @@ export default function WelcomePage() {
   const [step, setStep] = useState(0)
   const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
+  const [secureToken, setSecureToken] = useState<string | null>(null)
+  const [showTokenModal, setShowTokenModal] = useState(false)
 
   const [freeTime, setFreeTime] = useState("")
   const [friendDesc, setFriendDesc] = useState("")
@@ -212,7 +214,7 @@ export default function WelcomePage() {
   const [showHistoryDetail, setShowHistoryDetail] = useState(false)
   const [animationStep, setAnimationStep] = useState(0)
   const [showRegistrationContent, setShowRegistrationContent] = useState(false)
-  const [secureToken, setSecureToken] = useState<string>("")
+  // const [secureToken, setSecureToken] = useState<string>("")
   const [conversationStarters, setConversationStarters] = useState<string[]>([])
   const [showConversationStarters, setShowConversationStarters] = useState(false)
   const [generatingStarters, setGeneratingStarters] = useState(false)
@@ -2079,8 +2081,8 @@ export default function WelcomePage() {
                             const data = await res.json()
                             if (data.secure_token) {
                               setAssignedNumber(data.assigned_number)
-                              // Redirect to the same page with the token
-                              window.location.href = `/welcome?token=${data.secure_token}`
+                              setSecureToken(data.secure_token)
+                              setShowTokenModal(true)
                             } else {
                               // alert("❌ فشل في الحصول على رقم")
                             }
@@ -2191,6 +2193,44 @@ export default function WelcomePage() {
   if (phase === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Token Modal */}
+      {showTokenModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className={`w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl ${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className={`text-lg font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تم إنشاء حسابك بنجاح</h3>
+              <button onClick={() => setShowTokenModal(false)} className={`rounded-full p-1 ${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}>✕</button>
+            </div>
+            <p className={`text-sm mb-3 ${dark ? "text-slate-300" : "text-gray-600"}`}>هذا رمز الوصول الخاص بك. احتفظ به أو انسخه للعودة لاحقاً إلى تاريخك.</p>
+            <div className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 mb-3 ${dark ? "border-slate-600 bg-slate-900/40" : "border-gray-300 bg-gray-50"}`}>
+              <div className={`font-mono text-sm select-all ${dark ? "text-cyan-300" : "text-blue-700"}`}>{secureToken}</div>
+              <Button
+                onClick={() => { if (secureToken) navigator.clipboard.writeText(secureToken) }}
+                className="h-8 px-3 text-xs"
+              >نسخ</Button>
+            </div>
+            <div className={`rounded-xl p-3 mb-4 ${dark ? "bg-cyan-500/10 border border-cyan-400/20" : "bg-blue-50 border border-blue-200"}`}>
+              <p className={`text-xs ${dark ? "text-cyan-200" : "text-blue-700"}`}>نصيحة: قم بحفظ هذه الصفحة في المفضلة حتى تعود بسهولة إلى رحلتك وتاريخك لاحقاً.</p>
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowTokenModal(false)}
+                className="h-8 px-3 text-xs"
+              >حسناً</Button>
+              <Button
+                onClick={() => {
+                  if (secureToken) {
+                    setShowTokenModal(false)
+                    window.history.replaceState(null, "", `/welcome?token=${secureToken}`)
+                  }
+                }}
+                className="h-8 px-3 text-xs"
+              >فتح الصفحة برمزك</Button>
+            </div>
+          </div>
+        </div>
+      )}
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400 mx-auto"></div>
           <p className="text-slate-300 text-xl font-medium" dir="rtl">جارٍ التحميل...</p>
@@ -2600,8 +2640,8 @@ export default function WelcomePage() {
                       const data = await res.json()
                       if (data.secure_token) {
                         setAssignedNumber(data.assigned_number)
-                        // Redirect to the same page with the token
-                        window.location.href = `/welcome?token=${data.secure_token}`
+                        setSecureToken(data.secure_token)
+                        setShowTokenModal(true)
                       } else {
                         // alert("❌ فشل في الحصول على رقم")
                       }

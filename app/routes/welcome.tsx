@@ -415,7 +415,18 @@ export default function WelcomePage() {
           setTokenError(null)
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
-          // If we just created a token, show modal once and clear flag
+          // If URL still has legacy showToken flag, show modal and then clean it from URL
+          try {
+            const params = new URLSearchParams(window.location.search)
+            if (params.get('showToken') === '1') {
+              setShowTokenModal(true)
+              params.delete('showToken')
+              const newQuery = params.toString()
+              const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+              window.history.replaceState(null, '', newUrl)
+            }
+          } catch (_) {}
+          // If we just created a token (no route flag), show modal once and clear flag
           try {
             if (sessionStorage.getItem('justCreatedToken') === '1') {
               const justToken = sessionStorage.getItem('justCreatedTokenValue')

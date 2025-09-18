@@ -2013,7 +2013,6 @@ export default function WelcomePage() {
                 {/* Header Section */}
                 <div className="text-center mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
-                    <div className="absolute inset-0 rounded-2xl sm:rounded-3xl blur-xl sm:blur-2xl opacity-30 bg-gradient-to-r from-cyan-500 to-blue-600 animate-pulse"></div>
                     <div className="relative bg-gradient-to-r from-cyan-600 to-blue-700 rounded-2xl sm:rounded-3xl p-6 sm:p-8 backdrop-blur-xl border border-cyan-400/30 shadow-2xl">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                         <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />

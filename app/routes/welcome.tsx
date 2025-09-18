@@ -82,7 +82,7 @@ interface SurveyData {
 }
 
 const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
-  const stepLabels = ["المجموعات", "الجولة ١", "تحليل", "النموذج"];
+  const stepLabels = ["الجولة ١", "تحليل", "النموذج"];
   // Reverse for RTL
   const steps = Array.from({ length: totalSteps });
   return (
@@ -157,7 +157,7 @@ export default function WelcomePage() {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
   const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
-  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | /* "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | */ "group_phase" | null>(null)
+  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | /* "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [isScoreRevealed, setIsScoreRevealed] = useState(false)
@@ -551,11 +551,11 @@ export default function WelcomePage() {
                   setStep(4); // Show matches
                 } else if (eventData.phase && eventData.phase.startsWith("waiting_")) {
                   setStep(3); // Show analysis/waiting
-                } else if (eventData.phase === "group_phase") {
-                  setStep(7); // Show group phase
-                  // Fetch group matches when loading in group phase
-                  console.log("🎯 Initial load: Fetching group matches for group_phase")
-                  fetchGroupMatches();
+                // } else if (eventData.phase === "group_phase") {
+                //   setStep(7); // Show group phase
+                //   // Fetch group matches when loading in group phase
+                //   console.log("🎯 Initial load: Fetching group matches for group_phase")
+                //   fetchGroupMatches();
                 } else if (eventData.phase === "waiting") {
                   // User completed form and we're in waiting phase
                   setStep(3); // Show analysis/waiting
@@ -602,12 +602,12 @@ export default function WelcomePage() {
   }, [assignedNumber, pendingMatchRound])
 
   // Handle group phase data loading
-  useEffect(() => {
-    if (assignedNumber && phase === "group_phase" && step === 7) {
-      console.log("🎯 Loading group matches for step 7", { assignedNumber, phase, step, matchResult })
-      fetchGroupMatches()
-    }
-  }, [assignedNumber, phase, step])
+  // useEffect(() => {
+  //   if (assignedNumber && phase === "group_phase" && step === 7) {
+  //     console.log("🎯 Loading group matches for step 7", { assignedNumber, phase, step, matchResult })
+  //     fetchGroupMatches()
+  //   }
+  // }, [assignedNumber, phase, step])
 
   // Combined real-time updates for all steps
   useEffect(() => {
@@ -834,37 +834,37 @@ export default function WelcomePage() {
             lastPhaseRef.current = data.phase;
             
             console.log(`✅ Successfully transitioned to ${data.phase}`);
-        } else if (data.phase === "group_phase") {
-            // Group phase - only reset if actually transitioning TO group phase
-            if (lastPhaseRef.current !== "group_phase") {
-              console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
-            setStep(7);
-            // Only reset timer if not in global timer mode
-            if (!globalTimerActive && !timerRestored) {
-              setConversationTimer(1800);
-              setConversationStarted(false);
-              setModalStep(null);
-              setIsScoreRevealed(false);
-              setTimerEnded(false);
-              setPartnerStartedTimer(false);
-              setPartnerEndedTimer(false);
-              setShowConversationStarters(false);
-              setConversationStarters([]);
-              setGeneratingStarters(false);
-              setShowHistory(false);
-              setShowHistoryDetail(false);
-              setSelectedHistoryItem(null);
-              setAnimationStep(0);
-            } else {
-              console.log("🔄 Skipping timer reset in group phase - global timer active or timer was restored");
-            }
-            fetchGroupMatches();
-              
-              lastPhaseRef.current = "group_phase";
-              console.log(`✅ Successfully transitioned to group_phase`);
-            } else {
-              console.log(`🔄 Already in group_phase, maintaining current timer state`);
-            }
+        // } else if (data.phase === "group_phase") {
+        //     // Group phase - only reset if actually transitioning TO group phase
+        //     if (lastPhaseRef.current !== "group_phase") {
+        //       console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
+        //     setStep(7);
+        //     // Only reset timer if not in global timer mode
+        //     if (!globalTimerActive && !timerRestored) {
+        //       setConversationTimer(1800);
+        //       setConversationStarted(false);
+        //       setModalStep(null);
+        //       setIsScoreRevealed(false);
+        //       setTimerEnded(false);
+        //       setPartnerStartedTimer(false);
+        //       setPartnerEndedTimer(false);
+        //       setShowConversationStarters(false);
+        //       setConversationStarters([]);
+        //       setGeneratingStarters(false);
+        //       setShowHistory(false);
+        //       setShowHistoryDetail(false);
+        //       setSelectedHistoryItem(null);
+        //       setAnimationStep(0);
+        //     } else {
+        //       console.log("🔄 Skipping timer reset in group phase - global timer active or timer was restored");
+        //     }
+        //     fetchGroupMatches();
+        //       
+        //       lastPhaseRef.current = "group_phase";
+        //       console.log(`✅ Successfully transitioned to group_phase`);
+        //     } else {
+        //       console.log(`🔄 Already in group_phase, maintaining current timer state`);
+        //     }
           } else if (data.phase === "waiting") {
             // General waiting phase
             console.log(`🔄 General waiting phase change detected (from step ${step})`);
@@ -1424,7 +1424,7 @@ export default function WelcomePage() {
           assigned_number: assignedNumber,
           round: round,
           duration: duration,
-          match_type: phase === "group_phase" ? "محايد" : "محايد"
+          // match_type: phase === "group_phase" ? "محايد" : "محايد"
         }),
       });
       
@@ -1460,7 +1460,7 @@ export default function WelcomePage() {
           action: "get-status",
           assigned_number: assignedNumber,
           round: round,
-          match_type: phase === "group_phase" ? "محايد" : "محايد"
+          // match_type: phase === "group_phase" ? "محايد" : "محايد"
         }),
       });
       
@@ -1488,7 +1488,7 @@ export default function WelcomePage() {
           action: "finish",
           assigned_number: assignedNumber,
           round: round,
-          match_type: phase === "group_phase" ? "محايد" : "محايد"
+          // match_type: phase === "group_phase" ? "محايد" : "محايد"
         }),
       });
       
@@ -1541,7 +1541,7 @@ export default function WelcomePage() {
     const syncWithDatabase = async () => {
       try {
         // Skip timer sync for group phase - each participant manages their own timer
-        if (phase === "group_phase") {
+        // if (phase === "group_phase") {
           console.log("🔄 Group phase detected, skipping timer sync");
           return;
         }
@@ -1643,7 +1643,7 @@ export default function WelcomePage() {
     };
 
     // Initial sync (skip for group phase)
-    if (phase !== "group_phase") {
+    // if (phase !== "group_phase") {
     syncWithDatabase();
     // Set up polling interval
     syncInterval = setInterval(syncWithDatabase, 2000);
@@ -2199,7 +2199,7 @@ export default function WelcomePage() {
     )
   }
   
-    if (!isResolving && (phase === "round_1" || /* phase === "round_2" || phase === "round_3" || phase === "round_4" || */ phase === "group_phase") && step === 0) {
+    if (!isResolving && (phase === "round_1" || /* phase === "round_2" || phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
   return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
@@ -2417,22 +2417,22 @@ export default function WelcomePage() {
         {step >= 0 && (
           <SleekTimeline 
             currentStep={(() => {
-              // Timeline labels in RTL order: ["المجموعات", "الجولة ١", "تحليل", "النموذج"]
-              // RTL indices: 3=Groups, 2=Round1, 1=Analysis, 0=Form
+              // Timeline labels in RTL order: ["الجولة ١", "تحليل", "النموذج"]
+              // RTL indices: 2=Round1, 1=Analysis, 0=Form
               let timelineStep = 0;
               
               if (phase === "registration") timelineStep = 0; // Form (rightmost)
               else if (phase === "form") timelineStep = 0; // Form (rightmost)
               else if (phase === "waiting") timelineStep = 1; // Analysis
               else if (phase === "round_1") timelineStep = 2; // Round 1
-              // Commented out multi-round logic
+              // Commented out multi-round and groups logic
               // else if (phase === "waiting_2") timelineStep = 2; // Round 1 (waiting for round 2)
               // else if (phase === "round_2") timelineStep = 3; // Round 2
               // else if (phase === "waiting_3") timelineStep = 3; // Round 2 (waiting for round 3)
               // else if (phase === "round_3") timelineStep = 4; // Round 3
               // else if (phase === "waiting_4") timelineStep = 4; // Round 3 (waiting for round 4)
               // else if (phase === "round_4") timelineStep = 5; // Round 4
-              else if (phase === "group_phase") timelineStep = 3; // Groups (adjusted for single round)
+              // else if (phase === "group_phase") timelineStep = 3; // Groups (removed)
               else {
                 // Fallback to step-based calculation if phase is not set
                 if (step === 0) timelineStep = 0; // Welcome screen -> Form
@@ -2440,16 +2440,16 @@ export default function WelcomePage() {
                 else if (step === 2) timelineStep = 0; // Form -> Form
                 else if (step === 3) timelineStep = 1; // Analysis -> Analysis
                 else if (step === 4) timelineStep = 2; // Round 1 -> Round 1
-                // Commented out multi-round logic
+                // Commented out multi-round and groups logic
                 // else if (step === 5) timelineStep = Math.min(2 + currentRound, 3); // Waiting -> Next Round (max 3 for Round 2)
-                else if (step === 7) timelineStep = 3; // Group phase -> Groups
+                // else if (step === 7) timelineStep = 3; // Group phase -> Groups (removed)
                 else timelineStep = 0;
               }
               
               console.log(`Timeline Debug: phase=${phase}, currentRound=${currentRound}, step=${step}, timelineStep=${timelineStep}`);
               return timelineStep;
             })()} 
-                            totalSteps={4} 
+                            totalSteps={3} 
             dark={dark} 
             formCompleted={step >= 3}
             currentRound={currentRound}
@@ -3849,7 +3849,7 @@ export default function WelcomePage() {
                                       <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
                       <div className="flex justify-center my-4">
                         <CircularProgressBar
-                          progress={compatibilityScore !== null ? Math.round(phase === "group_phase" ? compatibilityScore * 10 : compatibilityScore) : 0}
+                          progress={compatibilityScore !== null ? Math.round(compatibilityScore) : 0}
                           size={180}
                           strokeWidth={20}
                           dark={dark}

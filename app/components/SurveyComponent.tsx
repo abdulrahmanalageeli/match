@@ -891,10 +891,11 @@ export default function SurveyComponent({
         const maxLength = question.maxLength || 1000
         const isOverLimit = currentLength > maxLength
         
-        // Use Input for phone number, Textarea for longer text
+        // Use Input for phone number and name, Textarea for longer text
         const isPhoneNumber = question.id === 'phone_number'
+        const isName = question.id === 'name'
         
-        if (isPhoneNumber) {
+        if (isPhoneNumber || isName) {
           return (
             <div className="relative mt-4">
               <Input

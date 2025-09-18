@@ -2014,11 +2014,9 @@ export default function WelcomePage() {
                 <div className="text-center mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
-                        <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
                       </div>
-                      <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
-                        نظام التوافق الذكي
-                      </h1>
+                      <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
+
                       <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
                         اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم
                       </p>

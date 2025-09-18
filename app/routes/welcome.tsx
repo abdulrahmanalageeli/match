@@ -1979,7 +1979,6 @@ export default function WelcomePage() {
                         
                         {/* Logo Content */}
                         <div className="relative flex items-center justify-center">
-                          <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
                         </div>
                         
                         {/* Floating Particles */}
@@ -2544,8 +2543,8 @@ export default function WelcomePage() {
                   <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
                     dark ? "bg-gradient-to-r from-cyan-300 to-blue-400" : "bg-gradient-to-r from-cyan-600 to-blue-700"
                   }`}>
-                    نظام التوافق الذكي
-                  </h1>
+                          <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
+                          </h1>
                   
                   <div className={`min-h-[6rem] text-right leading-relaxed ${
                     dark ? "text-slate-200" : "text-gray-700"

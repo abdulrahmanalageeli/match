@@ -192,7 +192,6 @@ export default function WelcomePage() {
   })
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
-  const showTokenFlag = searchParams.get("showToken") === "1"
   const [isResolving, setIsResolving] = useState(true)
   const [tokenError, setTokenError] = useState<string | null>(null)
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null)
@@ -416,9 +415,16 @@ export default function WelcomePage() {
           setTokenError(null)
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
-          if (showTokenFlag) {
-            setShowTokenModal(true)
-          }
+          // If we just created a token, show modal once and clear flag
+          try {
+            if (sessionStorage.getItem('justCreatedToken') === '1') {
+              const justToken = sessionStorage.getItem('justCreatedTokenValue')
+              if (justToken) setSecureToken(justToken)
+              setShowTokenModal(true)
+              sessionStorage.removeItem('justCreatedToken')
+              sessionStorage.removeItem('justCreatedTokenValue')
+            }
+          } catch (_) {}
           if (data.summary) {
             console.log("📖 Loaded summary from database:", data.summary)
             setPersonalitySummary(data.summary)
@@ -2086,8 +2092,10 @@ export default function WelcomePage() {
                             const data = await res.json()
                             if (data.secure_token) {
                               setAssignedNumber(data.assigned_number)
-                              // Redirect to same page with token and flag to show modal on load
-                              window.location.href = `/welcome?token=${data.secure_token}&showToken=1`
+                              // Mark just-created to show modal after redirect
+                              sessionStorage.setItem('justCreatedToken', '1')
+                              sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
+                              window.location.href = `/welcome?token=${data.secure_token}`
                             } else {
                               // alert("❌ فشل في الحصول على رقم")
                             }
@@ -2645,8 +2653,9 @@ export default function WelcomePage() {
                       const data = await res.json()
                       if (data.secure_token) {
                         setAssignedNumber(data.assigned_number)
-                        // Redirect to same page with token and flag to show modal on load
-                        window.location.href = `/welcome?token=${data.secure_token}&showToken=1`
+                        sessionStorage.setItem('justCreatedToken', '1')
+                        sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
+                        window.location.href = `/welcome?token=${data.secure_token}`
                       } else {
                         // alert("❌ فشل في الحصول على رقم")
                       }

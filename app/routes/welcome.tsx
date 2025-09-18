@@ -1979,6 +1979,7 @@ export default function WelcomePage() {
                         
                         {/* Logo Content */}
                         <div className="relative flex items-center justify-center">
+                          <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
                         </div>
                         
                         {/* Floating Particles */}
@@ -2016,6 +2017,9 @@ export default function WelcomePage() {
                       </div>
                       <img src={logoPng} alt="BlindMatch" className="w-20 h-20 sm:w-28 sm:h-28 object-contain" />
 
+                      <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
+                        نظام التوافق الذكي
+                      </h1>
                       <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
                         اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم
                       </p>

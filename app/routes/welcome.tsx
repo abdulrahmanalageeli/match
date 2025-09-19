@@ -144,7 +144,7 @@ const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRo
 };
 
 export default function WelcomePage() {
-  const [step, setStep] = useState(0)
+  const [step, setStep] = useState<number>(0)
   const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
   const [secureToken, setSecureToken] = useState<string | null>(null)
@@ -677,7 +677,7 @@ export default function WelcomePage() {
   // Combined real-time updates for all steps
   useEffect(() => {
     // Don't start polling until initial resolution is complete
-    if (isResolving) return
+    if (isResolving || step !== 0) return
 
     const interval = setInterval(async () => {
       try {
@@ -953,7 +953,7 @@ export default function WelcomePage() {
             // Form phase
             console.log(`🔄 Form phase change detected (from step ${step})`);
             
-            if (step === -1) {
+            if (step === (-1 as number)) {
               setStep(0);
               setFormFilledChoiceMade(false); // Reset choice when transitioning from initial state
             } else if (step === 0) {
@@ -991,7 +991,7 @@ export default function WelcomePage() {
           // Handle form filled prompt logic - only show if user hasn't made a choice yet
           // This prevents the prompt from appearing repeatedly after user makes their choice
           if (surveyData.answers && Object.keys(surveyData.answers).length > 0 && !formFilledChoiceMade) {
-            if (!showFormFilledPrompt && step === 2) {
+            if (!showFormFilledPrompt && step === (2 as number)) {
               setShowFormFilledPrompt(true);
             }
           } else {
@@ -1041,6 +1041,7 @@ export default function WelcomePage() {
     console.log("🚀 Starting fetch...");
     setMatchResultsLoading(true);
     setMatchResultsError(null);
+    console.log("🔍 State before API call - showMatchResults:", showMatchResults);
     
     try {
       const res = await fetch("/api/participant", {
@@ -1060,7 +1061,7 @@ export default function WelcomePage() {
           history: data.history
         });
         setShowMatchResults(true);
-        console.log("🎯 Modal should be visible now");
+        console.log("🎯 Modal should be visible now. State is now true.");
       } else {
         console.log("❌ No success or history in response");
         setMatchResultsError("لم يتم العثور على بيانات المشارك أو الرمز غير صحيح");

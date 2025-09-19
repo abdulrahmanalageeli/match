@@ -898,6 +898,28 @@ export default function SurveyComponent({
           </div>
         )
 
+      case "number":
+        return (
+          <div className="mt-4">
+            <Input
+              type="number"
+              value={value as string || ""}
+              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              placeholder={question.placeholder}
+              min={question.min}
+              max={question.max}
+              className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm rounded-lg px-3 py-2 text-sm transition-all duration-300"
+            />
+            {(question.min || question.max) && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-2">
+                {question.min && question.max ? `من ${question.min} إلى ${question.max}` : 
+                 question.min ? `الحد الأدنى: ${question.min}` : 
+                 question.max ? `الحد الأقصى: ${question.max}` : ''}
+              </p>
+            )}
+          </div>
+        )
+
       case "text":
         const currentLength = (value as string || "").length
         const maxLength = question.maxLength || 1000

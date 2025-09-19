@@ -103,11 +103,60 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Participant not found' })
     }
 
+    // Fetch participant history if they exist
+    let history = []
+    if (data.assigned_number) {
+      try {
+        const { data: matches, error: matchError } = await supabase
+          .from("match_results")
+          .select(`
+            *,
+            participant_a:participants!match_results_participant_a_id_fkey(name, age, phone_number),
+            participant_b:participants!match_results_participant_b_id_fkey(name, age, phone_number)
+          `)
+          .eq("match_id", "00000000-0000-0000-0000-000000000000")
+          .or(`participant_a_number.eq.${data.assigned_number},participant_b_number.eq.${data.assigned_number}`)
+          .order("created_at", { ascending: false })
+
+        if (!matchError && matches) {
+          history = matches.map(match => {
+            // Determine which participant is the partner
+            const isParticipantA = match.participant_a_number === data.assigned_number
+            const partnerNumber = isParticipantA ? match.participant_b_number : match.participant_a_number
+            const partnerInfo = isParticipantA ? match.participant_b : match.participant_a
+            const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
+            const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
+            
+            return {
+              with: partnerNumber,
+              partner_name: partnerInfo?.name || `لاعب رقم ${partnerNumber}`,
+              partner_age: partnerInfo?.age || null,
+              partner_phone: partnerInfo?.phone_number || null,
+              type: match.match_type || "غير محدد",
+              reason: match.reason || "السبب غير متوفر",
+              round: match.round || 1,
+              table_number: match.table_number,
+              score: match.compatibility_score || 0,
+              is_repeat_match: match.is_repeat_match || false,
+              mutual_match: match.mutual_match || false,
+              wants_match: wantsMatch,
+              partner_wants_match: partnerWantsMatch,
+              created_at: match.created_at
+            }
+          })
+        }
+      } catch (historyError) {
+        console.error("Error fetching participant history:", historyError)
+        // Don't fail the request if history fetch fails
+      }
+    }
+
     return res.status(200).json({
       success: true,
       assigned_number: data.assigned_number,
       survey_data: data.survey_data,
-      summary: data.summary
+      summary: data.summary,
+      history: history
     })
   }
 

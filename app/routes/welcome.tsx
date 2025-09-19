@@ -238,6 +238,9 @@ export default function WelcomePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [formFilledChoiceMade, setFormFilledChoiceMade] = useState(false); // Track if user has made choice about form filled prompt
+  // New states for match preference and partner reveal
+  const [wantMatch, setWantMatch] = useState<boolean | null>(null);
+  const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -448,6 +451,27 @@ export default function WelcomePage() {
           if (hasFilledForm) {
             setSurveyData(data.survey_data);
           }
+          // Load history for returning user and show popup
+          try {
+            if (Array.isArray(data.history) && data.history.length > 0) {
+              const mapped = data.history.map((h: any) => ({
+                with: h.with,
+                type: h.type,
+                reason: h.reason,
+                round: h.round,
+                table_number: h.table_number ?? null,
+                score: h.score ?? 0,
+                is_repeat_match: !!h.is_repeat_match,
+                mutual_match: !!h.mutual_match,
+              })) as MatchResultEntry[]
+              setHistoryMatches(mapped)
+              setShowHistory(true)
+            } else {
+              setHistoryMatches([])
+            }
+          } catch (e) {
+            console.error("Error mapping history:", e)
+          }
           
           // Reset all states to prevent stuck states on refresh
           setModalStep(null);
@@ -459,6 +483,14 @@ export default function WelcomePage() {
           setShowHistoryDetail(false);
           setSelectedHistoryItem(null);
           setAnimationStep(0);
+          // If we already loaded history above, re-open after reset
+          try {
+            setTimeout(() => {
+              if (historyMatches && historyMatches.length > 0) {
+                setShowHistory(true)
+              }
+            }, 0)
+          } catch (_) {}
           setFeedbackAnswers({
             compatibilityRate: 50,
             conversationQuality: 3,
@@ -1102,13 +1134,14 @@ export default function WelcomePage() {
   }
       
   type MatchResultEntry = {
-    with: string
+    with: number | string
     type: string
     reason: string
     round: number
     table_number: number | null
     score: number
     is_repeat_match?: boolean
+    mutual_match?: boolean
   }
 
   type GroupMatchEntry = {
@@ -1273,6 +1306,42 @@ export default function WelcomePage() {
 
     setIsScoreRevealed(true)
     setModalStep("result")
+
+    // If participant opted to match (round 1), submit preference and fetch partner info if mutual
+    try {
+      if (wantMatch === true && assignedNumber && typeof matchResult !== 'undefined' && matchResult !== null) {
+        const partnerNumber = parseInt(String(matchResult).replace(/[^0-9]/g, ''))
+        if (!isNaN(partnerNumber)) {
+          const prefRes = await fetch('/api/match-preference', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              assigned_number: assignedNumber,
+              partner_number: partnerNumber,
+              wants_match: true,
+              round: currentRound,
+            })
+          })
+          const prefData = await prefRes.json()
+          if (prefRes.ok) {
+            // Update partner info if mutual
+            if (prefData.mutual_match && prefData.partner_info) {
+              setPartnerInfo(prefData.partner_info)
+            }
+            // Update history entry for this round
+            setHistoryMatches(prev => prev.map(m => (
+              m.round === currentRound && (m.with === partnerNumber || String(m.with) === String(partnerNumber))
+                ? { ...m, mutual_match: !!prefData.mutual_match }
+                : m
+            )))
+          } else {
+            console.error('Failed to save match preference:', prefData.error)
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error submitting match preference:', e)
+    }
     
     // Incrementally update history when feedback is submitted
     if (assignedNumber && matchResult) {
@@ -3903,10 +3972,10 @@ export default function WelcomePage() {
                        إرسال التقييم
                      </Button>
                    </div>
-                </>
-              ) : (
-                <>
-                  <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
+              </>
+            ) : (
+              <>
+                <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                                       <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
                       <div className="flex justify-center my-4">
                         <CircularProgressBar
@@ -4070,6 +4139,12 @@ export default function WelcomePage() {
                           تكرار
                         </span>
                       )}
+                      {m.mutual_match && (
+                        <span className={`text-xs px-2 py-1 rounded ${dark ? "bg-emerald-700/70 text-emerald-200" : "bg-emerald-100 text-emerald-700"}`}>
+                          <Handshake className="w-3 h-3 inline mr-1" />
+                          مطابقة
+                        </span>
+                      )}
                       <span className={`ml-auto font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
                         {m.with && typeof m.with === 'string' && m.with.includes("،") ? `${Math.round((m.score || 0) * 10)}%` : `${m.score || 0}%`}
                       </span>
@@ -4082,7 +4157,6 @@ export default function WelcomePage() {
           </div>
         </div>
       )}
-
 
 
               {/* Floating History Box */}
@@ -4164,6 +4238,15 @@ export default function WelcomePage() {
                               : "bg-amber-200/70 text-amber-700"
                           }`}>
                             <AlertTriangle className="w-2 h-2 inline" />
+                          </span>
+                        )}
+                        {m.mutual_match && (
+                          <span className={`text-xs px-1 py-1 rounded-full ${
+                            dark 
+                              ? "bg-emerald-700/70 text-emerald-200" 
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}>
+                            <Handshake className="w-2 h-2 inline" />
                           </span>
                         )}
                       </div>

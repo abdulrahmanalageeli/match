@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     console.log("Getting all participants...");
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data")
+      .select("assigned_number, survey_data, gender")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
       .not("survey_data", "is", null)
@@ -62,6 +62,52 @@ export default async function handler(req, res) {
     console.error("Error generating matches:", error)
     return res.status(500).json({ error: error.message })
   }
+}
+
+// Function to check gender compatibility (opposite gender only)
+function checkGenderCompatibility(participantA, participantB) {
+  const genderA = participantA.gender || participantA.survey_data?.gender
+  const genderB = participantB.gender || participantB.survey_data?.gender
+  
+  // If gender information is missing, allow the match (fallback)
+  if (!genderA || !genderB) {
+    console.warn(`⚠️ Missing gender info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // Only allow opposite gender matching
+  const isCompatible = genderA !== genderB
+  if (!isCompatible) {
+    console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}) vs ${participantB.assigned_number} (${genderB})`)
+  }
+  
+  return isCompatible
+}
+
+// Function to create gender-balanced groups for group matching
+function createGenderBalancedGroup(participants, targetSize) {
+  const males = participants.filter(p => (p.gender || p.survey_data?.gender) === 'male')
+  const females = participants.filter(p => (p.gender || p.survey_data?.gender) === 'female')
+  
+  // For groups, we want a mix of genders but don't enforce strict opposite-gender pairs
+  // This is different from individual matching where we strictly require opposite genders
+  const group = []
+  
+  // Try to balance genders in the group
+  const halfSize = Math.floor(targetSize / 2)
+  const malesToAdd = Math.min(halfSize, males.length)
+  const femalesToAdd = Math.min(halfSize, females.length)
+  
+  // Add males and females
+  group.push(...males.slice(0, malesToAdd))
+  group.push(...females.slice(0, femalesToAdd))
+  
+  // Fill remaining slots with any available participants
+  const remainingSlots = targetSize - group.length
+  const remainingParticipants = participants.filter(p => !group.includes(p))
+  group.push(...remainingParticipants.slice(0, remainingSlots))
+  
+  return group.slice(0, targetSize)
 }
 
 // Helper function to ensure organizer participant exists
@@ -124,6 +170,12 @@ async function generateGlobalIndividualMatches(participants, match_id) {
   const compatibilityScores = []
   
   for (const [participantA, participantB] of pairs) {
+    // Check gender compatibility first (opposite gender only)
+    if (!checkGenderCompatibility(participantA, participantB)) {
+      console.log(`🚫 Skipping pair ${participantA.assigned_number} × ${participantB.assigned_number} - same gender`)
+      continue
+    }
+    
     // Extract relevant survey data for compatibility analysis
     const participantAData = participantA.survey_data?.answers || {};
     const participantBData = participantB.survey_data?.answers || {};
@@ -386,30 +438,51 @@ async function generateGroupMatches(participants, round, match_id) {
   
   console.log(`Shuffled ${shuffledParticipants.length} participants for grouping`);
   
-  // Enhanced grouping algorithm with fallback support
+  // Enhanced grouping algorithm with fallback support and gender balance
   let i = 0
   while (i < shuffledParticipants.length) {
     const remaining = shuffledParticipants.length - i
     
     if (remaining >= 4) {
-      // Create groups of 4 when possible
-    const group = shuffledParticipants.slice(i, i + 4)
-      groups.push({
-        group_id: `group_${groups.length + 1}`,
-        participant_numbers: group.map(p => p.assigned_number),
-        compatibility_score: 75, // Default group score
-        reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
-        match_id,
-        table_number: groups.length + 1,
-        // Support for up to 6 participants
-        participant_a: group[0]?.assigned_number || null,
-        participant_b: group[1]?.assigned_number || null,
-        participant_c: group[2]?.assigned_number || null,
-        participant_d: group[3]?.assigned_number || null,
-        participant_e: null, // Will be filled by fallback logic
-        participant_f: null  // Will be filled by fallback logic
-      })
-      i += 4
+      // Create groups of 4 when possible with gender balance
+      const availableParticipants = shuffledParticipants.slice(i)
+      const group = createGenderBalancedGroup(availableParticipants, 4)
+      if (group.length === 4) {
+        groups.push({
+          group_id: `group_${groups.length + 1}`,
+          participant_numbers: group.map(p => p.assigned_number),
+          compatibility_score: 75, // Default group score
+          reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
+          match_id,
+          table_number: groups.length + 1,
+          // Support for up to 6 participants
+          participant_a: group[0]?.assigned_number || null,
+          participant_b: group[1]?.assigned_number || null,
+          participant_c: group[2]?.assigned_number || null,
+          participant_d: group[3]?.assigned_number || null,
+          participant_e: null, // Will be filled by fallback logic
+          participant_f: null  // Will be filled by fallback logic
+        })
+        i += 4
+      } else {
+        // If we can't create a group of 4, fall back to creating smaller groups
+        const group = shuffledParticipants.slice(i, i + 3)
+        groups.push({
+          group_id: `group_${groups.length + 1}`,
+          participant_numbers: group.map(p => p.assigned_number),
+          compatibility_score: 75,
+          reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
+          match_id,
+          table_number: groups.length + 1,
+          participant_a: group[0]?.assigned_number || null,
+          participant_b: group[1]?.assigned_number || null,
+          participant_c: group[2]?.assigned_number || null,
+          participant_d: null,
+          participant_e: null,
+          participant_f: null
+        })
+        i += 3
+      }
     } else if (remaining === 3) {
       // Perfect group of 3
       const group = shuffledParticipants.slice(i, i + 3)

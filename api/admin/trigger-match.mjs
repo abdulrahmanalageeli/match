@@ -205,6 +205,26 @@ function calculateCoreValuesCompatibility(values1, values2) {
   return totalScore // Already represents percentage (0-20%)
 }
 
+// Function to check gender compatibility (opposite gender only)
+function checkGenderCompatibility(participantA, participantB) {
+  const genderA = participantA.gender || participantA.survey_data?.gender
+  const genderB = participantB.gender || participantB.survey_data?.gender
+  
+  // If gender information is missing, allow the match (fallback)
+  if (!genderA || !genderB) {
+    console.warn(`⚠️ Missing gender info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // Only allow opposite gender matching
+  const isCompatible = genderA !== genderB
+  if (!isCompatible) {
+    console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}) vs ${participantB.assigned_number} (${genderB})`)
+  }
+  
+  return isCompatible
+}
+
 // Function to calculate vibe compatibility using AI (up to 15% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
@@ -307,12 +327,18 @@ async function generateGroupMatches(participants, match_id) {
     throw new Error("Need at least 3 participants for group matching")
   }
 
-  // Calculate MBTI compatibility scores for all pairs
+  // Calculate MBTI compatibility scores for all pairs (with gender compatibility check)
   const pairScores = []
   for (let i = 0; i < participants.length; i++) {
     for (let j = i + 1; j < participants.length; j++) {
       const a = participants[i]
       const b = participants[j]
+      
+      // Check gender compatibility first (opposite gender only)
+      if (!checkGenderCompatibility(a, b)) {
+        console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - same gender`)
+        continue
+      }
       
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
       const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
@@ -659,7 +685,7 @@ export default async function handler(req, res) {
     
     const { data: participants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 
@@ -746,6 +772,13 @@ export default async function handler(req, res) {
     
     for (const [a, b] of pairs) {
       console.log(`\n📊 Calculating compatibility between Player ${a.assigned_number} and Player ${b.assigned_number}:`)
+      
+      // Check gender compatibility first (opposite gender only)
+      if (!checkGenderCompatibility(a, b)) {
+        console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - same gender`)
+        continue
+      }
+      
       // Use dedicated columns first, fallback to survey_data
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
       const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
@@ -854,23 +887,9 @@ export default async function handler(req, res) {
     const matchedPairs = new Set() // Track pairs matched in any round
     const participantCount = numbers.length
     
-    // Get total rounds from environment or database
-    let rounds = 1 // Default fallback - single round mode
-    try {
-      const { data: eventState, error: eventError } = await supabase
-        .from("event_state")
-        .select("total_rounds")
-        .eq("match_id", match_id)
-        .single()
-      
-      if (!eventError && eventState?.total_rounds) {
-        rounds = eventState.total_rounds
-      }
-    } catch (err) {
-      console.warn("Could not fetch total_rounds from database, using default:", rounds)
-    }
-    
-    console.log(`🎯 Using ${rounds} rounds for matching`)
+    // Force single round mode for optimal matching
+    let rounds = 1 // Single round mode only
+    console.log(`🎯 Using ${rounds} round for matching (single round mode)`)
 
     for (let round = 1; round <= rounds; round++) {
       console.log(`\n🎯 === ROUND ${round} MATCHING ===`)

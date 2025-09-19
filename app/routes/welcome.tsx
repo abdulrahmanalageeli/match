@@ -2307,18 +2307,23 @@ export default function WelcomePage() {
                       <div className="space-y-3 sm:space-y-4">
                         <input
                           type="text"
-                          placeholder="أدخل الرمز المميز للنتائج..."
+                          placeholder="أدخل الرمز المميز للنتائج (TEST - MODAL SHOULD OPEN)..."
                           value={resultToken}
                           onChange={(e) => setResultToken(e.target.value)}
                           className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
                           onKeyPress={(e) => {
+                            console.log("⌨️ Key pressed:", e.key);
                             if (e.key === 'Enter') {
+                              console.log("↩️ Enter pressed! Token:", resultToken);
                               fetchMatchResults(resultToken)
                             }
                           }}
                         />
                         <Button
-                          onClick={() => fetchMatchResults(resultToken)}
+                          onClick={() => {
+                            console.log("🖱️ Button clicked! Token:", resultToken);
+                            fetchMatchResults(resultToken);
+                          }}
                           disabled={!resultToken.trim() || matchResultsLoading}
                           className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >

@@ -1030,6 +1030,7 @@ export default function WelcomePage() {
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
+  // Fetch match results and show in modal instead of navigating to separate page
   const fetchMatchResults = async (token: string) => {
     if (!token.trim()) return;
     

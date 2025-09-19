@@ -1032,8 +1032,13 @@ export default function WelcomePage() {
   const next = () => setStep((s) => Math.min(s + 1, 6))
   // Fetch match results and show in modal instead of navigating to separate page
   const fetchMatchResults = async (token: string) => {
-    if (!token.trim()) return;
+    console.log("🔍 fetchMatchResults called with token:", token);
+    if (!token.trim()) {
+      console.log("❌ Empty token, returning");
+      return;
+    }
     
+    console.log("🚀 Starting fetch...");
     setMatchResultsLoading(true);
     setMatchResultsError(null);
     
@@ -1044,21 +1049,30 @@ export default function WelcomePage() {
         body: JSON.stringify({ action: "resolve-token", secure_token: token.trim() }),
       });
       
+      console.log("📡 API response status:", res.status);
       const data = await res.json();
+      console.log("📊 API response data:", data);
       
       if (data.success && data.history) {
+        console.log("✅ Success! Setting modal data and showing modal");
         setMatchResultsData({
           assigned_number: data.assigned_number,
           history: data.history
         });
         setShowMatchResults(true);
+        console.log("🎯 Modal should be visible now");
       } else {
+        console.log("❌ No success or history in response");
         setMatchResultsError("لم يتم العثور على بيانات المشارك أو الرمز غير صحيح");
+        setShowMatchResults(true); // Show modal with error
       }
     } catch (err) {
+      console.error("💥 Error in fetchMatchResults:", err);
       setMatchResultsError("حدث خطأ أثناء جلب البيانات");
+      setShowMatchResults(true); // Show modal with error
     } finally {
       setMatchResultsLoading(false);
+      console.log("🏁 fetchMatchResults finished");
     }
   };
 
@@ -4633,6 +4647,7 @@ export default function WelcomePage() {
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
       {/* Match Results Modal */}
+      {console.log("🎭 Modal render check - showMatchResults:", showMatchResults, "matchResultsData:", matchResultsData, "matchResultsError:", matchResultsError)}
       {showMatchResults && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className={`max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${dark ? 'bg-slate-800' : 'bg-white'}`}>

@@ -225,6 +225,39 @@ function checkGenderCompatibility(participantA, participantB) {
   return isCompatible
 }
 
+// Function to check age compatibility (girls must be within 3 years of their match)
+function checkAgeCompatibility(participantA, participantB) {
+  const ageA = participantA.age || participantA.survey_data?.age
+  const ageB = participantB.age || participantB.survey_data?.age
+  const genderA = participantA.gender || participantA.survey_data?.gender
+  const genderB = participantB.gender || participantB.survey_data?.gender
+  
+  // If age information is missing, allow the match (fallback)
+  if (!ageA || !ageB) {
+    console.warn(`⚠️ Missing age info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // Only apply age constraint if one of the participants is female
+  const hasFemale = genderA === 'female' || genderB === 'female'
+  
+  if (hasFemale) {
+    const ageDifference = Math.abs(ageA - ageB)
+    const isCompatible = ageDifference <= 3
+    
+    if (!isCompatible) {
+      console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
+    } else {
+      console.log(`✅ Age compatible: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
+    }
+    
+    return isCompatible
+  }
+  
+  // If no female participant, no age constraint applies
+  return true
+}
+
 // Function to calculate vibe compatibility using AI (up to 15% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
@@ -337,6 +370,12 @@ async function generateGroupMatches(participants, match_id) {
       // Check gender compatibility first (opposite gender only)
       if (!checkGenderCompatibility(a, b)) {
         console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - same gender`)
+        continue
+      }
+      
+      // Check age compatibility (girls must be within 3 years)
+      if (!checkAgeCompatibility(a, b)) {
+        console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
         continue
       }
       
@@ -685,7 +724,7 @@ export default async function handler(req, res) {
     
     const { data: participants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 
@@ -776,6 +815,12 @@ export default async function handler(req, res) {
       // Check gender compatibility first (opposite gender only)
       if (!checkGenderCompatibility(a, b)) {
         console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - same gender`)
+        continue
+      }
+      
+      // Check age compatibility (girls must be within 3 years)
+      if (!checkAgeCompatibility(a, b)) {
+        console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
         continue
       }
       

@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     console.log("Getting all participants...");
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, gender")
+      .select("assigned_number, survey_data, gender, age")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
       .not("survey_data", "is", null)
@@ -82,6 +82,39 @@ function checkGenderCompatibility(participantA, participantB) {
   }
   
   return isCompatible
+}
+
+// Function to check age compatibility (girls must be within 3 years of their match)
+function checkAgeCompatibility(participantA, participantB) {
+  const ageA = participantA.age || participantA.survey_data?.age
+  const ageB = participantB.age || participantB.survey_data?.age
+  const genderA = participantA.gender || participantA.survey_data?.gender
+  const genderB = participantB.gender || participantB.survey_data?.gender
+  
+  // If age information is missing, allow the match (fallback)
+  if (!ageA || !ageB) {
+    console.warn(`⚠️ Missing age info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // Only apply age constraint if one of the participants is female
+  const hasFemale = genderA === 'female' || genderB === 'female'
+  
+  if (hasFemale) {
+    const ageDifference = Math.abs(ageA - ageB)
+    const isCompatible = ageDifference <= 3
+    
+    if (!isCompatible) {
+      console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
+    } else {
+      console.log(`✅ Age compatible: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
+    }
+    
+    return isCompatible
+  }
+  
+  // If no female participant, no age constraint applies
+  return true
 }
 
 // Function to create gender-balanced groups for group matching
@@ -176,6 +209,12 @@ async function generateGlobalIndividualMatches(participants, match_id) {
       continue
     }
     
+    // Check age compatibility (girls must be within 3 years)
+    if (!checkAgeCompatibility(participantA, participantB)) {
+      console.log(`🚫 Skipping pair ${participantA.assigned_number} × ${participantB.assigned_number} - age constraint violation`)
+      continue
+    }
+    
     // Extract relevant survey data for compatibility analysis
     const participantAData = participantA.survey_data?.answers || {};
     const participantBData = participantB.survey_data?.answers || {};
@@ -184,6 +223,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
 
 المشارك ${participantA.assigned_number}:
 - الجنس: ${participantAData.gender || 'غير محدد'}
+- العمر: ${participantAData.age || 'غير محدد'}
 - الفئة العمرية: ${participantAData.ageGroup || 'غير محدد'}
 - هدف المشاركة: ${participantAData.participationGoal || 'غير محدد'}
 - المستوى التعليمي: ${participantAData.educationLevel || 'غير محدد'}
@@ -203,6 +243,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
 
 المشارك ${participantB.assigned_number}:
 - الجنس: ${participantBData.gender || 'غير محدد'}
+- العمر: ${participantBData.age || 'غير محدد'}
 - الفئة العمرية: ${participantBData.ageGroup || 'غير محدد'}
 - هدف المشاركة: ${participantBData.participationGoal || 'غير محدد'}
 - المستوى التعليمي: ${participantBData.educationLevel || 'غير محدد'}

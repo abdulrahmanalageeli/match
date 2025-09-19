@@ -172,6 +172,9 @@ export default async (req, res) => {
       if (typeof survey_data.name === 'string' && survey_data.name.trim()) {
         updateFields.name = survey_data.name.trim()
       }
+      if (typeof survey_data.age === 'number' && survey_data.age >= 18 && survey_data.age <= 65) {
+        updateFields.age = survey_data.age
+      }
       if (typeof survey_data.gender === 'string' && survey_data.gender.trim()) {
         updateFields.gender = survey_data.gender.trim()
       }

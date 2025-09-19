@@ -65,6 +65,8 @@ import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
 import SurveyComponent from "../components/SurveyComponent"
 import PromptTopicsModal from "../components/PromptTopicsModal"
 import CircularProgressBar from "../components/CircularProgressBar"
+import MatchHistoryModal from "../components/MatchHistoryModal"
+import MutualMatchComponent from "../components/MutualMatchComponent"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -210,6 +212,9 @@ export default function WelcomePage() {
   const [pendingMatchRound, setPendingMatchRound] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [historyMatches, setHistoryMatches] = useState<MatchResultEntry[]>([])
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [participantHistory, setParticipantHistory] = useState<any>(null)
+  const [showMutualMatch, setShowMutualMatch] = useState(false)
   const [modalStep, setModalStep] = useState<null | "feedback" | "result">(null)
   const [analysisStarted, setAnalysisStarted] = useState(false)
   const [selectedHistoryItem, setSelectedHistoryItem] = useState<MatchResultEntry | null>(null)
@@ -260,19 +265,30 @@ export default function WelcomePage() {
   const historyIconRef = useRef<HTMLDivElement | null>(null);
 
   // Helper function to handle history icon interactions
-  const handleHistoryIconClick = (event: React.MouseEvent) => {
+  const handleHistoryIconClick = async (event: React.MouseEvent) => {
     try {
-      if (historyMatches.length === 0) return;
+      if (!secureToken) return;
       
-      const rect = event.currentTarget.getBoundingClientRect();
-      setHistoryBoxPosition({
-        x: rect.right + 8, // Position to the right of the icon
-        y: rect.bottom + 8  // Position below the icon
+      // Fetch participant history from API
+      const response = await fetch('/api/get-participant-history', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: secureToken })
       });
-      setShowHistoryBox(!showHistoryBox); // Toggle visibility
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setParticipantHistory(data);
+          setShowHistoryModal(true);
+        } else {
+          console.error('Failed to fetch history:', data.error);
+        }
+      } else {
+        console.error('Failed to fetch history');
+      }
     } catch (error) {
       console.error("Error handling history icon click:", error)
-      setShowHistoryBox(false)
     }
   };
 
@@ -956,6 +972,14 @@ export default function WelcomePage() {
             }
           } else {
             setShowFormFilledPrompt(false);
+          }
+
+          // Check if user should see mutual matching component (after round 1)
+          if (data.phase === "form" && step === 2 && currentRound > 1 && !showMutualMatch) {
+            // Check if user has completed round 1 and hasn't done mutual matching yet
+            if (secureToken && currentRound === 2) {
+              setShowMutualMatch(true);
+            }
           }
             console.log(`✅ Successfully transitioned to form phase`);
           } else if (data.phase === "registration") {
@@ -2758,12 +2782,19 @@ export default function WelcomePage() {
               ) : (
                 <>
                   {console.log("🎯 SurveyComponent is being rendered")}
-                                  <SurveyComponent
-                  onSubmit={handleSurveySubmit}
-                  surveyData={surveyData}
-                  setSurveyData={setSurveyData}
-                  loading={loading}
-                />
+                  {showMutualMatch && secureToken ? (
+                    <MutualMatchComponent
+                      participantToken={secureToken}
+                      onComplete={() => setShowMutualMatch(false)}
+                    />
+                  ) : (
+                    <SurveyComponent
+                      onSubmit={handleSurveySubmit}
+                      surveyData={surveyData}
+                      setSurveyData={setSurveyData}
+                      loading={loading}
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -2783,7 +2814,7 @@ export default function WelcomePage() {
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
               {/* History Icon - Left corner */}
-              {historyMatches.length > 0 && (
+              {secureToken && (
                 <div 
                   ref={historyIconRef}
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
@@ -4341,6 +4372,17 @@ export default function WelcomePage() {
 
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
+
+      {/* Match History Modal */}
+      {participantHistory && (
+        <MatchHistoryModal
+          isOpen={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          participant={participantHistory.participant}
+          history={participantHistory.history}
+          totalMatches={participantHistory.total_matches}
+        />
+      )}
 
       </div>
     </>

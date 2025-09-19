@@ -22,6 +22,7 @@ interface SurveyData {
   vibeDescription?: string
   idealPersonDescription?: string
   name?: string
+  age?: number
   gender?: string
   phoneNumber?: string
 }
@@ -39,8 +40,19 @@ const surveyQuestions = [
     maxLength: 50
   },
   {
+    id: "age",
+    question: "السؤال 2",
+    description: "ما عمرك؟",
+    type: "number",
+    placeholder: "أدخل عمرك",
+    required: true,
+    category: "personal_info",
+    min: 18,
+    max: 65
+  },
+  {
     id: "gender",
-    question: "السؤال 2", 
+    question: "السؤال 3", 
     description: "ما جنسك؟",
     type: "radio",
     options: [
@@ -52,7 +64,7 @@ const surveyQuestions = [
   },
   {
     id: "phone_number",
-    question: "السؤال 3",
+    question: "السؤال 4",
     description: "ما رقم هاتفك؟ (لتواصلنا معك)",
     type: "text",
     placeholder: "مثال: +966501234567",
@@ -63,7 +75,7 @@ const surveyQuestions = [
   // MBTI Personality Type Dropdown
   {
     id: "mbti_type",
-    question: "السؤال 4",
+    question: "السؤال 5",
     description: "ما هو نوع شخصيتك حسب اختبار MBTI؟",
     type: "select",
     options: [

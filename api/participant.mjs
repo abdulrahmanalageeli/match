@@ -410,18 +410,33 @@ export default async function handler(req, res) {
           },
         }
 
-        // Persist personal info to dedicated columns (no longer inside JSON)
+        // Persist personal info to dedicated columns (extracted from answers)
         if (typeof survey_data.name === 'string' && survey_data.name.trim()) {
           updateFields.name = survey_data.name.trim()
+        } else if (typeof answers.name === 'string' && answers.name.trim()) {
+          updateFields.name = answers.name.trim()
         }
-        if (typeof survey_data.age === 'number' && survey_data.age >= 18 && survey_data.age <= 65) {
-          updateFields.age = survey_data.age
+        
+        // Handle age from answers (comes as string from form)
+        const ageValue = survey_data.age || answers.age
+        if (ageValue) {
+          const ageNum = typeof ageValue === 'number' ? ageValue : parseInt(ageValue)
+          if (!isNaN(ageNum) && ageNum >= 18 && ageNum <= 65) {
+            updateFields.age = ageNum
+            console.log('🎂 Age:', ageNum)
+          }
         }
+        
         if (typeof survey_data.gender === 'string' && survey_data.gender.trim()) {
           updateFields.gender = survey_data.gender.trim()
+        } else if (typeof answers.gender === 'string' && answers.gender.trim()) {
+          updateFields.gender = answers.gender.trim()
         }
+        
         if (typeof survey_data.phoneNumber === 'string' && survey_data.phoneNumber.trim()) {
           updateFields.phone_number = survey_data.phoneNumber.trim()
+        } else if (typeof answers.phone_number === 'string' && answers.phone_number.trim()) {
+          updateFields.phone_number = answers.phone_number.trim()
         }
         
         // Save MBTI personality type to dedicated column (4 characters max)

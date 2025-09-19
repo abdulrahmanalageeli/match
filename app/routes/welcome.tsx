@@ -241,6 +241,7 @@ export default function WelcomePage() {
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
+  const [resultToken, setResultToken] = useState("");
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -2640,6 +2641,61 @@ export default function WelcomePage() {
               </div>
             </div>
             
+            {/* See Match Results Section */}
+            <div className={`relative backdrop-blur-xl border rounded-2xl p-6 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] ${
+              dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+            }`}>
+              <div className="flex justify-center mb-4">
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                  dark ? "bg-gradient-to-r from-purple-600 to-pink-600" : "bg-gradient-to-r from-purple-500 to-pink-500"
+                }`}>
+                  <Search className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              
+              <h2 className={`text-xl font-bold text-center mb-2 ${
+                dark ? "text-purple-200" : "text-purple-800"
+              }`}>
+                عرض نتائج المطابقة
+              </h2>
+              
+              <p className={`text-sm text-center mb-4 ${
+                dark ? "text-slate-300" : "text-gray-600"
+              }`}>
+                أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
+              </p>
+              
+              <div className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="أدخل الرمز المميز الخاص بك"
+                  value={resultToken}
+                  onChange={(e) => setResultToken(e.target.value)}
+                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all duration-300 focus:outline-none focus:ring-4 ${
+                    dark 
+                      ? "border-slate-400/30 bg-white/10 text-white focus:ring-purple-400/30 focus:border-purple-400 placeholder-slate-400" 
+                      : "border-purple-300/50 bg-white/90 text-gray-800 focus:ring-purple-400/30 focus:border-purple-500 shadow-sm placeholder-gray-500"
+                  }`}
+                />
+                
+                <button
+                  onClick={() => {
+                    if (resultToken.trim()) {
+                      window.location.href = `/match-results?token=${resultToken.trim()}`
+                    }
+                  }}
+                  disabled={!resultToken.trim()}
+                  className={`w-full px-6 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
+                    dark
+                      ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl"
+                      : "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl"
+                  }`}
+                >
+                  عرض النتائج
+                </button>
+              </div>
+            </div>
+            
             {!welcomeTyping && (
               <div className="flex justify-center">
                 <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
@@ -2725,10 +2781,10 @@ export default function WelcomePage() {
                   onClick={async () => {
                     setLoading(true)
                     try {
-                      const res = await fetch("/api/token-handler", {
+                      const res = await fetch("/api/participant", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "create" }),
+                        body: JSON.stringify({ action: "create-token" }),
                       })
                       const data = await res.json()
                       if (data.secure_token) {
@@ -3947,35 +4003,98 @@ export default function WelcomePage() {
                        </div>
                      </div>
 
-                  {/* Match Preference (Round 1) */}
+                  {/* Match Preference (Round 1) - Enhanced */}
                   {currentRound === 1 && matchResult && matchResult !== 'المنظم' && (
-                    <div className="mt-6">
-                      <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        هل ترغب في المطابقة مع هذا الشخص؟
-                      </label>
-                      <div className="flex items-center gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                    <div className={`mt-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-400/40' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300/60'}`}>
+                      <div className="text-center mb-4">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${dark ? 'bg-purple-600/20 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
+                          <Heart className="w-5 h-5" />
+                          <span className="font-bold text-lg">سؤال مهم!</span>
+                        </div>
+                      </div>
+                      
+                      <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-purple-200" : "text-purple-800"}`}>
+                        هل ترغب في التواصل مع هذا الشخص مرة أخرى؟
+                      </h3>
+                      
+                      <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                        اختيارك سيبقى سرياً حتى يجيب الطرف الآخر أيضاً
+                      </p>
+                      
+                      <div className="flex justify-center gap-6 mb-4">
+                        <label className={`flex flex-col items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+                          wantMatch === true 
+                            ? dark 
+                              ? 'bg-emerald-600/30 border-2 border-emerald-400 shadow-lg' 
+                              : 'bg-emerald-100 border-2 border-emerald-400 shadow-lg'
+                            : dark
+                              ? 'bg-slate-700/30 border-2 border-slate-600/30 hover:bg-slate-700/50'
+                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                        }`}>
                           <input
                             type="radio"
                             name="wantMatch"
                             checked={wantMatch === true}
                             onChange={() => setWantMatch(true)}
+                            className="sr-only"
                           />
-                          <span className={dark ? "text-slate-200" : "text-gray-700"}>نعم</span>
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            wantMatch === true 
+                              ? 'bg-emerald-500 text-white' 
+                              : dark ? 'bg-slate-600 text-slate-300' : 'bg-gray-200 text-gray-500'
+                          }`}>
+                            <Heart className="w-6 h-6" />
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            wantMatch === true 
+                              ? dark ? 'text-emerald-200' : 'text-emerald-700'
+                              : dark ? 'text-slate-200' : 'text-gray-700'
+                          }`}>
+                            نعم، أرغب في التواصل
+                          </span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        
+                        <label className={`flex flex-col items-center gap-3 p-4 rounded-xl cursor-pointer transition-all duration-300 transform hover:scale-105 ${
+                          wantMatch === false 
+                            ? dark 
+                              ? 'bg-red-600/30 border-2 border-red-400 shadow-lg' 
+                              : 'bg-red-100 border-2 border-red-400 shadow-lg'
+                            : dark
+                              ? 'bg-slate-700/30 border-2 border-slate-600/30 hover:bg-slate-700/50'
+                              : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                        }`}>
                           <input
                             type="radio"
                             name="wantMatch"
                             checked={wantMatch === false}
                             onChange={() => setWantMatch(false)}
+                            className="sr-only"
                           />
-                          <span className={dark ? "text-slate-200" : "text-gray-700"}>لا</span>
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                            wantMatch === false 
+                              ? 'bg-red-500 text-white' 
+                              : dark ? 'bg-slate-600 text-slate-300' : 'bg-gray-200 text-gray-500'
+                          }`}>
+                            <X className="w-6 h-6" />
+                          </div>
+                          <span className={`font-bold text-lg ${
+                            wantMatch === false 
+                              ? dark ? 'text-red-200' : 'text-red-700'
+                              : dark ? 'text-slate-200' : 'text-gray-700'
+                          }`}>
+                            لا، شكراً
+                          </span>
                         </label>
                       </div>
-                      <p className={`mt-2 text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                        في حال كانت المطابقة متبادلة، سيتم عرض اسم وعمر ورقم هاتف الطرف الآخر.
-                      </p>
+                      
+                      <div className={`text-center p-4 rounded-lg ${dark ? 'bg-slate-700/50' : 'bg-blue-50'}`}>
+                        <p className={`text-sm font-medium ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                          💡 في حال اختار كلاكما "نعم"، سيتم عرض معلومات التواصل لكليكما
+                        </p>
+                        <p className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-gray-600"}`}>
+                          (الاسم، العمر، رقم الهاتف)
+                        </p>
+                      </div>
                     </div>
                   )}
 

@@ -85,10 +85,10 @@ class ApiClient {
 
   // Token operations
   async createToken(assignedNumber: number): Promise<ApiResponse<{ secure_token: string }>> {
-    return this.request('/api/token-handler', {
+    return this.request('/api/participant', {
       method: 'POST',
       body: JSON.stringify({
-        action: 'create',
+        action: 'create-token',
         assigned_number: assignedNumber,
       }),
     })
@@ -103,10 +103,10 @@ class ApiClient {
     q4?: string
     summary?: string
   }>> {
-    return this.request('/api/token-handler', {
+    return this.request('/api/participant', {
       method: 'POST',
       body: JSON.stringify({
-        action: 'resolve',
+        action: 'resolve-token',
         secure_token: secureToken,
       }),
     })
@@ -114,9 +114,12 @@ class ApiClient {
 
   // Participant operations
   async saveParticipant(data: SaveParticipantRequest): Promise<ApiResponse<{ message: string }>> {
-    return this.request('/api/save-participant', {
+    return this.request('/api/participant', {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        action: 'save-participant',
+        ...data
+      }),
     })
   }
 

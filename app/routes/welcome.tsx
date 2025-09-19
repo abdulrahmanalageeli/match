@@ -406,10 +406,10 @@ export default function WelcomePage() {
       }
 
       try {
-        const res = await fetch("/api/token-handler", {
+        const res = await fetch("/api/participant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "resolve", secure_token: token }),
+          body: JSON.stringify({ action: "resolve-token", secure_token: token }),
         })
         const data = await res.json()
         
@@ -795,10 +795,10 @@ export default function WelcomePage() {
           // Check if user has completed the form (only if we don't already have survey data)
           if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
             try {
-              const userRes = await fetch("/api/token-handler", {
+              const userRes = await fetch("/api/participant", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "resolve", secure_token: secureToken }),
+                body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
               });
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
@@ -1077,10 +1077,11 @@ export default function WelcomePage() {
     setLoading(true)
     try {
       // 1. Save participant with survey data (including calculated personality types)
-      const res1 = await fetch("/api/save-participant", {
+      const res1 = await fetch("/api/participant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "save-participant",
           assigned_number: assignedNumber,
           survey_data: dataToUse,
         }),
@@ -1098,10 +1099,11 @@ export default function WelcomePage() {
       setIsTyping(false)
       
       // Save the default summary to database
-      const saveRes = await fetch("/api/save-participant", {
+      const saveRes = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          action: "save-participant",
           assigned_number: assignedNumber,
           summary: newSummary,
         }),
@@ -1281,10 +1283,11 @@ export default function WelcomePage() {
     // Save feedback to database
     if (assignedNumber && currentRound) {
       try {
-        const response = await fetch("/api/save-participant", {
+        const response = await fetch("/api/participant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
+            action: "save-participant",
             assigned_number: assignedNumber,
             round: currentRound,
             feedback: feedbackAnswers
@@ -1312,10 +1315,11 @@ export default function WelcomePage() {
       if (wantMatch === true && assignedNumber && typeof matchResult !== 'undefined' && matchResult !== null) {
         const partnerNumber = parseInt(String(matchResult).replace(/[^0-9]/g, ''))
         if (!isNaN(partnerNumber)) {
-          const prefRes = await fetch('/api/match-preference', {
+          const prefRes = await fetch('/api/participant', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              action: 'match-preference',
               assigned_number: assignedNumber,
               partner_number: partnerNumber,
               wants_match: true,
@@ -3943,6 +3947,38 @@ export default function WelcomePage() {
                        </div>
                      </div>
 
+                  {/* Match Preference (Round 1) */}
+                  {currentRound === 1 && matchResult && matchResult !== 'المنظم' && (
+                    <div className="mt-6">
+                      <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                        هل ترغب في المطابقة مع هذا الشخص؟
+                      </label>
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wantMatch"
+                            checked={wantMatch === true}
+                            onChange={() => setWantMatch(true)}
+                          />
+                          <span className={dark ? "text-slate-200" : "text-gray-700"}>نعم</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="wantMatch"
+                            checked={wantMatch === false}
+                            onChange={() => setWantMatch(false)}
+                          />
+                          <span className={dark ? "text-slate-200" : "text-gray-700"}>لا</span>
+                        </label>
+                      </div>
+                      <p className={`mt-2 text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                        في حال كانت المطابقة متبادلة، سيتم عرض اسم وعمر ورقم هاتف الطرف الآخر.
+                      </p>
+                    </div>
+                  )}
+
                                          {/* Optional Recommendations */}
                      <div>
                        <label className={`block text-sm font-medium mb-2 flex items-center gap-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
@@ -4027,6 +4063,17 @@ export default function WelcomePage() {
                             </p>
                           </div>
                         )}
+                  {/* Reveal partner info if mutual match */}
+                  {partnerInfo && (
+                    <div className={`mt-6 p-4 rounded-xl border ${dark ? 'bg-emerald-500/10 border-emerald-400/30' : 'bg-emerald-50 border-emerald-200'}`}>
+                      <h4 className={`text-lg font-bold mb-2 ${dark ? 'text-emerald-200' : 'text-emerald-700'}`}>مطابقة متبادلة!</h4>
+                      <div className={`text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                        <div>الاسم: <span className="font-bold">{partnerInfo.name || 'غير متوفر'}</span></div>
+                        <div>العمر: <span className="font-bold">{partnerInfo.age ?? 'غير متوفر'}</span></div>
+                        <div>رقم الهاتف: <span className="font-bold">{partnerInfo.phone_number || 'غير متوفر'}</span></div>
+                      </div>
+                    </div>
+                  )}
                         {currentRound === 1 && (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">

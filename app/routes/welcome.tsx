@@ -2143,20 +2143,30 @@ export default function WelcomePage() {
                         onClick={async () => {
                           setLoading(true)
                           try {
-                            const res = await fetch("/api/token-handler", {
+                            const res = await fetch("/api/participant", {
                               method: "POST",
                               headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ action: "create" }),
+                              body: JSON.stringify({ action: "create-token" }),
                             })
                             const data = await res.json()
-                            if (data.secure_token) {
+                            console.log("Token creation response:", data)
+                            
+                            if (res.ok && data.secure_token) {
                               setAssignedNumber(data.assigned_number)
                               // Mark just-created to show modal after redirect
                               sessionStorage.setItem('justCreatedToken', '1')
                               sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
-                              window.location.href = `/welcome?token=${data.secure_token}`
+                              console.log("Redirecting to:", `/welcome?token=${data.secure_token}`)
+                              // Try multiple redirect methods to ensure it works
+                              try {
+                                window.location.href = `/welcome?token=${data.secure_token}`
+                              } catch (redirectError) {
+                                console.error("Redirect failed, trying alternative:", redirectError)
+                                window.location.replace(`/welcome?token=${data.secure_token}`)
+                              }
                             } else {
-                              // alert("❌ فشل في الحصول على رقم")
+                              console.error("Token creation failed:", data)
+                              alert("❌ فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
                             }
                           } catch (err) {
                             console.error("Error creating token:", err)
@@ -2220,6 +2230,53 @@ export default function WelcomePage() {
                           className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
                         >
                           العودة للرحلة
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* See Match Results Section */}
+                <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                    <div className="text-center">
+                      <div className="flex justify-center mb-4">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+                          <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-lg sm:text-xl font-bold text-white mb-2">عرض نتائج المطابقة</h3>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-4">
+                        أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
+                      </p>
+                      
+                      <div className="space-y-3 sm:space-y-4">
+                        <input
+                          type="text"
+                          placeholder="أدخل الرمز المميز للنتائج..."
+                          value={resultToken}
+                          onChange={(e) => setResultToken(e.target.value)}
+                          className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              const token = e.currentTarget.value.trim()
+                              if (token) {
+                                window.location.href = `/match-results?token=${token}`
+                              }
+                            }
+                          }}
+                        />
+                        <Button
+                          onClick={() => {
+                            if (resultToken.trim()) {
+                              window.location.href = `/match-results?token=${resultToken.trim()}`
+                            }
+                          }}
+                          disabled={!resultToken.trim()}
+                          className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        >
+                          عرض النتائج
                         </Button>
                       </div>
                     </div>
@@ -2638,61 +2695,6 @@ export default function WelcomePage() {
                     ))}
                   </div>
                 </div>
-              </div>
-            </div>
-            
-            {/* See Match Results Section */}
-            <div className={`relative backdrop-blur-xl border rounded-2xl p-6 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] ${
-              dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
-            }`}>
-              <div className="flex justify-center mb-4">
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                  dark ? "bg-gradient-to-r from-purple-600 to-pink-600" : "bg-gradient-to-r from-purple-500 to-pink-500"
-                }`}>
-                  <Search className="w-6 h-6 text-white" />
-                </div>
-              </div>
-              
-              <h2 className={`text-xl font-bold text-center mb-2 ${
-                dark ? "text-purple-200" : "text-purple-800"
-              }`}>
-                عرض نتائج المطابقة
-              </h2>
-              
-              <p className={`text-sm text-center mb-4 ${
-                dark ? "text-slate-300" : "text-gray-600"
-              }`}>
-                أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
-              </p>
-              
-              <div className="space-y-3">
-                <input
-                  type="text"
-                  placeholder="أدخل الرمز المميز الخاص بك"
-                  value={resultToken}
-                  onChange={(e) => setResultToken(e.target.value)}
-                  className={`w-full px-4 py-3 rounded-xl border-2 transition-all duration-300 focus:outline-none focus:ring-4 ${
-                    dark 
-                      ? "border-slate-400/30 bg-white/10 text-white focus:ring-purple-400/30 focus:border-purple-400 placeholder-slate-400" 
-                      : "border-purple-300/50 bg-white/90 text-gray-800 focus:ring-purple-400/30 focus:border-purple-500 shadow-sm placeholder-gray-500"
-                  }`}
-                />
-                
-                <button
-                  onClick={() => {
-                    if (resultToken.trim()) {
-                      window.location.href = `/match-results?token=${resultToken.trim()}`
-                    }
-                  }}
-                  disabled={!resultToken.trim()}
-                  className={`w-full px-6 py-3 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none ${
-                    dark
-                      ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg hover:shadow-xl"
-                      : "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-xl"
-                  }`}
-                >
-                  عرض النتائج
-                </button>
               </div>
             </div>
             

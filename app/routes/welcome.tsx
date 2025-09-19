@@ -1294,7 +1294,6 @@ export default function WelcomePage() {
         // Continue with UI updates even if saving fails
       }
     }
-    setShowMutualMatch(true);
 
     setIsScoreRevealed(true)
     setModalStep("result")

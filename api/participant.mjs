@@ -116,20 +116,28 @@ export default async function handler(req, res) {
   }
 
   if (action === "resolve-token") {
-    if (!req.body.secure_token) return res.status(400).json({ error: 'Missing secure_token' })
+    console.log("[API] Action: resolve-token started for token:", req.body.secure_token);
+    if (!req.body.secure_token) {
+      console.log("[API] Error: Missing secure_token");
+      return res.status(400).json({ error: 'Missing secure_token' });
+    }
     const { data, error } = await supabase
       .from("participants")
       .select("assigned_number, survey_data, summary")
       .eq("secure_token", req.body.secure_token)
-      .single()
+      .single();
+
+    console.log("[API] Participant query result:", { data, error });
 
     if (error || !data) {
-      return res.status(404).json({ error: 'Participant not found' })
+      console.log("[API] Error: Participant not found or DB error.");
+      return res.status(404).json({ error: 'Participant not found' });
     }
 
     // Fetch participant history if they exist
     let history = []
     if (data.assigned_number) {
+      console.log(`[API] Fetching history for participant #${data.assigned_number}`);
       try {
         const { data: matches, error: matchError } = await supabase
           .from("match_results")
@@ -140,7 +148,9 @@ export default async function handler(req, res) {
           `)
           .eq("match_id", "00000000-0000-0000-0000-000000000000")
           .or(`participant_a_number.eq.${data.assigned_number},participant_b_number.eq.${data.assigned_number}`)
-          .order("created_at", { ascending: false })
+          .order("created_at", { ascending: false });
+
+        console.log("[API] History query result:", { matches, matchError });
 
         if (!matchError && matches) {
           history = matches.map(match => {
@@ -170,11 +180,12 @@ export default async function handler(req, res) {
           })
         }
       } catch (historyError) {
-        console.error("Error fetching participant history:", historyError)
+        console.error("[API] CRITICAL: Error fetching participant history:", historyError)
         // Don't fail the request if history fetch fails
       }
     }
 
+    console.log("[API] Successfully resolved token. Sending response.");
     return res.status(200).json({
       success: true,
       assigned_number: data.assigned_number,

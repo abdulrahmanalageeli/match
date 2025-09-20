@@ -242,14 +242,6 @@ export default function WelcomePage() {
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
   const [resultToken, setResultToken] = useState("");
-  const [showMatchResults, setShowMatchResults] = useState(false);
-  const [matchResultsData, setMatchResultsData] = useState<{
-    assigned_number: number;
-    history: any[];
-  } | null>(null);
-  const [matchResultsLoading, setMatchResultsLoading] = useState(false);
-  const [matchResultsError, setMatchResultsError] = useState<string | null>(null);
-  const [testModalShow, setTestModalShow] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -338,12 +330,6 @@ export default function WelcomePage() {
     }
   }, [modalStep]);
 
-  // Debug effect to track showMatchResults state changes
-  useEffect(() => {
-    console.log("🎭 showMatchResults state changed to:", showMatchResults);
-    console.log("🎭 matchResultsData:", matchResultsData);
-    console.log("🎭 matchResultsError:", matchResultsError);
-  }, [showMatchResults, matchResultsData, matchResultsError]);
 
 
 
@@ -1038,61 +1024,14 @@ export default function WelcomePage() {
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
-  // Fetch match results and show in modal instead of navigating to separate page
-  const fetchMatchResults = async (token: string) => {
-    console.log("🔍 fetchMatchResults called with token:", token);
+  // Navigate to results page
+  const viewResults = (token: string) => {
     if (!token.trim()) {
-      console.log("❌ Empty token, returning");
+      alert("يرجى إدخال رمز صحيح");
       return;
     }
-    
-    console.log("🚀 Starting fetch...");
-    setMatchResultsLoading(true);
-    setMatchResultsError(null);
-    console.log("🔍 State before API call - showMatchResults:", showMatchResults);
-    
-    try {
-      const res = await fetch("/api/participant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-match-results", secure_token: token }),
-      });
-      
-      const data = await res.json();
-      console.log("📊 API response data:", data);
-      console.log("📊 API response success:", data.success);
-      console.log("📊 API response history length:", data.history?.length);
-      
-      if (data.success) {
-        console.log("✅ Success! Setting modal data and showing modal");
-        console.log("✅ Before state update - showMatchResults:", showMatchResults);
-        setMatchResultsData({
-          assigned_number: data.assigned_number,
-          history: data.history || [] // Handle case where history might be empty
-        });
-        setMatchResultsError(null); // Clear any previous errors
-        setShowMatchResults(true);
-        console.log("✅ After setShowMatchResults(true) called");
-        
-        // Force a re-render check
-        setTimeout(() => {
-          console.log("✅ Delayed check - showMatchResults should be true now");
-        }, 100);
-      } else {
-        console.log("❌ No success in response");
-        setMatchResultsError(data.error || "لم يتم العثور على بيانات المشارك أو الرمز غير صحيح");
-        setMatchResultsData(null); // Clear any previous data
-        setShowMatchResults(true); // Show modal with error
-      }
-    } catch (err) {
-      console.error("💥 Error in fetchMatchResults:", err);
-      setMatchResultsError("حدث خطأ أثناء جلب البيانات");
-      setMatchResultsData(null); // Clear any previous data
-      setShowMatchResults(true); // Show modal with error
-    } finally {
-      setMatchResultsLoading(false);
-      console.log("🏁 fetchMatchResults finished");
-    }
+    // Navigate to results page with token as URL parameter
+    window.location.href = `/results?token=${encodeURIComponent(token)}`;
   };
 
   const restart = () => {
@@ -2326,81 +2265,23 @@ export default function WelcomePage() {
                       <div className="space-y-3 sm:space-y-4">
                         <input
                           type="text"
-                          placeholder="أدخل الرمز المميز للنتائج (TEST - MODAL SHOULD OPEN)..."
+                          placeholder="أدخل الرمز المميز للنتائج..."
                           value={resultToken}
                           onChange={(e) => setResultToken(e.target.value)}
                           className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
                           onKeyPress={(e) => {
-                            console.log("⌨️ Key pressed:", e.key);
                             if (e.key === 'Enter') {
-                              console.log("↩️ Enter pressed! Token:", resultToken);
-                              fetchMatchResults(resultToken)
+                              viewResults(resultToken);
                             }
                           }}
                         />
                         <Button
-                          onClick={() => {
-                            console.log("🖱️ Button clicked! Token:", resultToken);
-                            console.log("🖱️ Current state - showMatchResults:", showMatchResults, "matchResultsLoading:", matchResultsLoading);
-                            fetchMatchResults(resultToken);
-                          }}
-                          disabled={!resultToken.trim() || matchResultsLoading}
+                          onClick={() => viewResults(resultToken)}
+                          disabled={!resultToken.trim()}
                           className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >
-                          {matchResultsLoading ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              جاري التحميل...
-                            </div>
-                          ) : (
-                            "عرض النتائج"
-                          )}
+                          عرض النتائج
                         </Button>
-                        
-                        {/* Debug Test Button */}
-                        <Button
-                          onClick={() => {
-                            console.log("🧪 Test button clicked - forcing modal to show");
-                            setMatchResultsData({
-                              assigned_number: 999,
-                              history: [{
-                                with: 2,
-                                partner_name: "Test Partner",
-                                type: "Test Match",
-                                reason: "Test reason",
-                                round: 1,
-                                score: 75,
-                                mutual_match: false
-                              }]
-                            });
-                            setMatchResultsError(null);
-                            setShowMatchResults(true);
-                            console.log("🧪 Test modal state set");
-                          }}
-                          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          🧪 Test Modal
-                        </Button>
-                        
-                        {/* Simple Test Modal Button */}
-                        <Button
-                          onClick={() => {
-                            console.log("🔥 Simple test modal button clicked");
-                            setTestModalShow(true);
-                          }}
-                          className="w-full mt-2 bg-red-600 hover:bg-red-700 text-white"
-                        >
-                          🔥 Simple Test Modal
-                        </Button>
-                        
-                        {/* Debug State Display */}
-                        <div className="mt-4 p-3 bg-gray-100 rounded text-black text-sm">
-                          <div>showMatchResults: {String(showMatchResults)}</div>
-                          <div>matchResultsData: {matchResultsData ? 'exists' : 'null'}</div>
-                          <div>matchResultsError: {matchResultsError || 'null'}</div>
-                          <div>matchResultsLoading: {String(matchResultsLoading)}</div>
-                          <div>testModalShow: {String(testModalShow)}</div>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -4719,275 +4600,6 @@ export default function WelcomePage() {
 
       </div>
       
-      {/* Match Results Modal - Moved outside main container */}
-      {console.log("🎭 Modal render debug - showMatchResults:", showMatchResults, "matchResultsData:", !!matchResultsData, "matchResultsError:", !!matchResultsError)}
-      {showMatchResults && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-          style={{ zIndex: 9999 }}
-          onClick={(e) => {
-            console.log("🎭 Modal backdrop clicked");
-            if (e.target === e.currentTarget) {
-              console.log("🎭 Closing modal via backdrop click");
-              setShowMatchResults(false);
-              setMatchResultsData(null);
-              setMatchResultsError(null);
-              setResultToken("");
-            }
-          }}
-        >
-          <div className={`max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${dark ? 'bg-slate-800' : 'bg-white'}`}>
-            {/* Header */}
-            <div className={`sticky top-0 p-6 border-b ${dark ? 'border-slate-600 bg-slate-800' : 'border-gray-200 bg-white'}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center ${
-                    dark ? 'bg-blue-600/20 border-blue-400' : 'bg-blue-100 border-blue-300'
-                  }`}>
-                    <span className={`text-lg font-bold ${dark ? 'text-blue-200' : 'text-blue-700'}`}>
-                      #{matchResultsData?.assigned_number}
-                    </span>
-                  </div>
-                  <div>
-                    <h2 className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
-                      نتائج المطابقة
-                    </h2>
-                    <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                      جميع جلسات المطابقة ونتائج التوافق
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowMatchResults(false);
-                    setMatchResultsData(null);
-                    setMatchResultsError(null);
-                    setResultToken("");
-                  }}
-                  className={`p-2 rounded-lg transition-colors ${
-                    dark ? 'hover:bg-slate-700 text-slate-400 hover:text-slate-200' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-6">
-              {matchResultsError ? (
-                <div className={`text-center py-8 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-                  <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                  <p className="text-lg font-semibold mb-2">خطأ في تحميل البيانات</p>
-                  <p>{matchResultsError}</p>
-                </div>
-              ) : !matchResultsData?.history?.length ? (
-                <div className={`text-center py-8 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-                  <Search className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-semibold mb-2">لا توجد نتائج مطابقة</p>
-                  <p>لم تشارك في أي جلسات مطابقة بعد، أو لم تكتمل النتائج.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {matchResultsData.history.map((match: any, index: number) => {
-                    const getMatchStatusText = (match: any) => {
-                      if (match.wants_match === null || match.partner_wants_match === null) {
-                        return { text: "في الانتظار", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
-                      }
-                      if (match.mutual_match) {
-                        return { text: "مطابقة متبادلة!", color: "text-emerald-500", bgColor: "bg-emerald-100", icon: Heart }
-                      }
-                      if (match.wants_match === false || match.partner_wants_match === false) {
-                        return { text: "لا توجد مطابقة", color: "text-red-500", bgColor: "bg-red-100", icon: X }
-                      }
-                      return { text: "في الانتظار", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
-                    }
-                    
-                    const status = getMatchStatusText(match)
-                    const StatusIcon = status.icon
-                    
-                    return (
-                      <div key={index} className={`rounded-xl p-4 border ${dark ? 'bg-slate-700/30 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
-                        {/* Match Header */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center ${
-                              dark ? 'bg-cyan-600/20 border-cyan-400' : 'bg-cyan-100 border-cyan-300'
-                            }`}>
-                              <span className={`font-bold text-sm ${dark ? 'text-cyan-200' : 'text-cyan-700'}`}>
-                                {match.with === "المنظم" ? "المنظم" : `#${match.with}`}
-                              </span>
-                            </div>
-                            <div>
-                              <h3 className={`font-bold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                الجولة {match.round}
-                              </h3>
-                              <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                                {match.type}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-2">
-                            {match.is_repeat_match && (
-                              <span className={`text-xs px-2 py-1 rounded-full ${
-                                dark ? 'bg-amber-600/70 text-amber-200' : 'bg-amber-200/70 text-amber-700'
-                              }`}>
-                                <AlertTriangle className="w-3 h-3 inline mr-1" />
-                                تكرار
-                              </span>
-                            )}
-                            
-                            <span className={`text-xs px-3 py-1 rounded-full flex items-center gap-1 ${
-                              dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
-                            }`}>
-                              <StatusIcon className="w-3 h-3" />
-                              {status.text}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Compatibility Score */}
-                        <div className="mb-3">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                              درجة التوافق
-                            </span>
-                            <span className={`font-bold ${
-                              match.score >= 80 ? 'text-green-500' :
-                              match.score >= 60 ? 'text-yellow-500' :
-                              match.score >= 40 ? 'text-orange-500' :
-                              'text-red-500'
-                            }`}>
-                              {match.score}%
-                            </span>
-                          </div>
-                          <div className={`w-full h-2 rounded-full ${dark ? 'bg-slate-600' : 'bg-gray-200'}`}>
-                            <div 
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                match.score >= 80 ? 'bg-green-500' :
-                                match.score >= 60 ? 'bg-yellow-500' :
-                                match.score >= 40 ? 'bg-orange-500' :
-                                'bg-red-500'
-                              }`}
-                              style={{ width: `${match.score}%` }}
-                            ></div>
-                          </div>
-                        </div>
-
-                        {/* Match Analysis */}
-                        <div className={`p-3 rounded-lg ${dark ? 'bg-slate-600/30' : 'bg-white'}`}>
-                          <h4 className={`font-semibold text-sm mb-1 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                            تحليل التوافق
-                          </h4>
-                          <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-                            {match.reason || 'لا يوجد تحليل متوفر'}
-                          </p>
-                        </div>
-
-                        {/* Partner Contact Info (if mutual match) */}
-                        {match.mutual_match && (match.partner_name || match.partner_phone) && (
-                          <div className={`mt-3 p-3 rounded-lg border ${
-                            dark ? 'bg-emerald-500/10 border-emerald-400/30' : 'bg-emerald-50 border-emerald-200'
-                          }`}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <Handshake className={`w-4 h-4 ${dark ? 'text-emerald-200' : 'text-emerald-700'}`} />
-                              <h4 className={`font-bold text-sm ${dark ? 'text-emerald-200' : 'text-emerald-700'}`}>
-                                معلومات التواصل - مطابقة متبادلة!
-                              </h4>
-                            </div>
-                            <div className="space-y-1 text-sm">
-                              {match.partner_name && (
-                                <div className={dark ? 'text-slate-200' : 'text-gray-800'}>
-                                  <span>الاسم: </span>
-                                  <span className="font-bold">{match.partner_name}</span>
-                                </div>
-                              )}
-                              {match.partner_age && (
-                                <div className={dark ? 'text-slate-200' : 'text-gray-800'}>
-                                  <span>العمر: </span>
-                                  <span className="font-bold">{match.partner_age}</span>
-                                </div>
-                              )}
-                              {match.partner_phone && (
-                                <div className={dark ? 'text-slate-200' : 'text-gray-800'}>
-                                  <span>الهاتف: </span>
-                                  <span className="font-bold">{match.partner_phone}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Simple Test Modal */}
-      {testModalShow && (
-        <div 
-          style={{ 
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(255, 0, 0, 0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999999
-          }}
-          onClick={() => {
-            console.log("🔥 Simple modal backdrop clicked");
-            setTestModalShow(false);
-          }}
-        >
-          <div 
-            style={{
-              backgroundColor: 'white',
-              padding: '32px',
-              borderRadius: '8px',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-              maxWidth: '400px',
-              width: '100%',
-              margin: '16px'
-            }}
-            onClick={(e) => {
-              console.log("🔥 Simple modal content clicked");
-              e.stopPropagation();
-            }}
-          >
-            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: 'black', marginBottom: '16px' }}>
-              🔥 Simple Test Modal
-            </h2>
-            <p style={{ color: '#374151', marginBottom: '16px' }}>
-              This is a simple test modal to verify modal rendering works.
-            </p>
-            <button 
-              onClick={() => {
-                console.log("🔥 Simple modal close button clicked");
-                setTestModalShow(false);
-              }}
-              style={{
-                backgroundColor: '#dc2626',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </>
   )
 }

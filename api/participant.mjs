@@ -560,11 +560,7 @@ export default async function handler(req, res) {
       console.log(`[API] Fetching match results for participant #${participant.assigned_number}`);
       const { data: matches, error: matchError } = await supabase
         .from("match_results")
-        .select(`
-          *,
-          participant_a:participants!match_results_participant_a_id_fkey(name, age, phone_number),
-          participant_b:participants!match_results_participant_b_id_fkey(name, age, phone_number)
-        `)
+        .select("*")
         .eq("match_id", "00000000-0000-0000-0000-000000000000")
         .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
         .order("created_at", { ascending: false });
@@ -579,18 +575,36 @@ export default async function handler(req, res) {
         });
       }
 
-      // Format the match results
-      const history = (matches || []).map(match => {
+      // Format the match results and fetch partner information
+      const history = await Promise.all((matches || []).map(async (match) => {
         // Determine which participant is the partner
         const isParticipantA = match.participant_a_number === participant.assigned_number
         const partnerNumber = isParticipantA ? match.participant_b_number : match.participant_a_number
-        const partnerInfo = isParticipantA ? match.participant_b : match.participant_a
         const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
         const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
         
+        // Fetch partner information separately
+        let partnerInfo = null
+        if (partnerNumber && partnerNumber !== 9999) {
+          try {
+            const { data: partnerData, error: partnerError } = await supabase
+              .from("participants")
+              .select("name, age, phone_number")
+              .eq("assigned_number", partnerNumber)
+              .eq("match_id", "00000000-0000-0000-0000-000000000000")
+              .single()
+            
+            if (!partnerError && partnerData) {
+              partnerInfo = partnerData
+            }
+          } catch (err) {
+            console.log(`[API] Could not fetch partner info for #${partnerNumber}:`, err)
+          }
+        }
+        
         return {
-          with: partnerNumber,
-          partner_name: partnerInfo?.name || `لاعب رقم ${partnerNumber}`,
+          with: partnerNumber === 9999 ? "المنظم" : partnerNumber,
+          partner_name: partnerNumber === 9999 ? "المنظم" : (partnerInfo?.name || `لاعب رقم ${partnerNumber}`),
           partner_age: partnerInfo?.age || null,
           partner_phone: partnerInfo?.phone_number || null,
           type: match.match_type || "غير محدد",
@@ -604,7 +618,7 @@ export default async function handler(req, res) {
           partner_wants_match: partnerWantsMatch,
           created_at: match.created_at
         }
-      });
+      }));
 
       console.log("[API] Successfully fetched match results. Sending response.");
       return res.status(200).json({

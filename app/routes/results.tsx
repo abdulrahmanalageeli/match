@@ -7,8 +7,12 @@ import {
   Clock, 
   Heart, 
   X, 
-  Handshake,
-  Home
+  Handshake, 
+  Home,
+  User,
+  Phone,
+  Mail,
+  RefreshCcw
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 
@@ -178,6 +182,20 @@ export default function ResultsPage() {
       }
 
       try {
+        // First check if results are visible
+        const visibilityRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-results-visibility" }),
+        })
+        const visibilityData = await visibilityRes.json()
+        
+        if (!visibilityData.visible) {
+          setError("waiting")
+          setLoading(false)
+          return
+        }
+
         const res = await fetch("/api/participant", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -278,7 +296,34 @@ export default function ResultsPage() {
 
         {/* Content */}
         <div className={`rounded-2xl shadow-xl ${dark ? 'bg-slate-800' : 'bg-white'} p-6`}>
-          {error ? (
+          {error === "waiting" ? (
+            <div className={`text-center py-12 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
+              <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-6"></div>
+              <h2 className={`text-2xl font-bold mb-4 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                النتائج قيد المراجعة
+              </h2>
+              <p className="text-lg mb-4">
+                يتم حالياً مراجعة النتائج من قبل المنظمين
+              </p>
+              <p className="text-sm opacity-75 mb-6">
+                سيتم عرض النتائج قريباً، يرجى الانتظار...
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                <Button 
+                  onClick={() => window.location.reload()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  <RefreshCcw className="w-4 h-4 mr-2" />
+                  تحديث الصفحة
+                </Button>
+                <Link to="/" className="inline-block">
+                  <Button variant="outline" className={`${dark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-300'}`}>
+                    العودة للصفحة الرئيسية
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          ) : error ? (
             <div className={`text-center py-8 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
               <AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" />
               <p className="text-lg font-semibold mb-2">خطأ في تحميل البيانات</p>

@@ -55,6 +55,7 @@ export default function AdminPage() {
   const [globalTimerRemaining, setGlobalTimerRemaining] = useState(0)
   const [globalTimerRound, setGlobalTimerRound] = useState(1)
   const [currentTime, setCurrentTime] = useState(new Date())
+  const [resultsVisible, setResultsVisible] = useState(true)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -111,6 +112,15 @@ export default function AdminPage() {
       
       // Calculate optimal rounds based on participant count
       calculateOptimalRounds(data.participants?.length || 0)
+      
+      // Fetch results visibility state
+      const visibilityRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-results-visibility" }),
+      })
+      const visibilityData = await visibilityRes.json()
+      setResultsVisible(visibilityData.visible !== false) // Default to true if not set
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -136,6 +146,30 @@ export default function AdminPage() {
     // Ensure at least 2 rounds and at most 6 rounds
     const clampedRounds = Math.max(2, Math.min(6, optimalRounds))
     setOptimalRounds(clampedRounds)
+  }
+
+  const toggleResultsVisibility = async () => {
+    try {
+      const newVisibility = !resultsVisible
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "set-results-visibility", 
+          visible: newVisibility 
+        }),
+      })
+      
+      if (res.ok) {
+        setResultsVisible(newVisibility)
+        alert(`✅ Results are now ${newVisibility ? 'visible' : 'hidden'} to participants`)
+      } else {
+        alert("❌ Failed to update results visibility")
+      }
+    } catch (err) {
+      console.error("Error toggling results visibility:", err)
+      alert("❌ Error updating results visibility")
+    }
   }
 
   const updateRounds = async (newRounds: number) => {
@@ -496,6 +530,23 @@ export default function AdminPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            {/* Results Visibility Status */}
+            <div className={`flex items-center gap-2 px-4 py-2 backdrop-blur-sm border rounded-xl ${
+              resultsVisible 
+                ? 'bg-green-500/20 border-green-400/30 text-green-300' 
+                : 'bg-red-500/20 border-red-400/30 text-red-300'
+            }`}>
+              <Eye className="w-4 h-4" />
+              <div className="text-right">
+                <div className="text-sm font-semibold">
+                  {resultsVisible ? 'Results Visible' : 'Results Hidden'}
+                </div>
+                <div className="text-xs opacity-75">
+                  {resultsVisible ? 'Participants can view results' : 'Waiting screen shown'}
+                </div>
+              </div>
+            </div>
+
             {/* Current Time Display */}
             <div className="flex items-center gap-2 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl">
               <Clock className="w-4 h-4 text-blue-400" />
@@ -745,6 +796,28 @@ export default function AdminPage() {
               >
                 <Users className="w-4 h-4" />
                 Generate Groups
+              </button>
+
+              {/* Results Visibility Control */}
+              <button
+                onClick={toggleResultsVisibility}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
+                  resultsVisible 
+                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white' 
+                    : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                }`}
+              >
+                {resultsVisible ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    Hide Results
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    Show Results
+                  </>
+                )}
               </button>
             </div>
           </div>

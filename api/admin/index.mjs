@@ -532,6 +532,50 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to end global timer" })
       }
     }
+
+    if (action === "set-results-visibility") {
+      try {
+        const { visible } = req.body
+        const { error } = await supabase
+          .from("event_state")
+          .update({ 
+            results_visible: visible,
+            updated_at: new Date().toISOString()
+          })
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error setting results visibility:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        return res.status(200).json({ message: `Results ${visible ? 'shown' : 'hidden'}` })
+      } catch (err) {
+        console.error("Error setting results visibility:", err)
+        return res.status(500).json({ error: "Failed to set results visibility" })
+      }
+    }
+
+    if (action === "get-results-visibility") {
+      try {
+        const { data, error } = await supabase
+          .from("event_state")
+          .select("results_visible")
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+
+        if (error) {
+          console.error("Error getting results visibility:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        return res.status(200).json({ visible: data?.results_visible !== false }) // Default to true
+      } catch (err) {
+        console.error("Error getting results visibility:", err)
+        return res.status(500).json({ error: "Failed to get results visibility" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

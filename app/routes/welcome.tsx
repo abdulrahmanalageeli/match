@@ -4695,7 +4695,10 @@ export default function WelcomePage() {
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
-      {/* Match Results Modal */}
+
+      </div>
+      
+      {/* Match Results Modal - Moved outside main container */}
       {console.log("🎭 Modal render debug - showMatchResults:", showMatchResults, "matchResultsData:", !!matchResultsData, "matchResultsError:", !!matchResultsError)}
       {showMatchResults && (
         <div 
@@ -4903,8 +4906,6 @@ export default function WelcomePage() {
           </div>
         </div>
       )}
-
-      </div>
     </>
   )
 }

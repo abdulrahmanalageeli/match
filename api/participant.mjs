@@ -39,6 +39,32 @@ export default async function handler(req, res) {
 
   // TOKEN HANDLER ACTIONS
   if (action === "create-token") {
+    // Check if registration is enabled
+    try {
+      const { data: eventState, error: eventError } = await supabase
+        .from("event_state")
+        .select("registration_enabled")
+        .eq("match_id", "00000000-0000-0000-0000-000000000000")
+        .single()
+
+      // If registration is disabled, return error
+      if (eventState && eventState.registration_enabled === false) {
+        return res.status(403).json({ 
+          error: "Registration is currently closed",
+          message: "التسجيل مغلق حالياً - التوافق بدأ بالفعل"
+        })
+      }
+
+      // If no event_state record exists, allow registration (default behavior)
+      if (eventError && eventError.code !== 'PGRST116') {
+        console.error("Error checking registration status:", eventError)
+        // Continue with registration if we can't check status
+      }
+    } catch (err) {
+      console.error("Error checking registration enabled:", err)
+      // Continue with registration if we can't check status
+    }
+
     // Auto-assign the next available number
     try {
       // Get the highest assigned number

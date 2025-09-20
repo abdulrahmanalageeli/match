@@ -2258,6 +2258,12 @@ export default function WelcomePage() {
                             const data = await res.json()
                             console.log("Token creation response:", data)
                             
+                            if (res.status === 403) {
+                              // Registration is closed
+                              alert("❌ " + (data.message || "التسجيل مغلق حالياً"))
+                              return
+                            }
+                            
                             if (res.ok && data.secure_token) {
                               setAssignedNumber(data.assigned_number)
                               // Mark just-created to show modal after redirect
@@ -2889,13 +2895,18 @@ export default function WelcomePage() {
                         body: JSON.stringify({ action: "create-token" }),
                       })
                       const data = await res.json()
+                      if (res.status === 403) {
+                        // Registration is closed
+                        alert("❌ " + (data.message || "التسجيل مغلق حالياً"))
+                        return
+                      }
                       if (data.secure_token) {
                         setAssignedNumber(data.assigned_number)
                         sessionStorage.setItem('justCreatedToken', '1')
                         sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
                         window.location.href = `/welcome?token=${data.secure_token}`
                       } else {
-                        // alert("❌ فشل في الحصول على رقم")
+                        alert("❌ فشل في الحصول على رقم")
                       }
                     } catch (err) {
                       console.error("Error creating token:", err)

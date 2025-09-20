@@ -536,17 +536,41 @@ export default async function handler(req, res) {
     if (action === "set-results-visibility") {
       try {
         const { visible } = req.body
-        const { error } = await supabase
+        console.log(`Setting results visibility to: ${visible} for match_id: ${STATIC_MATCH_ID}`)
+        
+        // First try to update existing record
+        const { data: updateData, error: updateError } = await supabase
           .from("event_state")
           .update({ 
             results_visible: visible,
             updated_at: new Date().toISOString()
           })
           .eq("match_id", STATIC_MATCH_ID)
+          .select()
 
-        if (error) {
-          console.error("Error setting results visibility:", error)
-          return res.status(500).json({ error: error.message })
+        if (updateError) {
+          console.error("Error updating results visibility:", updateError)
+          
+          // If update failed, try to insert a new record
+          console.log("Update failed, trying to insert new record...")
+          const { data: insertData, error: insertError } = await supabase
+            .from("event_state")
+            .insert({
+              match_id: STATIC_MATCH_ID,
+              results_visible: visible,
+              phase: 'waiting',
+              updated_at: new Date().toISOString()
+            })
+            .select()
+
+          if (insertError) {
+            console.error("Error inserting event_state record:", insertError)
+            return res.status(500).json({ error: `Database error: ${insertError.message}` })
+          }
+          
+          console.log("Successfully inserted new event_state record:", insertData)
+        } else {
+          console.log("Successfully updated results visibility:", updateData)
         }
 
         return res.status(200).json({ message: `Results ${visible ? 'shown' : 'hidden'}` })
@@ -558,6 +582,8 @@ export default async function handler(req, res) {
 
     if (action === "get-results-visibility") {
       try {
+        console.log(`Getting results visibility for match_id: ${STATIC_MATCH_ID}`)
+        
         const { data, error } = await supabase
           .from("event_state")
           .select("results_visible")
@@ -566,10 +592,19 @@ export default async function handler(req, res) {
 
         if (error) {
           console.error("Error getting results visibility:", error)
+          
+          // If no record exists, return default (true)
+          if (error.code === 'PGRST116') {
+            console.log("No event_state record found, returning default visibility (true)")
+            return res.status(200).json({ visible: true })
+          }
+          
           return res.status(500).json({ error: error.message })
         }
 
-        return res.status(200).json({ visible: data?.results_visible !== false }) // Default to true
+        const visible = data?.results_visible !== false // Default to true if null/undefined
+        console.log(`Results visibility retrieved: ${visible}`)
+        return res.status(200).json({ visible })
       } catch (err) {
         console.error("Error getting results visibility:", err)
         return res.status(500).json({ error: "Failed to get results visibility" })

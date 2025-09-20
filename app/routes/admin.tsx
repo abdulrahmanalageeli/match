@@ -164,7 +164,9 @@ export default function AdminPage() {
         setResultsVisible(newVisibility)
         alert(`✅ Results are now ${newVisibility ? 'visible' : 'hidden'} to participants`)
       } else {
-        alert("❌ Failed to update results visibility")
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error("API Error:", errorData)
+        alert(`❌ Failed to update results visibility: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error("Error toggling results visibility:", err)

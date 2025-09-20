@@ -641,6 +641,82 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "set-registration-enabled") {
+      try {
+        const { enabled } = req.body
+        console.log(`Setting registration enabled to: ${enabled} for match_id: ${STATIC_MATCH_ID}`)
+        
+        // First try to update existing record
+        const { data: updateData, error: updateError } = await supabase
+          .from("event_state")
+          .update({ 
+            registration_enabled: enabled
+          })
+          .eq("match_id", STATIC_MATCH_ID)
+          .select()
+
+        if (updateError) {
+          console.error("Error updating registration enabled:", updateError)
+          
+          // If update failed, try to insert a new record
+          console.log("Update failed, trying to insert new record...")
+          const { data: insertData, error: insertError } = await supabase
+            .from("event_state")
+            .insert({
+              match_id: STATIC_MATCH_ID,
+              registration_enabled: enabled,
+              phase: 'waiting'
+            })
+            .select()
+
+          if (insertError) {
+            console.error("Error inserting event_state record:", insertError)
+            return res.status(500).json({ error: `Database error: ${insertError.message}` })
+          }
+          
+          console.log("Successfully inserted new event_state record:", insertData)
+        } else {
+          console.log("Successfully updated registration enabled:", updateData)
+        }
+
+        return res.status(200).json({ message: `Registration ${enabled ? 'enabled' : 'disabled'}` })
+      } catch (err) {
+        console.error("Error setting registration enabled:", err)
+        return res.status(500).json({ error: "Failed to set registration enabled" })
+      }
+    }
+
+    if (action === "get-registration-enabled") {
+      try {
+        console.log(`Getting registration enabled for match_id: ${STATIC_MATCH_ID}`)
+        
+        const { data, error } = await supabase
+          .from("event_state")
+          .select("registration_enabled")
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+
+        if (error) {
+          console.error("Error getting registration enabled:", error)
+          
+          // If no record exists, return default (true)
+          if (error.code === 'PGRST116') {
+            console.log("No event_state record found, returning default registration enabled (true)")
+            return res.status(200).json({ enabled: true })
+          }
+          
+          return res.status(500).json({ error: error.message })
+        }
+
+        const enabled = data?.registration_enabled !== false // Default to true if null/undefined
+        console.log(`Registration enabled retrieved: ${enabled}`)
+        return res.status(200).json({ enabled })
+      } catch (err) {
+        console.error("Error getting registration enabled:", err)
+        return res.status(500).json({ error: "Failed to get registration enabled" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

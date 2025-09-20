@@ -58,6 +58,7 @@ export default function AdminPage() {
   const [resultsVisible, setResultsVisible] = useState(true)
   const [currentEventId, setCurrentEventId] = useState(1)
   const [maxEventId, setMaxEventId] = useState(1)
+  const [registrationEnabled, setRegistrationEnabled] = useState(true)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -138,6 +139,15 @@ export default function AdminPage() {
           setCurrentEventId(eventData.max_event_id)
         }
       }
+      
+      // Fetch registration enabled state
+      const regRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-registration-enabled" }),
+      })
+      const regData = await regRes.json()
+      setRegistrationEnabled(regData.enabled !== false) // Default to true if not set
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -188,6 +198,32 @@ export default function AdminPage() {
     } catch (err) {
       console.error("Error toggling results visibility:", err)
       alert("❌ Error updating results visibility")
+    }
+  }
+
+  const toggleRegistration = async () => {
+    try {
+      const newEnabled = !registrationEnabled
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "set-registration-enabled", 
+          enabled: newEnabled 
+        }),
+      })
+      
+      if (res.ok) {
+        setRegistrationEnabled(newEnabled)
+        alert(`✅ Registration is now ${newEnabled ? 'enabled' : 'disabled'}`)
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error("API Error:", errorData)
+        alert(`❌ Failed to update registration status: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      console.error("Error toggling registration:", err)
+      alert("❌ Error updating registration status")
     }
   }
 
@@ -1044,26 +1080,6 @@ export default function AdminPage() {
                 </button>
 
                 <button
-                  onClick={() => setShowAnnouncementModal(true)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 text-sm"
-                >
-                  <Activity className="w-4 h-4" />
-                  Announce
-                </button>
-
-                <button
-                  onClick={toggleEmergencyPause}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm ${
-                    emergencyPaused
-                      ? "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
-                      : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
-                  }`}
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  {emergencyPaused ? "Resume" : "E-Pause"}
-                </button>
-
-                <button
                   onClick={async () => {
                     if (!confirm("Generate matches without AI vibe analysis? (All participants will get full vibe score)")) return
                     setLoading(true)
@@ -1085,6 +1101,18 @@ export default function AdminPage() {
                 >
                   <RefreshCcw className="w-4 h-4" />
                   Generate (No AI)
+                </button>
+
+                <button
+                  onClick={toggleRegistration}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm ${
+                    registrationEnabled
+                      ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white"
+                      : "bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white"
+                  }`}
+                >
+                  <UserRound className="w-4 h-4" />
+                  {registrationEnabled ? "Close Registration" : "Open Registration"}
                 </button>
               </div>
             </div>

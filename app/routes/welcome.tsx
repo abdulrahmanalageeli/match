@@ -249,6 +249,7 @@ export default function WelcomePage() {
   } | null>(null);
   const [matchResultsLoading, setMatchResultsLoading] = useState(false);
   const [matchResultsError, setMatchResultsError] = useState<string | null>(null);
+  const [testModalShow, setTestModalShow] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -2380,6 +2381,26 @@ export default function WelcomePage() {
                         >
                           🧪 Test Modal
                         </Button>
+                        
+                        {/* Simple Test Modal Button */}
+                        <Button
+                          onClick={() => {
+                            console.log("🔥 Simple test modal button clicked");
+                            setTestModalShow(true);
+                          }}
+                          className="w-full mt-2 bg-red-600 hover:bg-red-700 text-white"
+                        >
+                          🔥 Simple Test Modal
+                        </Button>
+                        
+                        {/* Debug State Display */}
+                        <div className="mt-4 p-3 bg-gray-100 rounded text-black text-sm">
+                          <div>showMatchResults: {String(showMatchResults)}</div>
+                          <div>matchResultsData: {matchResultsData ? 'exists' : 'null'}</div>
+                          <div>matchResultsError: {matchResultsError || 'null'}</div>
+                          <div>matchResultsLoading: {String(matchResultsLoading)}</div>
+                          <div>testModalShow: {String(testModalShow)}</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -4903,6 +4924,29 @@ export default function WelcomePage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Simple Test Modal */}
+      {testModalShow && (
+        <div 
+          className="fixed inset-0 bg-red-500/50 flex items-center justify-center"
+          style={{ zIndex: 99999 }}
+          onClick={() => setTestModalShow(false)}
+        >
+          <div 
+            className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-2xl font-bold text-black mb-4">🔥 Simple Test Modal</h2>
+            <p className="text-gray-700 mb-4">This is a simple test modal to verify modal rendering works.</p>
+            <button 
+              onClick={() => setTestModalShow(false)}
+              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

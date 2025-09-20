@@ -353,7 +353,7 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
 }
 
 // Function to create groups of 4 (or 3) based on MBTI compatibility with fallback support up to 6
-async function generateGroupMatches(participants, match_id) {
+async function generateGroupMatches(participants, match_id, eventId) {
   console.log("🎯 Starting enhanced group matching for", participants.length, "participants")
   
   if (participants.length < 3) {
@@ -514,6 +514,7 @@ async function generateGroupMatches(participants, match_id) {
       compatibility_score: Math.round(groupScore),
       reason: `مجموعة من ${group.length} أشخاص بتوافق MBTI عالي (${Math.round(groupScore)}%)`,
       match_id,
+      event_id: eventId,
       round: 0, // Group phase
       group_number: i + 1,
       table_number: tableNumber,
@@ -710,12 +711,62 @@ async function ensureOrganizerParticipant(match_id) {
   console.log("✅ Organizer participant created successfully");
 }
 
+// Function to check if two participants have been matched before in previous events
+async function havePreviousMatch(participantA, participantB, currentEventId) {
+  try {
+    const { data, error } = await supabase
+      .from("match_results")
+      .select("event_id")
+      .lt("event_id", currentEventId) // Only check previous events
+      .or(`and(participant_a_number.eq.${participantA},participant_b_number.eq.${participantB}),and(participant_a_number.eq.${participantB},participant_b_number.eq.${participantA})`)
+      .limit(1)
+
+    if (error) {
+      console.error("Error checking previous matches:", error)
+      return false // If error, assume no previous match
+    }
+
+    return data && data.length > 0
+  } catch (err) {
+    console.error("Error in havePreviousMatch:", err)
+    return false
+  }
+}
+
+// Function to get all previous matches for a participant across all events
+async function getPreviousMatches(participantNumber, currentEventId) {
+  try {
+    const { data, error } = await supabase
+      .from("match_results")
+      .select("participant_a_number, participant_b_number, event_id")
+      .lt("event_id", currentEventId) // Only check previous events
+      .or(`participant_a_number.eq.${participantNumber},participant_b_number.eq.${participantNumber}`)
+
+    if (error) {
+      console.error("Error getting previous matches:", error)
+      return []
+    }
+
+    // Extract the other participant numbers
+    const previousPartners = data.map(match => 
+      match.participant_a_number === participantNumber 
+        ? match.participant_b_number 
+        : match.participant_a_number
+    )
+
+    return [...new Set(previousPartners)] // Remove duplicates
+  } catch (err) {
+    console.error("Error in getPreviousMatches:", err)
+    return []
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual" } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId = 1 } = req.body || {}
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
@@ -741,14 +792,15 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Need at least 3 participants for group matching" })
       }
 
-      const groupMatches = await generateGroupMatches(participants, match_id)
+      const groupMatches = await generateGroupMatches(participants, match_id, eventId)
 
       // Clear existing group matches
-      console.log("🗑️ Clearing existing group matches for match_id:", match_id)
+      console.log(`🗑️ Clearing existing group matches for match_id: ${match_id}, event_id: ${eventId}`)
       const { error: deleteError } = await supabase
         .from("match_results")
         .delete()
         .eq("match_id", match_id)
+        .eq("event_id", eventId)
         .eq("round", 0) // Group phase round
 
       if (deleteError) {
@@ -821,6 +873,13 @@ export default async function handler(req, res) {
       // Check age compatibility (girls must be within 3 years)
       if (!checkAgeCompatibility(a, b)) {
         console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
+        continue
+      }
+      
+      // Check if this pair has been matched in previous events
+      const hasPreviousMatch = await havePreviousMatch(a.assigned_number, b.assigned_number, eventId)
+      if (hasPreviousMatch) {
+        console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - already matched in previous event`)
         continue
       }
       
@@ -964,6 +1023,7 @@ export default async function handler(req, res) {
             compatibility_score: Math.round(pair.score),
             reason: pair.reason,
             match_id,
+            event_id: eventId,
             round,
             is_repeat_match: false,
             table_number: tableCounter, // Dynamic table assignment: 1 to N/2
@@ -1010,6 +1070,7 @@ export default async function handler(req, res) {
             compatibility_score: 70,
             reason: "مقابلة مع المنظم لضمان مشاركة جميع الأطراف",
             match_id,
+            event_id: eventId,
             round,
             is_repeat_match: false,
             table_number: tableCounter, // Continue dynamic numbering
@@ -1041,12 +1102,13 @@ export default async function handler(req, res) {
       finalMatches.push(...roundMatches)
     }
 
-    // Clear existing matches before inserting new ones to prevent duplicates
-    console.log("🗑️ Clearing existing matches for match_id:", match_id)
+    // Clear existing matches for this event before inserting new ones to prevent duplicates
+    console.log(`🗑️ Clearing existing matches for match_id: ${match_id}, event_id: ${eventId}`)
     const { error: deleteError } = await supabase
       .from("match_results")
       .delete()
       .eq("match_id", match_id)
+      .eq("event_id", eventId)
 
     if (deleteError) {
       console.error("🔥 Error clearing existing matches:", deleteError)

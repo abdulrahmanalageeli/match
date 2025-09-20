@@ -609,6 +609,38 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "get-max-event-id") {
+      try {
+        console.log("Getting maximum event ID from match_results")
+        
+        const { data, error } = await supabase
+          .from("match_results")
+          .select("event_id")
+          .order("event_id", { ascending: false })
+          .limit(1)
+          .single()
+
+        if (error) {
+          console.error("Error getting max event ID:", error)
+          
+          // If no records exist, return default (1)
+          if (error.code === 'PGRST116') {
+            console.log("No match_results records found, returning default max event ID (1)")
+            return res.status(200).json({ max_event_id: 1 })
+          }
+          
+          return res.status(500).json({ error: error.message })
+        }
+
+        const maxEventId = data?.event_id || 1
+        console.log(`Maximum event ID retrieved: ${maxEventId}`)
+        return res.status(200).json({ max_event_id: maxEventId })
+      } catch (err) {
+        console.error("Error getting max event ID:", err)
+        return res.status(500).json({ error: "Failed to get max event ID" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

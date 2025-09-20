@@ -56,6 +56,8 @@ export default function AdminPage() {
   const [globalTimerRound, setGlobalTimerRound] = useState(1)
   const [currentTime, setCurrentTime] = useState(new Date())
   const [resultsVisible, setResultsVisible] = useState(true)
+  const [currentEventId, setCurrentEventId] = useState(1)
+  const [maxEventId, setMaxEventId] = useState(1)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -121,6 +123,21 @@ export default function AdminPage() {
       })
       const visibilityData = await visibilityRes.json()
       setResultsVisible(visibilityData.visible !== false) // Default to true if not set
+      
+      // Fetch maximum event ID
+      const eventRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-max-event-id" }),
+      })
+      const eventData = await eventRes.json()
+      if (eventData.max_event_id) {
+        setMaxEventId(eventData.max_event_id)
+        // Set current event ID to the latest if not already set
+        if (currentEventId <= eventData.max_event_id) {
+          setCurrentEventId(eventData.max_event_id)
+        }
+      }
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -755,15 +772,16 @@ export default function AdminPage() {
 
               <button
                 onClick={async () => {
-                  if (!confirm("Are you sure you want to generate matches using the new personality-based algorithm?")) return
+                  if (!confirm(`Are you sure you want to generate matches for Event ${currentEventId} using the new personality-based algorithm?\n\nThis will check previous events to avoid repeated matches.`)) return
                   setLoading(true)
                   const res = await fetch("/api/admin/trigger-match", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ eventId: currentEventId }),
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
+                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`)
                     fetchParticipants()
                   } else {
                     alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
@@ -944,6 +962,30 @@ export default function AdminPage() {
                     <option value="round_2" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Round 2</option>
                     <option value="group_phase" style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>Group Phase</option>
                   </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-300 text-sm">Event ID:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentEventId(Math.max(1, currentEventId - 1))}
+                      className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="px-3 py-1 bg-slate-700 rounded text-white font-medium min-w-[2rem] text-center">
+                      {currentEventId}
+                    </span>
+                    <button
+                      onClick={() => setCurrentEventId(currentEventId + 1)}
+                      className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <span className="text-slate-400 text-xs ml-2">
+                      (Max: {maxEventId})
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">

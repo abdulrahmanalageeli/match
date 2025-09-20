@@ -1870,7 +1870,7 @@ export default function WelcomePage() {
   // Token validation loading UI
   if (token && isResolving) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -1924,7 +1924,7 @@ export default function WelcomePage() {
   // Token validation error UI
   if (token && !isResolving && isTokenValid === false) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -1986,7 +1986,7 @@ export default function WelcomePage() {
   // Registration UI if no token
   if (!token) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {/* Floating orbs */}
@@ -2297,7 +2297,7 @@ export default function WelcomePage() {
                             جاري التخصيص...
                           </div>
                         ) : (
-                          "Pay to join"
+                          "ابدأ رحلتك!"
                         )}
                       </Button>
                     </div>
@@ -2897,7 +2897,7 @@ export default function WelcomePage() {
                       const data = await res.json()
                       if (res.status === 403) {
                         // Registration is closed
-                        alert("❌ " + (data.message || "التسجيل مغلق حالياً"))
+                        alert(" " + (data.message || "التسجيل مغلق حالياً"))
                         return
                       }
                       if (data.secure_token) {

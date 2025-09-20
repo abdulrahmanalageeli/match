@@ -542,8 +542,7 @@ export default async function handler(req, res) {
         const { data: updateData, error: updateError } = await supabase
           .from("event_state")
           .update({ 
-            results_visible: visible,
-            updated_at: new Date().toISOString()
+            results_visible: visible
           })
           .eq("match_id", STATIC_MATCH_ID)
           .select()
@@ -558,8 +557,7 @@ export default async function handler(req, res) {
             .insert({
               match_id: STATIC_MATCH_ID,
               results_visible: visible,
-              phase: 'waiting',
-              updated_at: new Date().toISOString()
+              phase: 'waiting'
             })
             .select()
 

@@ -1,16 +1,15 @@
-import { Button } from "../../components/ui/button";
-import '../app.css';
-import { Slot } from "@radix-ui/react-slot";
+import { useEffect } from "react";
 
 export default function Home() {
+  useEffect(() => {
+    // Redirect to welcome page
+    window.location.href = "/welcome";
+  }, []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground">
-      <div className="space-y-4 text-center">
-        <h1 className="text-2xl font-bold">🚀 Origin UI is working!</h1>
-        <Button variant="default">Default</Button>
-        <Button variant="destructive">Destructive</Button>
-        <Button variant="outline">Outline</Button>
-        <Button variant="secondary">Secondary</Button>
+    <div className="min-h-screen flex items-center justify-center bg-slate-900">
+      <div className="text-center text-white">
+        <p>Redirecting to welcome page...</p>
       </div>
     </div>
   );

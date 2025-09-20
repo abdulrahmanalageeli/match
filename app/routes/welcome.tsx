@@ -337,6 +337,13 @@ export default function WelcomePage() {
     }
   }, [modalStep]);
 
+  // Debug effect to track showMatchResults state changes
+  useEffect(() => {
+    console.log("🎭 showMatchResults state changed to:", showMatchResults);
+    console.log("🎭 matchResultsData:", matchResultsData);
+    console.log("🎭 matchResultsError:", matchResultsError);
+  }, [showMatchResults, matchResultsData, matchResultsError]);
+
 
 
   // Typewriter effect for welcome message
@@ -1052,15 +1059,24 @@ export default function WelcomePage() {
       
       const data = await res.json();
       console.log("📊 API response data:", data);
+      console.log("📊 API response success:", data.success);
+      console.log("📊 API response history length:", data.history?.length);
       
       if (data.success) {
         console.log("✅ Success! Setting modal data and showing modal");
+        console.log("✅ Before state update - showMatchResults:", showMatchResults);
         setMatchResultsData({
           assigned_number: data.assigned_number,
           history: data.history || [] // Handle case where history might be empty
         });
         setMatchResultsError(null); // Clear any previous errors
         setShowMatchResults(true);
+        console.log("✅ After setShowMatchResults(true) called");
+        
+        // Force a re-render check
+        setTimeout(() => {
+          console.log("✅ Delayed check - showMatchResults should be true now");
+        }, 100);
       } else {
         console.log("❌ No success in response");
         setMatchResultsError(data.error || "لم يتم العثور على بيانات المشارك أو الرمز غير صحيح");
@@ -2338,6 +2354,31 @@ export default function WelcomePage() {
                           ) : (
                             "عرض النتائج"
                           )}
+                        </Button>
+                        
+                        {/* Debug Test Button */}
+                        <Button
+                          onClick={() => {
+                            console.log("🧪 Test button clicked - forcing modal to show");
+                            setMatchResultsData({
+                              assigned_number: 999,
+                              history: [{
+                                with: 2,
+                                partner_name: "Test Partner",
+                                type: "Test Match",
+                                reason: "Test reason",
+                                round: 1,
+                                score: 75,
+                                mutual_match: false
+                              }]
+                            });
+                            setMatchResultsError(null);
+                            setShowMatchResults(true);
+                            console.log("🧪 Test modal state set");
+                          }}
+                          className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          🧪 Test Modal
                         </Button>
                       </div>
                     </div>
@@ -4657,7 +4698,20 @@ export default function WelcomePage() {
       {/* Match Results Modal */}
       {console.log("🎭 Modal render debug - showMatchResults:", showMatchResults, "matchResultsData:", !!matchResultsData, "matchResultsError:", !!matchResultsError)}
       {showMatchResults && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          style={{ zIndex: 9999 }}
+          onClick={(e) => {
+            console.log("🎭 Modal backdrop clicked");
+            if (e.target === e.currentTarget) {
+              console.log("🎭 Closing modal via backdrop click");
+              setShowMatchResults(false);
+              setMatchResultsData(null);
+              setMatchResultsError(null);
+              setResultToken("");
+            }
+          }}
+        >
           <div className={`max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${dark ? 'bg-slate-800' : 'bg-white'}`}>
             {/* Header */}
             <div className={`sticky top-0 p-6 border-b ${dark ? 'border-slate-600 bg-slate-800' : 'border-gray-200 bg-white'}`}>

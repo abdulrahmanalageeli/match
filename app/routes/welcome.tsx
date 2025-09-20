@@ -2163,7 +2163,7 @@ export default function WelcomePage() {
                           </p>
                         </div>
                         <div className="hidden sm:block flex-shrink-0">
-                          <ArrowLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                          <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
                         </div>
                       </div>
 
@@ -2181,7 +2181,7 @@ export default function WelcomePage() {
                           </p>
                         </div>
                         <div className="hidden sm:block flex-shrink-0">
-                          <ArrowLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                          <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
                         </div>
                       </div>
 
@@ -2199,7 +2199,7 @@ export default function WelcomePage() {
                           </p>
                         </div>
                         <div className="hidden sm:block flex-shrink-0">
-                          <ArrowLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                          <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
                         </div>
                       </div>
 

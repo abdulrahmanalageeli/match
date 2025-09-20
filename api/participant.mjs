@@ -602,6 +602,11 @@ export default async function handler(req, res) {
           }
         }
         
+        // Calculate mutual match based on current wants_match values
+        const isMutualMatch = wantsMatch === true && partnerWantsMatch === true
+        
+        console.log(`[API] Match with #${partnerNumber}: wantsMatch=${wantsMatch}, partnerWantsMatch=${partnerWantsMatch}, isMutualMatch=${isMutualMatch}`)
+        
         return {
           with: partnerNumber === 9999 ? "المنظم" : partnerNumber,
           partner_name: partnerNumber === 9999 ? "المنظم" : (partnerInfo?.name || `لاعب رقم ${partnerNumber}`),
@@ -613,7 +618,7 @@ export default async function handler(req, res) {
           table_number: match.table_number,
           score: match.compatibility_score || 0,
           is_repeat_match: match.is_repeat_match || false,
-          mutual_match: match.mutual_match || false,
+          mutual_match: isMutualMatch,
           wants_match: wantsMatch,
           partner_wants_match: partnerWantsMatch,
           created_at: match.created_at

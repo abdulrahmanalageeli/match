@@ -2138,6 +2138,102 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
+                {/* Process Guide */}
+                <div className="max-w-4xl mx-auto px-4 mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                    <div className="text-center mb-6 sm:mb-8">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white mb-3">كيف يعمل النظام؟</h2>
+                      <p className="text-cyan-200 text-sm sm:text-base max-w-3xl mx-auto">
+                        نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
+                      </p>
+                    </div>
+                    
+                    <div className="space-y-6 sm:space-y-8">
+                      {/* Step 1 */}
+                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg sm:text-xl">1</span>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">املأ استبيان التوافق</h3>
+                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                            أجب على أسئلة شخصية مدروسة لتحليل شخصيتك وتفضيلاتك بدقة
+                          </p>
+                        </div>
+                        <div className="hidden sm:block flex-shrink-0">
+                          <ArrowLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                        </div>
+                      </div>
+
+                      {/* Step 2 */}
+                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg sm:text-xl">2</span>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل ذكي للتوافق</h3>
+                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                            الذكاء الاصطناعي يحلل جميع المشاركين ويجد أكثر الأشخاص توافقاً معك
+                          </p>
+                        </div>
+                        <div className="hidden sm:block flex-shrink-0">
+                          <ArrowLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                        </div>
+                      </div>
+
+                      {/* Step 3 */}
+                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg sm:text-xl">3</span>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تواصل عبر واتساب</h3>
+                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                            سيتم التواصل معك عبر واتساب للدفع وتأكيد حضورك للفعالية
+                          </p>
+                        </div>
+                        <div className="hidden sm:block flex-shrink-0">
+                          <ArrowLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                        </div>
+                      </div>
+
+                      {/* Step 4 */}
+                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg sm:text-xl">4</span>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاء وقرار التطابق</h3>
+                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                            تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Privacy Notice */}
+                    <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-white/5 border border-white/10 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="text-white font-semibold mb-2">حماية الخصوصية</h4>
+                          <p className="text-cyan-200 text-sm">
+                            معلوماتك الشخصية محمية تماماً ولن تُشارك إلا في حالة التطابق المتبادل بين الطرفين
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Registration Options */}
                 <div className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">

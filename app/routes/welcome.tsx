@@ -4931,19 +4931,57 @@ export default function WelcomePage() {
       {/* Simple Test Modal */}
       {testModalShow && (
         <div 
-          className="fixed inset-0 bg-red-500/50 flex items-center justify-center"
-          style={{ zIndex: 99999 }}
-          onClick={() => setTestModalShow(false)}
+          style={{ 
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255, 0, 0, 0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 999999
+          }}
+          onClick={() => {
+            console.log("🔥 Simple modal backdrop clicked");
+            setTestModalShow(false);
+          }}
         >
           <div 
-            className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4"
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'white',
+              padding: '32px',
+              borderRadius: '8px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              maxWidth: '400px',
+              width: '100%',
+              margin: '16px'
+            }}
+            onClick={(e) => {
+              console.log("🔥 Simple modal content clicked");
+              e.stopPropagation();
+            }}
           >
-            <h2 className="text-2xl font-bold text-black mb-4">🔥 Simple Test Modal</h2>
-            <p className="text-gray-700 mb-4">This is a simple test modal to verify modal rendering works.</p>
+            <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: 'black', marginBottom: '16px' }}>
+              🔥 Simple Test Modal
+            </h2>
+            <p style={{ color: '#374151', marginBottom: '16px' }}>
+              This is a simple test modal to verify modal rendering works.
+            </p>
             <button 
-              onClick={() => setTestModalShow(false)}
-              className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+              onClick={() => {
+                console.log("🔥 Simple modal close button clicked");
+                setTestModalShow(false);
+              }}
+              style={{
+                backgroundColor: '#dc2626',
+                color: 'white',
+                padding: '8px 16px',
+                borderRadius: '4px',
+                border: 'none',
+                cursor: 'pointer'
+              }}
             >
               Close
             </button>

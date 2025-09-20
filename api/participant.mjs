@@ -530,5 +530,97 @@ export default async function handler(req, res) {
     }
   }
 
+  // GET MATCH RESULTS BY TOKEN ACTION
+  if (action === "get-match-results") {
+    console.log("[API] Action: get-match-results started for token:", req.body.secure_token);
+    if (!req.body.secure_token) {
+      console.log("[API] Error: Missing secure_token");
+      return res.status(400).json({ error: 'Missing secure_token' });
+    }
+    
+    try {
+      // First, resolve the token to get participant info
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("assigned_number")
+        .eq("secure_token", req.body.secure_token)
+        .single();
+
+      console.log("[API] Participant query result:", { participant, participantError });
+
+      if (participantError || !participant) {
+        console.log("[API] Error: Participant not found or DB error.");
+        return res.status(404).json({ 
+          success: false, 
+          error: 'المشارك غير موجود أو الرمز غير صحيح' 
+        });
+      }
+
+      // Fetch participant history
+      console.log(`[API] Fetching match results for participant #${participant.assigned_number}`);
+      const { data: matches, error: matchError } = await supabase
+        .from("match_results")
+        .select(`
+          *,
+          participant_a:participants!match_results_participant_a_id_fkey(name, age, phone_number),
+          participant_b:participants!match_results_participant_b_id_fkey(name, age, phone_number)
+        `)
+        .eq("match_id", "00000000-0000-0000-0000-000000000000")
+        .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
+        .order("created_at", { ascending: false });
+
+      console.log("[API] Match results query result:", { matches, matchError });
+
+      if (matchError) {
+        console.error("[API] Error fetching match results:", matchError);
+        return res.status(500).json({ 
+          success: false, 
+          error: 'حدث خطأ أثناء جلب نتائج المطابقة' 
+        });
+      }
+
+      // Format the match results
+      const history = (matches || []).map(match => {
+        // Determine which participant is the partner
+        const isParticipantA = match.participant_a_number === participant.assigned_number
+        const partnerNumber = isParticipantA ? match.participant_b_number : match.participant_a_number
+        const partnerInfo = isParticipantA ? match.participant_b : match.participant_a
+        const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
+        const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
+        
+        return {
+          with: partnerNumber,
+          partner_name: partnerInfo?.name || `لاعب رقم ${partnerNumber}`,
+          partner_age: partnerInfo?.age || null,
+          partner_phone: partnerInfo?.phone_number || null,
+          type: match.match_type || "غير محدد",
+          reason: match.reason || "السبب غير متوفر",
+          round: match.round || 1,
+          table_number: match.table_number,
+          score: match.compatibility_score || 0,
+          is_repeat_match: match.is_repeat_match || false,
+          mutual_match: match.mutual_match || false,
+          wants_match: wantsMatch,
+          partner_wants_match: partnerWantsMatch,
+          created_at: match.created_at
+        }
+      });
+
+      console.log("[API] Successfully fetched match results. Sending response.");
+      return res.status(200).json({
+        success: true,
+        assigned_number: participant.assigned_number,
+        history: history
+      });
+
+    } catch (error) {
+      console.error("[API] Unexpected error in get-match-results:", error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'حدث خطأ غير متوقع' 
+      });
+    }
+  }
+
   return res.status(400).json({ error: "Invalid action" })
 }

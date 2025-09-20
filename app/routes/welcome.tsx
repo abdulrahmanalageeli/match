@@ -1047,29 +1047,30 @@ export default function WelcomePage() {
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "resolve-token", secure_token: token.trim() }),
+        body: JSON.stringify({ action: "get-match-results", secure_token: token }),
       });
       
-      console.log("📡 API response status:", res.status);
       const data = await res.json();
       console.log("📊 API response data:", data);
       
-      if (data.success && data.history) {
+      if (data.success) {
         console.log("✅ Success! Setting modal data and showing modal");
         setMatchResultsData({
           assigned_number: data.assigned_number,
-          history: data.history
+          history: data.history || [] // Handle case where history might be empty
         });
+        setMatchResultsError(null); // Clear any previous errors
         setShowMatchResults(true);
-        console.log("🎯 Modal should be visible now. State is now true.");
       } else {
-        console.log("❌ No success or history in response");
-        setMatchResultsError("لم يتم العثور على بيانات المشارك أو الرمز غير صحيح");
+        console.log("❌ No success in response");
+        setMatchResultsError(data.error || "لم يتم العثور على بيانات المشارك أو الرمز غير صحيح");
+        setMatchResultsData(null); // Clear any previous data
         setShowMatchResults(true); // Show modal with error
       }
     } catch (err) {
       console.error("💥 Error in fetchMatchResults:", err);
       setMatchResultsError("حدث خطأ أثناء جلب البيانات");
+      setMatchResultsData(null); // Clear any previous data
       setShowMatchResults(true); // Show modal with error
     } finally {
       setMatchResultsLoading(false);
@@ -2323,6 +2324,7 @@ export default function WelcomePage() {
                         <Button
                           onClick={() => {
                             console.log("🖱️ Button clicked! Token:", resultToken);
+                            console.log("🖱️ Current state - showMatchResults:", showMatchResults, "matchResultsLoading:", matchResultsLoading);
                             fetchMatchResults(resultToken);
                           }}
                           disabled={!resultToken.trim() || matchResultsLoading}
@@ -4653,7 +4655,7 @@ export default function WelcomePage() {
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
       {/* Match Results Modal */}
-      {console.log("🎭 Modal render check - showMatchResults:", showMatchResults, "matchResultsData:", matchResultsData, "matchResultsError:", matchResultsError)}
+      {console.log("🎭 Modal render debug - showMatchResults:", showMatchResults, "matchResultsData:", !!matchResultsData, "matchResultsError:", !!matchResultsError)}
       {showMatchResults && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className={`max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl ${dark ? 'bg-slate-800' : 'bg-white'}`}>

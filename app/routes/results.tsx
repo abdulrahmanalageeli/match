@@ -12,8 +12,7 @@ import {
   User,
   Phone,
   Mail,
-  RefreshCcw,
-  CheckCircle
+  RefreshCcw
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 
@@ -37,9 +36,6 @@ interface MatchResult {
 interface ResultsData {
   assigned_number: number
   history: MatchResult[]
-  event_finished?: boolean
-  has_filled_reviews?: boolean
-  should_show_review_form?: boolean
 }
 
 export default function ResultsPage() {
@@ -50,8 +46,6 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null)
   const [resultsData, setResultsData] = useState<ResultsData | null>(null)
   const [dark] = useState(true) // Match the welcome page theme
-  const [reviewChoices, setReviewChoices] = useState<{[key: number]: boolean}>({})
-  const [submittingReviews, setSubmittingReviews] = useState(false)
 
   // Function to convert technical compatibility reason to natural Arabic description
   const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
@@ -211,26 +205,11 @@ export default function ResultsPage() {
         const data = await res.json()
         
         if (data.success) {
-          // Check if event is finished and participant should fill review forms
-          if (data.should_show_review_form) {
-            setError("review_form")
-            setResultsData({
-              assigned_number: data.assigned_number,
-              history: data.history || [],
-              event_finished: data.event_finished,
-              has_filled_reviews: data.has_filled_reviews,
-              should_show_review_form: data.should_show_review_form
-            })
-          } else {
-            setResultsData({
-              assigned_number: data.assigned_number,
-              history: data.history || [],
-              event_finished: data.event_finished,
-              has_filled_reviews: data.has_filled_reviews,
-              should_show_review_form: data.should_show_review_form
-            })
-            setError(null)
-          }
+          setResultsData({
+            assigned_number: data.assigned_number,
+            history: data.history || []
+          })
+          setError(null)
         } else {
           setError(data.error || "لم يتم العثور على بيانات المشارك أو الرمز غير صحيح")
         }
@@ -244,51 +223,6 @@ export default function ResultsPage() {
 
     fetchResults()
   }, [token])
-
-  const submitReviews = async () => {
-    if (!token || !resultsData) return
-    
-    setSubmittingReviews(true)
-    try {
-      // Convert reviewChoices to the format expected by the API
-      const reviews = Object.entries(reviewChoices).map(([partnerNumber, wantsMatch]) => ({
-        partner_number: parseInt(partnerNumber),
-        wants_match: wantsMatch
-      }))
-
-      const res = await fetch("/api/participant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action: "submit-reviews", 
-          secure_token: token,
-          reviews: reviews
-        }),
-      })
-      
-      const data = await res.json()
-      
-      if (data.success) {
-        alert("✅ " + data.message)
-        // Refresh the page to show normal results
-        window.location.reload()
-      } else {
-        alert("❌ " + (data.error || "حدث خطأ أثناء حفظ التقييمات"))
-      }
-    } catch (err) {
-      console.error("Error submitting reviews:", err)
-      alert("❌ حدث خطأ أثناء حفظ التقييمات")
-    } finally {
-      setSubmittingReviews(false)
-    }
-  }
-
-  const handleReviewChoice = (partnerNumber: number, wantsMatch: boolean) => {
-    setReviewChoices(prev => ({
-      ...prev,
-      [partnerNumber]: wantsMatch
-    }))
-  }
 
   const getMatchStatusText = (match: MatchResult) => {
     if (match.wants_match === null || match.partner_wants_match === null) {
@@ -362,112 +296,7 @@ export default function ResultsPage() {
 
         {/* Content */}
         <div className={`rounded-2xl shadow-xl ${dark ? 'bg-slate-800' : 'bg-white'} p-6`}>
-          {error === "review_form" ? (
-            <div className={`text-center py-12 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-              <div className={`w-16 h-16 mx-auto mb-6 rounded-full flex items-center justify-center ${dark ? 'bg-orange-500/20' : 'bg-orange-100'}`}>
-                <Clock className={`w-8 h-8 ${dark ? 'text-orange-400' : 'text-orange-600'}`} />
-              </div>
-              <h2 className={`text-2xl font-bold mb-4 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                وقت تقييم التطابقات
-              </h2>
-              <p className="text-lg mb-4">
-                انتهى الحدث! حان الوقت لتقييم تطابقاتك
-              </p>
-              <p className="text-sm opacity-75 mb-6">
-                يرجى مراجعة كل شخص التقيت به وإخبارنا إذا كنت مهتماً بالتواصل معه
-              </p>
-              
-              {/* Show matches for review */}
-              {resultsData && resultsData.history.length > 0 && (
-                <div className="space-y-4 max-w-2xl mx-auto">
-                  {resultsData.history.map((match, index) => (
-                    <div key={index} className={`p-4 rounded-lg border ${dark ? 'bg-slate-700 border-slate-600' : 'bg-gray-50 border-gray-200'}`}>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="text-left">
-                          <h3 className={`font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                            {match.partner_name || `مشارك رقم ${match.with}`}
-                          </h3>
-                          <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                            الجولة {match.round} • الطاولة {match.table_number}
-                          </p>
-                        </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          match.type === 'توأم روح' 
-                            ? (dark ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700')
-                            : match.type === 'عدو لدود'
-                            ? (dark ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-700')
-                            : (dark ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-100 text-yellow-700')
-                        }`}>
-                          {match.type}
-                        </div>
-                      </div>
-                      
-                      <p className={`text-sm mb-4 ${dark ? 'text-slate-300' : 'text-gray-700'}`}>
-                        {match.reason}
-                      </p>
-                      
-                      <div className="text-center">
-                        <p className={`text-sm mb-3 ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                          هل تريد التواصل مع هذا الشخص؟
-                        </p>
-                        <div className="flex gap-3 justify-center">
-                          <Button 
-                            className={`px-6 ${
-                              reviewChoices[typeof match.with === 'number' ? match.with : parseInt(match.with as string)] === true
-                                ? 'bg-green-600 hover:bg-green-700 text-white'
-                                : 'bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30'
-                            }`}
-                            onClick={() => handleReviewChoice(typeof match.with === 'number' ? match.with : parseInt(match.with as string), true)}
-                          >
-                            <Heart className="w-4 h-4 mr-2" />
-                            نعم، أريد التواصل
-                          </Button>
-                          <Button 
-                            variant="outline"
-                            className={`px-6 ${
-                              reviewChoices[typeof match.with === 'number' ? match.with : parseInt(match.with as string)] === false
-                                ? (dark ? 'bg-slate-600 border-slate-500 text-white' : 'bg-gray-200 border-gray-400 text-gray-800')
-                                : (dark ? 'border-slate-600 text-slate-300 hover:bg-slate-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50')
-                            }`}
-                            onClick={() => handleReviewChoice(typeof match.with === 'number' ? match.with : parseInt(match.with as string), false)}
-                          >
-                            <X className="w-4 h-4 mr-2" />
-                            لا، شكراً
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              <div className="mt-8">
-                <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={submitReviews}
-                  disabled={submittingReviews || Object.keys(reviewChoices).length === 0}
-                >
-                  {submittingReviews ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
-                      جاري الحفظ...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      حفظ جميع التقييمات ({Object.keys(reviewChoices).length})
-                    </>
-                  )}
-                </Button>
-                
-                {Object.keys(reviewChoices).length === 0 && (
-                  <p className={`text-sm mt-2 ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    يرجى اختيار تقييم لكل شخص قبل الحفظ
-                  </p>
-                )}
-              </div>
-            </div>
-          ) : error === "waiting" ? (
+          {error === "waiting" ? (
             <div className={`text-center py-12 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
               <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-6"></div>
               <h2 className={`text-2xl font-bold mb-4 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>

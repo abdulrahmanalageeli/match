@@ -1293,31 +1293,9 @@ export default function WelcomePage() {
   }, [announcement?.message])
 
   const submitFeedback = async () => {
-    // Validate all required feedback fields
-    const requiredFields = [
-      { field: 'conversationQuality', name: 'جودة المحادثة' },
-      { field: 'personalConnection', name: 'القيم المشتركة' },
-      { field: 'sharedInterests', name: 'الاهتمامات المشتركة' },
-      { field: 'comfortLevel', name: 'مستوى الراحة' },
-      { field: 'communicationStyle', name: 'توافق أسلوب التواصل' },
-      { field: 'wouldMeetAgain', name: 'الرغبة في مقابلة مرة أخرى' },
-      { field: 'overallExperience', name: 'التقييم العام للتجربة' }
-    ];
-
-    // Check if any required field is missing or has default value
-    const missingFields = requiredFields.filter(({ field }) => {
-      const value = feedbackAnswers[field as keyof typeof feedbackAnswers];
-      return value === undefined || value === null || value === 3; // 3 is the default value
-    });
-
-    // Also validate match preference for round 1
+    // Only validate the match preference question for round 1 - allow default values for rating questions
     if (currentRound === 1 && matchResult && matchResult !== 'المنظم' && wantMatch === null) {
-      missingFields.push({ field: 'wantMatch', name: 'الرغبة في التواصل مرة أخرى' });
-    }
-
-    if (missingFields.length > 0) {
-      const fieldNames = missingFields.map(f => f.name).join('، ');
-      alert(`يرجى الإجابة على جميع الأسئلة المطلوبة:\n${fieldNames}`);
+      alert('يرجى الإجابة على سؤال: هل ترغب في التواصل مع هذا الشخص مرة أخرى؟');
       return;
     }
 

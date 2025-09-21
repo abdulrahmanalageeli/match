@@ -320,7 +320,7 @@ export default async function handler(req, res) {
         headers: req.headers
       })
 
-      const { assigned_number, summary, survey_data, feedback, round } = req.body
+      const { assigned_number, summary, survey_data, feedback, round, secure_token } = req.body
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
       if (!req.body?.assigned_number) {
@@ -366,6 +366,7 @@ export default async function handler(req, res) {
         const feedbackData = {
           match_id,
           participant_number: assigned_number,
+          participant_token: secure_token || null,
           round,
           compatibility_rate: compatibilityRate,
           conversation_quality: conversationQuality,

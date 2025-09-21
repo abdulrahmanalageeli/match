@@ -1132,16 +1132,27 @@ export default function WelcomePage() {
 
   // Reusable Logo Component
   const LogoHeader = () => (
-    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+    <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-50">
       <div 
         onClick={handleLogoClick}
-        className="cursor-pointer transition-all duration-300 hover:scale-110 hover:shadow-lg"
+        className="group cursor-pointer transition-all duration-500 hover:scale-105"
       >
-        <img 
-          src={logoPng} 
-          alt="BlindMatch" 
-          className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain rounded-lg shadow-md bg-white/10 backdrop-blur-sm p-2" 
-        />
+        <div className="relative">
+          {/* Glow effect background */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-2xl blur-xl opacity-60 group-hover:opacity-80 transition-opacity duration-500"></div>
+          
+          {/* Main logo container */}
+          <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl p-3 shadow-2xl group-hover:shadow-purple-500/20 transition-all duration-500">
+            <img 
+              src={logoPng} 
+              alt="BlindMatch" 
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain drop-shadow-lg" 
+            />
+          </div>
+          
+          {/* Subtle animated border */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+        </div>
       </div>
     </div>
   );

@@ -48,6 +48,8 @@ export default function AdminPage() {
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
   const [waitingCount, setWaitingCount] = useState(0)
   const [totalParticipants, setTotalParticipants] = useState(0)
+  const [eventStatuses, setEventStatuses] = useState<any[]>([])
+  const [loadingEventStatus, setLoadingEventStatus] = useState(false)
   const [participantStats, setParticipantStats] = useState<any>(null)
   const [currentRounds, setCurrentRounds] = useState(2)
   const [optimalRounds, setOptimalRounds] = useState(2)
@@ -93,6 +95,9 @@ export default function AdminPage() {
       // Update global timer state
       setGlobalTimerActive(stateData.global_timer_active || false)
       setGlobalTimerRound(stateData.global_timer_round || 1)
+      
+      // Fetch event statuses
+      fetchEventStatuses()
       
       if (stateData.global_timer_active && stateData.global_timer_start_time) {
         const startTime = new Date(stateData.global_timer_start_time).getTime()
@@ -152,6 +157,47 @@ export default function AdminPage() {
       console.error("Fetch error:", err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchEventStatuses = async () => {
+    setLoadingEventStatus(true)
+    try {
+      const res = await fetch("/api/admin/get-event-status")
+      const data = await res.json()
+      if (data.success) {
+        setEventStatuses(data.events || [])
+      }
+    } catch (err) {
+      console.error("Error fetching event statuses:", err)
+    } finally {
+      setLoadingEventStatus(false)
+    }
+  }
+
+  const toggleEventStatus = async (eventId: number, currentStatus: boolean) => {
+    setLoadingEventStatus(true)
+    try {
+      const res = await fetch("/api/admin/toggle-event-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          event_id: eventId, 
+          event_finished: !currentStatus 
+        }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        alert(`✅ Event ${eventId} status updated to: ${!currentStatus ? 'Finished' : 'Active'}`)
+        fetchEventStatuses() // Refresh the list
+      } else {
+        alert("❌ Failed to update event status: " + (data.error || "Unknown error"))
+      }
+    } catch (err) {
+      console.error("Error toggling event status:", err)
+      alert("❌ Network error occurred")
+    } finally {
+      setLoadingEventStatus(false)
     }
   }
 
@@ -1045,6 +1091,78 @@ export default function AdminPage() {
                     <span className="text-slate-400 text-xs ml-2">
                       (Optimal: {optimalRounds})
                     </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Event Status Management */}
+            <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-orange-500/20 rounded-lg">
+                  <Clock className="w-5 h-5 text-orange-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-orange-300">Event Status</h3>
+                  <p className="text-slate-400 text-sm">Manage event completion status</p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                {loadingEventStatus ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="w-5 h-5 animate-spin text-orange-400" />
+                    <span className="ml-2 text-slate-400">Loading events...</span>
+                  </div>
+                ) : eventStatuses.length > 0 ? (
+                  <div className="space-y-3">
+                    {eventStatuses.map((event) => (
+                      <div key={event.event_id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${event.event_finished ? 'bg-red-400' : 'bg-green-400'}`}></div>
+                          <div>
+                            <div className="text-white font-medium">Event {event.event_id}</div>
+                            <div className="text-slate-400 text-xs">
+                              {event.match_count} matches • {event.participant_count} participants
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            event.event_finished 
+                              ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
+                              : 'bg-green-500/20 text-green-300 border border-green-500/30'
+                          }`}>
+                            {event.event_finished ? 'Finished' : 'Active'}
+                          </span>
+                          <button
+                            onClick={() => toggleEventStatus(event.event_id, event.event_finished)}
+                            disabled={loadingEventStatus}
+                            className={`px-3 py-1 rounded text-xs font-medium transition-all duration-300 ${
+                              event.event_finished
+                                ? 'bg-green-500/20 hover:bg-green-500/30 text-green-300 border border-green-500/30'
+                                : 'bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30'
+                            } disabled:opacity-50`}
+                          >
+                            {event.event_finished ? 'Reactivate' : 'Finish'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4 text-slate-400">
+                    No events found
+                  </div>
+                )}
+                
+                <div className="mt-4 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div className="text-blue-300 text-xs">
+                      <strong>Note:</strong> When an event is marked as "Finished", participants will see review forms immediately. 
+                      If they've already filled forms, they'll see their results as normal.
+                    </div>
                   </div>
                 </div>
               </div>

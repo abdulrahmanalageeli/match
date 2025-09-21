@@ -568,7 +568,7 @@ export default async function handler(req, res) {
       // First, resolve the token to get participant info
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("assigned_number")
+        .select("assigned_number, event_id")
         .eq("secure_token", req.body.secure_token)
         .single();
 
@@ -582,12 +582,25 @@ export default async function handler(req, res) {
         });
       }
 
+      // Check if event is finished by looking at any match result for this event
+      const { data: eventStatus, error: eventStatusError } = await supabase
+        .from("match_results")
+        .select("event_finished")
+        .eq("event_id", participant.event_id || 1)
+        .limit(1)
+        .single();
+
+      console.log("[API] Event status query result:", { eventStatus, eventStatusError });
+
+      const isEventFinished = eventStatus?.event_finished || false;
+
       // Fetch participant history
-      console.log(`[API] Fetching match results for participant #${participant.assigned_number}`);
+      console.log(`[API] Fetching match results for participant #${participant.assigned_number}, event finished: ${isEventFinished}`);
       const { data: matches, error: matchError } = await supabase
         .from("match_results")
         .select("*")
         .eq("match_id", "00000000-0000-0000-0000-000000000000")
+        .eq("event_id", participant.event_id || 1)
         .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
         .order("created_at", { ascending: false });
 
@@ -651,10 +664,25 @@ export default async function handler(req, res) {
         }
       }));
 
-      console.log("[API] Successfully fetched match results. Sending response.");
+      // Check if participant has filled review forms (has any wants_match values)
+      const hasFilledReviews = matches?.some(match => {
+        const isParticipantA = match.participant_a_number === participant.assigned_number;
+        const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match;
+        return wantsMatch !== null;
+      }) || false;
+
+      console.log("[API] Successfully fetched match results. Sending response.", {
+        isEventFinished,
+        hasFilledReviews,
+        matchCount: matches?.length || 0
+      });
+
       return res.status(200).json({
         success: true,
         assigned_number: participant.assigned_number,
+        event_finished: isEventFinished,
+        has_filled_reviews: hasFilledReviews,
+        should_show_review_form: isEventFinished && !hasFilledReviews,
         history: history
       });
 
@@ -667,5 +695,86 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(400).json({ error: "Invalid action" })
+  // SUBMIT MATCH REVIEWS ACTION
+  if (action === "submit-reviews") {
+    console.log("[API] Action: submit-reviews started for token:", req.body.secure_token);
+    if (!req.body.secure_token || !req.body.reviews) {
+      console.log("[API] Error: Missing secure_token or reviews");
+      return res.status(400).json({ error: 'Missing secure_token or reviews' });
+    }
+    
+    try {
+      // First, resolve the token to get participant info
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("assigned_number, event_id")
+        .eq("secure_token", req.body.secure_token)
+        .single();
+
+      console.log("[API] Participant query result:", { participant, participantError });
+
+      if (participantError || !participant) {
+        console.log("[API] Error: Participant not found or DB error.");
+        return res.status(404).json({ 
+          success: false, 
+          error: 'المشارك غير موجود أو الرمز غير صحيح' 
+        });
+      }
+
+      // Process each review
+      const reviews = req.body.reviews; // Array of {partner_number, wants_match}
+      let updatedCount = 0;
+
+      for (const review of reviews) {
+        const { partner_number, wants_match } = review;
+        
+        // Find the match result for this participant and partner
+        const { data: matchResult, error: matchError } = await supabase
+          .from("match_results")
+          .select("id, participant_a_number, participant_b_number")
+          .eq("match_id", "00000000-0000-0000-0000-000000000000")
+          .eq("event_id", participant.event_id || 1)
+          .or(`and(participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${participant.assigned_number})`)
+          .single();
+
+        if (matchError || !matchResult) {
+          console.log(`[API] Warning: Match not found for participant ${participant.assigned_number} and partner ${partner_number}`);
+          continue;
+        }
+
+        // Determine which field to update
+        const isParticipantA = matchResult.participant_a_number === participant.assigned_number;
+        const updateField = isParticipantA ? 'participant_a_wants_match' : 'participant_b_wants_match';
+
+        // Update the match result
+        const { error: updateError } = await supabase
+          .from("match_results")
+          .update({ [updateField]: wants_match })
+          .eq("id", matchResult.id);
+
+        if (updateError) {
+          console.error(`[API] Error updating match result ${matchResult.id}:`, updateError);
+        } else {
+          updatedCount++;
+          console.log(`[API] Updated match result ${matchResult.id}, set ${updateField} = ${wants_match}`);
+        }
+      }
+
+      console.log(`[API] Successfully updated ${updatedCount} match results`);
+      return res.status(200).json({
+        success: true,
+        message: 'تم حفظ تقييماتك بنجاح',
+        updated_count: updatedCount
+      });
+
+    } catch (error) {
+      console.error("[API] Unexpected error in submit-reviews:", error);
+      return res.status(500).json({ 
+        success: false, 
+        error: 'حدث خطأ غير متوقع' 
+      });
+    }
+  }
+
+  return res.status(400).json({ error: 'Invalid action' })
 }

@@ -2407,8 +2407,8 @@ export default function WelcomePage() {
                       <div className="space-y-3 sm:space-y-4">
                         <div className="grid grid-cols-2 gap-2 text-xs text-cyan-200">
                           <div className="flex items-center justify-center gap-1">
-                            <Star className="w-3 h-3" />
-                            <span>لم أفعل من قبل</span>
+                            <Sparkles className="w-3 h-3" />
+                            <span>أسئلة للنقاش</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
                             <Target className="w-3 h-3" />
@@ -2419,8 +2419,8 @@ export default function WelcomePage() {
                             <span>ماذا تفضل</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
-                            <Zap className="w-3 h-3" />
-                            <span>أسئلة سريعة</span>
+                            <MessageSquare className="w-3 h-3" />
+                            <span>بناء القصة</span>
                           </div>
                         </div>
                         <Button

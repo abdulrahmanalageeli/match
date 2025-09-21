@@ -900,13 +900,13 @@ export default function WelcomePage() {
               }
               
               // Reset all states for clean transition (but preserve global timer state and event finished modal)
-              if (!globalTimerActive && !timerRestored) {
+              // Skip all resets if we're showing results for a finished event
+              const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+              
+              if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
                 setConversationTimer(1800);
                 setConversationStarted(false);
-                // Don't reset modalStep if event is finished and we just set it
-                if (modalStep !== "feedback" && modalStep !== "result") {
-                  setModalStep(null);
-                }
+                setModalStep(null);
                 setIsScoreRevealed(false);
                 setShowConversationStarters(false);
                 setConversationStarters([]);
@@ -932,7 +932,7 @@ export default function WelcomePage() {
                 setPartnerStartedTimer(false);
                 setPartnerEndedTimer(false);
               } else {
-                console.log("🔄 Skipping timer reset - global timer active or timer was restored");
+                console.log("🔄 Skipping state reset - global timer active, timer restored, or showing finished event results");
               }
               
               lastRoundRef.current = roundNumber;
@@ -944,20 +944,23 @@ export default function WelcomePage() {
             // Waiting phases (waiting only - single round mode)
             console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
             setStep(5);
-            // Only reset timer if not in global timer mode
-            if (!globalTimerActive && !timerRestored) {
+            // Skip all resets if we're showing results for a finished event
+            const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+            
+            // Only reset timer if not in global timer mode and not showing finished event results
+            if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
               setConversationStarted(false);
               setModalStep(null);
               setTimerEnded(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
+              setIsScoreRevealed(false);
+              setShowConversationStarters(false);
+              setConversationStarters([]);
+              setGeneratingStarters(false);
             } else {
-              console.log("🔄 Skipping timer reset in waiting phase - global timer active or timer was restored");
+              console.log("🔄 Skipping timer reset in waiting phase - global timer active, timer restored, or showing finished event results");
             }
-            setIsScoreRevealed(false);
-            setShowConversationStarters(false);
-            setConversationStarters([]);
-            setGeneratingStarters(false);
             
             // Update refs for waiting phase
             const waitingRound = parseInt(data.phase.split('_')[1]);
@@ -1000,20 +1003,23 @@ export default function WelcomePage() {
             // General waiting phase
             console.log(`🔄 General waiting phase change detected (from step ${step})`);
             setStep(3);
-            // Only reset timer if not in global timer mode
-            if (!globalTimerActive && !timerRestored) {
+            // Skip all resets if we're showing results for a finished event
+            const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+            
+            // Only reset timer if not in global timer mode and not showing finished event results
+            if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
               setConversationStarted(false);
               setModalStep(null);
               setTimerEnded(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
+              setIsScoreRevealed(false);
+              setShowConversationStarters(false);
+              setConversationStarters([]);
+              setGeneratingStarters(false);
             } else {
-              console.log("🔄 Skipping timer reset in general waiting phase - global timer active or timer was restored");
+              console.log("🔄 Skipping timer reset in general waiting phase - global timer active, timer restored, or showing finished event results");
             }
-            setIsScoreRevealed(false);
-            setShowConversationStarters(false);
-            setConversationStarters([]);
-            setGeneratingStarters(false);
             console.log(`✅ Successfully transitioned to waiting`);
                   } else if (data.phase === "form") {
             // Form phase
@@ -1033,20 +1039,23 @@ export default function WelcomePage() {
               // Only reset if they haven't made a choice yet
               if (!formFilledChoiceMade) {
                 setStep(2);
-                // Only reset timer if not in global timer mode
-                if (!globalTimerActive && !timerRestored) {
+                // Skip all resets if we're showing results for a finished event
+                const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+                
+                // Only reset timer if not in global timer mode and not showing finished event results
+                if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
                   setConversationStarted(false);
                   setModalStep(null);
                   setTimerEnded(false);
                   setPartnerStartedTimer(false);
                   setPartnerEndedTimer(false);
+                  setIsScoreRevealed(false);
+                  setShowConversationStarters(false);
+                  setConversationStarters([]);
+                  setGeneratingStarters(false);
                 } else {
-                  console.log("🔄 Skipping timer reset in form phase - global timer active or timer was restored");
+                  console.log("🔄 Skipping timer reset in form phase - global timer active, timer restored, or showing finished event results");
                 }
-                setIsScoreRevealed(false);
-                setShowConversationStarters(false);
-                setConversationStarters([]);
-                setGeneratingStarters(false);
                 // Reset form filled choice when returning to form phase from other phases
                 setFormFilledChoiceMade(false);
               } else {
@@ -1069,15 +1078,18 @@ export default function WelcomePage() {
             if (step > 0) {
               console.log(`🔄 Registration phase change detected (from step ${step})`);
               setStep(0);
-              // Only reset timer if not in global timer mode
-              if (!globalTimerActive && !timerRestored) {
+              // Skip all resets if we're showing results for a finished event
+              const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+              
+              // Only reset timer if not in global timer mode and not showing finished event results
+              if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
                 setConversationStarted(false);
                 setModalStep(null);
                 setTimerEnded(false);
                 setPartnerStartedTimer(false);
                 setPartnerEndedTimer(false);
               } else {
-                console.log("🔄 Skipping timer reset in registration phase - global timer active or timer was restored");
+                console.log("🔄 Skipping timer reset in registration phase - global timer active, timer restored, or showing finished event results");
               }
               console.log(`✅ Successfully transitioned to registration`);
             }

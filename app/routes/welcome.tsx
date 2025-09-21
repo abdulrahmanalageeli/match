@@ -2389,6 +2389,52 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
+                {/* Group Activities Section */}
+                <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1200">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                    <div className="text-center">
+                      <div className="flex justify-center mb-4">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                          <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                        </div>
+                      </div>
+                      
+                      <h3 className="text-lg sm:text-xl font-bold text-white mb-2">ألعاب جماعية</h3>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-4">
+                        30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
+                      </p>
+                      
+                      <div className="space-y-3 sm:space-y-4">
+                        <div className="grid grid-cols-2 gap-2 text-xs text-cyan-200">
+                          <div className="flex items-center justify-center gap-1">
+                            <Star className="w-3 h-3" />
+                            <span>لم أفعل من قبل</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-1">
+                            <Target className="w-3 h-3" />
+                            <span>حقيقتان وكذبة</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-1">
+                            <Heart className="w-3 h-3" />
+                            <span>ماذا تفضل</span>
+                          </div>
+                          <div className="flex items-center justify-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            <span>أسئلة سريعة</span>
+                          </div>
+                        </div>
+                        <Button
+                          onClick={() => window.location.href = '/groups'}
+                          className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                        >
+                          <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                          ابدأ الألعاب الجماعية
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Footer Info */}
                 <div className="text-center mt-8 sm:mt-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-cyan-200 text-xs sm:text-sm">

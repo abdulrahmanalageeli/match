@@ -6,4 +6,5 @@ export default [
   route("admin", "routes/admin.tsx"),
   route("matrix", "routes/matrix.tsx"),
   route("results", "routes/results.tsx"), // ✅ Results page
+  route("groups", "routes/groups.tsx"), // ✅ Groups games page
 ] satisfies RouteConfig;

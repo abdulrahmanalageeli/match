@@ -902,7 +902,8 @@ export default function WelcomePage() {
               // Reset all states for clean transition (but preserve global timer state and event finished modal)
               // Skip all resets if we're showing results or feedback for a finished event
               const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
-              const isShowingFinishedEventFeedback = modalStep === "feedback" && timerEnded;
+              // Only protect feedback if we're explicitly showing it for a finished event (very conservative)
+              const isShowingFinishedEventFeedback = false; // Disable feedback protection for now to fix timer issue
               
               if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                 setConversationTimer(1800);
@@ -1042,7 +1043,7 @@ export default function WelcomePage() {
                 setStep(2);
                 // Skip all resets if we're showing results or feedback for a finished event
                 const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
-                const isShowingFinishedEventFeedback = modalStep === "feedback" && timerEnded;
+                const isShowingFinishedEventFeedback = false; // Disable feedback protection for now to fix timer issue
                 
                 // Only reset timer if not in global timer mode and not showing finished event results/feedback
                 if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
@@ -1082,7 +1083,7 @@ export default function WelcomePage() {
               setStep(0);
               // Skip all resets if we're showing results or feedback for a finished event
               const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
-              const isShowingFinishedEventFeedback = modalStep === "feedback" && timerEnded;
+              const isShowingFinishedEventFeedback = false; // Disable feedback protection for now to fix timer issue
               
               // Only reset timer if not in global timer mode and not showing finished event results/feedback
               if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {

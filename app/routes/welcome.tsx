@@ -1132,7 +1132,7 @@ export default function WelcomePage() {
 
   // Reusable Logo Component
   const LogoHeader = () => (
-    <div className="fixed top-4 left-4 z-50">
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
       <div 
         onClick={handleLogoClick}
         className="cursor-pointer transition-all duration-300 hover:scale-110 hover:shadow-lg"
@@ -1140,7 +1140,7 @@ export default function WelcomePage() {
         <img 
           src={logoPng} 
           alt="BlindMatch" 
-          className="w-12 h-12 sm:w-16 sm:h-16 object-contain rounded-lg shadow-md bg-white/10 backdrop-blur-sm p-2" 
+          className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain rounded-lg shadow-md bg-white/10 backdrop-blur-sm p-2" 
         />
       </div>
     </div>

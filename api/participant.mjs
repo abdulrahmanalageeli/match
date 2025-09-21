@@ -668,5 +668,56 @@ export default async function handler(req, res) {
     }
   }
 
+  // CHECK FEEDBACK SUBMITTED ACTION
+  if (action === "check-feedback-submitted") {
+    try {
+      const { secure_token, round, event_id } = req.body
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+      if (!secure_token || !round || !event_id) {
+        return res.status(400).json({ error: 'Missing required parameters' })
+      }
+
+      // Check if feedback exists for this token and round
+      const { data: feedbackData, error: feedbackError } = await supabase
+        .from("match_feedback")
+        .select("id")
+        .eq("match_id", match_id)
+        .eq("participant_token", secure_token)
+        .eq("round", round)
+
+      if (feedbackError) {
+        console.error("Error checking feedback:", feedbackError)
+        return res.status(500).json({ error: "Database error" })
+      }
+
+      // Check if event is finished
+      const { data: matchData, error: matchError } = await supabase
+        .from("match_results")
+        .select("event_finished")
+        .eq("event_id", event_id)
+        .eq("round", round)
+        .limit(1)
+        .single()
+
+      if (matchError && matchError.code !== 'PGRST116') {
+        console.error("Error checking event status:", matchError)
+        return res.status(500).json({ error: "Database error" })
+      }
+
+      const eventFinished = matchData?.event_finished || false
+      const feedbackSubmitted = feedbackData && feedbackData.length > 0
+
+      return res.status(200).json({
+        success: true,
+        event_finished: eventFinished,
+        feedback_submitted: feedbackSubmitted
+      })
+    } catch (error) {
+      console.error("Error checking feedback status:", error)
+      return res.status(500).json({ error: "Failed to check feedback status" })
+    }
+  }
+
   return res.status(400).json({ error: "Invalid action" })
 }

@@ -242,6 +242,7 @@ export default function WelcomePage() {
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
   const [resultToken, setResultToken] = useState("");
+  const [currentEventId, setCurrentEventId] = useState(1);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -634,6 +635,39 @@ export default function WelcomePage() {
                 setStep(2); // Show form anyway
               }
             }
+            
+            // Check if event is finished and handle feedback/results on initial load
+            if (hasFilledForm && eventData.phase && eventData.phase.startsWith("round_")) {
+              const roundNumber = parseInt(eventData.phase.split('_')[1]);
+              try {
+                const feedbackCheckRes = await fetch("/api/participant", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    action: "check-feedback-submitted",
+                    secure_token: token,
+                    round: roundNumber,
+                    event_id: currentEventId
+                  }),
+                });
+                
+                const feedbackCheckData = await feedbackCheckRes.json();
+                if (feedbackCheckRes.ok && feedbackCheckData.success && feedbackCheckData.event_finished) {
+                  console.log("🏁 Initial load: Event is finished, checking feedback status");
+                  if (feedbackCheckData.feedback_submitted) {
+                    console.log("✅ Initial load: Feedback already submitted, showing results");
+                    setModalStep("result");
+                    setIsScoreRevealed(true);
+                  } else {
+                    console.log("📝 Initial load: Feedback not submitted, showing feedback form");
+                    setModalStep("feedback");
+                    setTimerEnded(true);
+                  }
+                }
+              } catch (error) {
+                console.error("Error checking event finished status on initial load:", error);
+              }
+            }
             // --- END NEW LOGIC ---
           }
         } else {
@@ -831,11 +865,48 @@ export default function WelcomePage() {
               await fetchMatches(roundNumber);
               setStep(4);
               
-              // Reset all states for clean transition (but preserve global timer state)
+              // Check if event is finished and handle feedback/results automatically
+              if (secureToken && currentRound) {
+                try {
+                  const feedbackCheckRes = await fetch("/api/participant", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      action: "check-feedback-submitted",
+                      secure_token: secureToken,
+                      round: currentRound,
+                      event_id: currentEventId || 1
+                    }),
+                  });
+                  
+                  const feedbackCheckData = await feedbackCheckRes.json();
+                  if (feedbackCheckRes.ok && feedbackCheckData.success) {
+                    if (feedbackCheckData.event_finished) {
+                      console.log("🏁 Event is finished, checking feedback status");
+                      if (feedbackCheckData.feedback_submitted) {
+                        console.log("✅ Feedback already submitted, showing results");
+                        setModalStep("result");
+                        setIsScoreRevealed(true);
+                      } else {
+                        console.log("📝 Feedback not submitted, showing feedback form");
+                        setModalStep("feedback");
+                        setTimerEnded(true);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.error("Error checking event finished status:", error);
+                }
+              }
+              
+              // Reset all states for clean transition (but preserve global timer state and event finished modal)
               if (!globalTimerActive && !timerRestored) {
                 setConversationTimer(1800);
                 setConversationStarted(false);
-                setModalStep(null);
+                // Don't reset modalStep if event is finished and we just set it
+                if (modalStep !== "feedback" && modalStep !== "result") {
+                  setModalStep(null);
+                }
                 setIsScoreRevealed(false);
                 setShowConversationStarters(false);
                 setConversationStarters([]);

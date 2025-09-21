@@ -717,6 +717,66 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "set-event-finished") {
+      try {
+        const { event_id, finished } = req.body
+        console.log(`Setting event ${event_id} finished status to: ${finished}`)
+        
+        // Update all match_results records for this event_id
+        const { data: updateData, error: updateError } = await supabase
+          .from("match_results")
+          .update({ 
+            event_finished: finished
+          })
+          .eq("event_id", event_id)
+          .select()
+
+        if (updateError) {
+          console.error("Error updating event finished status:", updateError)
+          return res.status(500).json({ error: `Database error: ${updateError.message}` })
+        }
+        
+        console.log(`Successfully updated ${updateData?.length || 0} match results for event ${event_id}`)
+        return res.status(200).json({ message: `Event ${event_id} ${finished ? 'finished' : 'ongoing'}` })
+      } catch (err) {
+        console.error("Error setting event finished:", err)
+        return res.status(500).json({ error: "Failed to set event finished status" })
+      }
+    }
+
+    if (action === "get-event-finished") {
+      try {
+        const { event_id } = req.body
+        console.log(`Getting event finished status for event_id: ${event_id}`)
+        
+        const { data, error } = await supabase
+          .from("match_results")
+          .select("event_finished")
+          .eq("event_id", event_id)
+          .limit(1)
+          .single()
+
+        if (error) {
+          console.error("Error getting event finished status:", error)
+          
+          // If no record exists, return default (false)
+          if (error.code === 'PGRST116') {
+            console.log(`No match_results records found for event ${event_id}, returning default finished (false)`)
+            return res.status(200).json({ finished: false })
+          }
+          
+          return res.status(500).json({ error: error.message })
+        }
+
+        const finished = data?.event_finished !== false // Default to false if null/undefined
+        console.log(`Event ${event_id} finished status retrieved: ${finished}`)
+        return res.status(200).json({ finished })
+      } catch (err) {
+        console.error("Error getting event finished status:", err)
+        return res.status(500).json({ error: "Failed to get event finished status" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

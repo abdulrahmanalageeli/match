@@ -59,6 +59,7 @@ export default function AdminPage() {
   const [currentEventId, setCurrentEventId] = useState(1)
   const [maxEventId, setMaxEventId] = useState(1)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
+  const [eventFinished, setEventFinished] = useState(false)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -148,6 +149,15 @@ export default function AdminPage() {
       })
       const regData = await regRes.json()
       setRegistrationEnabled(regData.enabled !== false) // Default to true if not set
+      
+      // Fetch event finished state
+      const eventFinishedRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-event-finished", event_id: currentEventId }),
+      })
+      const eventFinishedData = await eventFinishedRes.json()
+      setEventFinished(eventFinishedData.finished !== false) // Default to false if not set
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -224,6 +234,33 @@ export default function AdminPage() {
     } catch (err) {
       console.error("Error toggling registration:", err)
       alert("❌ Error updating registration status")
+    }
+  }
+
+  const toggleEventFinished = async () => {
+    try {
+      const newFinished = !eventFinished
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "set-event-finished", 
+          event_id: currentEventId,
+          finished: newFinished 
+        }),
+      })
+      
+      if (res.ok) {
+        setEventFinished(newFinished)
+        alert(`✅ Event ${currentEventId} is now marked as ${newFinished ? 'finished' : 'ongoing'}`)
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error("API Error:", errorData)
+        alert(`❌ Failed to update event status: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      console.error("Error toggling event finished:", err)
+      alert("❌ Error updating event status")
     }
   }
 
@@ -1113,6 +1150,18 @@ export default function AdminPage() {
                 >
                   <UserRound className="w-4 h-4" />
                   {registrationEnabled ? "Close Registration" : "Open Registration"}
+                </button>
+
+                <button
+                  onClick={toggleEventFinished}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm ${
+                    eventFinished
+                      ? "bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white"
+                      : "bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  Event {currentEventId}: {eventFinished ? "Finished" : "Ongoing"}
                 </button>
               </div>
             </div>

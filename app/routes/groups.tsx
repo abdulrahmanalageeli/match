@@ -282,10 +282,6 @@ export default function GroupsPage() {
   const currentGame = games[currentGameIndex];
 
   const startSession = () => {
-    if (participants.length < 2) {
-      alert("يجب إضافة مشاركين على الأقل لبدء الجلسة");
-      return;
-    }
     setGameStarted(true);
     startCurrentGame();
   };
@@ -293,7 +289,6 @@ export default function GroupsPage() {
   const startCurrentGame = () => {
     setGamePhase("playing");
     setCurrentPromptIndex(0);
-    setCurrentPlayer(0);
   };
 
   const nextGame = () => {
@@ -321,7 +316,6 @@ export default function GroupsPage() {
     if (currentGame.id === "would-you-rather") {
       setCurrentPromptIndex(prev => (prev + 1) % wouldYouRatherQuestions.length);
     }
-    setCurrentPlayer(prev => (prev + 1) % participants.length);
   };
   
   const addStoryBlock = (block: StoryBlock) => {
@@ -329,13 +323,11 @@ export default function GroupsPage() {
     setAvailableBlocks(prev => 
       prev.map(b => b.id === block.id ? { ...b, used: true } : b)
     );
-    setCurrentPlayer(prev => (prev + 1) % participants.length);
   };
   
   const resetStory = () => {
     setStoryParts(["كان يا ما كان، في قديم الزمان..."]);
     setAvailableBlocks(storyBlocks.map(block => ({ ...block, used: false })));
-    setCurrentPlayer(0);
   };
   
   const getBlocksByType = (type: StoryBlock['type']) => {
@@ -398,13 +390,6 @@ export default function GroupsPage() {
     // Playing phase
     return (
       <div className="space-y-6">
-        <div className="text-center">
-          <div className="flex items-center justify-center space-x-4 mb-4">
-            <Badge variant="secondary" className="text-lg px-4 py-2">
-              {participants[currentPlayer] || "اللاعب الحالي"}
-            </Badge>
-          </div>
-        </div>
 
         {currentGame.id === "questions-modal" && (
           <Card className="bg-slate-800/50 border-slate-700">
@@ -430,7 +415,7 @@ export default function GroupsPage() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
               <h3 className="text-2xl font-bold text-white mb-4">
-                دور {participants[currentPlayer] || "اللاعب"}
+                حقيقتان وكذبة
               </h3>
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>
@@ -441,13 +426,6 @@ export default function GroupsPage() {
                 </ul>
                 <p className="text-sm">على الآخرين تخمين أي عبارة كاذبة!</p>
               </div>
-              <Button 
-                onClick={() => setCurrentPlayer(prev => (prev + 1) % participants.length)} 
-                className="mt-4 bg-blue-600 hover:bg-blue-700"
-              >
-                <ChevronRight className="w-4 h-4 mr-2" />
-                اللاعب التالي
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -483,7 +461,7 @@ export default function GroupsPage() {
               <CardContent className="p-6">
                 <h3 className="text-2xl font-bold text-white mb-4 text-center">بناء القصة</h3>
                 <p className="text-slate-300 mb-4 text-center">
-                  دور {participants[currentPlayer] || "اللاعب"} - اختر مكوناً لإضافته للقصة!
+                  اختر مكوناً لإضافته للقصة!
                 </p>
                 
                 {/* Story Display */}
@@ -563,13 +541,6 @@ export default function GroupsPage() {
                   >
                     إعادة تشغيل القصة
                   </Button>
-                  <Button 
-                    onClick={() => setCurrentPlayer(prev => (prev + 1) % participants.length)} 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white"
-                  >
-                    <ChevronRight className="w-4 h-4 mr-2" />
-                    اللاعب التالي
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -588,87 +559,42 @@ export default function GroupsPage() {
               <Users className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-4xl font-bold text-white mb-2">ألعاب جماعية</h1>
-            <p className="text-slate-300 text-lg">ألعاب تفاعلية ممتعة للمجموعات</p>
+            <p className="text-slate-300 text-lg">شخص واحد يستخدم الهاتف ويقود الألعاب</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Participants Section */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center">
-                  <Users className="w-5 h-5 mr-2" />
-                  المشاركون ({participants.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newParticipant}
-                    onChange={(e) => setNewParticipant(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addParticipant()}
-                    placeholder="اسم المشارك"
-                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-                  />
-                  <Button onClick={addParticipant} size="sm">
-                    إضافة
-                  </Button>
-                </div>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {participants.map((participant, index) => (
-                    <div key={index} className="flex items-center justify-between bg-slate-700/50 rounded-lg px-3 py-2">
-                      <span className="text-white">{participant}</span>
-                      <Button 
-                        onClick={() => removeParticipant(index)}
-                        size="sm" 
-                        variant="destructive"
-                      >
-                        حذف
-                      </Button>
+          {/* Games Overview */}
+          <Card className="bg-slate-800/50 border-slate-700 max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-white flex items-center justify-center">
+                <Sparkles className="w-5 h-5 mr-2" />
+                الألعاب المتاحة
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-3">
+                {games.map((game, index) => (
+                  <div key={game.id} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg">
+                    <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white`}>
+                      {game.icon}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Games Overview */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center">
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  الألعاب المتاحة
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-3 max-h-40 overflow-y-auto">
-                  {games.map((game, index) => (
-                    <div key={game.id} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg">
-                      <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white`}>
-                        {game.icon}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-white font-semibold">{game.nameAr}</h3>
-                        <p className="text-slate-400 text-sm">لعبة تفاعلية</p>
-                      </div>
+                    <div className="flex-1">
+                      <h3 className="text-white font-semibold">{game.nameAr}</h3>
+                      <p className="text-slate-400 text-sm">لعبة تفاعلية</p>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           <div className="text-center mt-8">
             <Button 
               onClick={startSession}
-              disabled={participants.length < 2}
               className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-8 py-4 text-xl"
             >
               <Play className="w-6 h-6 mr-2" />
-              ابدأ الجلسة
+              ابدأ الألعاب
             </Button>
-            {participants.length < 2 && (
-              <p className="text-slate-400 mt-2">يجب إضافة مشاركين على الأقل</p>
-            )}
           </div>
         </div>
       </div>
@@ -699,7 +625,7 @@ export default function GroupsPage() {
           <div className="mt-4">
             <div className="flex items-center justify-between text-sm text-slate-400 mb-2">
               <span>اللعبة {currentGameIndex + 1} من {games.length}</span>
-              <span>المشاركون: {participants.length}</span>
+              <span>ألعاب جماعية تفاعلية</span>
             </div>
             <Progress 
               value={((currentGameIndex) / games.length) * 100} 
@@ -715,21 +641,13 @@ export default function GroupsPage() {
           </CardContent>
         </Card>
 
-        {/* Participants bar */}
+        {/* Instructions bar */}
         <div className="mt-6 bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-400">المشاركون:</span>
-            <div className="flex flex-wrap gap-2">
-              {participants.map((participant, index) => (
-                <Badge 
-                  key={index} 
-                  variant={index === currentPlayer ? "default" : "secondary"}
-                  className={index === currentPlayer ? "bg-cyan-500" : ""}
-                >
-                  {participant}
-                </Badge>
-              ))}
-            </div>
+          <div className="text-center">
+            <p className="text-slate-300">
+              <Users className="w-4 h-4 inline mr-2" />
+              شخص واحد يقود اللعبة ويقرأ الأسئلة للمجموعة
+            </p>
           </div>
         </div>
       </div>
@@ -737,11 +655,11 @@ export default function GroupsPage() {
       {/* Questions Modal */}
       <Dialog open={showQuestionsModal} onOpenChange={(v) => { if (!v) { setShowQuestionsModal(false); setSelectedTopic(null); } }}>
         <DialogContent
-          className="max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900 text-white"
+          className="max-w-xl w-[95vw] rounded-xl p-0 overflow-hidden border border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-slate-900 text-white"
           dir="rtl"
           aria-label="أسئلة للنقاش"
         >
-          <DialogHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-2 border-b border-slate-700 z-10 relative bg-inherit sticky top-0">
+          <DialogHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-2 border-b border-slate-700 z-10 bg-slate-900 sticky top-0">
             <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
               <Sparkles className="w-6 h-6 text-cyan-500" />
               أسئلة للنقاش
@@ -758,9 +676,9 @@ export default function GroupsPage() {
                 <div
                   className={`w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-full border transition-all duration-300 ${
                     selectedTopic && selectedTopic.depth === depth
-                      ? `bg-cyan-50 dark:bg-slate-800 border-cyan-400 scale-110` :
+                      ? `bg-slate-800 border-cyan-400 scale-110` :
                     !selectedTopic && idx === 0
-                      ? `bg-cyan-50 dark:bg-slate-800 border-cyan-400 scale-110` :
+                      ? `bg-slate-800 border-cyan-400 scale-110` :
                       "bg-slate-800 border-slate-700"
                   }`}
                   aria-label={depthLabels[depth]}
@@ -772,7 +690,7 @@ export default function GroupsPage() {
             ))}
           </div>
           
-          <div className="p-3 sm:p-6 pt-2 min-h-[300px] sm:min-h-[350px] max-h-[70vh] sm:max-h-[70vh] max-h-[65vh] overflow-y-auto z-10 relative" tabIndex={0}>
+          <div className="p-3 sm:p-6 pt-2 min-h-[300px] sm:min-h-[350px] max-h-[65vh] overflow-y-auto z-10 relative" tabIndex={0}>
             {!selectedTopic ? (
               <>
                 <div className="mb-4 sm:mb-6 text-center">
@@ -808,7 +726,7 @@ export default function GroupsPage() {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 bg-slate-900 border-b border-slate-700 shadow-lg py-2">
+                <div className="flex items-center gap-2 bg-slate-900 border-b border-slate-700 shadow-lg py-2 mb-2">
                   <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                     <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                   </Button>

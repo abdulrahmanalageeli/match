@@ -243,6 +243,7 @@ export default function WelcomePage() {
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
   const [resultToken, setResultToken] = useState("");
   const [currentEventId, setCurrentEventId] = useState(1);
+  const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -662,6 +663,7 @@ export default function WelcomePage() {
                     console.log("📝 Initial load: Feedback not submitted, showing feedback form");
                     setModalStep("feedback");
                     setTimerEnded(true);
+                    setIsShowingFinishedEventFeedback(true);
                   }
                 }
               } catch (error) {
@@ -891,6 +893,7 @@ export default function WelcomePage() {
                         console.log("📝 Feedback not submitted, showing feedback form");
                         setModalStep("feedback");
                         setTimerEnded(true);
+                        setIsShowingFinishedEventFeedback(true);
                       }
                     }
                   }
@@ -902,14 +905,14 @@ export default function WelcomePage() {
               // Reset all states for clean transition (but preserve global timer state and event finished modal)
               // Skip all resets if we're showing results or feedback for a finished event
               const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
-              // Only protect feedback if we're explicitly showing it for a finished event (very conservative)
-              const isShowingFinishedEventFeedback = false; // Disable feedback protection for now to fix timer issue
+              // Use dedicated state variable to track finished event feedback
               
               if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                 setConversationTimer(1800);
                 setConversationStarted(false);
                 setModalStep(null);
                 setIsScoreRevealed(false);
+                setIsShowingFinishedEventFeedback(false);
                 setShowConversationStarters(false);
                 setConversationStarters([]);
                 setGeneratingStarters(false);
@@ -946,14 +949,15 @@ export default function WelcomePage() {
             // Waiting phases (waiting only - single round mode)
             console.log(`🔄 Waiting phase change detected: ${data.phase} (from step ${step})`);
             setStep(5);
-            // Skip all resets if we're showing results for a finished event
+            // Skip all resets if we're showing results or feedback for a finished event
             const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
             
-            // Only reset timer if not in global timer mode and not showing finished event results
-            if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
+            // Only reset timer if not in global timer mode and not showing finished event results/feedback
+            if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
               setConversationStarted(false);
               setModalStep(null);
               setTimerEnded(false);
+              setIsShowingFinishedEventFeedback(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
               setIsScoreRevealed(false);
@@ -1005,14 +1009,15 @@ export default function WelcomePage() {
             // General waiting phase
             console.log(`🔄 General waiting phase change detected (from step ${step})`);
             setStep(3);
-            // Skip all resets if we're showing results for a finished event
+            // Skip all resets if we're showing results or feedback for a finished event
             const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
             
-            // Only reset timer if not in global timer mode and not showing finished event results
-            if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
+            // Only reset timer if not in global timer mode and not showing finished event results/feedback
+            if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
               setConversationStarted(false);
               setModalStep(null);
               setTimerEnded(false);
+              setIsShowingFinishedEventFeedback(false);
               setPartnerStartedTimer(false);
               setPartnerEndedTimer(false);
               setIsScoreRevealed(false);
@@ -1043,13 +1048,13 @@ export default function WelcomePage() {
                 setStep(2);
                 // Skip all resets if we're showing results or feedback for a finished event
                 const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
-                const isShowingFinishedEventFeedback = false; // Disable feedback protection for now to fix timer issue
-                
+            
                 // Only reset timer if not in global timer mode and not showing finished event results/feedback
                 if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                   setConversationStarted(false);
                   setModalStep(null);
                   setTimerEnded(false);
+                  setIsShowingFinishedEventFeedback(false);
                   setPartnerStartedTimer(false);
                   setPartnerEndedTimer(false);
                   setIsScoreRevealed(false);
@@ -1083,13 +1088,13 @@ export default function WelcomePage() {
               setStep(0);
               // Skip all resets if we're showing results or feedback for a finished event
               const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
-              const isShowingFinishedEventFeedback = false; // Disable feedback protection for now to fix timer issue
               
               // Only reset timer if not in global timer mode and not showing finished event results/feedback
               if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                 setConversationStarted(false);
                 setModalStep(null);
                 setTimerEnded(false);
+                setIsShowingFinishedEventFeedback(false);
                 setPartnerStartedTimer(false);
                 setPartnerEndedTimer(false);
               } else {

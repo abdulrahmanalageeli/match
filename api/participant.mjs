@@ -350,24 +350,6 @@ export default async function handler(req, res) {
           recommendations
         } = feedback
 
-        // Get participant token for this assigned_number
-        let participantToken = null
-        try {
-          const { data: participantData, error: tokenError } = await supabase
-            .from("participants")
-            .select("secure_token")
-            .eq("match_id", match_id)
-            .eq("assigned_number", assigned_number)
-            .single()
-
-          if (!tokenError && participantData) {
-            participantToken = participantData.secure_token
-            console.log('🔑 Found participant token for feedback')
-          }
-        } catch (tokenErr) {
-          console.log('⚠️ Could not fetch participant token for feedback:', tokenErr)
-        }
-
         // Check if feedback already exists for this participant and round
         const { data: existingFeedback, error: existingFeedbackError } = await supabase
           .from("match_feedback")
@@ -384,7 +366,6 @@ export default async function handler(req, res) {
         const feedbackData = {
           match_id,
           participant_number: assigned_number,
-          participant_token: participantToken,
           round,
           compatibility_rate: compatibilityRate,
           conversation_quality: conversationQuality,

@@ -900,10 +900,11 @@ export default function WelcomePage() {
               }
               
               // Reset all states for clean transition (but preserve global timer state and event finished modal)
-              // Skip all resets if we're showing results for a finished event
+              // Skip all resets if we're showing results or feedback for a finished event
               const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+              const isShowingFinishedEventFeedback = modalStep === "feedback" && timerEnded;
               
-              if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
+              if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                 setConversationTimer(1800);
                 setConversationStarted(false);
                 setModalStep(null);
@@ -932,7 +933,7 @@ export default function WelcomePage() {
                 setPartnerStartedTimer(false);
                 setPartnerEndedTimer(false);
               } else {
-                console.log("🔄 Skipping state reset - global timer active, timer restored, or showing finished event results");
+                console.log("🔄 Skipping state reset - global timer active, timer restored, or showing finished event results/feedback");
               }
               
               lastRoundRef.current = roundNumber;
@@ -959,7 +960,7 @@ export default function WelcomePage() {
               setConversationStarters([]);
               setGeneratingStarters(false);
             } else {
-              console.log("🔄 Skipping timer reset in waiting phase - global timer active, timer restored, or showing finished event results");
+              console.log("🔄 Skipping timer reset in waiting phase - global timer active, timer restored, or showing finished event results/feedback");
             }
             
             // Update refs for waiting phase
@@ -1018,7 +1019,7 @@ export default function WelcomePage() {
               setConversationStarters([]);
               setGeneratingStarters(false);
             } else {
-              console.log("🔄 Skipping timer reset in general waiting phase - global timer active, timer restored, or showing finished event results");
+              console.log("🔄 Skipping timer reset in general waiting phase - global timer active, timer restored, or showing finished event results/feedback");
             }
             console.log(`✅ Successfully transitioned to waiting`);
                   } else if (data.phase === "form") {
@@ -1039,11 +1040,12 @@ export default function WelcomePage() {
               // Only reset if they haven't made a choice yet
               if (!formFilledChoiceMade) {
                 setStep(2);
-                // Skip all resets if we're showing results for a finished event
+                // Skip all resets if we're showing results or feedback for a finished event
                 const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+                const isShowingFinishedEventFeedback = modalStep === "feedback" && timerEnded;
                 
-                // Only reset timer if not in global timer mode and not showing finished event results
-                if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
+                // Only reset timer if not in global timer mode and not showing finished event results/feedback
+                if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                   setConversationStarted(false);
                   setModalStep(null);
                   setTimerEnded(false);
@@ -1054,7 +1056,7 @@ export default function WelcomePage() {
                   setConversationStarters([]);
                   setGeneratingStarters(false);
                 } else {
-                  console.log("🔄 Skipping timer reset in form phase - global timer active, timer restored, or showing finished event results");
+                  console.log("🔄 Skipping timer reset in form phase - global timer active, timer restored, or showing finished event results/feedback");
                 }
                 // Reset form filled choice when returning to form phase from other phases
                 setFormFilledChoiceMade(false);
@@ -1078,18 +1080,19 @@ export default function WelcomePage() {
             if (step > 0) {
               console.log(`🔄 Registration phase change detected (from step ${step})`);
               setStep(0);
-              // Skip all resets if we're showing results for a finished event
+              // Skip all resets if we're showing results or feedback for a finished event
               const isShowingFinishedEventResults = modalStep === "result" && isScoreRevealed;
+              const isShowingFinishedEventFeedback = modalStep === "feedback" && timerEnded;
               
-              // Only reset timer if not in global timer mode and not showing finished event results
-              if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults) {
+              // Only reset timer if not in global timer mode and not showing finished event results/feedback
+              if (!globalTimerActive && !timerRestored && !isShowingFinishedEventResults && !isShowingFinishedEventFeedback) {
                 setConversationStarted(false);
                 setModalStep(null);
                 setTimerEnded(false);
                 setPartnerStartedTimer(false);
                 setPartnerEndedTimer(false);
               } else {
-                console.log("🔄 Skipping timer reset in registration phase - global timer active, timer restored, or showing finished event results");
+                console.log("🔄 Skipping timer reset in registration phase - global timer active, timer restored, or showing finished event results/feedback");
               }
               console.log(`✅ Successfully transitioned to registration`);
             }
@@ -3551,12 +3554,12 @@ export default function WelcomePage() {
                 }`} />
               </div>
               <h3 className={`text-lg font-semibold text-center mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                بانتظار المنظّم لبدء الجولة {currentRound + 1}...
+                انتهت الجولة {currentRound}
     </h3>
               <p className={`text-center text-sm italic mb-6 ${
                 dark ? "text-slate-300" : "text-gray-600"
               }`}>
-      لا تسكّر الصفحة! بنخبرك إذا بدأ التوافق.
+      تحقق من رقم التوكن الخاص بك في الصفحة الرئيسية بعد نصف ساعة إلى ساعة لمعرفة ما إذا كان هناك توافق متبادل
     </p>
 
     <div
@@ -4449,8 +4452,8 @@ export default function WelcomePage() {
                               <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
                               <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
                             </div>
-                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">بانتظار المنظّم</h2>
-                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">سيتم إخبارك عندما يبدأ المنظّم الجولة التالية</p>
+                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">انتهت الجولة</h2>
+                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">تحقق من رقم التوكن الخاص بك في الصفحة الرئيسية بعد نصف ساعة إلى ساعة لمعرفة ما إذا كان هناك توافق متبادل</p>
                             <div className="flex gap-2 mt-6">
                               <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                               <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>

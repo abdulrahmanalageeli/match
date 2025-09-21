@@ -265,6 +265,18 @@ export default function WelcomePage() {
   const lastPhaseRef = useRef<string | null>(null);
   const historyIconRef = useRef<HTMLDivElement | null>(null);
 
+  // Helper function to handle logo clicks with confirmation for rounds
+  const handleLogoClick = () => {
+    // Check if user is in a round (step 6) and show confirmation
+    if (step === 6) {
+      const confirmed = window.confirm("هل أنت متأكد من أنك تريد العودة إلى الصفحة الرئيسية؟ سيتم فقدان التقدم الحالي.");
+      if (!confirmed) return;
+    }
+    
+    // Navigate to front page
+    window.location.href = "/";
+  };
+
   // Helper function to handle history icon interactions
   const handleHistoryIconClick = (event: React.MouseEvent) => {
     try {
@@ -1117,6 +1129,22 @@ export default function WelcomePage() {
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
+
+  // Reusable Logo Component
+  const LogoHeader = () => (
+    <div className="fixed top-4 left-4 z-50">
+      <div 
+        onClick={handleLogoClick}
+        className="cursor-pointer transition-all duration-300 hover:scale-110 hover:shadow-lg"
+      >
+        <img 
+          src={logoPng} 
+          alt="BlindMatch" 
+          className="w-12 h-12 sm:w-16 sm:h-16 object-contain rounded-lg shadow-md bg-white/10 backdrop-blur-sm p-2" 
+        />
+      </div>
+    </div>
+  );
   // Navigate to results page
   const viewResults = (token: string) => {
     if (!token.trim()) {
@@ -2024,7 +2052,9 @@ export default function WelcomePage() {
   // Token validation error UI
   if (token && !isResolving && isTokenValid === false) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <>
+        <LogoHeader />
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -2080,13 +2110,16 @@ export default function WelcomePage() {
           </div>
         </div>
       </div>
+      </>
     )
   }
 
   // Registration UI if no token
   if (!token) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <>
+        <LogoHeader />
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {/* Floating orbs */}
@@ -2568,12 +2601,15 @@ export default function WelcomePage() {
           }}
         />
       </div>
+      </>
     );
   }
 
   if (phase === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <>
+        <LogoHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Token Modal */}
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -2617,12 +2653,15 @@ export default function WelcomePage() {
           <p className="text-slate-300 text-xl font-medium" dir="rtl">جارٍ التحميل...</p>
         </div>
       </div>
+      </>
     )
   }
   
     if (!isResolving && (phase === "round_1" || /* phase === "round_2" || phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
   return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <>
+        <LogoHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 backdrop-blur-sm">
             <Shield className="w-12 h-12 text-red-400 mx-auto mb-4" />
@@ -2631,13 +2670,16 @@ export default function WelcomePage() {
           </div>
         </div>
       </div>
+      </>
     )
   }
 
   // Emergency pause overlay
   if (emergencyPaused) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-red-800 to-red-900 animate-in fade-in duration-500">
+      <>
+        <LogoHeader />
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-red-800 to-red-900 animate-in fade-in duration-500">
         <div className="text-center space-y-8 max-w-md mx-auto p-8">
           <div className="bg-red-500/20 border-2 border-red-400/40 rounded-3xl p-10 backdrop-blur-xl shadow-2xl transform transition-all duration-500 hover:scale-105">
             {/* Animated warning icon */}
@@ -2672,11 +2714,15 @@ export default function WelcomePage() {
           </div>
         </div>
     </div>
+    </>
   )
 }
   
   return (
     <>
+      {/* Clickable Logo Header */}
+      <LogoHeader />
+      
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`}>
@@ -3170,8 +3216,8 @@ export default function WelcomePage() {
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* History Icon - Left corner */}
-              {historyMatches.length > 0 && (
+              {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
+              {false && historyMatches.length > 0 && (
                 <div 
                   ref={historyIconRef}
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
@@ -3277,8 +3323,8 @@ export default function WelcomePage() {
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* History Icon - Left corner */}
-              {historyMatches.length > 0 && (
+              {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
+              {false && historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 
@@ -3507,8 +3553,8 @@ export default function WelcomePage() {
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* History Icon - Left corner */}
-              {historyMatches.length > 0 && (
+              {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
+              {false && historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 
@@ -3615,8 +3661,8 @@ export default function WelcomePage() {
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* History Icon - Left corner */}
-              {historyMatches.length > 0 && (
+              {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
+              {false && historyMatches.length > 0 && (
                 <div 
                   className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                     showHistoryBox 

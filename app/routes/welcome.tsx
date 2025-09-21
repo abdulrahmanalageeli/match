@@ -671,7 +671,8 @@ export default function WelcomePage() {
   // Combined real-time updates for all steps
   useEffect(() => {
     // Don't start polling until initial resolution is complete
-    if (isResolving || step !== 0) return
+    // Poll for all steps except the initial welcome screen (step -1)
+    if (isResolving || step === -1) return
 
     const interval = setInterval(async () => {
       try {

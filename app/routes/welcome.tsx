@@ -3766,6 +3766,125 @@ export default function WelcomePage() {
                     الشخص المتوافق معك في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
                   
+                  {/* Round 1 Questions Slideshow - Before Timer Starts */}
+                  {currentRound === 1 && (
+                    <div className={`mb-6 p-6 rounded-2xl border ${
+                      dark 
+                        ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
+                        : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                    }`}>
+                      <div className="text-center mb-6">
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">🧊</span>
+                          </div>
+                          <h4 className={`text-lg font-bold ${dark ? "text-cyan-200" : "text-cyan-800"}`}>
+                            المستوى الأول: الشرارة - لكسر الحاجز
+                          </h4>
+                        </div>
+                        <p className={`text-sm ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                          هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة
+                        </p>
+                      </div>
+
+                      {/* Question Card */}
+                      <div className={`relative p-6 rounded-xl border ${
+                        dark 
+                          ? "bg-slate-800/50 border-slate-600/50" 
+                          : "bg-white/80 border-gray-200"
+                      } shadow-lg backdrop-blur-sm`}>
+                        {/* Question Number */}
+                        <div className="absolute -top-3 right-4">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                            <span className="text-white font-bold text-sm">{currentQuestionIndex + 1}</span>
+                          </div>
+                        </div>
+
+                        {/* Question Title */}
+                        <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                          {round1Questions[currentQuestionIndex].title}
+                        </h5>
+
+                        {/* Question Text */}
+                        <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                          {round1Questions[currentQuestionIndex].question}
+                        </p>
+
+                        {/* Navigation */}
+                        <div className="flex items-center justify-between mt-6">
+                          <button
+                            onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+                            disabled={currentQuestionIndex === 0}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                              currentQuestionIndex === 0
+                                ? dark
+                                  ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : dark
+                                  ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                            السابق
+                          </button>
+
+                          {/* Question Indicators */}
+                          <div className="flex gap-2">
+                            {round1Questions.map((_, index) => (
+                              <button
+                                key={index}
+                                onClick={() => setCurrentQuestionIndex(index)}
+                                className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                  index === currentQuestionIndex
+                                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 scale-125"
+                                    : dark
+                                      ? "bg-slate-600 hover:bg-slate-500"
+                                      : "bg-gray-300 hover:bg-gray-400"
+                                }`}
+                              />
+                            ))}
+                          </div>
+
+                          <button
+                            onClick={() => setCurrentQuestionIndex(prev => Math.min(round1Questions.length - 1, prev + 1))}
+                            disabled={currentQuestionIndex === round1Questions.length - 1}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
+                              currentQuestionIndex === round1Questions.length - 1
+                                ? dark
+                                  ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : dark
+                                  ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                          >
+                            التالي
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div className="mt-4">
+                          <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
+                            <div 
+                              className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500"
+                              style={{ width: `${((currentQuestionIndex + 1) / round1Questions.length) * 100}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-xs mt-1">
+                            <span className={dark ? "text-slate-400" : "text-gray-500"}>
+                              السؤال {currentQuestionIndex + 1}
+                            </span>
+                            <span className={dark ? "text-slate-400" : "text-gray-500"}>
+                              من {round1Questions.length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
                     dark 
                       ? "bg-slate-700/30 border-slate-600" 

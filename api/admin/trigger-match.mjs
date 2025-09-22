@@ -257,7 +257,7 @@ function checkAgeCompatibility(participantA, participantB) {
   
   if (hasFemale) {
     const ageDifference = Math.abs(ageA - ageB)
-    const isCompatible = ageDifference <= 3
+    const isCompatible = ageDifference <= 5
     
     if (!isCompatible) {
       console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
@@ -969,7 +969,7 @@ export default async function handler(req, res) {
     if (totalSkipped > 0) {
       console.log(`🚫 Skipped pairs (no calculation):`)
       if (skippedGender > 0) console.log(`   ${skippedGender} pairs - Gender incompatibility`)
-      if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>3 years with female)`)
+      if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>5 years with female)`)
       if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)
     }
     

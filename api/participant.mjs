@@ -502,6 +502,18 @@ export default async function handler(req, res) {
           }
         }
         
+        // Save same gender preference to dedicated column
+        if (answers.same_gender_preference) {
+          // Check if the checkbox was selected (array contains 'yes')
+          const hasSameGenderPref = Array.isArray(answers.same_gender_preference) && 
+                                   answers.same_gender_preference.includes('yes')
+          updateFields.same_gender_preference = hasSameGenderPref
+          console.log('👥 Same Gender Preference:', hasSameGenderPref)
+        } else {
+          // Ensure it's set to false if not provided
+          updateFields.same_gender_preference = false
+        }
+        
         // Note: lifestyle_preferences, core_values, vibe_description, ideal_person_description
         // are not separate columns in the schema - they should be stored in survey_data JSONB
       }

@@ -2581,14 +2581,20 @@ export default function WelcomePage() {
                             setLoading(false)
                           }
                         }}
-                        disabled={loading}
-                        className="w-full spring-btn bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                        disabled={loading || phase === "round_1"}
+                        className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
+                          phase === "round_1" 
+                            ? "bg-gray-400 cursor-not-allowed opacity-60" 
+                            : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 hover:scale-105"
+                        } text-white`}
                       >
                         {loading ? (
                           <div className="flex items-center gap-2">
                             <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                             جاري التخصيص...
                           </div>
+                        ) : phase === "round_1" ? (
+                          "الجولة الأولى نشطة حالياً"
                         ) : (
                           "ابدأ رحلتك!"
                         )}

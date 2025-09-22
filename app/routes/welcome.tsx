@@ -1132,7 +1132,7 @@ export default function WelcomePage() {
 
   // Reusable Logo Component
   const LogoHeader = () => (
-    <div className="absolute top-6 left-1/2 transform -translate-x-1/2 z-50">
+    <div className="absolute top-12 left-1/2 transform -translate-x-1/2 z-50">
       <div 
         onClick={handleLogoClick}
         className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"

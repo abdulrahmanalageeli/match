@@ -639,7 +639,9 @@ export default function WelcomePage() {
               }
             } else {
               // User hasn't filled form yet, check current phase
-              if (eventData.phase === "form") {
+              if (eventData.phase === "registration") {
+                setStep(0); // Show registration step
+              } else if (eventData.phase === "form") {
                 setStep(2); // Show form
               } else if (eventData.phase === "waiting") {
                 setStep(2); // Still show form even in waiting phase if not filled

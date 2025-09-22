@@ -260,27 +260,144 @@ export default function WelcomePage() {
     "ما هو أكثر شيء يجعلك تضحك؟"
   ];
 
-  // Round 1 Questions - Level 1: The Spark - Breaking the Ice 🧊
+  // Round 1 Questions - Level 1: The Spark - Breaking the Ice 🧊 & Level 2: The Core - Understanding Values 🧭
   const round1Questions = [
+    // Level 1: The Spark - Breaking the Ice 🧊
     {
       title: "اليوم العادي المثالي",
-      question: "بعيدًا عن الخيال والأحلام الكبيرة، كيف شكل \"اليوم العادي المثالي\" بالنسبة لك؟ من أول ما تصحى من النوم إلى ما تنام."
+      question: "بعيدًا عن الخيال والأحلام الكبيرة، كيف شكل \"اليوم العادي المثالي\" بالنسبة لك؟ من أول ما تصحى من النوم إلى ما تنام.",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelEmoji: "🧊"
     },
     {
       title: "الغوص في الشغف",
-      question: "وش هو الموضوع أو الهواية اللي تقدر تتكلم عنها ساعات طويلة بدون ما تمل؟ وإيش اللي يخليك مهتم فيها لهالدرجة؟"
+      question: "وش هو الموضوع أو الهواية اللي تقدر تتكلم عنها ساعات طويلة بدون ما تمل؟ وإيش اللي يخليك مهتم فيها لهالدرجة؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelEmoji: "🧊"
     },
     {
       title: "مصدر الطاقة",
-      question: "فكر بآخر مرة حسيت فيها إنك مليان طاقة وحيوية. إيش كنت تسوي وقتها؟ ومين كان معك (إذا كان فيه أحد)؟"
+      question: "فكر بآخر مرة حسيت فيها إنك مليان طاقة وحيوية. إيش كنت تسوي وقتها؟ ومين كان معك (إذا كان فيه أحد)؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelEmoji: "🧊"
     },
     {
       title: "التأثير المعرفي",
-      question: "وش هو أكثر كتاب أو فيلم أو برنامج وثائقي أثر فيك خلال السنة اللي راحت؟ وكيف غيّر نظرتك لشيء معين؟"
+      question: "وش هو أكثر كتاب أو فيلم أو برنامج وثائقي أثر فيك خلال السنة اللي راحت؟ وكيف غيّر نظرتك لشيء معين؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelEmoji: "🧊"
     },
     {
       title: "سؤال \"الوقت الإضافي\"",
-      question: "لو فجأة صار عندك ساعتين زيادة كل يوم، فاضية تمامًا وبدون أي التزامات، كيف بتستغلها بشكل دائم؟"
+      question: "لو فجأة صار عندك ساعتين زيادة كل يوم، فاضية تمامًا وبدون أي التزامات، كيف بتستغلها بشكل دائم؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelEmoji: "🧊"
+    },
+    // Level 2: The Core - Understanding Values 🧭
+    {
+      title: "القيمة الراسخة",
+      question: "وش هي القيمة أو المبدأ اللي مستحيل تتنازل عنه عشان أي شخص أو أي شيء، سواء كان وظيفة أو صديق؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelEmoji: "🧭"
+    },
+    {
+      title: "تعريف النجاح",
+      question: "بعيدًا عن الشغل والفلوس، وش يعني لك \"النجاح\" في الحياة على المستوى الشخصي؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelEmoji: "🧭"
+    },
+    {
+      title: "الصفة المُقدَّرة",
+      question: "فكر بالأشخاص اللي تقدرهم وتحترمهم في حياتك. وش هي الصفة المشتركة اللي تجمعهم كلهم؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelEmoji: "🧭"
+    },
+    {
+      title: "ردة الفعل تحت الضغط",
+      question: "لما تحس بالضغط أو تواجه تحدي، هل تم تلجأ للناس عشان تاخذ دعمهم ورأيهم؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelEmoji: "🧭"
+    },
+    {
+      title: "سؤال الأثر",
+      question: "ايش هو الأثر أو الإضافة اللي تتمنى تتركها في حياة الناس اللي حولك، سواء كانت كبيرة أو صغيرة؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelEmoji: "🧭"
+    },
+    // Level 3: Sharing Experiences - مشاركة التجارب 💫
+    {
+      title: "الذكرى الثمينة",
+      question: "اوصف لنا ذكرى عزيزة عليك جدًا. وش هي التفاصيل اللي خلتها مميزة لهالدرجة؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelEmoji: "💫"
+    },
+    {
+      title: "الدرس الصعب",
+      question: "وش هو الدرس المهم اللي تعلمته بالطريقة الصعبة؟ وإيش علمتك التجربة هذي عن نفسك؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelEmoji: "💫"
+    },
+    {
+      title: "الفخر الصامت",
+      question: "وش هو الشيء اللي أنت فخور جدًا إنك أنجزته، بس نادرًا ما تجيك فرصة تتكلم عنه؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelEmoji: "💫"
+    },
+    {
+      title: "نصيحة للماضي",
+      question: "لو تقدر ترجع بالزمن وتعطي نفسك نصيحة وحدة وعمرك ١٨ سنة، وش بتكون النصيحة؟ وليش؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelEmoji: "💫"
+    },
+    {
+      title: "الشعور بالاحتواء",
+      question: "اوصف موقف حسيت فيه إن الشخص اللي قدامك \"فاهمك وشايفك\" على حقيقتك. إيش سوّى أو قال عشان يوصل لك هالشعور؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelEmoji: "💫"
+    },
+    // Level 4: "What If?" - Exploring Scenarios 🤝
+    {
+      title: "المشروع المجتمعي",
+      question: "تخيلوا إنكم فزتوا بدعم مالي بسيط عشان تبدأون مشروع مجتمعي في مدينتكم (الرياض). ايش فكرة المشروع اللي بتسوونه سوا؟ وكل واحد منكم وش الدور اللي بيستلمه بشكل طبيعي؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelEmoji: "🤝"
+    },
+    {
+      title: "معضلة التخطيط",
+      question: "جالسين تخططون لرحلة نهاية أسبوع سوا. واحد منكم يبي رحلة مليانة أنشطة وجداول، والثاني يفضل رحلة عفوية وبدون أي خطط. كيف توصلون لحل وسط يرضيكم كلكم؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelEmoji: "🤝"
+    },
+    {
+      title: "أسلوب الدعم",
+      question: "صديق مشترك لكم يمر بوقت صعب بسبب غلطة هو سواها. هل بتركّزون على تقديم نصايح عملية عشان تساعدونه يحل المشكلة، أو بتقدمون له دعم معنوي وتسمعون له أكثر؟ ناقشوا أساليبكم المختلفة.",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelEmoji: "🤝"
+    },
+    {
+      title: "نظرة على التوافق",
+      question: "بناءً على حوارنا هذا، ليش تعتقدون إن الذكاء الاصطناعي شاف إنكم متوافقين؟ ايش هي نقاط التشابه أو التكامل اللي لاحظتوها بينكم؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelEmoji: "🤝"
     }
   ];
   const [promptIndex, setPromptIndex] = useState(0);
@@ -3469,21 +3586,66 @@ export default function WelcomePage() {
                   {/* Round 1 Questions Slideshow - Replace Discussion Questions */}
                   {currentRound === 1 ? (
                     <div className={`mb-6 p-6 rounded-2xl border ${
-                      dark 
-                        ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
-                        : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                      round1Questions[currentQuestionIndex].level === 1
+                        ? dark 
+                          ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
+                          : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                        : round1Questions[currentQuestionIndex].level === 2
+                          ? dark
+                            ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
+                            : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+                          : round1Questions[currentQuestionIndex].level === 3
+                            ? dark
+                              ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
+                              : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                            : dark
+                              ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
+                              : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
                     }`}>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">🧊</span>
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            round1Questions[currentQuestionIndex].level === 1
+                              ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                              : round1Questions[currentQuestionIndex].level === 2
+                                ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                : round1Questions[currentQuestionIndex].level === 3
+                                  ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                  : "bg-gradient-to-r from-green-500 to-teal-600"
+                          }`}>
+                            <span className="text-white font-bold text-sm">
+                              {round1Questions[currentQuestionIndex].levelEmoji}
+                            </span>
                           </div>
-                          <h4 className={`text-lg font-bold ${dark ? "text-cyan-200" : "text-cyan-800"}`}>
-                            المستوى الأول: الشرارة - لكسر الحاجز
+                          <h4 className={`text-lg font-bold ${
+                            round1Questions[currentQuestionIndex].level === 1
+                              ? dark ? "text-cyan-200" : "text-cyan-800"
+                              : round1Questions[currentQuestionIndex].level === 2
+                                ? dark ? "text-amber-200" : "text-amber-800"
+                                : round1Questions[currentQuestionIndex].level === 3
+                                  ? dark ? "text-purple-200" : "text-purple-800"
+                                  : dark ? "text-green-200" : "text-green-800"
+                          }`}>
+                            {round1Questions[currentQuestionIndex].levelTitle}
                           </h4>
                         </div>
-                        <p className={`text-sm ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                          هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة
+                        <p className={`text-sm ${
+                          round1Questions[currentQuestionIndex].level === 1
+                            ? dark ? "text-cyan-300" : "text-cyan-700"
+                            : round1Questions[currentQuestionIndex].level === 2
+                              ? dark ? "text-amber-300" : "text-amber-700"
+                              : round1Questions[currentQuestionIndex].level === 3
+                                ? dark ? "text-purple-300" : "text-purple-700"
+                                : dark ? "text-green-300" : "text-green-700"
+                        }`}>
+                          {round1Questions[currentQuestionIndex].level === 1
+                            ? "هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة"
+                            : round1Questions[currentQuestionIndex].level === 2
+                              ? "هذا المستوى يركز على القيم الأساسية والمبادئ الشخصية العميقة"
+                              : round1Questions[currentQuestionIndex].level === 3
+                                ? "هذا المستوى يركز على مشاركة التجارب الشخصية والذكريات المؤثرة"
+                                : "هذا المستوى يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة"
+                          }
                         </p>
                       </div>
 
@@ -3495,7 +3657,15 @@ export default function WelcomePage() {
                       } shadow-lg backdrop-blur-sm`}>
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                            round1Questions[currentQuestionIndex].level === 1
+                              ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                              : round1Questions[currentQuestionIndex].level === 2
+                                ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                : round1Questions[currentQuestionIndex].level === 3
+                                  ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                  : "bg-gradient-to-r from-green-500 to-teal-600"
+                          }`}>
                             <span className="text-white font-bold text-sm">{currentQuestionIndex + 1}</span>
                           </div>
                         </div>
@@ -3531,13 +3701,19 @@ export default function WelcomePage() {
 
                           {/* Question Indicators */}
                           <div className="flex gap-2">
-                            {round1Questions.map((_, index) => (
+                            {round1Questions.map((question, index) => (
                               <button
                                 key={index}
                                 onClick={() => setCurrentQuestionIndex(index)}
                                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
                                   index === currentQuestionIndex
-                                    ? "bg-gradient-to-r from-cyan-500 to-blue-600 scale-125"
+                                    ? question.level === 1
+                                      ? "bg-gradient-to-r from-cyan-500 to-blue-600 scale-125"
+                                      : question.level === 2
+                                        ? "bg-gradient-to-r from-amber-500 to-orange-600 scale-125"
+                                        : question.level === 3
+                                          ? "bg-gradient-to-r from-purple-500 to-pink-600 scale-125"
+                                          : "bg-gradient-to-r from-green-500 to-teal-600 scale-125"
                                     : dark
                                       ? "bg-slate-600 hover:bg-slate-500"
                                       : "bg-gray-300 hover:bg-gray-400"
@@ -3568,7 +3744,15 @@ export default function WelcomePage() {
                         <div className="mt-4">
                           <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
                             <div 
-                              className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 transition-all duration-500"
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                round1Questions[currentQuestionIndex].level === 1
+                                  ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                                  : round1Questions[currentQuestionIndex].level === 2
+                                    ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                    : round1Questions[currentQuestionIndex].level === 3
+                                      ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                      : "bg-gradient-to-r from-green-500 to-teal-600"
+                              }`}
                               style={{ width: `${((currentQuestionIndex + 1) / round1Questions.length) * 100}%` }}
                             />
                           </div>

@@ -1435,7 +1435,7 @@ export default function WelcomePage() {
   const submitFeedback = async () => {
     // Only validate the match preference question for round 1 - allow default values for rating questions
     if (currentRound === 1 && matchResult && matchResult !== 'المنظم' && wantMatch === null) {
-      alert('يرجى الإجابة على سؤال: هل ترغب في تكوين صداقة مع هذا الشخص؟');
+      alert('يرجى الإجابة على سؤال: هل ترغب في التواصل مع هذا الشخص مرة أخرى؟');
       return;
     }
 
@@ -2255,10 +2255,10 @@ export default function WelcomePage() {
                       </div>
 
                       <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
-                        نظام الصداقة الذكي
+                        نظام التوافق الذكي
                       </h1>
                       <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
-                        اكتشف أصدقاء جدد من خلال الذكاء الاصطناعي المتقدم
+                        اكتشف أشخاص متوافقين معك من خلال الذكاء الاصطناعي المتقدم
                       </p>
                     </div>
                   </div>
@@ -3053,7 +3053,7 @@ export default function WelcomePage() {
               بتقابل ٤ أشخاص. بعد كل حوار، قرر إذا كان
                   <span className={`font-semibold ${
                     dark ? "text-slate-200" : "text-gray-800"
-                  }`}> صديق مناسب </span>
+                  }`}> شخص متوافق </span>
               أو
                   <span className="font-semibold text-red-500"> غير متوافق معك</span>.
             </p>
@@ -3738,7 +3738,7 @@ export default function WelcomePage() {
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    صديقك الجديد في الجولة {currentRound} هو رقم {matchResult}
+                    الشخص المتوافق معك في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
                   
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
@@ -4337,7 +4337,7 @@ export default function WelcomePage() {
                       </div>
                       
                       <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-purple-200" : "text-purple-800"}`}>
-                        هل ترغب في تكوين صداقة مع هذا الشخص؟
+                        هل ترغب في التواصل مع هذا الشخص مرة أخرى؟
                       </h3>
                       
                       <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-700"}`}>
@@ -4373,7 +4373,7 @@ export default function WelcomePage() {
                               ? dark ? 'text-emerald-200' : 'text-emerald-700'
                               : dark ? 'text-slate-200' : 'text-gray-700'
                           }`}>
-                            نعم، أرغب في الصداقة
+                            نعم، أرغب في التواصل
                           </span>
                         </label>
                         

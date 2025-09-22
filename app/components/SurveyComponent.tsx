@@ -1123,7 +1123,7 @@ export default function SurveyComponent({
             <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg">
               <div className="w-2 h-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full animate-pulse"></div>
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                اكتشف أصدقاء جدد
+                اكتشف أشخاص متوافقين معك
               </span>
             </div>
           </div>
@@ -1166,7 +1166,7 @@ export default function SurveyComponent({
                         🎯 <strong>كن صادقاً وموضوعياً في إجاباتك</strong>
                       </p>
                       <p>
-                        • نظام التوافق يعتمد على صدق إجاباتك لإيجاد الأصدقاء المناسبين لك
+                        • نظام التوافق يعتمد على صدق إجاباتك لإيجاد الأشخاص المناسبين لك
                       </p>
                       <p>
                         • الإجابات المضللة أو غير الصادقة تؤثر سلباً على جودة المطابقة

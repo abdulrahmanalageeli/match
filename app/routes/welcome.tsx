@@ -1132,10 +1132,14 @@ export default function WelcomePage() {
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
 
-  // Reusable Logo Component
-  const LogoHeader = () => (
-    // Hide logo during loading screen (when showRegistrationContent is false and no token)
-    (!token && !showRegistrationContent) ? null : (
+  // Reusable Logo Component  
+  const LogoHeader = () => {
+    // Hide logo during loading screen (when no token and showRegistrationContent is false)
+    if (!token && !showRegistrationContent) {
+      return null;
+    }
+    
+    return (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
       <div 
         onClick={handleLogoClick}
@@ -1159,8 +1163,8 @@ export default function WelcomePage() {
         </div>
       </div>
     </div>
-    )
-  );
+    );
+  };
   // Navigate to results page
   const viewResults = (token: string) => {
     if (!token.trim()) {

@@ -30,7 +30,7 @@ import logoPng from "../welcome/blindmatch.png";
 
 // Logo Component for Groups Page
 const GroupsLogoHeader = () => (
-  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+  <div className="fixed top-4 left-4 z-50">
     <div 
       onClick={() => window.location.href = "/"}
       className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
@@ -484,7 +484,7 @@ export default function GroupsPage() {
     return (
       <>
         <GroupsLogoHeader />
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 pt-32" dir="rtl">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
@@ -580,7 +580,7 @@ export default function GroupsPage() {
   return (
     <>
       <GroupsLogoHeader />
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 pt-32" dir="rtl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
       <div className="max-w-4xl mx-auto">
         {/* Header with game info */}
         <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">

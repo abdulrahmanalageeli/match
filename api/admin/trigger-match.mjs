@@ -279,9 +279,6 @@ async function calculateVibeCompatibility(participantA, participantB) {
     const aVibeDescription = participantA.survey_data?.vibeDescription || ""
     const bVibeDescription = participantB.survey_data?.vibeDescription || ""
 
-    console.log(`🔍 Combined vibe profiles for ${participantA.assigned_number} vs ${participantB.assigned_number}:`)
-    console.log(`  Player ${participantA.assigned_number} profile: "${aVibeDescription}"`)
-    console.log(`  Player ${participantB.assigned_number} profile: "${bVibeDescription}"`)
 
     if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default score")
@@ -846,21 +843,8 @@ export default async function handler(req, res) {
       })
     }
 
-    // Debug: Log retrieved participant data
-    console.log("🔍 Retrieved participants data:")
-    participants.forEach(p => {
-      console.log(`Player ${p.assigned_number}:`)
-      console.log(`  - MBTI (column): ${p.mbti_personality_type}`)
-      console.log(`  - Attachment (column): ${p.attachment_style}`)
-      console.log(`  - Communication (column): ${p.communication_style}`)
-      console.log(`  - Survey Data MBTI: ${p.survey_data?.mbtiType}`)
-      console.log(`  - Survey Data Attachment: ${p.survey_data?.attachmentStyle}`)
-      console.log(`  - Survey Data Communication: ${p.survey_data?.communicationStyle}`)
-      console.log(`  - Survey Data Lifestyle: ${p.survey_data?.lifestylePreferences}`)
-      console.log(`  - Survey Data Core Values: ${p.survey_data?.coreValues}`)
-      console.log(`  - Survey Data Vibe: ${p.survey_data?.vibeDescription}`)
-      console.log(`  - Survey Data Ideal: ${p.survey_data?.idealPersonDescription}`)
-    })
+    // Summary: Retrieved participant data
+    console.log(`🔍 Retrieved ${participants.length} participants for matching`)
 
     const numbers = participants.map(p => p.assigned_number)
     const pairs = []
@@ -875,25 +859,30 @@ export default async function handler(req, res) {
     const compatibilityScores = []
     console.log(`🔄 Starting compatibility calculation for ${pairs.length} pairs...`)
     
+    let processedPairs = 0
+    let skippedGender = 0
+    let skippedAge = 0
+    let skippedPrevious = 0
+    
     for (const [a, b] of pairs) {
-      console.log(`\n📊 Calculating compatibility between Player ${a.assigned_number} and Player ${b.assigned_number}:`)
+      processedPairs++
       
       // Check gender compatibility first (opposite gender only)
       if (!checkGenderCompatibility(a, b)) {
-        console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - same gender`)
+        skippedGender++
         continue
       }
       
       // Check age compatibility (girls must be within 3 years)
       if (!checkAgeCompatibility(a, b)) {
-        console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
+        skippedAge++
         continue
       }
       
       // Check if this pair has been matched in previous events
       const hasPreviousMatch = await havePreviousMatch(a.assigned_number, b.assigned_number, eventId)
       if (hasPreviousMatch) {
-        console.log(`🚫 Skipping pair ${a.assigned_number} × ${b.assigned_number} - already matched in previous event`)
+        skippedPrevious++
         continue
       }
       
@@ -924,42 +913,15 @@ export default async function handler(req, res) {
           [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
           null)
       
-      // Debug: Log the values being used for calculations
-      console.log(`🔍 Values being used for calculations:`)
-      console.log(`  Player ${a.assigned_number}: MBTI=${aMBTI}, Attachment=${aAttachment}, Communication=${aCommunication}`)
-      console.log(`  Player ${a.assigned_number}: Lifestyle=${aLifestyle}, CoreValues=${aCoreValues}`)
-      console.log(`  Player ${a.assigned_number}: Combined Vibe Profile=${a.survey_data?.vibeDescription || 'missing'}`)
-      console.log(`  Player ${b.assigned_number}: MBTI=${bMBTI}, Attachment=${bAttachment}, Communication=${bCommunication}`)
-      console.log(`  Player ${b.assigned_number}: Lifestyle=${bLifestyle}, CoreValues=${bCoreValues}`)
-      console.log(`  Player ${b.assigned_number}: Combined Vibe Profile=${b.survey_data?.vibeDescription || 'missing'}`)
       
-      // Calculate MBTI compatibility (up to 10% of total score)
+      // Calculate all compatibility scores
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
-      console.log(`🧠 MBTI Compatibility - Player ${a.assigned_number} (${aMBTI || 'غير محدد'}) vs Player ${b.assigned_number} (${bMBTI || 'غير محدد'}): ${mbtiScore}%`)
-      
-      // Calculate attachment style compatibility (15% if best match, 5% otherwise)
       const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
-      console.log(`🔗 Attachment Compatibility - Player ${a.assigned_number} (${aAttachment || 'غير محدد'}) vs Player ${b.assigned_number} (${bAttachment || 'غير محدد'}): ${attachmentScore}%`)
-      
-      // Calculate communication style compatibility (up to 25% of total score)
       const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
-      console.log(`💬 Communication Compatibility - Player ${a.assigned_number} (${aCommunication || 'غير محدد'}) vs Player ${b.assigned_number} (${bCommunication || 'غير محدد'}): ${communicationScore}%`)
-      
-      // Calculate lifestyle compatibility (up to 15% of total score)
       const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
-      console.log(`⏰ Lifestyle Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${lifestyleScore}%`)
-      
-      // Calculate core values compatibility (up to 20% of total score)
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-      console.log(`⚖️ Core Values Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${coreValuesScore}%`)
-      
-      // Calculate vibe compatibility using AI (up to 15% of total score)
       const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(a, b)
-      console.log(`✨ Vibe Compatibility - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${vibeScore}% ${skipAI ? '(AI skipped)' : ''}`)
-      
-      // Total score so far (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe = up to 100%)
       const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
-      console.log(`🎯 TOTAL COMPATIBILITY - Player ${a.assigned_number} vs Player ${b.assigned_number}: ${totalScore}% (MBTI: ${mbtiScore}% + Attachment: ${attachmentScore}% + Communication: ${communicationScore}% + Lifestyle: ${lifestyleScore}% + Core Values: ${coreValuesScore}% + Vibe: ${vibeScore}%)`)
       
       const reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
       
@@ -990,14 +952,22 @@ export default async function handler(req, res) {
       })
     }
 
-    // 📊 Print all compatibility
-    console.log("📊 All Compatibility Scores (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe):")
-    compatibilityScores
-      .slice()
-      .sort((a, b) => b.score - a.score)
-      .forEach(pair => {
-        console.log(`#${pair.a} × #${pair.b}: ${pair.score}% → ${pair.reason}`)
-      })
+    // Print cumulative statistics
+    console.log(`📊 Compatibility Calculation Summary:`)
+    console.log(`  - Total pairs processed: ${processedPairs}`)
+    console.log(`  - Skipped (gender): ${skippedGender}`)
+    console.log(`  - Skipped (age): ${skippedAge}`)
+    console.log(`  - Skipped (previous match): ${skippedPrevious}`)
+    console.log(`  - Valid pairs calculated: ${compatibilityScores.length}`)
+    
+    if (compatibilityScores.length > 0) {
+      const avgScore = compatibilityScores.reduce((sum, pair) => sum + pair.score, 0) / compatibilityScores.length
+      const maxScore = Math.max(...compatibilityScores.map(p => p.score))
+      const minScore = Math.min(...compatibilityScores.map(p => p.score))
+      console.log(`  - Average compatibility: ${avgScore.toFixed(1)}%`)
+      console.log(`  - Highest compatibility: ${maxScore}%`)
+      console.log(`  - Lowest compatibility: ${minScore}%`)
+    }
 
     // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (CONFIGURABLE ROUNDS) ---
     console.log("🔄 Starting round-robin matching for", numbers.length, "participants")
@@ -1027,8 +997,7 @@ export default async function handler(req, res) {
           !used.has(pair.b) &&
           !matchedPairs.has(key)
         ) {
-          console.log(`✅ Matching pair in round ${round}: ${pair.a} × ${pair.b} (score: ${pair.score}%) - Table ${tableCounter}`)
-          used.add(pair.a)
+            used.add(pair.a)
           used.add(pair.b)
           matchedPairs.add(key)
           roundMatches.push({
@@ -1076,7 +1045,6 @@ export default async function handler(req, res) {
         
         // Match unmatched participants with organizer (ID 9999)
         for (const unmatchedParticipant of unmatchedInRound) {
-          console.log(`✅ Matching unmatched participant ${unmatchedParticipant} with organizer (9999) - Table ${tableCounter}`)
           
           roundMatches.push({
             participant_a_number: unmatchedParticipant,
@@ -1109,9 +1077,15 @@ export default async function handler(req, res) {
 
       console.log(`🎯 Round ${round} completed: ${roundMatches.length} matches, ${roundMatches.filter(m => m.participant_b_number !== 9999).length} regular pairs + ${roundMatches.filter(m => m.participant_b_number === 9999).length} organizer matches`)
       console.log(`📊 Tables assigned: 1 to ${tableCounter - 1}`)
-      roundMatches.forEach(match => {
-        console.log(`  - Table ${match.table_number}: ${match.participant_a_number} × ${match.participant_b_number === 9999 ? 'Organizer' : match.participant_b_number} (${match.compatibility_score}%)`)
-      })
+      
+      // Show summary of match quality
+      const regularMatches = roundMatches.filter(m => m.participant_b_number !== 9999)
+      if (regularMatches.length > 0) {
+        const avgMatchScore = regularMatches.reduce((sum, m) => sum + m.compatibility_score, 0) / regularMatches.length
+        const bestMatch = Math.max(...regularMatches.map(m => m.compatibility_score))
+        console.log(`  - Average match quality: ${avgMatchScore.toFixed(1)}%`)
+        console.log(`  - Best match score: ${bestMatch}%`)
+      }
       
       finalMatches.push(...roundMatches)
     }

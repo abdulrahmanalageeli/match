@@ -3700,7 +3700,7 @@ export default function WelcomePage() {
                           </button>
 
                           {/* Question Indicators */}
-                          <div className="flex gap-2">
+                          <div className="flex flex-wrap justify-center gap-2 max-w-xs mx-auto">
                             {round1Questions.map((question, index) => (
                               <button
                                 key={index}

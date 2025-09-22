@@ -953,11 +953,10 @@ export default async function handler(req, res) {
     }
 
     // Print simple pair results
-    console.log(`📊 Pair Results:`)
+    console.log(`📊 All Pair Compatibility Scores:`)
     
-    // Show calculated pairs with scores
+    // Show ALL calculated pairs with scores (sorted by compatibility)
     if (compatibilityScores.length > 0) {
-      console.log(`✅ Calculated pairs:`)
       compatibilityScores
         .sort((a, b) => b.score - a.score)
         .forEach(pair => {
@@ -968,13 +967,13 @@ export default async function handler(req, res) {
     // Show skip summary
     const totalSkipped = skippedGender + skippedAge + skippedPrevious
     if (totalSkipped > 0) {
-      console.log(`🚫 Skipped pairs:`)
+      console.log(`🚫 Skipped pairs (no calculation):`)
       if (skippedGender > 0) console.log(`   ${skippedGender} pairs - Gender incompatibility`)
       if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>3 years with female)`)
       if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)
     }
     
-    console.log(`📈 Summary: ${compatibilityScores.length} valid pairs from ${processedPairs} total`)
+    console.log(`📈 Summary: ${compatibilityScores.length} calculated pairs, ${totalSkipped} skipped, ${processedPairs} total`)
 
     // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (CONFIGURABLE ROUNDS) ---
     console.log("🔄 Starting round-robin matching for", numbers.length, "participants")

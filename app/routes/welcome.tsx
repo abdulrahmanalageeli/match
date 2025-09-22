@@ -2242,7 +2242,7 @@ export default function WelcomePage() {
             {showRegistrationContent && (
               <>
                 {/* Header Section */}
-                <div className="text-center mb-8 sm:mb-12 pt-20 animate-in slide-in-from-bottom-4 duration-1000">
+                <div className="text-center mb-8 sm:mb-12 pt-32 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>

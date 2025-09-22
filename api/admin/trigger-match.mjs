@@ -952,22 +952,29 @@ export default async function handler(req, res) {
       })
     }
 
-    // Print cumulative statistics
-    console.log(`📊 Compatibility Calculation Summary:`)
-    console.log(`  - Total pairs processed: ${processedPairs}`)
-    console.log(`  - Skipped (gender): ${skippedGender}`)
-    console.log(`  - Skipped (age): ${skippedAge}`)
-    console.log(`  - Skipped (previous match): ${skippedPrevious}`)
-    console.log(`  - Valid pairs calculated: ${compatibilityScores.length}`)
+    // Print simple pair results
+    console.log(`📊 Pair Results:`)
     
+    // Show calculated pairs with scores
     if (compatibilityScores.length > 0) {
-      const avgScore = compatibilityScores.reduce((sum, pair) => sum + pair.score, 0) / compatibilityScores.length
-      const maxScore = Math.max(...compatibilityScores.map(p => p.score))
-      const minScore = Math.min(...compatibilityScores.map(p => p.score))
-      console.log(`  - Average compatibility: ${avgScore.toFixed(1)}%`)
-      console.log(`  - Highest compatibility: ${maxScore}%`)
-      console.log(`  - Lowest compatibility: ${minScore}%`)
+      console.log(`✅ Calculated pairs:`)
+      compatibilityScores
+        .sort((a, b) => b.score - a.score)
+        .forEach(pair => {
+          console.log(`   Partner ${pair.a} and Partner ${pair.b} [${pair.score.toFixed(1)}%]`)
+        })
     }
+    
+    // Show skip summary
+    const totalSkipped = skippedGender + skippedAge + skippedPrevious
+    if (totalSkipped > 0) {
+      console.log(`🚫 Skipped pairs:`)
+      if (skippedGender > 0) console.log(`   ${skippedGender} pairs - Gender incompatibility`)
+      if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>3 years with female)`)
+      if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)
+    }
+    
+    console.log(`📈 Summary: ${compatibilityScores.length} valid pairs from ${processedPairs} total`)
 
     // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (CONFIGURABLE ROUNDS) ---
     console.log("🔄 Starting round-robin matching for", numbers.length, "participants")

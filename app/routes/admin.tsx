@@ -891,6 +891,34 @@ export default function AdminPage() {
                 Generate Groups
               </button>
 
+              <button
+                onClick={async () => {
+                  if (!confirm("⚠️ This will permanently delete all profiles that haven't completed the survey. Are you sure?")) return
+                  setLoading(true)
+                  try {
+                    const res = await fetch("/api/admin", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "cleanup-incomplete-profiles" }),
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                      alert(`✅ Cleanup completed!\n\n🗑️ Removed ${data.deletedCount} incomplete profiles\n📊 ${data.remainingCount} complete profiles remain`)
+                      fetchParticipants()
+                    } else {
+                      alert(`❌ Error: ${data.error}`)
+                    }
+                  } catch (error) {
+                    alert(`❌ Network error: ${error}`)
+                  }
+                  setLoading(false)
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300"
+              >
+                <Trash2 className="w-4 h-4" />
+                Cleanup Incomplete
+              </button>
+
               {/* Results Visibility Control */}
               <button
                 onClick={toggleResultsVisibility}

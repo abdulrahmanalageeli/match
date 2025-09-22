@@ -355,7 +355,7 @@ export default function WelcomePage() {
       return
     }
 
-    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام التوافق الذكي! \n\nسنقوم بتحليل شخصيتك ومطابقتك مع أشخاص آخرين بناءً على اهتماماتك وصفاتك.`
+    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام الصداقة الذكي! \n\nسنقوم بتحليل شخصيتك ومطابقتك مع أشخاص آخرين بناءً على اهتماماتك وصفاتك.`
     
     setWelcomeTyping(true)
     setWelcomeText("")
@@ -1435,7 +1435,7 @@ export default function WelcomePage() {
   const submitFeedback = async () => {
     // Only validate the match preference question for round 1 - allow default values for rating questions
     if (currentRound === 1 && matchResult && matchResult !== 'المنظم' && wantMatch === null) {
-      alert('يرجى الإجابة على سؤال: هل ترغب في التواصل مع هذا الشخص مرة أخرى؟');
+      alert('يرجى الإجابة على سؤال: هل ترغب في تكوين صداقة مع هذا الشخص؟');
       return;
     }
 
@@ -2255,10 +2255,10 @@ export default function WelcomePage() {
                       </div>
 
                       <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
-                        نظام التوافق الذكي
+                        نظام الصداقة الذكي
                       </h1>
                       <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
-                        اكتشف توأم روحك من خلال الذكاء الاصطناعي المتقدم
+                        اكتشف أصدقاء جدد من خلال الذكاء الاصطناعي المتقدم
                       </p>
                     </div>
                   </div>
@@ -2566,7 +2566,7 @@ export default function WelcomePage() {
                             <span>حقيقتان وكذبة</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
-                            <Heart className="w-3 h-3" />
+                            <Handshake className="w-3 h-3" />
                             <span>ماذا تفضل</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
@@ -2598,7 +2598,7 @@ export default function WelcomePage() {
                       <span>سريع وسهل</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Heart className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <UserCheck className="w-3 h-3 sm:w-4 sm:h-4" />
                       <span>نتائج مضمونة</span>
                     </div>
                   </div>
@@ -2995,7 +2995,7 @@ export default function WelcomePage() {
                   <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
                     dark ? "bg-gradient-to-r from-cyan-300 to-blue-400" : "bg-gradient-to-r from-cyan-600 to-blue-700"
                   }`}>
-                    نظام التوافق الذكي
+                    نظام الصداقة الذكي
                   </h1>
                   
                   <div className={`min-h-[6rem] text-right leading-relaxed ${
@@ -3045,7 +3045,7 @@ export default function WelcomePage() {
                 <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
                   dark ? "bg-gradient-to-r from-slate-300 to-slate-400" : "bg-gradient-to-r from-gray-700 to-gray-800"
                 }`}>
-                  نظام التوافق الذكي
+                  نظام الصداقة الذكي
                 </h1>
                 <p className={`text-sm sm:text-base leading-relaxed ${
                   dark ? "text-slate-300" : "text-gray-600"
@@ -3053,9 +3053,9 @@ export default function WelcomePage() {
               بتقابل ٤ أشخاص. بعد كل حوار، قرر إذا كان
                   <span className={`font-semibold ${
                     dark ? "text-slate-200" : "text-gray-800"
-                  }`}> توأم روحك </span>
+                  }`}> صديق مناسب </span>
               أو
-                  <span className="font-semibold text-red-500"> خصمك اللدود</span>.
+                  <span className="font-semibold text-red-500"> غير متوافق معك</span>.
             </p>
               </div>
             </div>
@@ -3738,7 +3738,7 @@ export default function WelcomePage() {
                   <h3 className={`text-xl font-bold text-center mb-4 ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}>
-                    توأم روحك في الجولة {currentRound} هو رقم {matchResult}
+                    صديقك الجديد في الجولة {currentRound} هو رقم {matchResult}
                   </h3>
                   
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
@@ -4331,13 +4331,13 @@ export default function WelcomePage() {
                     <div className={`mt-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-400/40' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300/60'}`}>
                       <div className="text-center mb-4">
                         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${dark ? 'bg-purple-600/20 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
-                          <Heart className="w-5 h-5" />
+                          <Users className="w-5 h-5" />
                           <span className="font-bold text-lg">سؤال مهم!</span>
                         </div>
                       </div>
                       
                       <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-purple-200" : "text-purple-800"}`}>
-                        هل ترغب في التواصل مع هذا الشخص مرة أخرى؟
+                        هل ترغب في تكوين صداقة مع هذا الشخص؟
                       </h3>
                       
                       <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-700"}`}>
@@ -4361,19 +4361,19 @@ export default function WelcomePage() {
                             onChange={() => setWantMatch(true)}
                             className="sr-only"
                           />
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 ${
                             wantMatch === true 
                               ? 'bg-emerald-500 text-white' 
                               : dark ? 'bg-slate-600 text-slate-300' : 'bg-gray-200 text-gray-500'
                           }`}>
-                            <Heart className="w-6 h-6" />
+                            <Handshake className="w-6 h-6" />
                           </div>
                           <span className={`font-bold text-lg ${
                             wantMatch === true 
                               ? dark ? 'text-emerald-200' : 'text-emerald-700'
                               : dark ? 'text-slate-200' : 'text-gray-700'
                           }`}>
-                            نعم، أرغب في التواصل
+                            نعم، أرغب في الصداقة
                           </span>
                         </label>
                         

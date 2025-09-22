@@ -777,6 +777,67 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "cleanup-incomplete-profiles") {
+      try {
+        console.log("Starting cleanup of incomplete profiles for match_id:", STATIC_MATCH_ID)
+        
+        // First, get all participants
+        const { data: allParticipants, error: fetchError } = await supabase
+          .from("participants")
+          .select("id, assigned_number, survey_data")
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999) // Exclude organizer participant
+        
+        if (fetchError) {
+          console.error("Error fetching participants:", fetchError)
+          return res.status(500).json({ error: "Failed to fetch participants" })
+        }
+        
+        // Filter incomplete profiles (those without survey_data or with empty survey_data)
+        const incompleteParticipants = allParticipants.filter(p => 
+          !p.survey_data || 
+          Object.keys(p.survey_data).length === 0 ||
+          !p.survey_data.name ||
+          !p.survey_data.age ||
+          !p.survey_data.gender
+        )
+        
+        const incompleteIds = incompleteParticipants.map(p => p.id)
+        console.log(`Found ${incompleteParticipants.length} incomplete profiles to delete:`, 
+          incompleteParticipants.map(p => `#${p.assigned_number}`))
+        
+        let deletedCount = 0
+        
+        if (incompleteIds.length > 0) {
+          // Delete incomplete participants
+          const { error: deleteError } = await supabase
+            .from("participants")
+            .delete()
+            .in("id", incompleteIds)
+          
+          if (deleteError) {
+            console.error("Error deleting incomplete participants:", deleteError)
+            return res.status(500).json({ error: "Failed to delete incomplete participants" })
+          }
+          
+          deletedCount = incompleteIds.length
+        }
+        
+        const remainingCount = allParticipants.length - deletedCount
+        
+        console.log(`Cleanup completed: deleted ${deletedCount} incomplete profiles, ${remainingCount} complete profiles remain`)
+        
+        return res.status(200).json({ 
+          deletedCount, 
+          remainingCount,
+          message: `Successfully removed ${deletedCount} incomplete profiles` 
+        })
+      } catch (err) {
+        console.error("Error during cleanup:", err)
+        return res.status(500).json({ error: "Failed to cleanup incomplete profiles" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

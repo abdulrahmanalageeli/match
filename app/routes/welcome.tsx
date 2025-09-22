@@ -3699,55 +3699,6 @@ export default function WelcomePage() {
                             السابق
                           </button>
 
-                          {/* Level Navigation */}
-                          <div className="flex justify-center gap-3">
-                            {[1, 2, 3, 4].map((level) => {
-                              const levelQuestions = round1Questions.filter(q => q.level === level);
-                              const currentLevel = round1Questions[currentQuestionIndex].level;
-                              const isCurrentLevel = level === currentLevel;
-                              const levelColors = {
-                                1: { bg: "bg-gradient-to-r from-cyan-500 to-blue-600", text: "text-cyan-600", emoji: "🧊" },
-                                2: { bg: "bg-gradient-to-r from-amber-500 to-orange-600", text: "text-amber-600", emoji: "🧭" },
-                                3: { bg: "bg-gradient-to-r from-purple-500 to-pink-600", text: "text-purple-600", emoji: "💫" },
-                                4: { bg: "bg-gradient-to-r from-green-500 to-teal-600", text: "text-green-600", emoji: "🤝" }
-                              };
-                              
-                              return (
-                                <button
-                                  key={level}
-                                  onClick={() => {
-                                    // Jump to first question of this level
-                                    const firstQuestionIndex = round1Questions.findIndex(q => q.level === level);
-                                    setCurrentQuestionIndex(firstQuestionIndex);
-                                  }}
-                                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-all duration-300 ${
-                                    isCurrentLevel
-                                      ? dark
-                                        ? "bg-slate-700/50 border border-slate-600"
-                                        : "bg-white/50 border border-gray-300"
-                                      : dark
-                                        ? "hover:bg-slate-800/30"
-                                        : "hover:bg-gray-100/30"
-                                  }`}
-                                >
-                                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                                    isCurrentLevel ? levelColors[level].bg : dark ? "bg-slate-600" : "bg-gray-300"
-                                  }`}>
-                                    <span className="text-white font-bold">
-                                      {isCurrentLevel ? levelColors[level].emoji : level}
-                                    </span>
-                                  </div>
-                                  <span className={`text-xs font-medium ${
-                                    isCurrentLevel 
-                                      ? levelColors[level].text
-                                      : dark ? "text-slate-400" : "text-gray-500"
-                                  }`}>
-                                    {levelQuestions.length}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
 
                           <button
                             onClick={() => setCurrentQuestionIndex(prev => Math.min(round1Questions.length - 1, prev + 1))}

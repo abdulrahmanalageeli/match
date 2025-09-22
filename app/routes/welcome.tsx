@@ -1134,6 +1134,8 @@ export default function WelcomePage() {
 
   // Reusable Logo Component
   const LogoHeader = () => (
+    // Hide logo during loading screen (when showRegistrationContent is false and no token)
+    (!token && !showRegistrationContent) ? null : (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
       <div 
         onClick={handleLogoClick}
@@ -1157,6 +1159,7 @@ export default function WelcomePage() {
         </div>
       </div>
     </div>
+    )
   );
   // Navigate to results page
   const viewResults = (token: string) => {

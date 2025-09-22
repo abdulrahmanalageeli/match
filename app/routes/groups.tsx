@@ -26,6 +26,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
 import PromptTopicsModal from "../components/PromptTopicsModal";
+import logoPng from "../welcome/blindmatch.png";
+
+// Logo Component for Groups Page
+const GroupsLogoHeader = () => (
+  <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+    <div 
+      onClick={() => window.location.href = "/"}
+      className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
+    >
+      <div className="relative">
+        {/* Glow effect background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-2xl blur-xl opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
+        
+        {/* Main logo container */}
+        <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-2xl p-3 shadow-2xl group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
+          <img 
+            src={logoPng} 
+            alt="BlindMatch" 
+            className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain drop-shadow-lg" 
+          />
+        </div>
+        
+        {/* Subtle animated border */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
+      </div>
+    </div>
+  </div>
+);
 
 interface Game {
   id: string;
@@ -454,7 +482,9 @@ export default function GroupsPage() {
 
   if (!gameStarted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
+      <>
+        <GroupsLogoHeader />
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 pt-32" dir="rtl">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
@@ -543,11 +573,14 @@ export default function GroupsPage() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
+    <>
+      <GroupsLogoHeader />
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 pt-32" dir="rtl">
       <div className="max-w-4xl mx-auto">
         {/* Header with game info */}
         <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
@@ -620,5 +653,6 @@ export default function GroupsPage() {
         dark={true} 
       />
     </div>
+    </>
   );
 }

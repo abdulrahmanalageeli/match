@@ -1132,7 +1132,7 @@ export default function WelcomePage() {
 
   // Reusable Logo Component
   const LogoHeader = () => (
-    <div className="absolute top-3 left-1/2 transform -translate-x-1/2 z-50">
+    <div className="absolute top-1 left-1/2 transform -translate-x-1/2 z-50">
       <div 
         onClick={handleLogoClick}
         className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
@@ -2244,8 +2244,6 @@ export default function WelcomePage() {
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
-                      <img src={logoPng} alt="BlindMatch"   className="w-40 h-40 sm:w-28 sm:h-28 object-contain mx-auto"
- />
 
                       <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
                         نظام التوافق الذكي

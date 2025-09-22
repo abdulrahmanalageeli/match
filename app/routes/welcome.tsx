@@ -1140,7 +1140,7 @@ export default function WelcomePage() {
     }
     
     return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+    <div className="fixed top-4 right-4 z-50">
       <div 
         onClick={handleLogoClick}
         className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"

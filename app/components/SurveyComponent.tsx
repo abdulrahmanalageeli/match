@@ -1146,6 +1146,45 @@ export default function SurveyComponent({
           </div>
         </div>
 
+        {/* Disclaimer Section */}
+        {currentPage === 0 && (
+          <div className="mb-6">
+            <Card className="bg-gradient-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-200 dark:border-red-800/50 shadow-lg">
+              <CardContent className="p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                      <AlertTriangle className="w-5 h-5 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-red-800 dark:text-red-200 mb-3">
+                      ⚠️ تنبيه مهم - يرجى القراءة بعناية
+                    </h3>
+                    <div className="space-y-2 text-sm text-red-700 dark:text-red-300">
+                      <p className="font-semibold">
+                        🎯 <strong>كن صادقاً وموضوعياً في إجاباتك</strong>
+                      </p>
+                      <p>
+                        • نظام التوافق يعتمد على صدق إجاباتك لإيجاد الشريك المناسب لك
+                      </p>
+                      <p>
+                        • الإجابات المضللة أو غير الصادقة تؤثر سلباً على جودة المطابقة
+                      </p>
+                      <p>
+                        • <strong className="text-red-800 dark:text-red-200">المشاركون الذين يقدمون معلومات مضللة قد يتم منعهم من الفعاليات المستقبلية</strong>
+                      </p>
+                      <p className="mt-3 p-3 bg-red-100 dark:bg-red-900/30 rounded-lg border border-red-200 dark:border-red-800">
+                        💡 <strong>نصيحة:</strong> أجب بصراحة عن شخصيتك الحقيقية واهتماماتك الفعلية للحصول على أفضل النتائج
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
         {/* Survey Content */}
         <div className="space-y-4">
           {currentPage === totalPages - 1 ? (

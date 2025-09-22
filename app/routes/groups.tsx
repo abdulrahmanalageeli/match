@@ -30,7 +30,7 @@ import logoPng from "../welcome/blindmatch.png";
 
 // Logo Component for Groups Page
 const GroupsLogoHeader = () => (
-  <div className="fixed top-4 left-4 z-50">
+  <div className="fixed top-4 right-4 z-50">
     <div 
       onClick={() => window.location.href = "/"}
       className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"

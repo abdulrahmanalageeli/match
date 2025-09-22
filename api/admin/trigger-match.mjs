@@ -205,10 +205,12 @@ function calculateCoreValuesCompatibility(values1, values2) {
   return totalScore // Already represents percentage (0-20%)
 }
 
-// Function to check gender compatibility (opposite gender only)
+// Function to check gender compatibility (respects same-gender preference)
 function checkGenderCompatibility(participantA, participantB) {
   const genderA = participantA.gender || participantA.survey_data?.gender
   const genderB = participantB.gender || participantB.survey_data?.gender
+  const sameGenderPrefA = participantA.same_gender_preference || participantA.survey_data?.answers?.same_gender_preference?.includes('yes')
+  const sameGenderPrefB = participantB.same_gender_preference || participantB.survey_data?.answers?.same_gender_preference?.includes('yes')
   
   // If gender information is missing, allow the match (fallback)
   if (!genderA || !genderB) {
@@ -216,7 +218,19 @@ function checkGenderCompatibility(participantA, participantB) {
     return true
   }
   
-  // Only allow opposite gender matching
+  // Check same-gender preferences
+  if (sameGenderPrefA || sameGenderPrefB) {
+    // If either participant prefers same gender only, they must be same gender
+    const isCompatible = genderA === genderB
+    if (!isCompatible) {
+      console.log(`🚫 Same-gender preference violation: ${participantA.assigned_number} (${genderA}, pref: ${sameGenderPrefA}) vs ${participantB.assigned_number} (${genderB}, pref: ${sameGenderPrefB})`)
+    } else {
+      console.log(`✅ Same-gender preference satisfied: ${participantA.assigned_number} (${genderA}) vs ${participantB.assigned_number} (${genderB})`)
+    }
+    return isCompatible
+  }
+  
+  // Default behavior: opposite gender matching
   const isCompatible = genderA !== genderB
   if (!isCompatible) {
     console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}) vs ${participantB.assigned_number} (${genderB})`)
@@ -225,7 +239,7 @@ function checkGenderCompatibility(participantA, participantB) {
   return isCompatible
 }
 
-// Function to check age compatibility (girls must be within 3 years of their match)
+// Function to check age compatibility (females must be within 3 years of their match)
 function checkAgeCompatibility(participantA, participantB) {
   const ageA = participantA.age || participantA.survey_data?.age
   const ageB = participantB.age || participantB.survey_data?.age
@@ -238,7 +252,7 @@ function checkAgeCompatibility(participantA, participantB) {
     return true
   }
   
-  // Only apply age constraint if one of the participants is female
+  // Apply age constraint if any participant is female (including same-gender female matches)
   const hasFemale = genderA === 'female' || genderB === 'female'
   
   if (hasFemale) {
@@ -775,7 +789,7 @@ export default async function handler(req, res) {
     
     const { data: participants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 

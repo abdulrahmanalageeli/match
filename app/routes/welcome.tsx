@@ -2881,22 +2881,18 @@ export default function WelcomePage() {
                       </p>
                       
                       <div className="space-y-3 sm:space-y-4">
-                        <div className="grid grid-cols-2 gap-2 text-xs text-cyan-200">
+                        <div className="grid grid-cols-3 gap-2 text-xs text-cyan-200">
                           <div className="flex items-center justify-center gap-1">
                             <Sparkles className="w-3 h-3" />
                             <span>أسئلة للنقاش</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
                             <Target className="w-3 h-3" />
-                            <span>حقيقتان وكذبة</span>
+                            <span>لم أفعل من قبل</span>
                           </div>
                           <div className="flex items-center justify-center gap-1">
                             <Handshake className="w-3 h-3" />
                             <span>ماذا تفضل</span>
-                          </div>
-                          <div className="flex items-center justify-center gap-1">
-                            <MessageSquare className="w-3 h-3" />
-                            <span>بناء القصة</span>
                           </div>
                         </div>
                         <Button

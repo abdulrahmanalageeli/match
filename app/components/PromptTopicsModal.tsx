@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from "../../components/ui/dialog";
 import { Button } from "../../components/ui/button";
 
 // Topics data: from shallow to deep
@@ -231,11 +231,13 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogContent
-        className={`max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
-        dir="rtl"
-        aria-label="أسئلة للنقاش"
-      >
+      <DialogPortal>
+        <DialogOverlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogContent
+          className={`max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
+          dir="rtl"
+          aria-label="أسئلة للنقاش"
+        >
         <DialogHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-2 border-b border-slate-200 dark:border-slate-700 z-10 relative bg-inherit sticky top-0">
           <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-cyan-500" />
@@ -347,7 +349,8 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
             </>
           )}
         </div>
-      </DialogContent>
+        </DialogContent>
+      </DialogPortal>
     </Dialog>
   );
 } 

@@ -143,8 +143,6 @@ export default function GroupsPage() {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
-  const [participants, setParticipants] = useState<string[]>([]);
-  const [newParticipant, setNewParticipant] = useState("");
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
 
@@ -160,10 +158,6 @@ export default function GroupsPage() {
   };
 
   const startSession = () => {
-    if (participants.length < 2) {
-      alert("يجب إضافة مشاركين على الأقل لبدء الجلسة");
-      return;
-    }
     setGameStarted(true);
   };
 
@@ -185,20 +179,10 @@ export default function GroupsPage() {
     }
   };
 
-  const addParticipant = () => {
-    if (newParticipant.trim() && !participants.includes(newParticipant.trim())) {
-      setParticipants(prev => [...prev, newParticipant.trim()]);
-      setNewParticipant("");
-    }
-  };
-
-  const removeParticipant = (index: number) => {
-    setParticipants(prev => prev.filter((_, i) => i !== index));
-  };
 
   const nextPrompt = () => {
     setCurrentPromptIndex(prev => (prev + 1) % wouldYouRatherQuestions.length);
-    setCurrentPlayer(prev => (prev + 1) % participants.length);
+    setCurrentPlayer(prev => prev + 1);
   };
 
   const renderGameSelection = () => {
@@ -277,7 +261,7 @@ export default function GroupsPage() {
                 اختر موضوعاً وليجب كل مشارك على السؤال بالدور
               </p>
               <p className="text-slate-400 mb-4">
-                دور: {participants[currentPlayer] || "اللاعب الحالي"}
+                دور: اللاعب رقم {currentPlayer + 1}
               </p>
               <Button 
                 onClick={() => setShowPromptTopicsModal(true)}
@@ -288,7 +272,7 @@ export default function GroupsPage() {
               </Button>
               <div className="mt-4">
                 <Button 
-                  onClick={() => setCurrentPlayer(prev => (prev + 1) % participants.length)} 
+                  onClick={() => setCurrentPlayer(prev => prev + 1)} 
                   className="bg-purple-600 hover:bg-purple-700 mr-2"
                 >
                   <ChevronRight className="w-4 h-4 mr-2" />
@@ -303,7 +287,7 @@ export default function GroupsPage() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
               <h3 className="text-2xl font-bold text-white mb-4">
-                دور {participants[currentPlayer] || "اللاعب"}
+                دور اللاعب رقم {currentPlayer + 1}
               </h3>
               <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
                 <p className="text-white text-lg font-semibold">
@@ -323,7 +307,7 @@ export default function GroupsPage() {
                   السؤال التالي
                 </Button>
                 <Button 
-                  onClick={() => setCurrentPlayer(prev => (prev + 1) % participants.length)} 
+                  onClick={() => setCurrentPlayer(prev => prev + 1)} 
                   className="bg-purple-600 hover:bg-purple-700"
                 >
                   <ChevronRight className="w-4 h-4 mr-2" />
@@ -338,7 +322,7 @@ export default function GroupsPage() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
               <h3 className="text-2xl font-bold text-white mb-4">
-                دور {participants[currentPlayer] || "اللاعب"}
+                دور اللاعب رقم {currentPlayer + 1}
               </h3>
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>
@@ -350,7 +334,7 @@ export default function GroupsPage() {
                 <p className="text-sm">على الآخرين تخمين أي عبارة كاذبة!</p>
               </div>
               <Button 
-                onClick={() => setCurrentPlayer(prev => (prev + 1) % participants.length)} 
+                onClick={() => setCurrentPlayer(prev => prev + 1)} 
                 className="mt-4 bg-blue-600 hover:bg-blue-700"
               >
                 <ChevronRight className="w-4 h-4 mr-2" />
@@ -403,43 +387,13 @@ export default function GroupsPage() {
             <p className="text-slate-300 text-lg">30 دقيقة من المرح والتفاعل</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Participants Section */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center">
-                  <Users className="w-5 h-5 mr-2" />
-                  المشاركون ({participants.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newParticipant}
-                    onChange={(e) => setNewParticipant(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && addParticipant()}
-                    placeholder="اسم المشارك"
-                    className="flex-1 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
-                  />
-                  <Button onClick={addParticipant} size="sm">
-                    إضافة
-                  </Button>
-                </div>
-                <div className="space-y-2 max-h-40 overflow-y-auto">
-                  {participants.map((participant, index) => (
-                    <div key={index} className="flex items-center justify-between bg-slate-700/50 rounded-lg px-3 py-2">
-                      <span className="text-white">{participant}</span>
-                      <Button 
-                        onClick={() => removeParticipant(index)}
-                        size="sm" 
-                        variant="destructive"
-                      >
-                        حذف
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+          <div className="max-w-2xl mx-auto">
+            {/* Circle Order Instructions */}
+            <Card className="bg-slate-800/50 border-slate-700 mb-8">
+              <CardContent className="p-6 text-center">
+                <h3 className="text-xl font-bold text-white mb-4">تعليمات اللعب</h3>
+                <p className="text-slate-300 text-lg mb-4">اجلسوا في دائرة والعبوا بالترتيب</p>
+                <p className="text-slate-400 text-sm">سيتم عرض رقم اللاعب الحالي في الأعلى</p>
               </CardContent>
             </Card>
 
@@ -470,15 +424,11 @@ export default function GroupsPage() {
           <div className="text-center mt-8">
             <Button 
               onClick={startSession}
-              disabled={participants.length < 2}
               className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-8 py-4 text-xl"
             >
               <Play className="w-6 h-6 mr-2" />
               ابدأ الجلسة
             </Button>
-            {participants.length < 2 && (
-              <p className="text-slate-400 mt-2">يجب إضافة مشاركين على الأقل</p>
-            )}
           </div>
         </div>
       </div>
@@ -523,20 +473,14 @@ export default function GroupsPage() {
           </CardContent>
         </Card>
 
-        {/* Participants bar */}
+        {/* Current Player Display */}
         <div className="mt-6 bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-between">
-            <span className="text-slate-400">المشاركون:</span>
-            <div className="flex flex-wrap gap-2">
-              {participants.map((participant, index) => (
-                <Badge 
-                  key={index} 
-                  variant={index === currentPlayer ? "default" : "secondary"}
-                  className={index === currentPlayer ? "bg-cyan-500" : ""}
-                >
-                  {participant}
-                </Badge>
-              ))}
+          <div className="flex items-center justify-center">
+            <div className="flex items-center gap-3">
+              <span className="text-slate-400">اللاعب الحالي:</span>
+              <Badge className="bg-cyan-500 text-white text-lg px-4 py-2">
+                رقم {currentPlayer + 1}
+              </Badge>
             </div>
           </div>
         </div>

@@ -11,6 +11,9 @@ import type { Route } from "./+types/root";
 import "./app.css";
 
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+  { rel: "icon", href: "/blindmatch.png", type: "image/png" },
+  { rel: "apple-touch-icon", href: "/blindmatch.png" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -29,6 +32,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>BlindMatch - لقاءات ذكية للتوافق</title>
+        <meta name="description" content="نظام توافق شخصي متقدم لإيجاد أفضل التوافقات بناءً على الشخصية والاهتمامات" />
+        <meta name="theme-color" content="#0891b2" />
+        <meta property="og:title" content="BlindMatch - لقاءات ذكية للتوافق" />
+        <meta property="og:description" content="نظام توافق شخصي متقدم لإيجاد أفضل التوافقات" />
+        <meta property="og:image" content="/blindmatch.png" />
+        <meta property="og:type" content="website" />
         <Meta />
         <Links />
       </head>

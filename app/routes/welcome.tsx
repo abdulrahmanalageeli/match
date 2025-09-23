@@ -2402,6 +2402,18 @@ export default function WelcomePage() {
                       <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
                         اكتشف أشخاص متوافقين معك من خلال الذكاء الاصطناعي المتقدم
                       </p>
+                      
+                      {/* Sleek Disclaimer */}
+                      <div className="mt-6 max-w-3xl mx-auto">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm border ${
+                          dark ? "bg-slate-800/30 border-slate-600/50 text-slate-300" : "bg-white/20 border-white/30 text-gray-700"
+                        }`}>
+                          <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs sm:text-sm font-medium">
+                            هذا ليس حدث مواعدة • تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية مع الجنس الآخر
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 {/* Features Grid */}
@@ -3188,32 +3200,6 @@ export default function WelcomePage() {
                     <Sparkles className={`w-6 h-6 absolute -top-2 -right-2 animate-bounce ${
                       dark ? "text-slate-300" : "text-gray-500"
                     }`} />
-                  </div>
-                </div>
-                {/* Disclaimer */}
-                <div className={`mb-6 p-4 rounded-xl border-2 ${
-                  dark ? "bg-blue-500/10 border-blue-400/30" : "bg-blue-100/50 border-blue-300/50"
-                }`}>
-                  <div className="flex items-start gap-3">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                      dark ? "bg-blue-500/20" : "bg-blue-200"
-                    }`}>
-                      <span className="text-blue-400 text-sm">ℹ️</span>
-                    </div>
-                    <div>
-                      <h3 className={`font-semibold mb-2 ${
-                        dark ? "text-blue-200" : "text-blue-800"
-                      }`}>
-                        تنويه مهم
-                      </h3>
-                      <p className={`text-sm leading-relaxed ${
-                        dark ? "text-blue-100" : "text-blue-700"
-                      }`}>
-                        هذا ليس حدث مواعدة. ستحصل على فرصة للجلوس مع مجموعة من الأشخاص لمدة 20-30 دقيقة، 
-                        ثم تنتقل إلى لقاءات فردية مع أشخاص من الجنس الآخر (إلا إذا حددت خلاف ذلك في الاستبيان) 
-                        لتبادل وجهات النظر المختلفة وتوسيع شبكة معارفك.
-                      </p>
-                    </div>
                   </div>
                 </div>
 

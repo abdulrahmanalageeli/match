@@ -317,12 +317,12 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                   selectedTopic.questions.map((q, i) => (
                     <div
                       key={i}
-                      className="flex items-center gap-2 p-2 sm:p-3 rounded border bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 shadow-sm transition-all duration-200 group"
+                      className="flex items-center gap-2 p-2 sm:p-3 rounded border bg-black/20 border-white/10 shadow-sm transition-all duration-200 group backdrop-blur-sm"
                       tabIndex={0}
                       aria-label={`سؤال ${i + 1}: ${q}`}
                     >
-                      <span className="font-bold text-sm sm:text-base text-slate-500 dark:text-slate-400 w-6 text-center">{i + 1}.</span>
-                      <span className="flex-1 text-sm sm:text-base">{q}</span>
+                      <span className="font-bold text-sm sm:text-base text-cyan-400 w-6 text-center">{i + 1}.</span>
+                      <span className="flex-1 text-sm sm:text-base text-white">{q}</span>
                       <Button
                         variant="ghost"
                         size="icon"

@@ -3225,25 +3225,6 @@ export default function WelcomePage() {
         backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='${dark ? '%236B7280' : '%233B82F6'}' fill-opacity='${dark ? '0.1' : '0.15'}'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
       }}></div>
 
-      {/* زر الوضع المظلم */}
-      <div className="absolute top-4 right-4 z-50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setDark(!dark)}
-          className={`group border backdrop-blur-sm rounded-xl p-3 flex items-center justify-center transition-all duration-300 hover:scale-110 ${
-            dark 
-              ? "border-slate-500/30 bg-slate-500/10 text-slate-200 hover:bg-slate-500/20" 
-              : "border-gray-300/50 bg-black/10 text-gray-700 hover:bg-black/20"
-          }`}
-        >
-          {dark ? (
-            <SunIcon size={18} className="transition-transform group-hover:-rotate-12 group-hover:scale-105" />
-          ) : (
-            <MoonIcon size={18} className="transition-transform group-hover:rotate-12 group-hover:scale-105" />
-          )}
-        </Button>
-      </div>
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
         {step >= 0 && (
@@ -3620,7 +3601,7 @@ export default function WelcomePage() {
             <div
               dir="rtl"
                 className={`mx-auto max-w-md rounded-xl border-2 backdrop-blur-sm p-6 shadow-lg ${
-                  dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-white/80"
+                  dark ? "border-slate-400/30 bg-white/10" : "border-gray-400/30 bg-black/20"
                 }`}
               >
                 <div className="flex items-center gap-2 mb-3">

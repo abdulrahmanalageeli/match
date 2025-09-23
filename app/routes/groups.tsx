@@ -73,17 +73,17 @@ const games: Game[] = [
     nameAr: "أسئلة للنقاش",
     description: "Deep conversation starters",
     descriptionAr: "أسئلة عميقة لبدء المحادثات",
-    duration: 10,
+    duration: 0,
     icon: <Sparkles className="w-6 h-6" />,
     color: "from-purple-500 to-pink-500"
   },
   {
-    id: "two-truths-lie",
-    name: "Two Truths and a Lie",
-    nameAr: "حقيقتان وكذبة",
-    description: "Guess which statement is false",
-    descriptionAr: "خمنوا أي من العبارات كاذبة",
-    duration: 8,
+    id: "never-have-i-ever",
+    name: "Never Have I Ever",
+    nameAr: "لم أفعل من قبل",
+    description: "Share deep personal experiences",
+    descriptionAr: "شاركوا تجاربكم الشخصية العميقة",
+    duration: 0,
     icon: <Target className="w-6 h-6" />,
     color: "from-blue-500 to-cyan-500"
   },
@@ -91,67 +91,48 @@ const games: Game[] = [
     id: "would-you-rather",
     name: "Would You Rather",
     nameAr: "ماذا تفضل",
-    description: "Choose between difficult options",
-    descriptionAr: "اختاروا بين خيارات صعبة",
-    duration: 7,
+    description: "Choose between meaningful life decisions",
+    descriptionAr: "اختاروا بين قرارات حياتية مهمة",
+    duration: 0,
     icon: <Heart className="w-6 h-6" />,
     color: "from-red-500 to-orange-500"
-  },
-  {
-    id: "story-building",
-    name: "Story Building",
-    nameAr: "بناء القصة",
-    description: "Create a story together with building blocks",
-    descriptionAr: "اصنعوا قصة معاً باستخدام عناصر القصة",
-    duration: 5,
-    icon: <BookOpen className="w-6 h-6" />,
-    color: "from-indigo-500 to-purple-500"
   }
 ];
 
-// Story building elements
-const storyElements = {
-  characters: [
-    "أمير شجاع", "أميرة ذكية", "ساحر قديم", "تاجر مسافر", "طفل فضولي",
-    "عالم مجنون", "محارب قوي", "راهب حكيم", "لص ماهر", "فلاح بسيط"
-  ],
-  settings: [
-    "في قلعة مهجورة", "في غابة سحرية", "في صحراء واسعة", "في مدينة عائمة",
-    "في كهف مظلم", "في جزيرة نائية", "في قرية صغيرة", "في مختبر سري",
-    "في سوق شعبي", "في جبل عالي"
-  ],
-  objects: [
-    "خريطة كنز قديمة", "مفتاح ذهبي غامض", "كتاب سحري", "سيف لامع",
-    "جرة سحرية", "بوصلة مكسورة", "رسالة مشفرة", "حجر كريم متوهج",
-    "مرآة سحرية", "عصا خشبية منحوتة"
-  ],
-  conflicts: [
-    "اختفى شيء مهم", "ظهر وحش مخيف", "حدثت عاصفة قوية", "انقطع الطريق",
-    "نفد الطعام والماء", "ضاع الطريق", "كسر شيء ثمين", "ظهر عدو قديم",
-    "حدث سوء فهم", "اكتشف سر خطير"
-  ]
-};
+
+const neverHaveIEverQuestions = [
+  "لم أفعل من قبل: اتخذت قراراً غير حياتي بسبب الخوف",
+  "لم أفعل من قبل: قلت لشخص أحبه أني أحبه فعلاً",
+  "لم أفعل من قبل: سامحت شخصاً جرحني بعمق",
+  "لم أفعل من قبل: بكيت أمام شخص غريب بسبب موقف مؤثر",
+  "لم أفعل من قبل: غيرت رأيي في شيء مهم بعد محادثة عميقة",
+  "لم أفعل من قبل: ضحيت بشيء مهم من أجل شخص آخر",
+  "لم أفعل من قبل: شعرت بالوحدة رغم وجود أشخاص حولي",
+  "لم أفعل من قبل: اعتذرت عن شيء قلته في لحظة غضب",
+  "لم أفعل من قبل: شعرت بالفخر الحقيقي بإنجاز حققته",
+  "لم أفعل من قبل: اكتشفت شيئاً جديداً عن نفسي في موقف صعب"
+];
 
 const wouldYouRatherQuestions = [
   {
-    optionA: "القدرة على الطيران",
-    optionB: "القدرة على قراءة الأفكار"
+    optionA: "أن تعيش حياة مريحة ولكن بدون إنجازات كبيرة",
+    optionB: "أن تحقق إنجازات عظيمة ولكن بتضحيات وصعوبات مستمرة"
   },
   {
-    optionA: "العيش في الماضي",
-    optionB: "العيش في المستقبل"
+    optionA: "أن تكون محبوباً من الجميع ولكن لا تحب نفسك",
+    optionB: "أن تحب نفسك حقاً ولكن لا يحبك أحد"
   },
   {
-    optionA: "أن تكون مشهوراً",
-    optionB: "أن تكون غنياً"
+    optionA: "أن تتذكر كل لحظة في حياتك بوضوح",
+    optionB: "أن تنسى كل الذكريات المؤلمة نهائياً"
   },
   {
-    optionA: "قضاء يوم في الصحراء",
-    optionB: "قضاء يوم في القطب الشمالي"
+    optionA: "أن تعرف أفكار الجميع عنك بصدق",
+    optionB: "أن لا تعرف أبداً ما يفكر فيه الآخرون عنك"
   },
   {
-    optionA: "فقدان حاسة البصر",
-    optionB: "فقدان حاسة السمع"
+    optionA: "أن تموت وأنت محبوب ولكن لم تحقق أحلامك",
+    optionB: "أن تموت وقد حققت أحلامك ولكن وحيداً"
   }
 ];
 
@@ -159,35 +140,18 @@ const wouldYouRatherQuestions = [
 export default function GroupsPage() {
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
-  const [gameTimer, setGameTimer] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [participants, setParticipants] = useState<string[]>([]);
   const [newParticipant, setNewParticipant] = useState("");
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
-  const [storyParts, setStoryParts] = useState<string[]>([]);
-  const [currentStoryElement, setCurrentStoryElement] = useState<{type: string, value: string} | null>(null);
 
   const currentGame = games[currentGameIndex];
 
 
-  // Game timer effect
-  useEffect(() => {
-    if (gamePhase === "playing" && !isPaused && gameTimer > 0) {
-      const interval = setInterval(() => {
-        setGameTimer(prev => {
-          if (prev <= 1) {
-            setGamePhase("completed");
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [gamePhase, isPaused, gameTimer]);
+  // Remove timer-related useEffect
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -201,32 +165,14 @@ export default function GroupsPage() {
       return;
     }
     setGameStarted(true);
-    startCurrentGame();
   };
 
-  const getRandomStoryElement = () => {
-    const types = Object.keys(storyElements);
-    const randomType = types[Math.floor(Math.random() * types.length)];
-    const elements = storyElements[randomType as keyof typeof storyElements];
-    const randomElement = elements[Math.floor(Math.random() * elements.length)];
-    return { type: randomType, value: randomElement };
-  };
 
-  const addStoryPart = (part: string) => {
-    setStoryParts(prev => [...prev, part]);
-    setCurrentPlayer(prev => (prev + 1) % participants.length);
-    setCurrentStoryElement(getRandomStoryElement());
-  };
-
-  const startCurrentGame = () => {
-    setGameTimer(currentGame.duration * 60);
+  const startGame = (gameId: string) => {
+    setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
     setCurrentPlayer(0);
-    if (currentGame.id === "story-building") {
-      setStoryParts([]);
-      setCurrentStoryElement(getRandomStoryElement());
-    }
   };
 
   const nextGame = () => {
@@ -251,36 +197,36 @@ export default function GroupsPage() {
   };
 
   const nextPrompt = () => {
-    if (currentGame.id === "would-you-rather") {
-      setCurrentPromptIndex(prev => (prev + 1) % wouldYouRatherQuestions.length);
-    }
+    setCurrentPromptIndex(prev => (prev + 1) % wouldYouRatherQuestions.length);
     setCurrentPlayer(prev => (prev + 1) % participants.length);
   };
 
-  const renderGameContent = () => {
-    if (gamePhase === "intro") {
-      return (
-        <div className="text-center space-y-6">
-          <div className={`w-20 h-20 mx-auto rounded-full bg-gradient-to-r ${currentGame.color} flex items-center justify-center text-white`}>
-            {currentGame.icon}
-          </div>
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-2">{currentGame.nameAr}</h2>
-            <p className="text-slate-300 text-lg">{currentGame.descriptionAr}</p>
-          </div>
-          <div className="bg-slate-800/50 rounded-lg p-4">
-            <p className="text-slate-300">مدة اللعبة: {currentGame.duration} دقائق</p>
-          </div>
-          <Button 
-            onClick={startCurrentGame}
-            className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-8 py-3 text-lg"
-          >
-            <Play className="w-5 h-5 mr-2" />
-            ابدأ اللعبة
-          </Button>
+  const renderGameSelection = () => {
+    return (
+      <div className="text-center space-y-6">
+        <h2 className="text-3xl font-bold text-white mb-6">اختر لعبة</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {games.map((game) => (
+            <div key={game.id} className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 hover:border-cyan-400 transition-all cursor-pointer" onClick={() => startGame(game.id)}>
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white`}>
+                {game.icon}
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">{game.nameAr}</h3>
+              <p className="text-slate-300 text-sm">{game.descriptionAr}</p>
+            </div>
+          ))}
         </div>
-      );
+      </div>
+    );
+  };
+
+  const renderGameContent = () => {
+    if (!selectedGameId) {
+      return renderGameSelection();
     }
+
+    const currentGame = games.find(g => g.id === selectedGameId);
+    if (!currentGame) return null;
 
     if (gamePhase === "completed") {
       return (
@@ -353,6 +299,41 @@ export default function GroupsPage() {
           </Card>
         )}
 
+        {currentGame.id === "never-have-i-ever" && (
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6 text-center">
+              <h3 className="text-2xl font-bold text-white mb-4">
+                دور {participants[currentPlayer] || "اللاعب"}
+              </h3>
+              <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+                <p className="text-white text-lg font-semibold">
+                  {neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]}
+                </p>
+              </div>
+              <div className="space-y-4 text-slate-300 text-sm">
+                <p>إذا فعلت هذا الشيء، شارك تجربتك مع المجموعة</p>
+                <p>إذا لم تفعله، ابق صامتاً</p>
+              </div>
+              <div className="flex justify-center space-x-3 mt-6">
+                <Button 
+                  onClick={() => setCurrentPromptIndex(prev => (prev + 1) % neverHaveIEverQuestions.length)} 
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  <ChevronRight className="w-4 h-4 mr-2" />
+                  السؤال التالي
+                </Button>
+                <Button 
+                  onClick={() => setCurrentPlayer(prev => (prev + 1) % participants.length)} 
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  <ChevronRight className="w-4 h-4 mr-2" />
+                  اللاعب التالي
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {currentGame.id === "two-truths-lie" && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
@@ -404,78 +385,6 @@ export default function GroupsPage() {
         )}
 
 
-        {currentGame.id === "story-building" && (
-          <Card className="bg-slate-800/50 border-slate-700">
-            <CardContent className="p-6">
-              <h3 className="text-2xl font-bold text-white mb-4 text-center">بناء القصة</h3>
-              
-              {/* Current Story */}
-              <div className="bg-slate-700/50 rounded-lg p-4 mb-6 min-h-[150px] max-h-[300px] overflow-y-auto">
-                <h4 className="text-lg font-semibold text-cyan-400 mb-3">القصة حتى الآن:</h4>
-                {storyParts.length === 0 ? (
-                  <p className="text-slate-400 italic">ابدأ القصة بإضافة الجملة الأولى...</p>
-                ) : (
-                  <div className="space-y-2">
-                    {storyParts.map((part, index) => (
-                      <p key={index} className="text-slate-300">
-                        <span className="text-cyan-400 font-semibold">{index + 1}.</span> {part}
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Current Player and Story Element */}
-              <div className="text-center mb-6">
-                <div className="bg-slate-800/70 rounded-lg p-4 mb-4">
-                  <p className="text-white font-semibold mb-2">
-                    دور: {participants[currentPlayer] || "اللاعب"}
-                  </p>
-                  {currentStoryElement && (
-                    <div className="bg-gradient-to-r from-indigo-500/20 to-purple-500/20 rounded-lg p-3 border border-indigo-400/30">
-                      <p className="text-indigo-300 text-sm mb-1">استخدم هذا العنصر في جملتك:</p>
-                      <p className="text-white font-bold">{currentStoryElement.value}</p>
-                      <p className="text-slate-400 text-xs mt-1">({currentStoryElement.type === 'characters' ? 'شخصية' : currentStoryElement.type === 'settings' ? 'مكان' : currentStoryElement.type === 'objects' ? 'شيء' : 'مشكلة'})</p>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Story Input */}
-                <div className="space-y-4">
-                  <textarea
-                    placeholder="أضف جملة أو جملتين للقصة..."
-                    className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 resize-none"
-                    rows={3}
-                    id="story-input"
-                  />
-                  <div className="flex justify-center space-x-3">
-                    <Button 
-                      onClick={() => {
-                        const input = document.getElementById('story-input') as HTMLTextAreaElement;
-                        if (input.value.trim()) {
-                          addStoryPart(input.value.trim());
-                          input.value = '';
-                        }
-                      }}
-                      className="bg-indigo-600 hover:bg-indigo-700"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      إضافة للقصة
-                    </Button>
-                    <Button 
-                      onClick={() => setCurrentStoryElement(getRandomStoryElement())}
-                      variant="outline"
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                    >
-                      <Lightbulb className="w-4 h-4 mr-2" />
-                      عنصر جديد
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
       </div>
     );
   };
@@ -587,36 +496,23 @@ export default function GroupsPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="text-center">
-                <div className="text-xl font-bold text-cyan-400">{formatTime(gameTimer)}</div>
-                <div className="text-slate-400 text-sm">وقت اللعبة</div>
+                <div className="text-xl font-bold text-cyan-400">{selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}</div>
+                <div className="text-slate-400 text-sm">اللعبة الحالية</div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <Button
-                onClick={() => setIsPaused(!isPaused)}
+                onClick={() => {
+                  setSelectedGameId(null);
+                  setGamePhase('intro');
+                }}
                 variant="outline"
                 size="sm"
               >
-                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-              </Button>
-              <Button
-                onClick={nextGame}
-                variant="outline"
-                size="sm"
-              >
-                <SkipForward className="w-4 h-4" />
+                <ChevronLeft className="w-4 h-4" />
+                عودة
               </Button>
             </div>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-sm text-slate-400 mb-2">
-              <span>اللعبة {currentGameIndex + 1} من {games.length}</span>
-              <span>{currentGame.nameAr}</span>
-            </div>
-            <Progress 
-              value={((currentGameIndex) / games.length) * 100} 
-              className="h-2"
-            />
           </div>
         </div>
 

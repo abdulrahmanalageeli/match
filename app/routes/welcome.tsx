@@ -2908,7 +2908,7 @@ export default function WelcomePage() {
                 </div>
 
                 {/* Footer Info */}
-                <div className="text-center mt-8 sm:mt-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                <div className="text-center mt-8 sm:mt-12 mb-8 sm:mb-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-cyan-200 text-xs sm:text-sm">
                     <div className="flex items-center gap-2">
                       <Shield className="w-3 h-3 sm:w-4 sm:h-4" />

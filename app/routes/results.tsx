@@ -399,9 +399,9 @@ export default function ResultsPage() {
                           درجة التوافق
                         </span>
                         <span className={`font-bold ${
-                          match.score >= 80 ? 'text-green-500' :
-                          match.score >= 60 ? 'text-yellow-500' :
-                          match.score >= 40 ? 'text-orange-500' :
+                          match.score >= 70 ? 'text-green-500' :
+                          match.score >= 50 ? 'text-yellow-500' :
+                          match.score >= 30 ? 'text-orange-500' :
                           'text-red-500'
                         }`}>
                           {match.score}%
@@ -410,9 +410,9 @@ export default function ResultsPage() {
                       <div className={`w-full h-2 rounded-full ${dark ? 'bg-slate-600' : 'bg-gray-200'}`}>
                         <div 
                           className={`h-full rounded-full transition-all duration-500 ${
-                            match.score >= 80 ? 'bg-green-500' :
-                            match.score >= 60 ? 'bg-yellow-500' :
-                            match.score >= 40 ? 'bg-orange-500' :
+                            match.score >= 70 ? 'bg-green-500' :
+                            match.score >= 50 ? 'bg-yellow-500' :
+                            match.score >= 30 ? 'bg-orange-500' :
                             'bg-red-500'
                           }`}
                           style={{ width: `${match.score}%` }}

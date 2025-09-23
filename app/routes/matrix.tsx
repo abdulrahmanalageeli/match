@@ -274,9 +274,9 @@ export default function MatrixPage() {
                               <div className="w-full h-3 bg-slate-700 rounded-full mt-2 overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-700 ${
-                                    match.score >= 80 ? 'bg-green-400' :
-                                    match.score >= 60 ? 'bg-yellow-400' :
-                                    match.score >= 40 ? 'bg-orange-400' :
+                                    match.score >= 70 ? 'bg-green-400' :
+                                    match.score >= 50 ? 'bg-yellow-400' :
+                                    match.score >= 30 ? 'bg-orange-400' :
                                     'bg-red-400'
                                   }`}
                                   style={{ width: `${match.score}%` }}

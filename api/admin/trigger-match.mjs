@@ -205,7 +205,7 @@ function calculateCoreValuesCompatibility(values1, values2) {
   return totalScore // Already represents percentage (0-20%)
 }
 
-// Function to check gender compatibility (respects same-gender preference)
+// Function to check gender compatibility (opposite gender by default, same-gender only with mutual preference)
 function checkGenderCompatibility(participantA, participantB) {
   const genderA = participantA.gender || participantA.survey_data?.gender
   const genderB = participantB.gender || participantB.survey_data?.gender
@@ -222,16 +222,28 @@ function checkGenderCompatibility(participantA, participantB) {
   if (sameGenderPrefA && sameGenderPrefB) {
     // Both want same-gender matching, they must be same gender
     const isCompatible = genderA === genderB
+    if (isCompatible) {
+      console.log(`✅ Same-gender match: ${participantA.assigned_number} (${genderA}) × ${participantB.assigned_number} (${genderB}) - both prefer same gender`)
+    } else {
+      console.log(`🚫 Same-gender preference mismatch: ${participantA.assigned_number} (${genderA}) × ${participantB.assigned_number} (${genderB}) - both prefer same gender but different genders`)
+    }
     return isCompatible
   }
   
   // If only one has same-gender preference, they're incompatible
   if (sameGenderPrefA || sameGenderPrefB) {
+    console.log(`🚫 Preference mismatch: ${participantA.assigned_number} (${genderA}, same-gender: ${sameGenderPrefA}) × ${participantB.assigned_number} (${genderB}, same-gender: ${sameGenderPrefB}) - only one prefers same gender`)
     return false
   }
   
-  // Neither has same-gender preference - allow any gender combination
-  return true
+  // Neither has same-gender preference - DEFAULT TO OPPOSITE GENDER ONLY
+  const isOppositeGender = genderA !== genderB
+  if (isOppositeGender) {
+    console.log(`✅ Opposite gender match: ${participantA.assigned_number} (${genderA}) × ${participantB.assigned_number} (${genderB}) - default opposite gender matching`)
+  } else {
+    console.log(`🚫 Same gender without preference: ${participantA.assigned_number} (${genderA}) × ${participantB.assigned_number} (${genderB}) - both same gender but no same-gender preference`)
+  }
+  return isOppositeGender
 }
 
 // Function to check age compatibility (females must be within 3 years of their match)

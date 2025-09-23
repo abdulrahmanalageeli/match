@@ -26,15 +26,15 @@ const CircularProgressBar: React.FC<CircularProgressBarProps> = ({
   const offset = circumference - (animatedProgress / 100) * circumference;
 
   const scoreColor =
-    progress >= 80
+    progress >= 70
       ? 'text-green-400'
-      : progress >= 60
+      : progress >= 50
       ? 'text-yellow-400'
       : 'text-red-400';
 
   const trackColor = dark ? 'stroke-slate-700' : 'stroke-gray-200';
   
-  const gradientId = progress >= 80 ? 'green-gradient' : progress >= 60 ? 'yellow-gradient' : 'red-gradient';
+  const gradientId = progress >= 70 ? 'green-gradient' : progress >= 50 ? 'yellow-gradient' : 'red-gradient';
 
   return (
     <div className="relative" style={{ width: size, height: size }}>

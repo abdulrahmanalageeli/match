@@ -2410,7 +2410,7 @@ export default function WelcomePage() {
                         }`}>
                           <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
                           <span className="text-xs sm:text-sm font-medium">
-                            هذا ليس حدث مواعدة • تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية مع الجنس الآخر
+                            هذا ليس حدث ترابط عاطفي • هدفه تبادل وجهات النظر مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية
                           </span>
                         </div>
                       </div>

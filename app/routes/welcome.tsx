@@ -4451,7 +4451,7 @@ export default function WelcomePage() {
                        </div>
                      </div>
 
-                     {/* Personal Connection Scale */}
+                     {/* Personal Connectiwon Scale */}
                      <div>
                        <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                          القيم المشتركة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = قوي جداً)</span>

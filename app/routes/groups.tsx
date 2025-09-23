@@ -143,7 +143,6 @@ export default function GroupsPage() {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
-  const [currentPlayer, setCurrentPlayer] = useState(0);
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
 
   const currentGame = games[currentGameIndex];
@@ -166,7 +165,6 @@ export default function GroupsPage() {
     setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
-    setCurrentPlayer(0);
   };
 
   const nextGame = () => {
@@ -182,7 +180,6 @@ export default function GroupsPage() {
 
   const nextPrompt = () => {
     setCurrentPromptIndex(prev => (prev + 1) % wouldYouRatherQuestions.length);
-    setCurrentPlayer(prev => prev + 1);
   };
 
   const renderGameSelection = () => {
@@ -245,9 +242,6 @@ export default function GroupsPage() {
       <div className="space-y-6">
         <div className="text-center">
           <div className="flex items-center justify-center space-x-4 mb-4">
-            <Badge variant="secondary" className="text-lg px-4 py-2">
-              اللاعب رقم {currentPlayer + 1}
-            </Badge>
           </div>
         </div>
 
@@ -260,9 +254,6 @@ export default function GroupsPage() {
               <p className="text-slate-300 mb-6">
                 اختر موضوعاً وليجب كل مشارك على السؤال بالدور
               </p>
-              <p className="text-slate-400 mb-4">
-                اللاعب رقم {currentPlayer + 1}
-              </p>
               <Button 
                 onClick={() => setShowPromptTopicsModal(true)}
                 className="bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-800 hover:to-blue-800 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 border-2 border-cyan-400/30"
@@ -270,15 +261,6 @@ export default function GroupsPage() {
                 <Sparkles className="w-5 h-5 mr-2" />
                 اختر أسئلة للنقاش
               </Button>
-              <div className="mt-4">
-                <Button 
-                  onClick={() => setCurrentPlayer(prev => prev + 1)} 
-                  className="bg-purple-600 hover:bg-purple-700 mr-2"
-                >
-                  <ChevronRight className="w-4 h-4 mr-2" />
-                  اللاعب التالي
-                </Button>
-              </div>
             </CardContent>
           </Card>
         )}
@@ -286,9 +268,6 @@ export default function GroupsPage() {
         {currentGame.id === "never-have-i-ever" && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-white mb-4">
-                اللاعب رقم {currentPlayer + 1}
-              </h3>
               <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
                 <p className="text-white text-lg font-semibold">
                   {neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]}
@@ -306,13 +285,6 @@ export default function GroupsPage() {
                   <ChevronRight className="w-4 h-4 mr-2" />
                   السؤال التالي
                 </Button>
-                <Button 
-                  onClick={() => setCurrentPlayer(prev => prev + 1)} 
-                  className="bg-purple-600 hover:bg-purple-700"
-                >
-                  <ChevronRight className="w-4 h-4 mr-2" />
-                  اللاعب التالي
-                </Button>
               </div>
             </CardContent>
           </Card>
@@ -321,9 +293,6 @@ export default function GroupsPage() {
         {currentGame.id === "two-truths-lie" && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-white mb-4">
-                اللاعب رقم {currentPlayer + 1}
-              </h3>
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>
                 <ul className="list-disc list-inside space-y-2">
@@ -333,13 +302,6 @@ export default function GroupsPage() {
                 </ul>
                 <p className="text-sm">على الآخرين تخمين أي عبارة كاذبة!</p>
               </div>
-              <Button 
-                onClick={() => setCurrentPlayer(prev => prev + 1)} 
-                className="mt-4 bg-blue-600 hover:bg-blue-700"
-              >
-                <ChevronRight className="w-4 h-4 mr-2" />
-                اللاعب التالي
-              </Button>
             </CardContent>
           </Card>
         )}
@@ -473,17 +435,6 @@ export default function GroupsPage() {
           </CardContent>
         </Card>
 
-        {/* Current Player Display */}
-        <div className="mt-6 bg-slate-800/50 rounded-lg p-4 border border-slate-700">
-          <div className="flex items-center justify-center">
-            <div className="flex items-center gap-3">
-              <span className="text-slate-400">اللاعب الحالي:</span>
-              <Badge className="bg-cyan-500 text-white text-lg px-4 py-2">
-                رقم {currentPlayer + 1}
-              </Badge>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Prompts/Questions Modal */}

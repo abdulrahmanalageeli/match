@@ -324,7 +324,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                       aria-label={`سؤال ${i + 1}: ${q}`}
                     >
                       <span className="font-bold text-sm sm:text-base text-cyan-400 w-6 text-center">{i + 1}.</span>
-                      <span className="flex-1 text-sm sm:text-base text-slate-200">{q}</span>
+                      <span className="flex-1 text-sm sm:text-base text-slate-600">{q}</span>
                       <Button
                         variant="ghost"
                         size="icon"

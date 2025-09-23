@@ -285,10 +285,10 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                           key={topic.id}
                           className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border font-semibold text-sm sm:text-base transition-all duration-200 hover:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 ${
                             depth === "shallow"
-                              ? "bg-white dark:bg-slate-900 border-cyan-100 dark:border-slate-700 text-cyan-800 dark:text-cyan-300"
+                              ? "bg-slate-800/50 border-slate-700 text-cyan-300"
                               : depth === "medium"
-                              ? "bg-white dark:bg-slate-900 border-green-100 dark:border-slate-700 text-green-800 dark:text-green-300"
-                              : "bg-white dark:bg-slate-900 border-purple-100 dark:border-slate-700 text-purple-800 dark:text-purple-300"
+                              ? "bg-slate-800/50 border-slate-700 text-green-300"
+                              : "bg-slate-800/50 border-slate-700 text-purple-300"
                           } w-[90vw] max-w-xs sm:w-auto sm:max-w-none`}
                           onClick={() => setSelectedTopic(topic)}
                           aria-label={`اختر موضوع: ${topic.title}`}
@@ -306,7 +306,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
           ) : (
             <>
               {/* Topic header now outside scrollable area, directly under stepper */}
-              <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 shadow-lg py-2">
+              <div className="flex items-center gap-2 bg-slate-800/50 border-b border-slate-700 shadow-lg py-2">
                 <Button variant="ghost" size="icon" onClick={() => setSelectedTopic(null)} className="rounded-full" aria-label="رجوع للمواضيع">
                   <ArrowLeftCircle className="w-6 h-6 text-cyan-500" />
                 </Button>
@@ -324,7 +324,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
                       aria-label={`سؤال ${i + 1}: ${q}`}
                     >
                       <span className="font-bold text-sm sm:text-base text-cyan-400 w-6 text-center">{i + 1}.</span>
-                      <span className="flex-1 text-sm sm:text-base text-slate-600">{q}</span>
+                      <span className="flex-1 text-sm sm:text-base text-slate-200">{q}</span>
                       <Button
                         variant="ghost"
                         size="icon"

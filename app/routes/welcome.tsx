@@ -497,7 +497,7 @@ export default function WelcomePage() {
       return
     }
 
-    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام الصداقة الذكي! \n\nسنقوم بتحليل شخصيتك ومطابقتك مع أشخاص آخرين بناءً على اهتماماتك وصفاتك.`
+    const fullText = `مرحباً بك لاعب رقم ${assignedNumber} في نظام الصداقة الذكي! \n\nستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين لتبادل وجهات النظر المختلفة.`
     
     setWelcomeTyping(true)
     setWelcomeText("")
@@ -2411,7 +2411,7 @@ export default function WelcomePage() {
                       <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                     </div>
                     <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
-                    <p className="text-cyan-200 text-xs sm:text-sm">تقابل ٤ أشخاص مختلفين بناءً على تحليل شخصيتك</p>
+                    <p className="text-cyan-200 text-xs sm:text-sm">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
                   </div>
                   
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-400">
@@ -3190,6 +3190,33 @@ export default function WelcomePage() {
                     }`} />
                   </div>
                 </div>
+                {/* Disclaimer */}
+                <div className={`mb-6 p-4 rounded-xl border-2 ${
+                  dark ? "bg-blue-500/10 border-blue-400/30" : "bg-blue-100/50 border-blue-300/50"
+                }`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      dark ? "bg-blue-500/20" : "bg-blue-200"
+                    }`}>
+                      <span className="text-blue-400 text-sm">ℹ️</span>
+                    </div>
+                    <div>
+                      <h3 className={`font-semibold mb-2 ${
+                        dark ? "text-blue-200" : "text-blue-800"
+                      }`}>
+                        تنويه مهم
+                      </h3>
+                      <p className={`text-sm leading-relaxed ${
+                        dark ? "text-blue-100" : "text-blue-700"
+                      }`}>
+                        هذا ليس حدث مواعدة. ستحصل على فرصة للجلوس مع مجموعة من الأشخاص لمدة 20-30 دقيقة، 
+                        ثم تنتقل إلى لقاءات فردية مع أشخاص من الجنس الآخر (إلا إذا حددت خلاف ذلك في الاستبيان) 
+                        لتبادل وجهات النظر المختلفة وتوسيع شبكة معارفك.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
                   dark ? "bg-gradient-to-r from-slate-300 to-slate-400" : "bg-gradient-to-r from-gray-700 to-gray-800"
                 }`}>
@@ -3198,13 +3225,14 @@ export default function WelcomePage() {
                 <p className={`text-sm sm:text-base leading-relaxed ${
                   dark ? "text-slate-300" : "text-gray-600"
                 }`}>
-              بتقابل ٤ أشخاص. بعد كل حوار، قرر إذا كان
+                  ستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين. 
+                  بعد كل حوار، قرر إذا كان
                   <span className={`font-semibold ${
                     dark ? "text-slate-200" : "text-gray-800"
                   }`}> شخص متوافق </span>
-              أو
+                  أو
                   <span className="font-semibold text-red-500"> غير متوافق معك</span>.
-            </p>
+                </p>
               </div>
             </div>
             <div className="flex justify-center">

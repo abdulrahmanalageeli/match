@@ -246,6 +246,14 @@ export default function WelcomePage() {
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
+  // Brute force protection states
+  const [tokenAttempts, setTokenAttempts] = useState(0);
+  const [resultTokenAttempts, setResultTokenAttempts] = useState(0);
+  const [tokenLockoutUntil, setTokenLockoutUntil] = useState<number | null>(null);
+  const [resultTokenLockoutUntil, setResultTokenLockoutUntil] = useState<number | null>(null);
+  const [lastTokenAttempt, setLastTokenAttempt] = useState<number | null>(null);
+  const [lastResultTokenAttempt, setLastResultTokenAttempt] = useState<number | null>(null);
+
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
 
@@ -1307,12 +1315,141 @@ export default function WelcomePage() {
     </div>
     );
   };
-  // Navigate to results page
-  const viewResults = (token: string) => {
+  // Brute force protection functions
+  const checkTokenLockout = (type: 'token' | 'resultToken') => {
+    const now = Date.now();
+    const lockoutUntil = type === 'token' ? tokenLockoutUntil : resultTokenLockoutUntil;
+    
+    if (lockoutUntil && now < lockoutUntil) {
+      const remainingTime = Math.ceil((lockoutUntil - now) / 1000);
+      return remainingTime;
+    }
+    return 0;
+  };
+
+  const calculateLockoutDuration = (attempts: number) => {
+    // Progressive lockout: 30s, 2min, 5min, 15min, 30min, 1hr
+    const durations = [30, 120, 300, 900, 1800, 3600];
+    const index = Math.min(attempts - 3, durations.length - 1);
+    return durations[index] * 1000; // Convert to milliseconds
+  };
+
+  const handleTokenAttempt = (type: 'token' | 'resultToken', isValid: boolean = false) => {
+    const now = Date.now();
+    
+    if (type === 'token') {
+      const newAttempts = tokenAttempts + 1;
+      setTokenAttempts(newAttempts);
+      setLastTokenAttempt(now);
+      
+      if (!isValid && newAttempts >= 3) {
+        const lockoutDuration = calculateLockoutDuration(newAttempts);
+        setTokenLockoutUntil(now + lockoutDuration);
+      }
+    } else {
+      const newAttempts = resultTokenAttempts + 1;
+      setResultTokenAttempts(newAttempts);
+      setLastResultTokenAttempt(now);
+      
+      if (!isValid && newAttempts >= 3) {
+        const lockoutDuration = calculateLockoutDuration(newAttempts);
+        setResultTokenLockoutUntil(now + lockoutDuration);
+      }
+    }
+  };
+
+  const resetAttemptsIfNeeded = () => {
+    const now = Date.now();
+    const resetTime = 5 * 60 * 1000; // 5 minutes
+    
+    // Reset token attempts if 5 minutes have passed since last attempt
+    if (lastTokenAttempt && now - lastTokenAttempt > resetTime) {
+      setTokenAttempts(0);
+      setTokenLockoutUntil(null);
+    }
+    
+    // Reset result token attempts if 5 minutes have passed since last attempt
+    if (lastResultTokenAttempt && now - lastResultTokenAttempt > resetTime) {
+      setResultTokenAttempts(0);
+      setResultTokenLockoutUntil(null);
+    }
+  };
+
+  const getSecurityStatus = (type: 'token' | 'resultToken') => {
+    const attempts = type === 'token' ? tokenAttempts : resultTokenAttempts;
+    const lockoutTime = checkTokenLockout(type);
+    
+    if (lockoutTime > 0) {
+      return {
+        isLocked: true,
+        remainingTime: lockoutTime,
+        message: `محظور لمدة ${lockoutTime} ثانية`,
+        warningLevel: 'error'
+      };
+    }
+    
+    if (attempts >= 2) {
+      return {
+        isLocked: false,
+        remainingTime: 0,
+        message: `تحذير: محاولة واحدة متبقية قبل الحظر`,
+        warningLevel: 'warning'
+      };
+    }
+    
+    if (attempts >= 1) {
+      return {
+        isLocked: false,
+        remainingTime: 0,
+        message: `${2 - attempts} محاولات متبقية`,
+        warningLevel: 'info'
+      };
+    }
+    
+    return {
+      isLocked: false,
+      remainingTime: 0,
+      message: '',
+      warningLevel: 'none'
+    };
+  };
+
+  const handleTokenNavigation = (token: string) => {
+    const lockoutTime = checkTokenLockout('token');
+    if (lockoutTime > 0) {
+      alert(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
+      return;
+    }
+    
     if (!token.trim()) {
+      handleTokenAttempt('token', false);
       alert("يرجى إدخال رمز صحيح");
       return;
     }
+    
+    // For now, we assume the token is valid if it's not empty
+    // In a real implementation, you'd validate against the server first
+    handleTokenAttempt('token', true);
+    window.location.href = `/welcome?token=${token}`;
+  };
+
+  // Navigate to results page
+  const viewResults = (token: string) => {
+    const lockoutTime = checkTokenLockout('resultToken');
+    if (lockoutTime > 0) {
+      alert(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
+      return;
+    }
+    
+    if (!token.trim()) {
+      handleTokenAttempt('resultToken', false);
+      alert("يرجى إدخال رمز صحيح");
+      return;
+    }
+    
+    // For now, we assume the token is valid if it's not empty
+    // In a real implementation, you'd validate against the server first
+    handleTokenAttempt('resultToken', true);
     // Navigate to results page with token as URL parameter
     window.location.href = `/results?token=${encodeURIComponent(token)}`;
   };
@@ -1327,6 +1464,15 @@ export default function WelcomePage() {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
+
+  // Periodically check and reset attempts if enough time has passed
+  useEffect(() => {
+    const interval = setInterval(() => {
+      resetAttemptsIfNeeded();
+    }, 30000); // Check every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [lastTokenAttempt, lastResultTokenAttempt]);
 
   // Debug: Log step changes
   useEffect(() => {
@@ -2410,7 +2556,7 @@ export default function WelcomePage() {
                         }`}>
                           <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
                           <span className="text-xs sm:text-sm font-medium">
-                            هذا ليس حدث ترابط عاطفي • هدفه تبادل وجهات النظر مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية
+                            هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
                           </span>
                         </div>
                       </div>
@@ -2627,6 +2773,18 @@ export default function WelcomePage() {
                         <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
                       </div>
                       <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
+                      {(() => {
+                        const securityStatus = getSecurityStatus('token');
+                        return securityStatus.message && (
+                          <div className={`text-xs p-2 rounded-lg mb-3 ${
+                            securityStatus.warningLevel === 'error' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                            securityStatus.warningLevel === 'warning' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                            'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                          }`}>
+                            {securityStatus.message}
+                          </div>
+                        );
+                      })()}
                       <div className="space-y-3 sm:space-y-4">
                         <input
                           type="text"
@@ -2635,23 +2793,18 @@ export default function WelcomePage() {
                           onKeyPress={(e) => {
                             if (e.key === 'Enter') {
                               const token = e.currentTarget.value.trim()
-                              if (token) {
-                                window.location.href = `/welcome?token=${token}`
-                              }
+                              handleTokenNavigation(token);
                             }
                           }}
                         />
                         <Button
                           onClick={() => {
                             const tokenInput = document.querySelector('input[type="text"]') as HTMLInputElement
-                            const token = tokenInput?.value.trim()
-                            if (token) {
-                              window.location.href = `/welcome?token=${token}`
-                            } else {
-                              // alert("يرجى إدخال رمز صحيح")
-                            }
+                            const token = tokenInput?.value.trim() || ''
+                            handleTokenNavigation(token);
                           }}
-                          className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                          disabled={getSecurityStatus('token').isLocked}
+                          className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >
                           العودة للرحلة
                         </Button>
@@ -2674,6 +2827,18 @@ export default function WelcomePage() {
                       <p className="text-cyan-200 text-xs sm:text-sm mb-4">
                         أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
                       </p>
+                      {(() => {
+                        const securityStatus = getSecurityStatus('resultToken');
+                        return securityStatus.message && (
+                          <div className={`text-xs p-2 rounded-lg mb-3 ${
+                            securityStatus.warningLevel === 'error' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                            securityStatus.warningLevel === 'warning' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                            'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                          }`}>
+                            {securityStatus.message}
+                          </div>
+                        );
+                      })()}
                       
                       <div className="space-y-3 sm:space-y-4">
                         <input
@@ -2690,7 +2855,7 @@ export default function WelcomePage() {
                         />
                         <Button
                           onClick={() => viewResults(resultToken)}
-                          disabled={!resultToken.trim()}
+                          disabled={!resultToken.trim() || getSecurityStatus('resultToken').isLocked}
                           className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                         >
                           عرض النتائج

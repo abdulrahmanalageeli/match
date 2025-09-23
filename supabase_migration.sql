@@ -33,6 +33,11 @@ BEGIN
     NEW.communication_style = NEW.survey_data->>'communicationStyle';
   END IF;
   
+  -- Extract same gender preference from survey_data JSON and update dedicated column
+  IF NEW.survey_data IS NOT NULL AND NEW.survey_data ? 'answers' AND NEW.survey_data->'answers' ? 'same_gender_preference' THEN
+    NEW.same_gender_preference = (NEW.survey_data->'answers'->>'same_gender_preference' LIKE '%yes%');
+  END IF;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;

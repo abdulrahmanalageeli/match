@@ -77,25 +77,20 @@ function checkGenderCompatibility(participantA, participantB) {
     return true
   }
   
-  // Check same-gender preferences
-  if (sameGenderPrefA || sameGenderPrefB) {
-    // If either participant prefers same gender only, they must be same gender
+  // Check same-gender preferences - BOTH must have same-gender preference for same-gender matching
+  if (sameGenderPrefA && sameGenderPrefB) {
+    // Both want same-gender matching, they must be same gender
     const isCompatible = genderA === genderB
-    if (!isCompatible) {
-      console.log(`🚫 Same-gender preference violation: ${participantA.assigned_number} (${genderA}, pref: ${sameGenderPrefA}) vs ${participantB.assigned_number} (${genderB}, pref: ${sameGenderPrefB})`)
-    } else {
-      console.log(`✅ Same-gender preference satisfied: ${participantA.assigned_number} (${genderA}) vs ${participantB.assigned_number} (${genderB})`)
-    }
     return isCompatible
   }
   
-  // Default behavior: opposite gender matching
-  const isCompatible = genderA !== genderB
-  if (!isCompatible) {
-    console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}) vs ${participantB.assigned_number} (${genderB})`)
+  // If only one has same-gender preference, they're incompatible
+  if (sameGenderPrefA || sameGenderPrefB) {
+    return false
   }
   
-  return isCompatible
+  // Neither has same-gender preference - allow any gender combination
+  return true
 }
 
 // Function to check age compatibility (females must be within 3 years of their match)

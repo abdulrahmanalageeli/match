@@ -261,7 +261,7 @@ export default function GroupsPage() {
                 اختر موضوعاً وليجب كل مشارك على السؤال بالدور
               </p>
               <p className="text-slate-400 mb-4">
-                دور: اللاعب رقم {currentPlayer + 1}
+                اللاعب رقم {currentPlayer + 1}
               </p>
               <Button 
                 onClick={() => setShowPromptTopicsModal(true)}
@@ -287,7 +287,7 @@ export default function GroupsPage() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
               <h3 className="text-2xl font-bold text-white mb-4">
-                دور اللاعب رقم {currentPlayer + 1}
+                اللاعب رقم {currentPlayer + 1}
               </h3>
               <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
                 <p className="text-white text-lg font-semibold">
@@ -322,7 +322,7 @@ export default function GroupsPage() {
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6 text-center">
               <h3 className="text-2xl font-bold text-white mb-4">
-                دور اللاعب رقم {currentPlayer + 1}
+                اللاعب رقم {currentPlayer + 1}
               </h3>
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>

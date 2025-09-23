@@ -246,7 +246,7 @@ export default function GroupsPage() {
         <div className="text-center">
           <div className="flex items-center justify-center space-x-4 mb-4">
             <Badge variant="secondary" className="text-lg px-4 py-2">
-              {participants[currentPlayer] || "اللاعب الحالي"}
+              اللاعب رقم {currentPlayer + 1}
             </Badge>
           </div>
         </div>

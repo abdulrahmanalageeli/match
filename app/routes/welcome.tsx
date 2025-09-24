@@ -5483,8 +5483,7 @@ export default function WelcomePage() {
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
       {/* Floating Scroll to Start Journey Button */}
-      {showRegistrationContent && (
-        <button
+      <button
           onClick={() => {
             const element = document.getElementById('start-journey');
             if (element) {
@@ -5512,7 +5511,6 @@ export default function WelcomePage() {
             <span className="text-xs font-bold whitespace-nowrap">ابدأ رحلتك</span>
           </div>
         </button>
-      )}
 
       </div>
       

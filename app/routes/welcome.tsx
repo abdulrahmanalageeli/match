@@ -2930,29 +2930,37 @@ export default function WelcomePage() {
                         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }
                     }}
-                    className="fixed bottom-8 right-8 z-[99999] bg-red-500 hover:bg-red-600 text-white p-6 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 animate-bounce"
+                    className="group fixed bottom-6 right-6 z-[99999] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-2xl shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 backdrop-blur-xl border border-cyan-400/30"
                     style={{ 
-                      boxShadow: '0 12px 48px rgba(239, 68, 68, 0.8)',
-                      width: '80px',
-                      height: '80px'
+                      boxShadow: '0 20px 40px rgba(34, 211, 238, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.1)',
                     }}
                     aria-label="انتقل إلى ابدأ رحلتك"
                   >
-                    <div className="flex items-center justify-center">
-                      <svg 
-                        className="w-10 h-10" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        viewBox="0 0 24 24"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={3} 
-                          d="M19 14l-7 7m0 0l-7-7m7 7V3" 
-                        />
-                      </svg>
+                    <div className="flex items-center gap-3 px-6 py-4">
+                      <div className="flex flex-col items-center">
+                        <svg 
+                          className="w-6 h-6 mb-1 group-hover:animate-bounce" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round" 
+                            strokeWidth={2.5} 
+                            d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+                          />
+                        </svg>
+                        <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold leading-tight">ابدأ رحلتك</div>
+                        <div className="text-xs text-cyan-100 opacity-90">انضم الآن</div>
+                      </div>
                     </div>
+                    
+                    {/* Subtle glow effect */}
+                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
                   </button>
               </>
             )}

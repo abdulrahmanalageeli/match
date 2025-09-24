@@ -5484,36 +5484,38 @@ export default function WelcomePage() {
 
       </div>
 
-      {/* Floating Scroll to Start Journey Button */}
-      {showRegistrationContent && (
-        <button
-            onClick={() => {
-              const element = document.getElementById('start-journey');
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }}
-            className="fixed bottom-6 right-6 z-[9999] bg-red-600 hover:bg-red-700 text-white p-6 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 animate-pulse"
-            style={{ boxShadow: '0 8px 32px rgba(239, 68, 68, 0.5)' }}
-            aria-label="انتقل إلى ابدأ رحلتك"
-          >
-            <div className="flex flex-col items-center">
-              <svg 
-                className="w-8 h-8" 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M19 14l-7 7m0 0l-7-7m7 7V3" 
-                />
-              </svg>
-            </div>
-          </button>
-      )}
+      {/* Floating Scroll to Start Journey Button - ALWAYS VISIBLE FOR TESTING */}
+      <button
+          onClick={() => {
+            const element = document.getElementById('start-journey');
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }}
+          className="fixed bottom-8 right-8 z-[99999] bg-red-500 hover:bg-red-600 text-white p-8 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 animate-bounce"
+          style={{ 
+            boxShadow: '0 12px 48px rgba(239, 68, 68, 0.8)',
+            width: '80px',
+            height: '80px'
+          }}
+          aria-label="انتقل إلى ابدأ رحلتك"
+        >
+          <div className="flex items-center justify-center">
+            <svg 
+              className="w-10 h-10" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={3} 
+                d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+              />
+            </svg>
+          </div>
+        </button>
       
     </>
   )

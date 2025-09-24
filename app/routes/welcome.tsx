@@ -5492,7 +5492,7 @@ export default function WelcomePage() {
               element.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
           }}
-          className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 animate-bounce"
+          className="absolute bottom-6 right-6 z-50 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 animate-bounce"
           style={{ boxShadow: '0 8px 32px rgba(34, 211, 238, 0.3)' }}
           aria-label="انتقل إلى ابدأ رحلتك"
         >

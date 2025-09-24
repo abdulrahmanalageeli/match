@@ -232,7 +232,7 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogPortal>
-        <DialogOverlay className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogOverlay className="fixed inset-0 z-50 bg-black/20 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogContent
           className={`max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
           dir="rtl"

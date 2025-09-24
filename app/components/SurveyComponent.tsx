@@ -912,7 +912,7 @@ export default function SurveyComponent({
               placeholder={question.placeholder}
               min={question.min}
               max={question.max}
-              className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm rounded-lg px-3 py-2 text-sm transition-all duration-300"
+              className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
             />
             {(question.min || question.max) && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-2">
@@ -945,11 +945,11 @@ export default function SurveyComponent({
                   }
                 }}
                 placeholder={question.placeholder}
-                className={`text-right border-2 rounded-lg px-3 py-2 text-sm transition-all duration-300 focus:ring-4 backdrop-blur-sm ${
+                className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
                   isOverLimit 
-                    ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400 focus:ring-red-500/20 dark:focus:ring-red-400/20' 
-                    : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/20 dark:focus:ring-blue-400/20'
-                } bg-white/50 dark:bg-slate-700/50`}
+                    ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' 
+                    : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
+                } bg-white dark:bg-slate-700`}
               />
               
               {/* Character counter */}
@@ -978,13 +978,12 @@ export default function SurveyComponent({
                 }
               }}
               placeholder={question.placeholder}
-              className={`min-h-[40px] text-right border-2 rounded-lg px-3 py-1.5 text-sm transition-all duration-300 focus:ring-4 backdrop-blur-sm resize-none ${
+              className={`min-h-[40px] text-right border-2 rounded-lg px-3 py-1.5 text-sm resize-none ${
                 isOverLimit 
-                  ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400 focus:ring-red-500/20 dark:focus:ring-red-400/20' 
-                  : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-blue-500/20 dark:focus:ring-blue-400/20'
-              } bg-white/50 dark:bg-slate-700/50`}
+                  ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' 
+                  : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
+              } bg-white dark:bg-slate-700`}
             />
-            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500/5 to-purple-500/5 pointer-events-none"></div>
             
             {/* Character counter */}
             <div className="flex justify-between items-center mt-2 text-xs">
@@ -1010,9 +1009,9 @@ export default function SurveyComponent({
       <div className="text-center mb-6">
         <div className="relative inline-block mb-4">
           <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
-            <Shield className="w-6 h-6 text-white" />
-          </div>
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
+          <Shield className="w-6 h-6 text-white" />
+        </div>
+        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full"></div>
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">الشروط والأحكام</h2>
         <p className="text-sm text-gray-600 dark:text-gray-400">يرجى قراءة والموافقة على الشروط التالية</p>
@@ -1103,14 +1102,14 @@ export default function SurveyComponent({
     <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Loading Overlay */}
       {loading && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-          <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 dark:border-slate-700/50 max-w-sm mx-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-slate-700 max-w-sm mx-4">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="relative">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
                   <Loader2 className="w-8 h-8 text-white animate-spin" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-ping"></div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full"></div>
               </div>
               <div>
                 <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-2">جاري تحليل البيانات</h3>

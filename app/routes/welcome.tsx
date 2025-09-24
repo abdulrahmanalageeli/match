@@ -5482,6 +5482,8 @@ export default function WelcomePage() {
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
+      </div>
+
       {/* Floating Scroll to Start Journey Button */}
       <button
           onClick={() => {
@@ -5511,8 +5513,6 @@ export default function WelcomePage() {
             <span className="text-xs font-bold whitespace-nowrap">ابدأ رحلتك</span>
           </div>
         </button>
-
-      </div>
       
     </>
   )

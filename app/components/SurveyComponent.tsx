@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "../../components/ui/button"
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
@@ -623,89 +623,101 @@ export default function SurveyComponent({
 }: { 
   onSubmit: (data: SurveyData) => void
   surveyData: SurveyData
-  setSurveyData: (data: SurveyData) => void
+  setSurveyData: React.Dispatch<React.SetStateAction<SurveyData>>
   loading?: boolean
 }) {
-  console.log("🚀 SurveyComponent mounted")
-  
-  useEffect(() => {
-    return () => {
-      console.log("🚨 SurveyComponent unmounted!")
-    };
-  }, []);
   
   const [currentPage, setCurrentPage] = useState(0)
 
   const totalPages = Math.ceil(surveyQuestions.length / questionsPerPage) + 1 // +1 for terms page
   const progress = ((currentPage + 1) / totalPages) * 100
 
-  const handleInputChange = (questionId: string, value: string | string[]) => {
-    console.log(`📝 Input change for ${questionId}:`, value)
-    const newData = {
-      ...surveyData,
+  const handleInputChange = useCallback((questionId: string, value: string | string[]) => {
+    setSurveyData((prevData: SurveyData) => ({
+      ...prevData,
       answers: {
-        ...surveyData.answers,
+        ...prevData.answers,
         [questionId]: value
       }
-    }
-    console.log(`📊 Updated surveyData:`, newData)
-    setSurveyData(newData)
-  }
+    }))
+  }, [setSurveyData])
 
-  const handleCheckboxChange = (questionId: string, value: string, checked: boolean) => {
-    const currentValues = (surveyData.answers[questionId] as string[]) || []
-    if (checked) {
-      const question = surveyQuestions.find(q => q.id === questionId)
-      if (question && 'maxSelections' in question && typeof question.maxSelections === 'number' && currentValues.length >= question.maxSelections) {
-        return // Don't add if max reached
-      }
-      const newData = {
-        ...surveyData,
-        answers: {
-          ...surveyData.answers,
-          [questionId]: [...currentValues, value]
+  const handleCheckboxChange = useCallback((questionId: string, value: string, checked: boolean) => {
+    setSurveyData((prevData: SurveyData) => {
+      const currentValues = (prevData.answers[questionId] as string[]) || []
+      if (checked) {
+        const question = surveyQuestions.find(q => q.id === questionId)
+        if (question && 'maxSelections' in question && typeof question.maxSelections === 'number' && currentValues.length >= question.maxSelections) {
+          return prevData // Don't add if max reached
         }
-      }
-      setSurveyData(newData)
-    } else {
-      const newData = {
-        ...surveyData,
-        answers: {
-          ...surveyData.answers,
-          [questionId]: currentValues.filter(v => v !== value)
+        return {
+          ...prevData,
+          answers: {
+            ...prevData.answers,
+            [questionId]: [...currentValues, value]
+          }
         }
-      }
-      setSurveyData(newData)
-    }
-  }
-
-  const isPageValid = (page: number) => {
-    if (page === totalPages - 1) {
-      return surveyData.termsAccepted && surveyData.dataConsent
-    }
-    
-    const startIndex = page * questionsPerPage
-    const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
-    
-    for (let i = startIndex; i < endIndex; i++) {
-      const question = surveyQuestions[i]
-      const value = surveyData.answers[question.id]
-      
-      if (question.required) {
-        if (Array.isArray(value)) {
-          if (!value || value.length === 0) return false
-        } else {
-          if (!value || value === "" || value.trim() === "") return false
-          
-          // Check character limit for text questions
-          if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
-            return false
+      } else {
+        return {
+          ...prevData,
+          answers: {
+            ...prevData.answers,
+            [questionId]: currentValues.filter(v => v !== value)
           }
         }
       }
+    })
+  }, [setSurveyData])
+
+  // Memoize page validation to avoid expensive recalculation on every render
+  const isPageValid = useMemo(() => {
+    const validationCache = new Map<number, boolean>()
+    
+    return (page: number) => {
+      // Check cache first
+      if (validationCache.has(page)) {
+        return validationCache.get(page)!
+      }
+      
+      let isValid = true
+      
+      if (page === totalPages - 1) {
+        isValid = surveyData.termsAccepted && surveyData.dataConsent
+      } else {
+        const startIndex = page * questionsPerPage
+        const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+        
+        for (let i = startIndex; i < endIndex; i++) {
+          const question = surveyQuestions[i]
+          const value = surveyData.answers[question.id]
+          
+          if (question.required) {
+            if (Array.isArray(value)) {
+              if (!value || value.length === 0) {
+                isValid = false
+                break
+              }
+            } else {
+              if (!value || value === "" || value.trim() === "") {
+                isValid = false
+                break
+              }
+              
+              // Check character limit for text questions
+              if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
+                isValid = false
+                break
+              }
+            }
+          }
+        }
+      }
+      
+      // Cache the result
+      validationCache.set(page, isValid)
+      return isValid
     }
-    return true
-  }
+  }, [surveyData.answers, surveyData.termsAccepted, surveyData.dataConsent, totalPages])
 
   const nextPage = () => {
     if (currentPage < totalPages - 1) {
@@ -719,34 +731,25 @@ export default function SurveyComponent({
     }
   }
 
-  const handleSubmit = () => {
-    console.log("🔍 SurveyComponent handleSubmit called")
-    console.log("📊 Current surveyData:", surveyData)
-    console.log("📝 Terms accepted:", surveyData.termsAccepted)
-    console.log("📝 Data consent:", surveyData.dataConsent)
-    
+  const handleSubmit = useCallback(() => {
     // Validate all required questions (including MBTI dropdown and all other questions)
     for (const question of surveyQuestions) {
       if (question.required) {
         const value = surveyData.answers[question.id];
-        console.log(`❓ Question ${question.id}:`, value)
         
         if (Array.isArray(value)) {
           if (!value || value.length === 0) {
-            console.log(`❌ Missing array answer for ${question.id}`)
             alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
             return;
           }
         } else {
           if (!value || value === "" || value.trim() === "") {
-            console.log(`❌ Missing string answer for ${question.id}`)
             alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
             return;
           }
           
           // Check character limit for text questions
           if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
-            console.log(`❌ Text too long for ${question.id}: ${value.length} > ${question.maxLength}`)
             alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
             return;
           }
@@ -755,33 +758,25 @@ export default function SurveyComponent({
     }
     
     if (surveyData.termsAccepted && surveyData.dataConsent) {
-      console.log("✅ All validations passed, calculating personality types")
       
       // Get MBTI personality type from dropdown
       const mbtiType = getMBTIType(surveyData.answers)
-      console.log("🧠 MBTI Type from dropdown:", mbtiType)
       
       // Calculate attachment style (questions 2-6)
       const attachmentStyle = calculateAttachmentStyle(surveyData.answers)
-      console.log("🔒 Calculated Attachment Style:", attachmentStyle)
       
       // Calculate communication style (questions 17-21)
       const communicationStyle = calculateCommunicationStyle(surveyData.answers)
-      console.log("💬 Calculated Communication Style:", communicationStyle)
       
       // Calculate lifestyle preferences (questions 7-11)
       const lifestylePreferences = calculateLifestylePreferences(surveyData.answers)
-      console.log("⏰ Calculated Lifestyle Preferences:", lifestylePreferences)
       
       // Calculate core values (questions 12-16)
       const coreValues = calculateCoreValues(surveyData.answers)
-      console.log("⚖️ Calculated Core Values:", coreValues)
       
       // Extract vibe descriptions (questions 22-27)
       const vibeDescription = extractVibeDescription(surveyData.answers)
       const idealPersonDescription = extractIdealPersonDescription(surveyData.answers)
-      console.log("👤 Combined Vibe Profile:", vibeDescription)
-      console.log("💭 Ideal Person Description (deprecated):", idealPersonDescription)
       
       // Extract personal information
       const name = surveyData.answers['name'] as string
@@ -803,13 +798,11 @@ export default function SurveyComponent({
         idealPersonDescription
       }
       
-      console.log("📋 Final survey data with personality types:", finalData)
       onSubmit(finalData);
     } else {
-      console.log("❌ Terms not accepted")
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }
+  }, [surveyData, onSubmit])
 
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]

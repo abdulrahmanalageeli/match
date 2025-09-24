@@ -5483,7 +5483,7 @@ export default function WelcomePage() {
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
       {/* Floating Scroll to Start Journey Button */}
-      {step === -1 && (
+      {showRegistrationContent && (
         <button
           onClick={() => {
             const element = document.getElementById('start-journey');

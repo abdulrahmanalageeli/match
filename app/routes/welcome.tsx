@@ -2683,7 +2683,7 @@ export default function WelcomePage() {
                 </div>
 
                 {/* Registration Options */}
-                <div className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                <div id="start-journey" className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
                     <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
                     
@@ -3742,7 +3742,7 @@ export default function WelcomePage() {
               </p>
             </div>
 
-                  {/* Round 1 Questions Slideshow - Replace Discussion Questions */}
+                  {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (
                     <div className={`mb-6 p-6 rounded-2xl border ${
                       round1Questions[currentQuestionIndex].level === 1
@@ -3904,34 +3904,7 @@ export default function WelcomePage() {
                         </div>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex justify-center mb-6">
-                      <button
-                        onClick={() => setShowPromptTopicsModal(true)}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
-                          dark
-                            ? "bg-gradient-to-r from-cyan-700 to-blue-700 text-white border-2 border-cyan-400/30 hover:bg-cyan-800"
-                            : "bg-gradient-to-r from-cyan-200 to-blue-200 text-blue-900 border-2 border-cyan-400/30 hover:bg-cyan-100"
-                        } animate-in slide-in-from-bottom-4`}
-                        style={{ boxShadow: dark ? '0 4px 24px 0 #22d3ee33' : '0 4px 24px 0 #06b6d433' }}
-                        aria-label="أسئلة للنقاش"
-                      >
-                        <Sparkles className="w-6 h-6 animate-pulse" />
-                        أسئلة للنقاش
-                      </button>
-                    </div>
-                  )}
-
-                  {/* AI Questions Generator */}
-                  {secureToken && (
-                    <div className="mb-6">
-                      <AIQuestionsGenerator 
-                        secureToken={secureToken}
-                        dark={dark}
-                        currentRound={currentRound}
-                      />
-                    </div>
-                  )}
+                  ) : null}
 
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
                     dark 
@@ -3966,30 +3939,157 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  <div className="flex justify-center mb-6">
-                    <button
-                      onClick={() => setShowPromptTopicsModal(true)}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 ${
-                        dark
-                          ? "bg-gradient-to-r from-cyan-700 to-blue-700 text-white border-2 border-cyan-400/30 hover:bg-cyan-800"
-                          : "bg-gradient-to-r from-cyan-200 to-blue-200 text-blue-900 border-2 border-cyan-400/30 hover:bg-cyan-100"
-                      } animate-in slide-in-from-bottom-4`}
-                      style={{ boxShadow: dark ? '0 4px 24px 0 #22d3ee33' : '0 4px 24px 0 #06b6d433' }}
-                      aria-label="أسئلة للنقاش"
-                    >
-                      <Sparkles className="w-6 h-6 animate-pulse" />
-                      أسئلة للنقاش
-                    </button>
-                  </div>
+                  {/* Round 1 Questions Slideshow - Always show for Round 1 */}
+                  {currentRound === 1 && (
+                    <div className={`mb-6 p-6 rounded-2xl border ${
+                      round1Questions[currentQuestionIndex].level === 1
+                        ? dark 
+                          ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
+                          : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                        : round1Questions[currentQuestionIndex].level === 2
+                          ? dark
+                            ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
+                            : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+                          : round1Questions[currentQuestionIndex].level === 3
+                            ? dark
+                              ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
+                              : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                            : dark
+                              ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
+                              : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
+                    }`}>
+                      <div className="text-center mb-6">
+                        <div className="flex items-center justify-center gap-2 mb-3">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            round1Questions[currentQuestionIndex].level === 1
+                              ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                              : round1Questions[currentQuestionIndex].level === 2
+                                ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                : round1Questions[currentQuestionIndex].level === 3
+                                  ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                  : "bg-gradient-to-r from-green-500 to-teal-600"
+                          }`}>
+                            <span className="text-white font-bold text-sm">
+                              {round1Questions[currentQuestionIndex].levelEmoji}
+                            </span>
+                          </div>
+                          <h4 className={`text-lg font-bold ${
+                            round1Questions[currentQuestionIndex].level === 1
+                              ? dark ? "text-cyan-200" : "text-cyan-800"
+                              : round1Questions[currentQuestionIndex].level === 2
+                                ? dark ? "text-amber-200" : "text-amber-800"
+                                : round1Questions[currentQuestionIndex].level === 3
+                                  ? dark ? "text-purple-200" : "text-purple-800"
+                                  : dark ? "text-green-200" : "text-green-800"
+                          }`}>
+                            {round1Questions[currentQuestionIndex].levelTitle}
+                          </h4>
+                        </div>
+                        <p className={`text-sm ${
+                          round1Questions[currentQuestionIndex].level === 1
+                            ? dark ? "text-cyan-300" : "text-cyan-700"
+                            : round1Questions[currentQuestionIndex].level === 2
+                              ? dark ? "text-amber-300" : "text-amber-700"
+                              : round1Questions[currentQuestionIndex].level === 3
+                                ? dark ? "text-purple-300" : "text-purple-700"
+                                : dark ? "text-green-300" : "text-green-700"
+                        }`}>
+                          {round1Questions[currentQuestionIndex].level === 1
+                            ? "هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة"
+                            : round1Questions[currentQuestionIndex].level === 2
+                              ? "هذا المستوى يركز على القيم الأساسية والمبادئ الشخصية العميقة"
+                              : round1Questions[currentQuestionIndex].level === 3
+                                ? "هذا المستوى يركز على مشاركة التجارب الشخصية والذكريات المؤثرة"
+                                : "هذا المستوى يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة"
+                          }
+                        </p>
+                      </div>
 
-                  {/* AI Questions Generator */}
-                  {secureToken && (
-                    <div className="mb-6">
-                      <AIQuestionsGenerator 
-                        secureToken={secureToken}
-                        dark={dark}
-                        currentRound={currentRound}
-                      />
+                      <div className="relative">
+                        {/* Question Number */}
+                        <div className="absolute -top-3 right-4">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
+                            round1Questions[currentQuestionIndex].level === 1
+                              ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                              : round1Questions[currentQuestionIndex].level === 2
+                                ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                : round1Questions[currentQuestionIndex].level === 3
+                                  ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                  : "bg-gradient-to-r from-green-500 to-teal-600"
+                          }`}>
+                            <span className="text-white font-bold text-sm">{currentQuestionIndex + 1}</span>
+                          </div>
+                        </div>
+
+                        {/* Question Title */}
+                        <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                          {round1Questions[currentQuestionIndex].title}
+                        </h5>
+
+                        {/* Question Text */}
+                        <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                          {round1Questions[currentQuestionIndex].question}
+                        </p>
+
+                        {/* Navigation */}
+                        <div className="flex justify-between items-center mt-6">
+                          <button
+                            onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+                            disabled={currentQuestionIndex === 0}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+                              currentQuestionIndex === 0
+                                ? dark ? "bg-slate-600/50 text-slate-400 cursor-not-allowed" : "bg-gray-200/50 text-gray-400 cursor-not-allowed"
+                                : dark ? "bg-slate-600 text-slate-200 hover:bg-slate-500" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                            السابق
+                          </button>
+
+                          <div className={`text-sm font-medium ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                            {currentQuestionIndex + 1} من {round1Questions.length}
+                          </div>
+
+                          <button
+                            onClick={() => setCurrentQuestionIndex(Math.min(round1Questions.length - 1, currentQuestionIndex + 1))}
+                            disabled={currentQuestionIndex === round1Questions.length - 1}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+                              currentQuestionIndex === round1Questions.length - 1
+                                ? dark ? "bg-slate-600/50 text-slate-400 cursor-not-allowed" : "bg-gray-200/50 text-gray-400 cursor-not-allowed"
+                                : dark ? "bg-slate-600 text-slate-200 hover:bg-slate-500" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            }`}
+                          >
+                            التالي
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Progress indicator */}
+                        <div className="mt-4">
+                          <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
+                            <div 
+                              className={`h-2 rounded-full transition-all duration-300 ${
+                                round1Questions[currentQuestionIndex].level === 1
+                                  ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                                  : round1Questions[currentQuestionIndex].level === 2
+                                    ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                    : round1Questions[currentQuestionIndex].level === 3
+                                      ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                      : "bg-gradient-to-r from-green-500 to-teal-600"
+                              }`}
+                              style={{ width: `${((currentQuestionIndex + 1) / round1Questions.length) * 100}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between mt-2 text-xs">
+                            <span className={dark ? "text-slate-400" : "text-gray-500"}>
+                              السؤال {currentQuestionIndex + 1}
+                            </span>
+                            <span className={dark ? "text-slate-400" : "text-gray-500"}>
+                              من {round1Questions.length}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -5382,6 +5482,37 @@ export default function WelcomePage() {
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
 
+      {/* Floating Scroll to Start Journey Button */}
+      {step === -1 && (
+        <button
+          onClick={() => {
+            const element = document.getElementById('start-journey');
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }}
+          className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white p-4 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-110 animate-bounce"
+          style={{ boxShadow: '0 8px 32px rgba(34, 211, 238, 0.3)' }}
+          aria-label="انتقل إلى ابدأ رحلتك"
+        >
+          <div className="flex flex-col items-center">
+            <svg 
+              className="w-6 h-6 mb-1" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                strokeWidth={2} 
+                d="M19 14l-7 7m0 0l-7-7m7 7V3" 
+              />
+            </svg>
+            <span className="text-xs font-bold whitespace-nowrap">ابدأ رحلتك</span>
+          </div>
+        </button>
+      )}
 
       </div>
       

@@ -177,7 +177,7 @@ export default function WelcomePage() {
     localStorage.removeItem('timerRestored');
     localStorage.removeItem('timerStartTime');
     localStorage.removeItem('timerDuration');
-    console.log("🔄 Cleared timer localStorage backup");
+    // Cleared timer localStorage backup
   }
   
   const [feedbackAnswers, setFeedbackAnswers] = useState({
@@ -540,10 +540,13 @@ export default function WelcomePage() {
 
     // If the summary is empty or invalid, don't start
     if (!personalitySummary || personalitySummary.trim() === "") {
+      setTypewriterText(personalitySummary)
+      setIsTyping(false)
+      setTypewriterCompleted(true)
       return
     }
 
-    console.log("🔄 Typewriter: Starting typewriter effect")
+    // Starting typewriter effect
     setIsTyping(true)
     setTypewriterText("")
     
@@ -557,7 +560,7 @@ export default function WelcomePage() {
         setTypewriterText(personalitySummary) // Ensure final text is set
         setIsTyping(false)
         setTypewriterCompleted(true)
-        console.log("🔄 Typewriter: Completed - STOPPING FOREVER")
+        // Typewriter completed
       }
     }, 30) // Speed of typing
 
@@ -602,21 +605,8 @@ export default function WelcomePage() {
               const justToken = sessionStorage.getItem('justCreatedTokenValue')
               if (justToken) setSecureToken(justToken)
               setShowTokenModal(true)
-              sessionStorage.removeItem('justCreatedToken')
-              sessionStorage.removeItem('justCreatedTokenValue')
             }
           } catch (_) {}
-          if (data.summary) {
-            console.log("📖 Loaded summary from database:", data.summary)
-            setPersonalitySummary(data.summary)
-          } else {
-            console.log("📖 No summary found in database")
-          }
-          // Check if user has filled the survey using new structure
-          const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
-          if (hasFilledForm) {
-            setSurveyData(data.survey_data);
-          }
           // Load history for returning user and show popup
           try {
             if (Array.isArray(data.history) && data.history.length > 0) {
@@ -702,14 +692,14 @@ export default function WelcomePage() {
             // Restore timer state if active (only attempt once per page load)
             if (!timerRestoreAttempted && eventData.global_timer_active && eventData.global_timer_start_time) {
               setTimerRestoreAttempted(true);
-              console.log("🔄 Restoring timer state on page load");
+              // Restoring timer state on page load
               const startTime = new Date(eventData.global_timer_start_time).getTime();
               const now = new Date().getTime();
               const elapsed = Math.floor((now - startTime) / 1000);
               const remaining = Math.max(0, (eventData.global_timer_duration || 1800) - elapsed);
               
               if (remaining > 0) {
-                console.log(`✅ Restoring active timer with ${remaining}s remaining`);
+                // Restoring active timer
                 setGlobalTimerActive(true);
                 setGlobalTimerStartTime(eventData.global_timer_start_time);
                 setGlobalTimerDuration(eventData.global_timer_duration || 1800);
@@ -876,7 +866,7 @@ export default function WelcomePage() {
 
     const interval = setInterval(async () => {
       try {
-        console.log("🔄 Participant: Polling for updates...")
+        // Polling for updates...
         // Fetch both phase and event state in one call
         const res = await fetch("/api/admin", {
           method: "POST",
@@ -903,14 +893,14 @@ export default function WelcomePage() {
         setEmergencyPaused(data.emergency_paused || false)
         
         // Handle global timer state with improved synchronization
-        console.log(`🔄 Participant: Received data - global_timer_active: ${data.global_timer_active}, global_timer_start_time: ${data.global_timer_start_time}, global_timer_duration: ${data.global_timer_duration}`)
+        // Received timer data
         
         // Handle timer state updates
         // We need to handle both active timers and timer end scenarios
         const hasActiveTimer = data.global_timer_active && data.global_timer_start_time;
         const shouldUpdateActiveTimer = (!timerRestored || hasActiveTimer) && data.global_timer_start_time;
         
-        console.log("🔄 Timer state debug - hasActiveTimer:", hasActiveTimer, "shouldUpdateActiveTimer:", shouldUpdateActiveTimer, "globalTimerActive:", globalTimerActive, "conversationStarted:", conversationStarted, "data.global_timer_active:", data.global_timer_active);
+        // Timer state debug
         
         // Handle active timer updates
         if (shouldUpdateActiveTimer) {
@@ -920,11 +910,11 @@ export default function WelcomePage() {
             const elapsed = Math.floor((now - startTime) / 1000)
             const remaining = Math.max(0, (data.global_timer_duration || 1800) - elapsed)
             
-            console.log(`🔄 Participant: Global timer data - active: ${data.global_timer_active}, remaining: ${remaining}s, round: ${data.global_timer_round}, elapsed: ${elapsed}s`)
+            // Global timer data
             
             if (remaining > 0) {
               if (!globalTimerActive) {
-                console.log("🚀 Participant: Global timer detected, starting conversation")
+                // Global timer detected
                 setGlobalTimerActive(true)
                 setConversationStarted(true)
                 setTimerEnded(false)
@@ -933,11 +923,11 @@ export default function WelcomePage() {
               setGlobalTimerStartTime(data.global_timer_start_time)
               setGlobalTimerDuration(data.global_timer_duration || 1800)
               setConversationTimer(remaining)
-              console.log(`✅ Participant: Timer set to ${remaining}s`)
+              // Timer set
             } else {
               // Timer expired
               if (globalTimerActive) {
-                console.log("⏰ Participant: Global timer expired, showing feedback")
+                // Global timer expired, showing feedback
                 setGlobalTimerActive(false)
                 setConversationStarted(false)
                 setConversationTimer(0)
@@ -1275,7 +1265,7 @@ export default function WelcomePage() {
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
       }
-    }, 1000) // Always poll every second for better responsiveness
+    }, 2000) // Poll every 2 seconds (reduced from 1s for better performance) for better responsiveness
   
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])

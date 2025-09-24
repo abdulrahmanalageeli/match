@@ -193,9 +193,6 @@ export default function WelcomePage() {
   })
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
-  const [isResolving, setIsResolving] = useState(true)
-  const [tokenError, setTokenError] = useState<string | null>(null)
-  const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null)
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
@@ -245,6 +242,11 @@ export default function WelcomePage() {
   const [currentEventId, setCurrentEventId] = useState(1);
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+
+  // Token validation states
+  const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(true);
 
   // Brute force protection states
   const [tokenAttempts, setTokenAttempts] = useState(0);
@@ -582,7 +584,9 @@ export default function WelcomePage() {
         })
         const data = await res.json()
         
-        if (data.success) {
+        console.log("Frontend: Token resolution response:", { status: res.status, data });
+        
+        if (res.ok && data.success) {
           // Token is valid
           setIsTokenValid(true)
           setTokenError(null)
@@ -628,6 +632,9 @@ export default function WelcomePage() {
           } catch (e) {
             console.error("Error mapping history:", e)
           }
+          
+          // Check if user has filled the survey using new structure
+          const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
           
           // Reset all states to prevent stuck states on refresh
           setModalStep(null);

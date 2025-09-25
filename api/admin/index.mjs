@@ -838,6 +838,114 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "get-participant-results") {
+      try {
+        const { event_id } = req.body
+        console.log(`Getting participant results for event_id: ${event_id}`)
+        
+        // Get all participants for this match
+        const { data: participants, error: participantsError } = await supabase
+          .from("participants")
+          .select("id, assigned_number, name, survey_data")
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999) // Exclude organizer participant
+          .order("assigned_number", { ascending: true })
+        
+        if (participantsError) {
+          console.error("Error fetching participants:", participantsError)
+          return res.status(500).json({ error: "Failed to fetch participants" })
+        }
+        
+        // Get match results for this event
+        const { data: matchResults, error: matchError } = await supabase
+          .from("match_results")
+          .select(`
+            participant_a_number, 
+            participant_b_number,
+            compatibility_score,
+            mbti_compatibility_score,
+            attachment_compatibility_score,
+            communication_compatibility_score,
+            lifestyle_compatibility_score,
+            core_values_compatibility_score,
+            vibe_compatibility_score,
+            round
+          `)
+          .eq("event_id", event_id || 1)
+          .order("compatibility_score", { ascending: false })
+        
+        if (matchError) {
+          console.error("Error fetching match results:", matchError)
+          return res.status(500).json({ error: "Failed to fetch match results" })
+        }
+        
+        // Create a map of participant results
+        const participantResultsMap = new Map()
+        
+        // Initialize all participants with default values
+        participants.forEach(participant => {
+          participantResultsMap.set(participant.assigned_number, {
+            id: participant.id,
+            assigned_number: participant.assigned_number,
+            name: participant.name || participant.survey_data?.name || "غير محدد",
+            compatibility_score: 0,
+            mbti_compatibility_score: 0,
+            attachment_compatibility_score: 0,
+            communication_compatibility_score: 0,
+            lifestyle_compatibility_score: 0,
+            core_values_compatibility_score: 0,
+            vibe_compatibility_score: 0,
+            partner_assigned_number: null,
+            partner_name: null
+          })
+        })
+        
+        // Update with match results
+        matchResults.forEach(match => {
+          const participantA = participantResultsMap.get(match.participant_a_number)
+          const participantB = participantResultsMap.get(match.participant_b_number)
+          
+          if (participantA && participantB) {
+            // Update participant A
+            participantA.compatibility_score = Math.max(participantA.compatibility_score, match.compatibility_score || 0)
+            participantA.mbti_compatibility_score = Math.max(participantA.mbti_compatibility_score, match.mbti_compatibility_score || 0)
+            participantA.attachment_compatibility_score = Math.max(participantA.attachment_compatibility_score, match.attachment_compatibility_score || 0)
+            participantA.communication_compatibility_score = Math.max(participantA.communication_compatibility_score, match.communication_compatibility_score || 0)
+            participantA.lifestyle_compatibility_score = Math.max(participantA.lifestyle_compatibility_score, match.lifestyle_compatibility_score || 0)
+            participantA.core_values_compatibility_score = Math.max(participantA.core_values_compatibility_score, match.core_values_compatibility_score || 0)
+            participantA.vibe_compatibility_score = Math.max(participantA.vibe_compatibility_score, match.vibe_compatibility_score || 0)
+            participantA.partner_assigned_number = match.participant_b_number
+            participantA.partner_name = participantB.name
+            
+            // Update participant B
+            participantB.compatibility_score = Math.max(participantB.compatibility_score, match.compatibility_score || 0)
+            participantB.mbti_compatibility_score = Math.max(participantB.mbti_compatibility_score, match.mbti_compatibility_score || 0)
+            participantB.attachment_compatibility_score = Math.max(participantB.attachment_compatibility_score, match.attachment_compatibility_score || 0)
+            participantB.communication_compatibility_score = Math.max(participantB.communication_compatibility_score, match.communication_compatibility_score || 0)
+            participantB.lifestyle_compatibility_score = Math.max(participantB.lifestyle_compatibility_score, match.lifestyle_compatibility_score || 0)
+            participantB.core_values_compatibility_score = Math.max(participantB.core_values_compatibility_score, match.core_values_compatibility_score || 0)
+            participantB.vibe_compatibility_score = Math.max(participantB.vibe_compatibility_score, match.vibe_compatibility_score || 0)
+            participantB.partner_assigned_number = match.participant_a_number
+            participantB.partner_name = participantA.name
+          }
+        })
+        
+        // Convert map to array
+        const results = Array.from(participantResultsMap.values())
+        
+        console.log(`Found ${results.length} participants with ${matchResults.length} total matches`)
+        
+        return res.status(200).json({ 
+          results,
+          totalMatches: matchResults.length,
+          totalParticipants: results.length
+        })
+      } catch (err) {
+        console.error("Error getting participant results:", err)
+        return res.status(500).json({ error: "Failed to get participant results" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

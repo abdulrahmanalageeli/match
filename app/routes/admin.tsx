@@ -28,6 +28,7 @@ import {
   Square,
   X
 } from "lucide-react"
+import ParticipantResultsModal from "../components/ParticipantResultsModal"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -60,6 +61,12 @@ export default function AdminPage() {
   const [maxEventId, setMaxEventId] = useState(1)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [eventFinished, setEventFinished] = useState(false)
+  
+  // Participant Results Modal State
+  const [showResultsModal, setShowResultsModal] = useState(false)
+  const [participantResults, setParticipantResults] = useState<any[]>([])
+  const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
+  const [totalMatches, setTotalMatches] = useState(0)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -559,6 +566,36 @@ export default function AdminPage() {
     }
   }
 
+  const fetchParticipantResults = async (eventId: number, type: "ai" | "no-ai" | "group") => {
+    try {
+      setLoading(true)
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-participant-results",
+          event_id: eventId
+        }),
+      })
+      
+      const data = await res.json()
+      if (res.ok) {
+        setParticipantResults(data.results || [])
+        setTotalMatches(data.totalMatches || 0)
+        setMatchType(type)
+        setShowResultsModal(true)
+      } else {
+        console.error("Failed to fetch participant results:", data.error)
+        alert("❌ Failed to fetch participant results: " + (data.error || "Unknown error"))
+      }
+    } catch (err) {
+      console.error("Error fetching participant results:", err)
+      alert("❌ Error fetching participant results")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
@@ -856,6 +893,8 @@ export default function AdminPage() {
                   if (res.ok) {
                     alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`)
                     fetchParticipants()
+                    // Show results modal
+                    await fetchParticipantResults(currentEventId, "ai")
                   } else {
                     alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                   }
@@ -880,6 +919,8 @@ export default function AdminPage() {
                   if (res.ok) {
                     alert(`✅ ${data.message}\n\nGroups created: ${data.count}\n\nGroup details:\n${data.groups?.map((g: any) => `Group ${g.group_number}: [${g.participants.join(', ')}] - Score: ${g.score}%`).join('\n') || 'No details available'}`)
                     fetchParticipants()
+                    // Show results modal
+                    await fetchParticipantResults(1, "group")
                   } else {
                     alert("❌ Failed to generate group matches: " + (data.error || "Unknown error"))
                   }
@@ -1157,6 +1198,8 @@ export default function AdminPage() {
                     if (res.ok) {
                       alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
                       fetchParticipants()
+                      // Show results modal
+                      await fetchParticipantResults(1, "no-ai")
                     } else {
                       alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                     }
@@ -1597,6 +1640,15 @@ export default function AdminPage() {
           <Trash2 className="inline-block mr-2" /> Clear History
         </button>
       )}
+
+      {/* Participant Results Modal */}
+      <ParticipantResultsModal
+        isOpen={showResultsModal}
+        onClose={() => setShowResultsModal(false)}
+        results={participantResults}
+        matchType={matchType}
+        totalMatches={totalMatches}
+      />
     </div>
   )
 }

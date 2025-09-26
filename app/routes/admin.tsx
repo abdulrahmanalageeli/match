@@ -567,12 +567,87 @@ export default function AdminPage() {
     }
   }
 
-  const showParticipantResults = (results: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = []) => {
-    setParticipantResults(results)
-    setTotalMatches(totalMatches)
-    setMatchType(type)
-    setCalculatedPairs(calculatedPairs)
-    setShowResultsModal(true)
+  const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = []) => {
+    try {
+      // Convert match results to participant results format
+      const participantMap = new Map()
+      
+      // Get all participants to have their names
+      const participantsRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "participants" }),
+      })
+      const participantsData = await participantsRes.json()
+      const allParticipants = participantsData.participants || []
+      
+      // Create a map of participant numbers to participant info
+      const participantInfoMap = new Map()
+      allParticipants.forEach((p: any) => {
+        participantInfoMap.set(p.assigned_number, {
+          name: p.survey_data?.name || `المشارك #${p.assigned_number}`,
+          id: p.id
+        })
+      })
+      
+      // Process match results to create participant results
+      matchResults.forEach((match: any) => {
+        // Add participant A
+        if (match.participant_a_number) {
+          const participantInfo = participantInfoMap.get(match.participant_a_number)
+          const existing = participantMap.get(match.participant_a_number)
+          if (!existing || match.compatibility_score > existing.compatibility_score) {
+            participantMap.set(match.participant_a_number, {
+              id: participantInfo?.id || `participant_${match.participant_a_number}`,
+              assigned_number: match.participant_a_number,
+              name: participantInfo?.name || `المشارك #${match.participant_a_number}`,
+              compatibility_score: match.compatibility_score || 0,
+              mbti_compatibility_score: match.mbti_compatibility_score || 0,
+              attachment_compatibility_score: match.attachment_compatibility_score || 0,
+              communication_compatibility_score: match.communication_compatibility_score || 0,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
+              core_values_compatibility_score: match.core_values_compatibility_score || 0,
+              vibe_compatibility_score: match.vibe_compatibility_score || 0,
+              partner_assigned_number: match.participant_b_number,
+              partner_name: participantInfoMap.get(match.participant_b_number)?.name || `المشارك #${match.participant_b_number}`
+            })
+          }
+        }
+        
+        // Add participant B
+        if (match.participant_b_number) {
+          const participantInfo = participantInfoMap.get(match.participant_b_number)
+          const existing = participantMap.get(match.participant_b_number)
+          if (!existing || match.compatibility_score > existing.compatibility_score) {
+            participantMap.set(match.participant_b_number, {
+              id: participantInfo?.id || `participant_${match.participant_b_number}`,
+              assigned_number: match.participant_b_number,
+              name: participantInfo?.name || `المشارك #${match.participant_b_number}`,
+              compatibility_score: match.compatibility_score || 0,
+              mbti_compatibility_score: match.mbti_compatibility_score || 0,
+              attachment_compatibility_score: match.attachment_compatibility_score || 0,
+              communication_compatibility_score: match.communication_compatibility_score || 0,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
+              core_values_compatibility_score: match.core_values_compatibility_score || 0,
+              vibe_compatibility_score: match.vibe_compatibility_score || 0,
+              partner_assigned_number: match.participant_a_number,
+              partner_name: participantInfoMap.get(match.participant_a_number)?.name || `المشارك #${match.participant_a_number}`
+            })
+          }
+        }
+      })
+      
+      const participantResults = Array.from(participantMap.values())
+      
+      setParticipantResults(participantResults)
+      setTotalMatches(totalMatches)
+      setMatchType(type)
+      setCalculatedPairs(calculatedPairs)
+      setShowResultsModal(true)
+    } catch (err) {
+      console.error("Error preparing participant results:", err)
+      alert("❌ Error preparing results display")
+    }
   }
 
   if (!authenticated) {
@@ -873,7 +948,7 @@ export default function AdminPage() {
                     alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`)
                     fetchParticipants()
                     // Show results modal with calculated pairs
-                    showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                    await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
                   } else {
                     alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                   }
@@ -899,7 +974,7 @@ export default function AdminPage() {
                     alert(`✅ ${data.message}\n\nGroups created: ${data.count}\n\nGroup details:\n${data.groups?.map((g: any) => `Group ${g.group_number}: [${g.participants.join(', ')}] - Score: ${g.score}%`).join('\n') || 'No details available'}`)
                     fetchParticipants()
                     // Show results modal (groups don't have calculated pairs)
-                    showParticipantResults(data.results || [], data.count || 0, "group", [])
+                    await showParticipantResults(data.results || [], data.count || 0, "group", [])
                   } else {
                     alert("❌ Failed to generate group matches: " + (data.error || "Unknown error"))
                   }
@@ -1178,7 +1253,7 @@ export default function AdminPage() {
                       alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
                       fetchParticipants()
                       // Show results modal with calculated pairs
-                      showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [])
+                      await showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [])
                     } else {
                       alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                     }

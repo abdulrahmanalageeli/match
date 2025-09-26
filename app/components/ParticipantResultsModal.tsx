@@ -1,5 +1,5 @@
 import React, { useState } from "react"
-import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye } from "lucide-react"
+import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye, AlertTriangle, Info } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -15,6 +15,8 @@ interface ParticipantResult {
   vibe_compatibility_score?: number
   partner_assigned_number?: number
   partner_name?: string
+  is_organizer_match?: boolean
+  incompatibility_reason?: string
 }
 
 interface ParticipantResultsModalProps {
@@ -247,12 +249,14 @@ export default function ParticipantResultsModal({
                         <tr 
                           key={participant.id} 
                           className={`border-t border-white/10 hover:bg-white/5 transition-colors ${
-                            index < 3 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent' : ''
+                            participant.is_organizer_match 
+                              ? 'bg-gradient-to-r from-red-500/10 to-transparent border-red-500/20' 
+                              : index < 3 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent' : ''
                           }`}
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              {index < 3 && (
+                              {index < 3 && !participant.is_organizer_match && (
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                                   index === 0 ? 'bg-yellow-500 text-black' :
                                   index === 1 ? 'bg-gray-400 text-black' :
@@ -261,22 +265,53 @@ export default function ParticipantResultsModal({
                                   {index + 1}
                                 </div>
                               )}
+                              {participant.is_organizer_match && (
+                                <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center" title="لم يتم العثور على مطابقة">
+                                  <AlertTriangle className="w-4 h-4 text-white" />
+                                </div>
+                              )}
                               <span className="font-mono text-white font-semibold">
                                 #{participant.assigned_number}
                               </span>
                             </div>
                           </td>
                           <td className="p-4">
-                            <span className="text-white font-medium">
-                              {participant.name || "غير محدد"}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium">
+                                {participant.name || "غير محدد"}
+                              </span>
+                              {participant.is_organizer_match && participant.incompatibility_reason && (
+                                <div className="group relative">
+                                  <Info className="w-4 h-4 text-yellow-400 cursor-help" />
+                                  <div className="absolute bottom-full left-0 mb-2 hidden group-hover:block z-50 w-80 p-3 bg-gray-900 border border-gray-600 rounded-lg shadow-lg">
+                                    <div className="text-sm text-white">
+                                      <div className="font-semibold text-red-400 mb-2">أسباب عدم التوافق:</div>
+                                      <div className="text-gray-300">{participant.incompatibility_reason}</div>
+                                    </div>
+                                    <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900"></div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4">
                             {participant.partner_assigned_number ? (
                               <div className="text-slate-300">
-                                <div className="font-mono">#{participant.partner_assigned_number}</div>
-                                {participant.partner_name && (
-                                  <div className="text-xs text-slate-400">{participant.partner_name}</div>
+                                {participant.partner_assigned_number === 9999 ? (
+                                  <div className="flex items-center gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                                    <div>
+                                      <div className="text-red-400 font-semibold">منظم الحدث</div>
+                                      <div className="text-xs text-red-300">لا توجد مطابقة</div>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div>
+                                    <div className="font-mono">#{participant.partner_assigned_number}</div>
+                                    {participant.partner_name && (
+                                      <div className="text-xs text-slate-400">{participant.partner_name}</div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             ) : (

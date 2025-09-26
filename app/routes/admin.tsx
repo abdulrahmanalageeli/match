@@ -592,11 +592,52 @@ export default function AdminPage() {
       
       // Process match results to create participant results
       matchResults.forEach((match: any) => {
+        // Helper function to determine incompatibility reason
+        const getIncompatibilityReason = (participantNum: number, partnerNum: number) => {
+          if (partnerNum === 9999) {
+            // Matched with organizer - determine why no real match was found
+            const participant = allParticipants.find((p: any) => p.assigned_number === participantNum)
+            if (!participant) return "بيانات المشارك غير مكتملة"
+            
+            const reasons = []
+            
+            // Check if they have survey data
+            if (!participant.survey_data || Object.keys(participant.survey_data).length === 0) {
+              reasons.push("لم يكمل الاستبيان")
+            }
+            
+            // Check gender preference constraints
+            const gender = participant.gender || participant.survey_data?.gender
+            const sameGenderPref = participant.same_gender_preference || participant.survey_data?.answers?.same_gender_preference?.includes('yes')
+            
+            if (sameGenderPref) {
+              reasons.push("يفضل نفس الجنس ولا يوجد مشاركين متوافقين من نفس الجنس")
+            } else if (gender) {
+              reasons.push(`لا يوجد مشاركين متوافقين من الجنس الآخر (${gender === 'male' ? 'ذكر يبحث عن أنثى' : 'أنثى تبحث عن ذكر'})`)
+            }
+            
+            // Check age constraints for females
+            if (gender === 'female') {
+              const age = participant.age || participant.survey_data?.age
+              if (age) {
+                reasons.push(`قيود العمر: ${age} سنة (يجب أن يكون الفرق أقل من 5 سنوات)`)
+              }
+            }
+            
+            // Check if already matched in previous events
+            reasons.push("قد يكون تم مطابقته في أحداث سابقة مع جميع المشاركين المتاحين")
+            
+            return reasons.length > 0 ? reasons.join(" • ") : "لا يوجد مشاركين متوافقين متاحين"
+          }
+          return null
+        }
+        
         // Add participant A
         if (match.participant_a_number) {
           const participantInfo = participantInfoMap.get(match.participant_a_number)
           const existing = participantMap.get(match.participant_a_number)
           if (!existing || match.compatibility_score > existing.compatibility_score) {
+            const incompatibilityReason = getIncompatibilityReason(match.participant_a_number, match.participant_b_number)
             participantMap.set(match.participant_a_number, {
               id: participantInfo?.id || `participant_${match.participant_a_number}`,
               assigned_number: match.participant_a_number,
@@ -609,16 +650,19 @@ export default function AdminPage() {
               core_values_compatibility_score: match.core_values_compatibility_score || 0,
               vibe_compatibility_score: match.vibe_compatibility_score || 0,
               partner_assigned_number: match.participant_b_number,
-              partner_name: participantInfoMap.get(match.participant_b_number)?.name || `المشارك #${match.participant_b_number}`
+              partner_name: participantInfoMap.get(match.participant_b_number)?.name || `المشارك #${match.participant_b_number}`,
+              is_organizer_match: match.participant_b_number === 9999,
+              incompatibility_reason: incompatibilityReason
             })
           }
         }
         
-        // Add participant B
-        if (match.participant_b_number) {
+        // Add participant B (only if not organizer)
+        if (match.participant_b_number && match.participant_b_number !== 9999) {
           const participantInfo = participantInfoMap.get(match.participant_b_number)
           const existing = participantMap.get(match.participant_b_number)
           if (!existing || match.compatibility_score > existing.compatibility_score) {
+            const incompatibilityReason = getIncompatibilityReason(match.participant_b_number, match.participant_a_number)
             participantMap.set(match.participant_b_number, {
               id: participantInfo?.id || `participant_${match.participant_b_number}`,
               assigned_number: match.participant_b_number,
@@ -631,7 +675,9 @@ export default function AdminPage() {
               core_values_compatibility_score: match.core_values_compatibility_score || 0,
               vibe_compatibility_score: match.vibe_compatibility_score || 0,
               partner_assigned_number: match.participant_a_number,
-              partner_name: participantInfoMap.get(match.participant_a_number)?.name || `المشارك #${match.participant_a_number}`
+              partner_name: participantInfoMap.get(match.participant_a_number)?.name || `المشارك #${match.participant_a_number}`,
+              is_organizer_match: match.participant_a_number === 9999,
+              incompatibility_reason: incompatibilityReason
             })
           }
         }

@@ -946,6 +946,146 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET EXCLUDED PAIRS
+    if (action === "get-excluded-pairs") {
+      try {
+        const { data, error } = await supabase
+          .from("excluded_pairs")
+          .select("id, participant1_number, participant2_number, created_at, reason")
+          .eq("match_id", STATIC_MATCH_ID)
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("Error fetching excluded pairs:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        return res.status(200).json({ excludedPairs: data || [] })
+      } catch (error) {
+        console.error("Error in get-excluded-pairs:", error)
+        return res.status(500).json({ error: "Failed to fetch excluded pairs" })
+      }
+    }
+
+    // 🔹 ADD EXCLUDED PAIR
+    if (action === "add-excluded-pair") {
+      try {
+        const { participant1, participant2, reason = "Admin exclusion" } = req.body
+
+        if (!participant1 || !participant2) {
+          return res.status(400).json({ error: "Both participant numbers are required" })
+        }
+
+        if (participant1 === participant2) {
+          return res.status(400).json({ error: "Cannot exclude a participant from themselves" })
+        }
+
+        // Check if participants exist
+        const { data: participants, error: participantsError } = await supabase
+          .from("participants")
+          .select("assigned_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", [participant1, participant2])
+
+        if (participantsError) {
+          console.error("Error checking participants:", participantsError)
+          return res.status(500).json({ error: "Failed to verify participants" })
+        }
+
+        if (participants.length !== 2) {
+          return res.status(400).json({ error: "One or both participant numbers don't exist" })
+        }
+
+        // Insert excluded pair (constraint will prevent duplicates)
+        const { data, error } = await supabase
+          .from("excluded_pairs")
+          .insert([{
+            match_id: STATIC_MATCH_ID,
+            participant1_number: participant1,
+            participant2_number: participant2,
+            reason: reason
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          if (error.code === '23505') { // Unique constraint violation
+            return res.status(400).json({ error: "This pair is already excluded" })
+          }
+          console.error("Error adding excluded pair:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Added excluded pair: #${participant1} ↔ #${participant2}`)
+        return res.status(200).json({ 
+          success: true, 
+          excludedPair: data,
+          message: `Excluded pair added: #${participant1} and #${participant2}` 
+        })
+
+      } catch (error) {
+        console.error("Error in add-excluded-pair:", error)
+        return res.status(500).json({ error: "Failed to add excluded pair" })
+      }
+    }
+
+    // 🔹 REMOVE EXCLUDED PAIR
+    if (action === "remove-excluded-pair") {
+      try {
+        const { id } = req.body
+
+        if (!id) {
+          return res.status(400).json({ error: "Excluded pair ID is required" })
+        }
+
+        const { error } = await supabase
+          .from("excluded_pairs")
+          .delete()
+          .eq("id", id)
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error removing excluded pair:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Removed excluded pair with ID: ${id}`)
+        return res.status(200).json({ 
+          success: true, 
+          message: "Excluded pair removed successfully" 
+        })
+
+      } catch (error) {
+        console.error("Error in remove-excluded-pair:", error)
+        return res.status(500).json({ error: "Failed to remove excluded pair" })
+      }
+    }
+
+    // 🔹 CLEAR ALL EXCLUDED PAIRS
+    if (action === "clear-excluded-pairs") {
+      try {
+        const { error } = await supabase
+          .from("excluded_pairs")
+          .delete()
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error clearing excluded pairs:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log("✅ All excluded pairs cleared")
+        return res.status(200).json({ 
+          success: true, 
+          message: "All excluded pairs cleared successfully" 
+        })
+
+      } catch (error) {
+        console.error("Error in clear-excluded-pairs:", error)
+        return res.status(500).json({ error: "Failed to clear excluded pairs" })
+      }
+    }
+
 
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {

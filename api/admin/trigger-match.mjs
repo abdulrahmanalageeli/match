@@ -800,8 +800,8 @@ function isPairExcluded(participantA, participantB, excludedPairs) {
   }
   
   return excludedPairs.some(pair => 
-    (pair.participant1 === participantA && pair.participant2 === participantB) ||
-    (pair.participant1 === participantB && pair.participant2 === participantA)
+    (pair.participant1_number === participantA && pair.participant2_number === participantB) ||
+    (pair.participant1_number === participantB && pair.participant2_number === participantA)
   )
 }
 
@@ -922,7 +922,7 @@ export default async function handler(req, res) {
     if (excludedPairs && excludedPairs.length > 0) {
       console.log(`🚫 Excluded pairs configured: ${excludedPairs.length}`)
       excludedPairs.forEach(pair => {
-        console.log(`   #${pair.participant1} ↔ #${pair.participant2}`)
+        console.log(`   #${pair.participant1_number} ↔ #${pair.participant2_number}`)
       })
     }
     

@@ -70,7 +70,7 @@ export default function AdminPage() {
   const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
   
   // Excluded pairs management
-  const [excludedPairs, setExcludedPairs] = useState<Array<{participant1: number, participant2: number}>>([])
+  const [excludedPairs, setExcludedPairs] = useState<Array<{id: string, participant1_number: number, participant2_number: number, created_at: string, reason: string}>>([])
   const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
 
   const STATIC_PASSWORD = "soulmatch2025"
@@ -337,6 +337,7 @@ export default function AdminPage() {
     if (localStorage.getItem("admin") === "authenticated") {
       setAuthenticated(true)
       fetchParticipants()
+      fetchExcludedPairs()
     }
   }, [])
 
@@ -478,7 +479,25 @@ export default function AdminPage() {
     setSelectedParticipants(newSelected)
   }
 
-  const addExcludedPair = () => {
+  const fetchExcludedPairs = async () => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-excluded-pairs" }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setExcludedPairs(data.excludedPairs || [])
+      } else {
+        console.error("Failed to fetch excluded pairs:", data.error)
+      }
+    } catch (error) {
+      console.error("Error fetching excluded pairs:", error)
+    }
+  }
+
+  const addExcludedPair = async () => {
     const p1 = parseInt(newExcludedPair.participant1)
     const p2 = parseInt(newExcludedPair.participant2)
     
@@ -492,34 +511,54 @@ export default function AdminPage() {
       return
     }
     
-    // Check if pair already exists (in either direction)
-    const pairExists = excludedPairs.some(pair => 
-      (pair.participant1 === p1 && pair.participant2 === p2) ||
-      (pair.participant1 === p2 && pair.participant2 === p1)
-    )
-    
-    if (pairExists) {
-      alert("❌ This pair is already excluded")
-      return
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "add-excluded-pair",
+          participant1: p1,
+          participant2: p2,
+          reason: "Admin exclusion"
+        }),
+      })
+      const data = await res.json()
+      
+      if (res.ok) {
+        setNewExcludedPair({ participant1: '', participant2: '' })
+        await fetchExcludedPairs() // Refresh the list
+        alert(`✅ ${data.message}`)
+      } else {
+        alert(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error adding excluded pair:", error)
+      alert("❌ Failed to add excluded pair")
     }
-    
-    // Check if participants exist
-    const p1Exists = participants.some(p => p.assigned_number === p1)
-    const p2Exists = participants.some(p => p.assigned_number === p2)
-    
-    if (!p1Exists || !p2Exists) {
-      alert("❌ One or both participant numbers don't exist")
-      return
-    }
-    
-    setExcludedPairs([...excludedPairs, { participant1: p1, participant2: p2 }])
-    setNewExcludedPair({ participant1: '', participant2: '' })
-    alert(`✅ Excluded pair added: #${p1} and #${p2}`)
   }
 
-  const removeExcludedPair = (index: number) => {
-    const newPairs = excludedPairs.filter((_, i) => i !== index)
-    setExcludedPairs(newPairs)
+  const removeExcludedPair = async (id: string) => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "remove-excluded-pair",
+          id: id
+        }),
+      })
+      const data = await res.json()
+      
+      if (res.ok) {
+        await fetchExcludedPairs() // Refresh the list
+        alert(`✅ ${data.message}`)
+      } else {
+        alert(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error removing excluded pair:", error)
+      alert("❌ Failed to remove excluded pair")
+    }
   }
 
   const filteredParticipants = participants.filter(p => 
@@ -1032,7 +1071,7 @@ export default function AdminPage() {
                 onClick={async () => {
                   let confirmMessage = `Are you sure you want to generate matches for Event ${currentEventId} using the new personality-based algorithm?\n\nThis will check previous events to avoid repeated matches.`
                   if (excludedPairs.length > 0) {
-                    confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1} ↔ #${p.participant2}`).join('\n')}`
+                    confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1_number} ↔ #${p.participant2_number}`).join('\n')}`
                   }
                   if (!confirm(confirmMessage)) return
                   setLoading(true)
@@ -1202,13 +1241,13 @@ export default function AdminPage() {
                 {excludedPairs.length === 0 ? (
                   <p className="text-slate-400 text-sm">No excluded pairs</p>
                 ) : (
-                  excludedPairs.map((pair, index) => (
-                    <div key={index} className="flex items-center justify-between bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
+                  excludedPairs.map((pair) => (
+                    <div key={pair.id} className="flex items-center justify-between bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
                       <span className="text-white text-sm">
-                        #{pair.participant1} ↔ #{pair.participant2}
+                        #{pair.participant1_number} ↔ #{pair.participant2_number}
                       </span>
                       <button
-                        onClick={() => removeExcludedPair(index)}
+                        onClick={() => removeExcludedPair(pair.id)}
                         className="text-red-400 hover:text-red-300 transition-colors"
                       >
                         <X className="w-4 h-4" />

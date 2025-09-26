@@ -5521,7 +5521,7 @@ export default function WelcomePage() {
       )}
 
       {/* Prompts/Questions Modal */}
-      <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} dark={dark} />
+      <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
 
       </div>
 

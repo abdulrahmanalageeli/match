@@ -225,7 +225,7 @@ const depthColors = {
 
 const depthOrder: Array<keyof typeof depthLabels> = ["shallow", "medium", "deep"];
 
-export default function PromptTopicsModal({ open, onClose, dark }: { open: boolean; onClose: () => void; dark: boolean }) {
+export default function PromptTopicsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [selectedTopic, setSelectedTopic] = useState<null | typeof promptTopics[0]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -234,11 +234,11 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogContent
-          className={`max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-200 dark:border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 ${dark ? "bg-slate-900 text-white" : "bg-white text-gray-900"}`}
+          className="max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-slate-900 text-white"
           dir="rtl"
           aria-label="أسئلة للنقاش"
         >
-        <DialogHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-2 border-b border-slate-200 dark:border-slate-700 z-10 relative bg-inherit sticky top-0">
+        <DialogHeader className="flex flex-row items-center justify-between px-4 sm:px-6 pt-4 sm:pt-5 pb-2 border-b border-slate-700 z-10 relative bg-inherit sticky top-0">
           <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
             <Sparkles className="w-6 h-6 text-cyan-500" />
             أسئلة للنقاش
@@ -254,18 +254,16 @@ export default function PromptTopicsModal({ open, onClose, dark }: { open: boole
               <div
                 className={`w-8 h-8 sm:w-7 sm:h-7 flex items-center justify-center rounded-full border transition-all duration-300 ${
                   selectedTopic && selectedTopic.depth === depth
-                    ? `bg-cyan-50 dark:bg-slate-800 border-cyan-400 scale-110` :
+                    ? "bg-slate-800 border-cyan-400 scale-110" :
                   !selectedTopic && idx === 0
-                    ? `bg-cyan-50 dark:bg-slate-800 border-cyan-400 scale-110` :
-                    dark
-                      ? "bg-slate-800 border-slate-700"
-                      : "bg-gray-100 border-gray-300"
+                    ? "bg-slate-800 border-cyan-400 scale-110" :
+                    "bg-slate-800 border-slate-700"
                 }`}
                 aria-label={depthLabels[depth]}
               >
                 <Sparkles className={`w-5 h-5 sm:w-4 sm:h-4 ${depth === "shallow" ? "text-cyan-400" : depth === "medium" ? "text-green-400" : "text-purple-400"}`} />
               </div>
-              <span className={`mt-1 text-[11px] sm:text-xs font-medium ${selectedTopic && selectedTopic.depth === depth ? "text-cyan-500" : dark ? "text-slate-400" : "text-gray-500"}`}>{depthLabels[depth]}</span>
+              <span className={`mt-1 text-[11px] sm:text-xs font-medium ${selectedTopic && selectedTopic.depth === depth ? "text-cyan-500" : "text-slate-400"}`}>{depthLabels[depth]}</span>
             </div>
           ))}
         </div>

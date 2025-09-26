@@ -73,7 +73,7 @@ const games: Game[] = [
     nameAr: "أسئلة للنقاش",
     description: "Deep conversation starters",
     descriptionAr: "أسئلة عميقة لبدء المحادثات",
-    duration: 0,
+    duration: 10,
     icon: <Sparkles className="w-6 h-6" />,
     color: "from-purple-500 to-pink-500"
   },
@@ -83,7 +83,7 @@ const games: Game[] = [
     nameAr: "لم أفعل من قبل",
     description: "Share deep personal experiences",
     descriptionAr: "شاركوا تجاربكم الشخصية العميقة",
-    duration: 0,
+    duration: 10,
     icon: <Target className="w-6 h-6" />,
     color: "from-blue-500 to-cyan-500"
   },
@@ -93,7 +93,7 @@ const games: Game[] = [
     nameAr: "ماذا تفضل",
     description: "Choose between meaningful life decisions",
     descriptionAr: "اختاروا بين قرارات حياتية مهمة",
-    duration: 0,
+    duration: 10,
     icon: <Heart className="w-6 h-6" />,
     color: "from-red-500 to-orange-500"
   }
@@ -355,7 +355,6 @@ export default function GroupsPage() {
               <CardContent className="p-6 text-center">
                 <h3 className="text-xl font-bold text-white mb-4">تعليمات اللعب</h3>
                 <p className="text-slate-300 text-lg mb-4">اجلسوا في دائرة والعبوا بالترتيب</p>
-                <p className="text-slate-400 text-sm">سيتم عرض رقم اللاعب الحالي في الأعلى</p>
               </CardContent>
             </Card>
 
@@ -441,7 +440,6 @@ export default function GroupsPage() {
       <PromptTopicsModal 
         open={showPromptTopicsModal} 
         onClose={() => setShowPromptTopicsModal(false)} 
-        dark={true} 
       />
     </div>
     </>

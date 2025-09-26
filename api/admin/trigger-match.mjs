@@ -28,6 +28,65 @@ const MBTI_COMPATIBILITY = {
   'INTP': { top1: 'INTJ', top2: 'ISTP', top3: 'INFP', bonus: ['ENTP'] }
 }
 
+// Function to validate if participant has complete data for matching
+function isParticipantComplete(participant) {
+  // Check if participant has survey_data
+  if (!participant.survey_data) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing survey_data`)
+    return false
+  }
+
+  const surveyData = participant.survey_data
+  
+  // Check required basic info
+  if (!surveyData.name || !surveyData.age || !surveyData.gender) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing basic info (name: ${!!surveyData.name}, age: ${!!surveyData.age}, gender: ${!!surveyData.gender})`)
+    return false
+  }
+
+  // Check MBTI data (either in survey_data or separate column)
+  const mbtiType = participant.mbti_personality_type || surveyData.mbtiType
+  if (!mbtiType || mbtiType.length !== 4) {
+    console.log(`❌ Participant ${participant.assigned_number}: Invalid MBTI type (${mbtiType})`)
+    return false
+  }
+
+  // Check attachment style (either in survey_data or separate column)
+  const attachmentStyle = participant.attachment_style || surveyData.attachmentStyle
+  if (!attachmentStyle) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing attachment style`)
+    return false
+  }
+
+  // Check communication style (either in survey_data or separate column)
+  const communicationStyle = participant.communication_style || surveyData.communicationStyle
+  if (!communicationStyle) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing communication style`)
+    return false
+  }
+
+  // Check lifestyle preferences
+  if (!surveyData.lifestylePreferences) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing lifestyle preferences`)
+    return false
+  }
+
+  // Check core values
+  if (!surveyData.coreValues) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing core values`)
+    return false
+  }
+
+  // Check vibe description (for AI matching)
+  if (!surveyData.vibeDescription) {
+    console.log(`⚠️ Participant ${participant.assigned_number}: Missing vibe description (will use default score for AI matching)`)
+    // Don't fail for missing vibe description, just warn
+  }
+
+  console.log(`✅ Participant ${participant.assigned_number}: Complete data validated`)
+  return true
+}
+
 // Function to calculate MBTI compatibility score (up to 10% of total)
 function calculateMBTICompatibility(type1, type2) {
   if (!type1 || !type2 || !MBTI_COMPATIBILITY[type1]) {
@@ -791,15 +850,33 @@ export default async function handler(req, res) {
     // Ensure organizer participant exists for potential odd-participant matches
     await ensureOrganizerParticipant(match_id);
     
-    const { data: participants, error } = await supabase
+    const { data: allParticipants, error } = await supabase
       .from("participants")
       .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 
     if (error) throw error
-    if (!participants || participants.length < 2) {
-      return res.status(400).json({ error: "Not enough participants" })
+    if (!allParticipants || allParticipants.length === 0) {
+      return res.status(400).json({ error: "No participants found" })
+    }
+
+    // Filter out participants without complete data
+    console.log(`🔍 Validating ${allParticipants.length} participants for complete data...`)
+    const participants = allParticipants.filter(participant => {
+      const isComplete = isParticipantComplete(participant)
+      if (!isComplete) {
+        console.log(`🚫 Excluding participant ${participant.assigned_number} from matching due to incomplete data`)
+      }
+      return isComplete
+    })
+
+    console.log(`✅ ${participants.length} participants have complete data (excluded ${allParticipants.length - participants.length} incomplete)`)
+
+    if (participants.length < 2) {
+      return res.status(400).json({ 
+        error: `Not enough participants with complete data. Found ${participants.length} complete out of ${allParticipants.length} total participants. Need at least 2 for matching.` 
+      })
     }
 
     // Handle group matching
@@ -807,7 +884,9 @@ export default async function handler(req, res) {
       console.log("🎯 Group matching requested")
       
       if (participants.length < 3) {
-        return res.status(400).json({ error: "Need at least 3 participants for group matching" })
+        return res.status(400).json({ 
+          error: `Need at least 3 participants with complete data for group matching. Found ${participants.length} complete out of ${allParticipants.length} total participants.` 
+        })
       }
 
       const groupMatches = await generateGroupMatches(participants, match_id, eventId)
@@ -1129,7 +1208,23 @@ export default async function handler(req, res) {
     return res.status(200).json({
       message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe${skipAI ? ' - AI skipped' : ''})`,
       count: finalMatches.length,
-      results: finalMatches
+      results: finalMatches,
+      calculatedPairs: compatibilityScores.map(pair => ({
+        participant_a: pair.a,
+        participant_b: pair.b,
+        compatibility_score: Math.round(pair.score),
+        mbti_compatibility_score: pair.mbtiScore,
+        attachment_compatibility_score: pair.attachmentScore,
+        communication_compatibility_score: pair.communicationScore,
+        lifestyle_compatibility_score: pair.lifestyleScore,
+        core_values_compatibility_score: pair.coreValuesScore,
+        vibe_compatibility_score: pair.vibeScore,
+        reason: pair.reason,
+        is_actual_match: finalMatches.some(match => 
+          (match.participant_a_number === pair.a && match.participant_b_number === pair.b) ||
+          (match.participant_a_number === pair.b && match.participant_b_number === pair.a)
+        )
+      }))
     })
 
   } catch (err) {

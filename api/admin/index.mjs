@@ -946,6 +946,7 @@ export default async function handler(req, res) {
       }
     }
 
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

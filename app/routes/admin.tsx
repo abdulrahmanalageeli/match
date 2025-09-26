@@ -67,6 +67,7 @@ export default function AdminPage() {
   const [participantResults, setParticipantResults] = useState<any[]>([])
   const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
   const [totalMatches, setTotalMatches] = useState(0)
+  const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -566,34 +567,12 @@ export default function AdminPage() {
     }
   }
 
-  const fetchParticipantResults = async (eventId: number, type: "ai" | "no-ai" | "group") => {
-    try {
-      setLoading(true)
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "get-participant-results",
-          event_id: eventId
-        }),
-      })
-      
-      const data = await res.json()
-      if (res.ok) {
-        setParticipantResults(data.results || [])
-        setTotalMatches(data.totalMatches || 0)
-        setMatchType(type)
-        setShowResultsModal(true)
-      } else {
-        console.error("Failed to fetch participant results:", data.error)
-        alert("❌ Failed to fetch participant results: " + (data.error || "Unknown error"))
-      }
-    } catch (err) {
-      console.error("Error fetching participant results:", err)
-      alert("❌ Error fetching participant results")
-    } finally {
-      setLoading(false)
-    }
+  const showParticipantResults = (results: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = []) => {
+    setParticipantResults(results)
+    setTotalMatches(totalMatches)
+    setMatchType(type)
+    setCalculatedPairs(calculatedPairs)
+    setShowResultsModal(true)
   }
 
   if (!authenticated) {
@@ -893,8 +872,8 @@ export default function AdminPage() {
                   if (res.ok) {
                     alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`)
                     fetchParticipants()
-                    // Show results modal
-                    await fetchParticipantResults(currentEventId, "ai")
+                    // Show results modal with calculated pairs
+                    showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
                   } else {
                     alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                   }
@@ -919,8 +898,8 @@ export default function AdminPage() {
                   if (res.ok) {
                     alert(`✅ ${data.message}\n\nGroups created: ${data.count}\n\nGroup details:\n${data.groups?.map((g: any) => `Group ${g.group_number}: [${g.participants.join(', ')}] - Score: ${g.score}%`).join('\n') || 'No details available'}`)
                     fetchParticipants()
-                    // Show results modal
-                    await fetchParticipantResults(1, "group")
+                    // Show results modal (groups don't have calculated pairs)
+                    showParticipantResults(data.results || [], data.count || 0, "group", [])
                   } else {
                     alert("❌ Failed to generate group matches: " + (data.error || "Unknown error"))
                   }
@@ -1198,8 +1177,8 @@ export default function AdminPage() {
                     if (res.ok) {
                       alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
                       fetchParticipants()
-                      // Show results modal
-                      await fetchParticipantResults(1, "no-ai")
+                      // Show results modal with calculated pairs
+                      showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [])
                     } else {
                       alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
                     }
@@ -1648,6 +1627,7 @@ export default function AdminPage() {
         results={participantResults}
         matchType={matchType}
         totalMatches={totalMatches}
+        calculatedPairs={calculatedPairs}
       />
     </div>
   )

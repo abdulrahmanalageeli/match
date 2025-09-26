@@ -1,11 +1,9 @@
-import React, { useState } from "react"
-import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye } from "lucide-react"
-import ParticipantDetailModal from "./ParticipantDetailModal"
+import React from "react"
+import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft } from "lucide-react"
 
-interface ParticipantResult {
-  id: string
-  assigned_number: number
-  name: string
+interface ParticipantMatch {
+  participant_number: number
+  participant_name: string
   compatibility_score: number
   mbti_compatibility_score?: number
   attachment_compatibility_score?: number
@@ -13,85 +11,31 @@ interface ParticipantResult {
   lifestyle_compatibility_score?: number
   core_values_compatibility_score?: number
   vibe_compatibility_score?: number
-  partner_assigned_number?: number
-  partner_name?: string
+  is_actual_match: boolean
 }
 
-interface ParticipantResultsModalProps {
+interface ParticipantDetailModalProps {
   isOpen: boolean
   onClose: () => void
-  results: ParticipantResult[]
+  participant: {
+    assigned_number: number
+    name: string
+  } | null
+  matches: ParticipantMatch[]
   matchType: "ai" | "no-ai" | "group"
-  totalMatches: number
-  calculatedPairs?: any[]
 }
 
-export default function ParticipantResultsModal({ 
+export default function ParticipantDetailModal({ 
   isOpen, 
   onClose, 
-  results, 
-  matchType, 
-  totalMatches,
-  calculatedPairs = []
-}: ParticipantResultsModalProps) {
-  const [showDetailModal, setShowDetailModal] = useState(false)
-  const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
-  const [participantMatches, setParticipantMatches] = useState<any[]>([])
-  const [loadingDetails, setLoadingDetails] = useState(false)
+  participant, 
+  matches, 
+  matchType 
+}: ParticipantDetailModalProps) {
+  if (!isOpen || !participant) return null
 
-  if (!isOpen) return null
-
-  // Remove duplicates and sort results by compatibility score (descending)
-  // For individual matching, only show each participant once (keep the higher score if duplicated)
-  let processedResults = results
-  
-  if (matchType !== "group") {
-    const participantMap = new Map()
-    
-    results.forEach(result => {
-      const existing = participantMap.get(result.assigned_number)
-      if (!existing || result.compatibility_score > existing.compatibility_score) {
-        participantMap.set(result.assigned_number, result)
-      }
-    })
-    
-    processedResults = Array.from(participantMap.values())
-  }
-  
-  const sortedResults = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
-
-  const fetchParticipantDetails = (participantNumber: number, participantName: string) => {
-    setLoadingDetails(true)
-    
-    // Filter calculated pairs to get all matches for this participant
-    const participantPairs = calculatedPairs.filter(pair => 
-      pair.participant_a === participantNumber || pair.participant_b === participantNumber
-    )
-    
-    // Convert to the format expected by ParticipantDetailModal
-    const matches = participantPairs.map(pair => {
-      const otherParticipantNumber = pair.participant_a === participantNumber ? pair.participant_b : pair.participant_a
-      const otherParticipant = results.find(r => r.assigned_number === otherParticipantNumber)
-      
-      return {
-        participant_number: otherParticipantNumber,
-        participant_name: otherParticipant?.name || `المشارك #${otherParticipantNumber}`,
-        compatibility_score: pair.compatibility_score,
-        mbti_compatibility_score: pair.mbti_compatibility_score,
-        attachment_compatibility_score: pair.attachment_compatibility_score,
-        communication_compatibility_score: pair.communication_compatibility_score,
-        lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
-        core_values_compatibility_score: pair.core_values_compatibility_score,
-        vibe_compatibility_score: pair.vibe_compatibility_score,
-        is_actual_match: pair.is_actual_match
-      }
-    })
-    
-    setSelectedParticipant({ assigned_number: participantNumber, name: participantName })
-    setParticipantMatches(matches)
-    setShowDetailModal(true)
-    setLoadingDetails(false)
-  }
+  // Sort matches by compatibility score (descending)
+  const sortedMatches = [...matches].sort((a, b) => b.compatibility_score - a.compatibility_score)
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400"
@@ -109,40 +53,46 @@ export default function ParticipantResultsModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-white/20">
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-xl">
-              <Users className="w-6 h-6 text-white" />
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-xl">
+              <User className="w-6 h-6 text-white" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                نتائج المطابقة - {matchType === "ai" ? "مع الذكاء الاصطناعي" : matchType === "no-ai" ? "بدون ذكاء اصطناعي" : "مجموعات"}
+                تفاصيل المطابقات - المشارك #{participant.assigned_number}
               </h2>
               <p className="text-slate-400 text-sm">
-                إجمالي المطابقات: {totalMatches} | المشاركين: {sortedResults.length}
-                {matchType !== "group" && results.length !== sortedResults.length && (
-                  <span className="text-yellow-400"> (تم إزالة {results.length - sortedResults.length} مكرر)</span>
-                )}
+                {participant.name} | إجمالي المطابقات المحتملة: {matches.length}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-sm">العودة</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-          {results.length === 0 ? (
+          {matches.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-white mb-2">لا توجد نتائج</h3>
-              <p className="text-slate-400">لم يتم العثور على مطابقات للمشاركين</p>
+              <User className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-white mb-2">لا توجد مطابقات</h3>
+              <p className="text-slate-400">لم يتم العثور على مطابقات محتملة لهذا المشارك</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -150,10 +100,10 @@ export default function ParticipantResultsModal({
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-blue-400" />
-                    <span className="text-sm text-slate-300">إجمالي المشاركين</span>
+                    <User className="w-4 h-4 text-blue-400" />
+                    <span className="text-sm text-slate-300">إجمالي المطابقات</span>
                   </div>
-                  <div className="text-2xl font-bold text-white">{sortedResults.length}</div>
+                  <div className="text-2xl font-bold text-white">{matches.length}</div>
                 </div>
                 
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
@@ -162,7 +112,7 @@ export default function ParticipantResultsModal({
                     <span className="text-sm text-slate-300">متوسط التوافق</span>
                   </div>
                   <div className="text-2xl font-bold text-white">
-                    {sortedResults.length > 0 ? Math.round(sortedResults.reduce((sum, r) => sum + r.compatibility_score, 0) / sortedResults.length) : 0}%
+                    {Math.round(matches.reduce((sum, m) => sum + m.compatibility_score, 0) / matches.length)}%
                   </div>
                 </div>
 
@@ -172,32 +122,31 @@ export default function ParticipantResultsModal({
                     <span className="text-sm text-slate-300">أعلى توافق</span>
                   </div>
                   <div className="text-2xl font-bold text-white">
-                    {sortedResults.length > 0 ? Math.max(...sortedResults.map(r => r.compatibility_score)) : 0}%
+                    {Math.max(...matches.map(m => m.compatibility_score))}%
                   </div>
                 </div>
 
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Zap className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-slate-300">إجمالي المطابقات</span>
+                    <span className="text-sm text-slate-300">المطابقات الفعلية</span>
                   </div>
-                  <div className="text-2xl font-bold text-white">{totalMatches}</div>
+                  <div className="text-2xl font-bold text-white">
+                    {matches.filter(m => m.is_actual_match).length}
+                  </div>
                 </div>
               </div>
 
-              {/* Participants Table */}
+              {/* Matches Table */}
               <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead className="bg-white/10">
                       <tr>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">رقم المشارك</th>
+                        <th className="text-right p-4 text-sm font-semibold text-slate-300">المشارك</th>
                         <th className="text-right p-4 text-sm font-semibold text-slate-300">الاسم</th>
-                        <th className="text-right p-4 text-sm font-semibold text-slate-300">الشريك</th>
+                        <th className="text-center p-4 text-sm font-semibold text-slate-300">الحالة</th>
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
-                        {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">عرض التفاصيل</th>
-                        )}
                         {matchType !== "group" && (
                           <>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
@@ -243,16 +192,23 @@ export default function ParticipantResultsModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedResults.map((participant, index) => (
+                      {sortedMatches.map((match, index) => (
                         <tr 
-                          key={participant.id} 
+                          key={match.participant_number} 
                           className={`border-t border-white/10 hover:bg-white/5 transition-colors ${
-                            index < 3 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent' : ''
+                            match.is_actual_match ? 'bg-gradient-to-r from-green-500/10 to-transparent' : ''
+                          } ${
+                            index < 3 && !match.is_actual_match ? 'bg-gradient-to-r from-blue-500/5 to-transparent' : ''
                           }`}
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              {index < 3 && (
+                              {match.is_actual_match && (
+                                <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center text-xs font-bold text-black">
+                                  ✓
+                                </div>
+                              )}
+                              {!match.is_actual_match && index < 3 && (
                                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
                                   index === 0 ? 'bg-yellow-500 text-black' :
                                   index === 1 ? 'bg-gray-400 text-black' :
@@ -262,77 +218,66 @@ export default function ParticipantResultsModal({
                                 </div>
                               )}
                               <span className="font-mono text-white font-semibold">
-                                #{participant.assigned_number}
+                                #{match.participant_number}
                               </span>
                             </div>
                           </td>
                           <td className="p-4">
                             <span className="text-white font-medium">
-                              {participant.name || "غير محدد"}
+                              {match.participant_name || "غير محدد"}
                             </span>
                           </td>
-                          <td className="p-4">
-                            {participant.partner_assigned_number ? (
-                              <div className="text-slate-300">
-                                <div className="font-mono">#{participant.partner_assigned_number}</div>
-                                {participant.partner_name && (
-                                  <div className="text-xs text-slate-400">{participant.partner_name}</div>
-                                )}
-                              </div>
+                          <td className="p-4 text-center">
+                            {match.is_actual_match ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/20 border border-green-400/30 text-green-300 text-xs">
+                                <Heart className="w-3 h-3" />
+                                مطابقة فعلية
+                              </span>
                             ) : (
-                              <span className="text-slate-500 text-sm">لا يوجد شريك</span>
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs">
+                                <User className="w-3 h-3" />
+                                مطابقة محتملة
+                              </span>
                             )}
                           </td>
                           <td className="p-4 text-center">
-                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)}`}>
-                              <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
-                                {participant.compatibility_score}%
+                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(match.compatibility_score)}`}>
+                              <span className={`font-bold ${getScoreColor(match.compatibility_score)}`}>
+                                {match.compatibility_score}%
                               </span>
                             </div>
                           </td>
                           {matchType !== "group" && (
-                            <td className="p-4 text-center">
-                              <button
-                                onClick={() => fetchParticipantDetails(participant.assigned_number, participant.name)}
-                                disabled={loadingDetails}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-all duration-300 text-sm disabled:opacity-50"
-                              >
-                                <Eye className="w-3 h-3" />
-                                <span>عرض</span>
-                              </button>
-                            </td>
-                          )}
-                          {matchType !== "group" && (
                             <>
                               <td className="p-4 text-center">
                                 <span className="text-slate-300 text-sm">
-                                  {participant.mbti_compatibility_score?.toFixed(1) || "0"}%
+                                  {match.mbti_compatibility_score?.toFixed(1) || "0"}%
                                 </span>
                               </td>
                               <td className="p-4 text-center">
                                 <span className="text-slate-300 text-sm">
-                                  {participant.attachment_compatibility_score?.toFixed(1) || "0"}%
+                                  {match.attachment_compatibility_score?.toFixed(1) || "0"}%
                                 </span>
                               </td>
                               <td className="p-4 text-center">
                                 <span className="text-slate-300 text-sm">
-                                  {participant.communication_compatibility_score?.toFixed(1) || "0"}%
+                                  {match.communication_compatibility_score?.toFixed(1) || "0"}%
                                 </span>
                               </td>
                               <td className="p-4 text-center">
                                 <span className="text-slate-300 text-sm">
-                                  {participant.lifestyle_compatibility_score?.toFixed(1) || "0"}%
+                                  {match.lifestyle_compatibility_score?.toFixed(1) || "0"}%
                                 </span>
                               </td>
                               <td className="p-4 text-center">
                                 <span className="text-slate-300 text-sm">
-                                  {participant.core_values_compatibility_score?.toFixed(1) || "0"}%
+                                  {match.core_values_compatibility_score?.toFixed(1) || "0"}%
                                 </span>
                               </td>
                               {matchType === "ai" && (
                                 <td className="p-4 text-center">
                                   <span className="text-slate-300 text-sm">
-                                    {participant.vibe_compatibility_score?.toFixed(1) || "0"}%
+                                    {match.vibe_compatibility_score?.toFixed(1) || "0"}%
                                   </span>
                                 </td>
                               )}
@@ -352,7 +297,7 @@ export default function ParticipantResultsModal({
         <div className="border-t border-white/20 p-4 bg-white/5">
           <div className="flex items-center justify-between">
             <div className="text-sm text-slate-400">
-              تم إنشاء {totalMatches} مطابقة بنجاح
+              عرض جميع المطابقات المحتملة للمشارك #{participant.assigned_number}
             </div>
             <button
               onClick={onClose}
@@ -363,15 +308,6 @@ export default function ParticipantResultsModal({
           </div>
         </div>
       </div>
-
-      {/* Participant Detail Modal */}
-      <ParticipantDetailModal
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
-        participant={selectedParticipant}
-        matches={participantMatches}
-        matchType={matchType}
-      />
     </div>
   )
 }

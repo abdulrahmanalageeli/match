@@ -232,9 +232,9 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogPortal>
-        <DialogOverlay className="fixed inset-0 z-50 bg-slate-900/95 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogOverlay className="fixed inset-0 z-[9999] bg-slate-900 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" style={{ backgroundColor: '#0f172a !important' }} />
         <DialogContent
-          className="max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50 bg-slate-900 text-white"
+          className="max-w-xl w-full sm:max-w-xl sm:w-full w-[95vw] max-w-full rounded-xl p-0 overflow-hidden border border-slate-700 fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-slate-900 text-white"
           dir="rtl"
           aria-label="أسئلة للنقاش"
         >

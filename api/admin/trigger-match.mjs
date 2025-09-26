@@ -30,60 +30,15 @@ const MBTI_COMPATIBILITY = {
 
 // Function to validate if participant has complete data for matching
 function isParticipantComplete(participant) {
-  // Check if participant has survey_data
-  if (!participant.survey_data) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing survey_data`)
+  // Check if participant has survey_data (not null and not empty object)
+  if (!participant.survey_data || 
+      typeof participant.survey_data !== 'object' || 
+      Object.keys(participant.survey_data).length === 0) {
+    console.log(`❌ Participant ${participant.assigned_number}: Missing or empty survey_data`)
     return false
   }
 
-  const surveyData = participant.survey_data
-  
-  // Check required basic info
-  if (!surveyData.name || !surveyData.age || !surveyData.gender) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing basic info (name: ${!!surveyData.name}, age: ${!!surveyData.age}, gender: ${!!surveyData.gender})`)
-    return false
-  }
-
-  // Check MBTI data (either in survey_data or separate column)
-  const mbtiType = participant.mbti_personality_type || surveyData.mbtiType
-  if (!mbtiType || mbtiType.length !== 4) {
-    console.log(`❌ Participant ${participant.assigned_number}: Invalid MBTI type (${mbtiType})`)
-    return false
-  }
-
-  // Check attachment style (either in survey_data or separate column)
-  const attachmentStyle = participant.attachment_style || surveyData.attachmentStyle
-  if (!attachmentStyle) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing attachment style`)
-    return false
-  }
-
-  // Check communication style (either in survey_data or separate column)
-  const communicationStyle = participant.communication_style || surveyData.communicationStyle
-  if (!communicationStyle) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing communication style`)
-    return false
-  }
-
-  // Check lifestyle preferences
-  if (!surveyData.lifestylePreferences) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing lifestyle preferences`)
-    return false
-  }
-
-  // Check core values
-  if (!surveyData.coreValues) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing core values`)
-    return false
-  }
-
-  // Check vibe description (for AI matching)
-  if (!surveyData.vibeDescription) {
-    console.log(`⚠️ Participant ${participant.assigned_number}: Missing vibe description (will use default score for AI matching)`)
-    // Don't fail for missing vibe description, just warn
-  }
-
-  console.log(`✅ Participant ${participant.assigned_number}: Complete data validated`)
+  console.log(`✅ Participant ${participant.assigned_number}: Has survey_data`)
   return true
 }
 

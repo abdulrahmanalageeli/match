@@ -68,6 +68,10 @@ export default function AdminPage() {
   const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
   const [totalMatches, setTotalMatches] = useState(0)
   const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
+  
+  // Excluded pairs management
+  const [excludedPairs, setExcludedPairs] = useState<Array<{participant1: number, participant2: number}>>([])
+  const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -472,6 +476,50 @@ export default function AdminPage() {
       newSelected.add(assignedNumber)
     }
     setSelectedParticipants(newSelected)
+  }
+
+  const addExcludedPair = () => {
+    const p1 = parseInt(newExcludedPair.participant1)
+    const p2 = parseInt(newExcludedPair.participant2)
+    
+    if (!p1 || !p2) {
+      alert("❌ Please enter valid participant numbers")
+      return
+    }
+    
+    if (p1 === p2) {
+      alert("❌ Cannot exclude a participant from themselves")
+      return
+    }
+    
+    // Check if pair already exists (in either direction)
+    const pairExists = excludedPairs.some(pair => 
+      (pair.participant1 === p1 && pair.participant2 === p2) ||
+      (pair.participant1 === p2 && pair.participant2 === p1)
+    )
+    
+    if (pairExists) {
+      alert("❌ This pair is already excluded")
+      return
+    }
+    
+    // Check if participants exist
+    const p1Exists = participants.some(p => p.assigned_number === p1)
+    const p2Exists = participants.some(p => p.assigned_number === p2)
+    
+    if (!p1Exists || !p2Exists) {
+      alert("❌ One or both participant numbers don't exist")
+      return
+    }
+    
+    setExcludedPairs([...excludedPairs, { participant1: p1, participant2: p2 }])
+    setNewExcludedPair({ participant1: '', participant2: '' })
+    alert(`✅ Excluded pair added: #${p1} and #${p2}`)
+  }
+
+  const removeExcludedPair = (index: number) => {
+    const newPairs = excludedPairs.filter((_, i) => i !== index)
+    setExcludedPairs(newPairs)
   }
 
   const filteredParticipants = participants.filter(p => 
@@ -982,16 +1030,23 @@ export default function AdminPage() {
 
               <button
                 onClick={async () => {
-                  if (!confirm(`Are you sure you want to generate matches for Event ${currentEventId} using the new personality-based algorithm?\n\nThis will check previous events to avoid repeated matches.`)) return
+                  let confirmMessage = `Are you sure you want to generate matches for Event ${currentEventId} using the new personality-based algorithm?\n\nThis will check previous events to avoid repeated matches.`
+                  if (excludedPairs.length > 0) {
+                    confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1} ↔ #${p.participant2}`).join('\n')}`
+                  }
+                  if (!confirm(confirmMessage)) return
                   setLoading(true)
                   const res = await fetch("/api/admin/trigger-match", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ eventId: currentEventId }),
+                    body: JSON.stringify({ 
+                      eventId: currentEventId,
+                      excludedPairs: excludedPairs
+                    }),
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`)
+                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}${excludedPairs.length > 0 ? `\nExcluded pairs enforced: ${excludedPairs.length}` : ''}`)
                     fetchParticipants()
                     // Show results modal with calculated pairs
                     await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
@@ -1095,6 +1150,75 @@ export default function AdminPage() {
             </div>
           </div>
 
+        </div>
+
+        {/* Excluded Pairs Management */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-red-500/20 rounded-lg">
+              <X className="w-5 h-5 text-red-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-red-300">Excluded Pairs</h3>
+              <p className="text-slate-400 text-sm">Prevent specific participants from being matched together</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Add New Excluded Pair */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Add Excluded Pair</h4>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="Participant #"
+                  value={newExcludedPair.participant1}
+                  onChange={(e) => setNewExcludedPair({...newExcludedPair, participant1: e.target.value})}
+                  className="w-24 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400/50 transition-all duration-300"
+                />
+                <span className="text-slate-400">and</span>
+                <input
+                  type="number"
+                  placeholder="Participant #"
+                  value={newExcludedPair.participant2}
+                  onChange={(e) => setNewExcludedPair({...newExcludedPair, participant2: e.target.value})}
+                  className="w-24 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-red-400/50 transition-all duration-300"
+                />
+                <button
+                  onClick={addExcludedPair}
+                  disabled={!newExcludedPair.participant1 || !newExcludedPair.participant2}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
+                >
+                  <Plus className="w-4 h-4" />
+                  Exclude
+                </button>
+              </div>
+            </div>
+
+            {/* Current Excluded Pairs */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Current Exclusions ({excludedPairs.length})</h4>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {excludedPairs.length === 0 ? (
+                  <p className="text-slate-400 text-sm">No excluded pairs</p>
+                ) : (
+                  excludedPairs.map((pair, index) => (
+                    <div key={index} className="flex items-center justify-between bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
+                      <span className="text-white text-sm">
+                        #{pair.participant1} ↔ #{pair.participant2}
+                      </span>
+                      <button
+                        onClick={() => removeExcludedPair(index)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

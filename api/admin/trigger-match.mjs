@@ -793,12 +793,24 @@ async function getPreviousMatches(participantNumber, currentEventId) {
   }
 }
 
+// Function to check if a pair is in the excluded pairs list
+function isPairExcluded(participantA, participantB, excludedPairs) {
+  if (!excludedPairs || excludedPairs.length === 0) {
+    return false
+  }
+  
+  return excludedPairs.some(pair => 
+    (pair.participant1 === participantA && pair.participant2 === participantB) ||
+    (pair.participant1 === participantB && pair.participant2 === participantA)
+  )
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId = 1 } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId = 1, excludedPairs = [] } = req.body || {}
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
@@ -904,9 +916,25 @@ export default async function handler(req, res) {
     let skippedGender = 0
     let skippedAge = 0
     let skippedPrevious = 0
+    let skippedExcluded = 0
+    
+    // Log excluded pairs if any
+    if (excludedPairs && excludedPairs.length > 0) {
+      console.log(`🚫 Excluded pairs configured: ${excludedPairs.length}`)
+      excludedPairs.forEach(pair => {
+        console.log(`   #${pair.participant1} ↔ #${pair.participant2}`)
+      })
+    }
     
     for (const [a, b] of pairs) {
       processedPairs++
+      
+      // Check if this pair is in the excluded pairs list
+      if (isPairExcluded(a.assigned_number, b.assigned_number, excludedPairs)) {
+        skippedExcluded++
+        console.log(`🚫 Skipping excluded pair: #${a.assigned_number} ↔ #${b.assigned_number}`)
+        continue
+      }
       
       // Check gender compatibility first (opposite gender only)
       if (!checkGenderCompatibility(a, b)) {
@@ -1006,9 +1034,10 @@ export default async function handler(req, res) {
     }
     
     // Show skip summary
-    const totalSkipped = skippedGender + skippedAge + skippedPrevious
+    const totalSkipped = skippedGender + skippedAge + skippedPrevious + skippedExcluded
     if (totalSkipped > 0) {
       console.log(`🚫 Skipped pairs (no calculation):`)
+      if (skippedExcluded > 0) console.log(`   ${skippedExcluded} pairs - Admin excluded`)
       if (skippedGender > 0) console.log(`   ${skippedGender} pairs - Gender preference mismatch`)
       if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>5 years with female)`)
       if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)

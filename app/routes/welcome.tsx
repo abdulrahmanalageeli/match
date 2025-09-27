@@ -257,7 +257,6 @@ export default function WelcomePage() {
   const [lastResultTokenAttempt, setLastResultTokenAttempt] = useState<number | null>(null);
 
   // Returning participant states
-  const [showReturningModal, setShowReturningModal] = useState(false);
   const [returningPhoneNumber, setReturningPhoneNumber] = useState("");
   const [returningLoading, setReturningLoading] = useState(false);
 
@@ -1485,7 +1484,6 @@ export default function WelcomePage() {
       
       if (res.ok) {
         alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
-        setShowReturningModal(false)
         setReturningPhoneNumber("")
       } else {
         alert(`❌ ${data.error}\n${data.message || ""}`)
@@ -2734,12 +2732,34 @@ export default function WelcomePage() {
                         <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
                       </div>
                       <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للحدث القادم باستخدام رقم هاتفك</p>
-                      <Button
-                        onClick={() => setShowReturningModal(true)}
-                        className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
-                      >
-                        سجل للحدث القادم
-                      </Button>
+                      
+                      <div className="space-y-3">
+                        <Input
+                          type="tel"
+                          placeholder="مثال: 0560123456 أو +966560123456"
+                          value={returningPhoneNumber}
+                          onChange={(e) => setReturningPhoneNumber(e.target.value)}
+                          className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
+                          dir="ltr"
+                        />
+                        <p className="text-green-200 text-xs text-center">
+                          سنبحث عن آخر 6 أرقام من رقم هاتفك في الأحداث السابقة
+                        </p>
+                        <Button
+                          onClick={handleReturningParticipant}
+                          disabled={returningLoading || !returningPhoneNumber.trim()}
+                          className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {returningLoading ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              جاري البحث...
+                            </div>
+                          ) : (
+                            "سجل للحدث القادم"
+                          )}
+                        </Button>
+                      </div>
                     </div>
 
                     {/* Divider */}
@@ -5585,67 +5605,6 @@ export default function WelcomePage() {
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
 
-      {/* Returning Participant Modal */}
-      <Dialog open={showReturningModal} onOpenChange={setShowReturningModal}>
-        <DialogContent className={`max-w-md ${dark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
-          <DialogHeader>
-            <DialogTitle className={`text-center ${dark ? "text-slate-200" : "text-gray-800"}`}>
-              تسجيل للحدث القادم
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-6 p-4">
-            <div className={`text-center p-4 rounded-lg ${dark ? "bg-cyan-900/30 border border-cyan-700/50" : "bg-cyan-50 border border-cyan-200"}`}>
-              <p className={`text-sm ${dark ? "text-cyan-200" : "text-cyan-700"}`}>
-                إذا شاركت في حدث سابق، أدخل رقم هاتفك للتسجيل التلقائي في الحدث القادم
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                  رقم الهاتف
-                </label>
-                <Input
-                  type="tel"
-                  placeholder="مثال: 0560123456 أو +966560123456"
-                  value={returningPhoneNumber}
-                  onChange={(e) => setReturningPhoneNumber(e.target.value)}
-                  className={`text-center ${dark ? "bg-slate-700 border-slate-600 text-slate-200" : "bg-white border-gray-300"}`}
-                  dir="ltr"
-                />
-                <p className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                  سنبحث عن آخر 6 أرقام من رقم هاتفك
-                </p>
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleReturningParticipant}
-                  disabled={returningLoading}
-                  className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
-                >
-                  {returningLoading ? "جاري البحث..." : "سجلني للحدث القادم"}
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowReturningModal(false)
-                    setReturningPhoneNumber("")
-                  }}
-                  variant="outline"
-                  className={`${dark ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
-                >
-                  إلغاء
-                </Button>
-              </div>
-            </div>
-
-            <div className={`text-xs text-center ${dark ? "text-slate-400" : "text-gray-500"}`}>
-              <p>إذا لم تشارك من قبل، اضغط "إلغاء" واختر "ابدأ الرحلة"</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       </div>
 

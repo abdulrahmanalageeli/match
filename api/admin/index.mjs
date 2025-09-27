@@ -1266,6 +1266,140 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET EXCLUDED PARTICIPANTS
+    if (action === "get-excluded-participants") {
+      try {
+        const { data, error } = await supabase
+          .from("excluded_participants")
+          .select("id, participant_number, created_at, reason")
+          .eq("match_id", STATIC_MATCH_ID)
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("Error fetching excluded participants:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        return res.status(200).json({ excludedParticipants: data || [] })
+      } catch (error) {
+        console.error("Error in get-excluded-participants:", error)
+        return res.status(500).json({ error: "Failed to fetch excluded participants" })
+      }
+    }
+
+    // 🔹 ADD EXCLUDED PARTICIPANT
+    if (action === "add-excluded-participant") {
+      try {
+        const { participantNumber, reason = "Admin exclusion - participant excluded from all matching" } = req.body
+
+        if (!participantNumber || participantNumber <= 0) {
+          return res.status(400).json({ error: "Valid participant number is required" })
+        }
+
+        if (participantNumber === 9999) {
+          return res.status(400).json({ error: "Cannot exclude the organizer participant" })
+        }
+
+        // Check if participant exists
+        const { data: participantCheck, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number")
+          .eq("assigned_number", participantNumber)
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+
+        if (participantError || !participantCheck) {
+          return res.status(400).json({ error: "Participant number doesn't exist" })
+        }
+
+        // Insert excluded participant (constraint will prevent duplicates)
+        const { data, error } = await supabase
+          .from("excluded_participants")
+          .insert([{
+            match_id: STATIC_MATCH_ID,
+            participant_number: participantNumber,
+            reason: reason
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          if (error.code === '23505') { // Unique index violation
+            return res.status(400).json({ error: "This participant is already excluded" })
+          }
+          console.error("Error adding excluded participant:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Added excluded participant: #${participantNumber}`)
+        return res.status(200).json({ 
+          success: true, 
+          excludedParticipant: data,
+          message: `Participant #${participantNumber} excluded from all matching` 
+        })
+
+      } catch (error) {
+        console.error("Error in add-excluded-participant:", error)
+        return res.status(500).json({ error: "Failed to add excluded participant" })
+      }
+    }
+
+    // 🔹 REMOVE EXCLUDED PARTICIPANT
+    if (action === "remove-excluded-participant") {
+      try {
+        const { id } = req.body
+
+        if (!id) {
+          return res.status(400).json({ error: "Excluded participant ID is required" })
+        }
+
+        const { error } = await supabase
+          .from("excluded_participants")
+          .delete()
+          .eq("id", id)
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error removing excluded participant:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Removed excluded participant with ID: ${id}`)
+        return res.status(200).json({ 
+          success: true, 
+          message: "Excluded participant removed successfully" 
+        })
+
+      } catch (error) {
+        console.error("Error in remove-excluded-participant:", error)
+        return res.status(500).json({ error: "Failed to remove excluded participant" })
+      }
+    }
+
+    // 🔹 CLEAR ALL EXCLUDED PARTICIPANTS
+    if (action === "clear-excluded-participants") {
+      try {
+        const { error } = await supabase
+          .from("excluded_participants")
+          .delete()
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error clearing excluded participants:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log("✅ All excluded participants cleared")
+        return res.status(200).json({ 
+          success: true, 
+          message: "All excluded participants cleared successfully" 
+        })
+
+      } catch (error) {
+        console.error("Error in clear-excluded-participants:", error)
+        return res.status(500).json({ error: "Failed to clear excluded participants" })
+      }
+    }
 
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {

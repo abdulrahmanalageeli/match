@@ -74,6 +74,10 @@ export default function AdminPage() {
   const [excludedPairs, setExcludedPairs] = useState<Array<{id: string, participant1_number: number, participant2_number: number, created_at: string, reason: string}>>([])
   const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
   
+  // Excluded participants management
+  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, created_at: string, reason: string}>>([])
+  const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
+  
   // Group assignments modal state
   const [showGroupAssignmentsModal, setShowGroupAssignmentsModal] = useState(false)
   const [groupAssignments, setGroupAssignments] = useState<any[]>([])
@@ -345,6 +349,7 @@ export default function AdminPage() {
       setAuthenticated(true)
       fetchParticipants()
       fetchExcludedPairs()
+      fetchExcludedParticipants()
     }
   }, [])
 
@@ -565,6 +570,86 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error removing excluded pair:", error)
       alert("❌ Failed to remove excluded pair")
+    }
+  }
+
+  const fetchExcludedParticipants = async () => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-excluded-participants" }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setExcludedParticipants(data.excludedParticipants || [])
+      } else {
+        console.error("Failed to fetch excluded participants:", data.error)
+      }
+    } catch (error) {
+      console.error("Error fetching excluded participants:", error)
+    }
+  }
+
+  const addExcludedParticipant = async () => {
+    const participantNumber = parseInt(newExcludedParticipant)
+    
+    if (!participantNumber || participantNumber <= 0) {
+      alert("❌ Please enter a valid participant number")
+      return
+    }
+    
+    if (participantNumber === 9999) {
+      alert("❌ Cannot exclude the organizer participant")
+      return
+    }
+    
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "add-excluded-participant",
+          participantNumber: participantNumber,
+          reason: "Admin exclusion - participant excluded from all matching"
+        }),
+      })
+      const data = await res.json()
+      
+      if (res.ok) {
+        setNewExcludedParticipant('')
+        await fetchExcludedParticipants() // Refresh the list
+        alert(`✅ ${data.message}`)
+      } else {
+        alert(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error adding excluded participant:", error)
+      alert("❌ Failed to add excluded participant")
+    }
+  }
+
+  const removeExcludedParticipant = async (id: string) => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "remove-excluded-participant",
+          id: id
+        }),
+      })
+      const data = await res.json()
+      
+      if (res.ok) {
+        await fetchExcludedParticipants() // Refresh the list
+        alert(`✅ ${data.message}`)
+      } else {
+        alert(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error removing excluded participant:", error)
+      alert("❌ Failed to remove excluded participant")
     }
   }
 
@@ -1112,6 +1197,9 @@ export default function AdminPage() {
                   if (excludedPairs.length > 0) {
                     confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1_number} ↔ #${p.participant2_number}`).join('\n')}`
                   }
+                  if (excludedParticipants.length > 0) {
+                    confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                  }
                   if (!confirm(confirmMessage)) return
                   setLoading(true)
                   const res = await fetch("/api/admin/trigger-match", {
@@ -1124,7 +1212,14 @@ export default function AdminPage() {
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}${excludedPairs.length > 0 ? `\nExcluded pairs enforced: ${excludedPairs.length}` : ''}`)
+                    let successMessage = `✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`
+                    if (excludedPairs.length > 0) {
+                      successMessage += `\nExcluded pairs enforced: ${excludedPairs.length}`
+                    }
+                    if (excludedParticipants.length > 0) {
+                      successMessage += `\nParticipants excluded from all matching: ${excludedParticipants.length}`
+                    }
+                    alert(successMessage)
                     fetchParticipants()
                     // Show results modal with calculated pairs
                     await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
@@ -1141,7 +1236,11 @@ export default function AdminPage() {
 
               <button
                 onClick={async () => {
-                  if (!confirm("Generate group matches? This will create groups of 3-4 people based on MBTI compatibility.")) return
+                  let confirmMessage = "Generate group matches? This will create groups of 3-4 people based on MBTI compatibility."
+                  if (excludedParticipants.length > 0) {
+                    confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                  }
+                  if (!confirm(confirmMessage)) return
                   setLoading(true)
                   const res = await fetch("/api/admin/trigger-match", {
                     method: "POST",
@@ -1296,6 +1395,70 @@ export default function AdminPage() {
                       <button
                         onClick={() => removeExcludedPair(pair.id)}
                         className="text-red-400 hover:text-red-300 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Excluded Participants Management */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-orange-500/20 rounded-lg">
+              <Shield className="w-5 h-5 text-orange-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-orange-300">Excluded Participants</h3>
+              <p className="text-slate-400 text-sm">Exclude specific participants from ALL matching (they won't be matched with anyone)</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Add New Excluded Participant */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Exclude Participant</h4>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="Participant #"
+                  value={newExcludedParticipant}
+                  onChange={(e) => setNewExcludedParticipant(e.target.value)}
+                  className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-all duration-300"
+                />
+                <button
+                  onClick={addExcludedParticipant}
+                  disabled={!newExcludedParticipant}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
+                >
+                  <Shield className="w-4 h-4" />
+                  Exclude from All
+                </button>
+              </div>
+              <p className="text-slate-400 text-xs">
+                ⚠️ This participant will be excluded from ALL matching (individual and group)
+              </p>
+            </div>
+
+            {/* Current Excluded Participants */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Excluded from All Matching ({excludedParticipants.length})</h4>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {excludedParticipants.length === 0 ? (
+                  <p className="text-slate-400 text-sm">No excluded participants</p>
+                ) : (
+                  excludedParticipants.map((participant) => (
+                    <div key={participant.id} className="flex items-center justify-between bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
+                      <span className="text-white text-sm">
+                        #{participant.participant_number} - Excluded from ALL matching
+                      </span>
+                      <button
+                        onClick={() => removeExcludedParticipant(participant.id)}
+                        className="text-orange-400 hover:text-orange-300 transition-colors"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -1508,7 +1671,11 @@ export default function AdminPage() {
 
                 <button
                   onClick={async () => {
-                    if (!confirm("Generate matches without AI vibe analysis? (All participants will get full vibe score)")) return
+                    let confirmMessage = "Generate matches without AI vibe analysis? (All participants will get full vibe score)"
+                    if (excludedParticipants.length > 0) {
+                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                    }
+                    if (!confirm(confirmMessage)) return
                     setLoading(true)
                     const res = await fetch("/api/admin/trigger-match", {
                       method: "POST",

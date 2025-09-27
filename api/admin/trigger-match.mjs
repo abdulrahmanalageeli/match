@@ -951,6 +951,17 @@ function isPairExcluded(participantA, participantB, excludedPairs) {
   )
 }
 
+// Function to check if a participant is in the excluded participants list
+function isParticipantExcluded(participantNumber, excludedParticipants) {
+  if (!excludedParticipants || excludedParticipants.length === 0) {
+    return false
+  }
+  
+  return excludedParticipants.some(participant => 
+    participant.participant_number === participantNumber
+  )
+}
+
 // Function to check if a pair is in the locked matches list
 function isPairLocked(participantA, participantB, lockedPairs) {
   if (!lockedPairs || lockedPairs.length === 0) {
@@ -986,6 +997,17 @@ export default async function handler(req, res) {
   try {
     // Ensure organizer participant exists for potential odd-participant matches
     await ensureOrganizerParticipant(match_id);
+
+    // Fetch excluded participants from database
+    const { data: excludedParticipants, error: excludedParticipantsError } = await supabase
+      .from("excluded_participants")
+      .select("participant_number")
+      .eq("match_id", match_id)
+
+    if (excludedParticipantsError) {
+      console.error("Error fetching excluded participants:", excludedParticipantsError)
+      // Continue without excluded participants rather than failing
+    }
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
@@ -1010,9 +1032,32 @@ export default async function handler(req, res) {
 
     console.log(`✅ ${participants.length} participants have complete data (excluded ${allParticipants.length - participants.length} incomplete)`)
 
-    if (participants.length < 2) {
+    // Filter out excluded participants
+    let eligibleParticipants = participants
+    if (excludedParticipants && excludedParticipants.length > 0) {
+      console.log(`🚫 Checking for excluded participants: ${excludedParticipants.length} participants excluded from all matching`)
+      excludedParticipants.forEach(excluded => {
+        console.log(`   #${excluded.participant_number} - Excluded from ALL matching`)
+      })
+      
+      const beforeCount = eligibleParticipants.length
+      eligibleParticipants = eligibleParticipants.filter(participant => {
+        const isExcluded = isParticipantExcluded(participant.assigned_number, excludedParticipants)
+        if (isExcluded) {
+          console.log(`🚫 Excluding participant ${participant.assigned_number} from matching - in excluded participants list`)
+        }
+        return !isExcluded
+      })
+      
+      const excludedCount = beforeCount - eligibleParticipants.length
+      if (excludedCount > 0) {
+        console.log(`✅ Filtered out ${excludedCount} excluded participants (${eligibleParticipants.length} remaining eligible)`)
+      }
+    }
+
+    if (eligibleParticipants.length < 2) {
       return res.status(400).json({ 
-        error: `Not enough participants with complete data. Found ${participants.length} complete out of ${allParticipants.length} total participants. Need at least 2 for matching.` 
+        error: `Not enough eligible participants for matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${allParticipants.length - participants.length} incomplete, ${participants.length - eligibleParticipants.length} excluded). Need at least 2 for matching.` 
       })
     }
 
@@ -1040,13 +1085,13 @@ export default async function handler(req, res) {
     if (matchType === "group") {
       console.log("🎯 Group matching requested")
       
-      if (participants.length < 3) {
+      if (eligibleParticipants.length < 3) {
         return res.status(400).json({ 
-          error: `Need at least 3 participants with complete data for group matching. Found ${participants.length} complete out of ${allParticipants.length} total participants.` 
+          error: `Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${allParticipants.length - participants.length} incomplete, ${participants.length - eligibleParticipants.length} excluded).` 
         })
       }
 
-      const groupMatches = await generateGroupMatches(participants, match_id, eventId)
+      const groupMatches = await generateGroupMatches(eligibleParticipants, match_id, eventId)
 
       // Clear existing group matches
       console.log(`🗑️ Clearing existing group matches for match_id: ${match_id}, event_id: ${eventId}`)
@@ -1086,14 +1131,14 @@ export default async function handler(req, res) {
     }
 
     // Summary: Retrieved participant data
-    console.log(`🔍 Retrieved ${participants.length} participants for matching`)
+    console.log(`🔍 Retrieved ${eligibleParticipants.length} eligible participants for matching`)
 
-    const numbers = participants.map(p => p.assigned_number)
+    const numbers = eligibleParticipants.map(p => p.assigned_number)
     const pairs = []
 
-    for (let i = 0; i < participants.length; i++) {
-      for (let j = i + 1; j < participants.length; j++) {
-        pairs.push([participants[i], participants[j]])
+    for (let i = 0; i < eligibleParticipants.length; i++) {
+      for (let j = i + 1; j < eligibleParticipants.length; j++) {
+        pairs.push([eligibleParticipants[i], eligibleParticipants[j]])
       }
     }
 

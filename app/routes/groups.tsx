@@ -144,11 +144,35 @@ export default function GroupsPage() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
+  
+  // Timer state
+  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
+  const [timerActive, setTimerActive] = useState(false);
+  const [showTimeUpModal, setShowTimeUpModal] = useState(false);
 
   const currentGame = games[currentGameIndex];
 
-
-  // Remove timer-related useEffect
+  // Timer useEffect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (timerActive && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev <= 1) {
+            setTimerActive(false);
+            setShowTimeUpModal(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerActive, timeRemaining]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -158,6 +182,7 @@ export default function GroupsPage() {
 
   const startSession = () => {
     setGameStarted(true);
+    setTimerActive(true);
   };
 
 
@@ -247,36 +272,72 @@ export default function GroupsPage() {
 
         {currentGame.id === "discussion-questions" && (
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardContent className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-white mb-4">
-                أسئلة للنقاش العميق
-              </h3>
-              <p className="text-slate-300 mb-6">
-                اختر موضوعاً وليجب كل مشارك على السؤال بالدور
-              </p>
-              <Button 
-                onClick={() => setShowPromptTopicsModal(true)}
-                className="bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-800 hover:to-blue-800 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 border-2 border-cyan-400/30"
-              >
-                <Sparkles className="w-5 h-5 mr-2" />
-                اختر أسئلة للنقاش
-              </Button>
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  أسئلة للنقاش العميق
+                </h3>
+                <p className="text-slate-300 mb-4">
+                  اختر موضوعاً وليجب كل مشارك على السؤال بالدور
+                </p>
+              </div>
+              
+              {/* Game Instructions */}
+              <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
+                <h4 className="text-white font-semibold mb-3 flex items-center">
+                  <Lightbulb className="w-4 h-4 ml-2" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
+                  <li>اختاروا موضوعاً من القائمة أدناه</li>
+                  <li>اقرؤوا السؤال بصوت عالٍ</li>
+                  <li>يجيب كل شخص بالدور (2-3 دقائق لكل شخص)</li>
+                  <li>استمعوا باهتمام ولا تقاطعوا المتحدث</li>
+                  <li>يمكنكم طرح أسئلة متابعة بعد انتهاء الجميع</li>
+                </ol>
+              </div>
+
+              <div className="text-center">
+                <Button 
+                  onClick={() => setShowPromptTopicsModal(true)}
+                  className="bg-gradient-to-r from-cyan-700 to-blue-700 hover:from-cyan-800 hover:to-blue-800 text-white px-6 py-3 rounded-2xl shadow-lg font-bold text-lg transition-all duration-300 hover:scale-105 focus:outline-none focus:ring-2 border-2 border-cyan-400/30"
+                >
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  اختر أسئلة للنقاش
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
 
         {currentGame.id === "never-have-i-ever" && (
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardContent className="p-6 text-center">
-              <div className="bg-slate-700/50 rounded-lg p-4 mb-6">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-white mb-4">لم أفعل من قبل</h3>
+              </div>
+
+              {/* Game Instructions */}
+              <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
+                <h4 className="text-white font-semibold mb-3 flex items-center">
+                  <Lightbulb className="w-4 h-4 ml-2" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
+                  <li>اقرؤوا العبارة بصوت عالٍ</li>
+                  <li>إذا فعلت هذا الشيء من قبل، ارفع يدك وشارك تجربتك (دقيقة واحدة)</li>
+                  <li>إذا لم تفعله من قبل، ابق صامتاً</li>
+                  <li>لا تجبروا أحداً على المشاركة إذا لم يرد</li>
+                  <li>احترموا خصوصية بعضكم البعض</li>
+                </ol>
+              </div>
+
+              <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-center">
                 <p className="text-white text-lg font-semibold">
                   {neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]}
                 </p>
               </div>
-              <div className="space-y-4 text-slate-300 text-sm">
-                <p>إذا فعلت هذا الشيء، شارك تجربتك مع المجموعة</p>
-                <p>إذا لم تفعله، ابق صامتاً</p>
-              </div>
+
               <div className="flex justify-center space-x-3 mt-6">
                 <Button 
                   onClick={() => setCurrentPromptIndex(prev => (prev + 1) % neverHaveIEverQuestions.length)} 
@@ -308,24 +369,47 @@ export default function GroupsPage() {
 
         {currentGame.id === "would-you-rather" && (
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardContent className="p-6 text-center">
-              <h3 className="text-2xl font-bold text-white mb-6">ماذا تفضل؟</h3>
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-white mb-4">ماذا تفضل؟</h3>
+              </div>
+
+              {/* Game Instructions */}
+              <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
+                <h4 className="text-white font-semibold mb-3 flex items-center">
+                  <Lightbulb className="w-4 h-4 ml-2" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
+                  <li>اقرؤوا الخيارين بصوت عالٍ</li>
+                  <li>كل شخص يختار أحد الخيارين</li>
+                  <li>اشرحوا سبب اختياركم (دقيقة لكل شخص)</li>
+                  <li>ناقشوا الاختلافات في وجهات النظر</li>
+                  <li>لا يوجد إجابة صحيحة أو خاطئة</li>
+                </ol>
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4">
+                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 text-center">
+                  <div className="text-red-400 font-bold mb-2">الخيار أ</div>
                   <p className="text-white font-semibold">
                     {wouldYouRatherQuestions[currentPromptIndex]?.optionA}
                   </p>
                 </div>
-                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
+                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 text-center">
+                  <div className="text-blue-400 font-bold mb-2">الخيار ب</div>
                   <p className="text-white font-semibold">
                     {wouldYouRatherQuestions[currentPromptIndex]?.optionB}
                   </p>
                 </div>
               </div>
-              <Button onClick={nextPrompt} className="bg-red-600 hover:bg-red-700">
-                <ChevronRight className="w-4 h-4 mr-2" />
-                السؤال التالي
-              </Button>
+
+              <div className="text-center">
+                <Button onClick={nextPrompt} className="bg-red-600 hover:bg-red-700">
+                  <ChevronRight className="w-4 h-4 mr-2" />
+                  السؤال التالي
+                </Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -350,11 +434,69 @@ export default function GroupsPage() {
           </div>
 
           <div className="max-w-2xl mx-auto">
-            {/* Circle Order Instructions */}
+            {/* Comprehensive Game Instructions */}
             <Card className="bg-slate-800/50 border-slate-700 mb-8">
-              <CardContent className="p-6 text-center">
-                <h3 className="text-xl font-bold text-white mb-4">تعليمات اللعب</h3>
-                <p className="text-slate-300 text-lg mb-4">اجلسوا في دائرة والعبوا بالترتيب</p>
+              <CardHeader>
+                <CardTitle className="text-white flex items-center justify-center">
+                  <BookOpen className="w-5 h-5 ml-2" />
+                  تعليمات الألعاب الجماعية
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 space-y-6">
+                {/* Step 1 */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                    1
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold mb-2">اجلسوا في دائرة</h4>
+                    <p className="text-slate-300 text-sm">رتبوا أنفسكم في دائرة بحيث يمكن للجميع رؤية بعضهم البعض</p>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
+                    2
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold mb-2">اختاروا شخصاً للبداية</h4>
+                    <p className="text-slate-300 text-sm">قرروا من سيبدأ أولاً، ثم العبوا بالترتيب في اتجاه عقارب الساعة</p>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                    3
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold mb-2">اتبعوا قواعد كل لعبة</h4>
+                    <p className="text-slate-300 text-sm">كل لعبة لها قواعدها الخاصة - اقرؤوا التعليمات قبل البدء</p>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="flex items-start space-x-4">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm">
+                    4
+                  </div>
+                  <div>
+                    <h4 className="text-white font-semibold mb-2">استمتعوا وتفاعلوا</h4>
+                    <p className="text-slate-300 text-sm">الهدف هو التعرف على بعضكم البعض والاستمتاع بالوقت معاً</p>
+                  </div>
+                </div>
+
+                {/* Timer Info */}
+                <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-4 mt-6">
+                  <div className="flex items-center justify-center mb-2">
+                    <Clock className="w-5 h-5 text-cyan-400 ml-2" />
+                    <span className="text-cyan-400 font-semibold">مؤقت 30 دقيقة</span>
+                  </div>
+                  <p className="text-slate-300 text-sm text-center">
+                    سيبدأ المؤقت عند الضغط على "ابدأ الجلسة" وعند انتهاء الوقت ستنتقلون للجولة الأولى
+                  </p>
+                </div>
               </CardContent>
             </Card>
 
@@ -402,10 +544,18 @@ export default function GroupsPage() {
       <GroupsLogoHeader />
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
       <div className="max-w-4xl mx-auto">
-        {/* Header with game info */}
+        {/* Header with timer and game info */}
         <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
           <div className="flex items-center justify-between">
+            {/* Timer Display */}
             <div className="flex items-center space-x-4">
+              <div className="text-center">
+                <div className={`text-2xl font-bold ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  <Clock className="w-5 h-5 inline-block ml-2" />
+                  {formatTime(timeRemaining)}
+                </div>
+                <div className="text-slate-400 text-sm">الوقت المتبقي</div>
+              </div>
               <div className="text-center">
                 <div className="text-xl font-bold text-cyan-400">{selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}</div>
                 <div className="text-slate-400 text-sm">اللعبة الحالية</div>
@@ -441,6 +591,30 @@ export default function GroupsPage() {
         open={showPromptTopicsModal} 
         onClose={() => setShowPromptTopicsModal(false)} 
       />
+
+      {/* Time Up Modal */}
+      {showTimeUpModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-r from-red-500 to-orange-500 flex items-center justify-center">
+              <Clock className="w-10 h-10 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-white mb-4">انتهى الوقت!</h2>
+            <p className="text-xl text-slate-300 mb-6">حان وقت الجولة الأولى</p>
+            <p className="text-slate-400 mb-8">شكراً لكم على المشاركة الرائعة في الألعاب الجماعية</p>
+            <Button 
+              onClick={() => {
+                setShowTimeUpModal(false);
+                // You can add navigation to round 1 here
+                window.location.href = "/";
+              }}
+              className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white px-8 py-3 text-lg w-full"
+            >
+              انتقل للجولة الأولى
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );

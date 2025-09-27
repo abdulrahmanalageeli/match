@@ -731,5 +731,96 @@ export default async function handler(req, res) {
     }
   }
 
+  // PHONE LOOKUP FOR RETURNING PARTICIPANTS
+  if (action === "phone-lookup-signup") {
+    const { phone_number } = req.body
+
+    if (!phone_number) {
+      return res.status(400).json({ error: "Phone number is required" })
+    }
+
+    try {
+      // Normalize phone number - extract last 6 digits
+      const normalizedPhone = phone_number.replace(/\D/g, '') // Remove all non-digits
+      if (normalizedPhone.length < 6) {
+        return res.status(400).json({ error: "رقم الهاتف قصير جداً" })
+      }
+      
+      const lastSixDigits = normalizedPhone.slice(-6) // Get last 6 digits
+      console.log(`🔍 Looking up phone ending with: ${lastSixDigits}`)
+
+      // Search for participants with phone numbers ending with these 6 digits
+      const { data: participants, error: searchError } = await supabase
+        .from("participants")
+        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event")
+        .neq("match_id", "00000000-0000-0000-0000-000000000000") // Look in previous events
+        .not("phone_number", "is", null)
+
+      if (searchError) {
+        console.error("Search Error:", searchError)
+        return res.status(500).json({ error: "Database search failed" })
+      }
+
+      // Filter participants whose phone ends with the same 6 digits
+      const matchingParticipants = participants.filter(participant => {
+        if (!participant.phone_number) return false
+        const participantPhone = participant.phone_number.replace(/\D/g, '')
+        const participantLastSix = participantPhone.slice(-6)
+        return participantLastSix === lastSixDigits
+      })
+
+      if (matchingParticipants.length === 0) {
+        return res.status(404).json({ 
+          error: "لم يتم العثور على مشارك بهذا الرقم",
+          message: "تأكد من الرقم أو قم بالتسجيل كمشارك جديد"
+        })
+      }
+
+      if (matchingParticipants.length > 1) {
+        return res.status(400).json({ 
+          error: "تم العثور على أكثر من مشارك بنفس الرقم",
+          message: "يرجى التواصل مع المنظم"
+        })
+      }
+
+      const participant = matchingParticipants[0]
+      
+      // Check if already signed up for next event
+      if (participant.signup_for_next_event) {
+        return res.status(400).json({ 
+          error: "أنت مسجل بالفعل للحدث القادم",
+          message: "سيتم التواصل معك قريباً"
+        })
+      }
+
+      // Update participant to sign up for next event
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({ 
+          signup_for_next_event: true,
+          next_event_signup_timestamp: new Date().toISOString()
+        })
+        .eq("id", participant.id)
+
+      if (updateError) {
+        console.error("Update Error:", updateError)
+        return res.status(500).json({ error: "Failed to register for next event" })
+      }
+
+      console.log(`✅ Participant ${participant.assigned_number} (${participant.name}) signed up for next event`)
+
+      return res.status(200).json({
+        success: true,
+        message: "تم تسجيلك للحدث القادم بنجاح!",
+        participant_name: participant.name,
+        participant_number: participant.assigned_number
+      })
+
+    } catch (error) {
+      console.error("Phone lookup error:", error)
+      return res.status(500).json({ error: "Failed to process phone lookup" })
+    }
+  }
+
   return res.status(400).json({ error: "Invalid action" })
 }

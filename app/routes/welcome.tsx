@@ -256,6 +256,11 @@ export default function WelcomePage() {
   const [lastTokenAttempt, setLastTokenAttempt] = useState<number | null>(null);
   const [lastResultTokenAttempt, setLastResultTokenAttempt] = useState<number | null>(null);
 
+  // Returning participant states
+  const [showReturningModal, setShowReturningModal] = useState(false);
+  const [returningPhoneNumber, setReturningPhoneNumber] = useState("");
+  const [returningLoading, setReturningLoading] = useState(false);
+
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
 
@@ -1457,6 +1462,41 @@ export default function WelcomePage() {
     setIsRepeatMatch(false)
   }
   const previous = () => setStep((s) => Math.max(s - 1, -2))
+
+  // Handle returning participant phone lookup
+  const handleReturningParticipant = async () => {
+    if (!returningPhoneNumber.trim()) {
+      alert("يرجى إدخال رقم الهاتف")
+      return
+    }
+
+    setReturningLoading(true)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "phone-lookup-signup",
+          phone_number: returningPhoneNumber
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
+        setShowReturningModal(false)
+        setReturningPhoneNumber("")
+      } else {
+        alert(`❌ ${data.error}\n${data.message || ""}`)
+      }
+    } catch (err) {
+      console.error("Error with returning participant:", err)
+      alert("❌ حدث خطأ في النظام")
+    } finally {
+      setReturningLoading(false)
+    }
+  }
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -3355,8 +3395,19 @@ export default function WelcomePage() {
             </div>
             
             {!welcomeTyping && (
-              <div className="flex justify-center">
+              <div className="flex flex-col items-center gap-4">
                 <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
+                <Button
+                  onClick={() => setShowReturningModal(true)}
+                  variant="outline"
+                  className={`spring-btn border-2 transition-all duration-500 transform hover:scale-105 ${
+                    dark 
+                      ? "border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/10 hover:border-cyan-300" 
+                      : "border-cyan-500/50 text-cyan-600 hover:bg-cyan-50 hover:border-cyan-500"
+                  }`}
+                >
+                  سجلت من قبل؟ سجل للحدث القادم
+                </Button>
               </div>
             )}
           </section>
@@ -5522,6 +5573,68 @@ export default function WelcomePage() {
 
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
+
+      {/* Returning Participant Modal */}
+      <Dialog open={showReturningModal} onOpenChange={setShowReturningModal}>
+        <DialogContent className={`max-w-md ${dark ? "bg-slate-800 border-slate-700" : "bg-white border-gray-200"}`}>
+          <DialogHeader>
+            <DialogTitle className={`text-center ${dark ? "text-slate-200" : "text-gray-800"}`}>
+              تسجيل للحدث القادم
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-6 p-4">
+            <div className={`text-center p-4 rounded-lg ${dark ? "bg-cyan-900/30 border border-cyan-700/50" : "bg-cyan-50 border border-cyan-200"}`}>
+              <p className={`text-sm ${dark ? "text-cyan-200" : "text-cyan-700"}`}>
+                إذا شاركت في حدث سابق، أدخل رقم هاتفك للتسجيل التلقائي في الحدث القادم
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                  رقم الهاتف
+                </label>
+                <Input
+                  type="tel"
+                  placeholder="مثال: 0560123456 أو +966560123456"
+                  value={returningPhoneNumber}
+                  onChange={(e) => setReturningPhoneNumber(e.target.value)}
+                  className={`text-center ${dark ? "bg-slate-700 border-slate-600 text-slate-200" : "bg-white border-gray-300"}`}
+                  dir="ltr"
+                />
+                <p className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                  سنبحث عن آخر 6 أرقام من رقم هاتفك
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={handleReturningParticipant}
+                  disabled={returningLoading}
+                  className="flex-1 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                >
+                  {returningLoading ? "جاري البحث..." : "سجلني للحدث القادم"}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowReturningModal(false)
+                    setReturningPhoneNumber("")
+                  }}
+                  variant="outline"
+                  className={`${dark ? "border-slate-600 text-slate-300 hover:bg-slate-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"}`}
+                >
+                  إلغاء
+                </Button>
+              </div>
+            </div>
+
+            <div className={`text-xs text-center ${dark ? "text-slate-400" : "text-gray-500"}`}>
+              <p>إذا لم تشارك من قبل، اضغط "إلغاء" واختر "ابدأ الرحلة"</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       </div>
 

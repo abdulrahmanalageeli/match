@@ -997,7 +997,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId = 1, excludedPairs = [] } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId = 1, excludedPairs = [], manualMatch = null } = req.body || {}
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
   try {
@@ -1059,6 +1059,106 @@ export default async function handler(req, res) {
       if (excludedCount > 0) {
         console.log(`✅ Filtered out ${excludedCount} excluded participants (${eligibleParticipants.length} remaining eligible)`)
       }
+    }
+
+    // Handle manual match creation
+    if (manualMatch) {
+      console.log(`🎯 Manual match requested: #${manualMatch.participant1} ↔ #${manualMatch.participant2}`)
+      
+      // Find the two specific participants
+      const p1 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))
+      const p2 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
+      
+      if (!p1 || !p2) {
+        return res.status(400).json({ error: "One or both participants not found or not eligible" })
+      }
+      
+      // Check if match already exists for this event
+      const { data: existingMatch, error: existingError } = await supabase
+        .from("match_results")
+        .select("id")
+        .eq("event_id", eventId)
+        .or(`and(participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p2.assigned_number}),and(participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p1.assigned_number})`)
+
+      if (existingMatch && existingMatch.length > 0) {
+        return res.status(400).json({ error: "Match already exists for this event" })
+      }
+      
+      // Calculate compatibility using the same functions as automatic matching
+      const mbtiScore = calculateMBTICompatibility(
+        p1.mbti_personality_type || p1.survey_data?.mbtiType,
+        p2.mbti_personality_type || p2.survey_data?.mbtiType
+      )
+      
+      const attachmentScore = calculateAttachmentCompatibility(p1.attachment_style, p2.attachment_style)
+      const communicationScore = calculateCommunicationCompatibility(p1.communication_style, p2.communication_style)
+      const lifestyleScore = calculateLifestyleCompatibility(p1.survey_data?.answers, p2.survey_data?.answers)
+      const coreValuesScore = calculateCoreValuesCompatibility(p1.survey_data?.answers, p2.survey_data?.answers)
+      
+      // Calculate vibe compatibility using AI (unless skipAI is true)
+      let vibeScore = 7 // Default
+      if (!skipAI) {
+        try {
+          vibeScore = await calculateVibeCompatibility(p1, p2)
+        } catch (error) {
+          console.error("Error calculating vibe compatibility for manual match:", error)
+          vibeScore = 7
+        }
+      }
+      
+      // Calculate total compatibility using the same formula
+      const totalCompatibility = Math.round(
+        mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
+      )
+      
+      // Create match record
+      const matchRecord = {
+        match_id,
+        event_id: eventId,
+        participant_a_number: p1.assigned_number,
+        participant_b_number: p2.assigned_number,
+        compatibility_score: totalCompatibility,
+        mbti_compatibility_score: mbtiScore,
+        attachment_compatibility_score: attachmentScore,
+        communication_compatibility_score: communicationScore,
+        lifestyle_compatibility_score: lifestyleScore,
+        core_values_compatibility_score: coreValuesScore,
+        vibe_compatibility_score: vibeScore,
+        round: 1,
+        created_at: new Date().toISOString()
+      }
+      
+      // Insert the match
+      const { data: insertData, error: insertError } = await supabase
+        .from("match_results")
+        .insert([matchRecord])
+        .select()
+
+      if (insertError) {
+        console.error("Error inserting manual match:", insertError)
+        return res.status(500).json({ error: "Failed to create manual match" })
+      }
+
+      console.log(`✅ Manual match created: #${p1.assigned_number} ↔ #${p2.assigned_number} (Score: ${totalCompatibility}%)`)
+
+      return res.status(200).json({
+        success: true,
+        message: `Manual match created successfully`,
+        count: 1,
+        compatibility_score: totalCompatibility,
+        match: insertData[0],
+        results: [{
+          participant: p1.assigned_number,
+          partner: p2.assigned_number,
+          compatibility_score: totalCompatibility,
+          mbti_compatibility_score: mbtiScore,
+          attachment_compatibility_score: attachmentScore,
+          communication_compatibility_score: communicationScore,
+          lifestyle_compatibility_score: lifestyleScore,
+          core_values_compatibility_score: coreValuesScore,
+          vibe_compatibility_score: vibeScore
+        }]
+      })
     }
 
     // Note: Payment filtering is NOT applied to individual matching

@@ -676,14 +676,12 @@ export default function AdminPage() {
     }
     
     try {
-      const res = await fetch("/api/admin", {
+      const res = await fetch("/api/admin/trigger-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          action: "add-manual-match",
-          participant1: participant1,
-          participant2: participant2,
-          eventId: currentEventId
+          eventId: currentEventId,
+          manualMatch: { participant1: participant1, participant2: participant2 }
         }),
       })
       const data = await res.json()

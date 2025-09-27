@@ -78,6 +78,9 @@ export default function AdminPage() {
   const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, created_at: string, reason: string}>>([])
   const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
   
+  // Manual match management
+  const [newManualMatch, setNewManualMatch] = useState({participant1: '', participant2: ''})
+  
   // Group assignments modal state
   const [showGroupAssignmentsModal, setShowGroupAssignmentsModal] = useState(false)
   const [groupAssignments, setGroupAssignments] = useState<any[]>([])
@@ -650,6 +653,51 @@ export default function AdminPage() {
     } catch (error) {
       console.error("Error removing excluded participant:", error)
       alert("❌ Failed to remove excluded participant")
+    }
+  }
+
+  const addManualMatch = async () => {
+    const participant1 = parseInt(newManualMatch.participant1)
+    const participant2 = parseInt(newManualMatch.participant2)
+    
+    if (!participant1 || !participant2 || participant1 <= 0 || participant2 <= 0) {
+      alert("❌ Please enter valid participant numbers")
+      return
+    }
+    
+    if (participant1 === participant2) {
+      alert("❌ Cannot match a participant with themselves")
+      return
+    }
+    
+    if (participant1 === 9999 || participant2 === 9999) {
+      alert("❌ Cannot create matches with the organizer participant")
+      return
+    }
+    
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "add-manual-match",
+          participant1: participant1,
+          participant2: participant2,
+          eventId: currentEventId
+        }),
+      })
+      const data = await res.json()
+      
+      if (res.ok) {
+        setNewManualMatch({participant1: '', participant2: ''})
+        alert(`✅ ${data.message}\nCompatibility Score: ${data.compatibility_score}%`)
+        fetchParticipants() // Refresh to show updated data
+      } else {
+        alert(`❌ ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error adding manual match:", error)
+      alert("❌ Failed to add manual match")
     }
   }
 
@@ -1466,6 +1514,53 @@ export default function AdminPage() {
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Manual Match Creation */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="p-2 bg-blue-500/20 rounded-lg">
+              <Users className="w-5 h-5 text-blue-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-300">Manual Match Creation</h3>
+              <p className="text-slate-400 text-sm">Create individual matches manually with real compatibility scores</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h4 className="text-white font-medium">Add New Match</h4>
+            <div className="flex items-center gap-2 flex-wrap">
+              <input
+                type="number"
+                placeholder="Participant #1"
+                value={newManualMatch.participant1}
+                onChange={(e) => setNewManualMatch({...newManualMatch, participant1: e.target.value})}
+                className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
+              />
+              <span className="text-slate-400">↔</span>
+              <input
+                type="number"
+                placeholder="Participant #2"
+                value={newManualMatch.participant2}
+                onChange={(e) => setNewManualMatch({...newManualMatch, participant2: e.target.value})}
+                className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
+              />
+              <button
+                onClick={addManualMatch}
+                disabled={!newManualMatch.participant1 || !newManualMatch.participant2}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
+              >
+                <Users className="w-4 h-4" />
+                Create Match
+              </button>
+            </div>
+            <div className="text-slate-400 text-xs space-y-1">
+              <p>• Creates a match with real compatibility scores based on participant data</p>
+              <p>• Match will appear in results as if generated by the algorithm</p>
+              <p>• Uses Event ID: <span className="text-blue-300 font-mono">{currentEventId}</span></p>
             </div>
           </div>
         </div>

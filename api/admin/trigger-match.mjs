@@ -1061,24 +1061,13 @@ export default async function handler(req, res) {
       }
     }
 
-    // Filter out participants who haven't completed payment
-    const beforePaymentCount = eligibleParticipants.length
-    eligibleParticipants = eligibleParticipants.filter(participant => {
-      if (!participant.PAID_DONE) {
-        console.log(`🚫 Excluding participant ${participant.assigned_number} from matching - payment not completed (PAID_DONE = false)`)
-        return false
-      }
-      return true
-    })
-    
-    const unpaidCount = beforePaymentCount - eligibleParticipants.length
-    if (unpaidCount > 0) {
-      console.log(`💳 Filtered out ${unpaidCount} participants with incomplete payment (${eligibleParticipants.length} remaining eligible)`)
-    }
+    // Note: Payment filtering is NOT applied to individual matching
+    // This allows admins to see matches and send payment requests to both participants
+    console.log(`ℹ️ Individual matching includes all participants regardless of payment status for admin visibility`)
 
     if (eligibleParticipants.length < 2) {
       return res.status(400).json({ 
-        error: `Not enough eligible participants for matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${allParticipants.length - participants.length} incomplete data, ${unpaidCount || 0} unpaid, ${(excludedCount || 0)} excluded). Need at least 2 for matching.` 
+        error: `Not enough eligible participants for matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${allParticipants.length - participants.length} incomplete data, ${(excludedCount || 0)} excluded). Need at least 2 for matching.` 
       })
     }
 
@@ -1108,7 +1097,7 @@ export default async function handler(req, res) {
       
       if (eligibleParticipants.length < 3) {
         return res.status(400).json({ 
-          error: `Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants (${allParticipants.length - participants.length} incomplete data, ${unpaidCount || 0} unpaid, ${(excludedCount || 0)} excluded).` 
+          error: `Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${allParticipants.length} total participants. Groups only include paid participants (PAID_DONE = true).` 
         })
       }
 

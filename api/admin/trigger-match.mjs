@@ -1084,16 +1084,42 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Match already exists for this event" })
       }
       
-      // Calculate compatibility using the same functions as automatic matching
-      const mbtiScore = calculateMBTICompatibility(
-        p1.mbti_personality_type || p1.survey_data?.mbtiType,
-        p2.mbti_personality_type || p2.survey_data?.mbtiType
-      )
+      // Extract values the same way as the main matching algorithm
+      const p1MBTI = p1.mbti_personality_type || p1.survey_data?.mbtiType
+      const p2MBTI = p2.mbti_personality_type || p2.survey_data?.mbtiType
       
-      const attachmentScore = calculateAttachmentCompatibility(p1.attachment_style, p2.attachment_style)
-      const communicationScore = calculateCommunicationCompatibility(p1.communication_style, p2.communication_style)
-      const lifestyleScore = calculateLifestyleCompatibility(p1.survey_data?.answers, p2.survey_data?.answers)
-      const coreValuesScore = calculateCoreValuesCompatibility(p1.survey_data?.answers, p2.survey_data?.answers)
+      const p1Attachment = p1.attachment_style
+      const p2Attachment = p2.attachment_style
+      
+      const p1Communication = p1.communication_style
+      const p2Communication = p2.communication_style
+      
+      // Get lifestyle preferences (from top level or derive from answers)
+      const p1Lifestyle = p1.survey_data?.lifestylePreferences || 
+        (p1.survey_data?.answers ? 
+          [p1.survey_data.answers.lifestyle_1, p1.survey_data.answers.lifestyle_2, p1.survey_data.answers.lifestyle_3, p1.survey_data.answers.lifestyle_4, p1.survey_data.answers.lifestyle_5].join(',') : 
+          null)
+      const p2Lifestyle = p2.survey_data?.lifestylePreferences || 
+        (p2.survey_data?.answers ? 
+          [p2.survey_data.answers.lifestyle_1, p2.survey_data.answers.lifestyle_2, p2.survey_data.answers.lifestyle_3, p2.survey_data.answers.lifestyle_4, p2.survey_data.answers.lifestyle_5].join(',') : 
+          null)
+      
+      // Get core values (from top level or derive from answers)
+      const p1CoreValues = p1.survey_data?.coreValues || 
+        (p1.survey_data?.answers ? 
+          [p1.survey_data.answers.core_values_1, p1.survey_data.answers.core_values_2, p1.survey_data.answers.core_values_3, p1.survey_data.answers.core_values_4, p1.survey_data.answers.core_values_5].join(',') : 
+          null)
+      const p2CoreValues = p2.survey_data?.coreValues || 
+        (p2.survey_data?.answers ? 
+          [p2.survey_data.answers.core_values_1, p2.survey_data.answers.core_values_2, p2.survey_data.answers.core_values_3, p2.survey_data.answers.core_values_4, p2.survey_data.answers.core_values_5].join(',') : 
+          null)
+      
+      // Calculate compatibility using the same functions as automatic matching
+      const mbtiScore = calculateMBTICompatibility(p1MBTI, p2MBTI)
+      const attachmentScore = calculateAttachmentCompatibility(p1Attachment, p2Attachment)
+      const communicationScore = calculateCommunicationCompatibility(p1Communication, p2Communication)
+      const lifestyleScore = calculateLifestyleCompatibility(p1Lifestyle, p2Lifestyle)
+      const coreValuesScore = calculateCoreValuesCompatibility(p1CoreValues, p2CoreValues)
       
       // Calculate vibe compatibility using AI (unless skipAI is true)
       let vibeScore = 7 // Default

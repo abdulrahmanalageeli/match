@@ -673,7 +673,8 @@ export default function AdminPage() {
       allParticipants.forEach((p: any) => {
         participantInfoMap.set(p.assigned_number, {
           name: p.survey_data?.name || `المشارك #${p.assigned_number}`,
-          id: p.id
+          id: p.id,
+          paid_done: p.PAID_DONE || false
         })
       })
       
@@ -739,7 +740,9 @@ export default function AdminPage() {
               partner_assigned_number: match.participant_b_number,
               partner_name: participantInfoMap.get(match.participant_b_number)?.name || `المشارك #${match.participant_b_number}`,
               is_organizer_match: match.participant_b_number === 9999,
-              incompatibility_reason: incompatibilityReason
+              incompatibility_reason: incompatibilityReason,
+              paid_done: participantInfo?.paid_done || false,
+              partner_paid_done: participantInfoMap.get(match.participant_b_number)?.paid_done || false
             })
           }
         }
@@ -764,7 +767,9 @@ export default function AdminPage() {
               partner_assigned_number: match.participant_a_number,
               partner_name: participantInfoMap.get(match.participant_a_number)?.name || `المشارك #${match.participant_a_number}`,
               is_organizer_match: match.participant_a_number === 9999,
-              incompatibility_reason: incompatibilityReason
+              incompatibility_reason: incompatibilityReason,
+              paid_done: participantInfo?.paid_done || false,
+              partner_paid_done: participantInfoMap.get(match.participant_a_number)?.paid_done || false
             })
           }
         }

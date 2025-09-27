@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       if (action === "participants") {
         const { data, error } = await supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -1009,7 +1009,7 @@ export default async function handler(req, res) {
           .single()
 
         if (error) {
-          if (error.code === '23505') { // Unique constraint violation
+          if (error.code === '23505') { // Unique index violation
             return res.status(400).json({ error: "This pair is already excluded" })
           }
           console.error("Error adding excluded pair:", error)
@@ -1083,6 +1083,133 @@ export default async function handler(req, res) {
       } catch (error) {
         console.error("Error in clear-excluded-pairs:", error)
         return res.status(500).json({ error: "Failed to clear excluded pairs" })
+      }
+    }
+
+    // 🔹 GET LOCKED MATCHES
+    if (action === "get-locked-matches") {
+      try {
+        const { data, error } = await supabase
+          .from("locked_matches")
+          .select("*")
+          .eq("match_id", STATIC_MATCH_ID)
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("Error fetching locked matches:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Fetched ${data.length} locked matches`)
+        return res.status(200).json({ lockedMatches: data })
+
+      } catch (error) {
+        console.error("Error in get-locked-matches:", error)
+        return res.status(500).json({ error: "Failed to fetch locked matches" })
+      }
+    }
+
+    // 🔹 ADD LOCKED MATCH
+    if (action === "add-locked-match") {
+      try {
+        const { participant1, participant2, compatibilityScore, round, reason } = req.body
+
+        if (!participant1 || !participant2) {
+          return res.status(400).json({ error: "Both participant numbers are required" })
+        }
+
+        if (participant1 === participant2) {
+          return res.status(400).json({ error: "Cannot lock a participant with themselves" })
+        }
+
+        const { data, error } = await supabase
+          .from("locked_matches")
+          .insert([{
+            match_id: STATIC_MATCH_ID,
+            participant1_number: participant1,
+            participant2_number: participant2,
+            original_compatibility_score: compatibilityScore,
+            original_match_round: round,
+            reason: reason || 'Admin locked match'
+          }])
+          .select()
+          .single()
+
+        if (error) {
+          if (error.code === '23505') { // Unique index violation
+            return res.status(400).json({ error: "This pair is already locked" })
+          }
+          console.error("Error adding locked match:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Added locked match: #${participant1} ↔ #${participant2}`)
+        return res.status(200).json({ 
+          success: true, 
+          lockedMatch: data,
+          message: `Locked match added: #${participant1} and #${participant2}` 
+        })
+
+      } catch (error) {
+        console.error("Error in add-locked-match:", error)
+        return res.status(500).json({ error: "Failed to add locked match" })
+      }
+    }
+
+    // 🔹 REMOVE LOCKED MATCH
+    if (action === "remove-locked-match") {
+      try {
+        const { id } = req.body
+
+        if (!id) {
+          return res.status(400).json({ error: "Locked match ID is required" })
+        }
+
+        const { error } = await supabase
+          .from("locked_matches")
+          .delete()
+          .eq("id", id)
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error removing locked match:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log(`✅ Removed locked match with ID: ${id}`)
+        return res.status(200).json({ 
+          success: true, 
+          message: "Locked match removed successfully" 
+        })
+
+      } catch (error) {
+        console.error("Error in remove-locked-match:", error)
+        return res.status(500).json({ error: "Failed to remove locked match" })
+      }
+    }
+
+    // 🔹 CLEAR ALL LOCKED MATCHES
+    if (action === "clear-locked-matches") {
+      try {
+        const { error } = await supabase
+          .from("locked_matches")
+          .delete()
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (error) {
+          console.error("Error clearing locked matches:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        console.log("✅ All locked matches cleared")
+        return res.status(200).json({ 
+          success: true, 
+          message: "All locked matches cleared successfully" 
+        })
+
+      } catch (error) {
+        console.error("Error in clear-locked-matches:", error)
+        return res.status(500).json({ error: "Failed to clear locked matches" })
       }
     }
 

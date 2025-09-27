@@ -805,6 +805,30 @@ function isPairExcluded(participantA, participantB, excludedPairs) {
   )
 }
 
+// Function to check if a pair is in the locked matches list
+function isPairLocked(participantA, participantB, lockedPairs) {
+  if (!lockedPairs || lockedPairs.length === 0) {
+    return false
+  }
+  
+  return lockedPairs.some(pair => 
+    (pair.participant1_number === participantA && pair.participant2_number === participantB) ||
+    (pair.participant1_number === participantB && pair.participant2_number === participantA)
+  )
+}
+
+// Function to get locked match data for a pair
+function getLockedMatch(participantA, participantB, lockedPairs) {
+  if (!lockedPairs || lockedPairs.length === 0) {
+    return null
+  }
+  
+  return lockedPairs.find(pair => 
+    (pair.participant1_number === participantA && pair.participant2_number === participantB) ||
+    (pair.participant1_number === participantB && pair.participant2_number === participantA)
+  )
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
@@ -843,6 +867,26 @@ export default async function handler(req, res) {
     if (participants.length < 2) {
       return res.status(400).json({ 
         error: `Not enough participants with complete data. Found ${participants.length} complete out of ${allParticipants.length} total participants. Need at least 2 for matching.` 
+      })
+    }
+
+    // Fetch locked matches for this match_id
+    console.log(`🔒 Fetching locked matches for match_id: ${match_id}`)
+    const { data: lockedMatches, error: lockedError } = await supabase
+      .from("locked_matches")
+      .select("*")
+      .eq("match_id", match_id)
+
+    if (lockedError) {
+      console.error("❌ Error fetching locked matches:", lockedError)
+      // Continue without locked matches rather than failing
+    }
+
+    const lockedPairs = lockedMatches || []
+    console.log(`🔒 Found ${lockedPairs.length} locked matches`)
+    if (lockedPairs.length > 0) {
+      lockedPairs.forEach(lock => {
+        console.log(`   🔒 Locked: #${lock.participant1_number} ↔ #${lock.participant2_number} (Score: ${lock.original_compatibility_score}%)`)
       })
     }
 
@@ -1059,12 +1103,80 @@ export default async function handler(req, res) {
       console.log(`\n🎯 === ROUND ${round} MATCHING ===`)
       const used = new Set() // Track participants matched in this round
       const roundMatches = []
-      // Sort all pairs globally by score (descending)
-      const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
-      
-      console.log(`📊 Available pairs for round ${round}:`, sortedPairs.length)
       
       let tableCounter = 1 // Dynamic table numbering starting from 1
+      
+      // STEP 1: Process locked matches first (highest priority)
+      console.log(`🔒 Processing ${lockedPairs.length} locked matches first...`)
+      for (const lockedMatch of lockedPairs) {
+        const participant1 = lockedMatch.participant1_number
+        const participant2 = lockedMatch.participant2_number
+        
+        // Check if both participants are available and in our participant list
+        const p1Available = participants.some(p => p.assigned_number === participant1) && !used.has(participant1)
+        const p2Available = participants.some(p => p.assigned_number === participant2) && !used.has(participant2)
+        
+        if (p1Available && p2Available) {
+          // Find the compatibility data for this pair (if calculated)
+          const compatibilityData = compatibilityScores.find(score => 
+            (score.a === participant1 && score.b === participant2) ||
+            (score.a === participant2 && score.b === participant1)
+          )
+          
+          // Get participant data for personality info
+          const p1Data = participants.find(p => p.assigned_number === participant1)
+          const p2Data = participants.find(p => p.assigned_number === participant2)
+          
+          used.add(participant1)
+          used.add(participant2)
+          
+          const key = `${Math.min(participant1, participant2)}-${Math.max(participant1, participant2)}`
+          matchedPairs.add(key)
+          
+          roundMatches.push({
+            participant_a_number: participant1,
+            participant_b_number: participant2,
+            compatibility_score: compatibilityData ? Math.round(compatibilityData.score) : (lockedMatch.original_compatibility_score || 85),
+            reason: compatibilityData ? compatibilityData.reason : `🔒 Locked Match (Original: ${lockedMatch.original_compatibility_score}%)`,
+            match_id,
+            event_id: eventId,
+            round,
+            is_repeat_match: false,
+            table_number: tableCounter,
+            // Add personality type data
+            participant_a_mbti_type: compatibilityData?.aMBTI || p1Data?.mbti_personality_type || p1Data?.survey_data?.mbtiType,
+            participant_b_mbti_type: compatibilityData?.bMBTI || p2Data?.mbti_personality_type || p2Data?.survey_data?.mbtiType,
+            participant_a_attachment_style: compatibilityData?.aAttachment || p1Data?.attachment_style || p1Data?.survey_data?.attachmentStyle,
+            participant_b_attachment_style: compatibilityData?.bAttachment || p2Data?.attachment_style || p2Data?.survey_data?.attachmentStyle,
+            participant_a_communication_style: compatibilityData?.aCommunication || p1Data?.communication_style || p1Data?.survey_data?.communicationStyle,
+            participant_b_communication_style: compatibilityData?.bCommunication || p2Data?.communication_style || p2Data?.survey_data?.communicationStyle,
+            participant_a_lifestyle_preferences: compatibilityData?.aLifestyle,
+            participant_b_lifestyle_preferences: compatibilityData?.bLifestyle,
+            participant_a_core_values: compatibilityData?.aCoreValues,
+            participant_b_core_values: compatibilityData?.bCoreValues,
+            participant_a_vibe_description: compatibilityData?.aVibeDescription || p1Data?.survey_data?.vibeDescription || '',
+            participant_b_vibe_description: compatibilityData?.bVibeDescription || p2Data?.survey_data?.vibeDescription || '',
+            participant_a_ideal_person_description: p1Data?.survey_data?.idealPersonDescription || '',
+            participant_b_ideal_person_description: p2Data?.survey_data?.idealPersonDescription || '',
+            // Add score breakdown
+            mbti_compatibility_score: compatibilityData?.mbtiScore || 15,
+            attachment_compatibility_score: compatibilityData?.attachmentScore || 15,
+            communication_compatibility_score: compatibilityData?.communicationScore || 15,
+            lifestyle_compatibility_score: compatibilityData?.lifestyleScore || 15,
+            core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
+            vibe_compatibility_score: compatibilityData?.vibeScore || 10
+          })
+          
+          console.log(`   🔒 Locked match assigned: #${participant1} ↔ #${participant2} (Table ${tableCounter})`)
+          tableCounter++
+        } else {
+          console.log(`   ⚠️ Locked match unavailable: #${participant1} ↔ #${participant2} (P1: ${p1Available}, P2: ${p2Available})`)
+        }
+      }
+      
+      // STEP 2: Process remaining pairs by compatibility score
+      const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
+      console.log(`📊 Processing remaining ${sortedPairs.length} calculated pairs...`)
       
       for (const pair of sortedPairs) {
         const key = `${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`
@@ -1073,7 +1185,7 @@ export default async function handler(req, res) {
           !used.has(pair.b) &&
           !matchedPairs.has(key)
         ) {
-            used.add(pair.a)
+          used.add(pair.a)
           used.add(pair.b)
           matchedPairs.add(key)
           roundMatches.push({

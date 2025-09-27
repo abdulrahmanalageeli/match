@@ -1,5 +1,5 @@
-import React, { useState } from "react"
-import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye, AlertTriangle, Info } from "lucide-react"
+import React, { useState, useEffect } from "react"
+import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye, AlertTriangle, Info, Lock, Unlock, DollarSign, XCircle } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -17,6 +17,8 @@ interface ParticipantResult {
   partner_name?: string
   is_organizer_match?: boolean
   incompatibility_reason?: string
+  paid_done?: boolean
+  partner_paid_done?: boolean
 }
 
 interface ParticipantResultsModalProps {
@@ -40,6 +42,105 @@ export default function ParticipantResultsModal({
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
   const [participantMatches, setParticipantMatches] = useState<any[]>([])
   const [loadingDetails, setLoadingDetails] = useState(false)
+  const [lockedMatches, setLockedMatches] = useState<any[]>([])
+  const [loadingLock, setLoadingLock] = useState<number | null>(null)
+
+  // Fetch locked matches when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchLockedMatches()
+    }
+  }, [isOpen])
+
+  const fetchLockedMatches = async () => {
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-locked-matches" })
+      })
+      const data = await response.json()
+      if (response.ok) {
+        setLockedMatches(data.lockedMatches || [])
+      }
+    } catch (error) {
+      console.error("Error fetching locked matches:", error)
+    }
+  }
+
+  const isMatchLocked = (participant1: number, participant2: number) => {
+    return lockedMatches.some(lock => 
+      (lock.participant1_number === participant1 && lock.participant2_number === participant2) ||
+      (lock.participant1_number === participant2 && lock.participant2_number === participant1)
+    )
+  }
+
+  const handleLockMatch = async (participant: ParticipantResult) => {
+    if (!participant.partner_assigned_number || participant.partner_assigned_number === 9999) return
+    
+    setLoadingLock(participant.assigned_number)
+    
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "add-locked-match",
+          participant1: participant.assigned_number,
+          participant2: participant.partner_assigned_number,
+          compatibilityScore: participant.compatibility_score,
+          round: 1,
+          reason: "Admin locked from results modal"
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        await fetchLockedMatches() // Refresh locked matches
+      } else {
+        console.error("Error locking match:", data.error)
+      }
+    } catch (error) {
+      console.error("Error locking match:", error)
+    } finally {
+      setLoadingLock(null)
+    }
+  }
+
+  const handleUnlockMatch = async (participant: ParticipantResult) => {
+    if (!participant.partner_assigned_number) return
+    
+    setLoadingLock(participant.assigned_number)
+    
+    try {
+      const lockedMatch = lockedMatches.find(lock => 
+        (lock.participant1_number === participant.assigned_number && lock.participant2_number === participant.partner_assigned_number) ||
+        (lock.participant1_number === participant.partner_assigned_number && lock.participant2_number === participant.assigned_number)
+      )
+      
+      if (lockedMatch) {
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "remove-locked-match",
+            id: lockedMatch.id
+          })
+        })
+        
+        const data = await response.json()
+        if (response.ok) {
+          await fetchLockedMatches() // Refresh locked matches
+        } else {
+          console.error("Error unlocking match:", data.error)
+        }
+      }
+    } catch (error) {
+      console.error("Error unlocking match:", error)
+    } finally {
+      setLoadingLock(null)
+    }
+  }
 
   if (!isOpen) return null
 
@@ -198,6 +299,9 @@ export default function ParticipantResultsModal({
                         <th className="text-right p-4 text-sm font-semibold text-slate-300">الشريك</th>
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
                         {matchType !== "group" && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تثبيت المطابقة</th>
+                        )}
+                        {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">عرض التفاصيل</th>
                         )}
                         {matchType !== "group" && (
@@ -280,6 +384,16 @@ export default function ParticipantResultsModal({
                               <span className="text-white font-medium">
                                 {participant.name || "غير محدد"}
                               </span>
+                              {/* Payment indicator */}
+                              {participant.paid_done ? (
+                                <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center" title="دفع مكتمل">
+                                  <DollarSign className="w-3 h-3 text-white" />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center" title="لم يدفع">
+                                  <XCircle className="w-3 h-3 text-white" />
+                                </div>
+                              )}
                               {participant.is_organizer_match && participant.incompatibility_reason && (
                                 <div className="group relative">
                                   <Info className="w-4 h-4 text-yellow-400 cursor-help" />
@@ -306,10 +420,22 @@ export default function ParticipantResultsModal({
                                     </div>
                                   </div>
                                 ) : (
-                                  <div>
-                                    <div className="font-mono">#{participant.partner_assigned_number}</div>
-                                    {participant.partner_name && (
-                                      <div className="text-xs text-slate-400">{participant.partner_name}</div>
+                                  <div className="flex items-center gap-2">
+                                    <div>
+                                      <div className="font-mono">#{participant.partner_assigned_number}</div>
+                                      {participant.partner_name && (
+                                        <div className="text-xs text-slate-400">{participant.partner_name}</div>
+                                      )}
+                                    </div>
+                                    {/* Partner payment indicator */}
+                                    {participant.partner_paid_done ? (
+                                      <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center" title="الشريك دفع">
+                                        <DollarSign className="w-2 h-2 text-white" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-4 h-4 rounded-full bg-red-500 flex items-center justify-center" title="الشريك لم يدفع">
+                                        <XCircle className="w-2 h-2 text-white" />
+                                      </div>
                                     )}
                                   </div>
                                 )}
@@ -325,6 +451,35 @@ export default function ParticipantResultsModal({
                               </span>
                             </div>
                           </td>
+                          {matchType !== "group" && (
+                            <td className="p-4 text-center">
+                              {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
+                                isMatchLocked(participant.assigned_number, participant.partner_assigned_number) ? (
+                                  <button
+                                    onClick={() => handleUnlockMatch(participant)}
+                                    disabled={loadingLock === participant.assigned_number}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-red-500/20 border border-red-400/30 text-red-300 hover:bg-red-500/30 transition-all duration-300 text-sm disabled:opacity-50"
+                                    title="إلغاء تثبيت المطابقة"
+                                  >
+                                    <Unlock className="w-3 h-3" />
+                                    <span>إلغاء تثبيت</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleLockMatch(participant)}
+                                    disabled={loadingLock === participant.assigned_number}
+                                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-500/20 border border-green-400/30 text-green-300 hover:bg-green-500/30 transition-all duration-300 text-sm disabled:opacity-50"
+                                    title="تثبيت المطابقة للأجيال القادمة"
+                                  >
+                                    <Lock className="w-3 h-3" />
+                                    <span>تثبيت</span>
+                                  </button>
+                                )
+                              ) : (
+                                <span className="text-slate-500 text-xs">غير متاح</span>
+                              )}
+                            </td>
+                          )}
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
                               <button

@@ -420,7 +420,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
     return matchedPairs.has(pair)
   }
 
-  // Filter out participants who are matched with organizer (#9999)
+  // Filter out participants who are matched with organizer (#9999) or have no matches
   const eligibleParticipants = participants.filter(p => {
     // Check if this participant is matched with organizer
     const matchedWithOrganizer = existingMatches && existingMatches.some(match => 
@@ -432,10 +432,22 @@ async function generateGroupMatches(participants, match_id, eventId) {
       console.log(`🚫 Excluding participant #${p.assigned_number} from groups - matched with organizer`)
       return false
     }
+
+    // Also check if participant has any individual match at all
+    const hasIndividualMatch = existingMatches && existingMatches.some(match => 
+      (match.participant_a_number === p.assigned_number || match.participant_b_number === p.assigned_number) &&
+      match.participant_a_number !== 9999 && match.participant_b_number !== 9999
+    )
+    
+    if (!hasIndividualMatch) {
+      console.log(`🚫 Excluding participant #${p.assigned_number} from groups - no individual match found`)
+      return false
+    }
+    
     return true
   })
 
-  console.log(`👥 ${eligibleParticipants.length} participants eligible for groups (excluded ${participants.length - eligibleParticipants.length} organizer matches)`)
+  console.log(`👥 ${eligibleParticipants.length} participants eligible for groups (excluded ${participants.length - eligibleParticipants.length} without individual matches or matched with organizer)`)
   
   if (eligibleParticipants.length < 3) {
     throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
@@ -487,16 +499,16 @@ async function generateGroupMatches(participants, match_id, eventId) {
   const usedParticipants = new Set()
   const participantNumbers = eligibleParticipants.map(p => p.assigned_number)
   
-  // Phase 1: Form core groups of 4 first (avoiding matched pairs)
-  console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs)")
+  // Phase 1: Form core groups of 4 first (avoiding matched pairs and ensuring gender balance)
+  console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs, ensuring gender balance)")
   while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
     const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
-    let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched)
+    let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants)
     
     // Fallback: if no group can be formed avoiding matches, try with matches allowed
     if (!group && availableParticipants.length >= 4) {
-      console.log("⚠️ No groups of 4 possible without matched pairs - using fallback")
-      group = findBestGroup(availableParticipants, pairScores, 4)
+      console.log("⚠️ No groups of 4 possible without matched pairs/gender balance - using fallback")
+      group = findBestGroup(availableParticipants, pairScores, 4, eligibleParticipants)
     }
     
     if (group) {
@@ -545,9 +557,16 @@ async function generateGroupMatches(participants, match_id, eventId) {
   } else if (remainingParticipants.length === 3) {
     // 3 extra people - create a new group OR distribute among existing groups
     if (groups.length === 0) {
-      // No existing groups, create a group of 3
-      groups.push([...remainingParticipants])
-      console.log(`✅ Created new group of 3: [${remainingParticipants.join(', ')}]`)
+      // No existing groups, try to create a gender-balanced group of 3
+      const group3 = findBestGroupAvoidingMatches(remainingParticipants, pairScores, 3, areMatched, eligibleParticipants)
+      if (group3) {
+        groups.push([...group3])
+        console.log(`✅ Created new gender-balanced group of 3: [${group3.join(', ')}]`)
+      } else {
+        // Fallback: create group without gender balance requirement
+        groups.push([...remainingParticipants])
+        console.log(`⚠️ Created new group of 3 (no gender balance possible): [${remainingParticipants.join(', ')}]`)
+      }
         } else {
       // Distribute among existing groups (up to 2 per group to max 6)
       const sortedByCompatibility = remainingParticipants.map(p => ({
@@ -625,12 +644,12 @@ async function generateGroupMatches(participants, match_id, eventId) {
   return groupMatches
 }
 
-// Helper function to find the best group of specified size, avoiding matched pairs
-function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched) {
+// Helper function to find the best group of specified size, avoiding matched pairs and ensuring gender balance
+function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched, eligibleParticipants) {
   if (availableParticipants.length < targetSize) return null
   
   // For groups of 3 or 4, we want to maximize the sum of MBTI compatibility scores
-  // while avoiding putting matched pairs in the same group
+  // while avoiding putting matched pairs in the same group and ensuring gender balance
   let bestGroup = null
   let bestScore = -1
   
@@ -656,18 +675,34 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       continue
     }
     
+    // Check gender balance - ensure we have both genders in the group
+    const genders = combination.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return participant?.gender || participant?.survey_data?.gender
+    }).filter(Boolean)
+    
+    const maleCount = genders.filter(g => g === 'male').length
+    const femaleCount = genders.filter(g => g === 'female').length
+    
+    // Skip if all same gender (we want mixed groups)
+    if (maleCount === 0 || femaleCount === 0) {
+      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no gender balance (${maleCount}M, ${femaleCount}F)`)
+      continue
+    }
+    
     const score = calculateGroupMBTIScore(combination, pairScores)
     if (score > bestScore) {
       bestScore = score
       bestGroup = combination
+      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${score}%, Gender: ${maleCount}M/${femaleCount}F`)
     }
   }
   
   return bestGroup
 }
 
-// Helper function to find the best group of specified size (original version for fallback)
-function findBestGroup(availableParticipants, pairScores, targetSize) {
+// Helper function to find the best group of specified size (fallback version - allows matched pairs if needed)
+function findBestGroup(availableParticipants, pairScores, targetSize, eligibleParticipants = null) {
   if (availableParticipants.length < targetSize) return null
   
   // For groups of 3 or 4, we want to maximize the sum of MBTI compatibility scores
@@ -678,10 +713,31 @@ function findBestGroup(availableParticipants, pairScores, targetSize) {
   const combinations = getCombinations(availableParticipants, targetSize)
   
   for (const combination of combinations) {
-    const score = calculateGroupMBTIScore(combination, pairScores)
-    if (score > bestScore) {
-      bestScore = score
-      bestGroup = combination
+    // If we have participant data, still try to prefer gender balance
+    if (eligibleParticipants) {
+      const genders = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.gender || participant?.survey_data?.gender
+      }).filter(Boolean)
+      
+      const maleCount = genders.filter(g => g === 'male').length
+      const femaleCount = genders.filter(g => g === 'female').length
+      
+      // Prefer groups with gender balance, but don't require it in fallback
+      const hasGenderBalance = maleCount > 0 && femaleCount > 0
+      const score = calculateGroupMBTIScore(combination, pairScores)
+      const adjustedScore = hasGenderBalance ? score + 5 : score // Bonus for gender balance
+      
+      if (adjustedScore > bestScore) {
+        bestScore = adjustedScore
+        bestGroup = combination
+      }
+    } else {
+      const score = calculateGroupMBTIScore(combination, pairScores)
+      if (score > bestScore) {
+        bestScore = score
+        bestGroup = combination
+      }
     }
   }
   

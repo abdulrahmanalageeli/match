@@ -396,7 +396,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
     .eq("match_id", match_id)
     .eq("event_id", eventId)
     .neq("participant_b_number", 9999) // Exclude organizer matches
-    .not("round", "eq", 0) // Exclude group matches (round 0)
+    .neq("round", 0) // Exclude group matches (round 0 is for groups)
   
   if (matchError) {
     console.error("❌ Error fetching existing matches:", matchError)
@@ -600,47 +600,41 @@ async function generateGroupMatches(participants, match_id, eventId) {
     console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} people)`);
   });
 
-  // Convert groups to database format with support for up to 6 participants
+  // Convert groups to group_matches table format
   const groupMatches = []
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i]
     const groupScore = calculateGroupMBTIScore(group, pairScores)
     
-    // Assign table numbers: 1 to N/2 for pairs, but for groups use sequential numbering
+    // Assign table numbers: sequential numbering for groups
     const tableNumber = i + 1
+    const groupNumber = i + 1
+    const groupId = `group_${groupNumber}`
     
-    // Create match record with support for up to 6 participants (A, B, C, D, E, F)
-    const matchRecord = {
-      participant_a_number: group[0] || null,
-      participant_b_number: group[1] || null,
-      participant_c_number: group[2] || null,
-      participant_d_number: group[3] || null,
-      participant_e_number: group[4] || null, // New fallback slot
-      participant_f_number: group[5] || null, // New fallback slot
+    // Get participant names for the group
+    const participantNames = group.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return participant?.survey_data?.name || `المشارك #${participantNum}`
+    })
+    
+    // Create group match record for group_matches table
+    const groupMatchRecord = {
+      match_id,
+      group_id: groupId,
+      group_number: groupNumber,
+      participant_numbers: group, // Array of participant numbers
+      participant_names: participantNames, // Array of participant names
       compatibility_score: Math.round(groupScore),
       reason: `مجموعة من ${group.length} أشخاص بتوافق MBTI عالي (${Math.round(groupScore)}%)`,
-      match_id,
-      event_id: eventId,
-      round: 0, // Group phase
-      group_number: i + 1,
       table_number: tableNumber,
-      is_repeat_match: false,
-      // Add personality data for all participants (only first 4 for now due to column limitations)
-      participant_a_mbti_type: eligibleParticipants.find(p => p.assigned_number === group[0])?.mbti_personality_type || eligibleParticipants.find(p => p.assigned_number === group[0])?.survey_data?.mbtiType,
-      participant_b_mbti_type: eligibleParticipants.find(p => p.assigned_number === group[1])?.mbti_personality_type || eligibleParticipants.find(p => p.assigned_number === group[1])?.survey_data?.mbtiType,
-      // Store additional info in reason for participants E and F
-      mbti_compatibility_score: groupScore,
-      attachment_compatibility_score: 0,
-      communication_compatibility_score: 0,
-      lifestyle_compatibility_score: 0,
-      core_values_compatibility_score: 0,
-      vibe_compatibility_score: 0
+      event_id: eventId,
+      conversation_status: 'pending'
     }
     
-    groupMatches.push(matchRecord)
+    groupMatches.push(groupMatchRecord)
   }
 
-  console.log(`💾 Generated ${groupMatches.length} group match records`);
+  console.log(`💾 Generated ${groupMatches.length} group match records for group_matches table`);
   return groupMatches
 }
 
@@ -1057,11 +1051,10 @@ export default async function handler(req, res) {
       // Clear existing group matches
       console.log(`🗑️ Clearing existing group matches for match_id: ${match_id}, event_id: ${eventId}`)
       const { error: deleteError } = await supabase
-        .from("match_results")
+        .from("group_matches")
         .delete()
         .eq("match_id", match_id)
         .eq("event_id", eventId)
-        .eq("round", 0) // Group phase round
 
       if (deleteError) {
         console.error("🔥 Error clearing existing group matches:", deleteError)
@@ -1069,9 +1062,9 @@ export default async function handler(req, res) {
       }
 
       // Insert new group matches
-      console.log("💾 Inserting", groupMatches.length, "group matches")
+      console.log("💾 Inserting", groupMatches.length, "group matches into group_matches table")
       const { error: insertError } = await supabase
-        .from("match_results")
+        .from("group_matches")
         .insert(groupMatches)
 
       if (insertError) {

@@ -1218,13 +1218,12 @@ export default async function handler(req, res) {
       try {
         const { event_id = 1 } = req.body
 
-        // Get group matches from match_results table (round = 0 indicates group matches)
+        // Get group matches from group_matches table
         const { data: groupMatches, error: groupError } = await supabase
-          .from("match_results")
+          .from("group_matches")
           .select("*")
           .eq("match_id", STATIC_MATCH_ID)
           .eq("event_id", event_id)
-          .eq("round", 0) // Group matches use round 0
           .order("group_number", { ascending: true })
 
         if (groupError) {
@@ -1232,46 +1231,25 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: groupError.message })
         }
 
-        // Get participant names for display
-        const { data: participants, error: participantError } = await supabase
-          .from("participants")
-          .select("assigned_number, survey_data")
-          .eq("match_id", STATIC_MATCH_ID)
-          .neq("assigned_number", 9999) // Exclude organizer
-
-        if (participantError) {
-          console.error("Error fetching participants:", participantError)
-          return res.status(500).json({ error: participantError.message })
-        }
-
-        // Create participant name map
-        const participantMap = new Map()
-        participants.forEach(p => {
-          participantMap.set(p.assigned_number, p.survey_data?.name || `المشارك #${p.assigned_number}`)
-        })
-
-        // Format group assignments
+        // Format group assignments (participant_names are already stored in the table)
         const groupAssignments = groupMatches.map(match => {
-          const participantNumbers = [
-            match.participant_a_number,
-            match.participant_b_number,
-            match.participant_c_number,
-            match.participant_d_number,
-            match.participant_e_number,
-            match.participant_f_number
-          ].filter(num => num !== null && num !== 9999) // Exclude null and organizer
+          const participantNumbers = match.participant_numbers || []
+          const participantNames = match.participant_names || []
 
-          const participants = participantNumbers.map(num => ({
+          const participants = participantNumbers.map((num, index) => ({
             number: num,
-            name: participantMap.get(num) || `المشارك #${num}`
+            name: participantNames[index] || `المشارك #${num}`
           }))
 
           return {
+            group_id: match.group_id,
             group_number: match.group_number,
             table_number: match.table_number,
             participants: participants,
             compatibility_score: match.compatibility_score,
-            participant_count: participants.length
+            participant_count: participants.length,
+            conversation_status: match.conversation_status,
+            reason: match.reason
           }
         })
 

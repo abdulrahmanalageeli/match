@@ -384,20 +384,69 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
   }
 }
 
-// Function to create groups of 4 (or 3) based on MBTI compatibility with fallback support up to 6
+// Function to create groups of 3-4 (or 5) based on MBTI compatibility, avoiding matched pairs
 async function generateGroupMatches(participants, match_id, eventId) {
-  console.log("🎯 Starting enhanced group matching for", participants.length, "participants")
+  console.log("🎯 Starting enhanced group matching for", participants.length, "total participants")
   
-  if (participants.length < 3) {
-    throw new Error("Need at least 3 participants for group matching")
+  // First, get existing individual matches to avoid putting matched pairs in same group
+  console.log("🔍 Fetching existing individual matches to avoid pairing matched participants...")
+  const { data: existingMatches, error: matchError } = await supabase
+    .from("match_results")
+    .select("participant_a_number, participant_b_number")
+    .eq("match_id", match_id)
+    .eq("event_id", eventId)
+    .neq("participant_b_number", 9999) // Exclude organizer matches
+    .not("round", "eq", 0) // Exclude group matches (round 0)
+  
+  if (matchError) {
+    console.error("❌ Error fetching existing matches:", matchError)
+  }
+  
+  const matchedPairs = new Set()
+  if (existingMatches && existingMatches.length > 0) {
+    existingMatches.forEach(match => {
+      const pair = [match.participant_a_number, match.participant_b_number].sort().join('-')
+      matchedPairs.add(pair)
+      console.log(`   🚫 Avoiding pair: #${match.participant_a_number} ↔ #${match.participant_b_number}`)
+    })
+    console.log(`🚫 Found ${matchedPairs.size} matched pairs to avoid in groups`)
+  } else {
+    console.log("ℹ️ No existing individual matches found - proceeding with normal group formation")
+  }
+  
+  // Helper function to check if two participants are matched
+  const areMatched = (p1, p2) => {
+    const pair = [p1, p2].sort().join('-')
+    return matchedPairs.has(pair)
+  }
+
+  // Filter out participants who are matched with organizer (#9999)
+  const eligibleParticipants = participants.filter(p => {
+    // Check if this participant is matched with organizer
+    const matchedWithOrganizer = existingMatches && existingMatches.some(match => 
+      (match.participant_a_number === p.assigned_number && match.participant_b_number === 9999) ||
+      (match.participant_b_number === p.assigned_number && match.participant_a_number === 9999)
+    )
+    
+    if (matchedWithOrganizer) {
+      console.log(`🚫 Excluding participant #${p.assigned_number} from groups - matched with organizer`)
+      return false
+    }
+    return true
+  })
+
+  console.log(`👥 ${eligibleParticipants.length} participants eligible for groups (excluded ${participants.length - eligibleParticipants.length} organizer matches)`)
+  
+  if (eligibleParticipants.length < 3) {
+    throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
   }
 
   // Calculate MBTI compatibility scores for all pairs (with gender compatibility check)
   const pairScores = []
-  for (let i = 0; i < participants.length; i++) {
-    for (let j = i + 1; j < participants.length; j++) {
-      const a = participants[i]
-      const b = participants[j]
+  for (let i = 0; i < eligibleParticipants.length; i++) {
+    for (let j = i + 1; j < eligibleParticipants.length; j++) {
+      const a = eligibleParticipants[i]
+      const b = eligibleParticipants[j]
       
       // Check gender compatibility first (opposite gender only)
       if (!checkGenderCompatibility(a, b)) {
@@ -436,13 +485,19 @@ async function generateGroupMatches(participants, match_id, eventId) {
   // Enhanced group formation algorithm with fallback support
   const groups = []
   const usedParticipants = new Set()
-  const participantNumbers = participants.map(p => p.assigned_number)
+  const participantNumbers = eligibleParticipants.map(p => p.assigned_number)
   
-  // Phase 1: Form core groups of 4 first
-  console.log("🔄 Phase 1: Creating core groups of 4")
+  // Phase 1: Form core groups of 4 first (avoiding matched pairs)
+  console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs)")
   while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
     const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
-    const group = findBestGroup(availableParticipants, pairScores, 4)
+    let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched)
+    
+    // Fallback: if no group can be formed avoiding matches, try with matches allowed
+    if (!group && availableParticipants.length >= 4) {
+      console.log("⚠️ No groups of 4 possible without matched pairs - using fallback")
+      group = findBestGroup(availableParticipants, pairScores, 4)
+    }
     
     if (group) {
       groups.push([...group]) // Create a copy to allow modification
@@ -552,8 +607,8 @@ async function generateGroupMatches(participants, match_id, eventId) {
       table_number: tableNumber,
       is_repeat_match: false,
       // Add personality data for all participants (only first 4 for now due to column limitations)
-      participant_a_mbti_type: participants.find(p => p.assigned_number === group[0])?.mbti_personality_type || participants.find(p => p.assigned_number === group[0])?.survey_data?.mbtiType,
-      participant_b_mbti_type: participants.find(p => p.assigned_number === group[1])?.mbti_personality_type || participants.find(p => p.assigned_number === group[1])?.survey_data?.mbtiType,
+      participant_a_mbti_type: eligibleParticipants.find(p => p.assigned_number === group[0])?.mbti_personality_type || eligibleParticipants.find(p => p.assigned_number === group[0])?.survey_data?.mbtiType,
+      participant_b_mbti_type: eligibleParticipants.find(p => p.assigned_number === group[1])?.mbti_personality_type || eligibleParticipants.find(p => p.assigned_number === group[1])?.survey_data?.mbtiType,
       // Store additional info in reason for participants E and F
       mbti_compatibility_score: groupScore,
       attachment_compatibility_score: 0,
@@ -570,7 +625,48 @@ async function generateGroupMatches(participants, match_id, eventId) {
   return groupMatches
 }
 
-// Helper function to find the best group of specified size
+// Helper function to find the best group of specified size, avoiding matched pairs
+function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched) {
+  if (availableParticipants.length < targetSize) return null
+  
+  // For groups of 3 or 4, we want to maximize the sum of MBTI compatibility scores
+  // while avoiding putting matched pairs in the same group
+  let bestGroup = null
+  let bestScore = -1
+  
+  // Generate all combinations of the target size
+  const combinations = getCombinations(availableParticipants, targetSize)
+  
+  for (const combination of combinations) {
+    // Check if this combination contains any matched pairs
+    let hasMatchedPair = false
+    for (let i = 0; i < combination.length; i++) {
+      for (let j = i + 1; j < combination.length; j++) {
+        if (areMatched(combination[i], combination[j])) {
+          hasMatchedPair = true
+          break
+        }
+      }
+      if (hasMatchedPair) break
+    }
+    
+    // Skip this combination if it contains matched pairs
+    if (hasMatchedPair) {
+      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - contains matched pair`)
+      continue
+    }
+    
+    const score = calculateGroupMBTIScore(combination, pairScores)
+    if (score > bestScore) {
+      bestScore = score
+      bestGroup = combination
+    }
+  }
+  
+  return bestGroup
+}
+
+// Helper function to find the best group of specified size (original version for fallback)
 function findBestGroup(availableParticipants, pairScores, targetSize) {
   if (availableParticipants.length < targetSize) return null
   

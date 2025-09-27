@@ -28,7 +28,8 @@ import {
   Square,
   X
 } from "lucide-react"
-import ParticipantResultsModal from "../components/ParticipantResultsModal"
+import ParticipantResultsModal from "~/components/ParticipantResultsModal"
+import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -72,6 +73,12 @@ export default function AdminPage() {
   // Excluded pairs management
   const [excludedPairs, setExcludedPairs] = useState<Array<{id: string, participant1_number: number, participant2_number: number, created_at: string, reason: string}>>([])
   const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
+  
+  // Group assignments modal state
+  const [showGroupAssignmentsModal, setShowGroupAssignmentsModal] = useState(false)
+  const [groupAssignments, setGroupAssignments] = useState<any[]>([])
+  const [totalGroups, setTotalGroups] = useState(0)
+  const [totalGroupParticipants, setTotalGroupParticipants] = useState(0)
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -654,6 +661,33 @@ export default function AdminPage() {
     }
   }
 
+  const fetchGroupAssignments = async () => {
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "get-group-assignments",
+          event_id: currentEventId
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        setGroupAssignments(data.groupAssignments || [])
+        setTotalGroups(data.totalGroups || 0)
+        setTotalGroupParticipants(data.totalParticipants || 0)
+        setShowGroupAssignmentsModal(true)
+      } else {
+        console.error("Error fetching group assignments:", data.error)
+        alert("❌ Failed to fetch group assignments: " + (data.error || "Unknown error"))
+      }
+    } catch (error) {
+      console.error("Error fetching group assignments:", error)
+      alert("❌ Error fetching group assignments")
+    }
+  }
+
   const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = []) => {
     try {
       // Convert match results to participant results format
@@ -1129,6 +1163,14 @@ export default function AdminPage() {
               >
                 <Users className="w-4 h-4" />
                 Generate Groups
+              </button>
+
+              <button
+                onClick={fetchGroupAssignments}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
+              >
+                <Users className="w-4 h-4" />
+                Show Groups
               </button>
 
               <button
@@ -1928,6 +1970,15 @@ export default function AdminPage() {
         matchType={matchType}
         totalMatches={totalMatches}
         calculatedPairs={calculatedPairs}
+      />
+
+      {/* Group Assignments Modal */}
+      <GroupAssignmentsModal
+        isOpen={showGroupAssignmentsModal}
+        onClose={() => setShowGroupAssignmentsModal(false)}
+        groupAssignments={groupAssignments}
+        totalGroups={totalGroups}
+        totalParticipants={totalGroupParticipants}
       />
     </div>
   )

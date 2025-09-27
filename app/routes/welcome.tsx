@@ -2727,6 +2727,28 @@ export default function WelcomePage() {
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
                     <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
                     
+                    {/* Returning Participant for Next Event Option */}
+                    <div className="mb-6 sm:mb-8">
+                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full"></div>
+                        <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
+                      </div>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للحدث القادم باستخدام رقم هاتفك</p>
+                      <Button
+                        onClick={() => setShowReturningModal(true)}
+                        className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                      >
+                        سجل للحدث القادم
+                      </Button>
+                    </div>
+
+                    {/* Divider */}
+                    <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                      <div className="flex-1 h-px bg-white/20"></div>
+                      <span className="text-white/60 text-xs sm:text-sm">أو</span>
+                      <div className="flex-1 h-px bg-white/20"></div>
+                    </div>
+                    
                     {/* New Player Option */}
                     <div className="mb-6 sm:mb-8">
                       <div className="flex items-center gap-3 mb-3 sm:mb-4">
@@ -3395,19 +3417,8 @@ export default function WelcomePage() {
             </div>
             
             {!welcomeTyping && (
-              <div className="flex flex-col items-center gap-4">
+              <div className="flex justify-center">
                 <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
-                <Button
-                  onClick={() => setShowReturningModal(true)}
-                  variant="outline"
-                  className={`spring-btn border-2 transition-all duration-500 transform hover:scale-105 ${
-                    dark 
-                      ? "border-cyan-400/50 text-cyan-300 hover:bg-cyan-400/10 hover:border-cyan-300" 
-                      : "border-cyan-500/50 text-cyan-600 hover:bg-cyan-50 hover:border-cyan-500"
-                  }`}
-                >
-                  سجلت من قبل؟ سجل للحدث القادم
-                </Button>
               </div>
             )}
           </section>

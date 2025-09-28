@@ -107,6 +107,32 @@ function calculateAttachmentCompatibility(style1, style2) {
   }
 }
 
+// NEW: Refined attachment scoring with penalties for immediate chemistry
+function calculateRefinedAttachmentScore(style1, style2) {
+  if (!style1 || !style2) {
+    return 8 // Default 8% out of 15% if no attachment data
+  }
+  
+  // PENALTY: Anxious + Avoidant pairing (kills immediate chemistry)
+  if ((style1 === 'Anxious' && style2 === 'Avoidant') || 
+      (style1 === 'Avoidant' && style2 === 'Anxious')) {
+    return 0 // 0% for the problematic anxious-avoidant trap
+  }
+  
+  // BONUS: Secure with anyone (creates safe space for chemistry)
+  if (style1 === 'Secure' || style2 === 'Secure') {
+    return 15 // Full 15% when at least one is secure
+  }
+  
+  // ACCEPTABLE: Same insecure types (understand each other)
+  if (style1 === style2 && (style1 === 'Anxious' || style1 === 'Avoidant' || style1 === 'Fearful')) {
+    return 10 // 10% for same insecure types
+  }
+  
+  // DEFAULT: Other combinations
+  return 5 // 5% for other mixed insecure combinations
+}
+
 // Function to calculate communication style compatibility score (up to 25% of total)
 function calculateCommunicationCompatibility(style1, style2) {
   if (!style1 || !style2) {
@@ -320,38 +346,40 @@ async function calculateVibeCompatibility(participantA, participantB) {
 // Helper function to calculate combined vibe compatibility using AI
 async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `أنت مساعد ذكي متخصص في تحليل التوافق الشخصي بين شخصين مع فهم عميق للثقافة العربية والسعودية. كن متفائلاً ومتساهلاً في التقييم لإيجاد نقاط التوافق المحتملة.
+    const systemMessage = `أنت خبير في تحليل التوافق الفوري والكيمياء الأولى بين شخصين. مهمتك تحديد احتمالية "الكليك" الفوري والانجذاب الأولي، وليس التوافق طويل المدى.
 
-مهمتك هي مقارنة ملفين شخصيين شاملين وتقييم مدى التوافق بينهما في الجوانب التالية:
-- أسلوب قضاء عطلة نهاية الأسبوع
-- الهوايات والاهتمامات
-- الذوق الموسيقي والفني
-- تفضيل المحادثات العميقة أم الخفيفة
-- كيف يصفهم الأصدقاء
-- كيف يصفون أصدقائهم
+ركز على العوامل التي تخلق الكيمياء الفورية والمحادثة الممتعة:
 
-مبادئ التقييم المتساهل والواسع:
-1. **التوافق الموسيقي الواسع**: اعتبر أي موسيقى عربية متوافقة مع بعضها، وأي موسيقى غربية متوافقة مع بعضها. حتى الأذواق المختلفة يمكن أن تكون مكملة (مثل: الطرب الكلاسيكي مع البوب العربي = تنوع جميل)
+🎯 **أولوية قصوى - الاهتمامات المشتركة (40% من التقييم):**
+- ابحث عن أي هوايات أو اهتمامات مشتركة (حتى لو مختلفة قليلاً)
+- الموسيقى: أي تشابه في الأذواق أو الأنواع
+- الأنشطة: أي تداخل في طريقة قضاء الوقت
+- **مكافأة كبيرة**: إذا وجدت 2+ اهتمامات مشتركة = 12-15 نقطة فوراً
 
-2. **الهوايات المرنة**: اعتبر الأنشطة المختلفة متوافقة إذا كانت تشترك في روح واحدة (مثل: القراءة والأفلام = حب المحتوى، الرياضة والمشي = النشاط البدني، الطبخ والأكل = حب الطعام، حتى الألعاب والقراءة = قضاء وقت ممتع)
+🗣️ **الطاقة الاجتماعية والمحادثة (35% من التقييم):**
+- هل سيتدفق الحديث بسهولة؟
+- ابحث عن توازن: شخص "اجتماعي/مرح" مع شخص "مستمع جيد"
+- تجنب: اثنان "خجولان جداً" أو اثنان "جديان جداً"
+- **مكافأة**: إذا أحدهما "مضحك" والآخر "يحب الضحك"
 
-3. **أسلوب نهاية الأسبوع المتنوع**: اعتبر الأنشطة المختلفة فرصة للتنوع والاستكشاف المشترك (مثل: شخص يحب البيت مع شخص يحب الخروج = توازن مثالي)
+⚡ **الطاقة والشخصية (25% من التقييم):**
+- هل شخصياتهما ستتناغم في أول 10 دقائق؟
+- ابحث عن التكامل: "هادئ" + "ودود" = ممتاز
+- تجنب: "جدي جداً" + "يحب المزاح" = صعب
 
-4. **الصفات الشخصية المكملة**: ركز بقوة على التكامل والتوازن (مثل: "هادئ" مع "اجتماعي" = توازن رائع، "جدي" مع "مرح" = تكامل مثالي، "منظم" مع "عفوي" = يكملان بعض)
+🚨 **تجنب هذه التركيبات:**
+- اثنان خجولان جداً (محادثة صعبة)
+- اثنان جديان جداً (بدون مرح)
+- شخص يحب "السوالف العميقة" + شخص يكره الفلسفة
 
-5. **المحادثات العميقة**: اعتبر أي مستوى من المحادثة متوافق - حتى "خفيف" مع "عميق" يمكن أن يكون متوازن
+✨ **نظام التقييم المحدث للكيمياء الفورية:**
+- 13-15: اهتمامات مشتركة واضحة + توازن اجتماعي ممتاز
+- 10-12: بعض الاهتمامات المشتركة + شخصيات متوافقة
+- 7-9: اهتمام مشترك واحد أو توافق شخصي جيد
+- 4-6: توافق محدود، لكن لا تعارض واضح
+- 0-3: تعارض في الطاقة أو عدم وجود نقاط مشتركة
 
-6. **التفاؤل في التقييم**: ابحث عن أي نقطة تشابه أو تكامل محتملة، حتى لو كانت صغيرة
-
-قواعد التقييم المتساهلة (ارفع الدرجات):
-- إذا كان هناك أي تطابق أو تكامل واضح في 3+ جوانب: 13-15 نقطة
-- إذا كان هناك تطابق أو تكامل في 2-3 جوانب: 10-12 نقطة  
-- إذا كان هناك تطابق أو تكامل في 1-2 جوانب: 7-9 نقاط
-- إذا كان هناك تطابق محدود أو إجابات عامة: 5-6 نقاط
-- فقط في حالة التعارض الواضح جداً في معظم الجوانب: 2-4 نقاط
-- فقط للتعارض الشديد في كل الجوانب: 0-1 نقطة
-
-كن متفائلاً ومتساهلاً! ابحث عن الإيجابيات والتكامل المحتمل. معظم الناس يمكن أن يتوافقوا بطريقة ما.
+**هدفك**: هل سيستمتعان في أول 10 دقائق؟ هل سيجدان ما يتحدثان عنه؟ هل ستكون هناك كيمياء فورية؟
 
 أرجع رقماً فقط من 0 إلى 15 بدون أي نص إضافي.`
 
@@ -1135,9 +1163,16 @@ export default async function handler(req, res) {
         }
       }
       
-      // Calculate total compatibility using the same formula
+      // Calculate total compatibility using the NEW WEIGHTING SYSTEM
+      // Enhanced Vibe: 35% | Communication: 25% | Refined Attachment: 15% | Lifestyle: 10% | Core Values: 10% | MBTI: 5%
+      const enhancedVibeScore = Math.min(35, (vibeScore / 15) * 35)
+      const refinedAttachmentScore = calculateRefinedAttachmentScore(p1Attachment, p2Attachment)
+      const reducedMBTIScore = Math.min(5, (mbtiScore / 10) * 5)
+      const reducedLifestyleScore = Math.min(10, (lifestyleScore / 15) * 10) 
+      const reducedCoreValuesScore = Math.min(10, (coreValuesScore / 20) * 10)
+      
       const totalCompatibility = Math.round(
-        mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
+        reducedMBTIScore + refinedAttachmentScore + communicationScore + reducedLifestyleScore + reducedCoreValuesScore + enhancedVibeScore
       )
       
       // Create match record
@@ -1363,9 +1398,24 @@ export default async function handler(req, res) {
       const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
       const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(a, b)
-      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
+      // NEW WEIGHTING SYSTEM - Optimized for immediate chemistry
+      // Enhanced Vibe (shared interests): 35% | Social Style (communication): 25% 
+      // Refined Attachment: 15% | Lifestyle: 10% | Core Values: 10% | MBTI: 5%
       
-      const reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
+      // Apply enhanced vibe weighting (35% instead of 15%)
+      const enhancedVibeScore = Math.min(35, (vibeScore / 15) * 35)
+      
+      // Apply refined attachment scoring with penalties
+      const refinedAttachmentScore = calculateRefinedAttachmentScore(aAttachment, bAttachment)
+      
+      // Reduce other weights to focus on immediate chemistry factors
+      const reducedMBTIScore = Math.min(5, (mbtiScore / 10) * 5)
+      const reducedLifestyleScore = Math.min(10, (lifestyleScore / 15) * 10) 
+      const reducedCoreValuesScore = Math.min(10, (coreValuesScore / 20) * 10)
+      
+      const totalScore = reducedMBTIScore + refinedAttachmentScore + communicationScore + reducedLifestyleScore + reducedCoreValuesScore + enhancedVibeScore
+      
+      const reason = `🎭 الكيمياء الفورية: (${enhancedVibeScore.toFixed(1)}%) + 💬 التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + 💝 التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${refinedAttachmentScore}%) + 🏠 نمط الحياة: (${reducedLifestyleScore.toFixed(1)}%) + ⭐ القيم: (${reducedCoreValuesScore.toFixed(1)}%) + 🧠 MBTI: (${reducedMBTIScore.toFixed(1)}%)`
       
       compatibilityScores.push({
         a: a.assigned_number,

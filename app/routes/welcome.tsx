@@ -2731,7 +2731,7 @@ export default function WelcomePage() {
                         <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full"></div>
                         <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
                       </div>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للحدث القادم باستخدام رقم هاتفك</p>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
                       
                       <div className="space-y-3">
                         <Input
@@ -2742,9 +2742,7 @@ export default function WelcomePage() {
                           className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
                           dir="ltr"
                         />
-                        <p className="text-green-200 text-xs text-center">
-                          سنبحث عن آخر 6 أرقام من رقم هاتفك في الأحداث السابقة
-                        </p>
+
                         <Button
                           onClick={handleReturningParticipant}
                           disabled={returningLoading || !returningPhoneNumber.trim()}

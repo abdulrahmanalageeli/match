@@ -224,6 +224,7 @@ export default function WelcomePage() {
   })
   const [showSurvey, setShowSurvey] = useState(false)
   const [isEditingSurvey, setIsEditingSurvey] = useState(false)
+  const [hasPolledOnce, setHasPolledOnce] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
   const [partnerEndedTimer, setPartnerEndedTimer] = useState(false)
   const [timerEnded, setTimerEnded] = useState(false)
@@ -1002,7 +1003,38 @@ export default function WelcomePage() {
           
           console.log(`🔄 Polling detected phase: ${data.phase}, current step: ${step}`);
           
-          // Polling no longer auto-loads survey data - only loads on explicit user action
+          // Check if user has completed the form (only poll once and only if user is not actively editing)
+          if ((!surveyData.answers || Object.keys(surveyData.answers).length === 0) && !isEditingSurvey && !hasPolledOnce) {
+            setHasPolledOnce(true); // Mark that we've polled once
+            try {
+              const userRes = await fetch("/api/participant", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
+              });
+              const userData = await userRes.json();
+              console.log("🔍 One-time Polling - userData received:", userData);
+              if (userData.success && userData.survey_data) {
+                console.log("🔍 One-time Polling - survey_data exists:", userData.survey_data);
+                // Ensure the survey_data has the expected structure
+                const formattedSurveyData = {
+                  answers: userData.survey_data.answers || {},
+                  termsAccepted: userData.survey_data.termsAccepted || false,
+                  dataConsent: userData.survey_data.dataConsent || false,
+                  ...userData.survey_data
+                };
+                setSurveyData(formattedSurveyData);
+                if (userData.summary && userData.summary !== personalitySummary) {
+                  console.log("🔄 Updating summary from one-time polling:", userData.summary)
+                  setPersonalitySummary(userData.summary);
+                } else if (userData.summary === personalitySummary) {
+                  console.log("🔄 Summary unchanged, skipping update")
+                }
+              }
+            } catch (err) {
+              console.error("Failed to fetch user data during one-time polling:", err);
+            }
+          }
           
           // HANDLE ALL PHASE TRANSITIONS
           console.log(`🔄 Phase transition check: current phase=${data.phase}, lastPhaseRef=${lastPhaseRef.current}, lastRoundRef=${lastRoundRef.current}, step=${step}`);

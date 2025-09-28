@@ -5400,13 +5400,34 @@ export default function WelcomePage() {
             <div className="flex gap-4 justify-center">
               <Button
                 className="px-6 py-2 font-bold"
-                onClick={() => {
+                onClick={async () => {
                   setShowFormFilledPrompt(false);
                   setFormFilledChoiceMade(true);
                   setStep(2); // Stay on form
                   setAnalysisStarted(false);
+                  
+                  // First, load existing survey data if not already loaded
+                  if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+                    try {
+                      const userRes = await fetch("/api/participant", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
+                      });
+                      const userData = await userRes.json();
+                      if (userData.success && userData.survey_data && userData.survey_data.answers) {
+                        setSurveyData(userData.survey_data);
+                      }
+                    } catch (err) {
+                      console.error("Failed to load existing survey data:", err);
+                    }
+                  }
+                  
                   setShowSurvey(true); // Show survey for redo
-                  setIsEditingSurvey(true);
+                  // Delay setting editing flag to allow data to load first
+                  setTimeout(() => {
+                    setIsEditingSurvey(true);
+                  }, 100);
                 }}
               >
                 إعادة تعبئة النموذج

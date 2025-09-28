@@ -1158,19 +1158,19 @@ export default async function handler(req, res) {
       const coreValuesScore = calculateCoreValuesCompatibility(p1CoreValues, p2CoreValues)
       
       // Calculate vibe compatibility using AI (unless skipAI is true)
-      let vibeScore = 7 // Default
+      let vibeScore = 18 // Default (scaled to new 0-35 range)
       if (!skipAI) {
         try {
           vibeScore = await calculateVibeCompatibility(p1, p2)
         } catch (error) {
           console.error("Error calculating vibe compatibility for manual match:", error)
-          vibeScore = 7
+          vibeScore = 18 // Scaled to new 0-35 range
         }
       }
       
       // Calculate total compatibility using the NEW WEIGHTING SYSTEM
       // Enhanced Vibe: 35% | Communication: 25% | Refined Attachment: 15% | Lifestyle: 10% | Core Values: 10% | MBTI: 5%
-      const enhancedVibeScore = Math.min(35, (vibeScore / 15) * 35)
+      const enhancedVibeScore = Math.min(35, vibeScore) // vibeScore is now 0-35 from AI
       const refinedAttachmentScore = calculateRefinedAttachmentScore(p1Attachment, p2Attachment)
       const reducedMBTIScore = Math.min(5, (mbtiScore / 10) * 5)
       const reducedLifestyleScore = Math.min(10, (lifestyleScore / 15) * 10) 
@@ -1402,13 +1402,13 @@ export default async function handler(req, res) {
       const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
       const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-      const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(a, b)
+      const vibeScore = skipAI ? 18 : await calculateVibeCompatibility(a, b) // Default 18/35 when AI skipped
       // NEW WEIGHTING SYSTEM - Optimized for immediate chemistry
       // Enhanced Vibe (shared interests): 35% | Social Style (communication): 25% 
       // Refined Attachment: 15% | Lifestyle: 10% | Core Values: 10% | MBTI: 5%
       
-      // Apply enhanced vibe weighting (35% instead of 15%)
-      const enhancedVibeScore = Math.min(35, (vibeScore / 15) * 35)
+      // Apply enhanced vibe weighting (35% - already scaled from AI)
+      const enhancedVibeScore = Math.min(35, vibeScore) // vibeScore is now 0-35 from AI
       
       // Apply refined attachment scoring with penalties
       const refinedAttachmentScore = calculateRefinedAttachmentScore(aAttachment, bAttachment)

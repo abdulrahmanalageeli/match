@@ -372,22 +372,23 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
 - اثنان جديان جداً (بدون مرح)
 - شخص يحب "السوالف العميقة" + شخص يكره الفلسفة
 
-✨ **نظام التقييم المحدث للكيمياء الفورية:**
-- 13-15: اهتمامات مشتركة واضحة + توازن اجتماعي ممتاز
-- 10-12: بعض الاهتمامات المشتركة + شخصيات متوافقة
-- 7-9: اهتمام مشترك واحد أو توافق شخصي جيد
-- 4-6: توافق محدود، لكن لا تعارض واضح
-- 0-3: تعارض في الطاقة أو عدم وجود نقاط مشتركة
+✨ **سلم النقاط للكيمياء الفورية (0..35):**
+- 30-35: اهتمامات مشتركة واضحة + توازن اجتماعي ممتاز
+- 22-29: بعض الاهتمامات المشتركة + شخصيات متوافقة
+- 15-21: اهتمام مشترك واحد أو توافق شخصي جيد
+- 8-14: توافق محدود دون تعارض حاد
+- 07: تعارض في الطاقة أو لا توجد نقاط مشتركة
+
 
 **هدفك**: هل سيستمتعان في أول 10 دقائق؟ هل سيجدان ما يتحدثان عنه؟ هل ستكون هناك كيمياء فورية؟
 
-أرجع رقماً فقط من 0 إلى 15 بدون أي نص إضافي.`
+أرجع رقماً فقط من 0 إلى 35 بدون أي نص إضافي.`
 
     const userMessage = `الملف الشخصي للشخص الأول: "${profileA}"
 
 الملف الشخصي للشخص الثاني: "${profileB}"
 
-قيّم التوافق الشخصي بينهما من 0 إلى 15:`
+قيّم التوافق الشخصي بينهما من 0 إلى 35:`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -395,16 +396,20 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }
       ],
-      max_tokens: 10,
-      temperature: 0.1
+      temperature: 0,       // deterministic
+      top_p: 1,
+      max_tokens: 6,        // enough for “35”
+      stop: ["\n"],         // cut anything after the first token/line
+      presence_penalty: 0,
+      frequency_penalty: 0
     })
 
     const score = parseInt(completion.choices[0].message.content.trim())
     
     // Validate score is within range
-    if (isNaN(score) || score < 0 || score > 15) {
+    if (isNaN(score) || score < 0 || score > 35) {
       console.warn("Invalid AI score, using default:", completion.choices[0].message.content)
-      return 9 // Default higher score to be more lenient
+      return 18 // Default higher score to be more lenient
     }
 
     return score

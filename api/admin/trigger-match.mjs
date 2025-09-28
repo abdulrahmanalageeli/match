@@ -107,32 +107,6 @@ function calculateAttachmentCompatibility(style1, style2) {
   }
 }
 
-// NEW: Refined attachment scoring with penalties for immediate chemistry
-function calculateRefinedAttachmentScore(style1, style2) {
-  if (!style1 || !style2) {
-    return 8 // Default 8% out of 15% if no attachment data
-  }
-  
-  // PENALTY: Anxious + Avoidant pairing (kills immediate chemistry)
-  if ((style1 === 'Anxious' && style2 === 'Avoidant') || 
-      (style1 === 'Avoidant' && style2 === 'Anxious')) {
-    return 0 // 0% for the problematic anxious-avoidant trap
-  }
-  
-  // BONUS: Secure with anyone (creates safe space for chemistry)
-  if (style1 === 'Secure' || style2 === 'Secure') {
-    return 15 // Full 15% when at least one is secure
-  }
-  
-  // ACCEPTABLE: Same insecure types (understand each other)
-  if (style1 === style2 && (style1 === 'Anxious' || style1 === 'Avoidant' || style1 === 'Fearful')) {
-    return 10 // 10% for same insecure types
-  }
-  
-  // DEFAULT: Other combinations
-  return 5 // 5% for other mixed insecure combinations
-}
-
 // Function to calculate communication style compatibility score (up to 25% of total)
 function calculateCommunicationCompatibility(style1, style2) {
   if (!style1 || !style2) {
@@ -346,49 +320,46 @@ async function calculateVibeCompatibility(participantA, participantB) {
 // Helper function to calculate combined vibe compatibility using AI
 async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `أنت خبير في تحليل التوافق الفوري والكيمياء الأولى بين شخصين. مهمتك تحديد احتمالية "الكليك" الفوري والانجذاب الأولي، وليس التوافق طويل المدى.
+    const systemMessage = `أنت مساعد ذكي متخصص في تحليل التوافق الشخصي بين شخصين مع فهم عميق للثقافة العربية والسعودية. كن متفائلاً ومتساهلاً في التقييم لإيجاد نقاط التوافق المحتملة.
 
-ركز على العوامل التي تخلق الكيمياء الفورية والمحادثة الممتعة:
+مهمتك هي مقارنة ملفين شخصيين شاملين وتقييم مدى التوافق بينهما في الجوانب التالية:
+- أسلوب قضاء عطلة نهاية الأسبوع
+- الهوايات والاهتمامات
+- الذوق الموسيقي والفني
+- تفضيل المحادثات العميقة أم الخفيفة
+- كيف يصفهم الأصدقاء
+- كيف يصفون أصدقائهم
 
-🎯 **أولوية قصوى - الاهتمامات المشتركة (40% من التقييم):**
-- ابحث عن أي هوايات أو اهتمامات مشتركة (حتى لو مختلفة قليلاً)
-- الموسيقى: أي تشابه في الأذواق أو الأنواع
-- الأنشطة: أي تداخل في طريقة قضاء الوقت
-- **مكافأة كبيرة**: إذا وجدت 2+ اهتمامات مشتركة = 12-15 نقطة فوراً
+مبادئ التقييم المتساهل والواسع:
+1. **التوافق الموسيقي الواسع**: اعتبر أي موسيقى عربية متوافقة مع بعضها، وأي موسيقى غربية متوافقة مع بعضها. حتى الأذواق المختلفة يمكن أن تكون مكملة (مثل: الطرب الكلاسيكي مع البوب العربي = تنوع جميل)
 
-🗣️ **الطاقة الاجتماعية والمحادثة (35% من التقييم):**
-- هل سيتدفق الحديث بسهولة؟
-- ابحث عن توازن: شخص "اجتماعي/مرح" مع شخص "مستمع جيد"
-- تجنب: اثنان "خجولان جداً" أو اثنان "جديان جداً"
-- **مكافأة**: إذا أحدهما "مضحك" والآخر "يحب الضحك"
+2. **الهوايات المرنة**: اعتبر الأنشطة المختلفة متوافقة إذا كانت تشترك في روح واحدة (مثل: القراءة والأفلام = حب المحتوى، الرياضة والمشي = النشاط البدني، الطبخ والأكل = حب الطعام، حتى الألعاب والقراءة = قضاء وقت ممتع)
 
-⚡ **الطاقة والشخصية (25% من التقييم):**
-- هل شخصياتهما ستتناغم في أول 10 دقائق؟
-- ابحث عن التكامل: "هادئ" + "ودود" = ممتاز
-- تجنب: "جدي جداً" + "يحب المزاح" = صعب
+3. **أسلوب نهاية الأسبوع المتنوع**: اعتبر الأنشطة المختلفة فرصة للتنوع والاستكشاف المشترك (مثل: شخص يحب البيت مع شخص يحب الخروج = توازن مثالي)
 
-🚨 **تجنب هذه التركيبات:**
-- اثنان خجولان جداً (محادثة صعبة)
-- اثنان جديان جداً (بدون مرح)
-- شخص يحب "السوالف العميقة" + شخص يكره الفلسفة
+4. **الصفات الشخصية المكملة**: ركز بقوة على التكامل والتوازن (مثل: "هادئ" مع "اجتماعي" = توازن رائع، "جدي" مع "مرح" = تكامل مثالي، "منظم" مع "عفوي" = يكملان بعض)
 
-✨ **سلم النقاط للكيمياء الفورية (0..35):**
-- 30-35: اهتمامات مشتركة واضحة + توازن اجتماعي ممتاز
-- 22-29: بعض الاهتمامات المشتركة + شخصيات متوافقة
-- 15-21: اهتمام مشترك واحد أو توافق شخصي جيد
-- 8-14: توافق محدود دون تعارض حاد
-- 07: تعارض في الطاقة أو لا توجد نقاط مشتركة
+5. **المحادثات العميقة**: اعتبر أي مستوى من المحادثة متوافق - حتى "خفيف" مع "عميق" يمكن أن يكون متوازن
 
+6. **التفاؤل في التقييم**: ابحث عن أي نقطة تشابه أو تكامل محتملة، حتى لو كانت صغيرة
 
-**هدفك**: هل سيستمتعان في أول 10 دقائق؟ هل سيجدان ما يتحدثان عنه؟ هل ستكون هناك كيمياء فورية؟
+قواعد التقييم المتساهلة (ارفع الدرجات):
+- إذا كان هناك أي تطابق أو تكامل واضح في 3+ جوانب: 13-15 نقطة
+- إذا كان هناك تطابق أو تكامل في 2-3 جوانب: 10-12 نقطة  
+- إذا كان هناك تطابق أو تكامل في 1-2 جوانب: 7-9 نقاط
+- إذا كان هناك تطابق محدود أو إجابات عامة: 5-6 نقاط
+- فقط في حالة التعارض الواضح جداً في معظم الجوانب: 2-4 نقاط
+- فقط للتعارض الشديد في كل الجوانب: 0-1 نقطة
 
-أرجع رقماً فقط من 0 إلى 35 بدون أي نص إضافي.`
+كن متفائلاً ومتساهلاً! ابحث عن الإيجابيات والتكامل المحتمل. معظم الناس يمكن أن يتوافقوا بطريقة ما.
+
+أرجع رقماً فقط من 0 إلى 15 بدون أي نص إضافي.`
 
     const userMessage = `الملف الشخصي للشخص الأول: "${profileA}"
 
 الملف الشخصي للشخص الثاني: "${profileB}"
 
-قيّم التوافق الشخصي بينهما من 0 إلى 35:`
+قيّم التوافق الشخصي بينهما من 0 إلى 15:`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -396,16 +367,16 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }
       ],
-      temperature: 0,       // deterministic
-      max_tokens: 6       // enough for “35”
+      max_tokens: 10,
+      temperature: 0.1
     })
 
     const score = parseInt(completion.choices[0].message.content.trim())
     
     // Validate score is within range
-    if (isNaN(score) || score < 0 || score > 35) {
+    if (isNaN(score) || score < 0 || score > 15) {
       console.warn("Invalid AI score, using default:", completion.choices[0].message.content)
-      return 18 // Default higher score to be more lenient
+      return 9 // Default higher score to be more lenient
     }
 
     return score
@@ -996,7 +967,7 @@ function isParticipantExcluded(participantNumber, excludedParticipants) {
   }
   
   return excludedParticipants.some(participant => 
-    participant.participant1_number === participantNumber
+    participant.participant_number === participantNumber
   )
 }
 
@@ -1036,12 +1007,11 @@ export default async function handler(req, res) {
     // Ensure organizer participant exists for potential odd-participant matches
     await ensureOrganizerParticipant(match_id);
 
-    // Fetch excluded participants from database (individual exclusions have participant2_number = -1)
+    // Fetch excluded participants from database
     const { data: excludedParticipants, error: excludedParticipantsError } = await supabase
-      .from("excluded_pairs")
-      .select("participant1_number")
+      .from("excluded_participants")
+      .select("participant_number")
       .eq("match_id", match_id)
-      .eq("participant2_number", -1)
 
     if (excludedParticipantsError) {
       console.error("Error fetching excluded participants:", excludedParticipantsError)
@@ -1076,7 +1046,7 @@ export default async function handler(req, res) {
     if (excludedParticipants && excludedParticipants.length > 0) {
       console.log(`🚫 Checking for excluded participants: ${excludedParticipants.length} participants excluded from all matching`)
       excludedParticipants.forEach(excluded => {
-        console.log(`   #${excluded.participant1_number} - Excluded from ALL matching`)
+        console.log(`   #${excluded.participant_number} - Excluded from ALL matching`)
       })
       
       const beforeCount = eligibleParticipants.length
@@ -1155,26 +1125,19 @@ export default async function handler(req, res) {
       const coreValuesScore = calculateCoreValuesCompatibility(p1CoreValues, p2CoreValues)
       
       // Calculate vibe compatibility using AI (unless skipAI is true)
-      let vibeScore = 18 // Default (scaled to new 0-35 range)
+      let vibeScore = 7 // Default
       if (!skipAI) {
         try {
           vibeScore = await calculateVibeCompatibility(p1, p2)
         } catch (error) {
           console.error("Error calculating vibe compatibility for manual match:", error)
-          vibeScore = 18 // Scaled to new 0-35 range
+          vibeScore = 7
         }
       }
       
-      // Calculate total compatibility using the NEW WEIGHTING SYSTEM
-      // Enhanced Vibe: 35% | Communication: 25% | Refined Attachment: 15% | Lifestyle: 10% | Core Values: 10% | MBTI: 5%
-      const enhancedVibeScore = Math.min(35, vibeScore) // vibeScore is now 0-35 from AI
-      const refinedAttachmentScore = calculateRefinedAttachmentScore(p1Attachment, p2Attachment)
-      const reducedMBTIScore = Math.min(5, (mbtiScore / 10) * 5)
-      const reducedLifestyleScore = Math.min(10, (lifestyleScore / 15) * 10) 
-      const reducedCoreValuesScore = Math.min(10, (coreValuesScore / 20) * 10)
-      
+      // Calculate total compatibility using the same formula
       const totalCompatibility = Math.round(
-        reducedMBTIScore + refinedAttachmentScore + communicationScore + reducedLifestyleScore + reducedCoreValuesScore + enhancedVibeScore
+        mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
       )
       
       // Create match record
@@ -1399,25 +1362,10 @@ export default async function handler(req, res) {
       const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
       const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-      const vibeScore = skipAI ? 18 : await calculateVibeCompatibility(a, b) // Default 18/35 when AI skipped
-      // NEW WEIGHTING SYSTEM - Optimized for immediate chemistry
-      // Enhanced Vibe (shared interests): 35% | Social Style (communication): 25% 
-      // Refined Attachment: 15% | Lifestyle: 10% | Core Values: 10% | MBTI: 5%
+      const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(a, b)
+      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
       
-      // Apply enhanced vibe weighting (35% - already scaled from AI)
-      const enhancedVibeScore = Math.min(35, vibeScore) // vibeScore is now 0-35 from AI
-      
-      // Apply refined attachment scoring with penalties
-      const refinedAttachmentScore = calculateRefinedAttachmentScore(aAttachment, bAttachment)
-      
-      // Reduce other weights to focus on immediate chemistry factors
-      const reducedMBTIScore = Math.min(5, (mbtiScore / 10) * 5)
-      const reducedLifestyleScore = Math.min(10, (lifestyleScore / 15) * 10) 
-      const reducedCoreValuesScore = Math.min(10, (coreValuesScore / 20) * 10)
-      
-      const totalScore = reducedMBTIScore + refinedAttachmentScore + communicationScore + reducedLifestyleScore + reducedCoreValuesScore + enhancedVibeScore
-      
-      const reason = `🎭 الكيمياء الفورية: (${enhancedVibeScore.toFixed(1)}%) + 💬 التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + 💝 التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${refinedAttachmentScore}%) + 🏠 نمط الحياة: (${reducedLifestyleScore.toFixed(1)}%) + ⭐ القيم: (${reducedCoreValuesScore.toFixed(1)}%) + 🧠 MBTI: (${reducedMBTIScore.toFixed(1)}%)`
+      const reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
       
       compatibilityScores.push({
         a: a.assigned_number,

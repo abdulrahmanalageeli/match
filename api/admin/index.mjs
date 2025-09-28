@@ -1270,10 +1270,9 @@ export default async function handler(req, res) {
     if (action === "get-excluded-participants") {
       try {
         const { data, error } = await supabase
-          .from("excluded_pairs")
-          .select("id, participant1_number, participant2_number, created_at, reason")
+          .from("excluded_participants")
+          .select("id, participant_number, created_at, reason")
           .eq("match_id", STATIC_MATCH_ID)
-          .eq("participant2_number", -1) // Only get individual exclusions
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -1281,15 +1280,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
 
-        // Transform to expected format
-        const excludedParticipants = (data || []).map(item => ({
-          id: item.id,
-          participant_number: item.participant1_number,
-          created_at: item.created_at,
-          reason: item.reason
-        }))
-
-        return res.status(200).json({ excludedParticipants })
+        return res.status(200).json({ excludedParticipants: data || [] })
       } catch (error) {
         console.error("Error in get-excluded-participants:", error)
         return res.status(500).json({ error: "Failed to fetch excluded participants" })
@@ -1321,13 +1312,12 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Participant number doesn't exist" })
         }
 
-        // Insert excluded participant as a pair with -1 (indicates full exclusion)
+        // Insert excluded participant (constraint will prevent duplicates)
         const { data, error } = await supabase
-          .from("excluded_pairs")
+          .from("excluded_participants")
           .insert([{
             match_id: STATIC_MATCH_ID,
-            participant1_number: participantNumber,
-            participant2_number: -1, // -1 indicates full exclusion from all matching
+            participant_number: participantNumber,
             reason: reason
           }])
           .select()
@@ -1364,7 +1354,7 @@ export default async function handler(req, res) {
         }
 
         const { error } = await supabase
-          .from("excluded_pairs")
+          .from("excluded_participants")
           .delete()
           .eq("id", id)
           .eq("match_id", STATIC_MATCH_ID)
@@ -1390,10 +1380,9 @@ export default async function handler(req, res) {
     if (action === "clear-excluded-participants") {
       try {
         const { error } = await supabase
-          .from("excluded_pairs")
+          .from("excluded_participants")
           .delete()
           .eq("match_id", STATIC_MATCH_ID)
-          .eq("participant2_number", -1) // Only clear individual exclusions
 
         if (error) {
           console.error("Error clearing excluded participants:", error)

@@ -8,7 +8,7 @@ import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Progress } from "../../components/ui/progress"
-import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2 } from "lucide-react"
+import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star } from "lucide-react"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -1187,6 +1187,53 @@ export default function SurveyComponent({
             </Card>
           </div>
         )}
+
+        {/* Vibe Questions Disclaimer */}
+        {(() => {
+          const currentQuestions = surveyQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage);
+          const hasVibeQuestions = currentQuestions.some(q => q.category === 'vibe');
+          
+          if (hasVibeQuestions) {
+            return (
+              <div className="mb-6">
+                <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800/50 shadow-lg">
+                  <CardContent className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                          <Star className="w-5 h-5 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-bold text-purple-800 dark:text-purple-200 mb-3">
+                          ⭐ أسئلة الطاقة والشخصية - الأهم في التوافق!
+                        </h3>
+                        <div className="space-y-2 text-sm text-purple-700 dark:text-purple-300">
+                          <p className="font-semibold">
+                            🎯 <strong>هذه الأسئلة لها أعلى وزن في نظام التوافق </strong>
+                          </p>
+                          <p>
+                            • املأ الإجابات بأكبر قدر من التفاصيل الممكنة
+                          </p>
+                          <p>
+                            • كلما كانت إجاباتك أكثر تفصيلاً، كانت المطابقة أدق وأفضل
+                          </p>
+                          <p>
+                            • استخدم كامل المساحة المتاحة لكل سؤال لوصف شخصيتك بصدق
+                          </p>
+                          <p className="mt-3 p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800">
+                            💡 <strong>نصيحة:</strong> هذه الأسئلة تحدد مدى توافق طاقتك وشخصيتك مع الآخرين - لا تتردد في الكتابة بتفصيل!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            );
+          }
+          return null;
+        })()}
 
         {/* Survey Content */}
         <div className="space-y-4">

@@ -399,9 +399,6 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
       temperature: 0,       // deterministic
       top_p: 1,
       max_tokens: 6,        // enough for “35”
-      stop: ["\n"],         // cut anything after the first token/line
-      presence_penalty: 0,
-      frequency_penalty: 0
     })
 
     const score = parseInt(completion.choices[0].message.content.trim())

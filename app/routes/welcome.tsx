@@ -223,6 +223,7 @@ export default function WelcomePage() {
     dataConsent: false
   })
   const [showSurvey, setShowSurvey] = useState(false)
+  const [isEditingSurvey, setIsEditingSurvey] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
   const [partnerEndedTimer, setPartnerEndedTimer] = useState(false)
   const [timerEnded, setTimerEnded] = useState(false)
@@ -1001,8 +1002,8 @@ export default function WelcomePage() {
           
           console.log(`🔄 Polling detected phase: ${data.phase}, current step: ${step}`);
           
-          // Check if user has completed the form (only if we don't already have survey data)
-          if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+          // Check if user has completed the form (only if we don't already have survey data and user is not actively editing)
+          if ((!surveyData.answers || Object.keys(surveyData.answers).length === 0) && !isEditingSurvey) {
             try {
               const userRes = await fetch("/api/participant", {
                 method: "POST",
@@ -1011,10 +1012,7 @@ export default function WelcomePage() {
               });
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
-                // Don't overwrite survey data while user is actively editing (step 2)
-                if (step !== 2) {
-                  setSurveyData(userData.survey_data);
-                }
+                setSurveyData(userData.survey_data);
                               if (userData.summary && userData.summary !== personalitySummary) {
                 console.log("🔄 Updating summary from polling:", userData.summary)
                 setPersonalitySummary(userData.summary);
@@ -1676,6 +1674,7 @@ export default function WelcomePage() {
       }
       // Hide survey and move to waiting/analysis step after successful submission
       setShowSurvey(false)
+      setIsEditingSurvey(false)
       setAnalysisStarted(true)
       setStep(3)
       setFormFilledChoiceMade(false) // Reset choice for future form submissions
@@ -3763,6 +3762,7 @@ export default function WelcomePage() {
                       console.log("🔘 ابدأ الاستبيان button clicked")
                       console.log("showSurvey will be set to true")
                       setShowSurvey(true)
+                      setIsEditingSurvey(true)
                       setTimeout(() => {
                         // alert("showSurvey should now be true")
                       }, 100)
@@ -3779,6 +3779,7 @@ export default function WelcomePage() {
                   onSubmit={handleSurveySubmit}
                   surveyData={surveyData}
                   setSurveyData={setSurveyData}
+                  setIsEditingSurvey={setIsEditingSurvey}
                   loading={loading}
                 />
                 </>
@@ -5405,6 +5406,7 @@ export default function WelcomePage() {
                   setStep(2); // Stay on form
                   setAnalysisStarted(false);
                   setShowSurvey(true); // Show survey for redo
+                  setIsEditingSurvey(true);
                 }}
               >
                 إعادة تعبئة النموذج

@@ -619,11 +619,13 @@ export default function SurveyComponent({
   onSubmit, 
   surveyData, 
   setSurveyData,
+  setIsEditingSurvey,
   loading = false
 }: { 
   onSubmit: (data: SurveyData) => void
   surveyData: SurveyData
   setSurveyData: React.Dispatch<React.SetStateAction<SurveyData>>
+  setIsEditingSurvey?: React.Dispatch<React.SetStateAction<boolean>>
   loading?: boolean
 }) {
   
@@ -633,6 +635,9 @@ export default function SurveyComponent({
   const progress = ((currentPage + 1) / totalPages) * 100
 
   const handleInputChange = useCallback((questionId: string, value: string | string[]) => {
+    // Mark that user is actively editing the survey
+    setIsEditingSurvey?.(true)
+    
     setSurveyData((prevData: SurveyData) => ({
       ...prevData,
       answers: {
@@ -640,9 +645,12 @@ export default function SurveyComponent({
         [questionId]: value
       }
     }))
-  }, [setSurveyData])
+  }, [setSurveyData, setIsEditingSurvey])
 
   const handleCheckboxChange = useCallback((questionId: string, value: string, checked: boolean) => {
+    // Mark that user is actively editing the survey
+    setIsEditingSurvey?.(true)
+    
     setSurveyData((prevData: SurveyData) => {
       const currentValues = (prevData.answers[questionId] as string[]) || []
       if (checked) {
@@ -667,7 +675,7 @@ export default function SurveyComponent({
         }
       }
     })
-  }, [setSurveyData])
+  }, [setSurveyData, setIsEditingSurvey])
 
   // Memoize page validation to avoid expensive recalculation on every render
   const isPageValid = useMemo(() => {
@@ -1068,9 +1076,10 @@ export default function SurveyComponent({
             <Checkbox
               id="terms"
               checked={surveyData.termsAccepted}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) => {
+                setIsEditingSurvey?.(true)
                 setSurveyData({ ...surveyData, termsAccepted: checked as boolean })
-              }
+              }}
               className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
             />
             <Label htmlFor="terms" className="text-right cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
@@ -1084,9 +1093,10 @@ export default function SurveyComponent({
             <Checkbox
               id="dataConsent"
               checked={surveyData.dataConsent}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) => {
+                setIsEditingSurvey?.(true)
                 setSurveyData({ ...surveyData, dataConsent: checked as boolean })
-              }
+              }}
               className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
             />
             <Label htmlFor="dataConsent" className="text-right cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">

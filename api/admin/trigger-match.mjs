@@ -165,29 +165,46 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     return 0 // Invalid format
   }
   
-  // Calculate similarity with partial credit for adjacent choices
+  // Define weights for each lifestyle question (relative to total 20%)
+  const weights = [
+    0.5,  // lifestyle_1: Lower weight (2% of total)
+    0.5,  // lifestyle_2: Lower weight (2% of total)
+    0.5,  // lifestyle_3: Lower weight (2% of total)
+    1.0,  // lifestyle_4: Normal weight (4% of total)
+    2.5   // lifestyle_5: Highest weight (10% of total)
+  ]
+  // Total weight sum: 5.0, which scales to 20% total
+  
+  // Calculate weighted similarity with partial credit for adjacent choices
   let totalScore = 0
+  let maxPossibleScore = 0
+  
   for (let i = 0; i < 5; i++) {
     const val1 = prefs1[i]
     const val2 = prefs2[i]
+    const weight = weights[i]
     
+    let questionScore = 0
     if (val1 === val2) {
       // Exact match = full points (4 points)
-      totalScore += 4
+      questionScore = 4
     } else if (
       (val1 === 'أ' && val2 === 'ب') || (val1 === 'ب' && val2 === 'أ') ||
       (val1 === 'ب' && val2 === 'ج') || (val1 === 'ج' && val2 === 'ب')
     ) {
       // Adjacent choices = partial points (2 points)
-      totalScore += 2
+      questionScore = 2
     } else {
       // Opposite choices (أ vs ج) = no points
-      totalScore += 0
+      questionScore = 0
     }
+    
+    totalScore += questionScore * weight
+    maxPossibleScore += 4 * weight
   }
   
-  // Max score is 5 * 4 = 20 points, which directly translates to 20%
-  return totalScore
+  // Scale to 20% total (maxPossibleScore should be 20)
+  return (totalScore / maxPossibleScore) * 20
 }
 
 // Function to calculate core values compatibility score (up to 10% of total)

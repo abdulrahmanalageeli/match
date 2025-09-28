@@ -877,11 +877,11 @@ export default function AdminPage() {
       // Convert match results to participant results format
       const participantMap = new Map()
       
-      // Get all participants to have their names
+      // Get all participants to have their names (filtered by current event_id)
       const participantsRes = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "participants" }),
+        body: JSON.stringify({ action: "participants", event_id: currentEventId }),
       })
       const participantsData = await participantsRes.json()
       const allParticipants = participantsData.participants || []
@@ -896,8 +896,11 @@ export default function AdminPage() {
         })
       })
       
-      // Process match results to create participant results
-      matchResults.forEach((match: any) => {
+      // Filter match results by current event_id and process them
+      const filteredMatchResults = matchResults.filter((match: any) => match.event_id === currentEventId)
+      console.log(`🔍 Filtering results: ${matchResults.length} total matches, ${filteredMatchResults.length} for current event (${currentEventId})`)
+      
+      filteredMatchResults.forEach((match: any) => {
         // Helper function to determine incompatibility reason
         const getIncompatibilityReason = (participantNum: number, partnerNum: number) => {
           if (partnerNum === 9999) {

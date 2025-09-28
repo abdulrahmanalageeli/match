@@ -54,12 +54,21 @@ export default async function handler(req, res) {
       console.log(`Processing action: ${action}`);
 
       if (action === "participants") {
-        const { data, error } = await supabase
+        const { event_id } = req.body
+        let query = supabase
           .from("participants")
           .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number, event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
+        
+        // Add event_id filter if provided
+        if (event_id) {
+          query = query.eq("event_id", event_id)
+          console.log(`🔍 Filtering participants by event_id: ${event_id}`)
+        }
+        
+        const { data, error } = await query
 
         if (error) {
           console.error("Database error:", error);

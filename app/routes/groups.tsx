@@ -209,16 +209,26 @@ export default function GroupsPage() {
 
   const renderGameSelection = () => {
     return (
-      <div className="text-center space-y-6">
-        <h2 className="text-3xl font-bold text-white mb-6">اختر لعبة</h2>
+      <div className="text-center space-y-8">
+        <div className="space-y-3">
+          <h2 className="text-4xl font-bold text-white">اختر لعبة</h2>
+          <p className="text-slate-400 text-lg">انقر على اللعبة التي تريد أن تبدأ بها</p>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {games.map((game) => (
-            <div key={game.id} className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 hover:border-cyan-400 transition-all cursor-pointer" onClick={() => startGame(game.id)}>
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white`}>
+            <div 
+              key={game.id} 
+              className="group bg-slate-800/50 rounded-xl p-6 border border-slate-700 hover:border-cyan-400 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl hover:shadow-cyan-500/20" 
+              onClick={() => startGame(game.id)}
+            >
+              <div className={`w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
                 {game.icon}
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">{game.nameAr}</h3>
-              <p className="text-slate-300 text-sm">{game.descriptionAr}</p>
+              <h3 className="text-xl font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">{game.descriptionAr}</p>
+              <div className="mt-4 text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                انقر للبدء ←
+              </div>
             </div>
           ))}
         </div>
@@ -317,18 +327,28 @@ export default function GroupsPage() {
                 <h3 className="text-2xl font-bold text-white mb-4">لم أفعل من قبل</h3>
               </div>
 
-              {/* Game Instructions */}
-              <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
-                <h4 className="text-white font-semibold mb-3 flex items-center">
-                  <Lightbulb className="w-4 h-4 ml-2" />
+              {/* Enhanced Game Instructions */}
+              <div className="bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
+                <h4 className="text-white font-bold text-lg mb-4 flex items-center">
+                  <Lightbulb className="w-5 h-5 ml-3 text-yellow-400" />
                   كيفية اللعب:
                 </h4>
-                <ol className="text-slate-300 text-sm space-y-2 list-decimal list-inside">
-                  <li>اقرؤوا العبارة بصوت عالٍ</li>
-                  <li>إذا فعلت هذا الشيء من قبل، ارفع يدك وشارك تجربتك (دقيقة واحدة)</li>
-                  <li>إذا لم تفعله من قبل، ابق صامتاً</li>
-                  <li>لا تجبروا أحداً على المشاركة إذا لم يرد</li>
-                  <li>احترموا خصوصية بعضكم البعض</li>
+                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                  <li className="flex items-start">
+                    <span className="font-medium">اقرؤوا العبارة بصوت عالٍ</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">إذا فعلت هذا الشيء من قبل، ارفع يدك وشارك تجربتك (دقيقة واحدة)</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">إذا لم تفعله من قبل، ابق صامتاً</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">لا تجبروا أحداً على المشاركة إذا لم يرد</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">احترموا خصوصية بعضكم البعض</span>
+                  </li>
                 </ol>
               </div>
 
@@ -338,12 +358,12 @@ export default function GroupsPage() {
                 </p>
               </div>
 
-              <div className="flex justify-center space-x-3 mt-6">
+              <div className="flex justify-center space-x-3 mt-8">
                 <Button 
                   onClick={() => setCurrentPromptIndex(prev => (prev + 1) % neverHaveIEverQuestions.length)} 
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
-                  <ChevronRight className="w-4 h-4 mr-2" />
+                  <ChevronRight className="w-5 h-5 mr-2" />
                   السؤال التالي
                 </Button>
               </div>
@@ -405,8 +425,11 @@ export default function GroupsPage() {
               </div>
 
               <div className="text-center">
-                <Button onClick={nextPrompt} className="bg-red-600 hover:bg-red-700">
-                  <ChevronRight className="w-4 h-4 mr-2" />
+                <Button 
+                  onClick={nextPrompt} 
+                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                >
+                  <ChevronRight className="w-5 h-5 mr-2" />
                   السؤال التالي
                 </Button>
               </div>
@@ -527,9 +550,9 @@ export default function GroupsPage() {
           <div className="text-center mt-8">
             <Button 
               onClick={startSession}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-8 py-4 text-xl"
+              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-10 py-5 text-xl font-bold rounded-2xl shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-500/50"
             >
-              <Play className="w-6 h-6 mr-2" />
+              <Play className="w-7 h-7 mr-3" />
               ابدأ الجلسة
             </Button>
           </div>
@@ -544,34 +567,45 @@ export default function GroupsPage() {
       <GroupsLogoHeader />
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
       <div className="max-w-4xl mx-auto">
-        {/* Header with timer and game info */}
-        <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
+        {/* Enhanced Header with timer and game info */}
+        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl p-6 mb-8 border border-slate-600 shadow-lg backdrop-blur-sm">
           <div className="flex items-center justify-between">
-            {/* Timer Display */}
-            <div className="flex items-center space-x-4">
+            {/* Enhanced Timer Display */}
+            <div className="flex items-center space-x-6">
               <div className="text-center">
-                <div className={`text-2xl font-bold ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  <Clock className="w-5 h-5 inline-block ml-2" />
+                <div className={`text-3xl font-bold flex items-center justify-center ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  <Clock className="w-6 h-6 ml-3" />
                   {formatTime(timeRemaining)}
                 </div>
-                <div className="text-slate-400 text-sm">الوقت المتبقي</div>
+                <div className="text-slate-400 text-sm mt-1">الوقت المتبقي</div>
+                {/* Progress bar */}
+                <div className="w-24 h-2 bg-slate-700 rounded-full mt-2 overflow-hidden">
+                  <div 
+                    className={`h-full transition-all duration-1000 ${timeRemaining <= 300 ? 'bg-red-400' : timeRemaining <= 600 ? 'bg-yellow-400' : 'bg-green-400'}`}
+                    style={{ width: `${(timeRemaining / (30 * 60)) * 100}%` }}
+                  />
+                </div>
               </div>
               <div className="text-center">
-                <div className="text-xl font-bold text-cyan-400">{selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}</div>
-                <div className="text-slate-400 text-sm">اللعبة الحالية</div>
+                <div className="text-2xl font-bold text-cyan-400 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 ml-2" />
+                  {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
+                </div>
+                <div className="text-slate-400 text-sm mt-1">اللعبة الحالية</div>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-3">
               <Button
                 onClick={() => {
                   setSelectedGameId(null);
                   setGamePhase('intro');
                 }}
                 variant="outline"
-                size="sm"
+                size="lg"
+                className="border-slate-600 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-300"
               >
-                <ChevronLeft className="w-4 h-4" />
-                عودة
+                <ChevronLeft className="w-5 h-5 ml-2" />
+                عودة للألعاب
               </Button>
             </div>
           </div>

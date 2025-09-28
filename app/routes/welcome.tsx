@@ -1522,28 +1522,40 @@ export default function WelcomePage() {
   // Local storage functionality for auto-filling tokens
   useEffect(() => {
     // Load saved tokens from localStorage on component mount
+    // Since both fields use the same token, use whichever is available
     const savedResultToken = localStorage.getItem('blindmatch_result_token');
     const savedReturningToken = localStorage.getItem('blindmatch_returning_token');
     
-    if (savedResultToken) {
-      setResultToken(savedResultToken);
-    }
+    // Use the most recent token (either one works since they're the same)
+    const tokenToUse = savedResultToken || savedReturningToken;
     
-    if (savedReturningToken) {
-      setReturningPlayerToken(savedReturningToken);
+    if (tokenToUse) {
+      setResultToken(tokenToUse);
+      setReturningPlayerToken(tokenToUse);
+      console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
     }
   }, []);
 
-  // Save tokens to localStorage when they change
+  // Save tokens to localStorage when they change and sync both fields
   useEffect(() => {
     if (resultToken.trim()) {
       localStorage.setItem('blindmatch_result_token', resultToken);
+      localStorage.setItem('blindmatch_returning_token', resultToken);
+      // Sync the other field if it's different
+      if (returningPlayerToken !== resultToken) {
+        setReturningPlayerToken(resultToken);
+      }
     }
   }, [resultToken]);
 
   useEffect(() => {
     if (returningPlayerToken.trim()) {
       localStorage.setItem('blindmatch_returning_token', returningPlayerToken);
+      localStorage.setItem('blindmatch_result_token', returningPlayerToken);
+      // Sync the other field if it's different
+      if (resultToken !== returningPlayerToken) {
+        setResultToken(returningPlayerToken);
+      }
     }
   }, [returningPlayerToken]);
 
@@ -1580,6 +1592,7 @@ export default function WelcomePage() {
     localStorage.removeItem('blindmatch_returning_token');
     setResultToken('');
     setReturningPlayerToken('');
+    console.log('🗑️ Cleared all saved tokens');
   };
 
   const FancyNextButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
@@ -2933,7 +2946,7 @@ export default function WelcomePage() {
                         <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
                       </div>
                       <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
-                      {localStorage.getItem('blindmatch_returning_token') && !returningPlayerToken && (
+                      {(localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token')) && !returningPlayerToken && (
                         <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
                           <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>
                         </div>
@@ -2964,7 +2977,7 @@ export default function WelcomePage() {
                               }
                             }}
                           />
-                          {returningPlayerToken && localStorage.getItem('blindmatch_returning_token') === returningPlayerToken && (
+                          {returningPlayerToken && (localStorage.getItem('blindmatch_returning_token') === returningPlayerToken || localStorage.getItem('blindmatch_result_token') === returningPlayerToken) && (
                             <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                               <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-md">
                                 <CheckCircle className="w-3 h-3 text-green-400" />
@@ -3008,7 +3021,7 @@ export default function WelcomePage() {
                       <p className="text-cyan-200 text-xs sm:text-sm mb-4">
                         أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
                       </p>
-                      {localStorage.getItem('blindmatch_result_token') && !resultToken && (
+                      {(localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && !resultToken && (
                         <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
                           <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>
                         </div>
@@ -3040,7 +3053,7 @@ export default function WelcomePage() {
                               }
                             }}
                           />
-                          {resultToken && localStorage.getItem('blindmatch_result_token') === resultToken && (
+                          {resultToken && (localStorage.getItem('blindmatch_result_token') === resultToken || localStorage.getItem('blindmatch_returning_token') === resultToken) && (
                             <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                               <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-md">
                                 <CheckCircle className="w-3 h-3 text-green-400" />

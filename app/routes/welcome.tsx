@@ -239,6 +239,7 @@ export default function WelcomePage() {
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
   const [resultToken, setResultToken] = useState("");
+  const [returningPlayerToken, setReturningPlayerToken] = useState("");
   const [currentEventId, setCurrentEventId] = useState(1);
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -596,6 +597,7 @@ export default function WelcomePage() {
           setTokenError(null)
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
+          saveUserToken(token); // Save token to localStorage for auto-fill
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -1514,6 +1516,52 @@ export default function WelcomePage() {
     console.log(`🔄 Step changed to: ${step} (phase: ${phase})`);
   }, [step, phase])
 
+  // Local storage functionality for auto-filling tokens
+  useEffect(() => {
+    // Load saved tokens from localStorage on component mount
+    const savedResultToken = localStorage.getItem('blindmatch_result_token');
+    const savedReturningToken = localStorage.getItem('blindmatch_returning_token');
+    
+    if (savedResultToken) {
+      setResultToken(savedResultToken);
+    }
+    
+    if (savedReturningToken) {
+      setReturningPlayerToken(savedReturningToken);
+    }
+  }, []);
+
+  // Save tokens to localStorage when they change
+  useEffect(() => {
+    if (resultToken.trim()) {
+      localStorage.setItem('blindmatch_result_token', resultToken);
+    }
+  }, [resultToken]);
+
+  useEffect(() => {
+    if (returningPlayerToken.trim()) {
+      localStorage.setItem('blindmatch_returning_token', returningPlayerToken);
+    }
+  }, [returningPlayerToken]);
+
+  // Save token when user successfully completes survey or joins
+  const saveUserToken = (token: string) => {
+    if (token && token.trim()) {
+      localStorage.setItem('blindmatch_result_token', token);
+      localStorage.setItem('blindmatch_returning_token', token);
+      setResultToken(token);
+      setReturningPlayerToken(token);
+    }
+  };
+
+  // Clear saved tokens
+  const clearSavedTokens = () => {
+    localStorage.removeItem('blindmatch_result_token');
+    localStorage.removeItem('blindmatch_returning_token');
+    setResultToken('');
+    setReturningPlayerToken('');
+  };
+
   const FancyNextButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
     <Button 
       onClick={onClick} 
@@ -1595,6 +1643,11 @@ export default function WelcomePage() {
       setAnalysisStarted(true)
       setStep(3)
       setFormFilledChoiceMade(false) // Reset choice for future form submissions
+      
+      // Save token to localStorage since user completed survey successfully
+      if (secureToken) {
+        saveUserToken(secureToken);
+      }
     } catch (err) {
       console.error("Submit error:", err)
       setPersonalitySummary("تم حفظ بياناتك بنجاح.")
@@ -2806,6 +2859,7 @@ export default function WelcomePage() {
                               // Mark just-created to show modal after redirect
                               sessionStorage.setItem('justCreatedToken', '1')
                               sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
+                              saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
                               console.log("Redirecting to:", `/welcome?token=${data.secure_token}`)
                               // Try multiple redirect methods to ensure it works
                               try {
@@ -2859,6 +2913,11 @@ export default function WelcomePage() {
                         <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
                       </div>
                       <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
+                      {localStorage.getItem('blindmatch_returning_token') && !returningPlayerToken && (
+                        <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
+                          <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>
+                        </div>
+                      )}
                       {(() => {
                         const securityStatus = getSecurityStatus('token');
                         return securityStatus.message && (
@@ -2872,22 +2931,38 @@ export default function WelcomePage() {
                         );
                       })()}
                       <div className="space-y-3 sm:space-y-4">
-                        <input
-                          type="text"
-                          placeholder="أدخل رمز الدخول..."
-                          className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300 text-sm sm:text-base"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              const token = e.currentTarget.value.trim()
-                              handleTokenNavigation(token);
-                            }
-                          }}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="أدخل رمز الدخول..."
+                            value={returningPlayerToken}
+                            onChange={(e) => setReturningPlayerToken(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300 text-sm sm:text-base"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleTokenNavigation(returningPlayerToken);
+                              }
+                            }}
+                          />
+                          {returningPlayerToken && localStorage.getItem('blindmatch_returning_token') === returningPlayerToken && (
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-md">
+                                <CheckCircle className="w-3 h-3 text-green-400" />
+                                <span className="text-xs text-green-300">محفوظ</span>
+                              </div>
+                              <button
+                                onClick={() => setReturningPlayerToken('')}
+                                className="p-1 rounded-full bg-red-500/20 border border-red-400/30 hover:bg-red-500/30 transition-colors"
+                                title="مسح الرمز المحفوظ"
+                              >
+                                <X className="w-3 h-3 text-red-400" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <Button
                           onClick={() => {
-                            const tokenInput = document.querySelector('input[type="text"]') as HTMLInputElement
-                            const token = tokenInput?.value.trim() || ''
-                            handleTokenNavigation(token);
+                            handleTokenNavigation(returningPlayerToken);
                           }}
                           disabled={getSecurityStatus('token').isLocked}
                           className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
@@ -2913,6 +2988,11 @@ export default function WelcomePage() {
                       <p className="text-cyan-200 text-xs sm:text-sm mb-4">
                         أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
                       </p>
+                      {localStorage.getItem('blindmatch_result_token') && !resultToken && (
+                        <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
+                          <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>
+                        </div>
+                      )}
                       {(() => {
                         const securityStatus = getSecurityStatus('resultToken');
                         return securityStatus.message && (
@@ -2927,18 +3007,35 @@ export default function WelcomePage() {
                       })()}
                       
                       <div className="space-y-3 sm:space-y-4">
-                        <input
-                          type="text"
-                          placeholder="أدخل الرمز المميز للنتائج..."
-                          value={resultToken}
-                          onChange={(e) => setResultToken(e.target.value)}
-                          className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              viewResults(resultToken);
-                            }
-                          }}
-                        />
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="أدخل الرمز المميز للنتائج..."
+                            value={resultToken}
+                            onChange={(e) => setResultToken(e.target.value)}
+                            className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                viewResults(resultToken);
+                              }
+                            }}
+                          />
+                          {resultToken && localStorage.getItem('blindmatch_result_token') === resultToken && (
+                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-md">
+                                <CheckCircle className="w-3 h-3 text-green-400" />
+                                <span className="text-xs text-green-300">محفوظ</span>
+                              </div>
+                              <button
+                                onClick={() => setResultToken('')}
+                                className="p-1 rounded-full bg-red-500/20 border border-red-400/30 hover:bg-red-500/30 transition-colors"
+                                title="مسح الرمز المحفوظ"
+                              >
+                                <X className="w-3 h-3 text-red-400" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <Button
                           onClick={() => viewResults(resultToken)}
                           disabled={!resultToken.trim() || getSecurityStatus('resultToken').isLocked}
@@ -3545,6 +3642,7 @@ export default function WelcomePage() {
                         setAssignedNumber(data.assigned_number)
                         sessionStorage.setItem('justCreatedToken', '1')
                         sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
+                        saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
                         window.location.href = `/welcome?token=${data.secure_token}`
                       } else {
                         alert("❌ فشل في الحصول على رقم")

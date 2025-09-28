@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number, event_id")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       if (action === "participants") {
         const { data, error } = await supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number, event_id")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -611,33 +611,126 @@ export default async function handler(req, res) {
 
     if (action === "get-max-event-id") {
       try {
-        console.log("Getting maximum event ID from match_results")
+        console.log("Getting maximum event ID from participants and match_results")
         
-        const { data, error } = await supabase
-          .from("match_results")
-          .select("event_id")
-          .order("event_id", { ascending: false })
-          .limit(1)
-          .single()
+        // Check both participants and match_results tables to get the true maximum
+        const [participantsResult, matchResultsResult] = await Promise.all([
+          supabase
+            .from("participants")
+            .select("event_id")
+            .order("event_id", { ascending: false })
+            .limit(1)
+            .single(),
+          supabase
+            .from("match_results")
+            .select("event_id")
+            .order("event_id", { ascending: false })
+            .limit(1)
+            .single()
+        ])
 
-        if (error) {
-          console.error("Error getting max event ID:", error)
-          
-          // If no records exist, return default (1)
-          if (error.code === 'PGRST116') {
-            console.log("No match_results records found, returning default max event ID (1)")
-            return res.status(200).json({ max_event_id: 1 })
-          }
-          
-          return res.status(500).json({ error: error.message })
+        let maxEventId = 1
+
+        // Get max from participants table
+        if (!participantsResult.error && participantsResult.data?.event_id) {
+          maxEventId = Math.max(maxEventId, participantsResult.data.event_id)
         }
 
-        const maxEventId = data?.event_id || 1
+        // Get max from match_results table
+        if (!matchResultsResult.error && matchResultsResult.data?.event_id) {
+          maxEventId = Math.max(maxEventId, matchResultsResult.data.event_id)
+        }
+
         console.log(`Maximum event ID retrieved: ${maxEventId}`)
         return res.status(200).json({ max_event_id: maxEventId })
       } catch (err) {
         console.error("Error getting max event ID:", err)
         return res.status(500).json({ error: "Failed to get max event ID" })
+      }
+    }
+
+    if (action === "set-current-event-id") {
+      try {
+        const { event_id } = req.body
+        console.log(`Setting current event ID to: ${event_id}`)
+        
+        if (!event_id || event_id < 1) {
+          return res.status(400).json({ error: "Invalid event_id. Must be a positive integer." })
+        }
+
+        // Store current event ID in event_state table
+        const { error } = await supabase
+          .from("event_state")
+          .upsert({ 
+            match_id: STATIC_MATCH_ID, 
+            current_event_id: event_id
+          }, { onConflict: "match_id" })
+
+        if (error) {
+          console.error("Error setting current event ID:", error)
+          return res.status(500).json({ error: `Database error: ${error.message}` })
+        }
+
+        console.log(`Successfully set current event ID to: ${event_id}`)
+        return res.status(200).json({ message: `Current event ID set to ${event_id}` })
+      } catch (err) {
+        console.error("Error setting current event ID:", err)
+        return res.status(500).json({ error: "Failed to set current event ID" })
+      }
+    }
+
+    if (action === "get-current-event-id") {
+      try {
+        console.log("Getting current event ID from event_state")
+        
+        const { data, error } = await supabase
+          .from("event_state")
+          .select("current_event_id")
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+
+        if (error) {
+          console.error("Error getting current event ID:", error)
+          
+          // If no record exists, get the maximum event ID as fallback
+          if (error.code === 'PGRST116') {
+            console.log("No event_state record found, getting max event ID as fallback")
+            
+            const [participantsResult, matchResultsResult] = await Promise.all([
+              supabase
+                .from("participants")
+                .select("event_id")
+                .order("event_id", { ascending: false })
+                .limit(1)
+                .single(),
+              supabase
+                .from("match_results")
+                .select("event_id")
+                .order("event_id", { ascending: false })
+                .limit(1)
+                .single()
+            ])
+
+            let maxEventId = 1
+            if (!participantsResult.error && participantsResult.data?.event_id) {
+              maxEventId = Math.max(maxEventId, participantsResult.data.event_id)
+            }
+            if (!matchResultsResult.error && matchResultsResult.data?.event_id) {
+              maxEventId = Math.max(maxEventId, matchResultsResult.data.event_id)
+            }
+
+            return res.status(200).json({ current_event_id: maxEventId })
+          }
+          
+          return res.status(500).json({ error: error.message })
+        }
+
+        const currentEventId = data?.current_event_id || 1
+        console.log(`Current event ID retrieved: ${currentEventId}`)
+        return res.status(200).json({ current_event_id: currentEventId })
+      } catch (err) {
+        console.error("Error getting current event ID:", err)
+        return res.status(500).json({ error: "Failed to get current event ID" })
       }
     }
 

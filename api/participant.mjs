@@ -113,16 +113,47 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Database check failed" })
       }
 
-      // Create new participant with auto-assigned number
+      // Get current event ID for new participants
+      let currentEventId = 1 // Default to event 1
+      try {
+        const { data: eventState, error: eventError } = await supabase
+          .from("event_state")
+          .select("current_event_id")
+          .eq("match_id", "00000000-0000-0000-0000-000000000000")
+          .single()
+
+        if (!eventError && eventState?.current_event_id) {
+          currentEventId = eventState.current_event_id
+        } else {
+          // If no current event ID is set, determine it based on existing participants
+          const { data: maxEventData, error: maxEventError } = await supabase
+            .from("participants")
+            .select("event_id")
+            .order("event_id", { ascending: false })
+            .limit(1)
+            .single()
+
+          if (!maxEventError && maxEventData?.event_id) {
+            currentEventId = maxEventData.event_id
+          }
+        }
+      } catch (err) {
+        console.log("Using default event_id = 1 due to error:", err.message)
+      }
+
+      console.log(`Creating new participant with event_id: ${currentEventId}`)
+
+      // Create new participant with auto-assigned number and current event_id
       const { data, error } = await supabase
         .from("participants")
         .insert([
           {
             assigned_number: nextNumber,
             match_id: "00000000-0000-0000-0000-000000000000",
+            event_id: currentEventId,
           },
         ])
-        .select("secure_token, assigned_number")
+        .select("secure_token, assigned_number, event_id")
         .single()
 
       if (error) {
@@ -133,6 +164,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ 
         secure_token: data.secure_token,
         assigned_number: data.assigned_number,
+        event_id: data.event_id,
         is_new: true
       })
     } catch (error) {

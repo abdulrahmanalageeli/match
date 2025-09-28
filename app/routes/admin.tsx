@@ -167,10 +167,17 @@ export default function AdminPage() {
       const eventData = await eventRes.json()
       if (eventData.max_event_id) {
         setMaxEventId(eventData.max_event_id)
-        // Set current event ID to the latest if not already set
-        if (currentEventId <= eventData.max_event_id) {
-          setCurrentEventId(eventData.max_event_id)
-        }
+      }
+
+      // Fetch current event ID
+      const currentEventRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-current-event-id" }),
+      })
+      const currentEventData = await currentEventRes.json()
+      if (currentEventData.current_event_id) {
+        setCurrentEventId(currentEventData.current_event_id)
       }
       
       // Fetch registration enabled state
@@ -293,6 +300,46 @@ export default function AdminPage() {
     } catch (err) {
       console.error("Error toggling event finished:", err)
       alert("❌ Error updating event status")
+    }
+  }
+
+  const updateCurrentEventId = async (newEventId: number) => {
+    try {
+      if (newEventId < 1) {
+        alert("❌ Event ID must be at least 1")
+        return
+      }
+
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "set-current-event-id", 
+          event_id: newEventId
+        }),
+      })
+      
+      if (res.ok) {
+        setCurrentEventId(newEventId)
+        setMaxEventId(Math.max(maxEventId, newEventId))
+        alert(`✅ Current event ID set to ${newEventId}\n\n🎯 New participants will be assigned to Event ${newEventId}`)
+        
+        // Refresh event finished state for the new event
+        const eventFinishedRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-event-finished", event_id: newEventId }),
+        })
+        const eventFinishedData = await eventFinishedRes.json()
+        setEventFinished(eventFinishedData.finished !== false)
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error("API Error:", errorData)
+        alert(`❌ Failed to update current event ID: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      console.error("Error updating current event ID:", err)
+      alert("❌ Error updating current event ID")
     }
   }
 
@@ -1690,11 +1737,12 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-300 text-sm">Event ID:</span>
+                  <span className="text-slate-300 text-sm">Current Event ID:</span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCurrentEventId(Math.max(1, currentEventId - 1))}
+                      onClick={() => updateCurrentEventId(Math.max(1, currentEventId - 1))}
                       className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
+                      title="Switch to previous event"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
@@ -1702,14 +1750,26 @@ export default function AdminPage() {
                       {currentEventId}
                     </span>
                     <button
-                      onClick={() => setCurrentEventId(currentEventId + 1)}
+                      onClick={() => updateCurrentEventId(currentEventId + 1)}
                       className="p-1 rounded bg-slate-600 hover:bg-slate-500 text-white transition-colors"
+                      title="Create/switch to next event"
                     >
                       <Plus className="w-3 h-3" />
                     </button>
                     <span className="text-slate-400 text-xs ml-2">
                       (Max: {maxEventId})
                     </span>
+                  </div>
+                </div>
+                
+                <div className="text-slate-400 text-xs bg-slate-800/50 rounded-lg p-2">
+                  <div className="flex items-center gap-1 mb-1">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    <span>New participants → Event {currentEventId}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <span>All existing participants are Event 1</span>
                   </div>
                 </div>
 

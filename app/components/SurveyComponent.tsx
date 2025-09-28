@@ -629,7 +629,19 @@ export default function SurveyComponent({
   loading?: boolean
 }) {
   
+  // Debug: Log the received surveyData
+  console.log("🔍 SurveyComponent - Received surveyData:", surveyData);
+  
   const [currentPage, setCurrentPage] = useState(0)
+  
+  // Debug: Log when surveyData changes
+  React.useEffect(() => {
+    console.log("🔍 SurveyComponent - surveyData changed:", surveyData);
+    if (surveyData.answers) {
+      console.log("🔍 SurveyComponent - answers object:", surveyData.answers);
+      console.log("🔍 SurveyComponent - answers keys:", Object.keys(surveyData.answers));
+    }
+  }, [surveyData]);
 
   const totalPages = Math.ceil(surveyQuestions.length / questionsPerPage) + 1 // +1 for terms page
   const progress = ((currentPage + 1) / totalPages) * 100
@@ -814,6 +826,11 @@ export default function SurveyComponent({
 
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]
+    
+    // Debug: Log the value for each question
+    if (value !== undefined && value !== null && value !== '') {
+      console.log(`🔍 SurveyComponent - Question ${question.id} has value:`, value);
+    }
 
     switch (question.type) {
       case "radio":

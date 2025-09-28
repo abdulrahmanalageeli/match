@@ -224,7 +224,6 @@ export default function WelcomePage() {
   })
   const [showSurvey, setShowSurvey] = useState(false)
   const [isEditingSurvey, setIsEditingSurvey] = useState(false)
-  const [hasPolledOnce, setHasPolledOnce] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
   const [partnerEndedTimer, setPartnerEndedTimer] = useState(false)
   const [timerEnded, setTimerEnded] = useState(false)
@@ -600,14 +599,6 @@ export default function WelcomePage() {
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
           saveUserToken(token); // Save token to localStorage for auto-fill
-          // Reset polling state for new token to allow fresh data loading
-          setHasPolledOnce(false);
-          // Clear existing survey data to allow fresh loading
-          setSurveyData({
-            answers: {},
-            termsAccepted: false,
-            dataConsent: false
-          });
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -1011,40 +1002,7 @@ export default function WelcomePage() {
           
           console.log(`🔄 Polling detected phase: ${data.phase}, current step: ${step}`);
           
-          // Check if user has completed the form (only poll once and only if user is not actively editing)
-          // Use token from URL if available, otherwise use secureToken from state
-          const tokenToUse = token || secureToken;
-          if ((!surveyData.answers || Object.keys(surveyData.answers).length === 0) && !isEditingSurvey && !hasPolledOnce && tokenToUse) {
-            setHasPolledOnce(true); // Mark that we've polled once
-            try {
-              const userRes = await fetch("/api/participant", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "resolve-token", secure_token: tokenToUse }),
-              });
-              const userData = await userRes.json();
-              console.log("🔍 One-time Polling - userData received:", userData);
-              if (userData.success && userData.survey_data) {
-                console.log("🔍 One-time Polling - survey_data exists:", userData.survey_data);
-                // Ensure the survey_data has the expected structure
-                const formattedSurveyData = {
-                  answers: userData.survey_data.answers || {},
-                  termsAccepted: userData.survey_data.termsAccepted || false,
-                  dataConsent: userData.survey_data.dataConsent || false,
-                  ...userData.survey_data
-                };
-                setSurveyData(formattedSurveyData);
-                if (userData.summary && userData.summary !== personalitySummary) {
-                  console.log("🔄 Updating summary from one-time polling:", userData.summary)
-                  setPersonalitySummary(userData.summary);
-                } else if (userData.summary === personalitySummary) {
-                  console.log("🔄 Summary unchanged, skipping update")
-                }
-              }
-            } catch (err) {
-              console.error("Failed to fetch user data during one-time polling:", err);
-            }
-          }
+          // NO AUTOMATIC DATA LOADING - Users must explicitly click buttons to load their data
           
           // HANDLE ALL PHASE TRANSITIONS
           console.log(`🔄 Phase transition check: current phase=${data.phase}, lastPhaseRef=${lastPhaseRef.current}, lastRoundRef=${lastRoundRef.current}, step=${step}`);
@@ -3784,10 +3742,12 @@ export default function WelcomePage() {
                       // First, try to load existing survey data if available
                       if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
                         try {
+                          const tokenToUse = token || secureToken;
+                          console.log("🔍 Start Survey - Using token:", tokenToUse);
                           const userRes = await fetch("/api/participant", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
+                            body: JSON.stringify({ action: "resolve-token", secure_token: tokenToUse }),
                           });
                           const userData = await userRes.json();
                           console.log("🔍 Start Survey - userData received:", userData);
@@ -5456,10 +5416,12 @@ export default function WelcomePage() {
                   // First, load existing survey data if not already loaded
                   if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
                     try {
+                      const tokenToUse = token || secureToken;
+                      console.log("🔍 Redo Form - Using token:", tokenToUse);
                       const userRes = await fetch("/api/participant", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
+                        body: JSON.stringify({ action: "resolve-token", secure_token: tokenToUse }),
                       });
                       const userData = await userRes.json();
                       console.log("🔍 Redo Form - userData received:", userData);

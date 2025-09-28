@@ -1318,6 +1318,24 @@ export default function AdminPage() {
                     if (excludedParticipants.length > 0) {
                       successMessage += `\nParticipants excluded from all matching: ${excludedParticipants.length}`
                     }
+                    
+                    // Add performance metrics if available
+                    if (data.performance) {
+                      successMessage += `\n\n⚡ Performance Metrics:`
+                      successMessage += `\nTotal time: ${data.performance.totalTimeSeconds}s`
+                      successMessage += `\nCache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)`
+                      successMessage += `\nAI calls: ${data.performance.aiCalls}`
+                      successMessage += `\nAvg time per pair: ${data.performance.avgTimePerPair}ms`
+                      
+                      if (data.performance.cacheHitRate > 0) {
+                        const timeSaved = ((data.performance.cacheHits * 2500) / 1000).toFixed(1)
+                        const costSaved = (data.performance.cacheHits * 0.002).toFixed(3)
+                        successMessage += `\n\n💰 Savings from cache:`
+                        successMessage += `\nTime saved: ~${timeSaved}s`
+                        successMessage += `\nCost saved: ~$${costSaved}`
+                      }
+                    }
+                    
                     alert(successMessage)
                     fetchParticipants()
                     // Show results modal with calculated pairs
@@ -1843,7 +1861,23 @@ export default function AdminPage() {
                     })
                     const data = await res.json()
                     if (res.ok) {
-                      alert(`✅ ${data.message}\n\nMatches created: ${data.count}`)
+                      let successMessage = `✅ ${data.message}\n\nMatches created: ${data.count}`
+                      
+                      // Add performance metrics if available
+                      if (data.performance) {
+                        successMessage += `\n\n⚡ Performance Metrics:`
+                        successMessage += `\nTotal time: ${data.performance.totalTimeSeconds}s`
+                        successMessage += `\nCache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)`
+                        successMessage += `\nAI calls: ${data.performance.aiCalls} (skipped)`
+                        successMessage += `\nAvg time per pair: ${data.performance.avgTimePerPair}ms`
+                        
+                        if (data.performance.cacheHitRate > 0) {
+                          const timeSaved = ((data.performance.cacheHits * 2500) / 1000).toFixed(1)
+                          successMessage += `\n\n💰 Time saved from cache: ~${timeSaved}s`
+                        }
+                      }
+                      
+                      alert(successMessage)
                       fetchParticipants()
                       // Show results modal with calculated pairs
                       await showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [])

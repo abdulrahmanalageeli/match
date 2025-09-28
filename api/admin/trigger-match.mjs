@@ -304,6 +304,213 @@ function checkAgeCompatibility(participantA, participantB) {
   return true
 }
 
+// Function to generate content hash for caching
+function generateContentHash(content) {
+  // Simple hash function for content-based caching
+  let hash = 0
+  if (content.length === 0) return hash.toString(36)
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36)
+}
+
+// Function to generate cache key for participant pair
+function generateCacheKey(participantA, participantB) {
+  const vibeA = participantA.survey_data?.vibeDescription || ''
+  const vibeB = participantB.survey_data?.vibeDescription || ''
+  const mbtiA = participantA.mbti_personality_type || participantA.survey_data?.mbtiType || ''
+  const mbtiB = participantB.mbti_personality_type || participantB.survey_data?.mbtiType || ''
+  const attachmentA = participantA.attachment_style || participantA.survey_data?.attachmentStyle || ''
+  const attachmentB = participantB.attachment_style || participantB.survey_data?.attachmentStyle || ''
+  const communicationA = participantA.communication_style || participantA.survey_data?.communicationStyle || ''
+  const communicationB = participantB.communication_style || participantB.survey_data?.communicationStyle || ''
+  
+  // Get lifestyle and core values
+  const lifestyleA = participantA.survey_data?.lifestylePreferences || 
+    (participantA.survey_data?.answers ? 
+      [participantA.survey_data.answers.lifestyle_1, participantA.survey_data.answers.lifestyle_2, participantA.survey_data.answers.lifestyle_3, participantA.survey_data.answers.lifestyle_4, participantA.survey_data.answers.lifestyle_5].join(',') : 
+      '')
+  const lifestyleB = participantB.survey_data?.lifestylePreferences || 
+    (participantB.survey_data?.answers ? 
+      [participantB.survey_data.answers.lifestyle_1, participantB.survey_data.answers.lifestyle_2, participantB.survey_data.answers.lifestyle_3, participantB.survey_data.answers.lifestyle_4, participantB.survey_data.answers.lifestyle_5].join(',') : 
+      '')
+      
+  const coreValuesA = participantA.survey_data?.coreValues || 
+    (participantA.survey_data?.answers ? 
+      [participantA.survey_data.answers.core_values_1, participantA.survey_data.answers.core_values_2, participantA.survey_data.answers.core_values_3, participantA.survey_data.answers.core_values_4, participantA.survey_data.answers.core_values_5].join(',') : 
+      '')
+  const coreValuesB = participantB.survey_data?.coreValues || 
+    (participantB.survey_data?.answers ? 
+      [participantB.survey_data.answers.core_values_1, participantB.survey_data.answers.core_values_2, participantB.survey_data.answers.core_values_3, participantB.survey_data.answers.core_values_4, participantB.survey_data.answers.core_values_5].join(',') : 
+      '')
+  
+  // Sort content for consistent hashing
+  const vibeContent = [vibeA, vibeB].sort().join('|||')
+  const mbtiContent = [mbtiA, mbtiB].sort().join('|||')
+  const attachmentContent = [attachmentA, attachmentB].sort().join('|||')
+  const communicationContent = [communicationA, communicationB].sort().join('|||')
+  const lifestyleContent = [lifestyleA, lifestyleB].sort().join('|||')
+  const coreValuesContent = [coreValuesA, coreValuesB].sort().join('|||')
+  
+  return {
+    vibeHash: generateContentHash(vibeContent),
+    mbtiHash: generateContentHash(mbtiContent),
+    attachmentHash: generateContentHash(attachmentContent),
+    communicationHash: generateContentHash(communicationContent),
+    lifestyleHash: generateContentHash(lifestyleContent),
+    coreValuesHash: generateContentHash(coreValuesContent),
+    combinedHash: generateContentHash(vibeContent + mbtiContent + attachmentContent + communicationContent + lifestyleContent + coreValuesContent)
+  }
+}
+
+// Function to get cached compatibility result
+async function getCachedCompatibility(participantA, participantB) {
+  try {
+    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+    const cacheKey = generateCacheKey(participantA, participantB)
+    
+    const { data, error } = await supabase
+      .from('compatibility_cache')
+      .select('*')
+      .eq('participant_a_number', smaller)
+      .eq('participant_b_number', larger)
+      .eq('combined_content_hash', cacheKey.combinedHash)
+      .single()
+      
+    if (data && !error) {
+      // Update usage statistics
+      await supabase
+        .from('compatibility_cache')
+        .update({ 
+          last_used: new Date().toISOString(),
+          use_count: data.use_count + 1 
+        })
+        .eq('id', data.id)
+        
+      console.log(`🎯 Cache HIT: #${smaller}-#${larger} (used ${data.use_count + 1} times)`)
+      return {
+        mbtiScore: parseFloat(data.mbti_score),
+        attachmentScore: parseFloat(data.attachment_score),
+        communicationScore: parseFloat(data.communication_score),
+        lifestyleScore: parseFloat(data.lifestyle_score),
+        coreValuesScore: parseFloat(data.core_values_score),
+        vibeScore: parseFloat(data.ai_vibe_score),
+        totalScore: parseFloat(data.total_compatibility_score),
+        cached: true
+      }
+    }
+    
+    return null
+  } catch (error) {
+    console.error("Cache lookup error:", error)
+    return null
+  }
+}
+
+// Function to store compatibility result in cache
+async function storeCachedCompatibility(participantA, participantB, scores) {
+  try {
+    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+    const cacheKey = generateCacheKey(participantA, participantB)
+    
+    const { error } = await supabase
+      .from('compatibility_cache')
+      .upsert({
+        participant_a_number: smaller,
+        participant_b_number: larger,
+        combined_content_hash: cacheKey.combinedHash,
+        vibe_content_hash: cacheKey.vibeHash,
+        mbti_hash: cacheKey.mbtiHash,
+        attachment_hash: cacheKey.attachmentHash,
+        communication_hash: cacheKey.communicationHash,
+        lifestyle_hash: cacheKey.lifestyleHash,
+        core_values_hash: cacheKey.coreValuesHash,
+        ai_vibe_score: scores.vibeScore,
+        mbti_score: scores.mbtiScore,
+        attachment_score: scores.attachmentScore,
+        communication_score: scores.communicationScore,
+        lifestyle_score: scores.lifestyleScore,
+        core_values_score: scores.coreValuesScore,
+        total_compatibility_score: scores.totalScore,
+        use_count: 1
+      })
+      
+    if (!error) {
+      console.log(`💾 Cache STORE: #${smaller}-#${larger}`)
+    } else {
+      console.error("Cache store error:", error)
+    }
+  } catch (error) {
+    console.error("Cache store error:", error)
+  }
+}
+
+// Function to calculate full compatibility with caching
+async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false) {
+  // Check cache first
+  const cached = await getCachedCompatibility(participantA, participantB)
+  if (cached) {
+    return cached
+  }
+  
+  // Cache miss - calculate all scores
+  console.log(`💾 Cache MISS: #${participantA.assigned_number}-#${participantB.assigned_number} - calculating...`)
+  
+  // Extract all the data needed for calculations
+  const aMBTI = participantA.mbti_personality_type || participantA.survey_data?.mbtiType
+  const bMBTI = participantB.mbti_personality_type || participantB.survey_data?.mbtiType
+  const aAttachment = participantA.attachment_style || participantA.survey_data?.attachmentStyle
+  const bAttachment = participantB.attachment_style || participantB.survey_data?.attachmentStyle
+  const aCommunication = participantA.communication_style || participantA.survey_data?.communicationStyle
+  const bCommunication = participantB.communication_style || participantB.survey_data?.communicationStyle
+  
+  const aLifestyle = participantA.survey_data?.lifestylePreferences || 
+    (participantA.survey_data?.answers ? 
+      [participantA.survey_data.answers.lifestyle_1, participantA.survey_data.answers.lifestyle_2, participantA.survey_data.answers.lifestyle_3, participantA.survey_data.answers.lifestyle_4, participantA.survey_data.answers.lifestyle_5].join(',') : 
+      null)
+  const bLifestyle = participantB.survey_data?.lifestylePreferences || 
+    (participantB.survey_data?.answers ? 
+      [participantB.survey_data.answers.lifestyle_1, participantB.survey_data.answers.lifestyle_2, participantB.survey_data.answers.lifestyle_3, participantB.survey_data.answers.lifestyle_4, participantB.survey_data.answers.lifestyle_5].join(',') : 
+      null)
+      
+  const aCoreValues = participantA.survey_data?.coreValues || 
+    (participantA.survey_data?.answers ? 
+      [participantA.survey_data.answers.core_values_1, participantA.survey_data.answers.core_values_2, participantA.survey_data.answers.core_values_3, participantA.survey_data.answers.core_values_4, participantA.survey_data.answers.core_values_5].join(',') : 
+      null)
+  const bCoreValues = participantB.survey_data?.coreValues || 
+    (participantB.survey_data?.answers ? 
+      [participantB.survey_data.answers.core_values_1, participantB.survey_data.answers.core_values_2, participantB.survey_data.answers.core_values_3, participantB.survey_data.answers.core_values_4, participantB.survey_data.answers.core_values_5].join(',') : 
+      null)
+  
+  // Calculate all compatibility scores
+  const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
+  const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
+  const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
+  const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
+  const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
+  const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(participantA, participantB)
+  const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
+  
+  const result = {
+    mbtiScore,
+    attachmentScore,
+    communicationScore,
+    lifestyleScore,
+    coreValuesScore,
+    vibeScore,
+    totalScore,
+    cached: false
+  }
+  
+  // Store in cache for future use
+  await storeCachedCompatibility(participantA, participantB, result)
+  
+  return result
+}
+
 // Function to calculate vibe compatibility using AI (up to 35% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
@@ -1129,28 +1336,20 @@ export default async function handler(req, res) {
           [p2.survey_data.answers.core_values_1, p2.survey_data.answers.core_values_2, p2.survey_data.answers.core_values_3, p2.survey_data.answers.core_values_4, p2.survey_data.answers.core_values_5].join(',') : 
           null)
       
-      // Calculate compatibility using the same functions as automatic matching
-      const mbtiScore = calculateMBTICompatibility(p1MBTI, p2MBTI)
-      const attachmentScore = calculateAttachmentCompatibility(p1Attachment, p2Attachment)
-      const communicationScore = calculateCommunicationCompatibility(p1Communication, p2Communication)
-      const lifestyleScore = calculateLifestyleCompatibility(p1Lifestyle, p2Lifestyle)
-      const coreValuesScore = calculateCoreValuesCompatibility(p1CoreValues, p2CoreValues)
+      // Use caching system for manual match calculation
+      const compatibilityResult = await calculateFullCompatibilityWithCache(p1, p2, skipAI)
       
-      // Calculate vibe compatibility using AI (unless skipAI is true)
-      let vibeScore = 7 // Default
-      if (!skipAI) {
-        try {
-          vibeScore = await calculateVibeCompatibility(p1, p2)
-        } catch (error) {
-          console.error("Error calculating vibe compatibility for manual match:", error)
-          vibeScore = 7
-        }
+      const mbtiScore = compatibilityResult.mbtiScore
+      const attachmentScore = compatibilityResult.attachmentScore
+      const communicationScore = compatibilityResult.communicationScore
+      const lifestyleScore = compatibilityResult.lifestyleScore
+      const coreValuesScore = compatibilityResult.coreValuesScore
+      const vibeScore = compatibilityResult.vibeScore
+      const totalCompatibility = Math.round(compatibilityResult.totalScore)
+      
+      if (compatibilityResult.cached) {
+        console.log(`🎯 Manual match used cached result for #${p1.assigned_number}-#${p2.assigned_number}`)
       }
-      
-      // Calculate total compatibility using the same formula
-      const totalCompatibility = Math.round(
-        mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
-      )
       
       // Create match record
       const matchRecord = {
@@ -1297,6 +1496,12 @@ export default async function handler(req, res) {
     const compatibilityScores = []
     console.log(`🔄 Starting compatibility calculation for ${pairs.length} pairs...`)
     
+    // Add time tracking
+    const startTime = Date.now()
+    let cacheHits = 0
+    let cacheMisses = 0
+    let aiCalls = 0
+    
     let processedPairs = 0
     let skippedGender = 0
     let skippedAge = 0
@@ -1340,14 +1545,34 @@ export default async function handler(req, res) {
         continue
       }
       
-      // Use dedicated columns first, fallback to survey_data
+      // Use caching system for all compatibility calculations
+      const compatibilityResult = await calculateFullCompatibilityWithCache(a, b, skipAI)
+      
+      // Track cache performance
+      if (compatibilityResult.cached) {
+        cacheHits++
+      } else {
+        cacheMisses++
+        if (!skipAI) {
+          aiCalls++
+        }
+      }
+      
+      const mbtiScore = compatibilityResult.mbtiScore
+      const attachmentScore = compatibilityResult.attachmentScore
+      const communicationScore = compatibilityResult.communicationScore
+      const lifestyleScore = compatibilityResult.lifestyleScore
+      const coreValuesScore = compatibilityResult.coreValuesScore
+      const vibeScore = compatibilityResult.vibeScore
+      const totalScore = compatibilityResult.totalScore
+      
+      // Extract data for reason string and storage
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
       const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
       const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
       const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
       const aCommunication = a.communication_style || a.survey_data?.communicationStyle
       const bCommunication = b.communication_style || b.survey_data?.communicationStyle
-      // Get lifestyle preferences (from top level or derive from answers)
       const aLifestyle = a.survey_data?.lifestylePreferences || 
         (a.survey_data?.answers ? 
           [a.survey_data.answers.lifestyle_1, a.survey_data.answers.lifestyle_2, a.survey_data.answers.lifestyle_3, a.survey_data.answers.lifestyle_4, a.survey_data.answers.lifestyle_5].join(',') : 
@@ -1356,8 +1581,6 @@ export default async function handler(req, res) {
         (b.survey_data?.answers ? 
           [b.survey_data.answers.lifestyle_1, b.survey_data.answers.lifestyle_2, b.survey_data.answers.lifestyle_3, b.survey_data.answers.lifestyle_4, b.survey_data.answers.lifestyle_5].join(',') : 
           null)
-      
-      // Get core values (from top level or derive from answers)
       const aCoreValues = a.survey_data?.coreValues || 
         (a.survey_data?.answers ? 
           [a.survey_data.answers.core_values_1, a.survey_data.answers.core_values_2, a.survey_data.answers.core_values_3, a.survey_data.answers.core_values_4, a.survey_data.answers.core_values_5].join(',') : 
@@ -1366,16 +1589,6 @@ export default async function handler(req, res) {
         (b.survey_data?.answers ? 
           [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
           null)
-      
-      
-      // Calculate all compatibility scores
-      const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
-      const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
-      const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
-      const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
-      const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-      const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(a, b)
-      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
       
       const reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
       
@@ -1428,7 +1641,19 @@ export default async function handler(req, res) {
       if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)
     }
     
+    // Calculate and display performance metrics
+    const endTime = Date.now()
+    const totalTime = endTime - startTime
+    const totalCalculations = cacheHits + cacheMisses
+    const cacheHitRate = totalCalculations > 0 ? ((cacheHits / totalCalculations) * 100).toFixed(1) : '0.0'
+    
     console.log(`📈 Summary: ${compatibilityScores.length} calculated pairs, ${totalSkipped} skipped, ${processedPairs} total`)
+    console.log(`⚡ Performance Metrics:`)
+    console.log(`   Total time: ${(totalTime / 1000).toFixed(1)}s`)
+    console.log(`   Cache hits: ${cacheHits} (${cacheHitRate}%)`)
+    console.log(`   Cache misses: ${cacheMisses}`)
+    console.log(`   AI calls: ${aiCalls}`)
+    console.log(`   Avg time per pair: ${totalCalculations > 0 ? (totalTime / totalCalculations).toFixed(0) : '0'}ms`)
 
     // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (CONFIGURABLE ROUNDS) ---
     console.log("🔄 Starting round-robin matching for", numbers.length, "participants")
@@ -1646,6 +1871,16 @@ export default async function handler(req, res) {
       message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe${skipAI ? ' - AI skipped' : ''})`,
       count: finalMatches.length,
       results: finalMatches,
+      performance: {
+        totalTime: totalTime,
+        totalTimeSeconds: (totalTime / 1000).toFixed(1),
+        cacheHits: cacheHits,
+        cacheMisses: cacheMisses,
+        cacheHitRate: parseFloat(cacheHitRate),
+        aiCalls: aiCalls,
+        totalCalculations: totalCalculations,
+        avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0
+      },
       calculatedPairs: compatibilityScores.map(pair => ({
         participant_a: pair.a,
         participant_b: pair.b,

@@ -395,7 +395,7 @@ const surveyQuestions = [
     placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
     required: true,
     category: "vibe",
-    maxLength: 75
+    maxLength: 150
   },
   {
     id: "vibe_2",
@@ -405,7 +405,7 @@ const surveyQuestions = [
     placeholder: "مثال: القراءة، السفر، الطبخ، الرسم، الرياضة...",
     required: true,
     category: "vibe",
-    maxLength: 50
+    maxLength: 100
   },
   {
     id: "vibe_3",
@@ -415,7 +415,7 @@ const surveyQuestions = [
     placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، Ed Sheeran، أو أي فنان تفضله...",
     required: true,
     category: "vibe",
-    maxLength: 50
+    maxLength: 100
   },
   {
     id: "vibe_4",
@@ -438,7 +438,7 @@ const surveyQuestions = [
     placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
     required: true,
     category: "vibe",
-    maxLength: 100
+    maxLength: 150
   },
   {
     id: "vibe_6",
@@ -448,7 +448,7 @@ const surveyQuestions = [
     placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
     required: true,
     category: "vibe",
-    maxLength: 100
+    maxLength: 150
   }
 ]
 

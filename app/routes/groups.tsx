@@ -594,20 +594,22 @@ export default function GroupsPage() {
                 <div className="text-slate-400 text-sm mt-1">اللعبة الحالية</div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <Button
-                onClick={() => {
-                  setSelectedGameId(null);
-                  setGamePhase('intro');
-                }}
-                variant="outline"
-                size="lg"
-                className="border-slate-600 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-300"
-              >
-                <ChevronLeft className="w-5 h-5 ml-2" />
-                عودة للألعاب
-              </Button>
-            </div>
+            {selectedGameId && (
+              <div className="flex items-center space-x-3">
+                <Button
+                  onClick={() => {
+                    setSelectedGameId(null);
+                    setGamePhase('intro');
+                  }}
+                  variant="outline"
+                  size="lg"
+                  className="border-slate-600 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-300"
+                >
+                  <ChevronLeft className="w-5 h-5 ml-2" />
+                  عودة للألعاب
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 

@@ -613,7 +613,10 @@ export default function WelcomePage() {
           try {
             if (sessionStorage.getItem('justCreatedToken') === '1') {
               const justToken = sessionStorage.getItem('justCreatedTokenValue')
-              if (justToken) setSecureToken(justToken)
+              if (justToken) {
+                setSecureToken(justToken)
+                saveUserToken(justToken); // Save token to localStorage for auto-fill
+              }
               setShowTokenModal(true)
             }
           } catch (_) {}
@@ -1544,6 +1547,22 @@ export default function WelcomePage() {
     }
   }, [returningPlayerToken]);
 
+  // Save token whenever user has a secure token available (any step/round)
+  useEffect(() => {
+    if (secureToken && secureToken.trim()) {
+      console.log('💾 Auto-saving secure token from any step/round:', secureToken);
+      saveUserToken(secureToken);
+    }
+  }, [secureToken]);
+
+  // Save token immediately when URL contains token parameter (before resolution)
+  useEffect(() => {
+    if (token && token.trim()) {
+      console.log('💾 Auto-saving token from URL parameter:', token);
+      saveUserToken(token);
+    }
+  }, [token]);
+
   // Save token when user successfully completes survey or joins
   const saveUserToken = (token: string) => {
     if (token && token.trim()) {
@@ -1551,6 +1570,7 @@ export default function WelcomePage() {
       localStorage.setItem('blindmatch_returning_token', token);
       setResultToken(token);
       setReturningPlayerToken(token);
+      console.log('💾 Token saved to localStorage:', token);
     }
   };
 

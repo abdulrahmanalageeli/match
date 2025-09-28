@@ -2627,83 +2627,91 @@ export default function WelcomePage() {
                 {/* Process Guide */}
                 <div className="max-w-4xl mx-auto px-4 mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
                   <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
-                    <div className="text-center mb-6 sm:mb-8">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white mb-3">كيف يعمل النظام؟</h2>
-                      <p className="text-cyan-200 text-sm sm:text-base max-w-3xl mx-auto">
-                        نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-6 sm:space-y-8">
-                      {/* Step 1 */}
-                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-lg sm:text-xl">1</span>
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">املأ استبيان التوافق</h3>
-                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                            أجب على أسئلة شخصية مدروسة لتحليل شخصيتك وتفضيلاتك بدقة
+                    <details className="group">
+                      <summary className="flex items-center justify-center text-xl sm:text-2xl font-bold text-white mb-3 cursor-pointer list-none">
+                        <h2 className="inline">كيف يعمل النظام؟</h2>
+                        <ChevronLeft className="w-6 h-6 ml-2 transition-transform duration-300 group-open:rotate-[-90deg]" />
+                      </summary>
+                      
+                      <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1000px]">
+                        <div className="text-center mb-6 sm:mb-8 pt-4">
+                          <p className="text-cyan-200 text-sm sm:text-base max-w-3xl mx-auto">
+                            نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
                           </p>
                         </div>
-                        <div className="hidden sm:block flex-shrink-0">
-                          <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
-                        </div>
-                      </div>
+                        
+                        <div className="space-y-6 sm:space-y-8">
+                          {/* Step 1 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">1</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">املأ استبيان التوافق</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                أجب على أسئلة شخصية مدروسة لتحليل شخصيتك وتفضيلاتك بدقة
+                              </p>
+                            </div>
+                            <div className="hidden sm:block flex-shrink-0">
+                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                            </div>
+                          </div>
 
-                      {/* Step 2 */}
-                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-lg sm:text-xl">2</span>
+                          {/* Step 2 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">2</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل ذكي للتوافق</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                الذكاء الاصطناعي يحلل جميع المشاركين ويجد أكثر الأشخاص توافقاً معك
+                              </p>
+                            </div>
+                            <div className="hidden sm:block flex-shrink-0">
+                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل ذكي للتوافق</h3>
-                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                            الذكاء الاصطناعي يحلل جميع المشاركين ويجد أكثر الأشخاص توافقاً معك
-                          </p>
-                        </div>
-                        <div className="hidden sm:block flex-shrink-0">
-                          <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
-                        </div>
-                      </div>
 
-                      {/* Step 3 */}
-                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-lg sm:text-xl">3</span>
+                          {/* Step 3 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">3</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تواصل عبر واتساب</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                سيتم التواصل معك عبر واتساب للدفع وتأكيد حضورك للفعالية
+                              </p>
+                            </div>
+                            <div className="hidden sm:block flex-shrink-0">
+                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تواصل عبر واتساب</h3>
-                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                            سيتم التواصل معك عبر واتساب للدفع وتأكيد حضورك للفعالية
-                          </p>
-                        </div>
-                        <div className="hidden sm:block flex-shrink-0">
-                          <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
-                        </div>
-                      </div>
 
-                      {/* Step 4 */}
-                      <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                        <div className="flex-shrink-0">
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
-                            <span className="text-white font-bold text-lg sm:text-xl">4</span>
+                          {/* Step 4 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">4</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاء وقرار التطابق</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
+                              </p>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاء وقرار التطابق</h3>
-                          <p className="text-cyan-200 text-sm sm:text-base mb-3">
-                            تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
-                          </p>
-                        </div>
                       </div>
-                    </div>
+                    </details>
 
                     {/* Privacy Notice */}
                     <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-white/5 border border-white/10 rounded-lg">
@@ -2732,6 +2740,7 @@ export default function WelcomePage() {
                         <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
                       </div>
                       <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
+                      <p className="text-amber-300 text-xs sm:text-sm mb-3 sm:mb-4">ملاحظة: إذا كنت تريد تعديل استبيانك، فاستخدم رمزك الخاص في قسم 'لاعب عائد' أدناه.</p>
                       
                       <div className="space-y-3">
                         <Input

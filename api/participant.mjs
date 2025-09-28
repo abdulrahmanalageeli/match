@@ -750,29 +750,40 @@ export default async function handler(req, res) {
       console.log(`🔍 Looking up phone ending with: ${lastSixDigits}`)
 
       // Search for participants with phone numbers ending with these 6 digits
+      // Look in ALL events (including current) to find previous participants
       const { data: participants, error: searchError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event")
-        .neq("match_id", "00000000-0000-0000-0000-000000000000") // Look in previous events
+        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event, match_id")
         .not("phone_number", "is", null)
+        .order("created_at", { ascending: false }) // Get most recent first
 
       if (searchError) {
         console.error("Search Error:", searchError)
         return res.status(500).json({ error: "Database search failed" })
       }
 
+      console.log(`📊 Found ${participants.length} total participants with phone numbers`)
+      
       // Filter participants whose phone ends with the same 6 digits
       const matchingParticipants = participants.filter(participant => {
         if (!participant.phone_number) return false
         const participantPhone = participant.phone_number.replace(/\D/g, '')
         const participantLastSix = participantPhone.slice(-6)
+        console.log(`🔍 Checking participant #${participant.assigned_number}: ${participantPhone} (last 6: ${participantLastSix})`)
         return participantLastSix === lastSixDigits
       })
+
+      console.log(`🎯 Found ${matchingParticipants.length} matching participants`)
 
       if (matchingParticipants.length === 0) {
         return res.status(404).json({ 
           error: "لم يتم العثور على مشارك بهذا الرقم",
-          message: "تأكد من الرقم أو قم بالتسجيل كمشارك جديد"
+          message: `تأكد من الرقم أو قم بالتسجيل كمشارك جديد. البحث عن: ${lastSixDigits}`,
+          debug: {
+            searchedDigits: lastSixDigits,
+            totalParticipants: participants.length,
+            participantsWithPhones: participants.filter(p => p.phone_number).length
+          }
         })
       }
 

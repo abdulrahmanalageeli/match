@@ -600,6 +600,14 @@ export default function WelcomePage() {
           setAssignedNumber(data.assigned_number);
           setSecureToken(token); // Store the secure token
           saveUserToken(token); // Save token to localStorage for auto-fill
+          // Reset polling state for new token to allow fresh data loading
+          setHasPolledOnce(false);
+          // Clear existing survey data to allow fresh loading
+          setSurveyData({
+            answers: {},
+            termsAccepted: false,
+            dataConsent: false
+          });
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -1004,13 +1012,15 @@ export default function WelcomePage() {
           console.log(`🔄 Polling detected phase: ${data.phase}, current step: ${step}`);
           
           // Check if user has completed the form (only poll once and only if user is not actively editing)
-          if ((!surveyData.answers || Object.keys(surveyData.answers).length === 0) && !isEditingSurvey && !hasPolledOnce) {
+          // Use token from URL if available, otherwise use secureToken from state
+          const tokenToUse = token || secureToken;
+          if ((!surveyData.answers || Object.keys(surveyData.answers).length === 0) && !isEditingSurvey && !hasPolledOnce && tokenToUse) {
             setHasPolledOnce(true); // Mark that we've polled once
             try {
               const userRes = await fetch("/api/participant", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
+                body: JSON.stringify({ action: "resolve-token", secure_token: tokenToUse }),
               });
               const userData = await userRes.json();
               console.log("🔍 One-time Polling - userData received:", userData);

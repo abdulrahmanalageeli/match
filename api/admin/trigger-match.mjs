@@ -82,12 +82,16 @@ function calculateMBTICompatibility(type1, type2) {
 // Function to calculate attachment style compatibility score (up to 5% of total)
 function calculateAttachmentCompatibility(style1, style2) {
   if (!style1 || !style2) {
-    return 2.5 // Default 2.5% if no attachment data
+    return 2.5; // Default 2.5% if no attachment data
+  }
+
+  // If either person is Secure, it's a full-score match.
+  if (style1 === 'Secure' || style2 === 'Secure') {
+    return 5; // Full score for any match involving a Secure person.
   }
   
-  // Best matches based on the image
+  // Original logic for non-Secure pairings remains for other cases.
   const bestMatches = {
-    'Secure': ['Secure', 'Anxious', 'Avoidant'],
     'Anxious': ['Secure'],
     'Avoidant': ['Secure'],
     'Fearful': ['Secure'],
@@ -97,27 +101,32 @@ function calculateAttachmentCompatibility(style1, style2) {
     'Mixed (Anxious-Avoidant)': ['Secure'],
     'Mixed (Anxious-Fearful)': ['Secure'],
     'Mixed (Avoidant-Fearful)': ['Secure']
-  }
+  };
   
-  // Check if it's a best match
-  const matches = bestMatches[style1] || []
+  // Check if it's a best match according to the remaining rules
+  const matches = bestMatches[style1] || [];
   if (matches.includes(style2)) {
-    return 5 // Best match gets 5%
+    return 5; // This will now primarily catch cases where Secure is the target
   } else {
-    return 2.5 // Non-best match gets 2.5%
+    return 2.5; // Non-best match gets 2.5%
   }
 }
 
 // Function to calculate communication style compatibility score (up to 25% of total - UNCHANGED)
 function calculateCommunicationCompatibility(style1, style2) {
   if (!style1 || !style2) {
-    return 10 // Default 10% if no communication data
+    return 10; // Default 10% if no communication data
   }
-  
+
   // Aggressive with Passive-Aggressive gets 0%
   if ((style1 === 'Aggressive' && style2 === 'Passive-Aggressive') || 
       (style1 === 'Passive-Aggressive' && style2 === 'Aggressive')) {
-    return 0
+    return 0;
+  }
+
+  // Assertive + Passive is a full-score match
+  if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) {
+    return 25;
   }
   
   // Communication style compatibility based on the image
@@ -126,19 +135,19 @@ function calculateCommunicationCompatibility(style1, style2) {
     'Passive': { top1: 'Assertive', top2: 'Passive' },
     'Aggressive': { top1: 'Assertive', top2: 'Aggressive' },
     'Passive-Aggressive': { top1: 'Assertive', top2: 'Passive-Aggressive' }
-  }
+  };
   
-  const compatibility = compatibilityMatrix[style1]
+  const compatibility = compatibilityMatrix[style1];
   if (!compatibility) {
-    return 10 // Default if style not found
+    return 10; // Default if style not found
   }
   
   if (compatibility.top1 === style2) {
-    return 25 // Top 1 match gets 25%
+    return 25; // Top 1 match gets 25%
   } else if (compatibility.top2 === style2) {
-    return 20 // Top 2 match gets 20%
+    return 20; // Top 2 match gets 20%
   } else {
-    return 10 // Neither match gets 10%
+    return 10; // Neither match gets 10%
   }
 }
 

@@ -3757,14 +3757,30 @@ export default function WelcomePage() {
                     سيتم جمع بياناتك وفقاً لمعايير حماية البيانات السعودية
                   </p>
                   <button
-                    onClick={() => {
-                      // alert("Button clicked!")
+                    onClick={async () => {
                       console.log("🔘 ابدأ الاستبيان button clicked")
-                      console.log("showSurvey will be set to true")
+                      
+                      // First, try to load existing survey data if available
+                      if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+                        try {
+                          const userRes = await fetch("/api/participant", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
+                          });
+                          const userData = await userRes.json();
+                          if (userData.success && userData.survey_data && userData.survey_data.answers) {
+                            setSurveyData(userData.survey_data);
+                          }
+                        } catch (err) {
+                          console.error("Failed to load existing survey data:", err);
+                        }
+                      }
+                      
                       setShowSurvey(true)
-                      setIsEditingSurvey(true)
+                      // Delay setting editing flag to allow data to load first
                       setTimeout(() => {
-                        // alert("showSurvey should now be true")
+                        setIsEditingSurvey(true);
                       }, 100)
                     }}
                     className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-[color,box-shadow] disabled:pointer-events-none disabled:opacity-50 shadow-sm hover:bg-primary/90 h-9 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"

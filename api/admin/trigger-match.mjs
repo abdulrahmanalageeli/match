@@ -546,6 +546,10 @@ async function calculateVibeCompatibility(participantA, participantB) {
     // Scale the raw score (0-15) to the new weight (0-35)
     const scaledScore = (rawScore / 15) * 35
     
+    console.log(`🎯 Vibe compatibility: Raw AI score = ${rawScore}/15, Scaled score = ${scaledScore.toFixed(1)}%`)
+    console.log(`📝 Profile A preview: "${aVibeDescription.substring(0, 100)}..."`)
+    console.log(`📝 Profile B preview: "${bVibeDescription.substring(0, 100)}..."`)
+    
     return scaledScore
 
   } catch (error) {
@@ -607,11 +611,14 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
       temperature: 0.1
     })
 
-    const score = parseInt(completion.choices[0].message.content.trim())
+    const rawResponse = completion.choices[0].message.content.trim()
+    const score = parseInt(rawResponse)
+    
+    console.log(`🤖 AI raw response: "${rawResponse}" → Parsed score: ${score}`)
     
     // Validate score is within range
     if (isNaN(score) || score < 0 || score > 15) {
-      console.warn("Invalid AI score, using default:", completion.choices[0].message.content)
+      console.warn("❌ Invalid AI score, using default:", rawResponse)
       return 9 // Default higher score to be more lenient
     }
 

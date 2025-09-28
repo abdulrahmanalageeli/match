@@ -890,7 +890,7 @@ export default function AdminPage() {
       const participantInfoMap = new Map()
       allParticipants.forEach((p: any) => {
         participantInfoMap.set(p.assigned_number, {
-          name: p.survey_data?.name || `المشارك #${p.assigned_number}`,
+          name: p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`,
           id: p.id,
           paid_done: p.PAID_DONE || false
         })

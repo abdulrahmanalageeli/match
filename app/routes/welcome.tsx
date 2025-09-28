@@ -1011,8 +1011,17 @@ export default function WelcomePage() {
                 body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
               });
               const userData = await userRes.json();
-              if (userData.success && userData.survey_data && userData.survey_data.answers) {
-                setSurveyData(userData.survey_data);
+              console.log("🔍 Polling - userData received:", userData);
+              if (userData.success && userData.survey_data) {
+                console.log("🔍 Polling - survey_data exists:", userData.survey_data);
+                // Ensure the survey_data has the expected structure
+                const formattedSurveyData = {
+                  answers: userData.survey_data.answers || {},
+                  termsAccepted: userData.survey_data.termsAccepted || false,
+                  dataConsent: userData.survey_data.dataConsent || false,
+                  ...userData.survey_data
+                };
+                setSurveyData(formattedSurveyData);
                               if (userData.summary && userData.summary !== personalitySummary) {
                 console.log("🔄 Updating summary from polling:", userData.summary)
                 setPersonalitySummary(userData.summary);
@@ -3769,8 +3778,17 @@ export default function WelcomePage() {
                             body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
                           });
                           const userData = await userRes.json();
-                          if (userData.success && userData.survey_data && userData.survey_data.answers) {
-                            setSurveyData(userData.survey_data);
+                          console.log("🔍 Start Survey - userData received:", userData);
+                          if (userData.success && userData.survey_data) {
+                            console.log("🔍 Start Survey - survey_data exists:", userData.survey_data);
+                            // Ensure the survey_data has the expected structure
+                            const formattedSurveyData = {
+                              answers: userData.survey_data.answers || {},
+                              termsAccepted: userData.survey_data.termsAccepted || false,
+                              dataConsent: userData.survey_data.dataConsent || false,
+                              ...userData.survey_data
+                            };
+                            setSurveyData(formattedSurveyData);
                           }
                         } catch (err) {
                           console.error("Failed to load existing survey data:", err);
@@ -3780,6 +3798,7 @@ export default function WelcomePage() {
                       setShowSurvey(true)
                       // Delay setting editing flag to allow data to load first
                       setTimeout(() => {
+                        console.log("🔍 Start Survey - Current surveyData before editing:", surveyData);
                         setIsEditingSurvey(true);
                       }, 100)
                     }}
@@ -5431,8 +5450,17 @@ export default function WelcomePage() {
                         body: JSON.stringify({ action: "resolve-token", secure_token: secureToken }),
                       });
                       const userData = await userRes.json();
-                      if (userData.success && userData.survey_data && userData.survey_data.answers) {
-                        setSurveyData(userData.survey_data);
+                      console.log("🔍 Redo Form - userData received:", userData);
+                      if (userData.success && userData.survey_data) {
+                        console.log("🔍 Redo Form - survey_data exists:", userData.survey_data);
+                        // Ensure the survey_data has the expected structure
+                        const formattedSurveyData = {
+                          answers: userData.survey_data.answers || {},
+                          termsAccepted: userData.survey_data.termsAccepted || false,
+                          dataConsent: userData.survey_data.dataConsent || false,
+                          ...userData.survey_data
+                        };
+                        setSurveyData(formattedSurveyData);
                       }
                     } catch (err) {
                       console.error("Failed to load existing survey data:", err);
@@ -5442,6 +5470,7 @@ export default function WelcomePage() {
                   setShowSurvey(true); // Show survey for redo
                   // Delay setting editing flag to allow data to load first
                   setTimeout(() => {
+                    console.log("🔍 Redo Form - Current surveyData before editing:", surveyData);
                     setIsEditingSurvey(true);
                   }, 100);
                 }}

@@ -42,7 +42,7 @@ function isParticipantComplete(participant) {
   return true
 }
 
-// Function to calculate MBTI compatibility score (up to 10% of total)
+// Function to calculate MBTI compatibility score (up to 5% of total)
 function calculateMBTICompatibility(type1, type2) {
   if (!type1 || !type2 || !MBTI_COMPATIBILITY[type1]) {
     return 0 // Default 0% if no MBTI data
@@ -50,12 +50,13 @@ function calculateMBTICompatibility(type1, type2) {
   
   const compatibility = MBTI_COMPATIBILITY[type1]
   
+  // Halved scores for new 5% weight
   if (compatibility.top1 === type2) {
-    return 10 // Top 1 match gets 10%
+    return 5 // Top 1 match gets 5%
   } else if (compatibility.top2 === type2) {
-    return 7.5 // Top 2 match gets 7.5%
+    return 3.75 // Top 2 match gets 3.75%
   } else if (compatibility.top3 === type2 || compatibility.bonus.includes(type2)) {
-    return 5 // Top 3 or bonus match gets 5%
+    return 2.5 // Top 3 or bonus match gets 2.5%
   } else {
     // If not in top matches, compare individual letters
     let sharedLetters = 0
@@ -65,23 +66,23 @@ function calculateMBTICompatibility(type1, type2) {
       }
     }
     
-    // Score based on shared letters
+    // Score based on shared letters (halved)
     if (sharedLetters === 3) {
-      return 10 // 3 letters shared gets 10%
+      return 5 // 3 letters shared gets 5%
     } else if (sharedLetters === 2) {
-      return 5 // 2 letters shared gets 5%
+      return 2.5 // 2 letters shared gets 2.5%
     } else if (sharedLetters === 1) {
-      return 2.5 // 1 letter shared gets 2.5%
+      return 1.25 // 1 letter shared gets 1.25%
     } else {
       return 0 // No letters shared gets 0%
     }
   }
 }
 
-// Function to calculate attachment style compatibility score (15% if best match, 5% otherwise)
+// Function to calculate attachment style compatibility score (up to 5% of total)
 function calculateAttachmentCompatibility(style1, style2) {
   if (!style1 || !style2) {
-    return 5 // Default 5% if no attachment data
+    return 2.5 // Default 2.5% if no attachment data
   }
   
   // Best matches based on the image
@@ -101,13 +102,13 @@ function calculateAttachmentCompatibility(style1, style2) {
   // Check if it's a best match
   const matches = bestMatches[style1] || []
   if (matches.includes(style2)) {
-    return 15 // Best match gets 15%
+    return 5 // Best match gets 5%
   } else {
-    return 5 // Non-best match gets 5%
+    return 2.5 // Non-best match gets 2.5%
   }
 }
 
-// Function to calculate communication style compatibility score (up to 25% of total)
+// Function to calculate communication style compatibility score (up to 25% of total - UNCHANGED)
 function calculateCommunicationCompatibility(style1, style2) {
   if (!style1 || !style2) {
     return 10 // Default 10% if no communication data
@@ -141,7 +142,7 @@ function calculateCommunicationCompatibility(style1, style2) {
   }
 }
 
-// Function to calculate lifestyle compatibility score (up to 15% of total)
+// Function to calculate lifestyle compatibility score (up to 20% of total)
 function calculateLifestyleCompatibility(preferences1, preferences2) {
   if (!preferences1 || !preferences2) {
     return 0 // Default 0% if no lifestyle data
@@ -162,24 +163,25 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     const val2 = prefs2[i]
     
     if (val1 === val2) {
-      // Exact match = full points
-      totalScore += 3
+      // Exact match = full points (4 points)
+      totalScore += 4
     } else if (
       (val1 === 'أ' && val2 === 'ب') || (val1 === 'ب' && val2 === 'أ') ||
       (val1 === 'ب' && val2 === 'ج') || (val1 === 'ج' && val2 === 'ب')
     ) {
-      // Adjacent choices = partial points
-      totalScore += 1.5
+      // Adjacent choices = partial points (2 points)
+      totalScore += 2
     } else {
       // Opposite choices (أ vs ج) = no points
       totalScore += 0
     }
   }
   
-  return totalScore // Max 15% if all 5 match exactly
+  // Max score is 5 * 4 = 20 points, which directly translates to 20%
+  return totalScore
 }
 
-// Function to calculate core values compatibility score (up to 20% of total)
+// Function to calculate core values compatibility score (up to 10% of total)
 function calculateCoreValuesCompatibility(values1, values2) {
   if (!values1 || !values2) {
     return 0 // Default 0% if no core values data
@@ -201,22 +203,22 @@ function calculateCoreValuesCompatibility(values1, values2) {
     const val2 = vals2[i]
     
     if (val1 === val2) {
-      // Identical answer = full value match (4 points)
-      totalScore += 4
+      // Identical answer = full value match (2 points)
+      totalScore += 2
     } else if (
       (val1 === 'ب' && (val2 === 'أ' || val2 === 'ج')) ||
       (val2 === 'ب' && (val1 === 'أ' || val1 === 'ج'))
     ) {
-      // Adjacent answer (middle vs. one side) = partial match (2 points)
-      totalScore += 2
+      // Adjacent answer (middle vs. one side) = partial match (1 point)
+      totalScore += 1
     } else {
       // Opposite answers = value clash (0 points)
       totalScore += 0
     }
   }
   
-  // Convert to percentage: 5 questions × 4 points max = 20 points = 20%
-  return totalScore // Already represents percentage (0-20%)
+  // Max score is 5 * 2 = 10 points, which directly translates to 10%
+  return totalScore
 }
 
 // Function to check gender compatibility (opposite gender by default, same-gender only with mutual preference)
@@ -293,27 +295,29 @@ function checkAgeCompatibility(participantA, participantB) {
   return true
 }
 
-// Function to calculate vibe compatibility using AI (up to 15% of total)
+// Function to calculate vibe compatibility using AI (up to 35% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
     // Get combined vibe descriptions from all 6 questions
     const aVibeDescription = participantA.survey_data?.vibeDescription || ""
     const bVibeDescription = participantB.survey_data?.vibeDescription || ""
 
-
     if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default score")
-      return 9 // Default higher score to be more lenient
+      return 20 // Default high score to be lenient
     }
 
     // Calculate mutual compatibility between the two combined profiles
-    const compatibilityScore = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
+    const rawScore = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
 
-    return compatibilityScore
+    // Scale the raw score (0-15) to the new weight (0-35)
+    const scaledScore = (rawScore / 15) * 35
+    
+    return scaledScore
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
-    return 9 // Default higher score to be more lenient
+    return 20 // Default high score to be lenient
   }
 }
 

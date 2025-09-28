@@ -1000,7 +1000,7 @@ function isParticipantExcluded(participantNumber, excludedParticipants) {
   }
   
   return excludedParticipants.some(participant => 
-    participant.participant_number === participantNumber
+    participant.participant1_number === participantNumber
   )
 }
 
@@ -1040,11 +1040,12 @@ export default async function handler(req, res) {
     // Ensure organizer participant exists for potential odd-participant matches
     await ensureOrganizerParticipant(match_id);
 
-    // Fetch excluded participants from database
+    // Fetch excluded participants from database (individual exclusions have participant2_number = -1)
     const { data: excludedParticipants, error: excludedParticipantsError } = await supabase
-      .from("excluded_participants")
-      .select("participant_number")
+      .from("excluded_pairs")
+      .select("participant1_number")
       .eq("match_id", match_id)
+      .eq("participant2_number", -1)
 
     if (excludedParticipantsError) {
       console.error("Error fetching excluded participants:", excludedParticipantsError)
@@ -1079,7 +1080,7 @@ export default async function handler(req, res) {
     if (excludedParticipants && excludedParticipants.length > 0) {
       console.log(`🚫 Checking for excluded participants: ${excludedParticipants.length} participants excluded from all matching`)
       excludedParticipants.forEach(excluded => {
-        console.log(`   #${excluded.participant_number} - Excluded from ALL matching`)
+        console.log(`   #${excluded.participant1_number} - Excluded from ALL matching`)
       })
       
       const beforeCount = eligibleParticipants.length

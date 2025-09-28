@@ -26,10 +26,12 @@ import {
   Clock,
   CheckSquare,
   Square,
-  X
+  X,
+  MessageSquare
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
+import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -86,6 +88,10 @@ export default function AdminPage() {
   const [groupAssignments, setGroupAssignments] = useState<any[]>([])
   const [totalGroups, setTotalGroups] = useState(0)
   const [totalGroupParticipants, setTotalGroupParticipants] = useState(0)
+
+  // WhatsApp message modal state
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -1951,6 +1957,16 @@ export default function AdminPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={(e) => { 
+                        e.stopPropagation();
+                        setWhatsappParticipant(p); 
+                        setShowWhatsappModal(true); 
+                      }}
+                      className="text-green-400 hover:text-green-300 transition-colors"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={(e) => {
                         e.stopPropagation()
                         toggleParticipantSelection(p.assigned_number)
@@ -2230,6 +2246,12 @@ export default function AdminPage() {
         matchType={matchType}
         totalMatches={totalMatches}
         calculatedPairs={calculatedPairs}
+      />
+
+      <WhatsappMessageModal
+        isOpen={showWhatsappModal}
+        onClose={() => setShowWhatsappModal(false)}
+        participant={whatsappParticipant}
       />
 
       {/* Group Assignments Modal */}

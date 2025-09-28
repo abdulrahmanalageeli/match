@@ -1011,7 +1011,10 @@ export default function WelcomePage() {
               });
               const userData = await userRes.json();
               if (userData.success && userData.survey_data && userData.survey_data.answers) {
-                setSurveyData(userData.survey_data);
+                // Don't overwrite survey data while user is actively editing (step 2)
+                if (step !== 2) {
+                  setSurveyData(userData.survey_data);
+                }
                               if (userData.summary && userData.summary !== personalitySummary) {
                 console.log("🔄 Updating summary from polling:", userData.summary)
                 setPersonalitySummary(userData.summary);

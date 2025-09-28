@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Button } from '~/components/ui/button';
-import { Textarea } from '~/../../components/ui/textarea';
+import { Button } from '../../components/ui/button';
+import { Textarea } from '../../components/ui/textarea';
 import { Check, Copy, MessageSquare, X } from 'lucide-react';
 
 interface WhatsappMessageModalProps {
@@ -15,7 +15,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
   const message = useMemo(() => {
     if (!participant) return "";
 
-    const name = participant.name || `المشارك #${participant.assigned_number}`;
+    const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
 

@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -56,7 +56,7 @@ export default async function handler(req, res) {
       if (action === "participants") {
         const { data, error } = await supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID_DONE, phone_number")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })

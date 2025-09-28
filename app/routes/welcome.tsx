@@ -2795,61 +2795,81 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
-                {/* Registration Options */}
-                <div id="start-journey" className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
+                {/* Enhanced Registration Options */}
+                <div id="start-journey" className="max-w-3xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 shadow-2xl">
+                    <div className="text-center mb-8 sm:mb-10">
+                      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white mb-3 sm:mb-4">انضم إلى الرحلة</h2>
+                      <p className="text-cyan-200/80 text-sm sm:text-base lg:text-lg font-medium">اختر الطريقة المناسبة للانضمام</p>
+                    </div>
                     
-                    {/* Returning Participant for Next Event Option */}
-                    <div className="mb-6 sm:mb-8">
-                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full"></div>
-                        <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
+                    {/* Enhanced Returning Participant for Next Event Option */}
+                    <div className="mb-8 sm:mb-10 p-4 sm:p-6 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-400/20 rounded-xl sm:rounded-2xl">
+                      <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full shadow-lg shadow-green-400/30"></div>
+                        <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">مشارك سابق</h3>
                       </div>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
-                      <p className="text-amber-300 text-xs sm:text-sm mb-3 sm:mb-4">ملاحظة: إذا كنت تريد تعديل استبيانك، فاستخدم رمزك الخاص في قسم 'لاعب عائد' أدناه.</p>
+                      <p className="text-green-200 text-sm sm:text-base mb-3 sm:mb-4 font-medium">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
+                      <div className="bg-amber-500/10 border border-amber-400/20 rounded-lg p-3 sm:p-4 mb-4 sm:mb-5">
+                        <p className="text-amber-200 text-xs sm:text-sm font-medium">💡 ملاحظة: إذا كنت تريد تعديل استبيانك، فاستخدم رمزك الخاص في قسم 'لاعب عائد' أدناه.</p>
+                      </div>
                       
-                      <div className="space-y-3">
-                        <Input
-                          type="tel"
-                          placeholder="مثال: 0560123456 أو +966560123456"
-                          value={returningPhoneNumber}
-                          onChange={(e) => setReturningPhoneNumber(e.target.value)}
-                          className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
-                          dir="ltr"
-                        />
+                      <div className="space-y-4 sm:space-y-5">
+                        <div className="relative">
+                          <Input
+                            type="tel"
+                            placeholder="مثال: 0560123456 أو +966560123456"
+                            value={returningPhoneNumber}
+                            onChange={(e) => setReturningPhoneNumber(e.target.value)}
+                            className="w-full text-center bg-white/10 border-2 border-green-400/30 text-white placeholder-white/50 focus:border-green-400 focus:ring-2 focus:ring-green-400/50 rounded-xl py-3 sm:py-4 text-base sm:text-lg font-medium transition-all duration-300"
+                            dir="ltr"
+                          />
+                          {returningPhoneNumber && (
+                            <div className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                              <CheckCircle className="w-5 h-5 text-green-400" />
+                            </div>
+                          )}
+                        </div>
 
                         <Button
                           onClick={handleReturningParticipant}
                           disabled={returningLoading || !returningPhoneNumber.trim()}
-                          className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full group relative overflow-hidden rounded-xl bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-500 hover:to-emerald-600 text-white border-0 shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg lg:text-xl py-4 sm:py-5 font-bold disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none focus:outline-none focus:ring-4 focus:ring-green-500/50"
                         >
-                          {returningLoading ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              جاري البحث...
-                            </div>
-                          ) : (
-                            "سجل للحدث القادم"
-                          )}
+                          <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                          <div className="relative flex items-center justify-center gap-3">
+                            {returningLoading ? (
+                              <>
+                                <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                <span>جاري البحث...</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserCheck className="w-5 h-5 sm:w-6 sm:h-6 transition-transform group-hover:scale-110" />
+                                <span>سجل للحدث القادم</span>
+                              </>
+                            )}
+                          </div>
                         </Button>
                       </div>
                     </div>
 
-                    {/* Divider */}
-                    <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                      <div className="flex-1 h-px bg-white/20"></div>
-                      <span className="text-white/60 text-xs sm:text-sm">أو</span>
-                      <div className="flex-1 h-px bg-white/20"></div>
+                    {/* Enhanced Divider */}
+                    <div className="flex items-center gap-4 sm:gap-6 mb-8 sm:mb-10">
+                      <div className="flex-1 h-0.5 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                      <div className="px-4 py-2 bg-white/10 rounded-full border border-white/20">
+                        <span className="text-white/80 text-sm sm:text-base font-medium">أو</span>
+                      </div>
+                      <div className="flex-1 h-0.5 bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
                     </div>
                     
-                    {/* New Player Option */}
-                    <div className="mb-6 sm:mb-8">
-                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
-                        <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
+                    {/* Enhanced New Player Option */}
+                    <div className="mb-8 sm:mb-10 p-4 sm:p-6 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-400/20 rounded-xl sm:rounded-2xl">
+                      <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-5">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full shadow-lg shadow-cyan-400/30"></div>
+                        <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white">لاعب جديد</h3>
                       </div>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
+                      <p className="text-cyan-200 text-sm sm:text-base mb-4 sm:mb-5 font-medium">احصل على رقم مخصص وابدأ رحلة التوافق</p>
                       <Button
                         onClick={async () => {
                           setLoading(true)
@@ -2894,22 +2914,31 @@ export default function WelcomePage() {
                           }
                         }}
                         disabled={loading || phase === "round_1"}
-                        className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
+                        className={`w-full group relative overflow-hidden rounded-xl border-0 shadow-xl hover:shadow-2xl transition-all duration-500 transform text-base sm:text-lg lg:text-xl py-4 sm:py-5 font-bold focus:outline-none focus:ring-4 focus:ring-cyan-500/50 ${
                           phase === "round_1" 
                             ? "bg-gray-400 cursor-not-allowed opacity-60" 
-                            : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 hover:scale-105"
-                        } text-white`}
+                            : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-500 hover:to-blue-600 hover:scale-105"
+                        } text-white disabled:transform-none`}
                       >
-                        {loading ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            جاري التخصيص...
-                          </div>
-                        ) : phase === "round_1" ? (
-                          "الجولة الأولى نشطة حالياً"
-                        ) : (
-                          "ابدأ رحلتك!"
-                        )}
+                        <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                        <div className="relative flex items-center justify-center gap-3">
+                          {loading ? (
+                            <>
+                              <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>جاري التخصيص...</span>
+                            </>
+                          ) : phase === "round_1" ? (
+                            <>
+                              <Ban className="w-5 h-5 sm:w-6 sm:h-6" />
+                              <span>الجولة الأولى نشطة حالياً</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-5 h-5 sm:w-6 sm:h-6 transition-transform group-hover:scale-110" />
+                              <span>ابدأ رحلتك!</span>
+                            </>
+                          )}
+                        </div>
                       </Button>
                     </div>
 
@@ -3504,48 +3533,59 @@ export default function WelcomePage() {
           />
         )}
 
-        {/* Welcome Landing Page */}
+        {/* Enhanced Welcome Landing Page */}
         {step === -1 && (
-          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-            <div className="relative">
-              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
-                dark ? "bg-gradient-to-r from-cyan-600 to-blue-700" : "bg-gradient-to-r from-cyan-400 to-blue-500"
+          <section className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-4 duration-700 px-4 sm:px-6">
+            <div className="relative max-w-lg mx-auto">
+              {/* Enhanced glow effect */}
+              <div className={`absolute inset-0 rounded-3xl blur-2xl opacity-30 animate-pulse ${
+                dark ? "bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600" : "bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500"
               }`}></div>
-              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
-                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              
+              <div className={`relative backdrop-blur-xl border rounded-3xl p-6 sm:p-8 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:scale-[1.01] ${
+                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/90 border-gray-200/50 shadow-xl hover:bg-white/95"
               }`}>
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <div className={`w-20 h-20 rounded-2xl border-2 shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-110 ${
+                {/* Enhanced participant number display */}
+                <div className="flex justify-center mb-6 sm:mb-8">
+                  <div className="relative group">
+                    <div className={`w-24 h-24 sm:w-28 sm:h-28 rounded-3xl border-3 shadow-2xl flex items-center justify-center transform transition-all duration-700 group-hover:scale-110 group-hover:rotate-3 ${
                       dark 
-                        ? "bg-gradient-to-br from-cyan-700 via-blue-600 to-cyan-800 border-cyan-400/50 shadow-cyan-500/20" 
-                        : "bg-gradient-to-br from-cyan-100 via-blue-100 to-cyan-200 border-cyan-400/50 shadow-cyan-500/20"
+                        ? "bg-gradient-to-br from-cyan-700 via-blue-600 to-purple-700 border-cyan-400/60 shadow-cyan-500/30" 
+                        : "bg-gradient-to-br from-cyan-100 via-blue-100 to-purple-100 border-cyan-400/60 shadow-cyan-500/30"
                     }`}>
-                      <span className={`text-2xl font-bold tracking-wider ${
-                        dark ? "text-white" : "text-gray-800"
+                      <span className={`text-3xl sm:text-4xl font-black tracking-wider ${
+                        dark ? "text-white drop-shadow-lg" : "text-gray-800 drop-shadow-md"
                       }`}>
                         {assignedNumber ?? "؟"}
                       </span>
                     </div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
+                    {/* Enhanced status indicator */}
+                    <div className="absolute -top-2 -right-2 w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full border-3 border-white shadow-lg animate-pulse">
+                      <div className="absolute inset-1 bg-white/30 rounded-full animate-ping"></div>
+                    </div>
+                    {/* Floating particles */}
+                    <div className="absolute -top-3 -left-3 w-2 h-2 bg-cyan-400/80 rounded-full animate-bounce" style={{ animationDelay: '0s' }}></div>
+                    <div className="absolute -top-2 -right-4 w-1.5 h-1.5 bg-blue-400/80 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }}></div>
+                    <div className="absolute -bottom-2 -left-4 w-1 h-1 bg-purple-400/80 rounded-full animate-bounce" style={{ animationDelay: '0.6s' }}></div>
                   </div>
                 </div>
                 
-                <div className="text-center space-y-4">
-                  <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
-                    dark ? "bg-gradient-to-r from-cyan-300 to-blue-400" : "bg-gradient-to-r from-cyan-600 to-blue-700"
+                {/* Enhanced typography and content */}
+                <div className="text-center space-y-4 sm:space-y-6">
+                  <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight bg-clip-text text-transparent mb-4 sm:mb-6 ${
+                    dark ? "bg-gradient-to-r from-cyan-300 via-blue-400 to-purple-400" : "bg-gradient-to-r from-cyan-600 via-blue-700 to-purple-700"
                   }`}>
                     نظام الصداقة الذكي
                   </h1>
                   
-                  <div className={`min-h-[6rem] text-right leading-relaxed ${
+                  <div className={`min-h-[6rem] sm:min-h-[8rem] text-right leading-relaxed text-base sm:text-lg ${
                     dark ? "text-slate-200" : "text-gray-700"
                   }`}>
                     {welcomeText.split('\n').map((line, index) => (
-                      <p key={index} className="mb-2">
+                      <p key={index} className="mb-3 sm:mb-4 font-medium">
                         {line}
                         {index === welcomeText.split('\n').length - 1 && welcomeTyping && (
-                          <span className="animate-pulse">|</span>
+                          <span className="animate-pulse text-cyan-400 font-bold">|</span>
                         )}
                       </p>
                     ))}
@@ -3554,55 +3594,105 @@ export default function WelcomePage() {
               </div>
             </div>
             
+            {/* Enhanced call-to-action */}
             {!welcomeTyping && (
-              <div className="flex justify-center">
-                <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
+              <div className="flex justify-center px-4">
+                <button
+                  onClick={() => setStep(0)}
+                  className={`group relative overflow-hidden rounded-2xl px-8 py-4 sm:px-10 sm:py-5 text-lg sm:text-xl font-bold text-white shadow-2xl transition-all duration-500 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-500/50 active:scale-95 ${
+                    dark 
+                      ? "bg-gradient-to-r from-cyan-600 via-blue-600 to-purple-600 hover:from-cyan-500 hover:via-blue-500 hover:to-purple-500" 
+                      : "bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 hover:from-cyan-400 hover:via-blue-500 hover:to-purple-500"
+                  }`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                  <div className="relative flex items-center gap-3">
+                    <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 transition-transform group-hover:translate-x-1" />
+                    <span>ابدأ الرحلة</span>
+                  </div>
+                </button>
               </div>
             )}
           </section>
         )}
 
-        {/* خطوة 0 */}
+        {/* Enhanced Step 0 - Registration Overview */}
         {step === 0 && (
-          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
-            <div className="relative">
-              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
-                dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
+          <section className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-4 duration-700 px-4 sm:px-6">
+            <div className="relative max-w-2xl mx-auto">
+              {/* Enhanced glow effect */}
+              <div className={`absolute inset-0 rounded-3xl blur-2xl opacity-25 animate-pulse ${
+                dark ? "bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700" : "bg-gradient-to-r from-gray-400 via-slate-500 to-gray-600"
               }`}></div>
-              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
-                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              
+              <div className={`relative backdrop-blur-xl border rounded-3xl p-6 sm:p-8 lg:p-10 shadow-2xl transition-all duration-500 hover:shadow-3xl hover:scale-[1.01] ${
+                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/90 border-gray-200/50 shadow-xl hover:bg-white/95"
               }`}>
-                <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <Brain className={`w-16 h-16 animate-pulse ${
-                      dark ? "text-slate-400" : "text-gray-600"
-                    }`} />
-                    <Sparkles className={`w-6 h-6 absolute -top-2 -right-2 animate-bounce ${
+                {/* Enhanced icon section */}
+                <div className="flex justify-center mb-6 sm:mb-8">
+                  <div className="relative group">
+                    <div className={`w-20 h-20 sm:w-24 sm:h-24 rounded-3xl flex items-center justify-center transition-all duration-700 group-hover:scale-110 ${
+                      dark 
+                        ? "bg-gradient-to-br from-slate-700 via-gray-600 to-slate-800 shadow-2xl shadow-slate-500/30" 
+                        : "bg-gradient-to-br from-gray-100 via-white to-gray-200 shadow-2xl shadow-gray-500/30"
+                    }`}>
+                      <Brain className={`w-12 h-12 sm:w-14 sm:h-14 transition-all duration-500 group-hover:rotate-12 ${
+                        dark ? "text-slate-300" : "text-gray-600"
+                      }`} />
+                    </div>
+                    <Sparkles className={`w-7 h-7 sm:w-8 sm:h-8 absolute -top-2 -right-2 animate-bounce transition-colors ${
                       dark ? "text-slate-300" : "text-gray-500"
                     }`} />
+                    {/* Floating particles */}
+                    <div className="absolute -top-3 -left-3 w-2 h-2 bg-slate-400/60 rounded-full animate-ping" style={{ animationDelay: '0s' }}></div>
+                    <div className="absolute -bottom-2 -right-4 w-1.5 h-1.5 bg-gray-400/60 rounded-full animate-ping" style={{ animationDelay: '0.5s' }}></div>
                   </div>
                 </div>
 
-                <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
-                  dark ? "bg-gradient-to-r from-slate-300 to-slate-400" : "bg-gradient-to-r from-gray-700 to-gray-800"
-                }`}>
-                  نظام الصداقة الذكي
-                </h1>
-                <p className={`text-sm sm:text-base leading-relaxed ${
-                  dark ? "text-slate-300" : "text-gray-600"
-                }`}>
-                  ستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين. 
-                  بعد كل حوار، قرر إذا كان
-                  <span className={`font-semibold ${
-                    dark ? "text-slate-200" : "text-gray-800"
-                  }`}> شخص متوافق </span>
-                  أو
-                  <span className="font-semibold text-red-500"> غير متوافق معك</span>.
-                </p>
+                {/* Enhanced typography */}
+                <div className="text-center space-y-4 sm:space-y-6">
+                  <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight bg-clip-text text-transparent mb-4 sm:mb-6 ${
+                    dark ? "bg-gradient-to-r from-slate-300 via-gray-300 to-slate-400" : "bg-gradient-to-r from-gray-700 via-slate-700 to-gray-800"
+                  }`}>
+                    نظام الصداقة الذكي
+                  </h1>
+                  
+                  {/* Enhanced description with better mobile formatting */}
+                  <div className={`text-base sm:text-lg lg:text-xl leading-relaxed max-w-xl mx-auto ${
+                    dark ? "text-slate-300" : "text-gray-600"
+                  }`}>
+                    <p className="mb-4 sm:mb-6 font-medium">
+                      ستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين.
+                    </p>
+                    <p className="font-medium">
+                      بعد كل حوار، قرر إذا كان
+                      <span className={`font-bold mx-2 px-2 py-1 rounded-lg ${
+                        dark ? "text-green-300 bg-green-500/20" : "text-green-700 bg-green-100"
+                      }`}>شخص متوافق</span>
+                      أو
+                      <span className="font-bold mx-2 px-2 py-1 rounded-lg text-red-300 bg-red-500/20">غير متوافق معك</span>.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-            <div className="flex justify-center">
-              <FancyNextButton onClick={next} label="ابدأ الرحلة" />
+            
+            {/* Enhanced call-to-action */}
+            <div className="flex justify-center px-4">
+              <button
+                onClick={next}
+                className={`group relative overflow-hidden rounded-2xl px-8 py-4 sm:px-10 sm:py-5 text-lg sm:text-xl font-bold text-white shadow-2xl transition-all duration-500 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-slate-500/50 active:scale-95 ${
+                  dark 
+                    ? "bg-gradient-to-r from-slate-600 via-gray-600 to-slate-700 hover:from-slate-500 hover:via-gray-500 hover:to-slate-600" 
+                    : "bg-gradient-to-r from-gray-600 via-slate-600 to-gray-700 hover:from-gray-500 hover:via-slate-500 hover:to-gray-600"
+                }`}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                <div className="relative flex items-center gap-3">
+                  <ChevronRight className="w-6 h-6 sm:w-7 sm:h-7 transition-transform group-hover:translate-x-1" />
+                  <span>ابدأ الرحلة</span>
+                </div>
+              </button>
             </div>
           </section>
         )}

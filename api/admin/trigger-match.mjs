@@ -1900,16 +1900,26 @@ export default async function handler(req, res) {
       finalMatches.push(...roundMatches)
     }
 
-    // Upsert matches (replace existing ones for this event)
-    console.log(`💾 upserting ${finalMatches.length} matches for match_id: ${match_id}, event_id: ${eventId}`)
+    // Delete existing matches for this specific event only, then insert new ones
+    console.log(`🗑️ Deleting existing matches for match_id: ${match_id}, event_id: ${eventId}`)
+    const { error: deleteError } = await supabase
+      .from("match_results")
+      .delete()
+      .eq("match_id", match_id)
+      .eq("event_id", eventId)
+      .neq("round", 0) // Don't delete group matches (they're in separate table now)
+
+    if (deleteError) {
+      console.error("🔥 Error deleting existing matches:", deleteError)
+      throw deleteError
+    }
+
+    console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}`)
     const { error: insertError } = await supabase
       .from("match_results")
-      .upsert(finalMatches, { 
-        onConflict: 'match_id,event_id,participant_a_number,participant_b_number,round',
-        ignoreDuplicates: false 
-      })
+      .insert(finalMatches)
     if (insertError) {
-      console.error("🔥 Error upserting matches:", insertError)
+      console.error("🔥 Error inserting matches:", insertError)
       throw insertError
     }
 

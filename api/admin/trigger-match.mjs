@@ -558,8 +558,7 @@ async function calculateVibeCompatibility(participantA, participantB) {
 // Helper function to calculate combined vibe compatibility using AI
 async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `You are a personal compatibility rater. Output a single JSON object only, no extra text:
-{"weekend":n,"music":n,"conversation":n,"friends_describe_them":n,"they_describe_friends":n,"balance":n,"hobbies_bonus":n,"final":m}
+    const systemMessage = `You are a personal compatibility rater. Output a single number from 0 to 35 only, no extra text.
 
 Scoring target: 0–35.
 
@@ -613,8 +612,7 @@ Balance adjustment (−3 to +7):
 
 Aggregation:
 • Sum axes 1–5 (max 28) + balance + hobbies_bonus (max +8).
-• final = clamp to [0..35].
-• Output JSON only in the specified shape.
+• Final score = add up to [0..35].
 
 أرجع رقماً فقط من 0 إلى 35 بدون أي نص إضافي.`
 

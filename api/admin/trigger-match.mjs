@@ -1487,19 +1487,6 @@ export default async function handler(req, res) {
 
       const groupMatches = await generateGroupMatches(eligibleParticipants, match_id, eventId)
 
-      // Clear existing group matches
-      console.log(`🗑️ Clearing existing group matches for match_id: ${match_id}, event_id: ${eventId}`)
-      const { error: deleteError } = await supabase
-        .from("group_matches")
-        .delete()
-        .eq("match_id", match_id)
-        .eq("event_id", eventId)
-
-      if (deleteError) {
-        console.error("🔥 Error clearing existing group matches:", deleteError)
-        throw deleteError
-      }
-
       // Insert new group matches
       console.log("💾 Inserting", groupMatches.length, "group matches into group_matches table")
       const { error: insertError } = await supabase
@@ -1888,20 +1875,7 @@ export default async function handler(req, res) {
       finalMatches.push(...roundMatches)
     }
 
-    // Delete existing matches for this specific event only, then insert new ones
-    console.log(`🗑️ Deleting existing matches for match_id: ${match_id}, event_id: ${eventId}`)
-    const { error: deleteError } = await supabase
-      .from("match_results")
-      .delete()
-      .eq("match_id", match_id)
-      .eq("event_id", eventId)
-      .neq("round", 0) // Don't delete group matches (they're in separate table now)
-
-    if (deleteError) {
-      console.error("🔥 Error deleting existing matches:", deleteError)
-      throw deleteError
-    }
-
+    // Insert new matches
     console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}`)
     const { error: insertError } = await supabase
       .from("match_results")

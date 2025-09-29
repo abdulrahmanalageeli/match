@@ -607,8 +607,7 @@ Balance adjustment (−3 to +7):
 • Useful complement (quiet + social, organized + spontaneous) = +2
 • “Rare spark”: niche shared hobby + matching conversation or music = +3
 • Exceptional stack: niche shared hobby + niche music + compatible conversation = +7
-• Conflicts on ≥2 axes (e.g., weekend + conversation) = −3
-• Conflict on one major axis = −1
+
 
 Aggregation:
 • Sum axes 1–5 (max 28) + balance + hobbies_bonus (max +8).

@@ -558,62 +558,53 @@ async function calculateVibeCompatibility(participantA, participantB) {
 // Helper function to calculate combined vibe compatibility using AI
 async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `You are a personal compatibility rater. Output a single number from 0 to 35 only, no extra text.
+    const systemMessage = `You are a personal compatibility rater. Output a single integer from 0 to 35 only, no extra text.
 
-Scoring target: 0–35.
+Goal: score fast romantic “clickability” for Arabic-speaking users. Answers are short (~50 characters), so give more credit for small overlaps.
 
-Core axes (max 28):
-1) Weekend style (0–7)
-2) Music/arts taste (0–7)
-3) Conversation style (0–5)
-4) How friends describe them (0–5)
-5) How they describe their friends (0–4)
+TOTAL = Core (max 31) + Spark Bonus (max +4) = 35
 
-Details:
-1) Weekend (0–7)
-• Clear match (both homebodies or both going-out) = 7
-• Balanced (homebody × moderate going-out) = 5
-• Different but workable = 3
-• Strong conflict (party-all-night × always-home) = 0
+CORE AXES (31 points):
 
-2) Music/arts (0–7)
-• Shared niche/out-of-mainstream (Jazz, Classical, Indie, Alt Rock, Amy Winehouse, Arctic Monkeys, etc.) = 7
-• Same family (Arabic with Arabic, mainstream Western with mainstream Western, Tarab × Arabic Pop) = 5
-• Shared mainstream/ordinary (Adele, Ed Sheeran, Top Charts, popular rap) = 3
-• Explicit aversion/conflict = 0
+1) Lifestyle & Weekend Habits (0-7)
+• 7: Clear match (both home/social/balanced)
+• 4-5: Near-match or one flexible
+• 2-3: Different but not clashing
+• 0: Direct conflict
 
-3) Conversation (0–5)
-• Same preference (deep×deep or light×light) = 5
-• Slight difference or one is flexible = 3
-• Sharp difference with no flexibility = 0
+2) Interests & Hobbies (0-7)
+Because answers are short, give credit for *any* overlap.
+• 6-7: At least one strong shared interest (niche or unique) and or more than two shared interests
+• 4-5: One mainstream overlap (e.g. travel, reading, gym)
+• 2-3: General vibe is compatible (both social/active/creative)
+• 0-1: No overlap or opposite vibes
 
-4) How friends describe them (0–5)
-• Strong match or successful complement (shy + confident) = 5
-• Partial similarity or no conflict = 3
-• Strong conflict = 0
+3) Music/Arts Taste (0-4)
+• 4: Same genre/cultural family OR similar mood
+• 2-3: Different but not clashing
+• 0-1: Mismatch or aversion
 
-5) How they describe their friends (0–4)
-• Matching values (loyalty, support, ambition, fun) = 4
-• Partial similarity = 2
-• Conflicting values = 0
+4) Conversation Style (0-5)
+• 5: Same (deep×deep or light×light)
+• 3: Slight difference or one flexible
+• 0: Opposites with no flexibility
 
-Hobbies bonus (added outside 28, capped at +8 total):
-• One shared niche/elite hobby (writing/poetry, analytical reading/critique, photography/cinematography, jazz/classical/indie, hobbyist programming/personal projects, philosophy/film analysis/knowledge podcasts, serious anime/manga, astronomy/science, narrative games/DnD): +6 once.
-• Each shared mainstream hobby (gym, walking, coffee, restaurants, generic travel, non-analytical movies, casual competitive games, mainstream pop): +1 each.
-• If a “mainstream” hobby is described with clear specialization (e.g., “natural-light portrait photography at dusk”), treat as niche.
-• Do not double-count synonyms. Cap hobbies_bonus at +8.
+5) Traits & Values (0-8)
+Use “friends describe me” + “I describe friends.”
+• 6-8: Multiple keywords overlap (kind, funny, loyal, ambitious)
+• 3-5: One overlap or generally positive with no conflict
+• 0-2: Clear clash (e.g. loud vs quiet if valued opposite)
 
-Balance adjustment (−3 to +7):
-• Useful complement (quiet + social, organized + spontaneous) = +2
-• “Rare spark”: niche shared hobby + matching conversation or music = +3
-• Exceptional stack: niche shared hobby + niche music + compatible conversation = +7
+SPARK BONUS (0-4)
++1 to +2: Unique shared passion (poetry, anime, niche sport)
++1: Shared romantic/affectionate tone
++1 to +2: Complement explicitly appreciated (cook × eater, listener × talker)
+Cap at +4.
 
+Aggregation: Core (0-31) + Bonus (0-4) = 0-35.
 
-Aggregation:
-• Sum axes 1–5 (max 28) + balance + hobbies_bonus (max +8).
-• Final score = add up to [0..35].
-
-أرجع رقماً فقط من 0 إلى 35 بدون أي نص إضافي.`
+أرجِع رقمًا واحدًا فقط من 0 إلى 35 دون أي نص إضافي.
+`
 
     const userMessage = `الملف الشخصي للشخص الأول: "${profileA}"
 

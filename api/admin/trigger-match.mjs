@@ -558,59 +558,64 @@ async function calculateVibeCompatibility(participantA, participantB) {
 // Helper function to calculate combined vibe compatibility using AI
 async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `أنت محلل توافق شخصي. أعطِ نتيجة واحدة من 0 إلى 35 وفق قواعد واضحة ومحايدة. لا تكتب أي نص غير الرقم.
+    const systemMessage = `You are a personal compatibility rater. Output a single JSON object only, no extra text:
+{"weekend":n,"music":n,"conversation":n,"friends_describe_them":n,"they_describe_friends":n,"balance":n,"hobbies_bonus":n,"final":m}
 
-المحاور الأساسية (28 نقطة كحد أقصى):
-1) نهاية الأسبوع (0–7)
-2) الذوق الموسيقي/الفني (0–7)
-3) نمط المحادثة (0–5)
-4) كيف يصفهم الأصدقاء (0–5)
-5) كيف يصفون أصدقاءهم (0–4)
-6) مكافأة/خصم التوازن (−2 إلى +7)
+Scoring target: 0–35.
 
-قواعد المنح التفصيلية:
+Core axes (max 28):
+1) Weekend style (0–7)
+2) Music/arts taste (0–7)
+3) Conversation style (0–5)
+4) How friends describe them (0–5)
+5) How they describe their friends (0–4)
 
-1) نهاية الأسبوع (0–7):
-• تطابق واضح (كلاهما بيت أو كلاهما طلعات) = 7
-• توازن (أحدهما بيت والآخر طلعات معتدلة) = 5
-• فرق واضح لكن قابل للتعايش = 3
-• تعارض صارخ (سهر دائم × بيت دائم) = 0
+Details:
+1) Weekend (0–7)
+• Clear match (both homebodies or both going-out) = 7
+• Balanced (homebody × moderate going-out) = 5
+• Different but workable = 3
+• Strong conflict (party-all-night × always-home) = 0
 
-2) الذوق الموسيقي/الفني (0–7):
-• نادر/خارج السائد (Amy Winehouse، Arctic Monkeys، Jazz، Classical، Indie، Rock بديل… إلخ) ومشترك = 7
-• نفس العائلة الموسيقية (عربي مع عربي أو غربي مع غربي شائع، طرب × بوب عربي) = 5
-• ذوق عادي/سائد متشابه (Adele، Ed Sheeran، Top Charts، راب مشهور) = 3
-• نفور أو تضاد صريح = 3
+2) Music/arts (0–7)
+• Shared niche/out-of-mainstream (Jazz, Classical, Indie, Alt Rock, Amy Winehouse, Arctic Monkeys, etc.) = 7
+• Same family (Arabic with Arabic, mainstream Western with mainstream Western, Tarab × Arabic Pop) = 5
+• Shared mainstream/ordinary (Adele, Ed Sheeran, Top Charts, popular rap) = 3
+• Explicit aversion/conflict = 0
 
-3) نمط المحادثة (0–5):
-• نفس التفضيل (عميق × عميق أو خفيف × خفيف) = 5
-• اختلاف بسيط أو أحدهما مرن = 3
-• اختلاف صارخ بلا مرونة = 0
+3) Conversation (0–5)
+• Same preference (deep×deep or light×light) = 5
+• Slight difference or one is flexible = 3
+• Sharp difference with no flexibility = 0
 
-4) كيف يصفهم الأصدقاء (0–5):
-• تطابق أو تقارب شديد (كلاهما "اجتماعي ومرح" أو كلاهما "هادئ ومنظم") او تكامل مثل خجول مع واثق = 5
-• تشابه جزئي أو لا تعارض = 3
+4) How friends describe them (0–5)
+• Strong match or successful complement (shy + confident) = 5
+• Partial similarity or no conflict = 3
+• Strong conflict = 0
 
-5) كيف يصفون أصدقاءهم (0–4):
-• قيم متطابقة (وفاء، دعم، طموح، مرح) = 4
-• تشابه جزئي أو تقارب بالروح = 2
-• قيم متعارضة (مرح عابر × جدية صارمة) = 0
+5) How they describe their friends (0–4)
+• Matching values (loyalty, support, ambition, fun) = 4
+• Partial similarity = 2
+• Conflicting values = 0
 
-قاعدة هوايات "إضافة مباشرة للنتيجة" (خارج المحاور الأساسية):
-• إذا وُجدت هواية "نادرة/نخبوية" مشتركة بين الطرفين (كتابة/شعر، قراءة تحليلية/نقد، تصوير فوتوغرافي/سينماتوغرافي، موسيقى جاز/كلاسيك/إندي، برمجة هاوية/مشاريع شخصية، فلسفة/تحليل أفلام/بودكاست معرفي، أنمي/مانغا تحليلية، فلك/علوم، ألعاب قصصية/DnD…): أضف +10 مرة واحدة.
-• لكل هواية مشتركة "عامة" (جيم، مشي، قهوة، مطاعم، سفر عام، أفلام عامة بلا تحليل، ألعاب تنافسية خفيفة، بوب سائد) أضف +3 لكل هواية.
-• إذا ذُكرت هواية عامة لكن بوصف تخصصي واضح (مثال: "تصوير بورتريه طبيعي بعد الغروب") تعامل كنادرة.
-• احسب تكرارات المعنى مرة واحدة فقط (مرادفات لا تتكدّس). استخدم تطابقاً دلالياً بسيطاً لا يعتمد على الكلمات الحرفية فقط.
+Hobbies bonus (added outside 28, capped at +8 total):
+• One shared niche/elite hobby (writing/poetry, analytical reading/critique, photography/cinematography, jazz/classical/indie, hobbyist programming/personal projects, philosophy/film analysis/knowledge podcasts, serious anime/manga, astronomy/science, narrative games/DnD): +6 once.
+• Each shared mainstream hobby (gym, walking, coffee, restaurants, generic travel, non-analytical movies, casual competitive games, mainstream pop): +1 each.
+• If a “mainstream” hobby is described with clear specialization (e.g., “natural-light portrait photography at dusk”), treat as niche.
+• Do not double-count synonyms. Cap hobbies_bonus at +8.
 
-التجميع:
-1) احسب مجموع المحاور الأساسية (الحد الأقصى 28).
-2) احسب إضافة الهوايات كما في الأعلى (نادرة +10 مرة واحدة كحد أقصى؛ بالإضافة إلى +3 لكل هواية مشتركة أخرى عامة أو نادرة إضافية).
-3) النتيجة النهائية = قص إلى المدى [0..35].
+Balance adjustment (−3 to +7):
+• Useful complement (quiet + social, organized + spontaneous) = +2
+• “Rare spark”: niche shared hobby + matching conversation or music = +3
+• Exceptional stack: niche shared hobby + niche music + compatible conversation = +7
+• Conflicts on ≥2 axes (e.g., weekend + conversation) = −3
+• Conflict on one major axis = −1
 
-تعريفات موجزة:
-• "توازن نافع" في مكافأة التوازن: هادئ + اجتماعي، منظم + عفوي، إلخ = +3.
-• تعارض شديد (شخص يستحي مع شخص يستحي) = -2
-• "شرارة نادرة": إذا وُجدت هواية نادرة مشتركة + انسجام محادثة أو فن جيد = +5 في بند التوازن (ضمن الحد الأقصى له).
+Aggregation:
+• Sum axes 1–5 (max 28) + balance + hobbies_bonus (max +8).
+• final = clamp to [0..35].
+• Output JSON only in the specified shape.
+
 أرجع رقماً فقط من 0 إلى 35 بدون أي نص إضافي.`
 
     const userMessage = `الملف الشخصي للشخص الأول: "${profileA}"
@@ -1895,26 +1900,16 @@ export default async function handler(req, res) {
       finalMatches.push(...roundMatches)
     }
 
-    // Clear existing matches for this event before inserting new ones to prevent duplicates
-    console.log(`🗑️ Clearing existing matches for match_id: ${match_id}, event_id: ${eventId}`)
-    const { error: deleteError } = await supabase
-      .from("match_results")
-      .delete()
-      .eq("match_id", match_id)
-      .eq("event_id", eventId)
-
-    if (deleteError) {
-      console.error("🔥 Error clearing existing matches:", deleteError)
-      throw deleteError
-    }
-
-    console.log("💾 Inserting", finalMatches.length, "new matches")
+    // Upsert matches (replace existing ones for this event)
+    console.log(`💾 upserting ${finalMatches.length} matches for match_id: ${match_id}, event_id: ${eventId}`)
     const { error: insertError } = await supabase
       .from("match_results")
-      .insert(finalMatches)
-
+      .upsert(finalMatches, { 
+        onConflict: 'match_id,event_id,participant_a_number,participant_b_number,round',
+        ignoreDuplicates: false 
+      })
     if (insertError) {
-      console.error("🔥 Error inserting matches:", insertError)
+      console.error("🔥 Error upserting matches:", insertError)
       throw insertError
     }
 

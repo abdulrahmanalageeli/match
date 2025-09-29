@@ -877,23 +877,30 @@ export default function AdminPage() {
       // Convert match results to participant results format
       const participantMap = new Map()
       
-      // Get all participants to have their names (filtered by current event_id)
+      // Get all participants to have their names (across all events since names are consistent)
       const participantsRes = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "participants", event_id: currentEventId }),
+        body: JSON.stringify({ action: "participants" }), // No event_id filter for names
       })
       const participantsData = await participantsRes.json()
       const allParticipants = participantsData.participants || []
       
       // Create a map of participant numbers to participant info
+      // Prioritize records that have names (in case same participant exists across events)
       const participantInfoMap = new Map()
       allParticipants.forEach((p: any) => {
-        participantInfoMap.set(p.assigned_number, {
-          name: p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`,
-          id: p.id,
-          paid_done: p.PAID_DONE || false
-        })
+        const existingInfo = participantInfoMap.get(p.assigned_number)
+        const currentName = p.name || p.survey_data?.name
+        
+        // Only update if we don't have this participant yet, or if current record has a name and existing doesn't
+        if (!existingInfo || (currentName && !existingInfo.name.startsWith('المشارك #'))) {
+          participantInfoMap.set(p.assigned_number, {
+            name: currentName || `المشارك #${p.assigned_number}`,
+            id: p.id,
+            paid_done: p.PAID_DONE || false
+          })
+        }
       })
       
       // Filter match results by current event_id and process them

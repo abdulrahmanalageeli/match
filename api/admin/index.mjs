@@ -1537,6 +1537,64 @@ export default async function handler(req, res) {
       }
     }
 
+    // PIN MATCH ACTION - Assign table number to a match
+    if (action === "pin-match") {
+      try {
+        const { match_id: matchResultId } = req.body
+        
+        if (!matchResultId) {
+          return res.status(400).json({ error: "Missing match_id parameter" })
+        }
+        
+        // Get the highest current table number
+        const { data: maxTableData, error: maxTableError } = await supabase
+          .from("match_results")
+          .select("table_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .not("table_number", "is", null)
+          .order("table_number", { ascending: false })
+          .limit(1)
+        
+        if (maxTableError) {
+          console.error("Error getting max table number:", maxTableError)
+          return res.status(500).json({ error: maxTableError.message })
+        }
+        
+        // Calculate next table number
+        const nextTableNumber = maxTableData && maxTableData.length > 0 
+          ? maxTableData[0].table_number + 1 
+          : 1
+        
+        // Update the match with the table number
+        const { data, error } = await supabase
+          .from("match_results")
+          .update({ table_number: nextTableNumber })
+          .eq("id", matchResultId)
+          .eq("match_id", STATIC_MATCH_ID)
+          .select()
+        
+        if (error) {
+          console.error("Error pinning match:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        if (!data || data.length === 0) {
+          return res.status(404).json({ error: "Match not found" })
+        }
+        
+        console.log(`✅ Pinned match ${matchResultId} to table ${nextTableNumber}`)
+        return res.status(200).json({ 
+          success: true, 
+          table_number: nextTableNumber,
+          match: data[0]
+        })
+        
+      } catch (error) {
+        console.error("Error pinning match:", error)
+        return res.status(500).json({ error: "Failed to pin match" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

@@ -382,7 +382,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
           reason: pair.reason,
           match_id,
           round,
-          table_number: roundMatches.length + 1  // Dynamic table numbering: 1, 2, 3, 4...
+          table_number: null  // No table assignment until pinned
         })
         
         usedPairs.add(pairKey)
@@ -440,7 +440,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
           reason: bestMatch.reason,
           match_id,
           round,
-          table_number: roundMatches.length + 1
+          table_number: null  // No table assignment until pinned
         })
         
         const pairKey = `${Math.min(bestMatch.participantA, bestMatch.participantB)}-${Math.max(bestMatch.participantA, bestMatch.participantB)}`
@@ -457,7 +457,7 @@ async function generateGlobalIndividualMatches(participants, match_id) {
           reason: "لم نجد شريكاً مناسباً. سيجلس مع المنظم.",
           match_id,
           round,
-          table_number: roundMatches.length + 1
+          table_number: null  // No table assignment until pinned
         })
         participantRoundCount.set(oddParticipant, participantRoundCount.get(oddParticipant) + 1)
       }
@@ -516,7 +516,7 @@ async function generateGroupMatches(participants, round, match_id) {
           compatibility_score: 75, // Default group score
           reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
           match_id,
-          table_number: groups.length + 1,
+          table_number: null,  // No table assignment until pinned
           // Support for up to 6 participants
           participant_a: group[0]?.assigned_number || null,
           participant_b: group[1]?.assigned_number || null,
@@ -535,7 +535,7 @@ async function generateGroupMatches(participants, round, match_id) {
           compatibility_score: 75,
           reason: `مجموعة من ${group.length} أشخاص للعمل الجماعي`,
           match_id,
-          table_number: groups.length + 1,
+          table_number: null,  // No table assignment until pinned
           participant_a: group[0]?.assigned_number || null,
           participant_b: group[1]?.assigned_number || null,
           participant_c: group[2]?.assigned_number || null,
@@ -590,7 +590,7 @@ async function generateGroupMatches(participants, round, match_id) {
             compatibility_score: 70,
             reason: `مجموعة من ${extras.length} أشخاص للعمل الجماعي`,
             match_id,
-            table_number: groups.length + 1,
+            table_number: null,  // No table assignment until pinned
             participant_a: extras[0]?.assigned_number || null,
             participant_b: extras[1]?.assigned_number || null,
             participant_c: null,
@@ -607,7 +607,7 @@ async function generateGroupMatches(participants, round, match_id) {
           compatibility_score: 70,
           reason: `مجموعة من ${extras.length} أشخاص للعمل الجماعي`,
           match_id,
-          table_number: groups.length + 1,
+          table_number: null,  // No table assignment until pinned
           participant_a: extras[0]?.assigned_number || null,
           participant_b: extras[1]?.assigned_number || null,
           participant_c: null,
@@ -643,7 +643,7 @@ async function generateGroupMatches(participants, round, match_id) {
             compatibility_score: 60,
             reason: `مجموعة من شخص واحد`,
             match_id,
-            table_number: groups.length + 1,
+            table_number: null,  // No table assignment until pinned
             participant_a: extra.assigned_number,
             participant_b: null,
             participant_c: null,

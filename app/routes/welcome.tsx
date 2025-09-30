@@ -4188,7 +4188,7 @@ export default function WelcomePage() {
                     {/* Partner & Table Info - Single Row */}
                     <div className="flex items-center justify-between gap-4">
                       {/* Partner Info */}
-                      <div className="flex items-center gap-2 flex-1">
+                      <div className="flex flex-col items-center gap-2 flex-1">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                           dark 
                             ? "bg-cyan-600/30 border border-cyan-500/50"
@@ -4198,7 +4198,7 @@ export default function WelcomePage() {
                             dark ? "text-cyan-400" : "text-cyan-600"
                           }`} />
                         </div>
-                        <div>
+                        <div className="text-center">
                           <p className={`text-xs ${
                             dark ? "text-slate-400" : "text-gray-500"
                           }`}>
@@ -4213,12 +4213,12 @@ export default function WelcomePage() {
                       </div>
 
                       {/* Divider */}
-                      <div className={`w-px h-12 ${
+                      <div className={`w-px h-16 ${
                         dark ? "bg-slate-600" : "bg-gray-300"
                       }`}></div>
 
                       {/* Table Info */}
-                      <div className="flex items-center gap-2 flex-1">
+                      <div className="flex flex-col items-center gap-2 flex-1">
                         {tableNumber ? (
                           <>
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -4230,7 +4230,7 @@ export default function WelcomePage() {
                                 dark ? "text-purple-400" : "text-purple-600"
                               }`} />
                             </div>
-                            <div>
+                            <div className="text-center">
                               <p className={`text-xs ${
                                 dark ? "text-slate-400" : "text-gray-500"
                               }`}>

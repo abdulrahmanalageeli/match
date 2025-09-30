@@ -44,6 +44,7 @@ export default function AdminPage() {
   const [currentPhase, setCurrentPhase] = useState("form")
   const [searchTerm, setSearchTerm] = useState("")
   const [showEligibleOnly, setShowEligibleOnly] = useState(false)
+  const [genderFilter, setGenderFilter] = useState("all") // "all", "male", "female"
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -757,17 +758,24 @@ export default function AdminPage() {
     // Search term filter
     const matchesSearch = searchTerm === "" || (
       p.assigned_number.toString().includes(searchTerm) ||
+      (p.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (p.survey_data?.answers?.gender?.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(searchTerm.toLowerCase()))
     )
     
     // Eligible participants filter (current event or signed up for next event)
     const isEligible = !showEligibleOnly || (
-      p.event_id === 1 || // Current event participants (assuming event_id 1 is current)
+      (p.event_id && p.event_id >= 1) || // Current event participants (any valid event_id)
       p.signup_for_next_event === true // Signed up for next event
     )
     
-    return matchesSearch && isEligible
+    // Gender filter
+    const matchesGender = genderFilter === "all" || (
+      (genderFilter === "male" && (p.survey_data?.gender === "male" || p.survey_data?.answers?.gender === "male")) ||
+      (genderFilter === "female" && (p.survey_data?.gender === "female" || p.survey_data?.answers?.gender === "female"))
+    )
+    
+    return matchesSearch && isEligible && matchesGender
   })
 
   const phaseConfig = {
@@ -1188,9 +1196,14 @@ export default function AdminPage() {
               <span className="text-slate-300 text-sm">Waiting: </span>
               <span className="font-bold text-white">{waitingCount}</span>
             </div>
-            {showEligibleOnly && (
+            {(showEligibleOnly || genderFilter !== "all") && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-4 py-2">
-                <span className="text-green-300 text-sm">Eligible: </span>
+                <span className="text-green-300 text-sm">
+                  {showEligibleOnly && genderFilter !== "all" ? "Filtered: " :
+                   showEligibleOnly ? "Eligible: " :
+                   genderFilter !== "all" ? `${genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)}: ` :
+                   "Filtered: "}
+                </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
               </div>
             )}
@@ -1208,7 +1221,7 @@ export default function AdminPage() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search participants..."
+                  placeholder="Search by name, number, gender..."
                   className="pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -1232,6 +1245,20 @@ export default function AdminPage() {
                   <CheckCircle className="w-4 h-4" />
                 )}
               </button>
+              
+              {/* Gender Filter Dropdown */}
+              <div className="relative">
+                <select
+                  value={genderFilter}
+                  onChange={(e) => setGenderFilter(e.target.value)}
+                  className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+                >
+                  <option value="all" className="bg-slate-800 text-white">All Genders</option>
+                  <option value="male" className="bg-slate-800 text-white">Male Only</option>
+                  <option value="female" className="bg-slate-800 text-white">Female Only</option>
+                </select>
+                <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
               
               <div className="flex items-center gap-2">
                 <input
@@ -2125,6 +2152,18 @@ export default function AdminPage() {
                 <div className="space-y-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-white">#{p.assigned_number}</div>
+                    
+                    {/* Participant Name - Make it POP! */}
+                    {p.name && (
+                      <div className="mt-2 mb-3">
+                        <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-lg px-3 py-2 backdrop-blur-sm">
+                          <div className="text-lg font-bold bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">
+                            {p.name}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-center gap-1 text-slate-400 text-sm mb-2">
                       <Table2 className="w-4 h-4" />
                       {p.table_number ?? "Unassigned"}
@@ -2132,9 +2171,9 @@ export default function AdminPage() {
                     
                     {/* Eligibility Badges */}
                     <div className="flex flex-wrap items-center justify-center gap-1">
-                      {p.event_id === 1 && (
+                      {p.event_id && p.event_id >= 1 && (
                         <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
-                          Current Event
+                          Event {p.event_id}
                         </span>
                       )}
                       {p.signup_for_next_event && (
@@ -2142,7 +2181,7 @@ export default function AdminPage() {
                           Next Event
                         </span>
                       )}
-                      {!p.event_id && !p.signup_for_next_event && (
+                      {(!p.event_id || p.event_id < 1) && !p.signup_for_next_event && (
                         <span className="px-2 py-1 text-xs bg-gray-500/20 text-gray-400 rounded-full border border-gray-400/30">
                           Inactive
                         </span>

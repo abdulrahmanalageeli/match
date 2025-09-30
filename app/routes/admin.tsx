@@ -2279,6 +2279,69 @@ export default function AdminPage() {
                         </span>
                       )}
                     </div>
+                    
+                    {/* Toggle Buttons for Payment Status */}
+                    <div className="flex flex-wrap items-center justify-center gap-2 mt-3 pt-3 border-t border-white/10">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          try {
+                            const response = await fetch('/api/admin', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                action: 'update-payment-status',
+                                participant_id: p.id,
+                                field: 'PAID',
+                                value: !p.PAID
+                              })
+                            })
+                            if (response.ok) {
+                              fetchParticipants() // Refresh the list
+                            }
+                          } catch (error) {
+                            console.error('Error updating PAID status:', error)
+                          }
+                        }}
+                        className={`flex items-center gap-1 px-3 py-1 text-xs rounded-lg border transition-all duration-200 ${
+                          p.PAID 
+                            ? 'bg-green-600/20 border-green-500/40 text-green-300 hover:bg-green-600/30' 
+                            : 'bg-gray-600/20 border-gray-500/40 text-gray-300 hover:bg-gray-600/30'
+                        }`}
+                      >
+                        📱 {p.PAID ? 'Sent' : 'Send Msg'}
+                      </button>
+                      
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          try {
+                            const response = await fetch('/api/admin', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                action: 'update-payment-status',
+                                participant_id: p.id,
+                                field: 'PAID_DONE',
+                                value: !p.PAID_DONE
+                              })
+                            })
+                            if (response.ok) {
+                              fetchParticipants() // Refresh the list
+                            }
+                          } catch (error) {
+                            console.error('Error updating PAID_DONE status:', error)
+                          }
+                        }}
+                        className={`flex items-center gap-1 px-3 py-1 text-xs rounded-lg border transition-all duration-200 ${
+                          p.PAID_DONE 
+                            ? 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30' 
+                            : 'bg-gray-600/20 border-gray-500/40 text-gray-300 hover:bg-gray-600/30'
+                        }`}
+                      >
+                        💰 {p.PAID_DONE ? 'Paid' : 'Mark Paid'}
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="space-y-2">

@@ -1503,6 +1503,39 @@ export default async function handler(req, res) {
       }
     }
 
+    // UPDATE PAYMENT STATUS ACTION
+    if (action === "update-payment-status") {
+      try {
+        const { participant_id, field, value } = req.body
+        
+        if (!participant_id || !field || value === undefined) {
+          return res.status(400).json({ error: "Missing required parameters" })
+        }
+        
+        if (field !== "PAID" && field !== "PAID_DONE") {
+          return res.status(400).json({ error: "Invalid field name" })
+        }
+        
+        const { data, error } = await supabase
+          .from("participants")
+          .update({ [field]: value })
+          .eq("id", participant_id)
+          .eq("match_id", STATIC_MATCH_ID)
+          .select()
+        
+        if (error) {
+          console.error("Update error:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`✅ Updated ${field} to ${value} for participant ${participant_id}`)
+        return res.status(200).json({ success: true, data: data[0] })
+        
+      } catch (error) {
+        console.error("Error updating payment status:", error)
+        return res.status(500).json({ error: "Failed to update payment status" })
+      }
+    }
 
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {

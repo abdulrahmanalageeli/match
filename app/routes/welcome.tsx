@@ -4199,12 +4199,12 @@ export default function WelcomePage() {
                           }`} />
                         </div>
                         <div className="text-center">
-                          <p className={`text-xs ${
+                          <p className={`text-sm ${
                             dark ? "text-slate-400" : "text-gray-500"
                           }`}>
                             شريكك
                           </p>
-                          <p className={`text-lg font-bold ${
+                          <p className={`text-xl font-bold ${
                             dark ? "text-cyan-300" : "text-cyan-700"
                           }`}>
                             {matchResult === "المنظم" ? "المنظم" : `#${matchResult}`}
@@ -4231,12 +4231,12 @@ export default function WelcomePage() {
                               }`} />
                             </div>
                             <div className="text-center">
-                              <p className={`text-xs ${
+                              <p className={`text-sm ${
                                 dark ? "text-slate-400" : "text-gray-500"
                               }`}>
                                 الطاولة
                               </p>
-                              <p className={`text-lg font-bold ${
+                              <p className={`text-xl font-bold ${
                                 dark ? "text-purple-300" : "text-purple-700"
                               }`}>
                                 #{tableNumber}
@@ -4245,10 +4245,10 @@ export default function WelcomePage() {
                           </>
                         ) : (
                           <>
-                            <Clock className={`w-4 h-4 ${
+                            <Clock className={`w-5 h-5 ${
                               dark ? "text-amber-400" : "text-amber-600"
                             }`} />
-                            <p className={`text-xs ${
+                            <p className={`text-sm ${
                               dark ? "text-amber-300" : "text-amber-700"
                             }`}>
                               قريباً

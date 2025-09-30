@@ -917,6 +917,10 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Partner not found" })
       }
 
+      // Extract names
+      const participantName = participant.survey_data?.name || `المشارك ${participant.assigned_number}`
+      const partnerName = partner.survey_data?.name || `المشارك ${partner.assigned_number}`
+
       // Extract vibe data from both participants
       const participantVibes = {
         weekend: participant.survey_data?.vibe_1 || '',
@@ -936,32 +940,87 @@ export default async function handler(req, res) {
         describesFriends: partner.survey_data?.vibe_6 || ''
       }
 
-      // Create AI prompt for vibe analysis
-      const prompt = `أنت خبير في تحليل التوافق الشخصي والاهتمامات المشتركة. قم بتحليل سبب التوافق الممتاز بين هذين الشخصين بناءً على إجاباتهما عن أسئلة الشخصية والاهتمامات.
+      // Extract lifestyle data
+      const participantLifestyle = {
+        lifestyle_1: participant.survey_data?.answers?.lifestyle_1 || participant.survey_data?.lifestyle_1 || '',
+        lifestyle_2: participant.survey_data?.answers?.lifestyle_2 || participant.survey_data?.lifestyle_2 || '',
+        lifestyle_3: participant.survey_data?.answers?.lifestyle_3 || participant.survey_data?.lifestyle_3 || '',
+        lifestyle_4: participant.survey_data?.answers?.lifestyle_4 || participant.survey_data?.lifestyle_4 || '',
+        lifestyle_5: participant.survey_data?.answers?.lifestyle_5 || participant.survey_data?.lifestyle_5 || ''
+      }
 
-الشخص الأول (#${participant.assigned_number}):
-- كيف يقضي عطلة نهاية الأسبوع: ${participantVibes.weekend}
-- خمس هوايات: ${participantVibes.hobbies}
-- فنان موسيقي مفضل: ${participantVibes.music}
-- يفضل المحادثات: ${participantVibes.conversations}
-- كيف يصفه أصدقاؤه: ${participantVibes.friendsDescribe}
-- كيف يصف أصدقاءه: ${participantVibes.describesFriends}
+      const partnerLifestyle = {
+        lifestyle_1: partner.survey_data?.answers?.lifestyle_1 || partner.survey_data?.lifestyle_1 || '',
+        lifestyle_2: partner.survey_data?.answers?.lifestyle_2 || partner.survey_data?.lifestyle_2 || '',
+        lifestyle_3: partner.survey_data?.answers?.lifestyle_3 || partner.survey_data?.lifestyle_3 || '',
+        lifestyle_4: partner.survey_data?.answers?.lifestyle_4 || partner.survey_data?.lifestyle_4 || '',
+        lifestyle_5: partner.survey_data?.answers?.lifestyle_5 || partner.survey_data?.lifestyle_5 || ''
+      }
 
-الشخص الثاني (#${partner.assigned_number}):
-- كيف يقضي عطلة نهاية الأسبوع: ${partnerVibes.weekend}
-- خمس هوايات: ${partnerVibes.hobbies}
-- فنان موسيقي مفضل: ${partnerVibes.music}
-- يفضل المحادثات: ${partnerVibes.conversations}
-- كيف يصفه أصدقاؤه: ${partnerVibes.friendsDescribe}
-- كيف يصف أصدقاءه: ${partnerVibes.describesFriends}
+      // Create AI prompt for personalized analysis
+      const prompt = `أنت خبير في تحليل التوافق الشخصي والعلاقات الإنسانية، متخصص في الثقافة السعودية والعربية. مهمتك تحليل التوافق بين شخصين التقيا في فعالية تعارف، وكتابة تحليل دافئ وشخصي يساعدهم على فهم سبب اختيار الذكاء الاصطناعي لهم كثنائي متوافق.
 
-اكتب تحليلاً شخصياً ودافئاً بالعربية (200-300 كلمة) يوضح:
-1. الاهتمامات والأنشطة المشتركة
-2. التكامل في الشخصيات
-3. أسباب التوافق في الطاقة والأسلوب
-4. اقتراحات لأنشطة يمكن أن يستمتعا بها معاً
+📋 معلومات ${participantName}:
+الاهتمامات والشخصية:
+• عطلة نهاية الأسبوع المثالية: ${participantVibes.weekend}
+• الهوايات المفضلة: ${participantVibes.hobbies}
+• الذوق الموسيقي: ${participantVibes.music}
+• أسلوب المحادثة: ${participantVibes.conversations}
+• كيف يصفه الأصدقاء: ${participantVibes.friendsDescribe}
+• كيف يصف أصدقاءه: ${participantVibes.describesFriends}
 
-اجعل التحليل إيجابياً ومشجعاً ومخصصاً لهذين الشخصين تحديداً.`
+نمط الحياة:
+• الطاقة اليومية: ${participantLifestyle.lifestyle_1}
+• التواصل الاجتماعي: ${participantLifestyle.lifestyle_2}
+• المساحة الشخصية: ${participantLifestyle.lifestyle_3}
+• التخطيط والعفوية: ${participantLifestyle.lifestyle_4}
+• نشاطات نهاية الأسبوع: ${participantLifestyle.lifestyle_5}
+
+📋 معلومات ${partnerName}:
+الاهتمامات والشخصية:
+• عطلة نهاية الأسبوع المثالية: ${partnerVibes.weekend}
+• الهوايات المفضلة: ${partnerVibes.hobbies}
+• الذوق الموسيقي: ${partnerVibes.music}
+• أسلوب المحادثة: ${partnerVibes.conversations}
+• كيف يصفه الأصدقاء: ${partnerVibes.friendsDescribe}
+• كيف يصف أصدقاءه: ${partnerVibes.describesFriends}
+
+نمط الحياة:
+• الطاقة اليومية: ${partnerLifestyle.lifestyle_1}
+• التواصل الاجتماعي: ${partnerLifestyle.lifestyle_2}
+• المساحة الشخصية: ${partnerLifestyle.lifestyle_3}
+• التخطيط والعفوية: ${partnerLifestyle.lifestyle_4}
+• نشاطات نهاية الأسبوع: ${partnerLifestyle.lifestyle_5}
+
+✍️ اكتب تحليلاً شخصياً بالعربية (280-350 كلمة) يتضمن:
+
+1️⃣ **مقدمة دافئة** (جملتين):
+   - ابدأ بذكر اسميهما مباشرة وأشر إلى التوافق الواضح بينهما
+   - استخدم لغة ودية وطبيعية كأنك تتحدث مع صديق
+
+2️⃣ **نقاط التوافق الرئيسية** (3-4 فقرات):
+   أ. **الاهتمامات المشتركة**: حدد الهوايات والأنشطة المتشابهة أو المتكاملة
+   ب. **التناغم في نمط الحياة**: حلل توافقهم في الطاقة اليومية، التواصل، والتخطيط
+   ج. **التكامل الشخصي**: كيف تكمل شخصياتهم بعضها (مثلاً: أحدهم منظم والآخر عفوي = توازن)
+   د. **الذوق والأسلوب**: التشابه في الموسيقى، المحادثات، أو القيم الاجتماعية
+
+3️⃣ **اقتراحات عملية** (فقرة واحدة):
+   - اقترح 2-3 نشاطات محددة يمكنهم الاستمتاع بها معاً في الرياض
+   - اربط الاقتراحات بهواياتهم الفعلية (مثلاً: إذا كلاهما يحب القراءة، اقترح مقهى كتب)
+   - كن محدداً وواقعياً بناءً على السياق السعودي
+
+4️⃣ **خاتمة محفزة** (جملتين):
+   - شجعهم على الاستمرار في التعرف على بعض
+   - اختم بنبرة إيجابية ومتفائلة
+
+⚠️ **إرشادات مهمة**:
+✓ استخدم أسماءهم الفعلية (${participantName} و${partnerName}) بشكل طبيعي في النص
+✓ لا تذكر أرقام المشاركين أبداً
+✓ اكتب بلغة عربية فصيحة لكن سهلة وودية (ليست رسمية جداً)
+✓ ركز على الإيجابيات والتوافق، حتى الاختلافات اعرضها كتكامل
+✓ كن محدداً في التحليل - استخدم تفاصيل من إجاباتهم الفعلية
+✓ تجنب العموميات - كل تحليل يجب أن يكون فريداً لهذا الثنائي
+✓ استخدم أمثلة ملموسة من إجاباتهم لدعم نقاطك`
 
       // Generate AI analysis
       console.log(`🤖 Generating AI vibe analysis for participants ${participant.assigned_number} and ${partner.assigned_number}`)

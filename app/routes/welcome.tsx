@@ -4640,22 +4640,108 @@ export default function WelcomePage() {
               {!conversationStarted || conversationTimer <= 0 ? (
                 // Show this block if conversation has NOT started or timer expired
                 <>
-                  <h3 className={`text-xl font-bold text-center mb-4 ${
-                    dark ? "text-slate-200" : "text-gray-800"
+                  {/* Enhanced Waiting Header */}
+                  <div className={`text-center mb-6 p-6 rounded-2xl border-2 ${
+                    matchResult === "المنظم"
+                      ? dark 
+                        ? "bg-gradient-to-r from-amber-900/30 to-orange-900/30 border-amber-400/40"
+                        : "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300/60"
+                      : dark 
+                        ? "bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-cyan-400/40"
+                        : "bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300/60"
                   }`}>
-                    الشخص المتوافق معك في الجولة {currentRound} هو رقم {matchResult}
-                  </h3>
-                  
+                    {/* Partner Avatar */}
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold shadow-lg border-4 border-white ${
+                          matchResult === "المنظم"
+                            ? dark ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                            : dark ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                        }`}>
+                          {matchResult === "المنظم" ? "👑" : `#${matchResult}`}
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-400 rounded-full border-2 border-white flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">{currentRound}</span>
+                        </div>
+                      </div>
+                    </div>
 
+                    <h3 className={`text-2xl font-bold mb-3 ${
+                      matchResult === "المنظم"
+                        ? dark ? "text-amber-200" : "text-amber-800"
+                        : dark ? "text-cyan-200" : "text-cyan-800"
+                    }`}>
+                      {matchResult === "المنظم" ? "شريكك: المنظم" : `شريكك: المشارك #${matchResult}`}
+                    </h3>
+
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4 ${
+                      dark ? 'bg-slate-700/50 text-slate-200' : 'bg-white/70 text-gray-700'
+                    }`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                        dark ? 'bg-purple-600' : 'bg-purple-500'
+                      } text-white text-xs font-bold`}>
+                        R
+                      </div>
+                      <span className="font-semibold">الجولة {currentRound}</span>
+                    </div>
+
+                    {/* Table Number with Enhanced Design */}
+                    {tableNumber && (
+                      <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl mb-4 ${
+                        dark 
+                          ? 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border border-purple-400/30' 
+                          : 'bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-300'
+                      }`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          dark ? 'bg-purple-600' : 'bg-purple-500'
+                        } text-white shadow-lg`}>
+                          <div className="text-sm font-bold">T</div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-bold ${
+                            dark ? "text-purple-200" : "text-purple-800"
+                          }`}>
+                            طاولة رقم {tableNumber}
+                          </p>
+                          <p className={`text-xs ${
+                            dark ? "text-purple-300/80" : "text-purple-600/80"
+                          }`}>
+                            اذهب إلى الطاولة الآن
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Compatibility Score Display */}
+                    {compatibilityScore !== null && matchResult !== "المنظم" && (
+                      <div className="mb-4">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+                          compatibilityScore >= 80 
+                            ? 'bg-green-100 text-green-700 border border-green-300'
+                            : compatibilityScore >= 60 
+                              ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                              : 'bg-orange-100 text-orange-700 border border-orange-300'
+                        }`}>
+                          <Heart className="w-4 h-4" />
+                          <span className="font-bold">نسبة التوافق: {Math.round(compatibilityScore)}%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Waiting Status */}
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
                     dark 
                       ? "bg-slate-700/30 border-slate-600" 
                       : "bg-blue-50 border-blue-200"
                   }`}>
-                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                      انتظر بدء المنظم للمؤقت
-                    </p>
-                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Clock className={`w-5 h-5 ${dark ? "text-slate-300" : "text-blue-600"} animate-pulse`} />
+                      <span className={`text-lg font-semibold ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                        انتظار بدء المحادثة
+                      </span>
+                    </div>
+                    <p className={`text-sm ${dark ? "text-slate-400" : "text-gray-500"}`}>
                       سيبدأ المؤقت تلقائياً لجميع المشاركين في نفس الوقت
                     </p>
                   </div>

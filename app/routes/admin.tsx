@@ -45,6 +45,8 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [showEligibleOnly, setShowEligibleOnly] = useState(false)
   const [genderFilter, setGenderFilter] = useState("all") // "all", "male", "female"
+  const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
+  const [whatsappFilter, setWhatsappFilter] = useState("all") // "all", "sent", "not_sent"
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -775,7 +777,20 @@ export default function AdminPage() {
       (genderFilter === "female" && (p.survey_data?.gender === "female" || p.survey_data?.answers?.gender === "female"))
     )
     
-    return matchesSearch && isEligible && matchesGender
+    // Payment filter
+    const matchesPayment = paymentFilter === "all" || (
+      (paymentFilter === "paid" && p.PAID_DONE === false && p.whatsapp_sent === true) ||
+      (paymentFilter === "unpaid" && (!p.whatsapp_sent || p.whatsapp_sent === false)) ||
+      (paymentFilter === "done" && p.PAID_DONE === true)
+    )
+    
+    // WhatsApp filter
+    const matchesWhatsapp = whatsappFilter === "all" || (
+      (whatsappFilter === "sent" && p.whatsapp_sent === true) ||
+      (whatsappFilter === "not_sent" && (!p.whatsapp_sent || p.whatsapp_sent === false))
+    )
+    
+    return matchesSearch && isEligible && matchesGender && matchesPayment && matchesWhatsapp
   })
 
   const phaseConfig = {
@@ -2092,15 +2107,39 @@ export default function AdminPage() {
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
 
+            {/* Payment Status Filter */}
+            <div className="relative">
+              <select
+                value={paymentFilter}
+                onChange={(e) => setPaymentFilter(e.target.value)}
+                className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+              >
+                <option value="all" className="bg-slate-800 text-white">All Payment</option>
+                <option value="paid" className="bg-slate-800 text-white">Awaiting Payment</option>
+                <option value="unpaid" className="bg-slate-800 text-white">Not Contacted</option>
+                <option value="done" className="bg-slate-800 text-white">Payment Done</option>
+              </select>
+              <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* WhatsApp Status Filter */}
+            <div className="relative">
+              <select
+                value={whatsappFilter}
+                onChange={(e) => setWhatsappFilter(e.target.value)}
+                className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+              >
+                <option value="all" className="bg-slate-800 text-white">All WhatsApp</option>
+                <option value="sent" className="bg-slate-800 text-white">Message Sent</option>
+                <option value="not_sent" className="bg-slate-800 text-white">Not Contacted</option>
+              </select>
+              <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
             {/* Filter Results Count */}
-            {(showEligibleOnly || genderFilter !== "all") && (
+            {(showEligibleOnly || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all") && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
-                <span className="text-green-300 text-sm">
-                  {showEligibleOnly && genderFilter !== "all" ? "Filtered: " :
-                   showEligibleOnly ? "Eligible: " :
-                   genderFilter !== "all" ? `${genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)}: ` :
-                   "Filtered: "}
-                </span>
+                <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
               </div>
             )}
@@ -2196,6 +2235,35 @@ export default function AdminPage() {
                       {!p.event_id && !p.signup_for_next_event && (
                         <span className="px-2 py-1 text-xs bg-gray-500/20 text-gray-400 rounded-full border border-gray-400/30">
                           Inactive
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Payment and WhatsApp Status Badges */}
+                    <div className="flex flex-wrap items-center justify-center gap-1 mt-2">
+                      {/* WhatsApp Status */}
+                      {p.whatsapp_sent ? (
+                        <span className="px-2 py-1 text-xs bg-green-600/20 text-green-400 rounded-full border border-green-500/30">
+                          📱 Sent
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded-full border border-red-400/30">
+                          📱 Not Sent
+                        </span>
+                      )}
+                      
+                      {/* Payment Status */}
+                      {p.PAID_DONE ? (
+                        <span className="px-2 py-1 text-xs bg-emerald-600/20 text-emerald-400 rounded-full border border-emerald-500/30">
+                          💰 Paid
+                        </span>
+                      ) : p.whatsapp_sent ? (
+                        <span className="px-2 py-1 text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-500/30">
+                          💰 Pending
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-gray-600/20 text-gray-400 rounded-full border border-gray-500/30">
+                          💰 No Contact
                         </span>
                       )}
                     </div>

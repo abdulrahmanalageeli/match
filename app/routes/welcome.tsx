@@ -2017,9 +2017,9 @@ export default function WelcomePage() {
         color: mbtiStrength.color,
         bgColor: mbtiStrength.bgColor,
         borderColor: mbtiStrength.borderColor,
-        description: mbtiScore >= 7 ? "شخصيات متكاملة ومتوافقة" : 
-                    mbtiScore >= 5 ? "شخصيات متوازنة" : 
-                    "شخصيات مختلفة ومكملة"
+        description: mbtiScore >= 7 ? "شخصيات متكاملة ومتوافقة - تفكير متناغم وأساليب حياة متشابهة تخلق انسجاماً طبيعياً في التفاعل والقرارات اليومية" : 
+                    mbtiScore >= 5 ? "شخصيات متوازنة - اختلافات طفيفة في الشخصية تضيف تنوعاً مثرياً مع الحفاظ على التفاهم الأساسي" : 
+                    "شخصيات مختلفة ومكملة - تباين في أنماط التفكير يوفر فرصاً للتعلم المتبادل والنمو الشخصي من خلال وجهات نظر متنوعة"
       })
     }
     
@@ -2030,9 +2030,9 @@ export default function WelcomePage() {
         color: attachmentStrength.color,
         bgColor: attachmentStrength.bgColor,
         borderColor: attachmentStrength.borderColor,
-        description: attachmentScore >= 12 ? "أنماط تعلق متوافقة ومستقرة" : 
-                    attachmentScore >= 8 ? "أنماط تعلق متوازنة" : 
-                    "أنماط تعلق مختلفة ومكملة"
+        description: attachmentScore >= 12 ? "أنماط تعلق متوافقة ومستقرة - نهج متشابه في بناء العلاقات والثقة المتبادلة يخلق بيئة آمنة ومريحة للتواصل العميق" : 
+                    attachmentScore >= 8 ? "أنماط تعلق متوازنة - اختلافات بسيطة في احتياجات الأمان العاطفي قابلة للتفهم والتكيف المتبادل" : 
+                    "أنماط تعلق مختلفة ومكملة - تنوع في احتياجات القرب والاستقلالية يتطلب تفهماً وصبراً لبناء توازن صحي"
       })
     }
     
@@ -2043,9 +2043,9 @@ export default function WelcomePage() {
         color: communicationStrength.color,
         bgColor: communicationStrength.bgColor,
         borderColor: communicationStrength.borderColor,
-        description: communicationScore >= 20 ? "تواصل ممتاز ومتناغم" : 
-                    communicationScore >= 15 ? "تواصل جيد ومتوازن" : 
-                    "تواصل مختلف ومكمل"
+        description: communicationScore >= 20 ? "تواصل ممتاز ومتناغم - أساليب تعبير متشابهة وفهم سريع للإشارات غير اللفظية يسهل الحوارات العميقة والمثمرة" : 
+                    communicationScore >= 15 ? "تواصل جيد ومتوازن - اختلافات طفيفة في أساليب التعبير مع قدرة جيدة على التفاهم والتكيف مع بعضكما البعض" : 
+                    "تواصل مختلف ومكمل - تنوع في طرق التعبير والاستماع يحتاج لصبر وتفهم لكنه يثري التجربة بوجهات نظر متنوعة"
       })
     }
     
@@ -2056,9 +2056,9 @@ export default function WelcomePage() {
         color: lifestyleStrength.color,
         bgColor: lifestyleStrength.bgColor,
         borderColor: lifestyleStrength.borderColor,
-        description: lifestyleScore >= 12 ? "أنماط حياة متوافقة" : 
-                    lifestyleScore >= 8 ? "أنماط حياة متوازنة" : 
-                    "أنماط حياة مختلفة ومكملة"
+        description: lifestyleScore >= 12 ? "أنماط حياة متوافقة - إيقاع حياة متشابه واهتمامات مشتركة تسهل التخطيط المشترك وقضاء وقت ممتع ومريح معاً" : 
+                    lifestyleScore >= 8 ? "أنماط حياة متوازنة - اختلافات معتدلة في الروتين والاهتمامات مع مساحات مشتركة للاستمتاع والتفاهم" : 
+                    "أنماط حياة مختلفة ومكملة - تنوع في الأنشطة والاهتمامات يوفر فرصاً لاكتشاف تجارب جديدة وتوسيع الآفاق"
       })
     }
     
@@ -2069,9 +2069,9 @@ export default function WelcomePage() {
         color: coreValuesStrength.color,
         bgColor: coreValuesStrength.bgColor,
         borderColor: coreValuesStrength.borderColor,
-        description: coreValuesScore >= 16 ? "قيم متطابقة ومتناغمة" : 
-                    coreValuesScore >= 12 ? "قيم متوازنة" : 
-                    "قيم مختلفة ومكملة"
+        description: coreValuesScore >= 16 ? "قيم متطابقة ومتناغمة - رؤية مشتركة للحياة والأولويات تخلق أساساً قوياً للتفاهم في القرارات المهمة والأهداف المستقبلية" : 
+                    coreValuesScore >= 12 ? "قيم متوازنة - تشابه في المبادئ الأساسية مع اختلافات طفيفة في التطبيق تثري النقاشات وتوسع المدارك" : 
+                    "قيم مختلفة ومكملة - تنوع في المنظور الأخلاقي والأولويات يتطلب حواراً مفتوحاً لكنه يوفر فرصاً للنمو والتعلم"
       })
     }
     
@@ -2082,9 +2082,9 @@ export default function WelcomePage() {
         color: vibeStrength.color,
         bgColor: vibeStrength.bgColor,
         borderColor: vibeStrength.borderColor,
-        description: vibeScore >= 12 ? "كيمياء شخصية ممتازة" : 
-                    vibeScore >= 8 ? "كيمياء شخصية جيدة" : 
-                    "كيمياء شخصية متوازنة"
+        description: vibeScore >= 12 ? "كيمياء شخصية ممتازة - انجذاب طبيعي وتناغم في الطاقة والاهتمامات يخلق شعوراً بالراحة والاستمتاع في قضاء الوقت معاً" : 
+                    vibeScore >= 8 ? "كيمياء شخصية جيدة - تفاهم جيد وانسجام في الشخصية مع إمكانية تطوير علاقة مريحة وممتعة بمرور الوقت" : 
+                    "كيمياء شخصية متوازنة - تفاعل هادئ ومتوازن قد يحتاج لوقت أطول لتطوير الألفة والراحة المتبادلة"
       })
     }
     

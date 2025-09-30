@@ -777,18 +777,30 @@ export default function AdminPage() {
       (genderFilter === "female" && (p.survey_data?.gender === "female" || p.survey_data?.answers?.gender === "female"))
     )
     
-    // Payment filter
-    const matchesPayment = paymentFilter === "all" || (
-      (paymentFilter === "paid" && p.PAID_DONE === false && p.whatsapp_sent === true) ||
-      (paymentFilter === "unpaid" && (!p.whatsapp_sent || p.whatsapp_sent === false)) ||
-      (paymentFilter === "done" && p.PAID_DONE === true)
-    )
+    // Payment filter - PAID = WhatsApp sent, PAID_DONE = actually paid
+    let matchesPayment = true
+    if (paymentFilter !== "all") {
+      if (paymentFilter === "paid") {
+        // Awaiting payment: WhatsApp sent (PAID = true) but not paid yet (PAID_DONE = false)
+        matchesPayment = (p.PAID === true && p.PAID_DONE !== true)
+      } else if (paymentFilter === "unpaid") {
+        // Not contacted: no WhatsApp sent yet (PAID = false)
+        matchesPayment = (!p.PAID || p.PAID === false)
+      } else if (paymentFilter === "done") {
+        // Actually paid (PAID_DONE = true)
+        matchesPayment = (p.PAID_DONE === true)
+      }
+    }
     
-    // WhatsApp filter
-    const matchesWhatsapp = whatsappFilter === "all" || (
-      (whatsappFilter === "sent" && p.whatsapp_sent === true) ||
-      (whatsappFilter === "not_sent" && (!p.whatsapp_sent || p.whatsapp_sent === false))
-    )
+    // WhatsApp filter - using PAID as WhatsApp sent indicator
+    let matchesWhatsapp = true
+    if (whatsappFilter !== "all") {
+      if (whatsappFilter === "sent") {
+        matchesWhatsapp = (p.PAID === true)
+      } else if (whatsappFilter === "not_sent") {
+        matchesWhatsapp = (!p.PAID || p.PAID === false)
+      }
+    }
     
     return matchesSearch && isEligible && matchesGender && matchesPayment && matchesWhatsapp
   })
@@ -2241,8 +2253,8 @@ export default function AdminPage() {
                     
                     {/* Payment and WhatsApp Status Badges */}
                     <div className="flex flex-wrap items-center justify-center gap-1 mt-2">
-                      {/* WhatsApp Status */}
-                      {p.whatsapp_sent ? (
+                      {/* WhatsApp Status - using PAID as indicator */}
+                      {p.PAID ? (
                         <span className="px-2 py-1 text-xs bg-green-600/20 text-green-400 rounded-full border border-green-500/30">
                           📱 Sent
                         </span>
@@ -2252,12 +2264,12 @@ export default function AdminPage() {
                         </span>
                       )}
                       
-                      {/* Payment Status */}
+                      {/* Payment Status - PAID_DONE = actually paid */}
                       {p.PAID_DONE ? (
                         <span className="px-2 py-1 text-xs bg-emerald-600/20 text-emerald-400 rounded-full border border-emerald-500/30">
                           💰 Paid
                         </span>
-                      ) : p.whatsapp_sent ? (
+                      ) : p.PAID ? (
                         <span className="px-2 py-1 text-xs bg-yellow-600/20 text-yellow-400 rounded-full border border-yellow-500/30">
                           💰 Pending
                         </span>

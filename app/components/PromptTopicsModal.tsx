@@ -275,8 +275,8 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
 
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-      <DialogPortal>
-        <DialogOverlay className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPortal>
+          <DialogOverlay className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogContent
           className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
           dir="rtl"
@@ -384,7 +384,14 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
         )}
 
         {/* Main Content Area - Mobile Optimized with Scroll Container */}
-        <div className="relative z-10 flex-1 overflow-y-auto" data-scroll-container>
+        <div 
+          className="relative z-10 flex-1 overflow-y-auto custom-scrollbar" 
+          data-scroll-container
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(71, 85, 105, 0.8) rgba(30, 41, 59, 0.5)',
+          }}
+        >
           <div className="p-4 sm:p-6">
             {!selectedTopic ? (
               <>

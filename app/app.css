@@ -211,6 +211,50 @@ body {
     color-scheme: dark;
   }
 }
+
+/* Apply custom scrollbar to body and html */
+html, body {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(71, 85, 105, 0.8) rgba(30, 41, 59, 0.3);
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 8px;
+  background: transparent;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: rgba(30, 41, 59, 0.3);
+  border-radius: 10px;
+  margin: 4px;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(71, 85, 105, 0.8), rgba(100, 116, 139, 0.9));
+  border-radius: 10px;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  transition: all 0.3s ease;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(100, 116, 139, 0.9), rgba(148, 163, 184, 1));
+  border-color: rgba(71, 85, 105, 0.8);
+  transform: scaleX(1.1);
+}
+
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg, rgba(148, 163, 184, 1), rgba(203, 213, 225, 1));
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+  background: transparent;
+}
 :root {
   --font-sans: 'Tajawal', sans-serif;
 }

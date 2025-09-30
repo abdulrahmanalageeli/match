@@ -280,35 +280,35 @@ export default function WelcomePage() {
   const round1Questions = [
     // Level 0: Quick Connect - Natural Common Ground ⚡
     {
-      title: "أول لمعة ✨",
+      title: "أول لمعة",
       question: "لو نبدأ من أول لحظة.. وش الشيء البسيط اللي يخليك تحس بالراحة أو الانسجام على طول مع شخص؟",
       level: 0,
       levelTitle: "اتصال سريع",
       levelEmoji: "⚡"
     },
     {
-      title: "الطاقة 🔥",
+      title: "الطاقة",
       question: "وش الموضوع اللي لو فتحناه الآن يخليك تندمج وتتكلم بحماس بدون ما تحس بالوقت؟",
       level: 0,
       levelTitle: "اتصال سريع",
       levelEmoji: "⚡"
     },
     {
-      title: "الويكند 🕺",
+      title: "الويكند",
       question: "لما يجي الويكند، أي نوع حياة تحب أكثر؟ جلسة بيت، تجمع أصدقاء، ولا مغامرة برا؟",
       level: 0,
       levelTitle: "اتصال سريع", 
       levelEmoji: "⚡"
     },
     {
-      title: "الموسيقى 🎶",
+      title: "الموسيقى",
       question: "لو رجعنا للموسيقى.. أي أغنية أو فنان تحس يلمس مزاجك هالفترة ويشبهك؟",
       level: 0,
       levelTitle: "اتصال سريع",
       levelEmoji: "⚡"
     },
     {
-      title: "اللمحة ⚡",
+      title: "اللمحة",
       question: "أول ما الناس يقابلونك.. وش أكثر شيء يلفت نظرهم ويحسون فيه عنك؟",
       level: 0,
       levelTitle: "اتصال سريع",
@@ -4663,12 +4663,95 @@ export default function WelcomePage() {
               ) : (
                 // Show this block if conversation has started and timer is running
                 <>
-                  <h3 className={`text-xl font-bold text-center mb-4 ${
-                    dark ? "text-slate-200" : "text-gray-800"
+                  {/* Enhanced Conversation Header */}
+                  <div className={`text-center mb-6 p-6 rounded-2xl border-2 ${
+                    matchResult === "المنظم"
+                      ? dark 
+                        ? "bg-gradient-to-r from-amber-900/30 to-orange-900/30 border-amber-400/40"
+                        : "bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300/60"
+                      : dark 
+                        ? "bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-cyan-400/40"
+                        : "bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300/60"
                   }`}>
-                    {matchResult === "المنظم" ? `حوار مع المنظم (الجولة ${currentRound})` : `حوار مع رقم ${matchResult} (الجولة ${currentRound})`}
-                  </h3>
-                  // ... existing code ...
+                    {/* Partner Avatar */}
+                    <div className="flex justify-center mb-4">
+                      <div className="relative">
+                        <div className={`w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold shadow-lg border-4 border-white ${
+                          matchResult === "المنظم"
+                            ? dark ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white' : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
+                            : dark ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                        }`}>
+                          {matchResult === "المنظم" ? "👑" : `#${matchResult}`}
+                        </div>
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-400 rounded-full border-2 border-white flex items-center justify-center">
+                          <span className="text-xs font-bold text-white">{currentRound}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <h3 className={`text-2xl font-bold mb-3 ${
+                      matchResult === "المنظم"
+                        ? dark ? "text-amber-200" : "text-amber-800"
+                        : dark ? "text-cyan-200" : "text-cyan-800"
+                    }`}>
+                      {matchResult === "المنظم" ? "حوار مع المنظم" : `حوار مع المشارك #${matchResult}`}
+                    </h3>
+
+                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full mb-4 ${
+                      dark ? 'bg-slate-700/50 text-slate-200' : 'bg-white/70 text-gray-700'
+                    }`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                        dark ? 'bg-purple-600' : 'bg-purple-500'
+                      } text-white text-xs font-bold`}>
+                        R
+                      </div>
+                      <span className="font-semibold">الجولة {currentRound}</span>
+                    </div>
+
+                    {/* Table Number with Enhanced Design */}
+                    {tableNumber && (
+                      <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-xl ${
+                        dark 
+                          ? 'bg-gradient-to-r from-purple-600/20 to-indigo-600/20 border border-purple-400/30' 
+                          : 'bg-gradient-to-r from-purple-100 to-indigo-100 border border-purple-300'
+                      }`}>
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          dark ? 'bg-purple-600' : 'bg-purple-500'
+                        } text-white shadow-lg`}>
+                          <div className="text-sm font-bold">T</div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-lg font-bold ${
+                            dark ? "text-purple-200" : "text-purple-800"
+                          }`}>
+                            طاولة رقم {tableNumber}
+                          </p>
+                          <p className={`text-xs ${
+                            dark ? "text-purple-300/80" : "text-purple-600/80"
+                          }`}>
+                            اذهب إلى الطاولة الآن
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Compatibility Score Display */}
+                    {compatibilityScore !== null && matchResult !== "المنظم" && (
+                      <div className="mt-4">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${
+                          compatibilityScore >= 80 
+                            ? 'bg-green-100 text-green-700 border border-green-300'
+                            : compatibilityScore >= 60 
+                              ? 'bg-yellow-100 text-yellow-700 border border-yellow-300'
+                              : 'bg-orange-100 text-orange-700 border border-orange-300'
+                        }`}>
+                          <Heart className="w-4 h-4" />
+                          <span className="font-bold">نسبة التوافق: {Math.round(compatibilityScore)}%</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div className={`text-center mb-6 p-4 rounded-xl border ${
                     dark 
                       ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"

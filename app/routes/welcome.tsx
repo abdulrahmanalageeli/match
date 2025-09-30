@@ -4926,7 +4926,58 @@ export default function WelcomePage() {
             <div className="flex-1 min-w-0">
               {modalStep === "feedback" ? (
                 <>
-                  <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>تقييم المحادثة</h3>
+                  {/* Anonymous Privacy Header */}
+                  <div className={`mb-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border-indigo-400/40' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300/60'}`}>
+                    <div className="text-center mb-4">
+                      <div className={`inline-flex items-center gap-3 px-4 py-2 rounded-full ${dark ? 'bg-indigo-600/20 text-indigo-200' : 'bg-indigo-100 text-indigo-700'}`}>
+                        <Shield className="w-6 h-6" />
+                        <span className="font-bold text-lg">تقييم مجهول وآمن</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-center gap-4 mb-4">
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${dark ? 'bg-slate-700/50 text-slate-200' : 'bg-white/70 text-gray-700'}`}>
+                        <LockKeyhole className="w-4 h-4" />
+                        <span className="text-sm font-medium">مشفر</span>
+                      </div>
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${dark ? 'bg-slate-700/50 text-slate-200' : 'bg-white/70 text-gray-700'}`}>
+                        <UserCheck className="w-4 h-4" />
+                        <span className="text-sm font-medium">مجهول</span>
+                      </div>
+                      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${dark ? 'bg-slate-700/50 text-slate-200' : 'bg-white/70 text-gray-700'}`}>
+                        <Shield className="w-4 h-4" />
+                        <span className="text-sm font-medium">آمن</span>
+                      </div>
+                    </div>
+                    
+                    <div className={`text-center space-y-2 ${dark ? "text-indigo-200" : "text-indigo-800"}`}>
+                      <p className="font-semibold text-lg">🔒 تقييمك سري تماماً</p>
+                      <p className="text-sm opacity-90">
+                        • لن يرى شريك المحادثة تقييمك أبداً<br/>
+                        • فقط المنظم يمكنه رؤية التقييمات لتحسين التجربة<br/>
+                        • كن صادقاً تماماً - هذا يساعدنا في تطوير النظام
+                      </p>
+                    </div>
+                    
+                    <div className={`mt-4 p-3 rounded-lg text-center ${dark ? 'bg-purple-600/20 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
+                      <div className="flex items-center justify-center gap-2 mb-1">
+                        <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
+                        <span className="text-sm font-bold">صدقك يساعد الجميع</span>
+                        <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
+                      </div>
+                      <p className="text-xs opacity-80">تقييماتك الصادقة تساعدنا في تحسين خوارزمية المطابقة</p>
+                    </div>
+                  </div>
+
+                  <h3 className={`text-xl font-bold text-center mb-6 flex items-center justify-center gap-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                      <MessageSquare className="w-4 h-4" />
+                    </div>
+                    تقييم المحادثة
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                      <Star className="w-4 h-4" />
+                    </div>
+                  </h3>
                   <div className="space-y-6">
                     {/* Compatibility Rate Slider */}
                     <div>
@@ -4997,9 +5048,17 @@ export default function WelcomePage() {
                     </div>
 
                                         {/* Conversation Quality Scale */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         جودة المحادثة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = ضعيف جداً، 5 = ممتاز)</span>
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-blue-600/20 text-blue-300' : 'bg-blue-100 text-blue-600'}`}>
+                           <MessageSquare className="w-3 h-3" />
+                         </div>
+                         جودة المحادثة 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = ضعيف جداً، 5 = ممتاز)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5030,10 +5089,18 @@ export default function WelcomePage() {
                        </div>
                      </div>
 
-                     {/* Personal Connectiwon Scale */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         القيم المشتركة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = قوي جداً)</span>
+                     {/* Personal Connection Scale */}
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-purple-600/20 text-purple-300' : 'bg-purple-100 text-purple-600'}`}>
+                           <Heart className="w-3 h-3" />
+                         </div>
+                         القيم المشتركة 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = قوي جداً)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5065,9 +5132,17 @@ export default function WelcomePage() {
                      </div>
 
                      {/* Shared Interests Scale */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         الاهتمامات المشتركة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = كثيرة جداً)</span>
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-green-600/20 text-green-300' : 'bg-green-100 text-green-600'}`}>
+                           <Users className="w-3 h-3" />
+                         </div>
+                         الاهتمامات المشتركة 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = لا يوجد، 5 = كثيرة جداً)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5099,9 +5174,17 @@ export default function WelcomePage() {
                      </div>
 
                      {/* Comfort Level Scale */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         مستوى الراحة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = غير مرتاح، 5 = مرتاح جداً)</span>
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-teal-600/20 text-teal-300' : 'bg-teal-100 text-teal-600'}`}>
+                           <Smile className="w-3 h-3" />
+                         </div>
+                         مستوى الراحة 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = غير مرتاح، 5 = مرتاح جداً)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5133,9 +5216,17 @@ export default function WelcomePage() {
                      </div>
 
                      {/* Communication Style Match */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         توافق أسلوب التواصل <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = مختلف جداً، 5 = متطابق تماماً)</span>
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-orange-600/20 text-orange-300' : 'bg-orange-100 text-orange-600'}`}>
+                           <Zap className="w-3 h-3" />
+                         </div>
+                         توافق أسلوب التواصل 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = مختلف جداً، 5 = متطابق تماماً)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5167,9 +5258,17 @@ export default function WelcomePage() {
                      </div>
 
                      {/* Would Meet Again Scale */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         الرغبة في مقابلة مرة أخرى <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = أبداً، 5 = بالتأكيد)</span>
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-pink-600/20 text-pink-300' : 'bg-pink-100 text-pink-600'}`}>
+                           <Handshake className="w-3 h-3" />
+                         </div>
+                         الرغبة في مقابلة مرة أخرى 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = أبداً، 5 = بالتأكيد)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5201,9 +5300,17 @@ export default function WelcomePage() {
                      </div>
 
                      {/* Overall Experience Scale */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         التقييم العام للتجربة <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = سيء، 5 = ممتاز)</span>
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-3 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-yellow-600/20 text-yellow-300' : 'bg-yellow-100 text-yellow-600'}`}>
+                           <Star className="w-3 h-3" />
+                         </div>
+                         التقييم العام للتجربة 
+                         <span className={`text-xs font-normal opacity-60 ${dark ? "text-slate-400" : "text-gray-500"}`}>(1 = سيء، 5 = ممتاز)</span>
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                        <div className="flex items-center justify-between gap-2" dir="ltr">
                          {[1, 2, 3, 4, 5].map((value) => {
@@ -5330,10 +5437,16 @@ export default function WelcomePage() {
                   )}
 
                                          {/* Optional Recommendations */}
-                     <div>
-                       <label className={`block text-sm font-medium mb-2 flex items-center gap-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                         <FileText className="w-4 h-4" />
+                     <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>
+                       <label className={`flex items-center gap-2 text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                         <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-cyan-600/20 text-cyan-300' : 'bg-cyan-100 text-cyan-600'}`}>
+                           <FileText className="w-3 h-3" />
+                         </div>
                          توصيات أو نصائح (اختياري)
+                         <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-indigo-600/20 text-indigo-300' : 'bg-indigo-100 text-indigo-600'}`}>
+                           <Shield className="w-3 h-3" />
+                           <span>مجهول</span>
+                         </div>
                        </label>
                       <textarea
                         value={feedbackAnswers.recommendations}
@@ -5349,13 +5462,30 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                                     <div className="flex justify-center gap-3 mt-8">
+                  {/* Final Privacy Reminder */}
+                  <div className={`mt-6 p-4 rounded-xl border ${dark ? 'bg-indigo-900/20 border-indigo-400/30' : 'bg-indigo-50 border-indigo-200'}`}>
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Shield className={`w-4 h-4 ${dark ? 'text-indigo-300' : 'text-indigo-600'}`} />
+                      <span className={`text-sm font-bold ${dark ? 'text-indigo-200' : 'text-indigo-700'}`}>
+                        تذكير: تقييمك محمي ومجهول تماماً
+                      </span>
+                      <Shield className={`w-4 h-4 ${dark ? 'text-indigo-300' : 'text-indigo-600'}`} />
+                    </div>
+                    <p className={`text-xs text-center ${dark ? 'text-indigo-300/80' : 'text-indigo-600/80'}`}>
+                      شريك المحادثة لن يرى أي من إجاباتك • فقط المنظم لتحسين النظام
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center gap-3 mt-8">
                      <Button
                        onClick={submitFeedback}
-                       className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3 flex items-center gap-2"
+                       className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3 flex items-center gap-3"
                      >
-                       <Send className="w-4 h-4" />
-                       إرسال التقييم
+                       <div className="flex items-center gap-2">
+                         <Shield className="w-4 h-4" />
+                         <Send className="w-4 h-4" />
+                       </div>
+                       إرسال التقييم المجهول
                      </Button>
                    </div>
               </>

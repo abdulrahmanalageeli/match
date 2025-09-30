@@ -4003,7 +4003,10 @@ export default function WelcomePage() {
 
         {/* Round 1 Guide Popup */}
         {showRound1Guide && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+          <div 
+            className="fixed top-0 left-0 right-0 bottom-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
+            style={{ position: 'fixed', inset: 0 }}
+          >
             <div className={`relative max-w-md w-full rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-300 ${
               dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"
             }`}>
@@ -4026,7 +4029,7 @@ export default function WelcomePage() {
                     <Sparkles className="w-6 h-6 text-white" />
                   </div>
                   <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
-                    مرحباً بك في الجولة الفردية! 🎯
+                    مرحباً بك في الجولة الفردية
                   </h3>
                 </div>
 
@@ -4072,7 +4075,7 @@ export default function WelcomePage() {
                       dark ? "text-amber-400" : "text-amber-600"
                     }`} />
                     <p className={`text-xs ${dark ? "text-amber-200" : "text-amber-800"}`}>
-                      <span className="font-semibold">نصيحة:</span> كن صادقاً وطبيعياً، الأسئلة مصممة لمساعدتكم على التواصل بعمق!
+                      <span className="font-semibold">نصيحة:</span> كن صادقاً وطبيعياً، الأسئلة مصممة لمساعدتكم على التواصل بعمق
                     </p>
                   </div>
                 </div>
@@ -4082,7 +4085,7 @@ export default function WelcomePage() {
                   onClick={() => setShowRound1Guide(false)}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
                 >
-                  فهمت، لنبدأ! 🚀
+                  فهمت، لنبدأ
                 </button>
               </div>
             </div>
@@ -4176,23 +4179,70 @@ export default function WelcomePage() {
                     </div>
                   )}
                   
-                  <h3 className={`text-xl font-bold text-center mb-4 ${
-                    dark ? "text-slate-200" : "text-gray-800"
-                  }`}>
-                    {matchResult === "المنظم" ? "حوار مع المنظم" : `حوار مع رقم ${matchResult}`}
-                  </h3>
-                  
-                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                  {/* Match Info Card */}
+                  <div className={`mb-6 p-6 rounded-2xl border-2 shadow-lg ${
                     dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                      ? "bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-purple-500/10 border-cyan-400/30"
+                      : "bg-gradient-to-br from-cyan-50 via-blue-50 to-purple-50 border-cyan-300"
                   }`}>
-                    <p className={`text-lg font-semibold ${
-                      dark ? "text-slate-200" : "text-gray-700"
-                    }`}>
-                      {tableNumber ? `اذهب إلى الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
-              </p>
-            </div>
+                    {/* Partner Info */}
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
+                        dark 
+                          ? "bg-gradient-to-br from-cyan-600 to-blue-700 border-cyan-400/50"
+                          : "bg-gradient-to-br from-cyan-500 to-blue-600 border-cyan-400"
+                      }`}>
+                        <Users className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="text-center">
+                        <p className={`text-sm font-medium ${
+                          dark ? "text-slate-400" : "text-gray-600"
+                        }`}>
+                          شريكك في الحوار
+                        </p>
+                        <h3 className={`text-2xl font-bold ${
+                          dark ? "text-cyan-300" : "text-cyan-700"
+                        }`}>
+                          {matchResult === "المنظم" ? "المنظم" : `رقم ${matchResult}`}
+                        </h3>
+                      </div>
+                    </div>
+
+                    {/* Table Info */}
+                    {tableNumber && (
+                      <div className={`flex items-center justify-center gap-2 p-4 rounded-xl border ${
+                        dark 
+                          ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/30"
+                          : "bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300"
+                      }`}>
+                        <Target className={`w-5 h-5 ${
+                          dark ? "text-purple-300" : "text-purple-600"
+                        }`} />
+                        <p className={`text-lg font-bold ${
+                          dark ? "text-purple-200" : "text-purple-700"
+                        }`}>
+                          الطاولة رقم {tableNumber}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {!tableNumber && (
+                      <div className={`flex items-center justify-center gap-2 p-4 rounded-xl border ${
+                        dark 
+                          ? "bg-amber-500/10 border-amber-400/30"
+                          : "bg-amber-50 border-amber-300"
+                      }`}>
+                        <Clock className={`w-5 h-5 ${
+                          dark ? "text-amber-300" : "text-amber-600"
+                        }`} />
+                        <p className={`text-sm font-medium ${
+                          dark ? "text-amber-200" : "text-amber-700"
+                        }`}>
+                          سيتم إخبارك بالطاولة قريباً
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (

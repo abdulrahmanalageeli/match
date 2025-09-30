@@ -263,12 +263,22 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }
   }, [open]);
 
+  // Scroll to top when selecting a new topic
+  useEffect(() => {
+    if (selectedTopic) {
+      const contentArea = document.querySelector('[data-scroll-container]');
+      if (contentArea) {
+        contentArea.scrollTop = 0;
+      }
+    }
+  }, [selectedTopic]);
+
   return (
     <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
       <DialogPortal>
         <DialogOverlay className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogContent
-          className="w-[95vw] max-w-4xl rounded-2xl p-0 overflow-hidden border-0 shadow-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
+          className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
           dir="rtl"
           aria-label="أسئلة للنقاش"
         >
@@ -278,15 +288,15 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
           <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_50%,rgba(120,119,198,0.1),transparent_50%)]"></div>
         </div>
 
-        {/* Modern Header */}
-        <DialogHeader className="relative z-10 px-6 pt-6 pb-4 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-xl border-b border-slate-600/30">
+        {/* Modern Header - Mobile Optimized */}
+        <DialogHeader className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+            <DialogTitle className="text-lg sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
               <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
-                  <MessageSquare className="w-5 h-5 text-white" />
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
+                  <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-pink-500 to-orange-500 rounded-full animate-pulse"></div>
+                <div className="absolute -top-1 -right-1 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-r from-pink-500 to-orange-500 rounded-full animate-pulse"></div>
               </div>
               <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 أسئلة للنقاش
@@ -297,57 +307,59 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
               variant="ghost" 
               size="icon" 
               onClick={onClose} 
-              className="rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110" 
+              className="rounded-xl hover:bg-slate-700/50 transition-all duration-300 hover:scale-110 w-8 h-8 sm:w-10 sm:h-10" 
               aria-label="إغلاق الأسئلة"
             >
-              <X className="w-5 h-5 text-slate-300 hover:text-white" />
+              <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 hover:text-white" />
             </Button>
           </div>
           
-          {/* Subtitle */}
-          <p className="text-slate-300 text-sm mt-2 opacity-80">
+          {/* Subtitle - Hidden on small screens */}
+          <p className="text-slate-300 text-xs sm:text-sm mt-1 sm:mt-2 opacity-80 hidden sm:block">
             اختر موضوعاً واستكشف أسئلة متنوعة لإثراء المحادثة
           </p>
         </DialogHeader>
 
-        {/* Modern Navigation Bar */}
+        {/* Modern Navigation Bar - Mobile Optimized */}
         {selectedTopic && (
-          <div className="relative z-10 px-6 py-4 bg-slate-800/50 backdrop-blur-xl border-b border-slate-600/30">
-            <div className="flex items-center justify-between mb-4">
+          <div className="relative z-10 px-4 sm:px-6 py-3 sm:py-4 bg-slate-800/50 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <Button 
                 variant="ghost" 
                 onClick={() => setSelectedTopic(null)} 
-                className="flex items-center gap-2 hover:bg-slate-700/50 rounded-xl transition-all duration-300"
+                className="flex items-center gap-1 sm:gap-2 hover:bg-slate-700/50 rounded-xl transition-all duration-300 text-sm sm:text-base px-2 sm:px-3 py-1 sm:py-2"
               >
-                <ArrowLeftCircle className="w-5 h-5 text-cyan-400" />
-                <span className="text-slate-300">العودة للمواضيع</span>
+                <ArrowLeftCircle className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400" />
+                <span className="text-slate-300 hidden sm:inline">العودة للمواضيع</span>
+                <span className="text-slate-300 sm:hidden">عودة</span>
               </Button>
               
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 <Button
                   variant="ghost"
                   onClick={getRandomQuestion}
-                  className="flex items-center gap-2 hover:bg-purple-600/20 rounded-xl transition-all duration-300"
+                  className="flex items-center gap-1 sm:gap-2 hover:bg-purple-600/20 rounded-xl transition-all duration-300 text-sm sm:text-base px-2 sm:px-3 py-1 sm:py-2"
                   disabled={isAnimating}
                 >
-                  <Shuffle className={`w-4 h-4 text-purple-400 ${isAnimating ? 'animate-spin' : ''}`} />
-                  <span className="text-purple-300">سؤال عشوائي</span>
+                  <Shuffle className={`w-3 h-3 sm:w-4 sm:h-4 text-purple-400 ${isAnimating ? 'animate-spin' : ''}`} />
+                  <span className="text-purple-300 hidden sm:inline">سؤال عشوائي</span>
+                  <span className="text-purple-300 sm:hidden">عشوائي</span>
                 </Button>
               </div>
             </div>
             
-            {/* Topic Header */}
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            {/* Topic Header - Mobile Optimized */}
+            <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+              <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center ${
                 selectedTopic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
                 selectedTopic.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
                 'bg-gradient-to-r from-purple-500 to-pink-500'
               } shadow-lg`}>
-                {selectedTopic.icon}
+                {React.cloneElement(selectedTopic.icon, { className: "w-4 h-4 sm:w-5 sm:h-5 text-white" })}
               </div>
-              <div>
-                <h3 className="text-xl font-bold text-white">{selectedTopic.title}</h3>
-                <p className={`text-sm ${
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base sm:text-xl font-bold text-white truncate">{selectedTopic.title}</h3>
+                <p className={`text-xs sm:text-sm ${
                   selectedTopic.depth === "shallow" ? 'text-cyan-300' :
                   selectedTopic.depth === "medium" ? 'text-green-300' :
                   'text-purple-300'
@@ -357,221 +369,223 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
               </div>
             </div>
             
-            {/* Search Bar */}
+            {/* Search Bar - Mobile Optimized */}
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 w-3 h-3 sm:w-4 sm:h-4 text-slate-400" />
               <input
                 type="text"
                 placeholder="ابحث في الأسئلة..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-10 py-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50 transition-all duration-300"
+                className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-8 sm:px-10 py-2 sm:py-3 text-sm sm:text-base text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50 transition-all duration-300"
               />
             </div>
           </div>
         )}
 
-        {/* Main Content Area */}
-        <div className="relative z-10 p-6 max-h-[60vh] overflow-y-auto">
-          {!selectedTopic ? (
-            <>
-              {/* Modern Topic Selection */}
-              <div className="space-y-8">
-                {depthOrder.map(depth => (
-                  <div key={depth} className="space-y-4">
-                    {/* Depth Header */}
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
-                        depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                        'bg-gradient-to-r from-purple-500 to-pink-500'
-                      } shadow-lg`}>
-                        <Sparkles className="w-4 h-4 text-white" />
+        {/* Main Content Area - Mobile Optimized with Scroll Container */}
+        <div className="relative z-10 flex-1 overflow-y-auto" data-scroll-container>
+          <div className="p-4 sm:p-6">
+            {!selectedTopic ? (
+              <>
+                {/* Modern Topic Selection - Mobile Optimized */}
+                <div className="space-y-6 sm:space-y-8">
+                  {depthOrder.map(depth => (
+                    <div key={depth} className="space-y-3 sm:space-y-4">
+                      {/* Depth Header - Mobile Optimized */}
+                      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center ${
+                          depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
+                          depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                          'bg-gradient-to-r from-purple-500 to-pink-500'
+                        } shadow-lg`}>
+                          <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                        </div>
+                        <h3 className={`text-base sm:text-lg font-bold ${
+                          depth === "shallow" ? "text-cyan-400" : 
+                          depth === "medium" ? "text-green-400" : 
+                          "text-purple-400"
+                        }`}>
+                          {depthLabels[depth]}
+                        </h3>
+                        <div className="flex-1 h-px bg-gradient-to-r from-slate-600 to-transparent"></div>
                       </div>
-                      <h3 className={`text-lg font-bold ${
-                        depth === "shallow" ? "text-cyan-400" : 
-                        depth === "medium" ? "text-green-400" : 
-                        "text-purple-400"
-                      }`}>
-                        {depthLabels[depth]}
-                      </h3>
-                      <div className="flex-1 h-px bg-gradient-to-r from-slate-600 to-transparent"></div>
-                    </div>
 
-                    {/* Topic Cards Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {promptTopics.filter(t => t.depth === depth).map(topic => (
-                        <button
-                          key={topic.id}
-                          onClick={() => setSelectedTopic(topic)}
-                          className={`group relative p-6 rounded-2xl border transition-all duration-300 hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 ${
-                            depth === "shallow"
-                              ? "bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-cyan-500/30 hover:border-cyan-400 focus:ring-cyan-400/50"
-                              : depth === "medium"
-                              ? "bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-green-500/30 hover:border-green-400 focus:ring-green-400/50"
-                              : "bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-purple-500/30 hover:border-purple-400 focus:ring-purple-400/50"
-                          }`}
-                        >
-                          {/* Card Background Effect */}
-                          <div className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
-                            depth === "shallow" ? 'bg-gradient-to-br from-cyan-500 to-blue-500' :
-                            depth === "medium" ? 'bg-gradient-to-br from-green-500 to-emerald-500' :
-                            'bg-gradient-to-br from-purple-500 to-pink-500'
-                          }`}></div>
-                          
-                          <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-3">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                                depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
-                                depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                                'bg-gradient-to-r from-purple-500 to-pink-500'
-                              } shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                                {topic.icon}
+                      {/* Topic Cards Grid - Mobile Optimized */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        {promptTopics.filter(t => t.depth === depth).map(topic => (
+                          <button
+                            key={topic.id}
+                            onClick={() => setSelectedTopic(topic)}
+                            className={`group relative p-4 sm:p-6 rounded-xl sm:rounded-2xl border transition-all duration-300 hover:scale-105 hover:shadow-2xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 ${
+                              depth === "shallow"
+                                ? "bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-cyan-500/30 hover:border-cyan-400 focus:ring-cyan-400/50"
+                                : depth === "medium"
+                                ? "bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-green-500/30 hover:border-green-400 focus:ring-green-400/50"
+                                : "bg-gradient-to-br from-slate-800/80 to-slate-700/80 border-purple-500/30 hover:border-purple-400 focus:ring-purple-400/50"
+                            }`}
+                          >
+                            {/* Card Background Effect */}
+                            <div className={`absolute inset-0 rounded-xl sm:rounded-2xl opacity-0 group-hover:opacity-10 transition-opacity duration-300 ${
+                              depth === "shallow" ? 'bg-gradient-to-br from-cyan-500 to-blue-500' :
+                              depth === "medium" ? 'bg-gradient-to-br from-green-500 to-emerald-500' :
+                              'bg-gradient-to-br from-purple-500 to-pink-500'
+                            }`}></div>
+                            
+                            <div className="relative z-10">
+                              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl flex items-center justify-center ${
+                                  depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
+                                  depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                                  'bg-gradient-to-r from-purple-500 to-pink-500'
+                                } shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                                  {React.cloneElement(topic.icon, { className: "w-4 h-4 sm:w-5 sm:h-5 text-white" })}
+                                </div>
+                                <ChevronLeft className={`w-4 h-4 sm:w-5 sm:h-5 opacity-60 group-hover:opacity-100 transition-all duration-300 ${
+                                  depth === "shallow" ? 'text-cyan-400' :
+                                  depth === "medium" ? 'text-green-400' :
+                                  'text-purple-400'
+                                }`} />
                               </div>
-                              <ChevronLeft className={`w-5 h-5 opacity-60 group-hover:opacity-100 transition-all duration-300 ${
-                                depth === "shallow" ? 'text-cyan-400' :
-                                depth === "medium" ? 'text-green-400' :
-                                'text-purple-400'
-                              }`} />
+                              
+                              <h4 className="text-sm sm:text-lg font-bold text-white mb-2 text-right leading-tight">
+                                {topic.title}
+                              </h4>
+                              
+                              <div className="flex items-center justify-between text-sm">
+                                <span className={`px-2 sm:px-3 py-1 rounded-full text-xs font-medium ${
+                                  depth === "shallow" ? 'bg-cyan-500/20 text-cyan-300' :
+                                  depth === "medium" ? 'bg-green-500/20 text-green-300' :
+                                  'bg-purple-500/20 text-purple-300'
+                                }`}>
+                                  {topic.questions.length} سؤال
+                                </span>
+                              </div>
                             </div>
-                            
-                            <h4 className="text-lg font-bold text-white mb-2 text-right">
-                              {topic.title}
-                            </h4>
-                            
-                            <div className="flex items-center justify-between text-sm">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                depth === "shallow" ? 'bg-cyan-500/20 text-cyan-300' :
-                                depth === "medium" ? 'bg-green-500/20 text-green-300' :
-                                'bg-purple-500/20 text-purple-300'
-                              }`}>
-                                {topic.questions.length} سؤال
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      ))}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Random Question Highlight */}
-              {randomQuestion && (
-                <div className={`mb-6 p-6 rounded-2xl border-2 ${
-                  selectedTopic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-400/50' :
-                  selectedTopic.depth === "medium" ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/50' :
-                  'bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-400/50'
-                } shadow-xl ${isAnimating ? 'animate-pulse' : ''}`}>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                      selectedTopic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
-                      selectedTopic.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                      'bg-gradient-to-r from-purple-500 to-pink-500'
-                    } shadow-lg`}>
-                      <Star className="w-5 h-5 text-white" />
-                    </div>
-                    <h4 className={`text-lg font-bold ${
-                      selectedTopic.depth === "shallow" ? 'text-cyan-400' :
-                      selectedTopic.depth === "medium" ? 'text-green-400' :
-                      'text-purple-400'
-                    }`}>
-                      السؤال المقترح
-                    </h4>
-                  </div>
-                  <p className="text-white text-lg leading-relaxed mb-4">{randomQuestion}</p>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      navigator.clipboard.writeText(randomQuestion);
-                      setCopiedIndex(-1);
-                      setTimeout(() => setCopiedIndex(null), 1200);
-                    }}
-                    className={`flex items-center gap-2 ${
-                      selectedTopic.depth === "shallow" ? 'hover:bg-cyan-500/20 text-cyan-300' :
-                      selectedTopic.depth === "medium" ? 'hover:bg-green-500/20 text-green-300' :
-                      'hover:bg-purple-500/20 text-purple-300'
-                    } rounded-xl transition-all duration-300`}
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>نسخ السؤال</span>
-                    {copiedIndex === -1 && (
-                      <span className="text-green-400 text-sm">✓ تم النسخ</span>
-                    )}
-                  </Button>
+                  ))}
                 </div>
-              )}
-
-              {/* Questions Grid */}
-              <div className="space-y-3">
-                {filteredQuestions.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
-                      <Search className="w-8 h-8 text-slate-400" />
-                    </div>
-                    <p className="text-slate-400 text-lg">
-                      {searchQuery ? 'لا توجد أسئلة تطابق البحث' : 'لا توجد أسئلة لهذا الموضوع'}
-                    </p>
-                  </div>
-                ) : (
-                  filteredQuestions.map((q, i) => (
-                    <div
-                      key={i}
-                      className={`group relative p-4 rounded-xl border transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${
-                        selectedTopic.depth === "shallow"
-                          ? "bg-slate-800/50 border-slate-700/50 hover:border-cyan-400/50 hover:bg-slate-800/70"
-                          : selectedTopic.depth === "medium"
-                          ? "bg-slate-800/50 border-slate-700/50 hover:border-green-400/50 hover:bg-slate-800/70"
-                          : "bg-slate-800/50 border-slate-700/50 hover:border-purple-400/50 hover:bg-slate-800/70"
-                      }`}
-                    >
-                      {/* Question Number Badge */}
-                      <div className={`absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white shadow-lg ${
+              </>
+            ) : (
+              <>
+                {/* Random Question Highlight - Mobile Optimized */}
+                {randomQuestion && (
+                  <div className={`mb-4 sm:mb-6 p-4 sm:p-6 rounded-xl sm:rounded-2xl border-2 ${
+                    selectedTopic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-400/50' :
+                    selectedTopic.depth === "medium" ? 'bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/50' :
+                    'bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-400/50'
+                  } shadow-xl ${isAnimating ? 'animate-pulse' : ''}`}>
+                    <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                      <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center ${
                         selectedTopic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
                         selectedTopic.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
                         'bg-gradient-to-r from-purple-500 to-pink-500'
+                      } shadow-lg`}>
+                        <Star className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                      </div>
+                      <h4 className={`text-base sm:text-lg font-bold ${
+                        selectedTopic.depth === "shallow" ? 'text-cyan-400' :
+                        selectedTopic.depth === "medium" ? 'text-green-400' :
+                        'text-purple-400'
                       }`}>
-                        {selectedTopic.questions.indexOf(q) + 1}
-                      </div>
-
-                      <div className="flex items-start gap-4 pr-4">
-                        <div className="flex-1">
-                          <p className="text-white text-base leading-relaxed">{q}</p>
-                        </div>
-                        
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            navigator.clipboard.writeText(q);
-                            setCopiedIndex(i);
-                            setTimeout(() => setCopiedIndex(null), 1200);
-                          }}
-                          className={`relative rounded-xl transition-all duration-300 hover:scale-110 ${
-                            selectedTopic.depth === "shallow" ? 'hover:bg-cyan-500/20 text-cyan-400' :
-                            selectedTopic.depth === "medium" ? 'hover:bg-green-500/20 text-green-400' :
-                            'hover:bg-purple-500/20 text-purple-400'
-                          }`}
-                        >
-                          <Copy className="w-4 h-4" />
-                          {copiedIndex === i && (
-                            <div className="absolute -top-10 right-0 bg-green-500 text-white text-xs rounded-lg px-3 py-1 shadow-lg animate-in slide-in-from-bottom-2 duration-200">
-                              <div className="flex items-center gap-1">
-                                <CheckCircle className="w-3 h-3" />
-                                <span>تم النسخ!</span>
-                              </div>
-                            </div>
-                          )}
-                        </Button>
-                      </div>
+                        السؤال المقترح
+                      </h4>
                     </div>
-                  ))
+                    <p className="text-white text-base sm:text-lg leading-relaxed mb-3 sm:mb-4">{randomQuestion}</p>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        navigator.clipboard.writeText(randomQuestion);
+                        setCopiedIndex(-1);
+                        setTimeout(() => setCopiedIndex(null), 1200);
+                      }}
+                      className={`flex items-center gap-2 text-sm sm:text-base ${
+                        selectedTopic.depth === "shallow" ? 'hover:bg-cyan-500/20 text-cyan-300' :
+                        selectedTopic.depth === "medium" ? 'hover:bg-green-500/20 text-green-300' :
+                        'hover:bg-purple-500/20 text-purple-300'
+                      } rounded-xl transition-all duration-300 px-3 py-2`}
+                    >
+                      <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>نسخ السؤال</span>
+                      {copiedIndex === -1 && (
+                        <span className="text-green-400 text-xs sm:text-sm">✓ تم النسخ</span>
+                      )}
+                    </Button>
+                  </div>
                 )}
-              </div>
-            </>
-          )}
+
+                {/* Questions Grid - Mobile Optimized */}
+                <div className="space-y-2 sm:space-y-3">
+                  {filteredQuestions.length === 0 ? (
+                    <div className="text-center py-8 sm:py-12">
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-slate-700/50 flex items-center justify-center">
+                        <Search className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
+                      </div>
+                      <p className="text-slate-400 text-base sm:text-lg">
+                        {searchQuery ? 'لا توجد أسئلة تطابق البحث' : 'لا توجد أسئلة لهذا الموضوع'}
+                      </p>
+                    </div>
+                  ) : (
+                    filteredQuestions.map((q, i) => (
+                      <div
+                        key={i}
+                        className={`group relative p-3 sm:p-4 rounded-lg sm:rounded-xl border transition-all duration-300 hover:scale-[1.01] sm:hover:scale-[1.02] hover:shadow-lg ${
+                          selectedTopic.depth === "shallow"
+                            ? "bg-slate-800/50 border-slate-700/50 hover:border-cyan-400/50 hover:bg-slate-800/70"
+                            : selectedTopic.depth === "medium"
+                            ? "bg-slate-800/50 border-slate-700/50 hover:border-green-400/50 hover:bg-slate-800/70"
+                            : "bg-slate-800/50 border-slate-700/50 hover:border-purple-400/50 hover:bg-slate-800/70"
+                        }`}
+                      >
+                        {/* Question Number Badge - Mobile Optimized */}
+                        <div className={`absolute -top-1 -right-1 sm:-top-2 sm:-right-2 w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold text-white shadow-lg ${
+                          selectedTopic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
+                          selectedTopic.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                          'bg-gradient-to-r from-purple-500 to-pink-500'
+                        }`}>
+                          {selectedTopic.questions.indexOf(q) + 1}
+                        </div>
+
+                        <div className="flex items-start gap-2 sm:gap-4 pr-2 sm:pr-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm sm:text-base leading-relaxed">{q}</p>
+                          </div>
+                          
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              navigator.clipboard.writeText(q);
+                              setCopiedIndex(i);
+                              setTimeout(() => setCopiedIndex(null), 1200);
+                            }}
+                            className={`relative rounded-lg sm:rounded-xl transition-all duration-300 hover:scale-110 flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 ${
+                              selectedTopic.depth === "shallow" ? 'hover:bg-cyan-500/20 text-cyan-400' :
+                              selectedTopic.depth === "medium" ? 'hover:bg-green-500/20 text-green-400' :
+                              'hover:bg-purple-500/20 text-purple-400'
+                            }`}
+                          >
+                            <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
+                            {copiedIndex === i && (
+                              <div className="absolute -top-8 sm:-top-10 right-0 bg-green-500 text-white text-xs rounded-lg px-2 sm:px-3 py-1 shadow-lg animate-in slide-in-from-bottom-2 duration-200 whitespace-nowrap">
+                                <div className="flex items-center gap-1">
+                                  <CheckCircle className="w-2 h-2 sm:w-3 sm:h-3" />
+                                  <span>تم النسخ!</span>
+                                </div>
+                              </div>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
         </DialogContent>
       </DialogPortal>

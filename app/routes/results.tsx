@@ -226,7 +226,7 @@ export default function ResultsPage() {
 
   const getMatchStatusText = (match: MatchResult) => {
     if (match.wants_match === null || match.partner_wants_match === null) {
-      return { text: "في الانتظار", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
+      return { text: "شريكك لم يقبل بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
     }
     if (match.mutual_match) {
       return { text: "مطابقة متبادلة!", color: "text-emerald-500", bgColor: "bg-emerald-100", icon: Heart }
@@ -234,7 +234,7 @@ export default function ResultsPage() {
     if (match.wants_match === false || match.partner_wants_match === false) {
       return { text: "لا توجد مطابقة", color: "text-red-500", bgColor: "bg-red-100", icon: X }
     }
-    return { text: "في الانتظار", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
+    return { text: "شريكك لم يقبل بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
   }
 
   if (loading) {

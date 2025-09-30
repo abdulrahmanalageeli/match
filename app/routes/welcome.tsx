@@ -5432,6 +5432,14 @@ export default function WelcomePage() {
                         <p className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-gray-600"}`}>
                           (الاسم، العمر، رقم الهاتف)
                         </p>
+                        <div className={`mt-3 p-3 rounded-lg border ${dark ? 'bg-indigo-600/20 border-indigo-400/30' : 'bg-indigo-50 border-indigo-200'}`}>
+                          <p className={`text-xs font-medium ${dark ? "text-indigo-200" : "text-indigo-700"}`}>
+                            ⏰ يمكنك الوصول للنتائج بعد 30 دقيقة من الصفحة الرئيسية
+                          </p>
+                          <p className={`text-xs mt-1 ${dark ? "text-indigo-300/80" : "text-indigo-600/80"}`}>
+                            في قسم "عرض نتائج المطابقة - أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق"
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}

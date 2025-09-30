@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import OpenAI from "openai"
 
 // Add better error logging
 const logError = (context, error) => {
@@ -27,6 +28,11 @@ try {
   console.error('❌ Failed to initialize Supabase client:', error)
   throw error
 }
+
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -860,10 +866,147 @@ export default async function handler(req, res) {
       })
 
     } catch (error) {
-      console.error("Phone lookup error:", error)
-      return res.status(500).json({ error: "Failed to process phone lookup" })
+      console.error("Error in phone-lookup-signup:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء التسجيل للحدث القادم" })
     }
   }
 
-  return res.status(400).json({ error: "Invalid action" })
+  // GENERATE AI VIBE ANALYSIS ACTION
+  if (action === "generate-vibe-analysis") {
+    try {
+      const { secure_token, partner_number, current_round } = req.body
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      
+      if (!secure_token || !partner_number) {
+        return res.status(400).json({ error: "Missing secure_token or partner_number" })
+      }
+
+      // Get current participant data
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, ai_personality_analysis")
+        .eq("secure_token", secure_token)
+        .eq("match_id", match_id)
+        .single()
+
+      if (participantError || !participant) {
+        console.error("Participant lookup error:", participantError)
+        return res.status(404).json({ error: "Participant not found" })
+      }
+
+      // Check if analysis already exists
+      if (participant.ai_personality_analysis) {
+        console.log("🔄 Returning existing AI analysis for participant", participant.assigned_number)
+        return res.status(200).json({
+          success: true,
+          analysis: participant.ai_personality_analysis,
+          cached: true
+        })
+      }
+
+      // Get partner data
+      const { data: partner, error: partnerError } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data")
+        .eq("assigned_number", partner_number)
+        .eq("match_id", match_id)
+        .single()
+
+      if (partnerError || !partner) {
+        console.error("Partner lookup error:", partnerError)
+        return res.status(404).json({ error: "Partner not found" })
+      }
+
+      // Extract vibe data from both participants
+      const participantVibes = {
+        weekend: participant.survey_data?.vibe_1 || '',
+        hobbies: participant.survey_data?.vibe_2 || '',
+        music: participant.survey_data?.vibe_3 || '',
+        conversations: participant.survey_data?.vibe_4 || '',
+        friendsDescribe: participant.survey_data?.vibe_5 || '',
+        describesFriends: participant.survey_data?.vibe_6 || ''
+      }
+
+      const partnerVibes = {
+        weekend: partner.survey_data?.vibe_1 || '',
+        hobbies: partner.survey_data?.vibe_2 || '',
+        music: partner.survey_data?.vibe_3 || '',
+        conversations: partner.survey_data?.vibe_4 || '',
+        friendsDescribe: partner.survey_data?.vibe_5 || '',
+        describesFriends: partner.survey_data?.vibe_6 || ''
+      }
+
+      // Create AI prompt for vibe analysis
+      const prompt = `أنت خبير في تحليل التوافق الشخصي والاهتمامات المشتركة. قم بتحليل سبب التوافق الممتاز بين هذين الشخصين بناءً على إجاباتهما عن أسئلة الشخصية والاهتمامات.
+
+الشخص الأول (#${participant.assigned_number}):
+- كيف يقضي عطلة نهاية الأسبوع: ${participantVibes.weekend}
+- خمس هوايات: ${participantVibes.hobbies}
+- فنان موسيقي مفضل: ${participantVibes.music}
+- يفضل المحادثات: ${participantVibes.conversations}
+- كيف يصفه أصدقاؤه: ${participantVibes.friendsDescribe}
+- كيف يصف أصدقاءه: ${participantVibes.describesFriends}
+
+الشخص الثاني (#${partner.assigned_number}):
+- كيف يقضي عطلة نهاية الأسبوع: ${partnerVibes.weekend}
+- خمس هوايات: ${partnerVibes.hobbies}
+- فنان موسيقي مفضل: ${partnerVibes.music}
+- يفضل المحادثات: ${partnerVibes.conversations}
+- كيف يصفه أصدقاؤه: ${partnerVibes.friendsDescribe}
+- كيف يصف أصدقاءه: ${partnerVibes.describesFriends}
+
+اكتب تحليلاً شخصياً ودافئاً بالعربية (200-300 كلمة) يوضح:
+1. الاهتمامات والأنشطة المشتركة
+2. التكامل في الشخصيات
+3. أسباب التوافق في الطاقة والأسلوب
+4. اقتراحات لأنشطة يمكن أن يستمتعا بها معاً
+
+اجعل التحليل إيجابياً ومشجعاً ومخصصاً لهذين الشخصين تحديداً.`
+
+      // Generate AI analysis
+      console.log(`🤖 Generating AI vibe analysis for participants ${participant.assigned_number} and ${partner.assigned_number}`)
+      
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 500,
+        temperature: 0.7,
+      })
+
+      const analysis = completion.choices[0]?.message?.content?.trim()
+      
+      if (!analysis) {
+        throw new Error("No analysis generated by AI")
+      }
+
+      // Store the analysis in the database
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({ ai_personality_analysis: analysis })
+        .eq("secure_token", secure_token)
+        .eq("match_id", match_id)
+
+      if (updateError) {
+        console.error("Error storing AI analysis:", updateError)
+        return res.status(500).json({ error: "Failed to store analysis" })
+      }
+
+      console.log(`✅ AI vibe analysis generated and stored for participant ${participant.assigned_number}`)
+      
+      return res.status(200).json({
+        success: true,
+        analysis: analysis,
+        cached: false
+      })
+      
+    } catch (error) {
+      console.error("Error in generate-vibe-analysis:", error)
+      return res.status(500).json({ 
+        error: "Failed to generate vibe analysis",
+        details: error.message 
+      })
+    }
+  }
+
+  return res.status(400).json({ error: 'Invalid action' })
 }

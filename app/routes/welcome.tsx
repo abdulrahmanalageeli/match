@@ -197,6 +197,11 @@ export default function WelcomePage() {
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
+  
+  // AI Vibe Analysis states
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
+  const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false)
+  const [showAiAnalysis, setShowAiAnalysis] = useState(false)
   const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
@@ -1857,6 +1862,51 @@ export default function WelcomePage() {
 
     return () => clearInterval(timer)
   }, [announcement?.message])
+
+  // Generate AI Vibe Analysis
+  const generateVibeAnalysis = async () => {
+    if (!secureToken || !matchResult || matchResult === 'المنظم' || isGeneratingAnalysis) {
+      return
+    }
+
+    setIsGeneratingAnalysis(true)
+    
+    try {
+      const response = await fetch('/api/participant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'generate-vibe-analysis',
+          secure_token: secureToken,
+          partner_number: matchResult,
+          current_round: currentRound
+        }),
+      })
+
+      const data = await response.json()
+      
+      if (data.success) {
+        setAiAnalysis(data.analysis)
+        setShowAiAnalysis(true)
+        
+        if (data.cached) {
+          console.log('🔄 Loaded existing AI analysis from database')
+        } else {
+          console.log('✨ Generated new AI analysis')
+        }
+      } else {
+        console.error('Failed to generate AI analysis:', data.error)
+        alert('حدث خطأ أثناء توليد التحليل الذكي. يرجى المحاولة مرة أخرى.')
+      }
+    } catch (error) {
+      console.error('Error generating AI analysis:', error)
+      alert('حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى.')
+    } finally {
+      setIsGeneratingAnalysis(false)
+    }
+  }
 
   const submitFeedback = async () => {
     // Only validate the match preference question for round 1 - allow default values for rating questions
@@ -5540,6 +5590,61 @@ export default function WelcomePage() {
                               </div>
                             )
                           })()}
+                          
+                          {/* AI Vibe Analysis Button and Display */}
+                          {matchResult && matchResult !== 'المنظم' && (
+                            <div className="mt-6">
+                              {!showAiAnalysis ? (
+                                <div className="text-center">
+                                  <Button
+                                    onClick={generateVibeAnalysis}
+                                    disabled={isGeneratingAnalysis}
+                                    className={`bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 ${
+                                      isGeneratingAnalysis ? 'opacity-75 cursor-not-allowed' : ''
+                                    }`}
+                                  >
+                                    {isGeneratingAnalysis ? (
+                                      <>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                                        جاري التحليل...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Sparkles className="w-4 h-4 mr-2" />
+                                        اكتشف سبب توافقكما الرائع!
+                                      </>
+                                    )}
+                                  </Button>
+                                  <p className={`text-xs mt-2 opacity-70 ${dark ? 'text-slate-400' : 'text-gray-500'}`}>
+                                    تحليل ذكي لاهتماماتكما المشتركة وأسلوبكما في الحياة
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className={`p-4 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/40' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300/40'}`}>
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Sparkles className={`w-5 h-5 ${dark ? 'text-purple-300' : 'text-purple-600'}`} />
+                                    <h4 className={`text-lg font-bold ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
+                                      لماذا تتوافقان بشكل رائع؟
+                                    </h4>
+                                  </div>
+                                  <div className={`text-sm leading-relaxed whitespace-pre-wrap ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                    {aiAnalysis}
+                                  </div>
+                                  <div className="flex justify-center mt-4">
+                                    <Button
+                                      onClick={() => setShowAiAnalysis(false)}
+                                      variant="outline"
+                                      size="sm"
+                                      className={`${dark ? 'border-purple-400/50 text-purple-300 hover:bg-purple-500/10' : 'border-purple-300 text-purple-600 hover:bg-purple-50'}`}
+                                    >
+                                      إخفاء التحليل
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
                         {isRepeatMatch && (
                           <div className={`mt-4 p-4 rounded-xl border-2 ${dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100/50 border-amber-300/40"}`}>
                             <div className="flex items-center gap-2 mb-2">

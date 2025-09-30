@@ -765,7 +765,7 @@ export default function AdminPage() {
     
     // Eligible participants filter (current event or signed up for next event)
     const isEligible = !showEligibleOnly || (
-      (p.event_id && p.event_id >= 1) || // Current event participants (any valid event_id)
+      p.event_id === 2 || // Current event participants (event_id 2)
       p.signup_for_next_event === true // Signed up for next event
     )
     
@@ -1196,17 +1196,6 @@ export default function AdminPage() {
               <span className="text-slate-300 text-sm">Waiting: </span>
               <span className="font-bold text-white">{waitingCount}</span>
             </div>
-            {(showEligibleOnly || genderFilter !== "all") && (
-              <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-4 py-2">
-                <span className="text-green-300 text-sm">
-                  {showEligibleOnly && genderFilter !== "all" ? "Filtered: " :
-                   showEligibleOnly ? "Eligible: " :
-                   genderFilter !== "all" ? `${genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)}: ` :
-                   "Filtered: "}
-                </span>
-                <span className="font-bold text-green-200">{filteredParticipants.length}</span>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -1226,38 +1215,6 @@ export default function AdminPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </div>
-              
-              {/* Eligible Filter Toggle */}
-              <button
-                onClick={() => setShowEligibleOnly(!showEligibleOnly)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
-                  showEligibleOnly 
-                    ? 'bg-green-500/20 border-green-400/50 text-green-300' 
-                    : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span className="text-sm font-medium">
-                  {showEligibleOnly ? 'Eligible Only' : 'All Participants'}
-                </span>
-                {showEligibleOnly && (
-                  <CheckCircle className="w-4 h-4" />
-                )}
-              </button>
-              
-              {/* Gender Filter Dropdown */}
-              <div className="relative">
-                <select
-                  value={genderFilter}
-                  onChange={(e) => setGenderFilter(e.target.value)}
-                  className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
-                >
-                  <option value="all" className="bg-slate-800 text-white">All Genders</option>
-                  <option value="male" className="bg-slate-800 text-white">Male Only</option>
-                  <option value="female" className="bg-slate-800 text-white">Female Only</option>
-                </select>
-                <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
               
               <div className="flex items-center gap-2">
@@ -2100,6 +2057,56 @@ export default function AdminPage() {
           )}
         </div>
 
+        {/* Filter Controls */}
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-4 mb-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Eligible Filter Toggle */}
+            <button
+              onClick={() => setShowEligibleOnly(!showEligibleOnly)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                showEligibleOnly 
+                  ? 'bg-green-500/20 border-green-400/50 text-green-300' 
+                  : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              <span className="text-sm font-medium">
+                {showEligibleOnly ? 'Eligible Only' : 'All Participants'}
+              </span>
+              {showEligibleOnly && (
+                <CheckCircle className="w-4 h-4" />
+              )}
+            </button>
+            
+            {/* Gender Filter Dropdown */}
+            <div className="relative">
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+              >
+                <option value="all" className="bg-slate-800 text-white">All Genders</option>
+                <option value="male" className="bg-slate-800 text-white">Male Only</option>
+                <option value="female" className="bg-slate-800 text-white">Female Only</option>
+              </select>
+              <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* Filter Results Count */}
+            {(showEligibleOnly || genderFilter !== "all") && (
+              <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
+                <span className="text-green-300 text-sm">
+                  {showEligibleOnly && genderFilter !== "all" ? "Filtered: " :
+                   showEligibleOnly ? "Eligible: " :
+                   genderFilter !== "all" ? `${genderFilter.charAt(0).toUpperCase() + genderFilter.slice(1)}: ` :
+                   "Filtered: "}
+                </span>
+                <span className="font-bold text-green-200">{filteredParticipants.length}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Participants Grid */}
         {loading ? (
           <div className="flex justify-center items-center py-20">
@@ -2171,8 +2178,13 @@ export default function AdminPage() {
                     
                     {/* Eligibility Badges */}
                     <div className="flex flex-wrap items-center justify-center gap-1">
-                      {p.event_id && p.event_id >= 1 && (
+                      {p.event_id === 2 && (
                         <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
+                          Current Event
+                        </span>
+                      )}
+                      {p.event_id && p.event_id !== 2 && (
+                        <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full border border-purple-400/30">
                           Event {p.event_id}
                         </span>
                       )}
@@ -2181,7 +2193,7 @@ export default function AdminPage() {
                           Next Event
                         </span>
                       )}
-                      {(!p.event_id || p.event_id < 1) && !p.signup_for_next_event && (
+                      {!p.event_id && !p.signup_for_next_event && (
                         <span className="px-2 py-1 text-xs bg-gray-500/20 text-gray-400 rounded-full border border-gray-400/30">
                           Inactive
                         </span>

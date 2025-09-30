@@ -11,6 +11,7 @@ interface WhatsappMessageModalProps {
 
 export default function WhatsappMessageModal({ participant, isOpen, onClose }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
+  const [phoneCopied, setPhoneCopied] = useState(false);
 
   const message = useMemo(() => {
     if (!participant) return "";
@@ -19,13 +20,21 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
 
-    return `*التوافق الأعمى*\n\nحياك الله *${name}*!\n\n🎉 تم إيجاد شريك متوافق معك من بين المشاركين، واللقاء جاهز بانتظارك.\n\n📍 المكان: كوفي بلانيت - الدور الثاني\n‏https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n🗓️ التاريخ: الخميس 2 اكتوبر\n🕒 الوقت: 8:00 مساءً – المدة 60 دقيقة\n\n⚠️ الرجاء الحضور قبل الوقت بـ 10 دقائق، فالتأخير قد يعني خسارة مقعدك.\n\n💳 رسوم المشاركة: 45 ريال (يرجى التأكيد اليوم لضمان مقعدكم)\nطرق الدفع:\nSTC Pay –\n0560899666\nAlrajhi – IBAN:\nSA2480000588608016007502\n👤 الاسم: عبدالرحمن عبدالملك\n\n📌 بعد التحويل، نرجو إرسال الإيصال لتأكيد حضورك.\n\nمعلوماتك (مهمة في الفعالية):\nرقم المتسابق: *${assignedNumber}*\nرقمك المميز (للدخول للفعالية, انسخه في الملاحظات): *${secureToken}*\n\n🔗 رابط الدخول المباشر للفعالية:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n\nبانتظاركم!`;
+    return `*التوافق الأعمى*\n\nحياك الله *${name}*!\n\n🎉 تم إيجاد شريك متوافق معك من بين المشاركين، واللقاء جاهز بانتظارك.\n\n⚠️ الرجاء الحضور قبل الوقت بـ 10 دقائق، فالتأخير قد يعني خسارة مقعدك.\n\n💳 رسوم المشاركة: 45 ريال (يرجى التأكيد اليوم لضمان مقعدكم)\nطرق الدفع:\nSTC Pay –\n0560899666\nAlrajhi – IBAN:\nSA2480000588608016007502\n👤 الاسم: عبدالرحمن عبدالملك\n\n📌 بعد التحويل، نرجو إرسال الإيصال لتأكيد حضورك.\n\n📍 المكان: كوفي بلانيت - الدور الثاني\n‏https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n🗓️ التاريخ: الخميس 2 اكتوبر\n🕒 الوقت: 8:00 مساءً – المدة 60 دقيقة\n\nمعلوماتك (مهمة في الفعالية):\nرقم المتسابق: *${assignedNumber}*\nرقمك المميز (للدخول للفعالية, انسخه في الملاحظات): *${secureToken}*\n\n🔗 رابط الدخول المباشر للفعالية:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n\nبانتظاركم!`;
   }, [participant]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePhoneCopy = () => {
+    if (participant?.phone_number) {
+      navigator.clipboard.writeText(participant.phone_number);
+      setPhoneCopied(true);
+      setTimeout(() => setPhoneCopied(false), 2000);
+    }
   };
 
   const openWhatsApp = () => {
@@ -52,6 +61,26 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
 
         {/* Content */}
         <div className="p-6 space-y-4 overflow-y-auto">
+          {/* Phone Number Copy Field */}
+          <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-slate-300 mb-2 block">رقم الهاتف</label>
+                <div className="text-lg font-mono text-white bg-slate-700 px-3 py-2 rounded border">
+                  {participant?.phone_number || 'غير متوفر'}
+                </div>
+              </div>
+              <Button
+                onClick={handlePhoneCopy}
+                disabled={!participant?.phone_number}
+                className="ml-3 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2"
+              >
+                {phoneCopied ? <Check className="w-4 h-4 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                {phoneCopied ? 'تم النسخ!' : 'نسخ'}
+              </Button>
+            </div>
+          </div>
+
           <Textarea
             readOnly
             value={message}

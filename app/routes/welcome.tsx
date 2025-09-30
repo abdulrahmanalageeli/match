@@ -249,6 +249,7 @@ export default function WelcomePage() {
   const [currentEventId, setCurrentEventId] = useState(1);
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [showRound1Guide, setShowRound1Guide] = useState(false);
 
   // Token validation states
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
@@ -1133,6 +1134,11 @@ export default function WelcomePage() {
               
               lastRoundRef.current = roundNumber;
               lastPhaseRef.current = data.phase;
+              
+              // Show Round 1 guide popup
+              if (roundNumber === 1) {
+                setShowRound1Guide(true);
+              }
               
               console.log(`✅ Successfully transitioned to ${data.phase}`);
             }
@@ -2992,7 +2998,7 @@ export default function WelcomePage() {
                             جاري التخصيص...
                           </div>
                         ) : phase === "round_1" ? (
-                          "الجولة الأولى نشطة حالياً"
+                          "الجولة الفردية نشطة حالياً"
                         ) : (
                           "ابدأ رحلتك!"
                         )}
@@ -3993,6 +3999,94 @@ export default function WelcomePage() {
 
             {/* Users wait for host to move them to next phase */}
           </section>
+        )}
+
+        {/* Round 1 Guide Popup */}
+        {showRound1Guide && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300">
+            <div className={`relative max-w-md w-full rounded-2xl border shadow-2xl animate-in zoom-in-95 duration-300 ${
+              dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"
+            }`}>
+              {/* Close button */}
+              <button
+                onClick={() => setShowRound1Guide(false)}
+                className={`absolute -top-3 -right-3 w-8 h-8 rounded-full border-2 shadow-lg transition-all hover:scale-110 ${
+                  dark 
+                    ? "bg-slate-700 border-slate-500 hover:bg-slate-600" 
+                    : "bg-white border-gray-300 hover:bg-gray-50"
+                }`}
+              >
+                <X className={`w-5 h-5 mx-auto ${dark ? "text-slate-300" : "text-gray-600"}`} />
+              </button>
+
+              <div className="p-6 space-y-4">
+                {/* Header with icon */}
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                    مرحباً بك في الجولة الفردية! 🎯
+                  </h3>
+                </div>
+
+                {/* Instructions */}
+                <div className={`space-y-3 text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-cyan-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-cyan-400 font-bold">1</span>
+                    </div>
+                    <p>اذهب إلى <span className="font-semibold text-cyan-400">الطاولة المحددة</span> والتقي بشريكك</p>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-blue-400 font-bold">2</span>
+                    </div>
+                    <p>استخدم <span className="font-semibold text-blue-400">الأسئلة المعروضة</span> لبدء محادثة ممتعة</p>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-purple-400 font-bold">3</span>
+                    </div>
+                    <p>اضغط <span className="font-semibold text-purple-400">"ابدأ الحوار"</span> عندما تكونان جاهزين</p>
+                  </div>
+
+                  <div className="flex items-start gap-2">
+                    <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <span className="text-green-400 font-bold">4</span>
+                    </div>
+                    <p>لديكم <span className="font-semibold text-green-400">30 دقيقة</span> للتعرف على بعضكم البعض</p>
+                  </div>
+                </div>
+
+                {/* Tip box */}
+                <div className={`p-3 rounded-xl border ${
+                  dark 
+                    ? "bg-amber-500/10 border-amber-400/30" 
+                    : "bg-amber-50 border-amber-200"
+                }`}>
+                  <div className="flex items-start gap-2">
+                    <Zap className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                      dark ? "text-amber-400" : "text-amber-600"
+                    }`} />
+                    <p className={`text-xs ${dark ? "text-amber-200" : "text-amber-800"}`}>
+                      <span className="font-semibold">نصيحة:</span> كن صادقاً وطبيعياً، الأسئلة مصممة لمساعدتكم على التواصل بعمق!
+                    </p>
+                  </div>
+                </div>
+
+                {/* Action button */}
+                <button
+                  onClick={() => setShowRound1Guide(false)}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                >
+                  فهمت، لنبدأ! 🚀
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {step === 4 && (

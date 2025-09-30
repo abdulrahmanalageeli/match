@@ -43,6 +43,7 @@ export default function AdminPage() {
   const [manualNumber, setManualNumber] = useState<number | null>(null)
   const [currentPhase, setCurrentPhase] = useState("form")
   const [searchTerm, setSearchTerm] = useState("")
+  const [showEligibleOnly, setShowEligibleOnly] = useState(false)
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -752,11 +753,22 @@ export default function AdminPage() {
     }
   }
 
-  const filteredParticipants = participants.filter(p => 
-    p.assigned_number.toString().includes(searchTerm) ||
-    (p.survey_data?.answers?.gender?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(searchTerm.toLowerCase()))
-  )
+  const filteredParticipants = participants.filter(p => {
+    // Search term filter
+    const matchesSearch = searchTerm === "" || (
+      p.assigned_number.toString().includes(searchTerm) ||
+      (p.survey_data?.answers?.gender?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
+    
+    // Eligible participants filter (current event or signed up for next event)
+    const isEligible = !showEligibleOnly || (
+      p.event_id === 1 || // Current event participants (assuming event_id 1 is current)
+      p.signup_for_next_event === true // Signed up for next event
+    )
+    
+    return matchesSearch && isEligible
+  })
 
   const phaseConfig = {
     registration: { label: "Registration", color: "text-blue-400", bg: "bg-blue-400/10", icon: UserRound },
@@ -1176,6 +1188,12 @@ export default function AdminPage() {
               <span className="text-slate-300 text-sm">Waiting: </span>
               <span className="font-bold text-white">{waitingCount}</span>
             </div>
+            {showEligibleOnly && (
+              <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-4 py-2">
+                <span className="text-green-300 text-sm">Eligible: </span>
+                <span className="font-bold text-green-200">{filteredParticipants.length}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1196,6 +1214,24 @@ export default function AdminPage() {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
+              
+              {/* Eligible Filter Toggle */}
+              <button
+                onClick={() => setShowEligibleOnly(!showEligibleOnly)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                  showEligibleOnly 
+                    ? 'bg-green-500/20 border-green-400/50 text-green-300' 
+                    : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span className="text-sm font-medium">
+                  {showEligibleOnly ? 'Eligible Only' : 'All Participants'}
+                </span>
+                {showEligibleOnly && (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+              </button>
               
               <div className="flex items-center gap-2">
                 <input
@@ -2089,9 +2125,28 @@ export default function AdminPage() {
                 <div className="space-y-3">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-white">#{p.assigned_number}</div>
-                    <div className="flex items-center justify-center gap-1 text-slate-400 text-sm">
+                    <div className="flex items-center justify-center gap-1 text-slate-400 text-sm mb-2">
                       <Table2 className="w-4 h-4" />
                       {p.table_number ?? "Unassigned"}
+                    </div>
+                    
+                    {/* Eligibility Badges */}
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {p.event_id === 1 && (
+                        <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
+                          Current Event
+                        </span>
+                      )}
+                      {p.signup_for_next_event && (
+                        <span className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded-full border border-green-400/30">
+                          Next Event
+                        </span>
+                      )}
+                      {!p.event_id && !p.signup_for_next_event && (
+                        <span className="px-2 py-1 text-xs bg-gray-500/20 text-gray-400 rounded-full border border-gray-400/30">
+                          Inactive
+                        </span>
+                      )}
                     </div>
                   </div>
                   

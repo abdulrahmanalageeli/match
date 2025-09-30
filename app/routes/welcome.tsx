@@ -5680,7 +5680,7 @@ export default function WelcomePage() {
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
               <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
             </div>
-            <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto">
+            <div className="divide-y divide-gray-300/30 max-h-96 overflow-y-auto custom-scrollbar">
               {historyMatches.length === 0 ? (
                 <p className={`text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>لا يوجد سجل بعد.</p>
               ) : (
@@ -5840,7 +5840,7 @@ export default function WelcomePage() {
         {/* History Detail Modal */}
         {showHistoryDetail && selectedHistoryItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto sleek-scrollbar`}>
+          <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto custom-scrollbar`}>
             <div className="flex justify-between items-center mb-6">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
               <Button variant="ghost" onClick={() => {

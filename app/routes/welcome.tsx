@@ -181,7 +181,8 @@ export default function WelcomePage() {
   }
   
   const [feedbackAnswers, setFeedbackAnswers] = useState({
-    compatibilityRate: -1, // -1 means not set yet (required field)
+    compatibilityRate: 50, // 0-100 scale
+    sliderMoved: false, // Track if slider has been moved
     conversationQuality: 3, // 1-5 scale
     personalConnection: 3, // 1-5 scale
     sharedInterests: 3, // 1-5 scale
@@ -707,7 +708,8 @@ export default function WelcomePage() {
             }, 0)
           } catch (_) {}
           setFeedbackAnswers({
-            compatibilityRate: -1,
+            compatibilityRate: 50,
+            sliderMoved: false,
             conversationQuality: 3,
             personalConnection: 3,
             sharedInterests: 3,
@@ -1138,6 +1140,7 @@ export default function WelcomePage() {
                 setAnimationStep(0);
                           setFeedbackAnswers({
               compatibilityRate: 50,
+              sliderMoved: false,
               conversationQuality: 3,
               personalConnection: 3,
               sharedInterests: 3,
@@ -5223,25 +5226,19 @@ export default function WelcomePage() {
                   </h3>
                   <div className="space-y-6">
                     {/* Compatibility Rate Slider */}
-                    <div className={`p-5 rounded-xl border-2 ${feedbackAnswers.compatibilityRate === -1 ? 'border-yellow-500/50 bg-yellow-500/10' : dark ? 'border-slate-600/30 bg-slate-800/20' : 'border-gray-200/50 bg-gray-50/30'}`}>
-                      <label className={`block text-base font-bold mb-2 ${feedbackAnswers.compatibilityRate === -1 ? 'text-yellow-400' : dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <div className={`p-5 rounded-xl border-2 ${dark ? 'border-slate-600/30 bg-slate-800/20' : 'border-gray-200/50 bg-gray-50/30'}`}>
+                      <label className={`block text-base font-bold mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                         <div className="flex items-center gap-2">
-                          {feedbackAnswers.compatibilityRate === -1 && (
-                            <span className="text-xl">⭐</span>
-                          )}
+                          <span className="text-xl">⭐</span>
                           <span>خمّن درجة التوافق مع شريك المحادثة</span>
                           <span className="text-red-500">*</span>
                         </div>
                       </label>
-                      <p className={`text-sm font-medium mb-4 ${feedbackAnswers.compatibilityRate === -1 ? 'text-yellow-300' : dark ? "text-slate-300" : "text-gray-600"}`}>
-                        {feedbackAnswers.compatibilityRate === -1 ? (
-                          <span className="flex items-center gap-2">
-                            <span className="animate-pulse">👉</span>
-                            <span>ما هو توقعك لدرجة التوافق بينكما؟ (سيظهر التقييم الحقيقي من الخوارزمية بعد الإرسال)</span>
-                          </span>
-                        ) : (
-                          "بعد الإرسال سيظهر التقييم الحقيقي الذي حصلتما عليه من خوارزمية المطابقة"
-                        )}
+                      <p className={`text-sm font-medium mb-4 ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                        <span className="flex items-center gap-2">
+                          <span className="animate-pulse">👉</span>
+                          <span>حرّك المؤشر لتخمين درجة التوافق - سيظهر التقييم الحقيقي بعد الإرسال</span>
+                        </span>
                       </p>
                       <div className="relative">
                         <div className="relative group">
@@ -5250,11 +5247,8 @@ export default function WelcomePage() {
                             min="0"
                             max="100"
                             step="5"
-                            value={feedbackAnswers.compatibilityRate === -1 ? 50 : (100 - feedbackAnswers.compatibilityRate)}
-                            onChange={(e) => {
-                              const newValue = 100 - parseInt(e.target.value);
-                              setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: newValue }));
-                            }}
+                            value={100 - feedbackAnswers.compatibilityRate}
+                            onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value), sliderMoved: true }))}
                             className="w-full h-2 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300 
                               [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
                               [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
@@ -5295,12 +5289,11 @@ export default function WelcomePage() {
                         <div className="flex justify-between text-xs mt-2" dir="ltr">
                           <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>0%</span>
                           <span className={`font-bold text-lg ${
-                            feedbackAnswers.compatibilityRate === -1 ? "text-gray-400" :
                             feedbackAnswers.compatibilityRate >= 80 ? "text-green-500" :
                             feedbackAnswers.compatibilityRate >= 60 ? "text-yellow-500" :
                             "text-red-500"
                           }`}>
-                            {feedbackAnswers.compatibilityRate === -1 ? "؟" : `${feedbackAnswers.compatibilityRate}%`}
+                            {feedbackAnswers.compatibilityRate}%
                           </span>
                           <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>100%</span>
                         </div>
@@ -5746,9 +5739,14 @@ export default function WelcomePage() {
 
                   <div className="flex justify-center gap-3 mt-8">
                      <Button
-                       onClick={submitFeedback}
-                       disabled={feedbackAnswers.compatibilityRate === -1}
-                       className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                       onClick={() => {
+                         if (!feedbackAnswers.sliderMoved || feedbackAnswers.compatibilityRate === 50) {
+                           alert('⚠️ يرجى تحريك مؤشر التوافق لتخمين الدرجة - لا يمكن أن تكون 50%');
+                           return;
+                         }
+                         submitFeedback();
+                       }}
+                       className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3 flex items-center gap-3"
                      >
                        <div className="flex items-center gap-2">
                          <Shield className="w-4 h-4" />

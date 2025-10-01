@@ -1409,6 +1409,7 @@ export default async function handler(req, res) {
         core_values_compatibility_score: coreValuesScore,
         vibe_compatibility_score: vibeScore,
         round: 1,
+        event_finished: false,
         created_at: new Date().toISOString()
       }
       
@@ -1739,6 +1740,7 @@ export default async function handler(req, res) {
             event_id: eventId,
             round,
             is_repeat_match: false,
+            event_finished: false,
             table_number: tableCounter,
             // Add personality type data
             participant_a_mbti_type: compatibilityData?.aMBTI || p1Data?.mbti_personality_type || p1Data?.survey_data?.mbtiType,
@@ -1794,6 +1796,7 @@ export default async function handler(req, res) {
             event_id: eventId,
             round,
             is_repeat_match: false,
+            event_finished: false,
             table_number: tableCounter, // Dynamic table assignment: 1 to N/2
             // Add personality type data
             participant_a_mbti_type: pair.aMBTI,
@@ -1840,6 +1843,7 @@ export default async function handler(req, res) {
             event_id: eventId,
             round,
             is_repeat_match: false,
+            event_finished: false,
             table_number: tableCounter, // Continue dynamic numbering
             // Add default personality data for organizer matches
             participant_a_mbti_type: participants.find(p => p.assigned_number === unmatchedParticipant)?.mbti_personality_type || participants.find(p => p.assigned_number === unmatchedParticipant)?.survey_data?.mbtiType,

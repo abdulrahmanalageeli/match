@@ -941,21 +941,33 @@ export default function WelcomePage() {
 
         const data = await res.json()
         
-        // Update phase and event ID
-        setPhase(data.phase || "registration")
+        // Only update state if values actually changed (prevents unnecessary re-renders)
+        const newPhase = data.phase || "registration"
+        if (newPhase !== phase) {
+          setPhase(newPhase)
+        }
+        
         const newEventId = data.current_event_id || 1
         if (newEventId !== currentEventId) {
           console.log(`🔄 Event ID changed: ${currentEventId} → ${newEventId}`)
+          setCurrentEventId(newEventId)
         }
-        setCurrentEventId(newEventId)
         
-        // Update announcements and emergency pause
-        setAnnouncement({
+        // Only update announcement if it changed
+        const newAnnouncement = {
           message: data.announcement,
           type: data.announcement_type,
           time: data.announcement_time
-        })
-        setEmergencyPaused(data.emergency_paused || false)
+        }
+        if (JSON.stringify(newAnnouncement) !== JSON.stringify(announcement)) {
+          setAnnouncement(newAnnouncement)
+        }
+        
+        // Only update emergency pause if it changed
+        const newEmergencyPaused = data.emergency_paused || false
+        if (newEmergencyPaused !== emergencyPaused) {
+          setEmergencyPaused(newEmergencyPaused)
+        }
         
         // Handle global timer state with improved synchronization
         // Received timer data
@@ -979,16 +991,22 @@ export default function WelcomePage() {
             
             if (remaining > 0) {
               if (!globalTimerActive) {
-                // Global timer detected
+                // Global timer detected - batch state updates
                 setGlobalTimerActive(true)
                 setConversationStarted(true)
                 setTimerEnded(false)
                 setModalStep(null) // Clear any existing modal
               }
-              setGlobalTimerStartTime(data.global_timer_start_time)
-              setGlobalTimerDuration(data.global_timer_duration || 1800)
+              // Only update timer values if they changed
+              if (globalTimerStartTime !== data.global_timer_start_time) {
+                setGlobalTimerStartTime(data.global_timer_start_time)
+              }
+              const newDuration = data.global_timer_duration || 1800
+              if (globalTimerDuration !== newDuration) {
+                setGlobalTimerDuration(newDuration)
+              }
+              // Always update remaining time (it changes every second)
               setConversationTimer(remaining)
-              // Timer set
             } else {
               // Timer expired
               if (globalTimerActive) {

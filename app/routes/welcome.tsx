@@ -862,7 +862,7 @@ export default function WelcomePage() {
                     action: "check-feedback-submitted",
                     secure_token: token,
                     round: roundNumber,
-                    event_id: currentEventId
+                    event_id: eventData.current_event_id || 1  // Use fresh value from API, not state
                   }),
                 });
                 

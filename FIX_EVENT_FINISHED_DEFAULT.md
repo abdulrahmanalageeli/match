@@ -37,20 +37,27 @@ This means:
 
 ### 1. API Endpoint (`api/admin/index.mjs`)
 
-**Fixed `get-event-finished` action:**
-```javascript
-// Before (WRONG)
-const finished = data?.event_finished !== false // Default to false if null/undefined
-console.log(`Event ${event_id} finished status retrieved: ${finished}`)
+**Fixed `get-event-finished` action with implicit finished logic:**
 
-// After (CORRECT)
-const finished = data?.event_finished === true // Default to false (ongoing) if null/undefined
-console.log(`Event ${event_id} finished status retrieved: ${finished} (raw value: ${data?.event_finished})`)
+```javascript
+// Get current event ID from event_state
+const currentEventId = eventStateData?.current_event_id || 1
+
+// If the requested event_id is less than current_event_id, it's automatically finished
+if (event_id < currentEventId) {
+  console.log(`Event ${event_id} is finished (current event is ${currentEventId})`)
+  return res.status(200).json({ finished: true })
+}
+
+// For current or future events, check the event_finished flag
+const finished = data?.event_finished === true
 ```
 
 **Benefits:**
-- Added raw value logging for debugging
-- Correct default behavior (ongoing unless explicitly finished)
+- **Implicit finished logic**: Past events are automatically finished
+- **No manual marking needed**: Moving to event 2 automatically marks event 1 as finished
+- **Correct default behavior**: Current/future events default to ongoing
+- **Added raw value logging** for debugging
 
 ### 2. Admin Panel (`app/routes/admin.tsx`)
 

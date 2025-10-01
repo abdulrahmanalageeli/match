@@ -898,7 +898,7 @@ export default async function handler(req, res) {
       // Query for the match record where this participant is either participant_a or participant_b
       const { data: existingMatch, error: matchLookupError } = await supabase
         .from("match_results")
-        .select("ai_vibe_analysis, participant_a_number, participant_b_number")
+        .select("ai_personality_analysis, participant_a_number, participant_b_number")
         .eq("match_id", match_id)
         .eq("event_id", event_id)
         .or(`and(participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${participant.assigned_number})`)
@@ -910,11 +910,11 @@ export default async function handler(req, res) {
       }
 
       // If analysis already exists in the match record, return it
-      if (existingMatch?.ai_vibe_analysis) {
+      if (existingMatch?.ai_personality_analysis) {
         console.log(`🔄 Returning existing AI analysis from match_results for participants ${participant.assigned_number} ↔ ${partner_number}`)
         return res.status(200).json({
           success: true,
-          analysis: existingMatch.ai_vibe_analysis,
+          analysis: existingMatch.ai_personality_analysis,
           cached: true
         })
       }
@@ -1052,7 +1052,7 @@ export default async function handler(req, res) {
       // Store the analysis in the match_results table (shared between both participants)
       const { error: updateError } = await supabase
         .from("match_results")
-        .update({ ai_vibe_analysis: analysis })
+        .update({ ai_personality_analysis: analysis })
         .eq("match_id", match_id)
         .eq("event_id", event_id)
         .or(`and(participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${participant.assigned_number})`)

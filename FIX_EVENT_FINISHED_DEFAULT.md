@@ -96,6 +96,15 @@ setEventFinished(eventFinishedData.finished === true) // Default to false (ongoi
 3. **Admin Marks Finished**: `event_finished = true` → Shows as **finished** ✅
 4. **Participants See Results**: Event is finished, results modal appears ✅
 
+### Implicit Finished Logic:
+**If current_event_id > requested_event_id, then the requested event is automatically finished.**
+
+Example:
+- Current event: 2 (from `event_state.current_event_id`)
+- Check event 1 status → **Automatically finished** (1 < 2)
+- Check event 2 status → Check `event_finished` flag
+- Check event 3 status → Check `event_finished` flag (future event)
+
 ### Event Finished Toggle:
 - **Ongoing → Finished**: Sets `event_finished = true` for all match_results with that event_id
 - **Finished → Ongoing**: Sets `event_finished = false` for all match_results with that event_id

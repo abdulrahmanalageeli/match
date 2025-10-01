@@ -1284,16 +1284,22 @@ export default async function handler(req, res) {
       console.log(`📋 No existing matches for event ${eventId}, will not set event_finished (let admin control it)`)
     }
 
-    // Fetch excluded participants from database
-    const { data: excludedParticipants, error: excludedParticipantsError } = await supabase
-      .from("excluded_participants")
-      .select("participant_number")
+    // Fetch excluded participants from database (using excluded_pairs with participant2_number = -1)
+    const { data: excludedParticipantsData, error: excludedParticipantsError } = await supabase
+      .from("excluded_pairs")
+      .select("participant1_number")
       .eq("match_id", match_id)
+      .eq("participant2_number", -1)
 
     if (excludedParticipantsError) {
       console.error("Error fetching excluded participants:", excludedParticipantsError)
       // Continue without excluded participants rather than failing
     }
+    
+    // Map to expected format
+    const excludedParticipants = (excludedParticipantsData || []).map(item => ({
+      participant_number: item.participant1_number
+    }))
     
     const { data: allParticipants, error } = await supabase
       .from("participants")

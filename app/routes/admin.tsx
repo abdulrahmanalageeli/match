@@ -2188,9 +2188,10 @@ export default function AdminPage() {
                         setWhatsappParticipant(p); 
                         setShowWhatsappModal(true); 
                       }}
-                      className="text-green-400 hover:text-green-300 transition-colors"
+                      className="p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-all duration-200 active:scale-95 touch-manipulation"
+                      aria-label="Send WhatsApp message"
                     >
-                      <MessageSquare className="w-4 h-4" />
+                      <MessageSquare className="w-5 h-5" />
                     </button>
                     <button
                       onClick={(e) => {

@@ -1947,6 +1947,7 @@ export default function WelcomePage() {
             assigned_number: assignedNumber,
             secure_token: secureToken,
             round: currentRound,
+            event_id: currentEventId || 1,
             feedback: feedbackAnswers
           }),
         })

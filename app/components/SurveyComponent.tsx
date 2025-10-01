@@ -631,8 +631,15 @@ export default function SurveyComponent({
   
   const [currentPage, setCurrentPage] = useState(0)
 
-  const totalPages = Math.ceil(surveyQuestions.length / questionsPerPage) + 1 // +1 for terms page
-  const progress = ((currentPage + 1) / totalPages) * 100
+  // Memoize expensive calculations
+  const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage) + 1, [])
+  const progress = useMemo(() => ((currentPage + 1) / totalPages) * 100, [currentPage, totalPages])
+  
+  // Memoize current page questions to avoid re-slicing on every render
+  const currentQuestions = useMemo(() => 
+    surveyQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
+    [currentPage]
+  )
 
   const handleInputChange = useCallback((questionId: string, value: string | string[]) => {
     // Mark that user is actively editing the survey
@@ -647,6 +654,13 @@ export default function SurveyComponent({
     }))
   }, [setSurveyData, setIsEditingSurvey])
 
+  // Memoize question lookup for performance
+  const questionMap = useMemo(() => {
+    const map = new Map()
+    surveyQuestions.forEach(q => map.set(q.id, q))
+    return map
+  }, [])
+
   const handleCheckboxChange = useCallback((questionId: string, value: string, checked: boolean) => {
     // Mark that user is actively editing the survey
     setIsEditingSurvey?.(true)
@@ -654,7 +668,7 @@ export default function SurveyComponent({
     setSurveyData((prevData: SurveyData) => {
       const currentValues = (prevData.answers[questionId] as string[]) || []
       if (checked) {
-        const question = surveyQuestions.find(q => q.id === questionId)
+        const question = questionMap.get(questionId)
         if (question && 'maxSelections' in question && typeof question.maxSelections === 'number' && currentValues.length >= question.maxSelections) {
           return prevData // Don't add if max reached
         }
@@ -675,7 +689,7 @@ export default function SurveyComponent({
         }
       }
     })
-  }, [setSurveyData, setIsEditingSurvey])
+  }, [setSurveyData, setIsEditingSurvey, questionMap])
 
   // Memoize page validation to avoid expensive recalculation on every render
   const isPageValid = useMemo(() => {
@@ -845,7 +859,7 @@ export default function SurveyComponent({
 
       case "checkbox":
         return (
-          <div className="space-y-4 mt-4">
+          <div className="space-y-3 mt-3">
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
                 <div className="flex items-start space-x-5 space-x-reverse">
@@ -1253,11 +1267,9 @@ export default function SurveyComponent({
             </div>
           ) : (
             <div className="space-y-4">
-                              {surveyQuestions
-                  .slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage)
-                  .map((question, index) => (
-                    <div key={question.id} className="group animate-slide-in-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-slate-700/50 p-3 transition-all duration-300 hover:shadow-2xl hover:scale-[1.01] hover:bg-white/90 dark:hover:bg-slate-800/90 hover:animate-glow">
+                              {currentQuestions.map((question, index) => (
+                    <div key={question.id} className="group">
+                      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-slate-700/50 p-3">
                       <div className="flex items-start gap-3">
                         <div className="relative">
                           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">

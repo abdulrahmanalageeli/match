@@ -358,7 +358,7 @@ export default async function handler(req, res) {
         headers: req.headers
       })
 
-      const { assigned_number, summary, survey_data, feedback, round, secure_token } = req.body
+      const { assigned_number, summary, survey_data, feedback, round, secure_token, event_id } = req.body
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
 
       if (!req.body?.assigned_number) {
@@ -374,7 +374,7 @@ export default async function handler(req, res) {
 
       // Handle feedback saving
       if (feedback && round) {
-        console.log('📝 Processing feedback for round:', round)
+        console.log('📝 Processing feedback for round:', round, 'event_id:', event_id)
         
         const {
           compatibilityRate,
@@ -388,13 +388,14 @@ export default async function handler(req, res) {
           recommendations
         } = feedback
 
-        // Check if feedback already exists for this participant and round
+        // Check if feedback already exists for this participant, round, and event
         const { data: existingFeedback, error: existingFeedbackError } = await supabase
           .from("match_feedback")
           .select("id")
           .eq("match_id", match_id)
           .eq("participant_number", assigned_number)
           .eq("round", round)
+          .eq("event_id", event_id || 1)
 
         if (existingFeedbackError) {
           logError("Error checking existing feedback", existingFeedbackError)
@@ -406,6 +407,7 @@ export default async function handler(req, res) {
           participant_number: assigned_number,
           participant_token: secure_token || null,
           round,
+          event_id: event_id || 1,
           compatibility_rate: compatibilityRate,
           conversation_quality: conversationQuality,
           personal_connection: personalConnection,
@@ -426,6 +428,7 @@ export default async function handler(req, res) {
             .eq("match_id", match_id)
             .eq("participant_number", assigned_number)
             .eq("round", round)
+            .eq("event_id", event_id || 1)
 
           if (updateFeedbackError) {
             logError("Error updating feedback", updateFeedbackError)
@@ -728,13 +731,14 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing required parameters' })
       }
 
-      // Check if feedback exists for this token and round
+      // Check if feedback exists for this token, round, and event
       const { data: feedbackData, error: feedbackError } = await supabase
         .from("match_feedback")
         .select("id")
         .eq("match_id", match_id)
         .eq("participant_token", secure_token)
         .eq("round", round)
+        .eq("event_id", event_id)
 
       if (feedbackError) {
         console.error("Error checking feedback:", feedbackError)

@@ -2070,13 +2070,13 @@ export default function WelcomePage() {
       return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
     }
     
-    // Get strength levels for each component
-    const mbtiStrength = getStrengthLevel(mbtiScore, 10)
-    const attachmentStrength = getStrengthLevel(attachmentScore, 15)
+    // Get strength levels for each component (using actual max scores from trigger-match.mjs)
+    const mbtiStrength = getStrengthLevel(mbtiScore, 5)
+    const attachmentStrength = getStrengthLevel(attachmentScore, 5)
     const communicationStrength = getStrengthLevel(communicationScore, 25)
-    const lifestyleStrength = getStrengthLevel(lifestyleScore, 15)
-    const coreValuesStrength = getStrengthLevel(coreValuesScore, 20)
-    const vibeStrength = getStrengthLevel(vibeScore, 15)
+    const lifestyleStrength = getStrengthLevel(lifestyleScore, 20)
+    const coreValuesStrength = getStrengthLevel(coreValuesScore, 10)
+    const vibeStrength = getStrengthLevel(vibeScore, 35)
     
     // Create natural language description
     const components = []

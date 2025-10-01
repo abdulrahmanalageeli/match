@@ -1887,7 +1887,8 @@ export default function WelcomePage() {
           action: 'generate-vibe-analysis',
           secure_token: secureToken,
           partner_number: matchResult,
-          current_round: currentRound
+          current_round: currentRound,
+          event_id: currentEventId || 1
         }),
       })
 
@@ -1898,9 +1899,9 @@ export default function WelcomePage() {
         setShowAiAnalysis(true)
         
         if (data.cached) {
-          console.log('🔄 Loaded existing AI analysis from database')
+          console.log('🔄 Loaded existing AI analysis from match_results (shared between both participants)')
         } else {
-          console.log('✨ Generated new AI analysis')
+          console.log('✨ Generated new AI analysis and stored in match_results')
         }
       } else {
         console.error('Failed to generate AI analysis:', data.error)

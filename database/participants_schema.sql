@@ -22,10 +22,12 @@ create table public.participants (
   signup_for_next_event boolean null default false,
   next_event_signup_timestamp timestamp with time zone null,
   event_id integer not null default 1,
+  ai_personality_analysis text null,
   constraint participants_pkey primary key (id),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),
   constraint unique_secure_token unique (secure_token),
   constraint participants_assigned_number_key unique (assigned_number),
+  constraint check_event_id_positive check ((event_id > 0)),
   constraint check_mbti_type_valid check (
     (
       (mbti_personality_type is null)
@@ -87,6 +89,20 @@ create table public.participants (
       )
     )
   ),
+  constraint check_ai_analysis_not_empty check (
+    (
+      (ai_personality_analysis is null)
+      or (
+        length(
+          TRIM(
+            both
+            from
+              ai_personality_analysis
+          )
+        ) > 0
+      )
+    )
+  ),
   constraint check_attachment_style_valid check (
     (
       (attachment_style is null)
@@ -112,8 +128,7 @@ create table public.participants (
         ((survey_data -> 'coreValues'::text))::text ~ '^"[أبج],[أبج],[أبج],[أبج],[أبج]"$'::text
       )
     )
-  ),
-  constraint check_event_id_positive check ((event_id > 0))
+  )
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_participants_survey_data on public.participants using gin (survey_data) TABLESPACE pg_default;
@@ -186,6 +201,17 @@ create index IF not exists idx_participants_event_id on public.participants usin
 create index IF not exists idx_participants_event_match on public.participants using btree (event_id, match_id) TABLESPACE pg_default;
 
 create index IF not exists idx_participants_event_number on public.participants using btree (event_id, assigned_number) TABLESPACE pg_default;
+
+create index IF not exists idx_participants_ai_analysis on public.participants using btree (ai_personality_analysis) TABLESPACE pg_default
+where
+  (ai_personality_analysis is not null);
+
+create index IF not exists idx_participants_analysis_ready on public.participants using btree (event_id, ai_personality_analysis) TABLESPACE pg_default
+where
+  (
+    (ai_personality_analysis is not null)
+    and (survey_data is not null)
+  );
 
 create trigger trigger_sync_communication_style BEFORE INSERT
 or

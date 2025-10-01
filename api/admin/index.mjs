@@ -872,8 +872,8 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
 
-        const finished = data?.event_finished !== false // Default to false if null/undefined
-        console.log(`Event ${event_id} finished status retrieved: ${finished}`)
+        const finished = data?.event_finished === true // Default to false (ongoing) if null/undefined
+        console.log(`Event ${event_id} finished status retrieved: ${finished} (raw value: ${data?.event_finished})`)
         return res.status(200).json({ finished })
       } catch (err) {
         console.error("Error getting event finished status:", err)

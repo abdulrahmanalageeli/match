@@ -200,7 +200,7 @@ export default function AdminPage() {
         body: JSON.stringify({ action: "get-event-finished", event_id: currentEventId }),
       })
       const eventFinishedData = await eventFinishedRes.json()
-      setEventFinished(eventFinishedData.finished !== false) // Default to false if not set
+      setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) if not set
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -335,7 +335,7 @@ export default function AdminPage() {
           body: JSON.stringify({ action: "get-event-finished", event_id: newEventId }),
         })
         const eventFinishedData = await eventFinishedRes.json()
-        setEventFinished(eventFinishedData.finished !== false)
+        setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) for new events
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
         console.error("API Error:", errorData)

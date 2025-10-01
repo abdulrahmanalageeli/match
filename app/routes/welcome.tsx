@@ -1748,13 +1748,16 @@ export default function WelcomePage() {
     if (!assignedNumber) return
     
     const round = roundOverride || currentRound
-    console.log(`Fetching matches for round ${round}`)
+    console.log(`Fetching matches for round ${round}, event_id: ${currentEventId}`)
     
     try {
       const res = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber })
+        body: JSON.stringify({ 
+          assigned_number: assignedNumber,
+          event_id: currentEventId || 1
+        })
         })
 
         if (!res.ok) {
@@ -1798,12 +1801,17 @@ export default function WelcomePage() {
       return
     }
     
-    console.log("🔍 Fetching group matches for participant:", assignedNumber)
+    console.log("🔍 Fetching group matches for participant:", assignedNumber, "event_id:", currentEventId)
     try {
       const myMatches = await fetch("/api/get-my-matches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_number: assignedNumber, match_type: "محايد", round: 0 }),
+        body: JSON.stringify({ 
+          assigned_number: assignedNumber, 
+          match_type: "محايد", 
+          round: 0,
+          event_id: currentEventId || 1
+        }),
       })
       
       if (!myMatches.ok) {

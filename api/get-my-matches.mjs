@@ -8,8 +8,9 @@ const supabase = createClient(
 export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
-      const { assigned_number, round, match_type = "محايد", action } = req.body
+      const { assigned_number, round, match_type = "محايد", action, event_id } = req.body
       const match_id = "00000000-0000-0000-0000-000000000000"
+      const currentEventId = event_id || 1 // Default to event 1 if not provided
 
       // New endpoint for matrix: return all matches
       if (action === "all-matches") {
@@ -125,6 +126,7 @@ export default async function handler(req, res) {
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
+          .eq("event_id", currentEventId)
           .eq("round", 0) // Group phase round
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
@@ -160,6 +162,7 @@ export default async function handler(req, res) {
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
+          .eq("event_id", currentEventId)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .order("round", { ascending: true })
 

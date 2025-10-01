@@ -16,17 +16,16 @@ Store the AI vibe analysis in the `match_results` table where it belongs logical
 ## Changes Made
 
 ### 1. Database Schema (`add_ai_vibe_analysis_to_match_results.sql`)
-Added new column to `match_results` table:
-```sql
-ALTER TABLE public.match_results 
-ADD COLUMN IF NOT EXISTS ai_vibe_analysis TEXT NULL;
-```
+Uses existing column in `match_results` table:
+- **Column**: `ai_personality_analysis TEXT NULL` (already exists)
+- **Purpose**: Stores shared AI vibe analysis for both participants in a match
 
 **Features:**
 - Shared between both participants in the match
 - Indexed for efficient querying
 - Constraint ensures non-empty strings
 - Composite index for participant + event queries
+- Comment added to document the shared usage
 
 ### 2. API Changes (`api/participant.mjs`)
 
@@ -41,11 +40,11 @@ ADD COLUMN IF NOT EXISTS ai_vibe_analysis TEXT NULL;
    - Checks both `(participant_a, participant_b)` and `(participant_b, participant_a)` combinations
 
 2. **Check for Existing Analysis**: 
-   - If `ai_vibe_analysis` already exists in the match record, return it immediately
+   - If `ai_personality_analysis` already exists in the match record, return it immediately
    - Works for both participants - whoever clicks first generates it, the other retrieves it
 
 3. **Store Analysis**:
-   - Saves generated analysis to `match_results.ai_vibe_analysis`
+   - Saves generated analysis to `match_results.ai_personality_analysis`
    - Updates the specific match record using participant numbers and event_id
 
 #### Benefits:
@@ -66,15 +65,15 @@ ADD COLUMN IF NOT EXISTS ai_vibe_analysis TEXT NULL;
 ### When Participant A Clicks "Generate Analysis":
 1. Frontend sends: `secure_token`, `partner_number`, `event_id`, `current_round`
 2. API looks up match record in `match_results` for these two participants
-3. Checks if `ai_vibe_analysis` already exists
+3. Checks if `ai_personality_analysis` already exists
 4. If not, generates new analysis using OpenAI
-5. Stores analysis in `match_results.ai_vibe_analysis`
+5. Stores analysis in `match_results.ai_personality_analysis`
 6. Returns analysis to Participant A
 
 ### When Participant B Clicks "Generate Analysis":
 1. Frontend sends: `secure_token`, `partner_number`, `event_id`, `current_round`
 2. API looks up the SAME match record
-3. Finds existing `ai_vibe_analysis`
+3. Finds existing `ai_personality_analysis`
 4. Returns cached analysis immediately (no AI call)
 5. Participant B sees the same analysis as Participant A
 
@@ -89,7 +88,7 @@ This bidirectional query ensures we find the match regardless of which participa
 
 ### Updating the Match Record:
 ```javascript
-.update({ ai_vibe_analysis: analysis })
+.update({ ai_personality_analysis: analysis })
 .eq("match_id", match_id)
 .eq("event_id", event_id)
 .or(/* same bidirectional query */)
@@ -103,13 +102,13 @@ This bidirectional query ensures we find the match regardless of which participa
 - Issue: Each participant had separate analysis
 
 ### New System (match_results table):
-- Column: `match_results.ai_vibe_analysis`
+- Column: `match_results.ai_personality_analysis`
 - Scope: Per match (shared)
 - Benefit: Single analysis for both participants
 
 ### Backward Compatibility:
 - Old `ai_personality_analysis` column in `participants` table can remain for historical data
-- New feature uses only `match_results.ai_vibe_analysis`
+- New feature uses only `match_results.ai_personality_analysis`
 - No data migration needed - fresh start with new system
 
 ## Testing Checklist

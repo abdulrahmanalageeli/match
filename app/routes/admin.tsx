@@ -180,6 +180,7 @@ export default function AdminPage() {
         body: JSON.stringify({ action: "get-current-event-id" }),
       })
       const currentEventData = await currentEventRes.json()
+      const fetchedEventId = currentEventData.current_event_id || 1
       if (currentEventData.current_event_id) {
         setCurrentEventId(currentEventData.current_event_id)
       }
@@ -193,11 +194,11 @@ export default function AdminPage() {
       const regData = await regRes.json()
       setRegistrationEnabled(regData.enabled !== false) // Default to true if not set
       
-      // Fetch event finished state
+      // Fetch event finished state - use the fetched event ID directly, not state
       const eventFinishedRes = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-event-finished", event_id: currentEventId }),
+        body: JSON.stringify({ action: "get-event-finished", event_id: fetchedEventId }),
       })
       const eventFinishedData = await eventFinishedRes.json()
       setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) if not set

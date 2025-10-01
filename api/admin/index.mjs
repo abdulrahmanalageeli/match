@@ -853,27 +853,10 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         console.log(`Getting event finished status for event_id: ${event_id}`)
         
-        // Get current event ID from event_state
-        const { data: eventStateData, error: eventStateError } = await supabase
-          .from("event_state")
-          .select("current_event_id")
-          .eq("match_id", STATIC_MATCH_ID)
-          .single()
+        // REMOVED AUTOMATIC LOGIC: Event finished status is now ONLY controlled by manual admin toggle
+        // No longer automatically marking events as finished based on current_event_id
         
-        if (eventStateError) {
-          console.error("Error getting current event ID:", eventStateError)
-        }
-        
-        const currentEventId = eventStateData?.current_event_id || 1
-        console.log(`Current event ID: ${currentEventId}, Checking event ID: ${event_id}`)
-        
-        // If the requested event_id is less than current_event_id, it's automatically finished
-        if (event_id < currentEventId) {
-          console.log(`Event ${event_id} is finished (current event is ${currentEventId})`)
-          return res.status(200).json({ finished: true })
-        }
-        
-        // For current or future events, check the event_finished flag
+        // Check the event_finished flag in match_results
         const { data, error } = await supabase
           .from("match_results")
           .select("event_finished")

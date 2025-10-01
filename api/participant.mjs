@@ -741,21 +741,38 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Database error" })
       }
 
-      // Check if event is finished
-      const { data: matchData, error: matchError } = await supabase
-        .from("match_results")
-        .select("event_finished")
-        .eq("event_id", event_id)
-        .eq("round", round)
-        .limit(1)
+      // Get current event ID to check if this event is implicitly finished
+      const { data: eventStateData, error: eventStateError } = await supabase
+        .from("event_state")
+        .select("current_event_id")
+        .eq("match_id", match_id)
         .single()
+      
+      const currentEventId = eventStateData?.current_event_id || 1
+      
+      // If the requested event_id is less than current_event_id, it's automatically finished
+      let eventFinished = false
+      if (event_id < currentEventId) {
+        console.log(`Event ${event_id} is implicitly finished (current event is ${currentEventId})`)
+        eventFinished = true
+      } else {
+        // For current or future events, check the event_finished flag
+        const { data: matchData, error: matchError } = await supabase
+          .from("match_results")
+          .select("event_finished")
+          .eq("event_id", event_id)
+          .eq("round", round)
+          .limit(1)
+          .single()
 
-      if (matchError && matchError.code !== 'PGRST116') {
-        console.error("Error checking event status:", matchError)
-        return res.status(500).json({ error: "Database error" })
+        if (matchError && matchError.code !== 'PGRST116') {
+          console.error("Error checking event status:", matchError)
+          return res.status(500).json({ error: "Database error" })
+        }
+
+        eventFinished = matchData?.event_finished === true
       }
-
-      const eventFinished = matchData?.event_finished || false
+      
       const feedbackSubmitted = feedbackData && feedbackData.length > 0
 
       return res.status(200).json({

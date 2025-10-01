@@ -181,7 +181,7 @@ export default function WelcomePage() {
   }
   
   const [feedbackAnswers, setFeedbackAnswers] = useState({
-    compatibilityRate: 50, // 0-100 scale
+    compatibilityRate: -1, // -1 means not set yet (required field)
     conversationQuality: 3, // 1-5 scale
     personalConnection: 3, // 1-5 scale
     sharedInterests: 3, // 1-5 scale
@@ -707,7 +707,7 @@ export default function WelcomePage() {
             }, 0)
           } catch (_) {}
           setFeedbackAnswers({
-            compatibilityRate: 50,
+            compatibilityRate: -1,
             conversationQuality: 3,
             personalConnection: 3,
             sharedInterests: 3,
@@ -5223,12 +5223,25 @@ export default function WelcomePage() {
                   </h3>
                   <div className="space-y-6">
                     {/* Compatibility Rate Slider */}
-                    <div>
-                                            <label className={`block text-sm font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                        درجة التوافق مع شريك المحادثة
+                    <div className={`p-5 rounded-xl border-2 ${feedbackAnswers.compatibilityRate === -1 ? 'border-yellow-500/50 bg-yellow-500/10' : dark ? 'border-slate-600/30 bg-slate-800/20' : 'border-gray-200/50 bg-gray-50/30'}`}>
+                      <label className={`block text-base font-bold mb-2 ${feedbackAnswers.compatibilityRate === -1 ? 'text-yellow-400' : dark ? "text-slate-200" : "text-gray-700"}`}>
+                        <div className="flex items-center gap-2">
+                          {feedbackAnswers.compatibilityRate === -1 && (
+                            <span className="text-xl">⭐</span>
+                          )}
+                          <span>خمّن درجة التوافق مع شريك المحادثة</span>
+                          <span className="text-red-500">*</span>
+                        </div>
                       </label>
-                      <p className={`text-xs font-normal opacity-60 mb-3 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                        (بعد التقييم سوف يظهر التقييم الحقيقي)
+                      <p className={`text-sm font-medium mb-4 ${feedbackAnswers.compatibilityRate === -1 ? 'text-yellow-300' : dark ? "text-slate-300" : "text-gray-600"}`}>
+                        {feedbackAnswers.compatibilityRate === -1 ? (
+                          <span className="flex items-center gap-2">
+                            <span className="animate-pulse">👉</span>
+                            <span>ما هو توقعك لدرجة التوافق بينكما؟ (سيظهر التقييم الحقيقي من الخوارزمية بعد الإرسال)</span>
+                          </span>
+                        ) : (
+                          "بعد الإرسال سيظهر التقييم الحقيقي الذي حصلتما عليه من خوارزمية المطابقة"
+                        )}
                       </p>
                       <div className="relative">
                         <div className="relative group">
@@ -5237,8 +5250,11 @@ export default function WelcomePage() {
                             min="0"
                             max="100"
                             step="5"
-                            value={100 - feedbackAnswers.compatibilityRate}
-                            onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value) }))}
+                            value={feedbackAnswers.compatibilityRate === -1 ? 50 : (100 - feedbackAnswers.compatibilityRate)}
+                            onChange={(e) => {
+                              const newValue = 100 - parseInt(e.target.value);
+                              setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: newValue }));
+                            }}
                             className="w-full h-2 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300 
                               [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
                               [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
@@ -5279,11 +5295,12 @@ export default function WelcomePage() {
                         <div className="flex justify-between text-xs mt-2" dir="ltr">
                           <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>0%</span>
                           <span className={`font-bold text-lg ${
+                            feedbackAnswers.compatibilityRate === -1 ? "text-gray-400" :
                             feedbackAnswers.compatibilityRate >= 80 ? "text-green-500" :
                             feedbackAnswers.compatibilityRate >= 60 ? "text-yellow-500" :
                             "text-red-500"
                           }`}>
-                            {feedbackAnswers.compatibilityRate}%
+                            {feedbackAnswers.compatibilityRate === -1 ? "؟" : `${feedbackAnswers.compatibilityRate}%`}
                           </span>
                           <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>100%</span>
                         </div>
@@ -5730,7 +5747,8 @@ export default function WelcomePage() {
                   <div className="flex justify-center gap-3 mt-8">
                      <Button
                        onClick={submitFeedback}
-                       className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3 flex items-center gap-3"
+                       disabled={feedbackAnswers.compatibilityRate === -1}
+                       className="spring-btn bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 px-8 py-3 flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                      >
                        <div className="flex items-center gap-2">
                          <Shield className="w-4 h-4" />
@@ -5743,7 +5761,15 @@ export default function WelcomePage() {
             ) : (
               <>
                 <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
-                                      <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
+                <div className={`text-center mb-4 p-4 rounded-xl border-2 ${dark ? "bg-blue-900/20 border-blue-400/40" : "bg-blue-50 border-blue-300/60"}`}>
+                  <p className={`text-sm font-semibold ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                    💡 هذه هي النتيجة الحقيقية التي حصلتما عليها من خوارزمية المطابقة عند التوفيق بينكما
+                  </p>
+                  <p className={`text-xs mt-1 ${dark ? "text-blue-300/80" : "text-blue-600/80"}`}>
+                    (وليست التقييمات التي أعطيتماها لبعضكما)
+                  </p>
+                </div>
+                <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
                       <div className="flex justify-center my-4">
                         <CircularProgressBar
                           progress={compatibilityScore !== null ? Math.round(compatibilityScore) : 0}

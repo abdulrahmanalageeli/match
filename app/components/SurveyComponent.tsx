@@ -615,7 +615,7 @@ const extractIdealPersonDescription = (answers: Record<string, string | string[]
   return '' // No longer needed as all information is in vibeDescription
 }
 
-export default function SurveyComponent({ 
+const SurveyComponent = React.memo(function SurveyComponent({ 
   onSubmit, 
   surveyData, 
   setSurveyData,
@@ -895,7 +895,7 @@ export default function SurveyComponent({
               value={value as string || ""}
               onValueChange={(val) => handleInputChange(question.id, val)}
             >
-              <SelectTrigger className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-4 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm">
+              <SelectTrigger className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700">
                 <SelectValue placeholder="اختر نوع شخصيتك" />
               </SelectTrigger>
               <SelectContent>
@@ -1050,32 +1050,32 @@ export default function SurveyComponent({
         </div>
         <div className="space-y-3 text-right">
           <div className="space-y-3 text-sm">
-            <div className="bg-white/70 dark:bg-slate-700/70 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
               <p className="text-gray-700 dark:text-gray-200 text-xs">
                 <strong className="text-blue-600 dark:text-blue-400">1. جمع البيانات:</strong> نقوم بجمع بياناتك الشخصية لغرض التوافق والمطابقة فقط.
               </p>
             </div>
-            <div className="bg-white/70 dark:bg-slate-700/70 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
               <p className="text-gray-700 dark:text-gray-200 text-xs">
                 <strong className="text-blue-600 dark:text-blue-400">2. استخدام البيانات:</strong> تستخدم البيانات حصرياً لتحليل التوافق وتقديم خدمات المطابقة.
               </p>
             </div>
-            <div className="bg-white/70 dark:bg-slate-700/70 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
               <p className="text-gray-700 dark:text-gray-200 text-xs">
                 <strong className="text-blue-600 dark:text-blue-400">3. حماية البيانات:</strong> نلتزم بمعايير حماية البيانات السعودية (PDPL) ونحافظ على سرية معلوماتك.
               </p>
             </div>
-            <div className="bg-white/70 dark:bg-slate-700/70 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
               <p className="text-gray-700 dark:text-gray-200 text-xs">
                 <strong className="text-blue-600 dark:text-blue-400">4. الذكاء الاصطناعي:</strong> نستخدم تقنيات الذكاء الاصطناعي المطابقة للوائح السعودية.
               </p>
             </div>
-            <div className="bg-white/70 dark:bg-slate-700/70 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
               <p className="text-gray-700 dark:text-gray-200 text-xs">
                 <strong className="text-blue-600 dark:text-blue-400">5. حقوقك:</strong> يمكنك طلب حذف بياناتك أو تعديلها في أي وقت.
               </p>
             </div>
-            <div className="bg-white/70 dark:bg-slate-700/70 rounded-xl p-3 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
               <p className="text-gray-700 dark:text-gray-200 text-xs">
                 <strong className="text-blue-600 dark:text-blue-400">6. الأمان:</strong> نستخدم تقنيات تشفير متقدمة لحماية بياناتك.
               </p>
@@ -1086,7 +1086,7 @@ export default function SurveyComponent({
 
       <div className="space-y-4">
         <div className="group">
-          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-gray-200 dark:border-slate-600">
             <Checkbox
               id="terms"
               checked={surveyData.termsAccepted}
@@ -1103,7 +1103,7 @@ export default function SurveyComponent({
         </div>
 
         <div className="group">
-          <div className="flex items-center space-x-4 space-x-reverse bg-white/80 dark:bg-slate-800/80 rounded-xl p-3 backdrop-blur-sm border-2 border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400 transition-all duration-300">
+          <div className="flex items-center space-x-4 space-x-reverse bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-gray-200 dark:border-slate-600">
             <Checkbox
               id="dataConsent"
               checked={surveyData.dataConsent}
@@ -1127,7 +1127,7 @@ export default function SurveyComponent({
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-2xl border border-gray-200 dark:border-slate-700 max-w-sm mx-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-lg border border-gray-200 dark:border-slate-700 max-w-sm mx-4">
             <div className="flex flex-col items-center gap-4 text-center">
               <div className="relative">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
@@ -1162,7 +1162,7 @@ export default function SurveyComponent({
               <span className="text-xs font-medium text-gray-600 dark:text-gray-400">{currentPage + 1} من {totalPages}</span>
             </div>
             <div className="relative">
-              <div className="h-2 bg-white/50 dark:bg-slate-800/50 rounded-full overflow-hidden backdrop-blur-sm">
+              <div className="h-2 bg-gray-200 dark:bg-slate-700 rounded-full overflow-hidden">
                 <div 
                   className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full transition-all duration-500 ease-out animate-shimmer"
                   style={{ width: `${progress}%` }}
@@ -1262,14 +1262,14 @@ export default function SurveyComponent({
         {/* Survey Content */}
         <div className="space-y-4">
           {currentPage === totalPages - 1 ? (
-            <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-slate-700/50 p-4">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-4">
               {renderTermsPage()}
             </div>
           ) : (
             <div className="space-y-4">
                               {currentQuestions.map((question, index) => (
                     <div key={question.id} className="group">
-                      <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-slate-700/50 p-3">
+                      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
                       <div className="flex items-start gap-3">
                         <div className="relative">
                           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
@@ -1343,4 +1343,6 @@ export default function SurveyComponent({
       </div>
     </div>
   )
-} 
+})
+
+export default SurveyComponent 

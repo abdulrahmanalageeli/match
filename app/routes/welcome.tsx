@@ -746,6 +746,7 @@ export default function WelcomePage() {
             setPhase(eventData.phase || "registration");
             setCurrentRound(eventData.current_round || 1);
             setTotalRounds(eventData.total_rounds || 4);
+            setCurrentEventId(eventData.current_event_id || 1);
             setIsRepeatMatch(false);
             
             // Restore timer state if active (only attempt once per page load)
@@ -940,8 +941,13 @@ export default function WelcomePage() {
 
         const data = await res.json()
         
-        // Update phase
+        // Update phase and event ID
         setPhase(data.phase || "registration")
+        const newEventId = data.current_event_id || 1
+        if (newEventId !== currentEventId) {
+          console.log(`🔄 Event ID changed: ${currentEventId} → ${newEventId}`)
+        }
+        setCurrentEventId(newEventId)
         
         // Update announcements and emergency pause
         setAnnouncement({

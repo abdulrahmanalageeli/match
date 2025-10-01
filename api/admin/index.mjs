@@ -226,7 +226,7 @@ export default async function handler(req, res) {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase
           .from("event_state")
-          .select("phase, announcement, announcement_type, announcement_time, emergency_paused, pause_time, current_round, total_rounds, global_timer_active, global_timer_start_time, global_timer_duration, global_timer_round")
+          .select("phase, announcement, announcement_type, announcement_time, emergency_paused, pause_time, current_round, total_rounds, current_event_id, global_timer_active, global_timer_start_time, global_timer_duration, global_timer_round")
           .eq("match_id", STATIC_MATCH_ID)
           .single()
 
@@ -244,6 +244,7 @@ export default async function handler(req, res) {
               pause_time: null,
               current_round: 1,
               total_rounds: 1,
+              current_event_id: 1,
               global_timer_active: false,
               global_timer_start_time: null,
               global_timer_duration: 1800,
@@ -262,6 +263,7 @@ export default async function handler(req, res) {
           pause_time: data.pause_time,
           current_round: data.current_round || 1,
           total_rounds: data.total_rounds || 4,
+          current_event_id: data.current_event_id || 1,
           global_timer_active: data.global_timer_active || false,
           global_timer_start_time: data.global_timer_start_time,
           global_timer_duration: data.global_timer_duration || 1800,

@@ -5712,7 +5712,7 @@ export default function WelcomePage() {
                       <textarea
                         value={feedbackAnswers.recommendations}
                         onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, recommendations: e.target.value }))}
-                        placeholder="شاركنا أي توصيات أو نصائح لتحسين تجربة المحادثة..."
+                        placeholder="شاركنا أي توصيات أو نصائح لتحسين أي جزء من الفعالية..."
                         rows={3}
                         className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 resize-none ${
                           dark 

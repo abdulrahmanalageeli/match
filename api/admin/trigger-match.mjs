@@ -1268,6 +1268,22 @@ export default async function handler(req, res) {
     // Ensure organizer participant exists for potential odd-participant matches
     await ensureOrganizerParticipant(match_id);
 
+    // Check existing event_finished status for this event_id to preserve it
+    let existingEventFinishedStatus = null
+    const { data: existingMatchData, error: existingMatchError } = await supabase
+      .from("match_results")
+      .select("event_finished")
+      .eq("event_id", eventId)
+      .limit(1)
+      .single()
+    
+    if (!existingMatchError && existingMatchData) {
+      existingEventFinishedStatus = existingMatchData.event_finished
+      console.log(`📋 Existing event_finished status for event ${eventId}: ${existingEventFinishedStatus}`)
+    } else {
+      console.log(`📋 No existing matches for event ${eventId}, will not set event_finished (let admin control it)`)
+    }
+
     // Fetch excluded participants from database
     const { data: excludedParticipants, error: excludedParticipantsError } = await supabase
       .from("excluded_participants")
@@ -1409,7 +1425,7 @@ export default async function handler(req, res) {
         core_values_compatibility_score: coreValuesScore,
         vibe_compatibility_score: vibeScore,
         round: 1,
-        event_finished: false,
+        ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
         created_at: new Date().toISOString()
       }
       
@@ -1740,7 +1756,7 @@ export default async function handler(req, res) {
             event_id: eventId,
             round,
             is_repeat_match: false,
-            event_finished: false,
+            ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
             table_number: tableCounter,
             // Add personality type data
             participant_a_mbti_type: compatibilityData?.aMBTI || p1Data?.mbti_personality_type || p1Data?.survey_data?.mbtiType,
@@ -1796,7 +1812,7 @@ export default async function handler(req, res) {
             event_id: eventId,
             round,
             is_repeat_match: false,
-            event_finished: false,
+            ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
             table_number: tableCounter, // Dynamic table assignment: 1 to N/2
             // Add personality type data
             participant_a_mbti_type: pair.aMBTI,
@@ -1843,7 +1859,7 @@ export default async function handler(req, res) {
             event_id: eventId,
             round,
             is_repeat_match: false,
-            event_finished: false,
+            ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
             table_number: tableCounter, // Continue dynamic numbering
             // Add default personality data for organizer matches
             participant_a_mbti_type: participants.find(p => p.assigned_number === unmatchedParticipant)?.mbti_personality_type || participants.find(p => p.assigned_number === unmatchedParticipant)?.survey_data?.mbtiType,

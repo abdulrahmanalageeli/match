@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye, AlertTriangle, Info, Lock, Unlock, DollarSign, XCircle } from "lucide-react"
+import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye, AlertTriangle, Info, Lock, Unlock, DollarSign, XCircle, ArrowLeftRight } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -44,6 +44,7 @@ export default function ParticipantResultsModal({
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [lockedMatches, setLockedMatches] = useState<any[]>([])
   const [loadingLock, setLoadingLock] = useState<number | null>(null)
+  const [swappingParticipant, setSwappingParticipant] = useState<number | null>(null)
 
   // Fetch locked matches when modal opens
   useEffect(() => {
@@ -139,6 +140,44 @@ export default function ParticipantResultsModal({
       console.error("Error unlocking match:", error)
     } finally {
       setLoadingLock(null)
+    }
+  }
+
+  const handleSwapMatch = (participantNumber: number, participantName: string) => {
+    setSwappingParticipant(participantNumber)
+    fetchParticipantDetails(participantNumber, participantName)
+  }
+
+  const handleSwapConfirm = async (newPartnerNumber: number) => {
+    if (!swappingParticipant) return
+    
+    try {
+      // Create a new manual match with the selected partner
+      const response = await fetch("/api/admin/trigger-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          eventId: 2, // Adjust as needed
+          manualMatch: {
+            participant1: swappingParticipant,
+            participant2: newPartnerNumber
+          }
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        alert(`✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`)
+        setShowDetailModal(false)
+        setSwappingParticipant(null)
+        // Refresh the page or results
+        window.location.reload()
+      } else {
+        alert(`❌ فشل التبديل: ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error swapping match:", error)
+      alert("❌ حدث خطأ أثناء تبديل المطابقة")
     }
   }
 
@@ -299,6 +338,9 @@ export default function ParticipantResultsModal({
                         <th className="text-right p-4 text-sm font-semibold text-slate-300">الشريك</th>
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
                         {matchType !== "group" && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تبديل</th>
+                        )}
+                        {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">تثبيت المطابقة</th>
                         )}
                         {matchType !== "group" && (
@@ -454,6 +496,22 @@ export default function ParticipantResultsModal({
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
                               {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
+                                <button
+                                  onClick={() => handleSwapMatch(participant.assigned_number, participant.name)}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:bg-purple-500/30 transition-all duration-300 text-sm"
+                                  title="تبديل الشريك"
+                                >
+                                  <ArrowLeftRight className="w-3 h-3" />
+                                  <span>تبديل</span>
+                                </button>
+                              ) : (
+                                <span className="text-slate-500 text-xs">غير متاح</span>
+                              )}
+                            </td>
+                          )}
+                          {matchType !== "group" && (
+                            <td className="p-4 text-center">
+                              {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
                                 isMatchLocked(participant.assigned_number, participant.partner_assigned_number) ? (
                                   <button
                                     onClick={() => handleUnlockMatch(participant)}
@@ -483,7 +541,10 @@ export default function ParticipantResultsModal({
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
                               <button
-                                onClick={() => fetchParticipantDetails(participant.assigned_number, participant.name)}
+                                onClick={() => {
+                                  setSwappingParticipant(null)
+                                  fetchParticipantDetails(participant.assigned_number, participant.name)
+                                }}
                                 disabled={loadingDetails}
                                 className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-all duration-300 text-sm disabled:opacity-50"
                               >
@@ -557,10 +618,15 @@ export default function ParticipantResultsModal({
       {/* Participant Detail Modal */}
       <ParticipantDetailModal
         isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
+        onClose={() => {
+          setShowDetailModal(false)
+          setSwappingParticipant(null)
+        }}
         participant={selectedParticipant}
         matches={participantMatches}
         matchType={matchType}
+        swapMode={swappingParticipant !== null}
+        onSwapSelect={handleSwapConfirm}
       />
     </div>
   )

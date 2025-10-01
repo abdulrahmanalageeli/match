@@ -1,5 +1,5 @@
 import React from "react"
-import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft } from "lucide-react"
+import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight } from "lucide-react"
 
 interface ParticipantMatch {
   participant_number: number
@@ -23,6 +23,8 @@ interface ParticipantDetailModalProps {
   } | null
   matches: ParticipantMatch[]
   matchType: "ai" | "no-ai" | "group"
+  swapMode?: boolean
+  onSwapSelect?: (newPartnerNumber: number) => Promise<void>
 }
 
 export default function ParticipantDetailModal({ 
@@ -30,7 +32,9 @@ export default function ParticipantDetailModal({
   onClose, 
   participant, 
   matches, 
-  matchType 
+  matchType,
+  swapMode = false,
+  onSwapSelect
 }: ParticipantDetailModalProps) {
   if (!isOpen || !participant) return null
 
@@ -62,10 +66,10 @@ export default function ParticipantDetailModal({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                تفاصيل المطابقات - المشارك #{participant.assigned_number}
+                {swapMode ? "اختر شريكاً جديداً" : "تفاصيل المطابقات"} - المشارك #{participant.assigned_number}
               </h2>
               <p className="text-slate-400 text-sm">
-                {participant.name} | إجمالي المطابقات المحتملة: {matches.length}
+                {participant.name} | {swapMode ? "اختر من المطابقات المحتملة" : `إجمالي المطابقات المحتملة: ${matches.length}`}
               </p>
             </div>
           </div>
@@ -147,6 +151,9 @@ export default function ParticipantDetailModal({
                         <th className="text-right p-4 text-sm font-semibold text-slate-300">الاسم</th>
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">الحالة</th>
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
+                        {swapMode && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">اختيار</th>
+                        )}
                         {matchType !== "group" && (
                           <>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
@@ -247,6 +254,17 @@ export default function ParticipantDetailModal({
                               </span>
                             </div>
                           </td>
+                          {swapMode && (
+                            <td className="p-4 text-center">
+                              <button
+                                onClick={() => onSwapSelect?.(match.participant_number)}
+                                className="inline-flex items-center gap-1 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white transition-all duration-300 text-sm font-semibold"
+                              >
+                                <ArrowLeftRight className="w-4 h-4" />
+                                <span>اختر هذا الشريك</span>
+                              </button>
+                            </td>
+                          )}
                           {matchType !== "group" && (
                             <>
                               <td className="p-4 text-center">

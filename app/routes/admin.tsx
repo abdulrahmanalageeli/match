@@ -75,6 +75,7 @@ export default function AdminPage() {
   const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
   const [totalMatches, setTotalMatches] = useState(0)
   const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
+  const [lastMatchParams, setLastMatchParams] = useState<{matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[]} | null>(null)
   
   // Excluded pairs management
   const [excludedPairs, setExcludedPairs] = useState<Array<{id: string, participant1_number: number, participant2_number: number, created_at: string, reason: string}>>([])
@@ -921,6 +922,9 @@ export default function AdminPage() {
   }
 
   const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = []) => {
+    // Store parameters for refresh
+    setLastMatchParams({ matchResults, totalMatches, type, calculatedPairs })
+    
     try {
       // Convert match results to participant results format
       const participantMap = new Map()
@@ -2601,6 +2605,16 @@ export default function AdminPage() {
         matchType={matchType}
         totalMatches={totalMatches}
         calculatedPairs={calculatedPairs}
+        onRefresh={async () => {
+          if (lastMatchParams) {
+            await showParticipantResults(
+              lastMatchParams.matchResults,
+              lastMatchParams.totalMatches,
+              lastMatchParams.type,
+              lastMatchParams.calculatedPairs
+            )
+          }
+        }}
       />
 
       <WhatsappMessageModal

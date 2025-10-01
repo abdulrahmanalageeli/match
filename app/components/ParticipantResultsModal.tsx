@@ -28,6 +28,7 @@ interface ParticipantResultsModalProps {
   matchType: "ai" | "no-ai" | "group"
   totalMatches: number
   calculatedPairs?: any[]
+  onRefresh?: () => Promise<void>
 }
 
 export default function ParticipantResultsModal({ 
@@ -36,7 +37,8 @@ export default function ParticipantResultsModal({
   results, 
   matchType, 
   totalMatches,
-  calculatedPairs = []
+  calculatedPairs = [],
+  onRefresh
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -170,8 +172,10 @@ export default function ParticipantResultsModal({
         alert(`✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`)
         setShowDetailModal(false)
         setSwappingParticipant(null)
-        // Refresh the page or results
-        window.location.reload()
+        // Refresh the results without closing the modal
+        if (onRefresh) {
+          await onRefresh()
+        }
       } else {
         alert(`❌ فشل التبديل: ${data.error}`)
       }

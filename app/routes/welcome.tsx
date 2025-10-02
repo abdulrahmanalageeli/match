@@ -169,6 +169,7 @@ export default function WelcomePage() {
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
   const [globalTimerStartTime, setGlobalTimerStartTime] = useState<string | null>(null)
   const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
+  const [round1LocalTimer, setRound1LocalTimer] = useState(0) // Local timer for Round 1 (counts up)
   const [timerRestored, setTimerRestored] = useState(false)
   const [timerRestoreAttempted, setTimerRestoreAttempted] = useState(false)
   
@@ -1339,6 +1340,24 @@ export default function WelcomePage() {
   
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
+
+  // Round 1 Local Timer - counts up from when conversation starts
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
+    if (step === 4 && currentRound === 1 && conversationStarted) {
+      interval = setInterval(() => {
+        setRound1LocalTimer(prev => prev + 1)
+      }, 1000)
+    } else {
+      // Reset timer when not in Round 1 conversation
+      setRound1LocalTimer(0)
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [step, currentRound, conversationStarted])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
 
@@ -4295,6 +4314,55 @@ export default function WelcomePage() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Round 1 Recommended Time Message */}
+                  {currentRound === 1 && (
+                    <div className={`mb-4 p-4 rounded-xl border ${
+                      dark 
+                        ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"
+                        : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200"
+                    }`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Clock className={`w-5 h-5 ${dark ? "text-blue-400" : "text-blue-600"}`} />
+                          <div>
+                            <p className={`text-sm font-semibold ${dark ? "text-blue-300" : "text-blue-700"}`}>
+                              الوقت الموصى به: 45 دقيقة
+                            </p>
+                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-600"}`}>
+                              يمكنك البقاء أطول بعد 30 دقيقة إذا أردت
+                            </p>
+                          </div>
+                        </div>
+                        {conversationStarted && (
+                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${
+                            round1LocalTimer >= 2700 // 45 minutes
+                              ? dark ? "bg-green-500/20 border border-green-400/30" : "bg-green-100 border border-green-300"
+                              : round1LocalTimer >= 1800 // 30 minutes
+                                ? dark ? "bg-yellow-500/20 border border-yellow-400/30" : "bg-yellow-100 border border-yellow-300"
+                                : dark ? "bg-blue-500/20 border border-blue-400/30" : "bg-blue-100 border border-blue-300"
+                          }`}>
+                            <Clock className={`w-4 h-4 ${
+                              round1LocalTimer >= 2700 
+                                ? dark ? "text-green-400" : "text-green-600"
+                                : round1LocalTimer >= 1800
+                                  ? dark ? "text-yellow-400" : "text-yellow-600"
+                                  : dark ? "text-blue-400" : "text-blue-600"
+                            }`} />
+                            <span className={`text-sm font-bold ${
+                              round1LocalTimer >= 2700
+                                ? dark ? "text-green-300" : "text-green-700"
+                                : round1LocalTimer >= 1800
+                                  ? dark ? "text-yellow-300" : "text-yellow-700"
+                                  : dark ? "text-blue-300" : "text-blue-700"
+                            }`}>
+                              {Math.floor(round1LocalTimer / 60)}:{(round1LocalTimer % 60).toString().padStart(2, '0')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (

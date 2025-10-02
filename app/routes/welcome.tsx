@@ -169,7 +169,7 @@ export default function WelcomePage() {
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
   const [globalTimerStartTime, setGlobalTimerStartTime] = useState<string | null>(null)
   const [globalTimerDuration, setGlobalTimerDuration] = useState(1800)
-  const [round1LocalTimer, setRound1LocalTimer] = useState(0) // Local timer for Round 1 (counts up)
+  const [round1LocalTimer, setRound1LocalTimer] = useState(2700) // Local timer for Round 1 (counts down from 45 mins)
   const [timerRestored, setTimerRestored] = useState(false)
   const [timerRestoreAttempted, setTimerRestoreAttempted] = useState(false)
   
@@ -1341,17 +1341,20 @@ export default function WelcomePage() {
     return () => clearInterval(interval)
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
 
-  // Round 1 Local Timer - counts up from when conversation starts
+  // Round 1 Local Timer - counts down from 45 minutes
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
     
     if (step === 4 && currentRound === 1 && conversationStarted) {
       interval = setInterval(() => {
-        setRound1LocalTimer(prev => prev + 1)
+        setRound1LocalTimer(prev => {
+          if (prev <= 0) return 0
+          return prev - 1
+        })
       }, 1000)
     } else {
       // Reset timer when not in Round 1 conversation
-      setRound1LocalTimer(0)
+      setRound1LocalTimer(2700) // 45 minutes
     }
     
     return () => {
@@ -4786,9 +4789,9 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  {/* Round 1 Recommended Time Message */}
-                  {currentRound === 1 && (
-                    <div className={`mb-4 p-4 rounded-xl border ${
+                  {/* Round 1 Recommended Time Message - Shows every 2 minutes */}
+                  {currentRound === 1 && conversationStarted && (round1LocalTimer % 120 < 5 || round1LocalTimer <= 1800) && (
+                    <div className={`mb-4 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
                       dark 
                         ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"
                         : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200"
@@ -4801,36 +4804,40 @@ export default function WelcomePage() {
                               الوقت الموصى به: 45 دقيقة
                             </p>
                             <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-600"}`}>
-                              يمكنك البقاء أطول بعد 30 دقيقة إذا أردت
+                              الحد الأدنى 30 دقيقة
                             </p>
                           </div>
                         </div>
-                        {conversationStarted && (
-                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${
-                            round1LocalTimer >= 2700 // 45 minutes
-                              ? dark ? "bg-green-500/20 border border-green-400/30" : "bg-green-100 border border-green-300"
-                              : round1LocalTimer >= 1800 // 30 minutes
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${
+                          round1LocalTimer <= 0 // Time's up
+                            ? dark ? "bg-green-500/20 border border-green-400/30" : "bg-green-100 border border-green-300"
+                            : round1LocalTimer <= 900 // Last 15 minutes
+                              ? dark ? "bg-red-500/20 border border-red-400/30" : "bg-red-100 border border-red-300"
+                              : round1LocalTimer <= 1800 // 30 minutes or less
                                 ? dark ? "bg-yellow-500/20 border border-yellow-400/30" : "bg-yellow-100 border border-yellow-300"
                                 : dark ? "bg-blue-500/20 border border-blue-400/30" : "bg-blue-100 border border-blue-300"
-                          }`}>
-                            <Clock className={`w-4 h-4 ${
-                              round1LocalTimer >= 2700 
-                                ? dark ? "text-green-400" : "text-green-600"
-                                : round1LocalTimer >= 1800
+                        }`}>
+                          <Clock className={`w-4 h-4 ${
+                            round1LocalTimer <= 0
+                              ? dark ? "text-green-400" : "text-green-600"
+                              : round1LocalTimer <= 900
+                                ? dark ? "text-red-400" : "text-red-600"
+                                : round1LocalTimer <= 1800
                                   ? dark ? "text-yellow-400" : "text-yellow-600"
                                   : dark ? "text-blue-400" : "text-blue-600"
-                            }`} />
-                            <span className={`text-sm font-bold ${
-                              round1LocalTimer >= 2700
-                                ? dark ? "text-green-300" : "text-green-700"
-                                : round1LocalTimer >= 1800
+                          }`} />
+                          <span className={`text-sm font-bold ${
+                            round1LocalTimer <= 0
+                              ? dark ? "text-green-300" : "text-green-700"
+                              : round1LocalTimer <= 900
+                                ? dark ? "text-red-300" : "text-red-700"
+                                : round1LocalTimer <= 1800
                                   ? dark ? "text-yellow-300" : "text-yellow-700"
                                   : dark ? "text-blue-300" : "text-blue-700"
-                            }`}>
-                              {Math.floor(round1LocalTimer / 60)}:{(round1LocalTimer % 60).toString().padStart(2, '0')}
-                            </span>
-                          </div>
-                        )}
+                          }`}>
+                            {round1LocalTimer <= 0 ? "انتهى!" : `${Math.floor(round1LocalTimer / 60)}:${(round1LocalTimer % 60).toString().padStart(2, '0')}`}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   )}

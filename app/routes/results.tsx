@@ -368,7 +368,7 @@ export default function ResultsPage() {
                         </div>
                         <div>
                           <h3 className={`font-bold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                            الجولة {match.round}
+                            الجولة الفردية
                           </h3>
                           <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
                             {match.type}

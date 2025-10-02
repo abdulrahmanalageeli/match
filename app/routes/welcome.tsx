@@ -5378,8 +5378,8 @@ export default function WelcomePage() {
         {/* Main feedback/result + previous matches layout */}
         {modalStep && (
           <>
-            {/* Round 1 Recommended Time Message - Outside feedback modal */}
-            {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
+            {/* Round 1 Recommended Time Message - Always visible in feedback */}
+            {currentRound === 1 && round1TimerStarted && (
               <div className={`mb-6 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 max-w-4xl mx-auto ${
                 dark 
                   ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"

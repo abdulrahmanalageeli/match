@@ -28,32 +28,7 @@ import { Progress } from "../../components/ui/progress";
 import PromptTopicsModal from "../components/PromptTopicsModal";
 import logoPng from "../welcome/blindmatch.png";
 
-// Logo Component for Groups Page
-const GroupsLogoHeader = () => (
-  <div className="fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-50">
-    <div 
-      onClick={() => window.location.href = "/"}
-      className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
-    >
-      <div className="relative">
-        {/* Glow effect background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg sm:rounded-xl md:rounded-2xl blur-sm sm:blur-md md:blur-xl opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
-        
-        {/* Main logo container */}
-        <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-2.5 md:p-3 shadow-lg sm:shadow-xl md:shadow-2xl group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
-          <img 
-            src={logoPng} 
-            alt="BlindMatch" 
-            className="w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-sm sm:drop-shadow-md md:drop-shadow-lg" 
-          />
-        </div>
-        
-        {/* Subtle animated border */}
-        <div className="absolute inset-0 rounded-lg sm:rounded-xl md:rounded-2xl bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
-      </div>
-    </div>
-  </div>
-);
+// Logo Component for Groups Page - Removed (now integrated into header)
 
 interface Game {
   id: string;
@@ -495,7 +470,6 @@ export default function GroupsPage() {
   if (!gameStarted) {
     return (
       <>
-        <GroupsLogoHeader />
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-8">
@@ -614,51 +588,57 @@ export default function GroupsPage() {
 
   return (
     <>
-      <GroupsLogoHeader />
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
       <div className="max-w-4xl mx-auto">
-        {/* Enhanced Header with timer and game info */}
-        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl p-6 mb-8 border border-slate-600 shadow-lg backdrop-blur-sm">
-          <div className="flex items-center justify-between">
-            {/* Enhanced Timer Display */}
-            <div className="flex items-center space-x-6">
-              <div className="text-center">
-                <div className={`text-3xl font-bold flex items-center justify-center ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  <Clock className="w-6 h-6 ml-3" />
-                  {formatTime(timeRemaining)}
-                </div>
-                <div className="text-slate-400 text-sm mt-1">الوقت المتبقي</div>
-                {/* Progress bar */}
-                <div className="w-24 h-2 bg-slate-700 rounded-full mt-2 overflow-hidden">
-                  <div 
-                    className={`h-full transition-all duration-1000 ${timeRemaining <= 300 ? 'bg-red-400' : timeRemaining <= 600 ? 'bg-yellow-400' : 'bg-green-400'}`}
-                    style={{ width: `${(timeRemaining / (30 * 60)) * 100}%` }}
-                  />
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-cyan-400 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 ml-2" />
-                  {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
-                </div>
-                <div className="text-slate-400 text-sm mt-1">اللعبة الحالية</div>
+        {/* Compact Header with logo, timer and game info */}
+        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl p-3 sm:p-4 mb-6 border border-slate-600 shadow-lg backdrop-blur-sm">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
+            {/* Logo */}
+            <div 
+              onClick={() => window.location.href = "/"}
+              className="group cursor-pointer transition-all duration-300 hover:scale-105 shrink-0"
+            >
+              <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 sm:p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all">
+                <img 
+                  src={logoPng} 
+                  alt="BlindMatch" 
+                  className="w-10 h-10 sm:w-12 sm:h-12 object-contain" 
+                />
               </div>
             </div>
-            {selectedGameId && (
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={() => {
-                    setSelectedGameId(null);
-                    setGamePhase('intro');
-                  }}
-                  variant="outline"
-                  size="lg"
-                  className="border-slate-600 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-300"
-                >
-                  <ChevronLeft className="w-5 h-5 ml-2" />
-                  عودة للألعاب
-                </Button>
+
+            {/* Timer & Game Info */}
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
+              <div className="text-center">
+                <div className={`text-xl sm:text-2xl font-bold flex items-center justify-center ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
+                  {formatTime(timeRemaining)}
+                </div>
+                <div className="text-slate-400 text-xs mt-0.5">الوقت المتبقي</div>
               </div>
+              <div className="text-center">
+                <div className="text-base sm:text-lg font-bold text-cyan-400 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 ml-1" />
+                  {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
+                </div>
+                <div className="text-slate-400 text-xs mt-0.5">اللعبة الحالية</div>
+              </div>
+            </div>
+
+            {/* Back Button */}
+            {selectedGameId && (
+              <Button
+                onClick={() => {
+                  setSelectedGameId(null);
+                  setGamePhase('intro');
+                }}
+                variant="outline"
+                size="sm"
+                className="border-slate-600 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-300 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 shrink-0"
+              >
+                <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
+                عودة
+              </Button>
             )}
           </div>
         </div>

@@ -1424,7 +1424,7 @@ export default function AdminPage() {
 
               <button
                 onClick={async () => {
-                  let confirmMessage = "Generate group matches? This will create groups of 3-4 people based on MBTI compatibility."
+                  let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
                   if (excludedParticipants.length > 0) {
                     confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
                   }
@@ -1433,7 +1433,10 @@ export default function AdminPage() {
                   const res = await fetch("/api/admin/trigger-match", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ matchType: "group" }),
+                    body: JSON.stringify({ 
+                      matchType: "group",
+                      eventId: currentEventId
+                    }),
                   })
                   const data = await res.json()
                   if (res.ok) {

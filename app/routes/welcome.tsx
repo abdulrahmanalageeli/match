@@ -4789,8 +4789,8 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  {/* Round 1 Recommended Time Message - Shows every 2 minutes */}
-                  {currentRound === 1 && conversationStarted && (round1LocalTimer % 120 < 5 || round1LocalTimer <= 1800) && (
+                  {/* Round 1 Recommended Time Message - Shows every 2 minutes for 15 seconds */}
+                  {currentRound === 1 && conversationStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
                     <div className={`mb-4 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
                       dark 
                         ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"

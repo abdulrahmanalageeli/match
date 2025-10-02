@@ -259,23 +259,23 @@ export default function GroupsPage() {
 
   const renderGameSelection = () => {
     return (
-      <div className="text-center space-y-8">
-        <div className="space-y-3">
-          <h2 className="text-4xl font-bold text-white">اختر لعبة</h2>
-          <p className="text-slate-400 text-lg">انقر على اللعبة التي تريد أن تبدأ بها</p>
+      <div className="text-center space-y-6 sm:space-y-8">
+        <div className="space-y-2 sm:space-y-3">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">اختر لعبة</h2>
+          <p className="text-slate-400 text-base sm:text-lg">انقر على اللعبة التي تريد أن تبدأ بها</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
           {games.map((game) => (
             <div 
               key={game.id} 
-              className="group bg-slate-800/50 rounded-xl p-6 border border-slate-700 hover:border-cyan-400 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl hover:shadow-cyan-500/20" 
+              className="group bg-slate-800/50 rounded-xl p-4 sm:p-6 border border-slate-700 hover:border-cyan-400 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl hover:shadow-cyan-500/20" 
               onClick={() => startGame(game.id)}
             >
-              <div className={`w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
+              <div className={`w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
                 {game.icon}
               </div>
-              <h3 className="text-xl font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
-              <p className="text-slate-300 text-sm leading-relaxed">{game.descriptionAr}</p>
+              <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3 group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">{game.descriptionAr}</p>
               <div className="mt-4 text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 انقر للبدء ←
               </div>
@@ -373,8 +373,8 @@ export default function GroupsPage() {
         {currentGame.id === "never-have-i-ever" && (
           <Card className="bg-slate-800/50 border-slate-700">
             <CardContent className="p-6">
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-4">لم أفعل من قبل</h3>
+              <div className="text-center mb-4 sm:mb-6">
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-white mb-3 sm:mb-4">لم أفعل من قبل</h3>
               </div>
 
               {/* Enhanced Game Instructions */}
@@ -402,8 +402,8 @@ export default function GroupsPage() {
                 </ol>
               </div>
 
-              <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-center">
-                <p className="text-white text-lg font-semibold">
+              <div className="bg-slate-700/50 rounded-lg p-4 sm:p-6 mb-4 sm:mb-6 text-center">
+                <p className="text-white text-base sm:text-lg md:text-xl font-semibold leading-relaxed">
                   {neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]}
                 </p>
               </div>
@@ -498,12 +498,12 @@ export default function GroupsPage() {
         <GroupsLogoHeader />
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
         <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
-              <Users className="w-8 h-8 text-white" />
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+              <Users className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">ألعاب جماعية</h1>
-            <p className="text-slate-300 text-lg">30 دقيقة من المرح والتفاعل</p>
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-2">ألعاب جماعية</h1>
+            <p className="text-slate-300 text-base sm:text-lg md:text-xl">30 دقيقة من المرح والتفاعل</p>
           </div>
 
           <div className="max-w-2xl mx-auto">
@@ -600,9 +600,9 @@ export default function GroupsPage() {
           <div className="text-center mt-8">
             <Button 
               onClick={startSession}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-10 py-5 text-xl font-bold rounded-2xl shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-500/50"
+              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-6 sm:px-10 py-4 sm:py-5 text-lg sm:text-xl font-bold rounded-2xl shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-500/50"
             >
-              <Play className="w-7 h-7 mr-3" />
+              <Play className="w-6 h-6 sm:w-7 sm:h-7 mr-2 sm:mr-3" />
               ابدأ الجلسة
             </Button>
           </div>
@@ -615,19 +615,19 @@ export default function GroupsPage() {
   return (
     <>
       <GroupsLogoHeader />
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 md:p-8" dir="rtl">
       <div className="max-w-4xl mx-auto">
         {/* Enhanced Header with timer and game info */}
-        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl p-6 mb-8 border border-slate-600 shadow-lg backdrop-blur-sm">
+        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8 border border-slate-600 shadow-lg backdrop-blur-sm">
           <div className="flex items-center justify-between">
             {/* Enhanced Timer Display */}
             <div className="flex items-center space-x-6">
               <div className="text-center">
-                <div className={`text-3xl font-bold flex items-center justify-center ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  <Clock className="w-6 h-6 ml-3" />
+                <div className={`text-2xl sm:text-3xl md:text-4xl font-bold flex items-center justify-center ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
+                  <Clock className="w-5 h-5 sm:w-6 sm:h-6 ml-2 sm:ml-3" />
                   {formatTime(timeRemaining)}
                 </div>
-                <div className="text-slate-400 text-sm mt-1">الوقت المتبقي</div>
+                <div className="text-slate-400 text-xs sm:text-sm mt-1">الوقت المتبقي</div>
                 {/* Progress bar */}
                 <div className="w-24 h-2 bg-slate-700 rounded-full mt-2 overflow-hidden">
                   <div 
@@ -637,11 +637,11 @@ export default function GroupsPage() {
                 </div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-cyan-400 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 ml-2" />
+                <div className="text-lg sm:text-xl md:text-2xl font-bold text-cyan-400 flex items-center justify-center">
+                  <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
                   {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
                 </div>
-                <div className="text-slate-400 text-sm mt-1">اللعبة الحالية</div>
+                <div className="text-slate-400 text-xs sm:text-sm mt-1">اللعبة الحالية</div>
               </div>
             </div>
             {selectedGameId && (
@@ -665,7 +665,7 @@ export default function GroupsPage() {
 
         {/* Game Content */}
         <Card className="bg-slate-800/30 border-slate-700">
-          <CardContent className="p-8">
+          <CardContent className="p-4 sm:p-6 md:p-8">
             {renderGameContent()}
           </CardContent>
         </Card>

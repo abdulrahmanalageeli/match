@@ -1314,18 +1314,27 @@ export default function AdminPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={async () => {
-                  if (!confirm("Assign table numbers to everyone?")) return
-                  await fetch("/api/admin", {
+                  if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers (1, 2, 3...) only to locked/pinned matches")) return
+                  const res = await fetch("/api/admin", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "set-table" }),
+                    body: JSON.stringify({ 
+                      action: "set-table",
+                      event_id: currentEventId
+                    }),
                   })
+                  const data = await res.json()
+                  if (res.ok) {
+                    alert(`✅ ${data.message}\n\nAssigned tables: ${data.assignedTables}\nTotal matches: ${data.totalMatches}`)
+                  } else {
+                    alert(`❌ Failed: ${data.error}`)
+                  }
                   fetchParticipants()
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
               >
                 <Table2 className="w-4 h-4" />
-                Auto Assign Tables
+                Auto Assign Tables (Locked Only)
               </button>
 
               <button

@@ -4497,16 +4497,84 @@ export default function WelcomePage() {
                     {matchResult === "المنظم" ? "حوار مع المنظم" : `حوار مع رقم ${matchResult}`}
                   </h3>
                   
-                  <div className={`text-center mb-4 p-3 rounded-xl border ${
+                  {/* Match Info Card - Compact - Same design as timer not active */}
+                  <div className={`mb-6 p-4 rounded-xl border shadow-md ${
                     dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
+                      ? "bg-slate-800/50 border-slate-600/50"
+                      : "bg-white/80 border-gray-200"
                   }`}>
-                    <p className={`text-lg font-semibold ${
-                      dark ? "text-slate-200" : "text-gray-700"
-                    }`}>
-                      {tableNumber ? `الطاولة رقم ${tableNumber}` : "سيتم إخبارك بالطاولة قريباً"}
-                    </p>
+                    {/* Partner & Table Info - Single Row */}
+                    <div className="flex items-center justify-between gap-4">
+                      {/* Partner Info */}
+                      <div className="flex flex-col items-center gap-2 flex-1">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          dark 
+                            ? "bg-cyan-600/30 border border-cyan-500/50"
+                            : "bg-cyan-100 border border-cyan-300"
+                        }`}>
+                          <Users className={`w-4 h-4 ${
+                            dark ? "text-cyan-400" : "text-cyan-600"
+                          }`} />
+                        </div>
+                        <div className="text-center">
+                          <p className={`text-sm ${
+                            dark ? "text-slate-400" : "text-gray-500"
+                          }`}>
+                            شريكك
+                          </p>
+                          <p className={`text-xl font-bold ${
+                            dark ? "text-cyan-300" : "text-cyan-700"
+                          }`}>
+                            {matchResult === "المنظم" ? "المنظم" : `#${matchResult}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Divider */}
+                      <div className={`w-px h-16 ${
+                        dark ? "bg-slate-600" : "bg-gray-300"
+                      }`}></div>
+
+                      {/* Table Info */}
+                      <div className="flex flex-col items-center gap-2 flex-1">
+                        {tableNumber ? (
+                          <>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              dark 
+                                ? "bg-purple-600/30 border border-purple-500/50"
+                                : "bg-purple-100 border border-purple-300"
+                            }`}>
+                              <Target className={`w-4 h-4 ${
+                                dark ? "text-purple-400" : "text-purple-600"
+                              }`} />
+                            </div>
+                            <div className="text-center">
+                              <p className={`text-sm ${
+                                dark ? "text-slate-400" : "text-gray-500"
+                              }`}>
+                                الطاولة
+                              </p>
+                              <p className={`text-xl font-bold ${
+                                dark ? "text-purple-300" : "text-purple-700"
+                              }`}>
+                                #{tableNumber}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className={`w-5 h-5 ${
+                              dark ? "text-amber-400" : "text-amber-600"
+                            }`} />
+                            <p className={`text-sm ${
+                              dark ? "text-amber-300" : "text-amber-700"
+                            }`}>
+                              قريباً
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}

@@ -619,10 +619,10 @@ export default async function handler(req, res) {
     }
     
     try {
-      // First, resolve the token to get participant info
+      // First, resolve the token to get participant info including their match_id and event_id
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("assigned_number")
+        .select("assigned_number, match_id, event_id")
         .eq("secure_token", req.body.secure_token)
         .single();
 
@@ -636,13 +636,13 @@ export default async function handler(req, res) {
         });
       }
 
-      // Fetch participant history
-      console.log(`[API] Fetching match results for participant #${participant.assigned_number}`);
+      // Fetch ALL match results for this participant number across ALL events
+      console.log(`[API] Fetching ALL match results for participant #${participant.assigned_number} across all events`);
       const { data: matches, error: matchError } = await supabase
         .from("match_results")
         .select("*")
-        .eq("match_id", "00000000-0000-0000-0000-000000000000")
         .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
+        .order("event_id", { ascending: false })
         .order("created_at", { ascending: false });
 
       console.log("[API] Match results query result:", { matches, matchError });
@@ -663,15 +663,15 @@ export default async function handler(req, res) {
         const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
         const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
         
-        // Fetch partner information separately
+        // Fetch partner information from the same event as this specific match
         let partnerInfo = null
         if (partnerNumber && partnerNumber !== 9999) {
           try {
             const { data: partnerData, error: partnerError } = await supabase
               .from("participants")
-              .select("name, age, phone_number")
+              .select("name, age, phone_number, event_id")
               .eq("assigned_number", partnerNumber)
-              .eq("match_id", "00000000-0000-0000-0000-000000000000")
+              .eq("event_id", match.event_id)  // Use the match's event_id to get partner from correct event
               .single()
             
             if (!partnerError && partnerData) {
@@ -692,6 +692,7 @@ export default async function handler(req, res) {
           partner_name: partnerNumber === 9999 ? "المنظم" : (partnerInfo?.name || `لاعب رقم ${partnerNumber}`),
           partner_age: partnerInfo?.age || null,
           partner_phone: partnerInfo?.phone_number || null,
+          partner_event_id: partnerInfo?.event_id || null,
           type: match.match_type || "غير محدد",
           reason: match.reason || "السبب غير متوفر",
           round: match.round || 1,
@@ -709,6 +710,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         assigned_number: participant.assigned_number,
+        event_id: participant.event_id,
         history: history
       });
 

@@ -142,53 +142,30 @@ export default async function handler(req, res) {
           
           console.log(`📌 Found ${lockedMatches?.length || 0} locked matches`)
           
-          // Step 3: Get all match results for current event
-          const { data: allMatches, error: matchesError } = await supabase
-            .from("match_results")
-            .select("id, participant_a_number, participant_b_number")
-            .eq("match_id", STATIC_MATCH_ID)
-            .eq("event_id", currentEventId)
-            .order("id", { ascending: true })
-          
-          if (matchesError) {
-            console.error("Error fetching matches:", matchesError)
-            return res.status(500).json({ error: matchesError.message })
-          }
-          
-          // Step 4: Assign table numbers only to locked/pinned matches
+          // Step 3: Assign table numbers only to locked/pinned matches
           let tableCounter = 1
-          const updates = []
+          let assignedCount = 0
           
-          for (const match of allMatches || []) {
-            // Check if this match is locked
-            const isLocked = lockedMatches?.some(locked => 
-              (locked.participant1_number === match.participant_a_number && locked.participant2_number === match.participant_b_number) ||
-              (locked.participant1_number === match.participant_b_number && locked.participant2_number === match.participant_a_number)
-            )
-            
-            if (isLocked) {
-              updates.push({
-                id: match.id,
-                table_number: tableCounter
-              })
-              console.log(`   📍 Table ${tableCounter}: #${match.participant_a_number} ↔ #${match.participant_b_number} (Locked)`)
-              tableCounter++
-            }
-          }
-          
-          // Step 5: Update locked matches with table numbers
-          if (updates.length > 0) {
+          for (const locked of lockedMatches || []) {
+            // Update the match using participant numbers (bidirectional)
             const { error: updateError } = await supabase
               .from("match_results")
-              .upsert(updates, { onConflict: 'id' })
+              .update({ table_number: tableCounter })
+              .eq("match_id", STATIC_MATCH_ID)
+              .eq("event_id", currentEventId)
+              .or(`and(participant_a_number.eq.${locked.participant1_number},participant_b_number.eq.${locked.participant2_number}),and(participant_a_number.eq.${locked.participant2_number},participant_b_number.eq.${locked.participant1_number})`)
             
             if (updateError) {
-              console.error("Error updating table numbers:", updateError)
+              console.error(`Error updating table number for locked match #${locked.participant1_number} ↔ #${locked.participant2_number}:`, updateError)
               return res.status(500).json({ error: updateError.message })
             }
             
-            console.log(`✅ Assigned ${updates.length} table numbers to locked matches`)
+            console.log(`   📍 Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked)`)
+            tableCounter++
+            assignedCount++
           }
+          
+          console.log(`✅ Assigned ${assignedCount} table numbers to locked matches`)
           
           return res.status(200).json({ 
             message: `Tables assigned: ${updates.length} locked matches got table numbers`,

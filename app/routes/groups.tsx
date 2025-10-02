@@ -175,7 +175,7 @@ export default function GroupsPage() {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
   const [timerActive, setTimerActive] = useState(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState(false);
-  const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(true); // TODO: Set to true when timer ends
+  const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(false);
 
   const currentGame = games[currentGameIndex];
 
@@ -189,6 +189,7 @@ export default function GroupsPage() {
           if (prev <= 1) {
             setTimerActive(false);
             setShowTimeUpModal(true);
+            setShowIndividualRoundsModal(true); // Show individual rounds modal when timer ends
             return 0;
           }
           return prev - 1;
@@ -699,7 +700,7 @@ export default function GroupsPage() {
 
             {/* Title */}
             <h3 className="text-2xl font-bold text-center mb-4 text-white">
-              استعد للجولات الفردية! 🎯
+              استعد للجولات الفردية
             </h3>
 
             {/* Instructions */}
@@ -746,7 +747,7 @@ export default function GroupsPage() {
               onClick={() => setShowIndividualRoundsModal(false)}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-3 text-lg"
             >
-              فهمت! 👍
+              فهمت
             </Button>
           </div>
         </div>

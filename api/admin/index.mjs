@@ -168,9 +168,9 @@ export default async function handler(req, res) {
           console.log(`✅ Assigned ${assignedCount} table numbers to locked matches`)
           
           return res.status(200).json({ 
-            message: `Tables assigned: ${updates.length} locked matches got table numbers`,
-            assignedTables: updates.length,
-            totalMatches: allMatches?.length || 0
+            message: `Tables assigned: ${assignedCount} locked matches got table numbers`,
+            assignedTables: assignedCount,
+            totalMatches: lockedMatches?.length || 0
           })
         } catch (error) {
           console.error("Error in set-table:", error)

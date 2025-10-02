@@ -5425,6 +5425,59 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
+                  {/* Round 1 Recommended Time Message - Shows in feedback modal */}
+                  {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
+                    <div className={`mb-6 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
+                      dark 
+                        ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"
+                        : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200"
+                    }`}>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Clock className={`w-5 h-5 ${dark ? "text-blue-400" : "text-blue-600"}`} />
+                          <div>
+                            <p className={`text-sm font-semibold ${dark ? "text-blue-300" : "text-blue-700"}`}>
+                              الوقت الموصى به: 45 دقيقة
+                            </p>
+                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-600"}`}>
+                              الحد الأدنى 30 دقيقة
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${
+                          round1LocalTimer <= 0 // Time's up
+                            ? dark ? "bg-green-500/20 border border-green-400/30" : "bg-green-100 border border-green-300"
+                            : round1LocalTimer <= 900 // Last 15 minutes
+                              ? dark ? "bg-red-500/20 border border-red-400/30" : "bg-red-100 border border-red-300"
+                              : round1LocalTimer <= 1800 // 30 minutes or less
+                                ? dark ? "bg-yellow-500/20 border border-yellow-400/30" : "bg-yellow-100 border border-yellow-300"
+                                : dark ? "bg-blue-500/20 border border-blue-400/30" : "bg-blue-100 border border-blue-300"
+                        }`}>
+                          <Clock className={`w-4 h-4 ${
+                            round1LocalTimer <= 0
+                              ? dark ? "text-green-400" : "text-green-600"
+                              : round1LocalTimer <= 900
+                                ? dark ? "text-red-400" : "text-red-600"
+                                : round1LocalTimer <= 1800
+                                  ? dark ? "text-yellow-400" : "text-yellow-600"
+                                  : dark ? "text-blue-400" : "text-blue-600"
+                          }`} />
+                          <span className={`text-sm font-bold ${
+                            round1LocalTimer <= 0
+                              ? dark ? "text-green-300" : "text-green-700"
+                              : round1LocalTimer <= 900
+                                ? dark ? "text-red-300" : "text-red-700"
+                                : round1LocalTimer <= 1800
+                                  ? dark ? "text-yellow-300" : "text-yellow-700"
+                                  : dark ? "text-blue-300" : "text-blue-700"
+                          }`}>
+                            {round1LocalTimer <= 0 ? "انتهى!" : `${Math.floor(round1LocalTimer / 60)}:${(round1LocalTimer % 60).toString().padStart(2, '0')}`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <h3 className={`text-xl font-bold text-center mb-6 flex items-center justify-center gap-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
                       <MessageSquare className="w-4 h-4" />

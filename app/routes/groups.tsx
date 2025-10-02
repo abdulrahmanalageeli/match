@@ -590,55 +590,57 @@ export default function GroupsPage() {
     <>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
       <div className="max-w-4xl mx-auto">
-        {/* Compact Header with logo, timer and game info */}
-        <div className="bg-gradient-to-r from-slate-800/60 to-slate-700/60 rounded-xl p-3 sm:p-4 mb-6 border border-slate-600 shadow-lg backdrop-blur-sm">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4">
-            {/* Logo */}
+        {/* Sleek Horizontal Header */}
+        <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-lg px-3 py-2 mb-6 border border-slate-600/50 shadow-md backdrop-blur-sm">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo - Compact */}
             <div 
               onClick={() => window.location.href = "/"}
-              className="group cursor-pointer transition-all duration-300 hover:scale-105 shrink-0"
+              className="cursor-pointer transition-all duration-200 hover:opacity-80 shrink-0"
             >
-              <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg p-1.5 sm:p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all">
-                <img 
-                  src={logoPng} 
-                  alt="BlindMatch" 
-                  className="w-10 h-10 sm:w-12 sm:h-12 object-contain" 
-                />
-              </div>
+              <img 
+                src={logoPng} 
+                alt="BlindMatch" 
+                className="w-8 h-8 sm:w-9 sm:h-9 object-contain" 
+              />
             </div>
 
-            {/* Timer & Game Info */}
-            <div className="flex items-center gap-3 sm:gap-4 flex-wrap justify-center">
-              <div className="text-center">
-                <div className={`text-xl sm:text-2xl font-bold flex items-center justify-center ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  <Clock className="w-4 h-4 sm:w-5 sm:h-5 ml-2" />
+            {/* Timer & Game Info - Horizontal */}
+            <div className="flex items-center gap-3 sm:gap-6 flex-1 justify-center">
+              {/* Timer */}
+              <div className="flex items-center gap-1.5">
+                <Clock className={`w-4 h-4 ${timeRemaining <= 300 ? 'text-red-400' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`} />
+                <span className={`text-lg sm:text-xl font-bold ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
                   {formatTime(timeRemaining)}
-                </div>
-                <div className="text-slate-400 text-xs mt-0.5">الوقت المتبقي</div>
+                </span>
               </div>
-              <div className="text-center">
-                <div className="text-base sm:text-lg font-bold text-cyan-400 flex items-center justify-center">
-                  <Sparkles className="w-4 h-4 ml-1" />
+
+              {/* Divider */}
+              <div className="w-px h-6 bg-slate-600"></div>
+
+              {/* Current Game */}
+              <div className="flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span className="text-sm sm:text-base font-semibold text-cyan-400 truncate max-w-[120px] sm:max-w-none">
                   {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
-                </div>
-                <div className="text-slate-400 text-xs mt-0.5">اللعبة الحالية</div>
+                </span>
               </div>
             </div>
 
-            {/* Back Button */}
-            {selectedGameId && (
-              <Button
+            {/* Back Button - Sleek */}
+            {selectedGameId ? (
+              <button
                 onClick={() => {
                   setSelectedGameId(null);
                   setGamePhase('intro');
                 }}
-                variant="outline"
-                size="sm"
-                className="border-slate-600 hover:border-cyan-400 hover:bg-cyan-400/10 transition-all duration-300 text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 shrink-0"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/5 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-xs sm:text-sm font-medium shrink-0"
               >
-                <ChevronLeft className="w-3 h-3 sm:w-4 sm:h-4 ml-1" />
-                عودة
-              </Button>
+                <ChevronLeft className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">عودة</span>
+              </button>
+            ) : (
+              <div className="w-8 sm:w-16"></div>
             )}
           </div>
         </div>

@@ -1342,25 +1342,38 @@ export default function WelcomePage() {
   }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
 
   // Round 1 Local Timer - counts down from 45 minutes
+  // Track if timer has ever started to keep it running even after global timer ends
+  const [round1TimerStarted, setRound1TimerStarted] = useState(false)
+  
+  useEffect(() => {
+    // Start tracking when conversation begins
+    if (step === 4 && currentRound === 1 && conversationStarted) {
+      setRound1TimerStarted(true)
+    }
+    // Reset when leaving Round 1
+    if (step !== 4 || currentRound !== 1) {
+      setRound1TimerStarted(false)
+      setRound1LocalTimer(2700)
+    }
+  }, [step, currentRound, conversationStarted])
+  
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
     
-    if (step === 4 && currentRound === 1 && conversationStarted) {
+    // Keep timer running once started, even if global timer ends
+    if (step === 4 && currentRound === 1 && round1TimerStarted) {
       interval = setInterval(() => {
         setRound1LocalTimer(prev => {
           if (prev <= 0) return 0
           return prev - 1
         })
       }, 1000)
-    } else {
-      // Reset timer when not in Round 1 conversation
-      setRound1LocalTimer(2700) // 45 minutes
     }
     
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [step, currentRound, conversationStarted])
+  }, [step, currentRound, round1TimerStarted])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
 
@@ -4790,7 +4803,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Round 1 Recommended Time Message - Shows every 2 minutes for 15 seconds */}
-                  {currentRound === 1 && conversationStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
+                  {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
                     <div className={`mb-4 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
                       dark 
                         ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"

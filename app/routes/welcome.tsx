@@ -1344,7 +1344,6 @@ export default function WelcomePage() {
   // Round 1 Local Timer - counts down from 45 minutes
   // Track if timer has ever started to keep it running even after global timer ends
   const [round1TimerStarted, setRound1TimerStarted] = useState(false)
-  const [showGroupsEndPopup, setShowGroupsEndPopup] = useState(true) // TODO: Change to false after testing
   
   useEffect(() => {
     // Start tracking when conversation begins
@@ -5374,59 +5373,6 @@ export default function WelcomePage() {
               )}
     </div>
   </section>
-        )}
-
-        {/* Groups End Popup - Shows after groups timer ends */}
-        {showGroupsEndPopup && (
-          <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 duration-500">
-            <div className={`max-w-md p-6 rounded-2xl shadow-2xl border-2 ${
-              dark 
-                ? "bg-gradient-to-br from-purple-900/95 to-pink-900/95 border-purple-400/50 backdrop-blur-xl"
-                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300 backdrop-blur-xl"
-            }`}>
-              <div className="flex items-start gap-4">
-                <div className={`flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center ${
-                  dark ? "bg-purple-600/30" : "bg-purple-200"
-                }`}>
-                  <Smartphone className={`w-6 h-6 ${
-                    dark ? "text-purple-300" : "text-purple-700"
-                  }`} />
-                </div>
-                <div className="flex-1">
-                  <h3 className={`text-lg font-bold mb-2 ${
-                    dark ? "text-purple-200" : "text-purple-900"
-                  }`}>
-                    استعد للجولات الفردية! 🎯
-                  </h3>
-                  <p className={`text-sm mb-3 ${
-                    dark ? "text-purple-100" : "text-purple-800"
-                  }`}>
-                    افتح الرابط من الواتساب واحتفظ بهاتفك مفتوحاً للاستعداد للجولات الفردية
-                  </p>
-                  <div className={`flex items-center gap-2 p-2 rounded-lg ${
-                    dark ? "bg-purple-800/30" : "bg-purple-100"
-                  }`}>
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className={`text-xs font-medium ${
-                      dark ? "text-purple-200" : "text-purple-700"
-                    }`}>
-                      ابقَ متصلاً ومستعداً
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowGroupsEndPopup(false)}
-                  className={`flex-shrink-0 p-1 rounded-lg transition-colors ${
-                    dark 
-                      ? "hover:bg-purple-800/50 text-purple-300"
-                      : "hover:bg-purple-200 text-purple-600"
-                  }`}
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
         )}
 
         {/* Main feedback/result + previous matches layout */}

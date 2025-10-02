@@ -25,6 +25,7 @@ import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
+import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
 import logoPng from "../welcome/blindmatch.png";
 
@@ -174,6 +175,7 @@ export default function GroupsPage() {
   const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
   const [timerActive, setTimerActive] = useState(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState(false);
+  const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(true); // TODO: Set to true when timer ends
 
   const currentGame = games[currentGameIndex];
 
@@ -679,6 +681,72 @@ export default function GroupsPage() {
               className="bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white px-8 py-3 text-lg w-full"
             >
               انتقل للجولة الأولى
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Individual Rounds Preparation Modal */}
+      {showIndividualRoundsModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-2 border-cyan-400/50 rounded-2xl p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95 duration-300">
+            {/* Icon */}
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center animate-pulse">
+                <Smartphone className="w-10 h-10 text-white" />
+              </div>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-2xl font-bold text-center mb-4 text-white">
+              استعد للجولات الفردية! 🎯
+            </h3>
+
+            {/* Instructions */}
+            <div className="space-y-4 mb-6">
+              <div className="flex items-start gap-3 p-4 bg-cyan-500/10 border border-cyan-400/30 rounded-xl">
+                <LinkIcon className="w-6 h-6 text-cyan-400 flex-shrink-0 mt-1" />
+                <div>
+                  <p className="text-cyan-100 font-semibold mb-1">
+                    افتح رابط الواتساب
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    افتح الرابط الذي أرسلناه لك عبر الواتساب للدخول إلى الجولات الفردية
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-400/30 rounded-xl">
+                <Smartphone className="w-6 h-6 text-blue-400 flex-shrink-0 mt-1" />
+                <div>
+                  <p className="text-blue-100 font-semibold mb-1">
+                    ابقِ هاتفك مفتوحاً
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    احتفظ بهاتفك مفتوحاً ومشحوناً للحصول على التحديثات الفورية
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-purple-500/10 border border-purple-400/30 rounded-xl">
+                <Bell className="w-6 h-6 text-purple-400 flex-shrink-0 mt-1" />
+                <div>
+                  <p className="text-purple-100 font-semibold mb-1">
+                    كن جاهزاً للمطابقة
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    ستبدأ الجولات الفردية قريباً - تأكد من جاهزيتك!
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Close Button */}
+            <Button
+              onClick={() => setShowIndividualRoundsModal(false)}
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-3 text-lg"
+            >
+              فهمت! 👍
             </Button>
           </div>
         </div>

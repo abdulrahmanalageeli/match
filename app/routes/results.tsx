@@ -519,13 +519,6 @@ export default function ResultsPage() {
                             <div className={dark ? 'text-slate-200' : 'text-gray-800'}>
                               <span>الاسم: </span>
                               <span className="font-bold">{match.partner_name}</span>
-                              {match.partner_event_id && (
-                                <span className={`ml-2 px-2 py-0.5 rounded text-xs ${
-                                  dark ? 'bg-cyan-500/20 text-cyan-300' : 'bg-cyan-100 text-cyan-700'
-                                }`}>
-                                  الفعالية {match.partner_event_id}
-                                </span>
-                              )}
                             </div>
                           )}
                           {match.partner_age && (

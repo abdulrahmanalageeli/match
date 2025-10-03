@@ -1692,10 +1692,14 @@ export default function WelcomePage() {
       setReturningPlayerToken(tokenToUse);
       console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
       
-      // Check if this user needs to sign up for next event
-      setTimeout(() => {
-        checkNextEventSignup(tokenToUse);
-      }, 1000); // Small delay to let the page load
+      // Only check for next event signup if there's NO token in URL (main welcome page)
+      // AND user is on step -1 (main welcome page)
+      // Don't show popup when user is accessing a specific token URL or in other steps
+      if (!token && step === -1) {
+        setTimeout(() => {
+          checkNextEventSignup(tokenToUse);
+        }, 1000); // Small delay to let the page load
+      }
     }
   }, []);
 

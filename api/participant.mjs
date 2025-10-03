@@ -977,7 +977,7 @@ export default async function handler(req, res) {
   // AUTO SIGNUP FOR NEXT EVENT ACTION (for logged in users)
   if (action === "auto-signup-next-event") {
     try {
-      const { secure_token, gender_preference } = req.body
+      const { secure_token, gender_preference, humor_banter_style, early_openness_comfort } = req.body
       
       if (!secure_token) {
         return res.status(400).json({ error: "Missing secure_token" })
@@ -1024,6 +1024,20 @@ export default async function handler(req, res) {
           updateData.same_gender_preference = false
           updateData.any_gender_preference = false
           console.log('👫 Updated gender preference: opposite gender (default)')
+        }
+      }
+
+      // Handle interaction style updates if provided
+      if (humor_banter_style && ['A', 'B', 'C', 'D'].includes(humor_banter_style)) {
+        updateData.humor_banter_style = humor_banter_style
+        console.log('😄 Updated humor/banter style:', humor_banter_style)
+      }
+
+      if (early_openness_comfort !== undefined) {
+        const comfortLevel = parseInt(early_openness_comfort)
+        if (!isNaN(comfortLevel) && [0, 1, 2, 3].includes(comfortLevel)) {
+          updateData.early_openness_comfort = comfortLevel
+          console.log('🤝 Updated early openness comfort:', comfortLevel)
         }
       }
 

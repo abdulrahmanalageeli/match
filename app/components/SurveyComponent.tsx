@@ -92,7 +92,7 @@ const surveyQuestions = [
     description: "في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟",
     type: "radio",
     options: [
-      { value: "A", label: "المزاح المرح والذكاء اللفظي" },
+      { value: "A", label: "المزاح والمرح" },
       { value: "B", label: "النكات الودودة الخفيفة" },
       { value: "C", label: "الصدق والدفء" },
       { value: "D", label: "المباشرة والجدية" }

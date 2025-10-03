@@ -1655,7 +1655,9 @@ export default function WelcomePage() {
         body: JSON.stringify({ 
           action: "auto-signup-next-event",
           secure_token: token,
-          gender_preference: returningGenderPreference
+          gender_preference: returningGenderPreference,
+          humor_banter_style: returningHumorStyle,
+          early_openness_comfort: returningOpennessComfort
         }),
       })
       
@@ -1665,6 +1667,8 @@ export default function WelcomePage() {
         alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
         setShowNextEventPopup(false)
         setReturningGenderPreference("") // Reset gender preference
+        setReturningHumorStyle("") // Reset humor style
+        setReturningOpennessComfort("") // Reset openness comfort
       } else {
         alert(`❌ ${data.error}\n${data.message || ""}`)
       }
@@ -2872,7 +2876,7 @@ export default function WelcomePage() {
                     <div className="flex items-center gap-3">
                       <RadioGroupItem value="A" id="next-humor-A" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="next-humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
-                        المزاح المرح والذكاء اللفظي
+                        المزاح والمرح
                       </Label>
                     </div>
                     <div className="flex items-center gap-3">
@@ -3054,7 +3058,7 @@ export default function WelcomePage() {
                     <div className="flex items-center gap-3">
                       <RadioGroupItem value="A" id="humor-A" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
-                        المزاح المرح والذكاء اللفظي
+                        المزاح والمرح
                       </Label>
                     </div>
                     <div className="flex items-center gap-3">

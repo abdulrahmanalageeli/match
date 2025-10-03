@@ -276,6 +276,7 @@ export default function WelcomePage() {
   const [returningPhoneNumber, setReturningPhoneNumber] = useState("");
   const [returningLoading, setReturningLoading] = useState(false);
   const [returningGenderPreference, setReturningGenderPreference] = useState("");
+  const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -1563,13 +1564,17 @@ export default function WelcomePage() {
   }
   const previous = () => setStep((s) => Math.max(s - 1, -2))
 
-  // Handle returning participant phone lookup
-  const handleReturningParticipant = async () => {
+  // Handle returning participant phone lookup - show popup first
+  const handleReturningParticipant = () => {
     if (!returningPhoneNumber.trim()) {
       alert("يرجى إدخال رقم الهاتف")
       return
     }
+    setShowReturningSignupPopup(true)
+  }
 
+  // Handle actual signup submission from popup
+  const handleReturningSignupSubmit = async () => {
     setReturningLoading(true)
     try {
       const res = await fetch("/api/participant", {
@@ -1587,6 +1592,8 @@ export default function WelcomePage() {
       if (res.ok) {
         alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
         setReturningPhoneNumber("")
+        setReturningGenderPreference("")
+        setShowReturningSignupPopup(false)
       } else {
         alert(`❌ ${data.error}\n${data.message || ""}`)
       }
@@ -2873,6 +2880,104 @@ export default function WelcomePage() {
                       <>
                         <CheckCircle className="w-4 h-4" />
                         نعم، سجلني!
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Returning Participant Signup Popup */}
+        {showReturningSignupPopup && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className={`max-w-md w-full mx-4 rounded-2xl p-6 shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"}`}>
+              <div className="text-center space-y-4">
+                {/* Icon */}
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-green-500/20" : "bg-green-100"}`}>
+                  <UserCheck className={`w-8 h-8 ${dark ? "text-green-400" : "text-green-600"}`} />
+                </div>
+                
+                <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  تسجيل مشارك سابق
+                </h3>
+                
+                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  رقم الهاتف: {returningPhoneNumber}
+                </p>
+                
+                <div className={`p-4 rounded-xl border ${dark ? "bg-green-500/10 border-green-400/30" : "bg-green-50 border-green-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-green-300" : "text-green-700"}`}>
+                    🎉 سيتم البحث عن بياناتك وتسجيلك للحدث القادم
+                  </p>
+                </div>
+
+                {/* Gender Preference Options */}
+                <div className={`p-4 rounded-xl border ${dark ? "bg-blue-500/10 border-blue-400/30" : "bg-blue-50 border-blue-200"}`}>
+                  <p className={`text-sm font-medium mb-3 ${dark ? "text-blue-300" : "text-blue-700"}`}>
+                    تفضيلات التواصل (اختياري)
+                  </p>
+                  <p className={`text-xs mb-3 ${dark ? "text-blue-200" : "text-blue-600"}`}>
+                    إذا لم تحدد، سيتم التوافق مع الجنس الآخر
+                  </p>
+                  <RadioGroup 
+                    value={returningGenderPreference} 
+                    onValueChange={setReturningGenderPreference}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <RadioGroupItem value="" id="signup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <Label htmlFor="signup-opposite-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        الجنس الآخر (افتراضي)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <RadioGroupItem value="same_gender" id="signup-same-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <Label htmlFor="signup-same-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        نفس الجنس فقط
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <RadioGroupItem value="any_gender" id="signup-any-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <Label htmlFor="signup-any-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        أي جنس (ذكر أو أنثى)
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+                
+                {/* Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowReturningSignupPopup(false)
+                      setReturningGenderPreference("") // Reset gender preference
+                    }}
+                    disabled={returningLoading}
+                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                      dark 
+                        ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                        : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    إلغاء
+                  </button>
+                  
+                  <button
+                    onClick={handleReturningSignupSubmit}
+                    disabled={returningLoading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {returningLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        جاري التسجيل...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        تأكيد التسجيل
                       </>
                     )}
                   </button>

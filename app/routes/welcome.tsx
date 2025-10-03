@@ -2774,6 +2774,83 @@ export default function WelcomePage() {
   if (!token) {
     return (
       <>
+        {/* Next Event Signup Popup - Moved to top level */}
+        {showNextEventPopup && participantInfo && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className={`max-w-md w-full mx-4 rounded-2xl p-6 shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"}`}>
+              <div className="text-center space-y-4">
+                {/* Header */}
+                <div className="flex items-center justify-center mb-4">
+                  <div className="p-3 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-full border border-green-400/30">
+                    <UserRound className="w-8 h-8 text-green-400" />
+                  </div>
+                </div>
+                
+                <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  مرحباً {participantInfo.name}!
+                </h3>
+                
+                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  المشارك رقم #{participantInfo.assigned_number}
+                </p>
+                
+                <div className={`p-4 rounded-xl border ${dark ? "bg-green-500/10 border-green-400/30" : "bg-green-50 border-green-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-green-300" : "text-green-700"}`}>
+                    🎉 هل تريد التسجيل للحدث القادم؟
+                  </p>
+                  <p className={`text-xs mt-2 ${dark ? "text-green-200" : "text-green-600"}`}>
+                    سيتم تسجيلك تلقائياً باستخدام بياناتك المحفوظة
+                  </p>
+                </div>
+                
+                {/* Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setShowNextEventPopup(false)}
+                    disabled={nextEventSignupLoading}
+                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                      dark 
+                        ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                        : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    ليس الآن
+                  </button>
+                  
+                  <button
+                    onClick={handleAutoSignupNextEvent}
+                    disabled={nextEventSignupLoading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {nextEventSignupLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        جاري التسجيل...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        نعم، سجلني!
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TEST BUTTON - REMOVE AFTER TESTING */}
+        <button 
+          onClick={() => {
+            setParticipantInfo({name: "Test User", assigned_number: 123});
+            setShowNextEventPopup(true);
+          }}
+          style={{position: 'fixed', top: '10px', right: '10px', zIndex: 9999, background: 'red', color: 'white', padding: '10px'}}
+        >
+          TEST POPUP
+        </button>
+
         <LogoHeader />
         <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}

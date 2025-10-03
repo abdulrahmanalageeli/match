@@ -800,6 +800,63 @@ export default async function handler(req, res) {
     }
   }
 
+  // CHECK PHONE NUMBER DUPLICATE (for survey validation)
+  if (action === "check-phone-duplicate") {
+    const { phone_number } = req.body
+
+    if (!phone_number) {
+      return res.status(400).json({ error: "Phone number is required" })
+    }
+
+    try {
+      // Normalize phone number - extract last 7 digits for more precise matching
+      const normalizedPhone = phone_number.replace(/\D/g, '') // Remove all non-digits
+      if (normalizedPhone.length < 7) {
+        return res.status(400).json({ error: "رقم الهاتف قصير جداً" })
+      }
+      
+      const last7Digits = normalizedPhone.slice(-7)
+      console.log(`🔍 Checking phone duplicate for last 7 digits: ${last7Digits}`)
+
+      // Search for participants with matching last 7 digits
+      const { data: existingParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, name, phone_number")
+        .not("phone_number", "is", null)
+
+      if (error) {
+        console.error("Database error:", error)
+        return res.status(500).json({ error: "Database error" })
+      }
+
+      // Check for matches in last 7 digits
+      const matchingParticipants = existingParticipants.filter(p => {
+        const existingNormalized = p.phone_number.replace(/\D/g, '')
+        const existingLast7 = existingNormalized.slice(-7)
+        return existingLast7 === last7Digits
+      })
+
+      if (matchingParticipants.length > 0) {
+        console.log(`❌ Phone duplicate found: ${matchingParticipants.length} matches`)
+        return res.status(409).json({ 
+          duplicate: true,
+          error: "رقم الهاتف مسجل مسبقاً",
+          message: "يرجى استخدام زر 'لاعب عائد' لتعديل بياناتك"
+        })
+      }
+
+      console.log(`✅ Phone number is unique`)
+      return res.status(200).json({ 
+        duplicate: false,
+        message: "رقم الهاتف متاح"
+      })
+
+    } catch (error) {
+      console.error("Error checking phone duplicate:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء فحص رقم الهاتف" })
+    }
+  }
+
   // PHONE LOOKUP FOR RETURNING PARTICIPANTS
   if (action === "phone-lookup-signup") {
     const { phone_number, gender_preference, humor_banter_style, early_openness_comfort } = req.body

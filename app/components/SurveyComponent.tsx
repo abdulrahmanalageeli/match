@@ -773,7 +773,34 @@ const SurveyComponent = React.memo(function SurveyComponent({
     }
   }, [surveyData.answers, surveyData.termsAccepted, surveyData.dataConsent, totalPages])
 
-  const nextPage = () => {
+  const nextPage = async () => {
+    // Check for phone number duplicates when moving from first page
+    if (currentPage === 0) {
+      const phoneNumber = surveyData.answers.phone_number
+      if (phoneNumber) {
+        try {
+          const res = await fetch("/api/participant", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "check-phone-duplicate",
+              phone_number: phoneNumber
+            }),
+          })
+          
+          const data = await res.json()
+          
+          if (!res.ok && data.duplicate) {
+            alert(`❌ رقم الهاتف مسجل مسبقاً!\n\nإذا كنت مشاركاً سابقاً، يرجى استخدام زر "لاعب عائد" لتعديل بياناتك.\n\nلا يُسمح بإنشاء أكثر من حساب واحد.`)
+            return // Don't proceed to next page
+          }
+        } catch (error) {
+          console.error("Error checking phone duplicate:", error)
+          // Continue to next page if API call fails
+        }
+      }
+    }
+    
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1)
     }

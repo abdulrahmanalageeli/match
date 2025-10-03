@@ -702,7 +702,9 @@ export default async function handler(req, res) {
           mutual_match: isMutualMatch,
           wants_match: wantsMatch,
           partner_wants_match: partnerWantsMatch,
-          created_at: match.created_at
+          created_at: match.created_at,
+          ai_personality_analysis: match.ai_personality_analysis || null,
+          event_id: match.event_id
         }
       }));
 

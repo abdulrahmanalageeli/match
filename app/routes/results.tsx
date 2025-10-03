@@ -12,7 +12,8 @@ import {
   User,
   Phone,
   Mail,
-  RefreshCcw
+  RefreshCcw,
+  Sparkles
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 
@@ -32,6 +33,8 @@ interface MatchResult {
   wants_match?: boolean | null
   partner_wants_match?: boolean | null
   created_at?: string
+  ai_personality_analysis?: string | null
+  event_id?: number
 }
 
 interface ResultsData {
@@ -48,6 +51,7 @@ export default function ResultsPage() {
   const [error, setError] = useState<string | null>(null)
   const [resultsData, setResultsData] = useState<ResultsData | null>(null)
   const [dark] = useState(true) // Match the welcome page theme
+  const [showAiAnalysis, setShowAiAnalysis] = useState<{[key: number]: boolean}>({})
 
   // Function to convert technical compatibility reason to natural Arabic description
   const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
@@ -467,6 +471,37 @@ export default function ResultsPage() {
                         )
                       })()}
                     </div>
+
+                    {/* AI Vibe Analysis Button (if exists) */}
+                    {match.ai_personality_analysis && match.with !== "المنظم" && (
+                      <div className="mt-3">
+                        <Button
+                          onClick={() => setShowAiAnalysis(prev => ({ ...prev, [index]: !prev[index] }))}
+                          className={`w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white`}
+                        >
+                          <Sparkles className="w-4 h-4 ml-2" />
+                          {showAiAnalysis[index] ? "إخفاء التحليل الذكي" : "اكتشف سبب توافقكما الرائع!"}
+                        </Button>
+                        
+                        {showAiAnalysis[index] && (
+                          <div className={`mt-3 p-4 rounded-lg border ${
+                            dark ? 'bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-purple-400/30' : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
+                          }`}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <Sparkles className={`w-5 h-5 ${dark ? 'text-purple-300' : 'text-purple-600'}`} />
+                              <h4 className={`font-bold ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
+                                لماذا تتوافقان بشكل رائع؟
+                              </h4>
+                            </div>
+                            <p className={`text-sm leading-relaxed whitespace-pre-line ${
+                              dark ? 'text-slate-200' : 'text-gray-700'
+                            }`}>
+                              {match.ai_personality_analysis}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Partner Contact Info (if mutual match) */}
                     {match.mutual_match && (match.partner_name || match.partner_phone) && (

@@ -947,7 +947,7 @@ export default async function handler(req, res) {
   // AUTO SIGNUP FOR NEXT EVENT ACTION (for logged in users)
   if (action === "auto-signup-next-event") {
     try {
-      const { secure_token } = req.body
+      const { secure_token, gender_preference } = req.body
       
       if (!secure_token) {
         return res.status(400).json({ error: "Missing secure_token" })
@@ -973,13 +973,34 @@ export default async function handler(req, res) {
         })
       }
 
+      // Prepare update data
+      const updateData = {
+        signup_for_next_event: true,
+        next_event_signup_timestamp: new Date().toISOString()
+      }
+
+      // Handle gender preference update if provided
+      if (gender_preference) {
+        if (gender_preference === "same_gender") {
+          updateData.same_gender_preference = true
+          updateData.any_gender_preference = false
+          console.log('👥 Updated gender preference: same gender only')
+        } else if (gender_preference === "any_gender") {
+          updateData.same_gender_preference = false
+          updateData.any_gender_preference = true
+          console.log('🌐 Updated gender preference: any gender')
+        } else {
+          // Default or empty - opposite gender
+          updateData.same_gender_preference = false
+          updateData.any_gender_preference = false
+          console.log('👫 Updated gender preference: opposite gender (default)')
+        }
+      }
+
       // Update participant to sign up for next event
       const { error: updateError } = await supabase
         .from("participants")
-        .update({ 
-          signup_for_next_event: true,
-          next_event_signup_timestamp: new Date().toISOString()
-        })
+        .update(updateData)
         .eq("id", participant.id)
 
       if (updateError) {

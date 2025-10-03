@@ -1641,7 +1641,8 @@ export default function WelcomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "auto-signup-next-event",
-          secure_token: token
+          secure_token: token,
+          gender_preference: returningGenderPreference
         }),
       })
       
@@ -1650,6 +1651,7 @@ export default function WelcomePage() {
       if (res.ok) {
         alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
         setShowNextEventPopup(false)
+        setReturningGenderPreference("") // Reset gender preference
       } else {
         alert(`❌ ${data.error}\n${data.message || ""}`)
       }
@@ -2805,11 +2807,48 @@ export default function WelcomePage() {
                     سيتم تسجيلك تلقائياً باستخدام بياناتك المحفوظة
                   </p>
                 </div>
+
+                {/* Gender Preference Options */}
+                <div className={`p-4 rounded-xl border ${dark ? "bg-blue-500/10 border-blue-400/30" : "bg-blue-50 border-blue-200"}`}>
+                  <p className={`text-sm font-medium mb-3 ${dark ? "text-blue-300" : "text-blue-700"}`}>
+                    تفضيلات التواصل (اختياري)
+                  </p>
+                  <p className={`text-xs mb-3 ${dark ? "text-blue-200" : "text-blue-600"}`}>
+                    إذا لم تحدد، سيتم التوافق مع الجنس الآخر
+                  </p>
+                  <RadioGroup 
+                    value={returningGenderPreference} 
+                    onValueChange={setReturningGenderPreference}
+                    className="space-y-2"
+                  >
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <RadioGroupItem value="" id="popup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <Label htmlFor="popup-opposite-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        الجنس الآخر (افتراضي)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <RadioGroupItem value="same_gender" id="popup-same-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <Label htmlFor="popup-same-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        نفس الجنس فقط
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2 space-x-reverse">
+                      <RadioGroupItem value="any_gender" id="popup-any-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <Label htmlFor="popup-any-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
+                        أي جنس (ذكر أو أنثى)
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
                 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4">
                   <button
-                    onClick={() => setShowNextEventPopup(false)}
+                    onClick={() => {
+                      setShowNextEventPopup(false)
+                      setReturningGenderPreference("") // Reset gender preference
+                    }}
                     disabled={nextEventSignupLoading}
                     className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
                       dark 
@@ -3134,34 +3173,6 @@ export default function WelcomePage() {
                           dir="ltr"
                         />
 
-                        {/* Gender Preference Options */}
-                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-                          <p className="text-white text-sm mb-3 text-center">تفضيلات التواصل (اختياري - إذا لم تحدد، سيتم التوافق مع الجنس الآخر)</p>
-                          <RadioGroup 
-                            value={returningGenderPreference} 
-                            onValueChange={setReturningGenderPreference}
-                            className="space-y-2"
-                          >
-                            <div className="flex items-center space-x-2 space-x-reverse">
-                              <RadioGroupItem value="" id="opposite-gender" className="border-white/30 text-green-400" />
-                              <Label htmlFor="opposite-gender" className="text-white text-sm cursor-pointer">
-                                الجنس الآخر (افتراضي)
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2 space-x-reverse">
-                              <RadioGroupItem value="same_gender" id="same-gender" className="border-white/30 text-green-400" />
-                              <Label htmlFor="same-gender" className="text-white text-sm cursor-pointer">
-                                نفس الجنس فقط
-                              </Label>
-                            </div>
-                            <div className="flex items-center space-x-2 space-x-reverse">
-                              <RadioGroupItem value="any_gender" id="any-gender" className="border-white/30 text-green-400" />
-                              <Label htmlFor="any-gender" className="text-white text-sm cursor-pointer">
-                                أي جنس (ذكر أو أنثى)
-                              </Label>
-                            </div>
-                          </RadioGroup>
-                        </div>
 
                         <Button
                           onClick={handleReturningParticipant}

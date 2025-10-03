@@ -663,7 +663,7 @@ export default async function handler(req, res) {
         const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
         const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
         
-        // Fetch partner information from the same event as this specific match
+        // Fetch partner information from the same match_id
         let partnerInfo = null
         if (partnerNumber && partnerNumber !== 9999) {
           try {
@@ -671,7 +671,7 @@ export default async function handler(req, res) {
               .from("participants")
               .select("name, age, phone_number, event_id")
               .eq("assigned_number", partnerNumber)
-              .eq("event_id", match.event_id)  // Use the match's event_id to get partner from correct event
+              .eq("match_id", match.match_id)  // Use the match's match_id to get partner from correct match
               .single()
             
             if (!partnerError && partnerData) {

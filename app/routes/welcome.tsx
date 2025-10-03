@@ -2794,9 +2794,10 @@ export default function WelcomePage() {
       <>
         {/* Next Event Signup Popup - Moved to top level */}
         {showNextEventPopup && participantInfo && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className={`max-w-md w-full mx-4 rounded-2xl p-6 shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"}`}>
-              <div className="text-center space-y-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+              <div className="p-6 overflow-y-auto">
+                <div className="text-center space-y-4">
                 {/* Header */}
                 <div className="flex items-center justify-center mb-4">
                   <div className="p-3 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-full border border-green-400/30">
@@ -2972,6 +2973,7 @@ export default function WelcomePage() {
                     )}
                   </button>
                 </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2979,9 +2981,10 @@ export default function WelcomePage() {
 
         {/* Returning Participant Signup Popup */}
         {showReturningSignupPopup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className={`max-w-md w-full mx-4 rounded-2xl p-6 shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"}`}>
-              <div className="text-center space-y-4">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+              <div className="p-6 overflow-y-auto">
+                <div className="text-center space-y-4">
                 {/* Icon */}
                 <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-green-500/20" : "bg-green-100"}`}>
                   <UserCheck className={`w-8 h-8 ${dark ? "text-green-400" : "text-green-600"}`} />
@@ -3151,6 +3154,7 @@ export default function WelcomePage() {
                       </>
                     )}
                   </button>
+                </div>
                 </div>
               </div>
             </div>

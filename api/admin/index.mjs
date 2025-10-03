@@ -1665,6 +1665,47 @@ export default async function handler(req, res) {
       }
     }
 
+    // PREPARE FOR NEXT EVENT ACTION - Reset all participants for next event
+    if (action === "prepare-next-event") {
+      try {
+        console.log("🔄 Preparing for next event - resetting participant statuses...")
+        
+        // Update all participants to reset their status for next event
+        const { data, error } = await supabase
+          .from("participants")
+          .update({
+            signup_for_next_event: false,
+            PAID: false,
+            PAID_DONE: false
+          })
+          .eq("match_id", STATIC_MATCH_ID)
+          .select("id, assigned_number")
+        
+        if (error) {
+          console.error("Error preparing for next event:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        const updatedCount = data ? data.length : 0
+        console.log(`✅ Successfully prepared for next event - updated ${updatedCount} participants`)
+        
+        return res.status(200).json({ 
+          success: true, 
+          message: "Successfully prepared for next event",
+          updatedCount: updatedCount,
+          details: {
+            signup_for_next_event: false,
+            PAID: false,
+            PAID_DONE: false
+          }
+        })
+        
+      } catch (error) {
+        console.error("Error preparing for next event:", error)
+        return res.status(500).json({ error: "Failed to prepare for next event" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

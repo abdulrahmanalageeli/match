@@ -309,6 +309,38 @@ export default function AdminPage() {
     }
   }
 
+  const prepareForNextEvent = async () => {
+    try {
+      if (!confirm(`⚠️ Prepare for Next Event?\n\nThis will:\n• Set all participants' signup_for_next_event to FALSE\n• Set all participants' PAID and PAID_DONE to FALSE\n• Reset payment status for all participants\n\nThis action cannot be undone. Continue?`)) {
+        return
+      }
+
+      setLoading(true)
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "prepare-next-event"
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        alert(`✅ Successfully prepared for next event!\n\n📊 Updated ${data.updatedCount} participants:\n• signup_for_next_event: FALSE\n• PAID: FALSE\n• PAID_DONE: FALSE\n\nAll participants are now ready for the next event cycle.`)
+        fetchParticipants() // Refresh the participants list
+      } else {
+        console.error("API Error:", data)
+        alert(`❌ Failed to prepare for next event: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Network error:", error)
+      alert("❌ Network error occurred")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const updateCurrentEventId = async (newEventId: number) => {
     try {
       if (newEventId < 1) {
@@ -1988,6 +2020,19 @@ export default function AdminPage() {
                 >
                   <CheckCircle className="w-4 h-4" />
                   Event {currentEventId}: {eventFinished ? "Finished" : "Ongoing"}
+                </button>
+
+                <button
+                  onClick={prepareForNextEvent}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <LogOut className="w-4 h-4" />
+                  )}
+                  Ready for Next Event
                 </button>
               </div>
             </div>

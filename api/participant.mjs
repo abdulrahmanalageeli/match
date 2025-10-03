@@ -883,6 +883,101 @@ export default async function handler(req, res) {
     }
   }
 
+  // CHECK NEXT EVENT SIGNUP STATUS ACTION
+  if (action === "check-next-event-signup") {
+    try {
+      const { secure_token } = req.body
+      
+      if (!secure_token) {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      // Get participant data by token
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("id, assigned_number, name, phone_number, signup_for_next_event")
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (participantError || !participant) {
+        console.error("Participant lookup error:", participantError)
+        return res.status(404).json({ error: "Participant not found" })
+      }
+
+      return res.status(200).json({
+        success: true,
+        participant: {
+          assigned_number: participant.assigned_number,
+          name: participant.name,
+          phone_number: participant.phone_number,
+          signup_for_next_event: participant.signup_for_next_event
+        }
+      })
+
+    } catch (error) {
+      console.error("Error checking next event signup:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء فحص حالة التسجيل" })
+    }
+  }
+
+  // AUTO SIGNUP FOR NEXT EVENT ACTION (for logged in users)
+  if (action === "auto-signup-next-event") {
+    try {
+      const { secure_token } = req.body
+      
+      if (!secure_token) {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      // Get participant data by token
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("id, assigned_number, name, phone_number, signup_for_next_event")
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (participantError || !participant) {
+        console.error("Participant lookup error:", participantError)
+        return res.status(404).json({ error: "Participant not found" })
+      }
+
+      // Check if already signed up for next event
+      if (participant.signup_for_next_event) {
+        return res.status(400).json({ 
+          error: "أنت مسجل بالفعل للحدث القادم",
+          message: "سيتم التواصل معك قريباً"
+        })
+      }
+
+      // Update participant to sign up for next event
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({ 
+          signup_for_next_event: true,
+          next_event_signup_timestamp: new Date().toISOString()
+        })
+        .eq("id", participant.id)
+
+      if (updateError) {
+        console.error("Update Error:", updateError)
+        return res.status(500).json({ error: "Failed to register for next event" })
+      }
+
+      console.log(`✅ Auto-signup: Participant ${participant.assigned_number} (${participant.name}) signed up for next event`)
+
+      return res.status(200).json({
+        success: true,
+        message: "تم تسجيلك للحدث القادم بنجاح!",
+        participant_name: participant.name,
+        participant_number: participant.assigned_number
+      })
+
+    } catch (error) {
+      console.error("Error in auto-signup-next-event:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء التسجيل للحدث القادم" })
+    }
+  }
+
   // GENERATE AI VIBE ANALYSIS ACTION
   if (action === "generate-vibe-analysis") {
     try {

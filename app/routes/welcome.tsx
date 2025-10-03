@@ -243,6 +243,11 @@ export default function WelcomePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [formFilledChoiceMade, setFormFilledChoiceMade] = useState(false); // Track if user has made choice about form filled prompt
+  
+  // Next Event Signup Popup states
+  const [showNextEventPopup, setShowNextEventPopup] = useState(false)
+  const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
+  const [participantInfo, setParticipantInfo] = useState<{name: string, assigned_number: number} | null>(null)
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
@@ -1590,6 +1595,69 @@ export default function WelcomePage() {
     }
   }
 
+  // Check if logged in user needs next event signup
+  const checkNextEventSignup = async (token: string) => {
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "check-next-event-signup",
+          secure_token: token
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok && data.participant) {
+        const participant = data.participant
+        // Show popup if signup_for_next_event is false
+        if (!participant.signup_for_next_event) {
+          setParticipantInfo({
+            name: participant.name,
+            assigned_number: participant.assigned_number
+          })
+          setShowNextEventPopup(true)
+        }
+      }
+    } catch (err) {
+      console.error("Error checking next event signup:", err)
+      // Silently fail - this is not critical functionality
+    }
+  }
+
+  // Handle auto signup for next event
+  const handleAutoSignupNextEvent = async () => {
+    const token = resultToken || returningPlayerToken
+    if (!token) return
+
+    setNextEventSignupLoading(true)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "auto-signup-next-event",
+          secure_token: token
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok) {
+        alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
+        setShowNextEventPopup(false)
+      } else {
+        alert(`❌ ${data.error}\n${data.message || ""}`)
+      }
+    } catch (err) {
+      console.error("Error with auto signup:", err)
+      alert("❌ حدث خطأ في النظام")
+    } finally {
+      setNextEventSignupLoading(false)
+    }
+  }
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
@@ -1622,6 +1690,11 @@ export default function WelcomePage() {
       setResultToken(tokenToUse);
       setReturningPlayerToken(tokenToUse);
       console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
+      
+      // Check if this user needs to sign up for next event
+      setTimeout(() => {
+        checkNextEventSignup(tokenToUse);
+      }, 1000); // Small delay to let the page load
     }
   }, []);
 
@@ -6581,6 +6654,71 @@ export default function WelcomePage() {
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
 
+      {/* Next Event Signup Popup */}
+      {showNextEventPopup && participantInfo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className={`max-w-md w-full mx-4 rounded-2xl p-6 shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"}`}>
+            <div className="text-center space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="p-3 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-full border border-green-400/30">
+                  <UserRound className="w-8 h-8 text-green-400" />
+                </div>
+              </div>
+              
+              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                مرحباً {participantInfo.name}!
+              </h3>
+              
+              <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                المشارك رقم #{participantInfo.assigned_number}
+              </p>
+              
+              <div className={`p-4 rounded-xl border ${dark ? "bg-green-500/10 border-green-400/30" : "bg-green-50 border-green-200"}`}>
+                <p className={`text-sm font-medium ${dark ? "text-green-300" : "text-green-700"}`}>
+                  🎉 هل تريد التسجيل للحدث القادم؟
+                </p>
+                <p className={`text-xs mt-2 ${dark ? "text-green-200" : "text-green-600"}`}>
+                  سيتم تسجيلك تلقائياً باستخدام بياناتك المحفوظة
+                </p>
+              </div>
+              
+              {/* Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowNextEventPopup(false)}
+                  disabled={nextEventSignupLoading}
+                  className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                    dark 
+                      ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                      : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  } disabled:opacity-50`}
+                >
+                  ليس الآن
+                </button>
+                
+                <button
+                  onClick={handleAutoSignupNextEvent}
+                  disabled={nextEventSignupLoading}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {nextEventSignupLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      جاري التسجيل...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      نعم، سجلني!
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
 

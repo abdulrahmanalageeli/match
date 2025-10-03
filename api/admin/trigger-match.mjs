@@ -247,16 +247,27 @@ function calculateCoreValuesCompatibility(values1, values2) {
   return totalScore
 }
 
-// Function to check gender compatibility (opposite gender by default, same-gender only with mutual preference)
+// Function to check gender compatibility with support for any_gender_preference
 function checkGenderCompatibility(participantA, participantB) {
   const genderA = participantA.gender || participantA.survey_data?.gender
   const genderB = participantB.gender || participantB.survey_data?.gender
-  const sameGenderPrefA = participantA.same_gender_preference || participantA.survey_data?.answers?.same_gender_preference?.includes('yes')
-  const sameGenderPrefB = participantB.same_gender_preference || participantB.survey_data?.answers?.same_gender_preference?.includes('yes')
+  
+  // Check gender preferences from both new and old structure
+  const sameGenderPrefA = participantA.same_gender_preference || participantA.survey_data?.answers?.same_gender_preference?.includes('yes') || participantA.survey_data?.answers?.gender_preference?.includes('same_gender')
+  const sameGenderPrefB = participantB.same_gender_preference || participantB.survey_data?.answers?.same_gender_preference?.includes('yes') || participantB.survey_data?.answers?.gender_preference?.includes('same_gender')
+  
+  const anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender')
+  const anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender')
   
   // If gender information is missing, allow the match (fallback)
   if (!genderA || !genderB) {
     console.warn(`⚠️ Missing gender info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // If either participant accepts any gender, they can match with anyone
+  if (anyGenderPrefA || anyGenderPrefB) {
+    console.log(`✅ Any-gender match: ${participantA.assigned_number} (${genderA}, any: ${anyGenderPrefA}) × ${participantB.assigned_number} (${genderB}, any: ${anyGenderPrefB}) - at least one accepts any gender`)
     return true
   }
   
@@ -278,7 +289,7 @@ function checkGenderCompatibility(participantA, participantB) {
     return false
   }
   
-  // Neither has same-gender preference - DEFAULT TO OPPOSITE GENDER ONLY
+  // Neither has specific preferences - DEFAULT TO OPPOSITE GENDER ONLY
   const isOppositeGender = genderA !== genderB
   if (isOppositeGender) {
     console.log(`✅ Opposite gender match: ${participantA.assigned_number} (${genderA}) × ${participantB.assigned_number} (${genderB}) - default opposite gender matching`)
@@ -1303,7 +1314,7 @@ export default async function handler(req, res) {
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, PAID_DONE, signup_for_next_event")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, PAID_DONE, signup_for_next_event")
       .eq("match_id", match_id)
       .or("signup_for_next_event.eq.true,event_id.eq.2")  // Participants who signed up for next event OR have event_id 2
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching

@@ -543,16 +543,19 @@ export default async function handler(req, res) {
           }
         }
         
-        // Save same gender preference to dedicated column
-        const sameGenderPref = answers.same_gender_preference
-        if (Array.isArray(sameGenderPref)) {
-          // Checkbox returns array - if "yes" is selected, set to true
-          updateFields.same_gender_preference = sameGenderPref.includes('yes')
+        // Handle gender preferences from new structure
+        const genderPref = answers.gender_preference || answers.same_gender_preference
+        if (Array.isArray(genderPref)) {
+          // New structure: check for specific values
+          updateFields.same_gender_preference = genderPref.includes('same_gender') || genderPref.includes('yes')
+          updateFields.any_gender_preference = genderPref.includes('any_gender')
           console.log('👥 Same Gender Preference:', updateFields.same_gender_preference)
+          console.log('🌐 Any Gender Preference:', updateFields.any_gender_preference)
         } else {
-          // Default to false if not provided
+          // Default to false if not provided (opposite gender matching)
           updateFields.same_gender_preference = false
-          console.log('👥 Same Gender Preference (default):', false)
+          updateFields.any_gender_preference = false
+          console.log('👥 Gender Preferences (default): opposite gender matching')
         }
         
         // Note: lifestyle_preferences, core_values, vibe_description, ideal_person_description
@@ -783,7 +786,7 @@ export default async function handler(req, res) {
 
   // PHONE LOOKUP FOR RETURNING PARTICIPANTS
   if (action === "phone-lookup-signup") {
-    const { phone_number } = req.body
+    const { phone_number, gender_preference } = req.body
 
     if (!phone_number) {
       return res.status(400).json({ error: "Phone number is required" })
@@ -854,13 +857,34 @@ export default async function handler(req, res) {
         })
       }
 
+      // Prepare update data
+      const updateData = {
+        signup_for_next_event: true,
+        next_event_signup_timestamp: new Date().toISOString()
+      }
+
+      // Handle gender preference update if provided
+      if (gender_preference) {
+        if (gender_preference === "same_gender") {
+          updateData.same_gender_preference = true
+          updateData.any_gender_preference = false
+          console.log('👥 Updated gender preference: same gender only')
+        } else if (gender_preference === "any_gender") {
+          updateData.same_gender_preference = false
+          updateData.any_gender_preference = true
+          console.log('🌐 Updated gender preference: any gender')
+        } else {
+          // Default or empty - opposite gender
+          updateData.same_gender_preference = false
+          updateData.any_gender_preference = false
+          console.log('👫 Updated gender preference: opposite gender (default)')
+        }
+      }
+
       // Update participant to sign up for next event
       const { error: updateError } = await supabase
         .from("participants")
-        .update({ 
-          signup_for_next_event: true,
-          next_event_signup_timestamp: new Date().toISOString()
-        })
+        .update(updateData)
         .eq("id", participant.id)
 
       if (updateError) {

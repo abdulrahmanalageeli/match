@@ -73,15 +73,17 @@ const surveyQuestions = [
     maxLength: 20
   },
   {
-    id: "same_gender_preference",
+    id: "gender_preference",
     question: "السؤال 4.5",
-    description: "هل تفضل التواصل مع أشخاص من نفس الجنس فقط؟",
+    description: "تفضيلات التواصل (إذا لم تحدد أي خيار، سيتم التوافق مع الجنس الآخر)",
     type: "checkbox",
     options: [
-      { value: "yes", label: "نعم، أفضل التواصل مع أشخاص من نفس الجنس فقط" }
+      { value: "same_gender", label: "أفضل التواصل مع أشخاص من نفس الجنس فقط" },
+      { value: "any_gender", label: "أفضل التواصل مع أي جنس (ذكر أو أنثى)" }
     ],
     required: false,
-    category: "personal_info"
+    category: "personal_info",
+    maxSelections: 1
   },
   // MBTI Personality Type Dropdown
   {

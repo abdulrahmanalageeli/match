@@ -275,6 +275,7 @@ export default function WelcomePage() {
   // Returning participant states
   const [returningPhoneNumber, setReturningPhoneNumber] = useState("");
   const [returningLoading, setReturningLoading] = useState(false);
+  const [returningGenderPreference, setReturningGenderPreference] = useState("");
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -1576,7 +1577,8 @@ export default function WelcomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "phone-lookup-signup",
-          phone_number: returningPhoneNumber
+          phone_number: returningPhoneNumber,
+          gender_preference: returningGenderPreference
         }),
       })
       
@@ -3131,6 +3133,35 @@ export default function WelcomePage() {
                           className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
                           dir="ltr"
                         />
+
+                        {/* Gender Preference Options */}
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                          <p className="text-white text-sm mb-3 text-center">تفضيلات التواصل (اختياري - إذا لم تحدد، سيتم التوافق مع الجنس الآخر)</p>
+                          <RadioGroup 
+                            value={returningGenderPreference} 
+                            onValueChange={setReturningGenderPreference}
+                            className="space-y-2"
+                          >
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                              <RadioGroupItem value="" id="opposite-gender" className="border-white/30 text-green-400" />
+                              <Label htmlFor="opposite-gender" className="text-white text-sm cursor-pointer">
+                                الجنس الآخر (افتراضي)
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                              <RadioGroupItem value="same_gender" id="same-gender" className="border-white/30 text-green-400" />
+                              <Label htmlFor="same-gender" className="text-white text-sm cursor-pointer">
+                                نفس الجنس فقط
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2 space-x-reverse">
+                              <RadioGroupItem value="any_gender" id="any-gender" className="border-white/30 text-green-400" />
+                              <Label htmlFor="any-gender" className="text-white text-sm cursor-pointer">
+                                أي جنس (ذكر أو أنثى)
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
 
                         <Button
                           onClick={handleReturningParticipant}

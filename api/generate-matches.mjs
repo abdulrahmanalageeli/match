@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     console.log("Getting all participants...");
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, gender, age, same_gender_preference")
+      .select("assigned_number, survey_data, gender, age, same_gender_preference, any_gender_preference")
       .eq("match_id", match_id)
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
       .not("survey_data", "is", null)

@@ -1691,18 +1691,19 @@ export default function WelcomePage() {
       setResultToken(tokenToUse);
       setReturningPlayerToken(tokenToUse);
       console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
-      console.log('🔍 Current step:', step, 'Token in URL:', token);
       
       // Only check for next event signup if there's NO token in URL (main welcome page)
-      // Don't show popup when user is accessing a specific token URL or in other steps
+      // Don't show popup when user is accessing a specific token URL
       if (!token) {
         console.log('✅ No token in URL, checking next event signup...');
         setTimeout(() => {
           checkNextEventSignup(tokenToUse);
-        }, 1500); // Increased delay to let the page fully load
+        }, 2000); // Give page time to load
       } else {
         console.log('❌ Token in URL, skipping next event signup check');
       }
+    } else {
+      console.log('ℹ️ No saved tokens found in localStorage');
     }
   }, []);
 

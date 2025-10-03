@@ -4426,6 +4426,8 @@ export default function WelcomePage() {
                   setSurveyData={setSurveyData}
                   setIsEditingSurvey={setIsEditingSurvey}
                   loading={loading}
+                  assignedNumber={assignedNumber || undefined}
+                  secureToken={secureToken || undefined}
                 />
                 </>
               )}

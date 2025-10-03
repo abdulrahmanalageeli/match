@@ -802,7 +802,7 @@ export default async function handler(req, res) {
 
   // CHECK PHONE NUMBER DUPLICATE (for survey validation)
   if (action === "check-phone-duplicate") {
-    const { phone_number } = req.body
+    const { phone_number, current_participant_number, secure_token } = req.body
 
     if (!phone_number) {
       return res.status(400).json({ error: "Phone number is required" })
@@ -817,11 +817,16 @@ export default async function handler(req, res) {
       
       const last7Digits = normalizedPhone.slice(-7)
       console.log(`🔍 Checking phone duplicate for last 7 digits: ${last7Digits}`)
+      
+      // If we have current participant info, this is an edit operation
+      if (current_participant_number || secure_token) {
+        console.log(`📝 Edit mode detected - current participant: #${current_participant_number}, token: ${secure_token ? 'provided' : 'none'}`)
+      }
 
       // Search for participants with matching last 7 digits
       const { data: existingParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, name, phone_number")
+        .select("assigned_number, name, phone_number, secure_token")
         .not("phone_number", "is", null)
 
       if (error) {
@@ -833,11 +838,28 @@ export default async function handler(req, res) {
       const matchingParticipants = existingParticipants.filter(p => {
         const existingNormalized = p.phone_number.replace(/\D/g, '')
         const existingLast7 = existingNormalized.slice(-7)
-        return existingLast7 === last7Digits
+        const phoneMatches = existingLast7 === last7Digits
+        
+        // If this is an edit operation, exclude the current participant from duplicate check
+        if (phoneMatches && (current_participant_number || secure_token)) {
+          // Exclude if this is the same participant by number
+          if (current_participant_number && p.assigned_number === current_participant_number) {
+            console.log(`✅ Excluding current participant #${current_participant_number} from duplicate check`)
+            return false
+          }
+          
+          // Exclude if this is the same participant by token
+          if (secure_token && p.secure_token === secure_token) {
+            console.log(`✅ Excluding current participant with token ${secure_token.substring(0, 8)}... from duplicate check`)
+            return false
+          }
+        }
+        
+        return phoneMatches
       })
 
       if (matchingParticipants.length > 0) {
-        console.log(`❌ Phone duplicate found: ${matchingParticipants.length} matches`)
+        console.log(`❌ Phone duplicate found: ${matchingParticipants.length} matches (after excluding current participant)`)
         return res.status(409).json({ 
           duplicate: true,
           error: "رقم الهاتف مسجل مسبقاً",

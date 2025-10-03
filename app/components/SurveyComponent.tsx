@@ -652,13 +652,17 @@ const SurveyComponent = React.memo(function SurveyComponent({
   surveyData, 
   setSurveyData,
   setIsEditingSurvey,
-  loading = false
+  loading = false,
+  assignedNumber,
+  secureToken
 }: { 
   onSubmit: (data: SurveyData) => void
   surveyData: SurveyData
   setSurveyData: React.Dispatch<React.SetStateAction<SurveyData>>
   setIsEditingSurvey?: React.Dispatch<React.SetStateAction<boolean>>
   loading?: boolean
+  assignedNumber?: number
+  secureToken?: string
 }) {
   
   const [currentPage, setCurrentPage] = useState(0)
@@ -784,7 +788,9 @@ const SurveyComponent = React.memo(function SurveyComponent({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action: "check-phone-duplicate",
-              phone_number: phoneNumber
+              phone_number: phoneNumber,
+              current_participant_number: assignedNumber, // Exclude current participant from duplicate check
+              secure_token: secureToken // For additional validation
             }),
           })
           

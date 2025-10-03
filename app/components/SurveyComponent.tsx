@@ -85,6 +85,36 @@ const surveyQuestions = [
     category: "personal_info",
     maxSelections: 1
   },
+  // Humor/Banter Style - Matching Determinant
+  {
+    id: "humor_banter_style",
+    question: "السؤال 4.25",
+    description: "في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "المزاح المرح والذكاء اللفظي" },
+      { value: "B", label: "النكات الودودة الخفيفة" },
+      { value: "C", label: "الصدق والدفء" },
+      { value: "D", label: "المباشرة والجدية" }
+    ],
+    required: true,
+    category: "interaction_style"
+  },
+  // Early Openness Comfort - Matching Determinant
+  {
+    id: "early_openness_comfort",
+    question: "السؤال 4.75",
+    description: "عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟",
+    type: "radio",
+    options: [
+      { value: "0", label: "أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً" },
+      { value: "1", label: "أفضل الحديث السطحي في البداية" },
+      { value: "2", label: "أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي" },
+      { value: "3", label: "أنفتح بسرعة وأشارك القصص الشخصية" }
+    ],
+    required: true,
+    category: "interaction_style"
+  },
   // MBTI Personality Type Dropdown
   {
     id: "mbti_type",

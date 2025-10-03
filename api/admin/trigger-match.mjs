@@ -332,6 +332,71 @@ function checkAgeCompatibility(participantA, participantB) {
   return true
 }
 
+// Function to check interaction style compatibility (matching determinants)
+function checkInteractionStyleCompatibility(participantA, participantB) {
+  const humorA = participantA.humor_banter_style || participantA.survey_data?.answers?.humor_banter_style
+  const humorB = participantB.humor_banter_style || participantB.survey_data?.answers?.humor_banter_style
+  const opennessA = participantA.early_openness_comfort !== undefined ? participantA.early_openness_comfort : participantA.survey_data?.answers?.early_openness_comfort
+  const opennessB = participantB.early_openness_comfort !== undefined ? participantB.early_openness_comfort : participantB.survey_data?.answers?.early_openness_comfort
+  
+  // If interaction style information is missing, allow the match (fallback)
+  if (!humorA || !humorB || opennessA === undefined || opennessB === undefined) {
+    console.warn(`⚠️ Missing interaction style info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // Check humor/banter style compatibility
+  const humorCompatible = checkHumorCompatibility(humorA, humorB)
+  if (!humorCompatible) {
+    console.log(`🚫 Humor incompatible: ${participantA.assigned_number} (${humorA}) × ${participantB.assigned_number} (${humorB})`)
+    return false
+  }
+  
+  // Check early openness compatibility
+  const opennessCompatible = checkOpennessCompatibility(parseInt(opennessA), parseInt(opennessB))
+  if (!opennessCompatible) {
+    console.log(`🚫 Openness incompatible: ${participantA.assigned_number} (${opennessA}) × ${participantB.assigned_number} (${opennessB})`)
+    return false
+  }
+  
+  console.log(`✅ Interaction styles compatible: ${participantA.assigned_number} (H:${humorA}, O:${opennessA}) × ${participantB.assigned_number} (H:${humorB}, O:${opennessB})`)
+  return true
+}
+
+// Helper function to check humor/banter style compatibility
+function checkHumorCompatibility(humorA, humorB) {
+  // Allowed combinations:
+  // A↔A, A↔B, A↔C
+  // B↔B, B↔C  
+  // C↔C, C↔D
+  // D↔D
+  // Blocked: A↔D, B↔D
+  
+  if (humorA === 'A') return ['A', 'B', 'C'].includes(humorB)
+  if (humorA === 'B') return ['A', 'B', 'C'].includes(humorB)
+  if (humorA === 'C') return ['A', 'B', 'C', 'D'].includes(humorB)
+  if (humorA === 'D') return ['C', 'D'].includes(humorB)
+  
+  return false
+}
+
+// Helper function to check early openness compatibility
+function checkOpennessCompatibility(opennessA, opennessB) {
+  // Allowed combinations:
+  // 0↔1, 0↔2
+  // 1↔1, 1↔2, 1↔3
+  // 2↔0, 2↔1, 2↔2, 2↔3
+  // 3↔1, 3↔2, 3↔3
+  // Blocked: 0↔0, 0↔3
+  
+  if (opennessA === 0) return [1, 2].includes(opennessB)
+  if (opennessA === 1) return [1, 2, 3].includes(opennessB)
+  if (opennessA === 2) return [0, 1, 2, 3].includes(opennessB)
+  if (opennessA === 3) return [1, 2, 3].includes(opennessB)
+  
+  return false
+}
+
 // Function to generate content hash for caching
 function generateContentHash(content) {
   // Simple hash function for content-based caching
@@ -1314,7 +1379,7 @@ export default async function handler(req, res) {
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, PAID_DONE, signup_for_next_event")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event")
       .eq("match_id", match_id)
       .or("signup_for_next_event.eq.true,event_id.eq.2")  // Participants who signed up for next event OR have event_id 2
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
@@ -1570,6 +1635,7 @@ export default async function handler(req, res) {
     let processedPairs = 0
     let skippedGender = 0
     let skippedAge = 0
+    let skippedInteractionStyle = 0
     let skippedPrevious = 0
     let skippedExcluded = 0
     
@@ -1600,6 +1666,12 @@ export default async function handler(req, res) {
       // Check age compatibility (girls must be within 3 years)
       if (!checkAgeCompatibility(a, b)) {
         skippedAge++
+        continue
+      }
+      
+      // Check interaction style compatibility (matching determinants)
+      if (!checkInteractionStyleCompatibility(a, b)) {
+        skippedInteractionStyle++
         continue
       }
       
@@ -1697,12 +1769,13 @@ export default async function handler(req, res) {
     }
     
     // Show skip summary
-    const totalSkipped = skippedGender + skippedAge + skippedPrevious + skippedExcluded
+    const totalSkipped = skippedGender + skippedAge + skippedInteractionStyle + skippedPrevious + skippedExcluded
     if (totalSkipped > 0) {
       console.log(`🚫 Skipped pairs (no calculation):`)
       if (skippedExcluded > 0) console.log(`   ${skippedExcluded} pairs - Admin excluded`)
       if (skippedGender > 0) console.log(`   ${skippedGender} pairs - Gender preference mismatch`)
       if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>5 years with female)`)
+      if (skippedInteractionStyle > 0) console.log(`   ${skippedInteractionStyle} pairs - Interaction style incompatible`)
       if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)
     }
     

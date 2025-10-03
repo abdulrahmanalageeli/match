@@ -558,6 +558,22 @@ export default async function handler(req, res) {
           console.log('👥 Gender Preferences (default): opposite gender matching')
         }
         
+        // Save interaction style preferences to dedicated columns
+        const humorBanterStyle = answers.humor_banter_style
+        if (humorBanterStyle && ['A', 'B', 'C', 'D'].includes(humorBanterStyle)) {
+          updateFields.humor_banter_style = humorBanterStyle
+          console.log('😄 Humor/Banter Style:', humorBanterStyle)
+        }
+        
+        const earlyOpennessComfort = answers.early_openness_comfort
+        if (earlyOpennessComfort !== undefined) {
+          const comfortLevel = parseInt(earlyOpennessComfort)
+          if (!isNaN(comfortLevel) && [0, 1, 2, 3].includes(comfortLevel)) {
+            updateFields.early_openness_comfort = comfortLevel
+            console.log('🤝 Early Openness Comfort:', comfortLevel)
+          }
+        }
+        
         // Note: lifestyle_preferences, core_values, vibe_description, ideal_person_description
         // are not separate columns in the schema - they should be stored in survey_data JSONB
       }
@@ -786,7 +802,7 @@ export default async function handler(req, res) {
 
   // PHONE LOOKUP FOR RETURNING PARTICIPANTS
   if (action === "phone-lookup-signup") {
-    const { phone_number, gender_preference } = req.body
+    const { phone_number, gender_preference, humor_banter_style, early_openness_comfort } = req.body
 
     if (!phone_number) {
       return res.status(400).json({ error: "Phone number is required" })
@@ -878,6 +894,20 @@ export default async function handler(req, res) {
           updateData.same_gender_preference = false
           updateData.any_gender_preference = false
           console.log('👫 Updated gender preference: opposite gender (default)')
+        }
+      }
+
+      // Handle interaction style updates if provided
+      if (humor_banter_style && ['A', 'B', 'C', 'D'].includes(humor_banter_style)) {
+        updateData.humor_banter_style = humor_banter_style
+        console.log('😄 Updated humor/banter style:', humor_banter_style)
+      }
+
+      if (early_openness_comfort !== undefined) {
+        const comfortLevel = parseInt(early_openness_comfort)
+        if (!isNaN(comfortLevel) && [0, 1, 2, 3].includes(comfortLevel)) {
+          updateData.early_openness_comfort = comfortLevel
+          console.log('🤝 Updated early openness comfort:', comfortLevel)
         }
       }
 

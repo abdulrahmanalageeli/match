@@ -1431,9 +1431,9 @@ export default async function handler(req, res) {
       try {
         const { data, error } = await supabase
           .from("excluded_pairs")
-          .select("id, participant1_number, created_at, reason")
+          .select("id, participant1_number, participant2_number, created_at, reason")
           .eq("match_id", STATIC_MATCH_ID)
-          .eq("participant2_number", -1)
+          .in("participant2_number", [-1, -10]) // Fetch both excluded (-1) and banned (-10)
           .order("created_at", { ascending: false })
 
         if (error) {
@@ -1441,12 +1441,13 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
 
-        // Map to expected format
+        // Map to expected format with is_banned flag
         const excludedParticipants = (data || []).map(item => ({
           id: item.id,
           participant_number: item.participant1_number,
           created_at: item.created_at,
-          reason: item.reason
+          reason: item.reason,
+          is_banned: item.participant2_number === -10 // -10 means banned, -1 means excluded
         }))
 
         return res.status(200).json({ excludedParticipants })
@@ -1459,7 +1460,7 @@ export default async function handler(req, res) {
     // 🔹 ADD EXCLUDED PARTICIPANT (using excluded_pairs with -1)
     if (action === "add-excluded-participant") {
       try {
-        const { participantNumber, reason = "Admin exclusion - participant excluded from all matching" } = req.body
+        const { participantNumber, reason = "Admin exclusion - participant excluded from all matching", banPermanently = false } = req.body
 
         if (!participantNumber || participantNumber <= 0) {
           return res.status(400).json({ error: "Valid participant number is required" })
@@ -1481,13 +1482,17 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Participant number doesn't exist" })
         }
 
-        // Insert excluded participant using excluded_pairs table with participant2_number = -1
+        // Use -10 for banned participants, -1 for regular exclusions
+        const exclusionCode = banPermanently ? -10 : -1
+        const exclusionType = banPermanently ? "PERMANENTLY BANNED" : "excluded"
+
+        // Insert excluded participant using excluded_pairs table
         const { data, error } = await supabase
           .from("excluded_pairs")
           .insert([{
             match_id: STATIC_MATCH_ID,
             participant1_number: participantNumber,
-            participant2_number: -1,
+            participant2_number: exclusionCode,
             reason: reason
           }])
           .select()
@@ -1501,11 +1506,17 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
 
-        console.log(`✅ Added excluded participant: #${participantNumber} (using -1 in excluded_pairs)`)
+        console.log(`✅ Added ${exclusionType} participant: #${participantNumber} (using ${exclusionCode} in excluded_pairs)`)
         return res.status(200).json({ 
           success: true, 
-          excludedParticipant: { id: data.id, participant_number: participantNumber, created_at: data.created_at, reason: data.reason },
-          message: `Participant #${participantNumber} excluded from all matching` 
+          excludedParticipant: { 
+            id: data.id, 
+            participant_number: participantNumber, 
+            created_at: data.created_at, 
+            reason: data.reason,
+            is_banned: banPermanently
+          },
+          message: `Participant #${participantNumber} ${banPermanently ? 'permanently banned' : 'excluded'} from all matching` 
         })
 
       } catch (error) {

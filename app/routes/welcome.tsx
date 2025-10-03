@@ -28,6 +28,7 @@ import {
   Zap as ZapIcon,
   HelpCircle,
   Ban,
+  UserRound,
   Smile,
   Frown,
   FileText,

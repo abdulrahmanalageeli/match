@@ -27,7 +27,8 @@ import {
   CheckSquare,
   Square,
   X,
-  MessageSquare
+  MessageSquare,
+  Ban
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -82,8 +83,9 @@ export default function AdminPage() {
   const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
   
   // Excluded participants management
-  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, created_at: string, reason: string}>>([])
+  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, created_at: string, reason: string, is_banned?: boolean}>>([])
   const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
+  const [banPermanently, setBanPermanently] = useState(false)
   
   // Manual match management
   const [newManualMatch, setNewManualMatch] = useState({participant1: '', participant2: ''})
@@ -705,13 +707,17 @@ export default function AdminPage() {
         body: JSON.stringify({ 
           action: "add-excluded-participant",
           participantNumber: participantNumber,
-          reason: "Admin exclusion - participant excluded from all matching"
+          reason: banPermanently 
+            ? "Admin exclusion - PERMANENTLY BANNED from all matching" 
+            : "Admin exclusion - participant excluded from all matching",
+          banPermanently: banPermanently
         }),
       })
       const data = await res.json()
       
       if (res.ok) {
         setNewExcludedParticipant('')
+        setBanPermanently(false) // Reset checkbox
         await fetchExcludedParticipants() // Refresh the list
         alert(`✅ ${data.message}`)
       } else {
@@ -1645,25 +1651,51 @@ export default function AdminPage() {
             {/* Add New Excluded Participant */}
             <div className="space-y-4">
               <h4 className="text-white font-medium">Exclude Participant</h4>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  placeholder="Participant #"
-                  value={newExcludedParticipant}
-                  onChange={(e) => setNewExcludedParticipant(e.target.value)}
-                  className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-all duration-300"
-                />
-                <button
-                  onClick={addExcludedParticipant}
-                  disabled={!newExcludedParticipant}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
-                >
-                  <Shield className="w-4 h-4" />
-                  Exclude from All
-                </button>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    placeholder="Participant #"
+                    value={newExcludedParticipant}
+                    onChange={(e) => setNewExcludedParticipant(e.target.value)}
+                    className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400/50 transition-all duration-300"
+                  />
+                  <button
+                    onClick={addExcludedParticipant}
+                    disabled={!newExcludedParticipant}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 transition-all duration-300 ${
+                      banPermanently 
+                        ? "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800" 
+                        : "bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800"
+                    } text-white`}
+                  >
+                    {banPermanently ? <Ban className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                    {banPermanently ? "Ban Permanently" : "Exclude from All"}
+                  </button>
+                </div>
+                
+                {/* Ban Permanently Checkbox */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="banPermanently"
+                    checked={banPermanently}
+                    onChange={(e) => setBanPermanently(e.target.checked)}
+                    className="w-4 h-4 text-red-600 bg-white/10 border-white/20 rounded focus:ring-red-500 focus:ring-2"
+                  />
+                  <label htmlFor="banPermanently" className="text-red-300 text-sm font-medium cursor-pointer">
+                    Ban permanently (uses -10 instead of -1)
+                  </label>
+                </div>
               </div>
+              
               <p className="text-slate-400 text-xs">
                 ⚠️ This participant will be excluded from ALL matching (individual and group)
+                {banPermanently && (
+                  <span className="block text-red-300 font-medium mt-1">
+                    🚫 PERMANENT BAN: This participant will be marked with -10 for permanent exclusion
+                  </span>
+                )}
               </p>
             </div>
 
@@ -1675,13 +1707,31 @@ export default function AdminPage() {
                   <p className="text-slate-400 text-sm">No excluded participants</p>
                 ) : (
                   excludedParticipants.map((participant) => (
-                    <div key={participant.id} className="flex items-center justify-between bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
-                      <span className="text-white text-sm">
-                        #{participant.participant_number} - Excluded from ALL matching
-                      </span>
+                    <div key={participant.id} className={`flex items-center justify-between backdrop-blur-sm border rounded-lg px-3 py-2 ${
+                      participant.is_banned 
+                        ? "bg-red-500/10 border-red-400/30" 
+                        : "bg-white/5 border-white/10"
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {participant.is_banned && (
+                          <div className="flex items-center gap-1">
+                            <Ban className="w-4 h-4 text-red-400" />
+                            <span className="text-red-300 text-xs font-bold px-2 py-0.5 bg-red-500/20 rounded-full border border-red-400/30">
+                              BANNED
+                            </span>
+                          </div>
+                        )}
+                        <span className={`text-sm ${participant.is_banned ? "text-red-200" : "text-white"}`}>
+                          #{participant.participant_number} - {participant.is_banned ? "PERMANENTLY BANNED" : "Excluded from ALL matching"}
+                        </span>
+                      </div>
                       <button
                         onClick={() => removeExcludedParticipant(participant.id)}
-                        className="text-orange-400 hover:text-orange-300 transition-colors"
+                        className={`transition-colors ${
+                          participant.is_banned 
+                            ? "text-red-400 hover:text-red-300" 
+                            : "text-orange-400 hover:text-orange-300"
+                        }`}
                       >
                         <X className="w-4 h-4" />
                       </button>

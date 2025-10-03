@@ -2835,19 +2835,19 @@ export default function WelcomePage() {
                     onValueChange={setReturningGenderPreference}
                     className="space-y-2"
                   >
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="" id="popup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="popup-opposite-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         الجنس الآخر (افتراضي)
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="same_gender" id="popup-same-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="popup-same-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         نفس الجنس فقط
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="any_gender" id="popup-any-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="popup-any-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         أي جنس (ذكر أو أنثى)
@@ -2869,25 +2869,25 @@ export default function WelcomePage() {
                     onValueChange={setReturningHumorStyle}
                     className="space-y-2"
                   >
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="A" id="next-humor-A" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="next-humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         المزاح المرح والذكاء اللفظي
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="B" id="next-humor-B" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="next-humor-B" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         النكات الودودة الخفيفة
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="C" id="next-humor-C" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="next-humor-C" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         الصدق والدفء
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="D" id="next-humor-D" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="next-humor-D" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         المباشرة والجدية
@@ -2909,25 +2909,25 @@ export default function WelcomePage() {
                     onValueChange={setReturningOpennessComfort}
                     className="space-y-2"
                   >
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="0" id="next-openness-0" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="next-openness-0" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="1" id="next-openness-1" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="next-openness-1" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أفضل الحديث السطحي في البداية
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="2" id="next-openness-2" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="next-openness-2" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="3" id="next-openness-3" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="next-openness-3" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أنفتح بسرعة وأشارك القصص الشخصية
@@ -3017,19 +3017,19 @@ export default function WelcomePage() {
                     onValueChange={setReturningGenderPreference}
                     className="space-y-2"
                   >
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="" id="signup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="signup-opposite-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         الجنس الآخر (افتراضي)
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="same_gender" id="signup-same-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="signup-same-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         نفس الجنس فقط
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="any_gender" id="signup-any-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="signup-any-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         أي جنس (ذكر أو أنثى)
@@ -3051,25 +3051,25 @@ export default function WelcomePage() {
                     onValueChange={setReturningHumorStyle}
                     className="space-y-2"
                   >
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="A" id="humor-A" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         المزاح المرح والذكاء اللفظي
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="B" id="humor-B" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="humor-B" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         النكات الودودة الخفيفة
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="C" id="humor-C" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="humor-C" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         الصدق والدفء
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="D" id="humor-D" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                       <Label htmlFor="humor-D" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                         المباشرة والجدية
@@ -3091,25 +3091,25 @@ export default function WelcomePage() {
                     onValueChange={setReturningOpennessComfort}
                     className="space-y-2"
                   >
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="0" id="openness-0" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="openness-0" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="1" id="openness-1" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="openness-1" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أفضل الحديث السطحي في البداية
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="2" id="openness-2" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="openness-2" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي
                       </Label>
                     </div>
-                    <div className="flex items-center space-x-2 space-x-reverse">
+                    <div className="flex items-center gap-3">
                       <RadioGroupItem value="3" id="openness-3" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
                       <Label htmlFor="openness-3" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
                         أنفتح بسرعة وأشارك القصص الشخصية

@@ -157,6 +157,49 @@ const loadLatestResults = async (matchType: "individual" | "group") => {
   }
 }
 
+// Function to load fresh data from database (for post-swap refreshes)
+const loadFreshDatabaseResults = async (matchType: "individual" | "group") => {
+  try {
+    console.log(`🔄 Loading fresh ${matchType} results from database for event ${currentEventId}`)
+    
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        action: "get-fresh-results",
+        event_id: currentEventId,
+        match_type: matchType
+      }),
+    })
+    
+    const data = await res.json()
+    
+    if (res.ok && data.success) {
+      console.log(`✅ Loaded fresh ${matchType} results: ${data.results?.length || 0} matches`)
+      
+      // Clear session info since this is fresh data, not a cached session
+      setCurrentSessionId(null)
+      setCurrentSessionInfo(null)
+      setIsFromCache(false)
+      
+      await showParticipantResults(
+        data.results || [], 
+        data.results?.length || 0, 
+        matchType === 'group' ? 'group' : 'ai',
+        data.calculatedPairs || []
+      )
+      
+      return true
+    } else {
+      console.error("Failed to load fresh results:", data.error)
+      return false
+    }
+  } catch (error) {
+    console.error("Error loading fresh results:", error)
+    return false
+  }
+}
+
 // Function to load specific session results
 const loadSessionResults = async (session: any) => {
   try {
@@ -292,15 +335,17 @@ const fetchParticipants = async () => {
       const eventFinishedData = await eventFinishedRes.json()
       setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) if not set
       
-      // Auto-load available sessions and latest results
-      await loadAvailableSessions()
-      
-      // Try to auto-load latest individual results if none are currently loaded
-      if (!showResultsModal && participantResults.length === 0) {
-        const hasIndividualResults = await loadLatestResults("individual")
-        if (!hasIndividualResults) {
-          // If no individual results, try group results
-          await loadLatestResults("group")
+      // Auto-load available sessions and latest results (only on initial load)
+      if (availableSessions.length === 0) {
+        await loadAvailableSessions()
+        
+        // Try to auto-load latest individual results if none are currently loaded
+        if (!showResultsModal && participantResults.length === 0) {
+          const hasIndividualResults = await loadLatestResults("individual")
+          if (!hasIndividualResults) {
+            // If no individual results, try group results
+            await loadLatestResults("group")
+          }
         }
       }
       
@@ -2970,18 +3015,12 @@ const fetchParticipants = async () => {
         isFromCache={isFromCache}
         currentEventId={currentEventId}
         onRefresh={async () => {
-          // For persistent sessions, we need to reload fresh data from database
-          // because swaps/manual matches create new database records
-          if (currentSessionId && isFromCache) {
-            console.log("🔄 Refreshing persistent session after swap/change...")
-            // Reload fresh data from database instead of cached session
-            // This ensures we see the latest matches including swaps
-            await loadLatestResults(matchType === 'group' ? 'group' : 'individual')
-          } else if (currentSessionId && availableSessions.length > 0) {
-            const session = availableSessions.find(s => s.session_id === currentSessionId)
-            if (session) {
-              await loadSessionResults(session)
-            }
+          // For persistent sessions or any cached data, we need to reload fresh data from database
+          // because swaps/manual matches create new database records that aren't in cached sessions
+          if (isFromCache || currentSessionId) {
+            console.log("🔄 Refreshing with fresh database data after swap/change...")
+            // Always load fresh data from database to see latest matches including swaps
+            await loadFreshDatabaseResults(matchType === 'group' ? 'group' : 'individual')
           } else if (lastMatchParams && lastMatchParams.matchResults.length === 0) {
             await loadCachedResults()
           } else if (lastMatchParams) {

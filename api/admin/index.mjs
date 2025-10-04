@@ -2121,6 +2121,95 @@ export default async function handler(req, res) {
       }
     }
 
+    // GET FRESH RESULTS ACTION - Load current database state (for post-swap refreshes)
+    if (action === "get-fresh-results") {
+      try {
+        const { event_id, match_type } = req.body
+        
+        if (!event_id || !match_type) {
+          return res.status(400).json({ error: "Missing event_id or match_type" })
+        }
+        
+        console.log(`🔄 Fetching fresh ${match_type} results from database for event ${event_id}`)
+        
+        if (match_type === "group") {
+          // Fetch group matches from group_matches table
+          const { data: groupMatches, error: groupError } = await supabase
+            .from("group_matches")
+            .select("*")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", event_id)
+            .order("group_number", { ascending: true })
+          
+          if (groupError) {
+            console.error("Error fetching fresh group results:", groupError)
+            return res.status(500).json({ error: groupError.message })
+          }
+          
+          console.log(`✅ Loaded ${groupMatches?.length || 0} fresh group matches`)
+          return res.status(200).json({ 
+            success: true, 
+            results: groupMatches || [],
+            calculatedPairs: [] // Groups don't have calculated pairs
+          })
+          
+        } else {
+          // Fetch individual matches from match_results table
+          const { data: matchResults, error: matchError } = await supabase
+            .from("match_results")
+            .select("*")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", event_id)
+            .neq("round", 0) // Exclude group matches (round = 0)
+            .order("created_at", { ascending: false })
+          
+          if (matchError) {
+            console.error("Error fetching fresh individual results:", matchError)
+            return res.status(500).json({ error: matchError.message })
+          }
+          
+          // Get compatibility cache data for calculated pairs
+          const { data: cacheData, error: cacheError } = await supabase
+            .from("compatibility_cache")
+            .select("*")
+            .order("total_compatibility_score", { ascending: false })
+          
+          if (cacheError) {
+            console.warn("Could not fetch cache data:", cacheError)
+          }
+          
+          // Convert cache data to calculated pairs format
+          const calculatedPairs = (cacheData || []).map(cache => ({
+            participant_a: cache.participant_a_number,
+            participant_b: cache.participant_b_number,
+            compatibility_score: Math.round(parseFloat(cache.total_compatibility_score)),
+            mbti_compatibility_score: parseFloat(cache.mbti_score),
+            attachment_compatibility_score: parseFloat(cache.attachment_score),
+            communication_compatibility_score: parseFloat(cache.communication_score),
+            lifestyle_compatibility_score: parseFloat(cache.lifestyle_score),
+            core_values_compatibility_score: parseFloat(cache.core_values_score),
+            vibe_compatibility_score: parseFloat(cache.ai_vibe_score),
+            reason: `MBTI: ${parseFloat(cache.mbti_score).toFixed(1)}% + Attachment: ${parseFloat(cache.attachment_score).toFixed(1)}% + Communication: ${parseFloat(cache.communication_score).toFixed(1)}% + Lifestyle: ${parseFloat(cache.lifestyle_score).toFixed(1)}% + Values: ${parseFloat(cache.core_values_score).toFixed(1)}% + Vibe: ${parseFloat(cache.ai_vibe_score).toFixed(1)}%`,
+            is_actual_match: matchResults?.some(match => 
+              (match.participant_a_number === cache.participant_a_number && match.participant_b_number === cache.participant_b_number) ||
+              (match.participant_a_number === cache.participant_b_number && match.participant_b_number === cache.participant_a_number)
+            ) || false
+          }))
+          
+          console.log(`✅ Loaded ${matchResults?.length || 0} fresh individual matches with ${calculatedPairs.length} calculated pairs`)
+          return res.status(200).json({ 
+            success: true, 
+            results: matchResults || [],
+            calculatedPairs: calculatedPairs
+          })
+        }
+        
+      } catch (error) {
+        console.error("Error fetching fresh results:", error)
+        return res.status(500).json({ error: "Failed to fetch fresh results" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

@@ -19,7 +19,7 @@ CREATE TABLE public.admin_results (
   calculated_pairs jsonb DEFAULT '[]',
   participant_results jsonb NOT NULL DEFAULT '[]',
   
-  -- Session parameters
+  -- Session parametersظ
   skip_ai boolean DEFAULT false,
   excluded_pairs jsonb DEFAULT '[]',
   excluded_participants jsonb DEFAULT '[]',

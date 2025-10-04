@@ -1795,9 +1795,33 @@ export default function WelcomePage() {
   const clearSavedTokens = () => {
     localStorage.removeItem('blindmatch_result_token');
     localStorage.removeItem('blindmatch_returning_token');
+    // Also clear sessionStorage items related to tokens
+    sessionStorage.removeItem('justCreatedToken');
+    sessionStorage.removeItem('justCreatedTokenValue');
     setResultToken('');
     setReturningPlayerToken('');
-    console.log('🗑️ Cleared all saved tokens');
+    console.log('🗑️ Cleared all saved tokens from localStorage and sessionStorage');
+  };
+
+  // Clear specific token (for individual X buttons)
+  const clearSpecificToken = (tokenType: 'result' | 'returning') => {
+    if (tokenType === 'result') {
+      localStorage.removeItem('blindmatch_result_token');
+      localStorage.removeItem('blindmatch_returning_token'); // Clear both since they're synced
+      sessionStorage.removeItem('justCreatedToken');
+      sessionStorage.removeItem('justCreatedTokenValue');
+      setResultToken('');
+      setReturningPlayerToken(''); // Clear both since they're synced
+      console.log('🗑️ Cleared result token from localStorage and sessionStorage');
+    } else {
+      localStorage.removeItem('blindmatch_returning_token');
+      localStorage.removeItem('blindmatch_result_token'); // Clear both since they're synced
+      sessionStorage.removeItem('justCreatedToken');
+      sessionStorage.removeItem('justCreatedTokenValue');
+      setReturningPlayerToken('');
+      setResultToken(''); // Clear both since they're synced
+      console.log('🗑️ Cleared returning player token from localStorage and sessionStorage');
+    }
   };
 
   const FancyNextButton = ({ onClick, label }: { onClick: () => void; label: string }) => (
@@ -3626,7 +3650,7 @@ export default function WelcomePage() {
                                 <span className="text-xs text-green-300">محفوظ</span>
                               </div>
                               <button
-                                onClick={() => setReturningPlayerToken('')}
+                                onClick={() => clearSpecificToken('returning')}
                                 className="p-1 rounded-full bg-red-500/20 border border-red-400/30 hover:bg-red-500/30 transition-colors"
                                 title="مسح الرمز المحفوظ"
                               >
@@ -3702,7 +3726,7 @@ export default function WelcomePage() {
                                 <span className="text-xs text-green-300">محفوظ</span>
                               </div>
                               <button
-                                onClick={() => setResultToken('')}
+                                onClick={() => clearSpecificToken('result')}
                                 className="p-1 rounded-full bg-red-500/20 border border-red-400/30 hover:bg-red-500/30 transition-colors"
                                 title="مسح الرمز المحفوظ"
                               >

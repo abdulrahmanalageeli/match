@@ -14,8 +14,9 @@ create table public.match_feedback (
   recommendations text null,
   would_meet_again integer null,
   participant_token character varying(255) null,
+  event_id integer null default 1,
   constraint match_feedback_pkey primary key (id),
-  constraint match_feedback_match_id_participant_number_round_key unique (match_id, participant_number, round),
+  constraint match_feedback_match_id_participant_number_round_event_key unique (match_id, participant_number, round, event_id),
   constraint compatibility_rate_range check (
     (
       (compatibility_rate >= 0)
@@ -71,3 +72,7 @@ create index IF not exists idx_match_feedback_match_id on public.match_feedback 
 create index IF not exists idx_match_feedback_participant on public.match_feedback using btree (participant_number) TABLESPACE pg_default;
 
 create index IF not exists idx_match_feedback_participant_token on public.match_feedback using btree (participant_token) TABLESPACE pg_default;
+
+create index IF not exists idx_match_feedback_event_id on public.match_feedback using btree (event_id) TABLESPACE pg_default;
+
+create index IF not exists idx_match_feedback_event_participant_round on public.match_feedback using btree (event_id, participant_number, round) TABLESPACE pg_default;

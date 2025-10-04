@@ -8,6 +8,57 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// Helper function to auto-save results to admin_results table
+async function autoSaveAdminResults(eventId, matchType, generationType, matchResults, calculatedPairs, participantResults, performance, skipAI, excludedPairs, excludedParticipants, lockedMatches) {
+  try {
+    const sessionId = `${matchType}_${eventId}_${new Date().toISOString().replace(/[:.]/g, '_')}`
+    
+    console.log(`💾 Auto-saving admin results: ${sessionId}`)
+    
+    // Deactivate previous sessions of the same type for this event
+    await supabase
+      .from("admin_results")
+      .update({ is_active: false })
+      .eq("event_id", eventId)
+      .eq("match_type", matchType)
+      .eq("is_active", true)
+    
+    // Insert new session
+    const { error } = await supabase
+      .from("admin_results")
+      .insert([{
+        session_id: sessionId,
+        event_id: eventId,
+        match_type: matchType,
+        generation_type: generationType,
+        match_results: matchResults || [],
+        calculated_pairs: calculatedPairs || [],
+        participant_results: participantResults || [],
+        total_matches: matchResults?.length || 0,
+        total_participants: participantResults?.length || 0,
+        skip_ai: skipAI || false,
+        excluded_pairs: excludedPairs || [],
+        excluded_participants: excludedParticipants || [],
+        locked_matches: lockedMatches || [],
+        generation_duration_ms: performance?.totalTime || null,
+        cache_hit_rate: performance?.cacheHitRate || null,
+        ai_calls_made: performance?.aiCalls || 0,
+        notes: `Auto-saved from trigger-match API`
+      }])
+    
+    if (error) {
+      console.error("Error auto-saving admin results:", error)
+    } else {
+      console.log(`✅ Auto-saved admin results: ${sessionId}`)
+    }
+    
+    return sessionId
+  } catch (error) {
+    console.error("Error in autoSaveAdminResults:", error)
+    return null
+  }
+}
+
 // MBTI Compatibility Matrix
 const MBTI_COMPATIBILITY = {
   'ESTP': { top1: 'ENTP', top2: 'ENFJ', top3: 'INTJ', bonus: [] },
@@ -1524,6 +1575,10 @@ export default async function handler(req, res) {
 
       console.log(`✅ Manual match created: #${p1.assigned_number} ↔ #${p2.assigned_number} (Score: ${totalCompatibility}%)`)
 
+      // Note: Manual matches create new database records but don't update existing sessions
+      // The admin panel refresh function will reload fresh data from database to show changes
+      console.log(`ℹ️ Manual match added to database. Admin panel will reload fresh data on refresh.`)
+
       return res.status(200).json({
         success: true,
         message: `Manual match created successfully`,
@@ -1540,7 +1595,8 @@ export default async function handler(req, res) {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore
-        }]
+        }],
+        sessionId: null // Manual matches don't create new sessions, they modify existing data
       })
     }
 
@@ -1597,6 +1653,21 @@ export default async function handler(req, res) {
         throw insertError
       }
 
+      // Auto-save group results to admin_results table
+      const sessionId = await autoSaveAdminResults(
+        eventId, 
+        'group', 
+        'ai', // Group matching always uses AI/compatibility calculations
+        groupMatches, 
+        [], // No calculated pairs for group matching
+        [], // participantResults will be generated in admin panel
+        { totalTime: 0, cacheHitRate: 0, aiCalls: 0 }, // Basic performance metrics
+        false, // skipAI is always false for groups
+        excludedPairs, 
+        excludedParticipants, 
+        [] // No locked matches for groups
+      )
+
       return res.status(200).json({
         message: `✅ Group matching complete - created ${groupMatches.length} groups`,
         count: groupMatches.length,
@@ -1606,7 +1677,8 @@ export default async function handler(req, res) {
           participants: [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number, match.participant_e_number, match.participant_f_number].filter(p => p !== null),
           score: match.compatibility_score,
           table_number: match.table_number
-        }))
+        })),
+        sessionId: sessionId // Include session ID for reference
       })
     }
 
@@ -1995,36 +2067,58 @@ export default async function handler(req, res) {
       throw insertError
     }
 
+    // Prepare data for response and auto-save
+    const performance = {
+      totalTime: totalTime,
+      totalTimeSeconds: (totalTime / 1000).toFixed(1),
+      cacheHits: cacheHits,
+      cacheMisses: cacheMisses,
+      cacheHitRate: parseFloat(cacheHitRate),
+      aiCalls: aiCalls,
+      totalCalculations: totalCalculations,
+      avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0
+    }
+
+    const calculatedPairs = compatibilityScores.map(pair => ({
+      participant_a: pair.a,
+      participant_b: pair.b,
+      compatibility_score: Math.round(pair.score),
+      mbti_compatibility_score: pair.mbtiScore,
+      attachment_compatibility_score: pair.attachmentScore,
+      communication_compatibility_score: pair.communicationScore,
+      lifestyle_compatibility_score: pair.lifestyleScore,
+      core_values_compatibility_score: pair.coreValuesScore,
+      vibe_compatibility_score: pair.vibeScore,
+      reason: pair.reason,
+      is_actual_match: finalMatches.some(match => 
+        (match.participant_a_number === pair.a && match.participant_b_number === pair.b) ||
+        (match.participant_a_number === pair.b && match.participant_b_number === pair.a)
+      )
+    }))
+
+    // Auto-save results to admin_results table
+    const generationType = skipAI ? 'no-ai' : (cacheHits > 0 ? 'cached' : 'ai')
+    const sessionId = await autoSaveAdminResults(
+      eventId, 
+      'individual', 
+      generationType, 
+      finalMatches, 
+      calculatedPairs, 
+      [], // participantResults will be generated in admin panel
+      performance, 
+      skipAI, 
+      excludedPairs, 
+      excludedParticipants, 
+      lockedPairs
+    )
+
     return res.status(200).json({
       message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe${skipAI ? ' - AI skipped' : ''})`,
       count: finalMatches.length,
       results: finalMatches,
-      performance: {
-        totalTime: totalTime,
-        totalTimeSeconds: (totalTime / 1000).toFixed(1),
-        cacheHits: cacheHits,
-        cacheMisses: cacheMisses,
-        cacheHitRate: parseFloat(cacheHitRate),
-        aiCalls: aiCalls,
-        totalCalculations: totalCalculations,
-        avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0
-      },
-      calculatedPairs: compatibilityScores.map(pair => ({
-        participant_a: pair.a,
-        participant_b: pair.b,
-        compatibility_score: Math.round(pair.score),
-        mbti_compatibility_score: pair.mbtiScore,
-        attachment_compatibility_score: pair.attachmentScore,
-        communication_compatibility_score: pair.communicationScore,
-        lifestyle_compatibility_score: pair.lifestyleScore,
-        core_values_compatibility_score: pair.coreValuesScore,
-        vibe_compatibility_score: pair.vibeScore,
-        reason: pair.reason,
-        is_actual_match: finalMatches.some(match => 
-          (match.participant_a_number === pair.a && match.participant_b_number === pair.b) ||
-          (match.participant_a_number === pair.b && match.participant_b_number === pair.a)
-        )
-      }))
+      performance: performance,
+      calculatedPairs: calculatedPairs,
+      sessionId: sessionId // Include session ID for reference
     })
 
   } catch (err) {

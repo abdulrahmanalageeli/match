@@ -29,6 +29,16 @@ interface ParticipantResultsModalProps {
   totalMatches: number
   calculatedPairs?: any[]
   onRefresh?: () => Promise<void>
+  isFromCache?: boolean
+  sessionId?: string | null
+  sessionInfo?: {
+    created_at: string
+    generation_type: string
+    generation_duration_ms?: number
+    cache_hit_rate?: number
+    ai_calls_made?: number
+  } | null
+  currentEventId?: number
 }
 
 export default function ParticipantResultsModal({ 
@@ -38,7 +48,11 @@ export default function ParticipantResultsModal({
   matchType, 
   totalMatches,
   calculatedPairs = [],
-  onRefresh
+  onRefresh,
+  isFromCache = false,
+  sessionId = null,
+  sessionInfo = null,
+  currentEventId = 1
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -159,7 +173,7 @@ export default function ParticipantResultsModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          eventId: 2, // Adjust as needed
+          eventId: currentEventId,
           manualMatch: {
             participant1: swappingParticipant,
             participant2: newPartnerNumber
@@ -169,10 +183,12 @@ export default function ParticipantResultsModal({
       
       const data = await response.json()
       if (response.ok) {
-        alert(`✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`)
+        alert(`✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%\n\n🔄 سيتم تحديث النتائج تلقائياً...`)
         setShowDetailModal(false)
         setSwappingParticipant(null)
-        // Refresh the results without closing the modal
+        
+        // Refresh the results to show the new match
+        // This will reload from the database and show updated persistent session
         if (onRefresh) {
           await onRefresh()
         }

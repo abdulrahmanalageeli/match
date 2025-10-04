@@ -1,224 +1,210 @@
-create table public.participants (
+create table public.match_results (
   id uuid not null default gen_random_uuid (),
-  assigned_number integer not null,
+  participant_a_id uuid null,
+  participant_b_id uuid null,
+  match_type text null,
+  reason text null,
   match_id uuid null,
-  is_host boolean null default false,
-  summary text null,
   created_at timestamp with time zone null default now(),
-  table_number integer null,
-  secure_token text null default encode(extensions.gen_random_bytes (6), 'hex'::text),
+  compatibility_score integer null,
+  participant_a_number integer null,
+  participant_b_number integer null,
+  round smallint null,
+  table_number smallint null,
+  participant_c_number integer null,
+  participant_d_number integer null,
   group_number integer null,
-  survey_data jsonb null,
-  mbti_personality_type character varying(4) null,
-  attachment_style character varying(50) null,
-  communication_style character varying(50) null,
-  name text null,
-  gender text null,
-  phone_number text null,
-  age integer null,
-  same_gender_preference boolean null default false,
-  "PAID" boolean null default false,
-  "PAID_DONE" boolean null default false,
-  signup_for_next_event boolean null default false,
-  next_event_signup_timestamp timestamp with time zone null,
+  conversation_start_time timestamp with time zone null,
+  conversation_duration integer null default 1800,
+  conversation_status text null default 'pending'::text,
+  participant_a_mbti_type character varying(4) null,
+  participant_b_mbti_type character varying(4) null,
+  participant_a_attachment_style character varying(50) null,
+  participant_b_attachment_style character varying(50) null,
+  participant_a_communication_style character varying(50) null,
+  participant_b_communication_style character varying(50) null,
+  participant_a_lifestyle_preferences text null,
+  participant_b_lifestyle_preferences text null,
+  participant_a_core_values text null,
+  participant_b_core_values text null,
+  participant_a_vibe_description text null,
+  participant_b_vibe_description text null,
+  participant_a_ideal_person_description text null,
+  participant_b_ideal_person_description text null,
+  mbti_compatibility_score numeric(5, 2) null default 0,
+  attachment_compatibility_score numeric(5, 2) null default 0,
+  communication_compatibility_score numeric(5, 2) null default 0,
+  lifestyle_compatibility_score numeric(5, 2) null default 0,
+  core_values_compatibility_score numeric(5, 2) null default 0,
+  vibe_compatibility_score numeric(5, 2) null default 0,
+  is_repeat_match boolean null default false,
+  participant_e_number integer null,
+  participant_f_number integer null,
+  mutual_match boolean null default false,
+  participant_a_wants_match boolean null,
+  participant_b_wants_match boolean null,
   event_id integer not null default 1,
+  event_finished boolean not null default false,
   ai_personality_analysis text null,
-  constraint participants_pkey primary key (id),
-  constraint unique_participant_number_per_match unique (assigned_number, match_id),
-  constraint unique_secure_token unique (secure_token),
-  constraint participants_assigned_number_key unique (assigned_number),
-  constraint check_event_id_positive check ((event_id > 0)),
-  constraint check_mbti_type_valid check (
+  constraint match_results_pkey primary key (id),
+  constraint fk_match_results_participant_a foreign KEY (participant_a_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
+  constraint fk_match_results_participant_b foreign KEY (participant_b_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
+  constraint fk_match_results_participant_e foreign KEY (participant_e_number) references participants (assigned_number) deferrable initially DEFERRED,
+  constraint fk_match_results_participant_f foreign KEY (participant_f_number) references participants (assigned_number) deferrable initially DEFERRED,
+  constraint match_results_participant_a_id_fkey foreign KEY (participant_a_id) references participants (id) on delete CASCADE,
+  constraint match_results_participant_b_id_fkey foreign KEY (participant_b_id) references participants (id) on delete CASCADE,
+  constraint check_participant_f_positive check (
     (
-      (mbti_personality_type is null)
-      or (
-        (length((mbti_personality_type)::text) = 4)
-        and (
-          "substring" ((mbti_personality_type)::text, 1, 1) = any (array['E'::text, 'I'::text])
-        )
-        and (
-          "substring" ((mbti_personality_type)::text, 2, 1) = any (array['S'::text, 'N'::text])
-        )
-        and (
-          "substring" ((mbti_personality_type)::text, 3, 1) = any (array['T'::text, 'F'::text])
-        )
-        and (
-          "substring" ((mbti_personality_type)::text, 4, 1) = any (array['J'::text, 'P'::text])
-        )
+      (participant_f_number is null)
+      or (participant_f_number > 0)
+    )
+  ),
+  constraint check_event_finished_boolean check (
+    (
+      (event_finished is null)
+      or (event_finished = true)
+      or (event_finished = false)
+    )
+  ),
+  constraint match_results_conversation_status_check check (
+    (
+      conversation_status = any (
+        array['pending'::text, 'active'::text, 'finished'::text]
       )
     )
   ),
-  constraint check_same_gender_preference_valid check ((same_gender_preference is not null)),
-  constraint check_survey_data_valid check (
+  constraint match_results_match_type_check check (
     (
-      (survey_data is null)
-      or (jsonb_typeof(survey_data) = 'object'::text)
+      match_type = any (
+        array['توأم روح'::text, 'محايد'::text, 'عدو لدود'::text]
+      )
     )
   ),
-  constraint participants_gender_check check (
+  constraint check_event_id_positive check ((event_id > 0)),
+  constraint check_group_participant_order check (
     (
       (
-        gender = any (array['male'::text, 'female'::text])
+        (participant_e_number is null)
+        or (
+          (participant_a_number is not null)
+          and (participant_b_number is not null)
+          and (participant_c_number is not null)
+          and (participant_d_number is not null)
+        )
       )
-      or (gender is null)
-    )
-  ),
-  constraint check_age_valid check (
-    (
-      (age is null)
-      or (
-        (age >= 18)
-        and (age <= 65)
-      )
-    )
-  ),
-  constraint valid_communication_style check (
-    (
-      (communication_style is null)
-      or (
-        (communication_style)::text = any (
-          (
-            array[
-              'Assertive'::character varying,
-              'Passive'::character varying,
-              'Aggressive'::character varying,
-              'Passive-Aggressive'::character varying
-            ]
-          )::text[]
+      and (
+        (participant_f_number is null)
+        or (
+          (participant_a_number is not null)
+          and (participant_b_number is not null)
+          and (participant_c_number is not null)
+          and (participant_d_number is not null)
+          and (participant_e_number is not null)
         )
       )
     )
   ),
-  constraint check_ai_analysis_not_empty check (
+  constraint check_mutual_match_boolean check (
     (
-      (ai_personality_analysis is null)
-      or (
-        length(
-          TRIM(
-            both
-            from
-              ai_personality_analysis
-          )
-        ) > 0
-      )
+      (mutual_match is null)
+      or (mutual_match = true)
+      or (mutual_match = false)
     )
   ),
-  constraint check_attachment_style_valid check (
+  constraint check_participant_a_wants_match_boolean check (
     (
-      (attachment_style is null)
-      or (
-        (attachment_style)::text = any (
-          (
-            array[
-              'Secure'::character varying,
-              'Anxious'::character varying,
-              'Avoidant'::character varying,
-              'Fearful'::character varying
-            ]
-          )::text[]
-        )
-      )
-      or ((attachment_style)::text ~~ 'Mixed (%'::text)
+      (participant_a_wants_match is null)
+      or (participant_a_wants_match = true)
+      or (participant_a_wants_match = false)
     )
   ),
-  constraint check_core_values_format check (
+  constraint check_participant_b_wants_match_boolean check (
     (
-      ((survey_data -> 'coreValues'::text) is null)
-      or (
-        ((survey_data -> 'coreValues'::text))::text ~ '^"[أبج],[أبج],[أبج],[أبج],[أبج]"$'::text
-      )
+      (participant_b_wants_match is null)
+      or (participant_b_wants_match = true)
+      or (participant_b_wants_match = false)
+    )
+  ),
+  constraint check_participant_e_positive check (
+    (
+      (participant_e_number is null)
+      or (participant_e_number > 0)
     )
   )
 ) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_survey_data on public.participants using gin (survey_data) TABLESPACE pg_default;
+create index IF not exists idx_match_results_conversation_status on public.match_results using btree (conversation_status) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_mbti_type on public.participants using btree (mbti_personality_type) TABLESPACE pg_default;
+create index IF not exists idx_match_results_conversation_start_time on public.match_results using btree (conversation_start_time) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_mbti_type_not_null on public.participants using btree (mbti_personality_type) TABLESPACE pg_default
+create index IF not exists idx_match_results_participant_a_mbti on public.match_results using btree (participant_a_mbti_type) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_participant_b_mbti on public.match_results using btree (participant_b_mbti_type) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_participant_a_attachment on public.match_results using btree (participant_a_attachment_style) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_participant_b_attachment on public.match_results using btree (participant_b_attachment_style) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_participant_a_communication on public.match_results using btree (participant_a_communication_style) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_participant_b_communication on public.match_results using btree (participant_b_communication_style) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_mbti_score on public.match_results using btree (mbti_compatibility_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_attachment_score on public.match_results using btree (attachment_compatibility_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_communication_score on public.match_results using btree (communication_compatibility_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_lifestyle_score on public.match_results using btree (lifestyle_compatibility_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_core_values_score on public.match_results using btree (core_values_compatibility_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_vibe_score on public.match_results using btree (vibe_compatibility_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_participant_e_number on public.match_results using btree (participant_e_number) TABLESPACE pg_default
 where
-  (mbti_personality_type is not null);
+  (participant_e_number is not null);
 
-create index IF not exists idx_participants_mbti_ei on public.participants using btree ("substring" ((mbti_personality_type)::text, 1, 1)) TABLESPACE pg_default
+create index IF not exists idx_match_results_participant_f_number on public.match_results using btree (participant_f_number) TABLESPACE pg_default
 where
-  (mbti_personality_type is not null);
+  (participant_f_number is not null);
 
-create index IF not exists idx_participants_mbti_sn on public.participants using btree ("substring" ((mbti_personality_type)::text, 2, 1)) TABLESPACE pg_default
+create index IF not exists idx_match_results_all_participants on public.match_results using btree (
+  participant_a_number,
+  participant_b_number,
+  participant_c_number,
+  participant_d_number,
+  participant_e_number,
+  participant_f_number,
+  round,
+  match_id
+) TABLESPACE pg_default
 where
-  (mbti_personality_type is not null);
+  (round = 0);
 
-create index IF not exists idx_participants_mbti_tf on public.participants using btree ("substring" ((mbti_personality_type)::text, 3, 1)) TABLESPACE pg_default
+create index IF not exists idx_match_results_mutual_match on public.match_results using btree (mutual_match) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_mutual_match_true on public.match_results using btree (mutual_match) TABLESPACE pg_default
 where
-  (mbti_personality_type is not null);
+  (mutual_match = true);
 
-create index IF not exists idx_participants_mbti_jp on public.participants using btree ("substring" ((mbti_personality_type)::text, 4, 1)) TABLESPACE pg_default
-where
-  (mbti_personality_type is not null);
+create index IF not exists idx_match_results_participant_a_wants_match on public.match_results using btree (participant_a_wants_match) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_attachment_style on public.participants using btree (attachment_style) TABLESPACE pg_default;
+create index IF not exists idx_match_results_participant_b_wants_match on public.match_results using btree (participant_b_wants_match) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_attachment_style_not_null on public.participants using btree (attachment_style) TABLESPACE pg_default
-where
-  (attachment_style is not null);
-
-create index IF not exists idx_participants_communication_style on public.participants using btree (communication_style) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_lifestyle on public.participants using gin (((survey_data -> 'lifestylePreferences'::text))) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_personality_types on public.participants using gin (
-  ((survey_data -> 'mbtiType'::text)),
-  ((survey_data -> 'attachmentStyle'::text)),
-  ((survey_data -> 'communicationStyle'::text)),
-  ((survey_data -> 'lifestylePreferences'::text))
+create index IF not exists idx_match_results_participants_and_match on public.match_results using btree (
+  match_id,
+  participant_a_number,
+  participant_b_number
 ) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_core_values on public.participants using gin (((survey_data -> 'coreValues'::text))) TABLESPACE pg_default;
+create index IF not exists idx_match_results_event_id on public.match_results using btree (event_id) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_name on public.participants using btree (name) TABLESPACE pg_default;
+create index IF not exists idx_match_results_event_finished on public.match_results using btree (event_finished) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_gender on public.participants using btree (gender) TABLESPACE pg_default;
+create index IF not exists idx_match_results_event_id_finished on public.match_results using btree (event_id, event_finished) TABLESPACE pg_default;
 
-create index IF not exists idx_participants_phone on public.participants using btree (phone_number) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_age on public.participants using btree (age) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_age_not_null on public.participants using btree (age) TABLESPACE pg_default
-where
-  (age is not null);
-
-create index IF not exists idx_participants_same_gender_preference on public.participants using btree (same_gender_preference) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_gender_same_preference on public.participants using btree (gender, same_gender_preference) TABLESPACE pg_default
-where
-  (gender is not null);
-
-create index IF not exists idx_participants_next_event_signup on public.participants using btree (signup_for_next_event) TABLESPACE pg_default
-where
-  (signup_for_next_event = true);
-
-create index IF not exists idx_participants_event_id on public.participants using btree (event_id) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_event_match on public.participants using btree (event_id, match_id) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_event_number on public.participants using btree (event_id, assigned_number) TABLESPACE pg_default;
-
-create index IF not exists idx_participants_ai_analysis on public.participants using btree (ai_personality_analysis) TABLESPACE pg_default
-where
-  (ai_personality_analysis is not null);
-
-create index IF not exists idx_participants_analysis_ready on public.participants using btree (event_id, ai_personality_analysis) TABLESPACE pg_default
-where
-  (
-    (ai_personality_analysis is not null)
-    and (survey_data is not null)
-  );
-
-create trigger trigger_sync_communication_style BEFORE INSERT
+create trigger trigger_validate_participant_numbers BEFORE INSERT
 or
-update on participants for EACH row
-execute FUNCTION sync_communication_style_from_json ();
-
-create trigger trigger_update_personality_types BEFORE INSERT
-or
-update on participants for EACH row
-execute FUNCTION update_personality_types_from_survey_data ();
+update on match_results for EACH row
+execute FUNCTION validate_participant_numbers ();

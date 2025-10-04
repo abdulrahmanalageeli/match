@@ -1722,6 +1722,405 @@ export default async function handler(req, res) {
       }
     }
 
+    // GET CACHED RESULTS ACTION - Fetch results from compatibility cache table
+    if (action === "get-cached-results") {
+      try {
+        const { event_id } = req.body
+        
+        if (!event_id) {
+          return res.status(400).json({ error: "Missing event_id parameter" })
+        }
+        
+        console.log(`🔍 Fetching cached results for event ${event_id}`)
+        
+        // Get all compatibility cache entries and match results for the event
+        const { data: cacheData, error: cacheError } = await supabase
+          .from("compatibility_cache")
+          .select("*")
+          .order("total_compatibility_score", { ascending: false })
+        
+        if (cacheError) {
+          console.error("Error fetching cache data:", cacheError)
+          return res.status(500).json({ error: cacheError.message })
+        }
+        
+        // Get match results for the event to identify actual matches
+        const { data: matchResults, error: matchError } = await supabase
+          .from("match_results")
+          .select("*")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+        
+        if (matchError) {
+          console.error("Error fetching match results:", matchError)
+          return res.status(500).json({ error: matchError.message })
+        }
+        
+        // Get all participants to have their names and info
+        const { data: participants, error: participantsError } = await supabase
+          .from("participants")
+          .select("id, assigned_number, name, survey_data, PAID_DONE")
+          .eq("match_id", STATIC_MATCH_ID)
+        
+        if (participantsError) {
+          console.error("Error fetching participants:", participantsError)
+          return res.status(500).json({ error: participantsError.message })
+        }
+        
+        // Create participant info map
+        const participantInfoMap = new Map()
+        participants.forEach(p => {
+          participantInfoMap.set(p.assigned_number, {
+            id: p.id,
+            name: p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`,
+            paid_done: p.PAID_DONE || false
+          })
+        })
+        
+        // Create match results map for quick lookup
+        const matchResultsMap = new Map()
+        matchResults.forEach(match => {
+          const key1 = `${match.participant_a_number}-${match.participant_b_number}`
+          const key2 = `${match.participant_b_number}-${match.participant_a_number}`
+          matchResultsMap.set(key1, match)
+          matchResultsMap.set(key2, match)
+        })
+        
+        // Convert cache data to calculated pairs format
+        const calculatedPairs = cacheData.map(cache => {
+          const key = `${cache.participant_a_number}-${cache.participant_b_number}`
+          const matchResult = matchResultsMap.get(key)
+          const isActualMatch = !!matchResult
+          
+          return {
+            id: cache.id,
+            participant_a: cache.participant_a_number,
+            participant_b: cache.participant_b_number,
+            compatibility_score: Math.round(parseFloat(cache.total_compatibility_score)),
+            mbti_compatibility_score: parseFloat(cache.mbti_score),
+            attachment_compatibility_score: parseFloat(cache.attachment_score),
+            communication_compatibility_score: parseFloat(cache.communication_score),
+            lifestyle_compatibility_score: parseFloat(cache.lifestyle_score),
+            core_values_compatibility_score: parseFloat(cache.core_values_score),
+            vibe_compatibility_score: parseFloat(cache.ai_vibe_score),
+            reason: `MBTI: ${parseFloat(cache.mbti_score).toFixed(1)}% + Attachment: ${parseFloat(cache.attachment_score).toFixed(1)}% + Communication: ${parseFloat(cache.communication_score).toFixed(1)}% + Lifestyle: ${parseFloat(cache.lifestyle_score).toFixed(1)}% + Values: ${parseFloat(cache.core_values_score).toFixed(1)}% + Vibe: ${parseFloat(cache.ai_vibe_score).toFixed(1)}%`,
+            is_actual_match: isActualMatch,
+            use_count: cache.use_count,
+            last_used: cache.last_used,
+            created_at: cache.created_at
+          }
+        })
+        
+        // Convert match results to participant results format
+        const participantResults = []
+        const processedParticipants = new Set()
+        
+        matchResults.forEach(match => {
+          // Process participant A
+          if (match.participant_a_number && !processedParticipants.has(match.participant_a_number)) {
+            const participantInfo = participantInfoMap.get(match.participant_a_number)
+            const partnerInfo = participantInfoMap.get(match.participant_b_number)
+            
+            participantResults.push({
+              id: participantInfo?.id || `participant_${match.participant_a_number}`,
+              assigned_number: match.participant_a_number,
+              name: participantInfo?.name || `المشارك #${match.participant_a_number}`,
+              compatibility_score: match.compatibility_score || 0,
+              mbti_compatibility_score: match.mbti_compatibility_score || 0,
+              attachment_compatibility_score: match.attachment_compatibility_score || 0,
+              communication_compatibility_score: match.communication_compatibility_score || 0,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
+              core_values_compatibility_score: match.core_values_compatibility_score || 0,
+              vibe_compatibility_score: match.vibe_compatibility_score || 0,
+              partner_assigned_number: match.participant_b_number,
+              partner_name: partnerInfo?.name || `المشارك #${match.participant_b_number}`,
+              is_organizer_match: match.participant_b_number === 9999,
+              paid_done: participantInfo?.paid_done || false,
+              partner_paid_done: partnerInfo?.paid_done || false
+            })
+            processedParticipants.add(match.participant_a_number)
+          }
+          
+          // Process participant B (only if not organizer and not already processed)
+          if (match.participant_b_number && match.participant_b_number !== 9999 && !processedParticipants.has(match.participant_b_number)) {
+            const participantInfo = participantInfoMap.get(match.participant_b_number)
+            const partnerInfo = participantInfoMap.get(match.participant_a_number)
+            
+            participantResults.push({
+              id: participantInfo?.id || `participant_${match.participant_b_number}`,
+              assigned_number: match.participant_b_number,
+              name: participantInfo?.name || `المشارك #${match.participant_b_number}`,
+              compatibility_score: match.compatibility_score || 0,
+              mbti_compatibility_score: match.mbti_compatibility_score || 0,
+              attachment_compatibility_score: match.attachment_compatibility_score || 0,
+              communication_compatibility_score: match.communication_compatibility_score || 0,
+              lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
+              core_values_compatibility_score: match.core_values_compatibility_score || 0,
+              vibe_compatibility_score: match.vibe_compatibility_score || 0,
+              partner_assigned_number: match.participant_a_number,
+              partner_name: partnerInfo?.name || `المشارك #${match.participant_a_number}`,
+              is_organizer_match: match.participant_a_number === 9999,
+              paid_done: participantInfo?.paid_done || false,
+              partner_paid_done: partnerInfo?.paid_done || false
+            })
+            processedParticipants.add(match.participant_b_number)
+          }
+        })
+        
+        console.log(`✅ Found ${calculatedPairs.length} cached pairs and ${participantResults.length} participant results for event ${event_id}`)
+        
+        return res.status(200).json({
+          success: true,
+          calculatedPairs,
+          participantResults,
+          totalMatches: matchResults.length,
+          cacheStats: {
+            totalPairs: cacheData.length,
+            avgUseCount: cacheData.length > 0 ? (cacheData.reduce((sum, c) => sum + c.use_count, 0) / cacheData.length).toFixed(1) : 0
+          }
+        })
+        
+      } catch (error) {
+        console.error("Error fetching cached results:", error)
+        return res.status(500).json({ error: "Failed to fetch cached results" })
+      }
+    }
+
+    // SAVE ADMIN RESULTS ACTION - Store match generation session for persistence
+    if (action === "save-admin-results") {
+      try {
+        const { 
+          sessionId, 
+          eventId, 
+          matchType, 
+          generationType, 
+          matchResults, 
+          calculatedPairs, 
+          participantResults,
+          totalMatches,
+          totalParticipants,
+          skipAI,
+          excludedPairs,
+          excludedParticipants,
+          lockedMatches,
+          generationDurationMs,
+          cacheHitRate,
+          aiCallsMade,
+          notes
+        } = req.body
+        
+        if (!sessionId || !eventId || !matchType || !generationType) {
+          return res.status(400).json({ error: "Missing required parameters" })
+        }
+        
+        console.log(`💾 Saving admin results session: ${sessionId}`)
+        
+        // Deactivate previous sessions of the same type for this event
+        const { error: deactivateError } = await supabase
+          .from("admin_results")
+          .update({ is_active: false })
+          .eq("event_id", eventId)
+          .eq("match_type", matchType)
+          .eq("is_active", true)
+        
+        if (deactivateError) {
+          console.error("Error deactivating previous sessions:", deactivateError)
+        }
+        
+        // Insert new session
+        const { data, error } = await supabase
+          .from("admin_results")
+          .insert([{
+            session_id: sessionId,
+            event_id: eventId,
+            match_type: matchType,
+            generation_type: generationType,
+            match_results: matchResults || [],
+            calculated_pairs: calculatedPairs || [],
+            participant_results: participantResults || [],
+            total_matches: totalMatches || 0,
+            total_participants: totalParticipants || 0,
+            skip_ai: skipAI || false,
+            excluded_pairs: excludedPairs || [],
+            excluded_participants: excludedParticipants || [],
+            locked_matches: lockedMatches || [],
+            generation_duration_ms: generationDurationMs,
+            cache_hit_rate: cacheHitRate,
+            ai_calls_made: aiCallsMade || 0,
+            notes: notes || null
+          }])
+          .select()
+          .single()
+        
+        if (error) {
+          console.error("Error saving admin results:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`✅ Saved admin results session: ${sessionId}`)
+        return res.status(200).json({ 
+          success: true, 
+          sessionId: data.session_id,
+          id: data.id 
+        })
+        
+      } catch (error) {
+        console.error("Error saving admin results:", error)
+        return res.status(500).json({ error: "Failed to save admin results" })
+      }
+    }
+
+    // GET ADMIN RESULTS ACTION - Retrieve saved match generation sessions
+    if (action === "get-admin-results") {
+      try {
+        const { eventId, matchType, sessionId, includeInactive = false } = req.body
+        
+        let query = supabase
+          .from("admin_results")
+          .select("*")
+          .order("created_at", { ascending: false })
+        
+        if (eventId) {
+          query = query.eq("event_id", eventId)
+        }
+        
+        if (matchType) {
+          query = query.eq("match_type", matchType)
+        }
+        
+        if (sessionId) {
+          query = query.eq("session_id", sessionId)
+        }
+        
+        if (!includeInactive) {
+          query = query.eq("is_active", true)
+        }
+        
+        const { data, error } = await query
+        
+        if (error) {
+          console.error("Error fetching admin results:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`📊 Retrieved ${data.length} admin results sessions`)
+        return res.status(200).json({ 
+          success: true, 
+          sessions: data 
+        })
+        
+      } catch (error) {
+        console.error("Error fetching admin results:", error)
+        return res.status(500).json({ error: "Failed to fetch admin results" })
+      }
+    }
+
+    // GET LATEST ADMIN RESULTS ACTION - Get the most recent active session
+    if (action === "get-latest-admin-results") {
+      try {
+        const { eventId, matchType } = req.body
+        
+        if (!eventId || !matchType) {
+          return res.status(400).json({ error: "Missing eventId or matchType" })
+        }
+        
+        const { data, error } = await supabase
+          .from("admin_results")
+          .select("*")
+          .eq("event_id", eventId)
+          .eq("match_type", matchType)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single()
+        
+        if (error && error.code !== 'PGRST116') {
+          console.error("Error fetching latest admin results:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        if (!data) {
+          return res.status(200).json({ 
+            success: true, 
+            session: null,
+            message: "No active session found" 
+          })
+        }
+        
+        console.log(`📊 Retrieved latest admin results: ${data.session_id}`)
+        return res.status(200).json({ 
+          success: true, 
+          session: data 
+        })
+        
+      } catch (error) {
+        console.error("Error fetching latest admin results:", error)
+        return res.status(500).json({ error: "Failed to fetch latest admin results" })
+      }
+    }
+
+    // PIN ADMIN RESULTS ACTION - Pin/unpin a session for easy access
+    if (action === "pin-admin-results") {
+      try {
+        const { sessionId, pinned } = req.body
+        
+        if (!sessionId || typeof pinned !== 'boolean') {
+          return res.status(400).json({ error: "Missing sessionId or pinned parameter" })
+        }
+        
+        const { error } = await supabase
+          .from("admin_results")
+          .update({ is_pinned: pinned })
+          .eq("session_id", sessionId)
+        
+        if (error) {
+          console.error("Error pinning admin results:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`📌 ${pinned ? 'Pinned' : 'Unpinned'} session: ${sessionId}`)
+        return res.status(200).json({ 
+          success: true, 
+          message: `Session ${pinned ? 'pinned' : 'unpinned'} successfully` 
+        })
+        
+      } catch (error) {
+        console.error("Error pinning admin results:", error)
+        return res.status(500).json({ error: "Failed to pin admin results" })
+      }
+    }
+
+    // DELETE ADMIN RESULTS ACTION - Remove a session
+    if (action === "delete-admin-results") {
+      try {
+        const { sessionId } = req.body
+        
+        if (!sessionId) {
+          return res.status(400).json({ error: "Missing sessionId parameter" })
+        }
+        
+        const { error } = await supabase
+          .from("admin_results")
+          .delete()
+          .eq("session_id", sessionId)
+        
+        if (error) {
+          console.error("Error deleting admin results:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`🗑️ Deleted session: ${sessionId}`)
+        return res.status(200).json({ 
+          success: true, 
+          message: "Session deleted successfully" 
+        })
+        
+      } catch (error) {
+        console.error("Error deleting admin results:", error)
+        return res.status(500).json({ error: "Failed to delete admin results" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

@@ -23,11 +23,30 @@ create table public.participants (
   next_event_signup_timestamp timestamp with time zone null,
   event_id integer not null default 1,
   ai_personality_analysis text null,
+  any_gender_preference boolean not null default false,
+  humor_banter_style character varying(1) null,
+  early_openness_comfort integer null,
   constraint participants_pkey primary key (id),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),
   constraint unique_secure_token unique (secure_token),
   constraint participants_assigned_number_key unique (assigned_number),
+  constraint check_core_values_format check (
+    (
+      ((survey_data -> 'coreValues'::text) is null)
+      or (
+        ((survey_data -> 'coreValues'::text))::text ~ '^"[أبج],[أبج],[أبج],[أبج],[أبج]"$'::text
+      )
+    )
+  ),
   constraint check_event_id_positive check ((event_id > 0)),
+  constraint check_gender_preference_consistency check (
+    (
+      not (
+        (same_gender_preference = true)
+        and (any_gender_preference = true)
+      )
+    )
+  ),
   constraint check_mbti_type_valid check (
     (
       (mbti_personality_type is null)
@@ -55,12 +74,29 @@ create table public.participants (
       or (jsonb_typeof(survey_data) = 'object'::text)
     )
   ),
+  constraint participants_early_openness_comfort_check check (
+    (early_openness_comfort = any (array[0, 1, 2, 3]))
+  ),
   constraint participants_gender_check check (
     (
       (
         gender = any (array['male'::text, 'female'::text])
       )
       or (gender is null)
+    )
+  ),
+  constraint participants_humor_banter_style_check check (
+    (
+      (humor_banter_style)::text = any (
+        (
+          array[
+            'A'::character varying,
+            'B'::character varying,
+            'C'::character varying,
+            'D'::character varying
+          ]
+        )::text[]
+      )
     )
   ),
   constraint check_age_valid check (
@@ -103,6 +139,7 @@ create table public.participants (
       )
     )
   ),
+  constraint check_any_gender_preference_valid check ((any_gender_preference is not null)),
   constraint check_attachment_style_valid check (
     (
       (attachment_style is null)
@@ -119,14 +156,6 @@ create table public.participants (
         )
       )
       or ((attachment_style)::text ~~ 'Mixed (%'::text)
-    )
-  ),
-  constraint check_core_values_format check (
-    (
-      ((survey_data -> 'coreValues'::text) is null)
-      or (
-        ((survey_data -> 'coreValues'::text))::text ~ '^"[أبج],[أبج],[أبج],[أبج],[أبج]"$'::text
-      )
     )
   )
 ) TABLESPACE pg_default;
@@ -192,6 +221,17 @@ create index IF not exists idx_participants_gender_same_preference on public.par
 where
   (gender is not null);
 
+create index IF not exists idx_participants_early_openness_comfort on public.participants using btree (early_openness_comfort) TABLESPACE pg_default
+where
+  (early_openness_comfort is not null);
+
+create index IF not exists idx_participants_interaction_styles on public.participants using btree (humor_banter_style, early_openness_comfort) TABLESPACE pg_default
+where
+  (
+    (humor_banter_style is not null)
+    and (early_openness_comfort is not null)
+  );
+
 create index IF not exists idx_participants_next_event_signup on public.participants using btree (signup_for_next_event) TABLESPACE pg_default
 where
   (signup_for_next_event = true);
@@ -212,6 +252,22 @@ where
     (ai_personality_analysis is not null)
     and (survey_data is not null)
   );
+
+create index IF not exists idx_participants_any_gender_preference on public.participants using btree (any_gender_preference) TABLESPACE pg_default
+where
+  (any_gender_preference = true);
+
+create index IF not exists idx_participants_gender_preferences on public.participants using btree (
+  gender,
+  same_gender_preference,
+  any_gender_preference
+) TABLESPACE pg_default
+where
+  (gender is not null);
+
+create index IF not exists idx_participants_humor_banter_style on public.participants using btree (humor_banter_style) TABLESPACE pg_default
+where
+  (humor_banter_style is not null);
 
 create trigger trigger_sync_communication_style BEFORE INSERT
 or

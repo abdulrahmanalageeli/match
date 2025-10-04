@@ -70,13 +70,19 @@ export default function AdminPage() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [eventFinished, setEventFinished] = useState(false)
   
-  // Participant Results Modal State
   const [showResultsModal, setShowResultsModal] = useState(false)
   const [participantResults, setParticipantResults] = useState<any[]>([])
   const [matchType, setMatchType] = useState<"ai" | "no-ai" | "group">("ai")
   const [totalMatches, setTotalMatches] = useState(0)
   const [calculatedPairs, setCalculatedPairs] = useState<any[]>([])
   const [lastMatchParams, setLastMatchParams] = useState<{matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[]} | null>(null)
+  const [isFromCache, setIsFromCache] = useState(false)
+  
+  // Persistent Results State
+  const [availableSessions, setAvailableSessions] = useState<any[]>([])
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
+  const [currentSessionInfo, setCurrentSessionInfo] = useState<any>(null)
+  const [showSessionHistory, setShowSessionHistory] = useState(false)
   
   // Excluded pairs management
   const [excludedPairs, setExcludedPairs] = useState<Array<{id: string, participant1_number: number, participant2_number: number, created_at: string, reason: string}>>([])
@@ -97,22 +103,102 @@ export default function AdminPage() {
   const [totalGroupParticipants, setTotalGroupParticipants] = useState(0)
 
   // WhatsApp message modal state
-  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
+  const [showWhatsappModal, setShowWhatsappModal] = useState(false);
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
-  const fetchParticipants = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "participants" }),
-      })
-      const data = await res.json()
-      setParticipants(data.participants || [])
+  // Function to load available sessions
+const loadAvailableSessions = async () => {
+  try {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        action: "get-admin-results",
+        eventId: currentEventId,
+        includeInactive: false
+      }),
+    })
+    const data = await res.json()
+    if (res.ok && data.success) {
+      setAvailableSessions(data.sessions || [])
+      console.log(`📊 Loaded ${data.sessions?.length || 0} available sessions`)
+    }
+  } catch (error) {
+    console.error("Error loading available sessions:", error)
+  }
+}
+
+// Function to load latest results automatically
+const loadLatestResults = async (matchType: "individual" | "group") => {
+  try {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        action: "get-latest-admin-results",
+        eventId: currentEventId,
+        matchType: matchType
+      }),
+    })
+    const data = await res.json()
+    
+    if (res.ok && data.success && data.session) {
+      console.log(`🔄 Auto-loading latest ${matchType} results: ${data.session.session_id}`)
+      await loadSessionResults(data.session)
+      return true
+    }
+    return false
+  } catch (error) {
+    console.error("Error loading latest results:", error)
+    return false
+  }
+}
+
+// Function to load specific session results
+const loadSessionResults = async (session: any) => {
+  try {
+    setCurrentSessionId(session.session_id)
+    setCurrentSessionInfo({
+      created_at: session.created_at,
+      generation_type: session.generation_type,
+      generation_duration_ms: session.generation_duration_ms,
+      cache_hit_rate: session.cache_hit_rate,
+      ai_calls_made: session.ai_calls_made
+    })
+    setMatchType(session.match_type === 'group' ? 'group' : (session.generation_type === 'no-ai' ? 'no-ai' : 'ai'))
+    setTotalMatches(session.total_matches || 0)
+    setCalculatedPairs(session.calculated_pairs || [])
+    setIsFromCache(true)
+    
+    // Process participant results from stored data
+    if (session.match_results && session.match_results.length > 0) {
+      await showParticipantResults(
+        session.match_results, 
+        session.total_matches, 
+        session.match_type === 'group' ? 'group' : (session.generation_type === 'no-ai' ? 'no-ai' : 'ai'),
+        session.calculated_pairs || []
+      )
+    }
+    
+    console.log(`✅ Loaded session: ${session.session_id}`)
+  } catch (error) {
+    console.error("Error loading session results:", error)
+  }
+}
+
+const fetchParticipants = async () => {
+  setLoading(true)
+  try {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "participants" }),
+    })
+    const data = await res.json()
+    setParticipants(data.participants || [])
       
       // Also fetch current event state
       const stateRes = await fetch("/api/admin", {
@@ -205,6 +291,19 @@ export default function AdminPage() {
       })
       const eventFinishedData = await eventFinishedRes.json()
       setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) if not set
+      
+      // Auto-load available sessions and latest results
+      await loadAvailableSessions()
+      
+      // Try to auto-load latest individual results if none are currently loaded
+      if (!showResultsModal && participantResults.length === 0) {
+        const hasIndividualResults = await loadLatestResults("individual")
+        if (!hasIndividualResults) {
+          // If no individual results, try group results
+          await loadLatestResults("group")
+        }
+      }
+      
     } catch (err) {
       console.error("Fetch error:", err)
     } finally {
@@ -1099,10 +1198,62 @@ export default function AdminPage() {
       setTotalMatches(totalMatches)
       setMatchType(type)
       setCalculatedPairs(calculatedPairs)
+      setIsFromCache(false)
       setShowResultsModal(true)
     } catch (err) {
       console.error("Error preparing participant results:", err)
       alert("❌ Error preparing results display")
+    }
+  }
+
+  // New function to load cached results from compatibility cache table
+  const loadCachedResults = async () => {
+    try {
+      setLoading(true)
+      console.log(`🔍 Loading cached results for event ${currentEventId}`)
+      
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "get-cached-results",
+          event_id: currentEventId
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        console.log(`✅ Loaded ${data.calculatedPairs.length} cached pairs and ${data.participantResults.length} participant results`)
+        
+        // Set the data directly from the cache
+        setParticipantResults(data.participantResults)
+        setTotalMatches(data.totalMatches)
+        setCalculatedPairs(data.calculatedPairs)
+        setMatchType("ai") // Default to AI type for cached results
+        setIsFromCache(true)
+        
+        // Store for refresh functionality
+        setLastMatchParams({ 
+          matchResults: [], // Not needed for cached results
+          totalMatches: data.totalMatches, 
+          type: "ai", 
+          calculatedPairs: data.calculatedPairs 
+        })
+        
+        setShowResultsModal(true)
+        
+        // Show success message with cache stats
+        alert(`✅ Loaded cached results!\n\n📊 Statistics:\n• ${data.participantResults.length} participants with matches\n• ${data.calculatedPairs.length} total compatibility calculations\n• Average cache usage: ${data.cacheStats.avgUseCount} times\n\n💾 All data loaded from compatibility cache table`)
+      } else {
+        console.error("Failed to load cached results:", data.error)
+        alert(`❌ Failed to load cached results: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error loading cached results:", error)
+      alert("❌ Error loading cached results")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -1494,6 +1645,19 @@ export default function AdminPage() {
               </button>
 
               <button
+                onClick={loadCachedResults}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-xl transition-all duration-300 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <BarChart3 className="w-4 h-4" />
+                )}
+                Load Cached Results
+              </button>
+
+              <button
                 onClick={fetchGroupAssignments}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
               >
@@ -1561,8 +1725,97 @@ export default function AdminPage() {
                   View Last Results
                 </button>
               )}
+
+              {/* Session History Button */}
+              {availableSessions.length > 0 && (
+                <button
+                  onClick={() => setShowSessionHistory(!showSessionHistory)}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
+                >
+                  <Clock className="w-4 h-4" />
+                  Results History ({availableSessions.length})
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Session History Panel */}
+          {showSessionHistory && availableSessions.length > 0 && (
+            <div className="mt-6 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-indigo-500/20 rounded-lg">
+                    <Clock className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-indigo-300">Results History</h3>
+                    <p className="text-slate-400 text-sm">Previous match generation sessions for Event {currentEventId}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowSessionHistory(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {availableSessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+                      currentSessionId === session.session_id
+                        ? 'bg-indigo-500/20 border-indigo-400/50 shadow-lg'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
+                    }`}
+                    onClick={() => loadSessionResults(session)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          session.match_type === 'individual' ? 'bg-blue-400' : 'bg-green-400'
+                        }`} />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-white">
+                              {session.match_type === 'individual' ? 'Individual' : 'Group'} Matching
+                            </span>
+                            {session.generation_type === 'no-ai' && (
+                              <span className="px-2 py-1 bg-orange-500/20 text-orange-300 text-xs rounded-full">
+                                No AI
+                              </span>
+                            )}
+                            {session.generation_type === 'cached' && (
+                              <span className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-full">
+                                Cached
+                              </span>
+                            )}
+                            {currentSessionId === session.session_id && (
+                              <span className="px-2 py-1 bg-indigo-500/20 text-indigo-300 text-xs rounded-full">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-slate-400">
+                            {new Date(session.created_at).toLocaleString()} • {session.total_matches} matches
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {session.generation_duration_ms && (
+                          <span className="text-xs text-slate-500">
+                            {(session.generation_duration_ms / 1000).toFixed(1)}s
+                          </span>
+                        )}
+                        <ChevronRight className="w-4 h-4 text-slate-400" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -2712,8 +2965,26 @@ export default function AdminPage() {
         matchType={matchType}
         totalMatches={totalMatches}
         calculatedPairs={calculatedPairs}
+        sessionId={currentSessionId}
+        sessionInfo={currentSessionInfo}
+        isFromCache={isFromCache}
+        currentEventId={currentEventId}
         onRefresh={async () => {
-          if (lastMatchParams) {
+          // For persistent sessions, we need to reload fresh data from database
+          // because swaps/manual matches create new database records
+          if (currentSessionId && isFromCache) {
+            console.log("🔄 Refreshing persistent session after swap/change...")
+            // Reload fresh data from database instead of cached session
+            // This ensures we see the latest matches including swaps
+            await loadLatestResults(matchType === 'group' ? 'group' : 'individual')
+          } else if (currentSessionId && availableSessions.length > 0) {
+            const session = availableSessions.find(s => s.session_id === currentSessionId)
+            if (session) {
+              await loadSessionResults(session)
+            }
+          } else if (lastMatchParams && lastMatchParams.matchResults.length === 0) {
+            await loadCachedResults()
+          } else if (lastMatchParams) {
             await showParticipantResults(
               lastMatchParams.matchResults,
               lastMatchParams.totalMatches,

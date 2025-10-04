@@ -3067,7 +3067,7 @@ const fetchParticipants = async () => {
               lastMatchParams.calculatedPairs
             )
           }
-        }
+        }}
       />
 
       <WhatsappMessageModal

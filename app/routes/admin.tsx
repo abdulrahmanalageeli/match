@@ -3050,12 +3050,12 @@ const fetchParticipants = async () => {
         sessionInfo={currentSessionInfo}
         isFromCache={isFromCache}
         currentEventId={currentEventId}
+        isFreshData={!currentSessionId && !isFromCache} // Fresh data when no session and not from cache
         onRefresh={async () => {
           // For persistent sessions or any cached data, we need to reload fresh data from database
           // because swaps/manual matches create new database records that aren't in cached sessions
           if (isFromCache || currentSessionId) {
             console.log("🔄 Refreshing with fresh database data after swap/change...")
-            // Always load fresh data from database to see latest matches including swaps
             await loadFreshDatabaseResults(matchType === 'group' ? 'group' : 'individual')
           } else if (lastMatchParams && lastMatchParams.matchResults.length === 0) {
             await loadCachedResults()
@@ -3067,7 +3067,7 @@ const fetchParticipants = async () => {
               lastMatchParams.calculatedPairs
             )
           }
-        }}
+        }
       />
 
       <WhatsappMessageModal

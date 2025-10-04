@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { X, Users, Heart, Brain, MessageCircle, Home, Star, Zap, Eye, AlertTriangle, Info, Lock, Unlock, DollarSign, XCircle, ArrowLeftRight } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -39,6 +39,7 @@ interface ParticipantResultsModalProps {
     ai_calls_made?: number
   } | null
   currentEventId?: number
+  isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
 }
 
 export default function ParticipantResultsModal({ 
@@ -52,7 +53,8 @@ export default function ParticipantResultsModal({
   isFromCache = false,
   sessionId = null,
   sessionInfo = null,
-  currentEventId = 1
+  currentEventId = 1,
+  isFreshData = false
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -307,6 +309,24 @@ export default function ParticipantResultsModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Fresh Data Warning */}
+        {isFreshData && (
+          <div className="mx-6 mt-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+            <div className="flex items-start gap-3">
+              <div className="bg-amber-500/20 p-2 rounded-lg">
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-amber-400 font-medium mb-1">عرض البيانات المحدثة</h4>
+                <p className="text-amber-300/80 text-sm">
+                  تعرض هذه النتائج البيانات المحدثة من قاعدة البيانات بعد التبديل. 
+                  لحفظ هذه النتائج بشكل دائم، قم بإنشاء جلسة جديدة من خلال إعادة توليد المطابقات.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">

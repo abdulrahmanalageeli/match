@@ -936,30 +936,34 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to get event finished status" })
       }
     }
-
     if (action === "cleanup-incomplete-profiles") {
       try {
         console.log("Starting cleanup of incomplete profiles for match_id:", STATIC_MATCH_ID)
         
-        // First, get all participants
+        // First, get all participants ordered by assigned_number
         const { data: allParticipants, error: fetchError } = await supabase
           .from("participants")
           .select("id, assigned_number, survey_data")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999) // Exclude organizer participant
+          .order("assigned_number", { ascending: true })
         
         if (fetchError) {
           console.error("Error fetching participants:", fetchError)
           return res.status(500).json({ error: "Failed to fetch participants" })
         }
         
-        // Filter incomplete profiles (those without survey_data or with empty survey_data)
-        const incompleteParticipants = allParticipants.filter(p => 
+        // Protect the last 10 participants (highest assigned numbers) from deletion
+        const protectedCount = Math.min(10, allParticipants.length)
+        const eligibleForDeletion = allParticipants.slice(0, -protectedCount)
+        const protectedParticipants = allParticipants.slice(-protectedCount)
+        
+        console.log(`Total participants: ${allParticipants.length}, Protected (last 10): ${protectedParticipants.map(p => `#${p.assigned_number}`).join(', ')}`)
+        
+        // Filter incomplete profiles (those without survey_data only)
+        const incompleteParticipants = eligibleForDeletion.filter(p => 
           !p.survey_data || 
-          Object.keys(p.survey_data).length === 0 ||
-          !p.survey_data.name ||
-          !p.survey_data.age ||
-          !p.survey_data.gender
+          Object.keys(p.survey_data).length === 0
         )
         
         const incompleteIds = incompleteParticipants.map(p => p.id)
@@ -985,12 +989,13 @@ export default async function handler(req, res) {
         
         const remainingCount = allParticipants.length - deletedCount
         
-        console.log(`Cleanup completed: deleted ${deletedCount} incomplete profiles, ${remainingCount} complete profiles remain`)
+        console.log(`Cleanup completed: deleted ${deletedCount} incomplete profiles, ${remainingCount} total profiles remain (${protectedCount} protected from deletion)`)
         
         return res.status(200).json({ 
           deletedCount, 
           remainingCount,
-          message: `Successfully removed ${deletedCount} incomplete profiles` 
+          protectedCount,
+          message: `Successfully removed ${deletedCount} incomplete profiles (${protectedCount} participants protected from deletion)` 
         })
       } catch (err) {
         console.error("Error during cleanup:", err)

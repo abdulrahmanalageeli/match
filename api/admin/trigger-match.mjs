@@ -1432,7 +1432,7 @@ export default async function handler(req, res) {
       .from("participants")
       .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event")
       .eq("match_id", match_id)
-      .or("signup_for_next_event.eq.true,event_id.eq.2")  // Participants who signed up for next event OR have event_id 2
+      .or(`signup_for_next_event.eq.true,event_id.eq.${eventId}`)  // Participants who signed up for next event OR have current event_id
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
 
     if (error) throw error
@@ -1441,7 +1441,7 @@ export default async function handler(req, res) {
     }
 
     // Filter out participants without complete data
-    console.log(`🔍 Found ${allParticipants.length} participants who signed up for next event OR have event_id=2`)
+    console.log(`🔍 Found ${allParticipants.length} participants who signed up for next event OR have event_id=${eventId}`)
     console.log(`🔍 Validating participants for complete data...`)
     const participants = allParticipants.filter(participant => {
       const isComplete = isParticipantComplete(participant)

@@ -176,6 +176,7 @@ const loadFreshDatabaseResults = async (matchType: "individual" | "group") => {
     
     if (res.ok && data.success) {
       console.log(`✅ Loaded fresh ${matchType} results: ${data.results?.length || 0} matches`)
+      console.log(`📋 Participant names included:`, data.participantNames ? Object.keys(data.participantNames).length : 0)
       
       // Clear session info since this is fresh data, not a cached session
       setCurrentSessionId(null)
@@ -186,7 +187,8 @@ const loadFreshDatabaseResults = async (matchType: "individual" | "group") => {
         data.results || [], 
         data.results?.length || 0, 
         matchType === 'group' ? 'group' : 'ai',
-        data.calculatedPairs || []
+        data.calculatedPairs || [],
+        data.participantNames || {} // Pass participant names directly
       )
       
       return true
@@ -1103,7 +1105,7 @@ const fetchParticipants = async () => {
     }
   }
 
-  const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = []) => {
+  const showParticipantResults = async (matchResults: any[], totalMatches: number, type: "ai" | "no-ai" | "group", calculatedPairs: any[] = [], preloadedParticipantNames: any = {}) => {
     // Store parameters for refresh
     setLastMatchParams({ matchResults, totalMatches, type, calculatedPairs })
     
@@ -1111,38 +1113,53 @@ const fetchParticipants = async () => {
       // Convert match results to participant results format
       const participantMap = new Map()
       
-      // Get all participants to have their names (across all events since names are consistent)
-      const participantsRes = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "participants" }), // No event_id filter for names
-      })
-      const participantsData = await participantsRes.json()
-      const allParticipants = participantsData.participants || []
+      let participantInfoMap = new Map()
+      let allParticipants: any[] = []
       
-      console.log(`📋 Fetched ${allParticipants.length} participants for name mapping`)
-      
-      // Create a map of participant numbers to participant info
-      // Prioritize records that have names (in case same participant exists across events)
-      const participantInfoMap = new Map()
-      allParticipants.forEach((p: any) => {
-        const existingInfo = participantInfoMap.get(p.assigned_number)
-        const currentName = p.name || p.survey_data?.name
-        
-        // Debug logging for name mapping
-        if (currentName) {
-          console.log(`👤 Mapping participant #${p.assigned_number}: "${currentName}"`)
-        }
-        
-        // Only update if we don't have this participant yet, or if current record has a name and existing doesn't
-        if (!existingInfo || (currentName && !existingInfo.name.startsWith('المشارك #'))) {
-          participantInfoMap.set(p.assigned_number, {
-            name: currentName || `المشارك #${p.assigned_number}`,
-            id: p.id,
-            paid_done: p.PAID_DONE || false
+      // Use preloaded participant names if available (from fresh database results)
+      if (Object.keys(preloadedParticipantNames).length > 0) {
+        console.log(`📋 Using preloaded participant names: ${Object.keys(preloadedParticipantNames).length} participants`)
+        Object.entries(preloadedParticipantNames).forEach(([number, name]) => {
+          participantInfoMap.set(parseInt(number), {
+            name: name as string,
+            id: `participant_${number}`,
+            paid_done: false // Will be updated from match results if needed
           })
-        }
-      })
+        })
+      } else {
+        // Fallback: Get all participants to have their names (across all events since names are consistent)
+        console.log(`📋 Fetching participant names from database...`)
+        const participantsRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "participants" }), // No event_id filter for names
+        })
+        const participantsData = await participantsRes.json()
+        allParticipants = participantsData.participants || []
+        
+        console.log(`📋 Fetched ${allParticipants.length} participants for name mapping`)
+        
+        // Create a map of participant numbers to participant info
+        // Prioritize records that have names (in case same participant exists across events)
+        allParticipants.forEach((p: any) => {
+          const existingInfo = participantInfoMap.get(p.assigned_number)
+          const currentName = p.name || p.survey_data?.name
+          
+          // Debug logging for name mapping
+          if (currentName) {
+            console.log(`👤 Mapping participant #${p.assigned_number}: "${currentName}"`)
+          }
+          
+          // Only update if we don't have this participant yet, or if current record has a name and existing doesn't
+          if (!existingInfo || (currentName && !existingInfo.name.startsWith('المشارك #'))) {
+            participantInfoMap.set(p.assigned_number, {
+              name: currentName || `المشارك #${p.assigned_number}`,
+              id: p.id,
+              paid_done: p.PAID_DONE || false
+            })
+          }
+        })
+      }
       
       console.log(`🗺️ Created participant info map with ${participantInfoMap.size} entries`)
       

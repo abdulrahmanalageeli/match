@@ -2196,11 +2196,39 @@ export default async function handler(req, res) {
             ) || false
           }))
           
-          console.log(`✅ Loaded ${matchResults?.length || 0} fresh individual matches with ${calculatedPairs.length} calculated pairs`)
+          // Fetch participant names to include with results
+          const { data: participants, error: participantsError } = await supabase
+            .from("participants")
+            .select("assigned_number, name, survey_data")
+            .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)
+          
+          if (participantsError) {
+            console.warn("Could not fetch participant names:", participantsError)
+          }
+          
+          // Create participant name map
+          const participantNameMap = new Map()
+          if (participants) {
+            participants.forEach(p => {
+              const name = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`
+              participantNameMap.set(p.assigned_number, name)
+            })
+          }
+          
+          // Enhance match results with participant names
+          const enhancedResults = (matchResults || []).map(match => ({
+            ...match,
+            participant_a_name: participantNameMap.get(match.participant_a_number) || `المشارك #${match.participant_a_number}`,
+            participant_b_name: participantNameMap.get(match.participant_b_number) || `المشارك #${match.participant_b_number}`
+          }))
+          
+          console.log(`✅ Loaded ${enhancedResults.length} fresh individual matches with ${calculatedPairs.length} calculated pairs and participant names`)
           return res.status(200).json({ 
             success: true, 
-            results: matchResults || [],
-            calculatedPairs: calculatedPairs
+            results: enhancedResults,
+            calculatedPairs: calculatedPairs,
+            participantNames: Object.fromEntries(participantNameMap)
           })
         }
         

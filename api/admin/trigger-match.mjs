@@ -1498,6 +1498,59 @@ export default async function handler(req, res) {
       if (existingMatch && existingMatch.length > 0) {
         return res.status(400).json({ error: "Match already exists for this event" })
       }
+
+      // AUTOMATIC CLEANUP: Remove conflicting matches before creating new one
+      console.log(`🧹 Cleaning up conflicting matches for participants #${p1.assigned_number} and #${p2.assigned_number}`)
+      
+      // Find all existing matches for both participants in this event
+      const { data: conflictingMatches, error: conflictError } = await supabase
+        .from("match_results")
+        .select("id, participant_a_number, participant_b_number")
+        .eq("event_id", eventId)
+        .or(`participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p1.assigned_number},participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p2.assigned_number}`)
+
+      if (conflictError) {
+        console.error("Error finding conflicting matches:", conflictError)
+        return res.status(500).json({ error: "Failed to check for conflicting matches" })
+      }
+
+      let cleanupSummary = []
+      
+      if (conflictingMatches && conflictingMatches.length > 0) {
+        console.log(`🔍 Found ${conflictingMatches.length} conflicting matches to remove:`)
+        
+        for (const match of conflictingMatches) {
+          const partnerA = match.participant_a_number
+          const partnerB = match.participant_b_number
+          console.log(`  - Removing match: #${partnerA} ↔ #${partnerB}`)
+          
+          // Track which participants will no longer have partners
+          if (partnerA === p1.assigned_number) {
+            cleanupSummary.push(`#${partnerB} no longer has partner`)
+          } else if (partnerB === p1.assigned_number) {
+            cleanupSummary.push(`#${partnerA} no longer has partner`)
+          } else if (partnerA === p2.assigned_number) {
+            cleanupSummary.push(`#${partnerB} no longer has partner`)
+          } else if (partnerB === p2.assigned_number) {
+            cleanupSummary.push(`#${partnerA} no longer has partner`)
+          }
+        }
+
+        // Delete all conflicting matches
+        const { error: deleteError } = await supabase
+          .from("match_results")
+          .delete()
+          .in("id", conflictingMatches.map(m => m.id))
+
+        if (deleteError) {
+          console.error("Error deleting conflicting matches:", deleteError)
+          return res.status(500).json({ error: "Failed to clean up conflicting matches" })
+        }
+
+        console.log(`✅ Successfully removed ${conflictingMatches.length} conflicting matches`)
+      } else {
+        console.log(`✅ No conflicting matches found - clean swap`)
+      }
       
       // Extract values the same way as the main matching algorithm
       const p1MBTI = p1.mbti_personality_type || p1.survey_data?.mbtiType
@@ -1575,15 +1628,22 @@ export default async function handler(req, res) {
 
       console.log(`✅ Manual match created: #${p1.assigned_number} ↔ #${p2.assigned_number} (Score: ${totalCompatibility}%)`)
 
-      // Note: Manual matches create new database records but don't update existing sessions
+      // Note: Manual matches create new database records and automatically clean up conflicts
       // The admin panel refresh function will reload fresh data from database to show changes
-      console.log(`ℹ️ Manual match added to database. Admin panel will reload fresh data on refresh.`)
+      console.log(`ℹ️ Manual match added to database with automatic cleanup. Admin panel will reload fresh data on refresh.`)
+
+      // Prepare success message with cleanup summary
+      let successMessage = `Manual match created successfully`
+      if (cleanupSummary.length > 0) {
+        successMessage += `\n\nAutomatic cleanup:\n${cleanupSummary.join('\n')}`
+      }
 
       return res.status(200).json({
         success: true,
-        message: `Manual match created successfully`,
+        message: successMessage,
         count: 1,
         compatibility_score: totalCompatibility,
+        cleanup_summary: cleanupSummary,
         match: insertData[0],
         results: [{
           participant: p1.assigned_number,

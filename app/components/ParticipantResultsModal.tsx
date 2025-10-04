@@ -183,7 +183,17 @@ export default function ParticipantResultsModal({
       
       const data = await response.json()
       if (response.ok) {
-        alert(`✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%\n\n🔄 سيتم تحديث النتائج تلقائياً...`)
+        // Prepare success message with cleanup information
+        let successMessage = `✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`
+        
+        // Add cleanup summary if any conflicts were resolved
+        if (data.cleanup_summary && data.cleanup_summary.length > 0) {
+          successMessage += `\n\n🧹 تنظيف تلقائي:\n${data.cleanup_summary.join('\n')}`
+        }
+        
+        successMessage += `\n\n🔄 سيتم تحديث النتائج تلقائياً...`
+        
+        alert(successMessage)
         setShowDetailModal(false)
         setSwappingParticipant(null)
         

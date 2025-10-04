@@ -244,6 +244,7 @@ export default function WelcomePage() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [formFilledChoiceMade, setFormFilledChoiceMade] = useState(false); // Track if user has made choice about form filled prompt
+  const [justCompletedEditing, setJustCompletedEditing] = useState(false); // Track if user just completed editing to prevent popup loop
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -1300,7 +1301,13 @@ export default function WelcomePage() {
                   console.log("🔄 Skipping timer reset in form phase - global timer active, timer restored, or showing finished event results/feedback");
                 }
                 // Reset form filled choice when returning to form phase from other phases
-                setFormFilledChoiceMade(false);
+                // But don't reset if user just completed editing to prevent popup loop
+                if (!justCompletedEditing) {
+                  setFormFilledChoiceMade(false);
+                  console.log("🔄 Reset formFilledChoiceMade when returning to form phase");
+                } else {
+                  console.log("🚫 Not resetting formFilledChoiceMade - user just completed editing");
+                }
               } else {
                 console.log("🔄 User has already made their choice, staying on current step");
               }
@@ -1308,11 +1315,16 @@ export default function WelcomePage() {
           
           // Handle form filled prompt logic - only show if user hasn't made a choice yet
           // This prevents the prompt from appearing repeatedly after user makes their choice
-          if (surveyData.answers && Object.keys(surveyData.answers).length > 0 && !formFilledChoiceMade) {
+          // Also prevent showing if user just completed editing their survey
+          if (surveyData.answers && Object.keys(surveyData.answers).length > 0 && !formFilledChoiceMade && !justCompletedEditing) {
             if (!showFormFilledPrompt && step === (2 as number)) {
+              console.log("🔔 Showing form filled prompt - user has survey data but hasn't made choice")
               setShowFormFilledPrompt(true);
             }
           } else {
+            if (justCompletedEditing) {
+              console.log("🚫 Not showing form filled prompt - user just completed editing")
+            }
             setShowFormFilledPrompt(false);
           }
             console.log(`✅ Successfully transitioned to form phase`);
@@ -1866,10 +1878,21 @@ export default function WelcomePage() {
       }
       // Hide survey and move to waiting/analysis step after successful submission
       setShowSurvey(false)
+      
+      // Only reset formFilledChoiceMade if this is NOT an editing session
+      // If user was editing, they already made their choice and shouldn't see the popup again
+      if (!isEditingSurvey) {
+        setFormFilledChoiceMade(false) // Reset choice for future form submissions (new users only)
+      } else {
+        console.log("🔄 Editing session - keeping formFilledChoiceMade to prevent popup loop")
+        setJustCompletedEditing(true) // Mark that user just completed editing
+        // Clear the flag after a short delay to allow for step transitions
+        setTimeout(() => setJustCompletedEditing(false), 2000)
+      }
+      
       setIsEditingSurvey(false)
       setAnalysisStarted(true)
       setStep(3)
-      setFormFilledChoiceMade(false) // Reset choice for future form submissions
       
       // Save token to localStorage since user completed survey successfully
       if (secureToken) {

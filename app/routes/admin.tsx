@@ -1120,12 +1120,19 @@ const fetchParticipants = async () => {
       const participantsData = await participantsRes.json()
       const allParticipants = participantsData.participants || []
       
+      console.log(`📋 Fetched ${allParticipants.length} participants for name mapping`)
+      
       // Create a map of participant numbers to participant info
       // Prioritize records that have names (in case same participant exists across events)
       const participantInfoMap = new Map()
       allParticipants.forEach((p: any) => {
         const existingInfo = participantInfoMap.get(p.assigned_number)
         const currentName = p.name || p.survey_data?.name
+        
+        // Debug logging for name mapping
+        if (currentName) {
+          console.log(`👤 Mapping participant #${p.assigned_number}: "${currentName}"`)
+        }
         
         // Only update if we don't have this participant yet, or if current record has a name and existing doesn't
         if (!existingInfo || (currentName && !existingInfo.name.startsWith('المشارك #'))) {
@@ -1136,6 +1143,8 @@ const fetchParticipants = async () => {
           })
         }
       })
+      
+      console.log(`🗺️ Created participant info map with ${participantInfoMap.size} entries`)
       
       // Filter match results by current event_id and process them
       const filteredMatchResults = matchResults.filter((match: any) => match.event_id === currentEventId)
@@ -1188,10 +1197,15 @@ const fetchParticipants = async () => {
           const existing = participantMap.get(match.participant_a_number)
           if (!existing || match.compatibility_score > existing.compatibility_score) {
             const incompatibilityReason = getIncompatibilityReason(match.participant_a_number, match.participant_b_number)
+            
+            // Debug name mapping
+            const participantName = participantInfo?.name || `المشارك #${match.participant_a_number}`
+            console.log(`🔍 Processing participant A #${match.participant_a_number}: "${participantName}" (from participantInfo: ${participantInfo?.name})`)
+            
             participantMap.set(match.participant_a_number, {
               id: participantInfo?.id || `participant_${match.participant_a_number}`,
               assigned_number: match.participant_a_number,
-              name: participantInfo?.name || `المشارك #${match.participant_a_number}`,
+              name: participantName,
               compatibility_score: match.compatibility_score || 0,
               mbti_compatibility_score: match.mbti_compatibility_score || 0,
               attachment_compatibility_score: match.attachment_compatibility_score || 0,
@@ -1215,10 +1229,15 @@ const fetchParticipants = async () => {
           const existing = participantMap.get(match.participant_b_number)
           if (!existing || match.compatibility_score > existing.compatibility_score) {
             const incompatibilityReason = getIncompatibilityReason(match.participant_b_number, match.participant_a_number)
+            
+            // Debug name mapping
+            const participantName = participantInfo?.name || `المشارك #${match.participant_b_number}`
+            console.log(`🔍 Processing participant B #${match.participant_b_number}: "${participantName}" (from participantInfo: ${participantInfo?.name})`)
+            
             participantMap.set(match.participant_b_number, {
               id: participantInfo?.id || `participant_${match.participant_b_number}`,
               assigned_number: match.participant_b_number,
-              name: participantInfo?.name || `المشارك #${match.participant_b_number}`,
+              name: participantName,
               compatibility_score: match.compatibility_score || 0,
               mbti_compatibility_score: match.mbti_compatibility_score || 0,
               attachment_compatibility_score: match.attachment_compatibility_score || 0,

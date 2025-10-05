@@ -953,7 +953,7 @@ const fetchParticipants = async () => {
     
     // Eligible participants filter (current event or signed up for next event)
     const isEligible = !showEligibleOnly || (
-      p.event_id === 2 || // Current event participants (event_id 2)
+      p.event_id === currentEventId || // Current event participants
       p.signup_for_next_event === true // Signed up for next event
     )
     

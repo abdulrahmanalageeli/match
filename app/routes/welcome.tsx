@@ -259,6 +259,84 @@ export default function WelcomePage() {
     // Otherwise, only has default values
     return false;
   };
+
+  // Enhanced Participant Number Badge Component
+  const ParticipantBadge = ({ 
+    size = "default", 
+    showStatus = true, 
+    className = "" 
+  }: { 
+    size?: "small" | "default" | "large", 
+    showStatus?: boolean, 
+    className?: string 
+  }) => {
+    const sizeClasses = {
+      small: "w-10 h-10 text-sm",
+      default: "w-16 h-16 text-2xl",
+      large: "w-20 h-20 text-3xl"
+    };
+
+    const statusSize = {
+      small: "w-3 h-3 -top-0.5 -right-0.5",
+      default: "w-4 h-4 -top-1 -right-1", 
+      large: "w-5 h-5 -top-1.5 -right-1.5"
+    };
+
+    return (
+      <div className={`relative ${className}`}>
+        <div className={`
+          ${sizeClasses[size]}
+          rounded-full 
+          flex items-center justify-center 
+          font-bold 
+          shadow-2xl 
+          border-2 
+          transition-all 
+          duration-300 
+          hover:scale-110 
+          hover:shadow-3xl
+          ${dark 
+            ? "bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 border-slate-400/50 text-white shadow-slate-900/50" 
+            : "bg-gradient-to-br from-white via-gray-50 to-gray-100 border-gray-300 text-gray-800 shadow-gray-500/30"
+          }
+        `}>
+          <span className="tracking-wider drop-shadow-sm">
+            {assignedNumber ?? "؟"}
+          </span>
+          
+          {/* Inner glow effect */}
+          <div className={`
+            absolute inset-0 rounded-full opacity-20
+            ${dark 
+              ? "bg-gradient-to-br from-cyan-400 to-blue-500" 
+              : "bg-gradient-to-br from-blue-400 to-cyan-500"
+            }
+          `}></div>
+        </div>
+        
+        {/* Status indicator */}
+        {showStatus && (
+          <div className={`
+            absolute ${statusSize[size]}
+            bg-gradient-to-r from-green-400 to-emerald-500
+            rounded-full 
+            border-2 border-white 
+            animate-pulse
+            shadow-lg
+          `}>
+            <div className="w-full h-full rounded-full bg-gradient-to-r from-green-300 to-emerald-400 opacity-60"></div>
+          </div>
+        )}
+        
+        {/* Subtle outer ring animation */}
+        <div className={`
+          absolute inset-0 rounded-full border-2 border-transparent
+          animate-ping opacity-20
+          ${dark ? "border-cyan-400" : "border-blue-400"}
+        `} style={{ animationDuration: '3s' }}></div>
+      </div>
+    );
+  };
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -4214,20 +4292,7 @@ export default function WelcomePage() {
                 dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
               }`}>
                 <div className="flex justify-center mb-6">
-                  <div className="relative">
-                    <div className={`w-20 h-20 rounded-2xl border-2 shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-110 ${
-                      dark 
-                        ? "bg-gradient-to-br from-cyan-700 via-blue-600 to-cyan-800 border-cyan-400/50 shadow-cyan-500/20" 
-                        : "bg-gradient-to-br from-cyan-100 via-blue-100 to-cyan-200 border-cyan-400/50 shadow-cyan-500/20"
-                    }`}>
-                      <span className={`text-2xl font-bold tracking-wider ${
-                        dark ? "text-white" : "text-gray-800"
-                      }`}>
-                        {assignedNumber ?? "؟"}
-                      </span>
-                    </div>
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-400 rounded-full border-2 border-white animate-pulse"></div>
-                  </div>
+                  <ParticipantBadge size="large" />
                 </div>
                 
                 <div className="text-center space-y-4">
@@ -4542,18 +4607,7 @@ export default function WelcomePage() {
 
               {/* Player Avatar - Right corner (original position) */}
               <div className="absolute -top-3 -right-3 z-10">
-                <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
-                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
-                  }`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
+                <ParticipantBadge size="small" />
               </div>
 
               <div className="flex justify-center mb-4">
@@ -4739,18 +4793,7 @@ export default function WelcomePage() {
 
               {/* Player Avatar - Right corner (original position) */}
               <div className="absolute -top-3 -right-3 z-10">
-                <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
-                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
-                  }`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
+                <ParticipantBadge size="small" />
               </div>
 
               <div className="flex justify-center mb-4">
@@ -5448,18 +5491,7 @@ export default function WelcomePage() {
 
               {/* Player Avatar - Right corner (original position) */}
               <div className="absolute -top-3 -right-3 z-10">
-                <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
-                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
-                  }`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
+                <ParticipantBadge size="small" />
               </div>
 
               <div className="flex justify-center mb-4">
@@ -5610,18 +5642,7 @@ export default function WelcomePage() {
 
               {/* Player Avatar - Right corner (original position) */}
               <div className="absolute -top-3 -right-3 z-10">
-                <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
-                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
-                  }`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
+                <ParticipantBadge size="small" />
               </div>
 
               <div className="flex justify-center mb-4">
@@ -5708,18 +5729,7 @@ export default function WelcomePage() {
             }`}>
               {/* Player Avatar - Right corner */}
               <div className="absolute -top-3 -right-3 z-10">
-                <div className="relative">
-                  <Avatar className={`w-12 h-12 border-2 shadow-lg ${
-                    dark ? "border-slate-400/50 bg-slate-700" : "border-gray-400/50 bg-gray-200"
-                  }`}>
-                    <AvatarFallback className={`text-sm font-semibold text-white ${
-                      dark ? "bg-gradient-to-r from-slate-500 to-slate-600" : "bg-gradient-to-r from-gray-500 to-gray-600"
-                    }`}>
-                      {assignedNumber ?? "؟"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border border-white animate-pulse"></div>
-                </div>
+                <ParticipantBadge size="small" />
               </div>
 
               <div className="flex justify-center mb-6">
@@ -6977,12 +6987,24 @@ export default function WelcomePage() {
               {/* Match Header */}
               <div className={`text-center p-6 rounded-xl border ${dark ? "bg-slate-700/50 border-slate-600" : "bg-gray-50 border-gray-200"}`}>
                 <div className="flex items-center justify-center gap-4 mb-4">
-                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-blue-600/20 border-blue-400" : "bg-blue-100 border-blue-300"}`}>
-                    <span className={`text-2xl font-bold ${dark ? "text-blue-200" : "text-blue-700"}`}>#{assignedNumber || "?"}</span>
-                  </div>
+                  <ParticipantBadge size="default" showStatus={false} />
                   <div className={`text-3xl ${dark ? "text-slate-300" : "text-gray-500"}`}>×</div>
-                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center ${dark ? "bg-cyan-600/20 border-cyan-400" : "bg-cyan-100 border-cyan-300"}`}>
-                    <span className={`text-2xl font-bold ${dark ? "text-cyan-200" : "text-cyan-700"}`}>{selectedHistoryItem.with === "المنظم" ? "المنظم" : `#${selectedHistoryItem.with}`}</span>
+                  <div className={`w-16 h-16 rounded-full border-2 flex items-center justify-center shadow-2xl transition-all duration-300 hover:scale-110 ${
+                    dark 
+                      ? "bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 border-slate-400/50 text-white shadow-slate-900/50" 
+                      : "bg-gradient-to-br from-white via-gray-50 to-gray-100 border-gray-300 text-gray-800 shadow-gray-500/30"
+                  }`}>
+                    <span className="text-2xl font-bold tracking-wider drop-shadow-sm">
+                      {selectedHistoryItem.with === "المنظم" ? "المنظم" : `#${selectedHistoryItem.with}`}
+                    </span>
+                    {/* Inner glow effect */}
+                    <div className={`
+                      absolute inset-0 rounded-full opacity-20
+                      ${dark 
+                        ? "bg-gradient-to-br from-cyan-400 to-blue-500" 
+                        : "bg-gradient-to-br from-blue-400 to-cyan-500"
+                      }
+                    `}></div>
                   </div>
                 </div>
                 <h4 className={`text-lg font-semibold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>الجولة {selectedHistoryItem.round}</h4>

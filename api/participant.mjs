@@ -546,11 +546,27 @@ export default async function handler(req, res) {
         // Handle gender preferences from new structure
         const genderPref = answers.gender_preference || answers.same_gender_preference
         if (Array.isArray(genderPref)) {
-          // New structure: check for specific values
+          // Old checkbox structure: check for specific values
           updateFields.same_gender_preference = genderPref.includes('same_gender') || genderPref.includes('yes')
           updateFields.any_gender_preference = genderPref.includes('any_gender')
-          console.log('👥 Same Gender Preference:', updateFields.same_gender_preference)
-          console.log('🌐 Any Gender Preference:', updateFields.any_gender_preference)
+          console.log('👥 Same Gender Preference (old):', updateFields.same_gender_preference)
+          console.log('🌐 Any Gender Preference (old):', updateFields.any_gender_preference)
+        } else if (typeof genderPref === 'string') {
+          // New radio button structure: single string value
+          if (genderPref === 'same_gender') {
+            updateFields.same_gender_preference = true
+            updateFields.any_gender_preference = false
+            console.log('👥 Gender Preference: same gender only')
+          } else if (genderPref === 'any_gender') {
+            updateFields.same_gender_preference = false
+            updateFields.any_gender_preference = true
+            console.log('🌐 Gender Preference: any gender')
+          } else {
+            // opposite_gender or default
+            updateFields.same_gender_preference = false
+            updateFields.any_gender_preference = false
+            console.log('👫 Gender Preference: opposite gender')
+          }
         } else {
           // Default to false if not provided (opposite gender matching)
           updateFields.same_gender_preference = false

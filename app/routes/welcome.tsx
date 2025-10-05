@@ -226,7 +226,9 @@ export default function WelcomePage() {
   const [showConversationStarters, setShowConversationStarters] = useState(false)
   const [generatingStarters, setGeneratingStarters] = useState(false)
   const [surveyData, setSurveyData] = useState<SurveyData>({
-    answers: {},
+    answers: {
+      gender_preference: "opposite_gender" // Default selection for radio button
+    },
     termsAccepted: false,
     dataConsent: false
   })

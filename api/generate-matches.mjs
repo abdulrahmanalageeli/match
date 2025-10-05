@@ -68,12 +68,46 @@ export default async function handler(req, res) {
 function checkGenderCompatibility(participantA, participantB) {
   const genderA = participantA.gender || participantA.survey_data?.gender
   const genderB = participantB.gender || participantB.survey_data?.gender
-  const sameGenderPrefA = participantA.same_gender_preference || participantA.survey_data?.answers?.same_gender_preference?.includes('yes')
-  const sameGenderPrefB = participantB.same_gender_preference || participantB.survey_data?.answers?.same_gender_preference?.includes('yes')
+  
+  // Check gender preferences from both new and old structure
+  let sameGenderPrefA = participantA.same_gender_preference || participantA.survey_data?.answers?.same_gender_preference?.includes('yes') || participantA.survey_data?.answers?.gender_preference?.includes('same_gender')
+  let sameGenderPrefB = participantB.same_gender_preference || participantB.survey_data?.answers?.same_gender_preference?.includes('yes') || participantB.survey_data?.answers?.gender_preference?.includes('same_gender')
+  
+  let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender')
+  let anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender')
+  
+  // Handle new radio button structure (string)
+  if (participantA.survey_data?.answers?.gender_preference === 'same_gender') {
+    sameGenderPrefA = true
+    anyGenderPrefA = false
+  } else if (participantA.survey_data?.answers?.gender_preference === 'any_gender') {
+    sameGenderPrefA = false
+    anyGenderPrefA = true
+  } else if (participantA.survey_data?.answers?.gender_preference === 'opposite_gender') {
+    sameGenderPrefA = false
+    anyGenderPrefA = false
+  }
+  
+  if (participantB.survey_data?.answers?.gender_preference === 'same_gender') {
+    sameGenderPrefB = true
+    anyGenderPrefB = false
+  } else if (participantB.survey_data?.answers?.gender_preference === 'any_gender') {
+    sameGenderPrefB = false
+    anyGenderPrefB = true
+  } else if (participantB.survey_data?.answers?.gender_preference === 'opposite_gender') {
+    sameGenderPrefB = false
+    anyGenderPrefB = false
+  }
   
   // If gender information is missing, allow the match (fallback)
   if (!genderA || !genderB) {
     console.warn(`⚠️ Missing gender info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
+    return true
+  }
+  
+  // If either participant accepts any gender, they can match with anyone
+  if (anyGenderPrefA || anyGenderPrefB) {
+    console.log(`✅ Any-gender match: ${participantA.assigned_number} (${genderA}, any: ${anyGenderPrefA}) × ${participantB.assigned_number} (${genderB}, any: ${anyGenderPrefB}) - at least one accepts any gender`)
     return true
   }
   

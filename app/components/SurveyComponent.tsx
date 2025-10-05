@@ -75,15 +75,16 @@ const surveyQuestions = [
   {
     id: "gender_preference",
     question: "السؤال 4.5",
-    description: "تفضيلات التواصل (إذا لم تحدد أي خيار، سيتم التوافق مع الجنس الآخر)",
-    type: "checkbox",
+    description: "تفضيلات التواصل",
+    type: "radio",
     options: [
-      { value: "same_gender", label: "أفضل التواصل مع أشخاص من نفس الجنس فقط" },
-      { value: "any_gender", label: "أفضل التواصل مع أي جنس (ذكر أو أنثى)" }
+      { value: "opposite_gender", label: "الجنس الآخر (افتراضي)" },
+      { value: "same_gender", label: "نفس الجنس فقط" },
+      { value: "any_gender", label: "أي جنس (ذكر أو أنثى)" }
     ],
-    required: false,
+    required: true,
     category: "personal_info",
-    maxSelections: 1
+    defaultValue: "opposite_gender"
   },
   // Humor/Banter Style - Matching Determinant
   {

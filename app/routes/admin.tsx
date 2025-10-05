@@ -1338,6 +1338,42 @@ const fetchParticipants = async () => {
     }
   }
 
+  // Clean Slate Function - Remove last admin result and current event matches
+  const cleanSlate = async () => {
+    const confirmMessage = `⚠️ CLEAN SLATE OPERATION\n\nThis will permanently:\n• Remove the LAST admin result from admin_results table\n• Delete ALL matches for Event ${currentEventId} from result_match table\n\nThis gives you a clean slate to generate new matches.\n\nAre you absolutely sure?`
+    
+    if (!confirm(confirmMessage)) return
+    
+    // Double confirmation for safety
+    if (!confirm("🚨 FINAL CONFIRMATION\n\nThis action cannot be undone. Proceed with clean slate?")) return
+    
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "clean-slate",
+          event_id: currentEventId
+        }),
+      })
+      
+      const data = await res.json()
+      if (res.ok) {
+        alert(`✅ Clean slate completed!\n\n📊 Removed:\n• ${data.adminResultsRemoved || 0} admin result(s)\n• ${data.matchesRemoved || 0} match(es) for Event ${currentEventId}\n\nYou now have a clean slate for new match generation.`)
+        // Refresh the participants list to reflect changes
+        fetchParticipants()
+      } else {
+        alert(`❌ Clean slate failed: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error during clean slate:", error)
+      alert("❌ Error during clean slate operation")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
@@ -1744,6 +1780,19 @@ const fetchParticipants = async () => {
               >
                 <Users className="w-4 h-4" />
                 Show Groups
+              </button>
+
+              <button
+                onClick={cleanSlate}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300 disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Clean Slate
               </button>
 
               <button

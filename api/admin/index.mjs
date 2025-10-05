@@ -2238,6 +2238,89 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 CLEAN SLATE - Remove last admin result and current event matches
+    if (action === "clean-slate") {
+      try {
+        const { event_id } = req.body
+        console.log(`🧹 Starting clean slate operation for event_id: ${event_id}`)
+        
+        let adminResultsRemoved = 0
+        let matchesRemoved = 0
+        
+        // Step 1: Remove the LAST admin result from admin_results table
+        const { data: lastAdminResult, error: fetchError } = await supabase
+          .from("admin_results")
+          .select("id, created_at, match_type")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .single()
+        
+        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = no rows found
+          console.error("Error fetching last admin result:", fetchError)
+          return res.status(500).json({ error: "Failed to fetch last admin result" })
+        }
+        
+        if (lastAdminResult) {
+          const { error: deleteAdminError } = await supabase
+            .from("admin_results")
+            .delete()
+            .eq("id", lastAdminResult.id)
+          
+          if (deleteAdminError) {
+            console.error("Error deleting admin result:", deleteAdminError)
+            return res.status(500).json({ error: "Failed to delete admin result" })
+          }
+          
+          adminResultsRemoved = 1
+          console.log(`✅ Removed admin result: ${lastAdminResult.id} (${lastAdminResult.match_type}, ${lastAdminResult.created_at})`)
+        } else {
+          console.log("ℹ️ No admin results found to remove")
+        }
+        
+        // Step 2: Remove ALL matches for the current event from result_match table
+        const { data: matchesToDelete, error: fetchMatchesError } = await supabase
+          .from("result_match")
+          .select("id")
+          .eq("event_id", event_id)
+        
+        if (fetchMatchesError) {
+          console.error("Error fetching matches to delete:", fetchMatchesError)
+          return res.status(500).json({ error: "Failed to fetch matches to delete" })
+        }
+        
+        if (matchesToDelete && matchesToDelete.length > 0) {
+          const { error: deleteMatchesError } = await supabase
+            .from("result_match")
+            .delete()
+            .eq("event_id", event_id)
+          
+          if (deleteMatchesError) {
+            console.error("Error deleting matches:", deleteMatchesError)
+            return res.status(500).json({ error: "Failed to delete matches" })
+          }
+          
+          matchesRemoved = matchesToDelete.length
+          console.log(`✅ Removed ${matchesRemoved} matches for event ${event_id}`)
+        } else {
+          console.log(`ℹ️ No matches found for event ${event_id} to remove`)
+        }
+        
+        console.log(`🧹 Clean slate completed: ${adminResultsRemoved} admin results + ${matchesRemoved} matches removed`)
+        
+        return res.status(200).json({ 
+          success: true,
+          message: "Clean slate completed successfully",
+          adminResultsRemoved,
+          matchesRemoved,
+          event_id
+        })
+        
+      } catch (error) {
+        console.error("Error during clean slate operation:", error)
+        return res.status(500).json({ error: "Failed to complete clean slate operation" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

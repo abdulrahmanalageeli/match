@@ -2748,6 +2748,16 @@ const fetchParticipants = async () => {
           </div>
         )}
       </div>
+
+      {/* WhatsApp Message Modal */}
+      <WhatsappMessageModal
+        participant={whatsappParticipant}
+        isOpen={showWhatsappModal}
+        onClose={() => {
+          setShowWhatsappModal(false);
+          setWhatsappParticipant(null);
+        }}
+      />
     </div>
   )
 }

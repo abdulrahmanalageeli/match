@@ -2687,3 +2687,18 @@ const fetchParticipants = async () => {
                         </span>
                       )}
                       {p.signup_for_next_event && (
+                        <span className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded-full border border-green-400/30">
+                          Next Event
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

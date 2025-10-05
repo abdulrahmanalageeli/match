@@ -2725,12 +2725,12 @@ const fetchParticipants = async () => {
                     
                     {/* Eligibility Badges */}
                     <div className="flex flex-wrap items-center justify-center gap-1">
-                      {p.event_id === 2 && (
+                      {p.event_id === currentEventId && (
                         <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
                           Current Event
                         </span>
                       )}
-                      {p.event_id && p.event_id !== 2 && (
+                      {p.event_id && p.event_id !== currentEventId && (
                         <span className="px-2 py-1 text-xs bg-purple-500/20 text-purple-300 rounded-full border border-purple-400/30">
                           Event {p.event_id}
                         </span>

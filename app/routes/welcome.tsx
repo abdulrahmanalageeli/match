@@ -248,6 +248,18 @@ export default function WelcomePage() {
   const [formFilledChoiceMade, setFormFilledChoiceMade] = useState(false); // Track if user has made choice about form filled prompt
   const [justCompletedEditing, setJustCompletedEditing] = useState(false); // Track if user just completed editing to prevent popup loop
   
+  // Helper function to check if user has substantial survey data (more than just default values)
+  const hasSubstantialSurveyData = (answers: Record<string, string | string[]> | undefined) => {
+    if (!answers) return false;
+    const keys = Object.keys(answers);
+    // If more than 1 key, definitely has substantial data
+    if (keys.length > 1) return true;
+    // If exactly 1 key and it's not just the default gender_preference, has substantial data
+    if (keys.length === 1 && !answers.gender_preference) return true;
+    // Otherwise, only has default values
+    return false;
+  };
+  
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
   const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
@@ -1318,7 +1330,7 @@ export default function WelcomePage() {
           // Handle form filled prompt logic - only show if user hasn't made a choice yet
           // This prevents the prompt from appearing repeatedly after user makes their choice
           // Also prevent showing if user just completed editing their survey
-          if (surveyData.answers && Object.keys(surveyData.answers).length > 0 && !formFilledChoiceMade && !justCompletedEditing) {
+          if (hasSubstantialSurveyData(surveyData.answers) && !formFilledChoiceMade && !justCompletedEditing) {
             if (!showFormFilledPrompt && step === (2 as number)) {
               console.log("🔔 Showing form filled prompt - user has survey data but hasn't made choice")
               setShowFormFilledPrompt(true);
@@ -4427,7 +4439,7 @@ export default function WelcomePage() {
                       console.log("🔘 ابدأ الاستبيان button clicked")
                       
                       // First, try to load existing survey data if available
-                      if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+                      if (!hasSubstantialSurveyData(surveyData.answers)) {
                         try {
                           const tokenToUse = token || secureToken;
                           console.log("🔍 Start Survey - Using token:", tokenToUse);
@@ -6732,7 +6744,7 @@ export default function WelcomePage() {
                   setAnalysisStarted(false);
                   
                   // First, load existing survey data if not already loaded
-                  if (!surveyData.answers || Object.keys(surveyData.answers).length === 0) {
+                  if (!hasSubstantialSurveyData(surveyData.answers)) {
                     try {
                       const tokenToUse = token || secureToken;
                       console.log("🔍 Redo Form - Using token:", tokenToUse);

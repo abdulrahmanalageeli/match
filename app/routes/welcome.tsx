@@ -2240,10 +2240,11 @@ export default function WelcomePage() {
       // Hide survey and move to waiting/analysis step after successful submission
       setShowSurvey(false)
       
-      // Only reset formFilledChoiceMade if this is NOT an editing session
-      // If user was editing, they already made their choice and shouldn't see the popup again
+      // For new users who just completed the survey, mark choice as made to skip the resubmit dialog
+      // For editing users, keep the existing logic to prevent popup loops
       if (!isEditingSurvey) {
-        setFormFilledChoiceMade(false) // Reset choice for future form submissions (new users only)
+        setFormFilledChoiceMade(true) // Mark choice as made for new users - they should go directly to analysis
+        console.log("✅ New user completed survey - marked choice as made, going directly to analysis")
       } else {
         console.log("🔄 Editing session - keeping formFilledChoiceMade to prevent popup loop")
         setJustCompletedEditing(true) // Mark that user just completed editing

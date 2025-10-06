@@ -800,15 +800,8 @@ export default function WelcomePage() {
           // Check if user has filled the survey using new structure
           const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
           
-          // Show survey completion popup if user hasn't filled the survey
-          if (!hasFilledForm) {
-            setIncompleteSurveyInfo({
-              name: data.name,
-              assigned_number: data.assigned_number,
-              secure_token: token
-            });
-            setShowSurveyCompletionPopup(true);
-          }
+          // Note: Survey completion popup is only shown on main page (not when accessing via token URL)
+          // This prevents duplicate popups and ensures clean token URL experience
           
           // Reset all states to prevent stuck states on refresh
           setModalStep(null);

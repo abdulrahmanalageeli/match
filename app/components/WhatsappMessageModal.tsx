@@ -43,21 +43,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
       return;
     }
     
-    const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `https://wa.me/${participant.phone_number}?text=${encodedMessage}`;
-    
-    // Debug logging
-    console.log('Message length:', message.length);
-    console.log('Encoded message length:', encodedMessage.length);
-    console.log('Full URL length:', whatsappUrl.length);
-    console.log('WhatsApp URL:', whatsappUrl);
-    
-    // Check if URL is too long
-    if (whatsappUrl.length > 2000) {
-      alert('⚠️ الرسالة طويلة جداً لواتساب. يرجى نسخ الرسالة يدوياً.');
-      return;
-    }
-    
+    const whatsappUrl = `https://wa.me/${participant.phone_number}`;
     window.open(whatsappUrl, '_blank');
   };
 

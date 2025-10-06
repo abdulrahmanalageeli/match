@@ -148,6 +148,7 @@ export default function WelcomePage() {
   const [step, setStep] = useState<number>(0)
   const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
+  const [participantName, setParticipantName] = useState<string | null>(null)
   const [secureToken, setSecureToken] = useState<string | null>(null)
   const [showTokenModal, setShowTokenModal] = useState(false)
 
@@ -744,8 +745,9 @@ export default function WelcomePage() {
           setIsTokenValid(true)
           setTokenError(null)
           setAssignedNumber(data.assigned_number);
+          setParticipantName(data.name);
           setSecureToken(token); // Store the secure token
-          saveUserToken(token); // Save token to localStorage for auto-fill
+          saveUserToken(token, data.name, data.assigned_number); // Save token with name and number to localStorage
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -1524,6 +1526,43 @@ export default function WelcomePage() {
     </div>
     );
   };
+
+  // Participant Icon Component - shows when user has saved token
+  const ParticipantIcon = () => {
+    // Only show if user has assigned number and name
+    if (!assignedNumber || !participantName) {
+      return null;
+    }
+    
+    return (
+      <div className="fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-50">
+        <div className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105">
+          <div className="relative">
+            {/* Glow effect background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm sm:blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
+            
+            {/* Main participant container */}
+            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-lg sm:shadow-xl group-hover:shadow-cyan-500/20 transition-all duration-700 ease-out">
+              <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
+                {/* Participant Number */}
+                <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-lg sm:text-xl leading-tight">
+                  #{assignedNumber}
+                </div>
+                {/* Participant Name */}
+                <div className="text-white/90 text-xs sm:text-sm font-medium leading-tight mt-1 max-w-[80px] sm:max-w-[90px] truncate">
+                  {participantName}
+                </div>
+              </div>
+            </div>
+            
+            {/* Subtle animated border */}
+            <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-cyan-500/30 via-blue-500/30 to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Brute force protection functions
   const checkTokenLockout = (type: 'token' | 'resultToken') => {
     const now = Date.now();
@@ -1833,6 +1872,25 @@ export default function WelcomePage() {
     }
   }, []);
 
+  // Load saved participant data on page load
+  useEffect(() => {
+    const savedName = localStorage.getItem('blindmatch_participant_name');
+    const savedNumber = localStorage.getItem('blindmatch_participant_number');
+    
+    if (savedName) {
+      setParticipantName(savedName);
+      console.log('📋 Loaded saved participant name:', savedName);
+    }
+    
+    if (savedNumber) {
+      const numberValue = parseInt(savedNumber, 10);
+      if (!isNaN(numberValue)) {
+        setAssignedNumber(numberValue);
+        console.log('📋 Loaded saved participant number:', numberValue);
+      }
+    }
+  }, []);
+
   // Save tokens to localStorage when they change and sync both fields
   useEffect(() => {
     if (resultToken.trim()) {
@@ -1873,13 +1931,19 @@ export default function WelcomePage() {
   }, [token]);
 
   // Save token when user successfully completes survey or joins
-  const saveUserToken = (token: string) => {
+  const saveUserToken = (token: string, name?: string, number?: number) => {
     if (token && token.trim()) {
       localStorage.setItem('blindmatch_result_token', token);
       localStorage.setItem('blindmatch_returning_token', token);
+      if (name) {
+        localStorage.setItem('blindmatch_participant_name', name);
+      }
+      if (number) {
+        localStorage.setItem('blindmatch_participant_number', number.toString());
+      }
       setResultToken(token);
       setReturningPlayerToken(token);
-      console.log('💾 Token saved to localStorage:', token);
+      console.log('💾 Token saved to localStorage:', token, name ? `(${name})` : '', number ? `#${number}` : '');
     }
   };
 
@@ -1887,11 +1951,15 @@ export default function WelcomePage() {
   const clearSavedTokens = () => {
     localStorage.removeItem('blindmatch_result_token');
     localStorage.removeItem('blindmatch_returning_token');
+    localStorage.removeItem('blindmatch_participant_name');
+    localStorage.removeItem('blindmatch_participant_number');
     // Also clear sessionStorage items related to tokens
     sessionStorage.removeItem('justCreatedToken');
     sessionStorage.removeItem('justCreatedTokenValue');
     setResultToken('');
     setReturningPlayerToken('');
+    setParticipantName(null);
+    setAssignedNumber(null);
     console.log('🗑️ Cleared all saved tokens from localStorage and sessionStorage');
   };
 
@@ -1900,19 +1968,27 @@ export default function WelcomePage() {
     if (tokenType === 'result') {
       localStorage.removeItem('blindmatch_result_token');
       localStorage.removeItem('blindmatch_returning_token'); // Clear both since they're synced
+      localStorage.removeItem('blindmatch_participant_name');
+      localStorage.removeItem('blindmatch_participant_number');
       sessionStorage.removeItem('justCreatedToken');
       sessionStorage.removeItem('justCreatedTokenValue');
       setResultToken('');
-      setReturningPlayerToken(''); // Clear both since they're synced
+      setReturningPlayerToken('');
+      setParticipantName(null);
+      setAssignedNumber(null);
       console.log('🗑️ Cleared result token from localStorage and sessionStorage');
-    } else {
+    } else if (tokenType === 'returning') {
       localStorage.removeItem('blindmatch_returning_token');
       localStorage.removeItem('blindmatch_result_token'); // Clear both since they're synced
+      localStorage.removeItem('blindmatch_participant_name');
+      localStorage.removeItem('blindmatch_participant_number');
       sessionStorage.removeItem('justCreatedToken');
       sessionStorage.removeItem('justCreatedTokenValue');
+      setResultToken('');
       setReturningPlayerToken('');
-      setResultToken(''); // Clear both since they're synced
-      console.log('🗑️ Cleared returning player token from localStorage and sessionStorage');
+      setParticipantName(null);
+      setAssignedNumber(null);
+      console.log('🗑️ Cleared returning token from localStorage and sessionStorage');
     }
   };
 
@@ -2871,6 +2947,7 @@ export default function WelcomePage() {
     return (
       <>
         <LogoHeader />
+        <ParticipantIcon />
         <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
@@ -3305,6 +3382,7 @@ export default function WelcomePage() {
         )}
 
         <LogoHeader />
+        <ParticipantIcon />
         <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
@@ -3963,6 +4041,7 @@ export default function WelcomePage() {
     return (
       <>
         <LogoHeader />
+        <ParticipantIcon />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Token Modal */}
       {showTokenModal && (
@@ -4015,6 +4094,7 @@ export default function WelcomePage() {
   return (
       <>
         <LogoHeader />
+        <ParticipantIcon />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 backdrop-blur-sm">
@@ -4033,6 +4113,7 @@ export default function WelcomePage() {
     return (
       <>
         <LogoHeader />
+        <ParticipantIcon />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-red-800 to-red-900 animate-in fade-in duration-500">
         <div className="text-center space-y-8 max-w-md mx-auto p-8">
           <div className="bg-red-500/20 border-2 border-red-400/40 rounded-3xl p-10 backdrop-blur-xl shadow-2xl transform transition-all duration-500 hover:scale-105">
@@ -4076,6 +4157,8 @@ export default function WelcomePage() {
     <>
       {/* Clickable Logo Header */}
       <LogoHeader />
+      {/* Participant Icon */}
+      <ParticipantIcon />
       
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">

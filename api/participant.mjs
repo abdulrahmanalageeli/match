@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, summary")
+      .select("assigned_number, name, survey_data, summary")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -253,6 +253,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       assigned_number: data.assigned_number,
+      name: data.name,
       survey_data: data.survey_data,
       summary: data.summary,
       history: history

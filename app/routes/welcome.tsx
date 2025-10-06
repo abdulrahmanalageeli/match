@@ -1800,6 +1800,40 @@ export default function WelcomePage() {
     }
   }
 
+  // Check if user has incomplete survey data
+  const checkIncompleteSurvey = async (token: string) => {
+    try {
+      console.log('🔍 Checking survey completion status for saved token...');
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resolve-token", secure_token: token }),
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        // Check if user has filled the survey using new structure
+        const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
+        
+        // Show survey completion popup if user hasn't filled the survey
+        if (!hasFilledForm) {
+          console.log('📝 User has incomplete survey, showing completion popup');
+          setIncompleteSurveyInfo({
+            name: data.name,
+            assigned_number: data.assigned_number,
+            secure_token: token
+          });
+          setShowSurveyCompletionPopup(true);
+        } else {
+          console.log('✅ User has completed survey');
+        }
+      }
+    } catch (err) {
+      console.error("Error checking survey completion:", err)
+      // Silently fail - this is not critical functionality
+    }
+  }
+
   // Handle auto signup for next event
   const handleAutoSignupNextEvent = async () => {
     const token = resultToken || returningPlayerToken
@@ -1884,6 +1918,11 @@ export default function WelcomePage() {
         setTimeout(() => {
           checkNextEventSignup(tokenToUse);
         }, 2000); // Give page time to load
+        
+        // Also check if user has incomplete survey data
+        setTimeout(() => {
+          checkIncompleteSurvey(tokenToUse);
+        }, 1000); // Check survey completion status
       } else {
         console.log('❌ Token in URL or not on main page, skipping next event signup check');
       }

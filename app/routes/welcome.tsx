@@ -1809,11 +1809,16 @@ export default function WelcomePage() {
       
       if (res.ok) {
         alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
+        setShowNextEventSignup(true) // Mark as already signed up
         setShowNextEventPopup(false)
         setReturningGenderPreference("") // Reset gender preference
         setReturningHumorStyle("") // Reset humor style
         setReturningOpennessComfort("") // Reset openness comfort
       } else {
+        // Check if already signed up
+        if (data.error && data.error.includes("already signed up")) {
+          setShowNextEventSignup(true) // Mark as already signed up
+        }
         alert(`❌ ${data.error}\n${data.message || ""}`)
       }
     } catch (err) {
@@ -3681,7 +3686,7 @@ export default function WelcomePage() {
                                 جاري التسجيل...
                               </div>
                             ) : showNextEventSignup ? (
-                              "مسجل بالفعل في الفعالية القادمة ✓"
+                              "أنت مسجل بالفعل ✓"
                             ) : (
                               "سجل في الفعالية القادمة"
                             )}
@@ -4022,9 +4027,15 @@ export default function WelcomePage() {
                         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }
                     }}
-                    className="group fixed bottom-6 right-6 z-[99999] bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-2xl shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 backdrop-blur-xl border border-cyan-400/30"
+                    className={`group fixed bottom-6 right-6 z-[99999] text-white rounded-2xl shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 backdrop-blur-xl ${
+                      (resultToken || returningPlayerToken) 
+                        ? "bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 border border-purple-400/30" 
+                        : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 border border-cyan-400/30"
+                    }`}
                     style={{ 
-                      boxShadow: '0 20px 40px rgba(34, 211, 238, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.1)',
+                      boxShadow: (resultToken || returningPlayerToken) 
+                        ? '0 20px 40px rgba(168, 85, 247, 0.3), 0 0 0 1px rgba(168, 85, 247, 0.1)'
+                        : '0 20px 40px rgba(34, 211, 238, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.1)',
                     }}
                     aria-label={(resultToken || returningPlayerToken) ? "انتقل إلى لاعب عائد" : "انتقل إلى ابدأ رحلتك"}
                   >
@@ -4056,7 +4067,11 @@ export default function WelcomePage() {
                     </div>
                     
                     {/* Subtle glow effect */}
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-400/20 to-blue-500/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl"></div>
+                    <div className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl ${
+                      (resultToken || returningPlayerToken) 
+                        ? "bg-gradient-to-r from-purple-400/20 to-violet-500/20" 
+                        : "bg-gradient-to-r from-cyan-400/20 to-blue-500/20"
+                    }`}></div>
                   </button>
               </>
             )}

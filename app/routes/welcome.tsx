@@ -3677,7 +3677,7 @@ export default function WelcomePage() {
                             className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
                               showNextEventSignup 
                                 ? "bg-gray-400 cursor-not-allowed opacity-60" 
-                                : "bg-gradient-to-r from-purple-600 to-violet-700 hover:from-purple-700 hover:to-violet-800 hover:scale-105"
+                                : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
                             } text-white`}
                           >
                             {nextEventSignupLoading ? (

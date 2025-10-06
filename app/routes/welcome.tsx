@@ -1802,17 +1802,14 @@ export default function WelcomePage() {
 
   // Check if user has incomplete survey data
   const checkIncompleteSurvey = async (savedToken: string) => {
-    // Double-check: Don't show popup if there's a token in the URL
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get("token");
-    
-    if (urlToken) {
-      console.log('❌ Token found in URL, skipping survey completion popup');
+    // Simple check: Don't show popup if URL has ?token parameter
+    if (window.location.search.includes('?token')) {
+      console.log('❌ URL has ?token parameter, skipping survey completion popup');
       return;
     }
     
     try {
-      console.log('🔍 Checking survey completion status for saved token on main page...');
+      console.log('🔍 Checking survey completion status for saved token...');
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1938,7 +1935,7 @@ export default function WelcomePage() {
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');
     }
-  }, [token]); // Add token as dependency so it re-runs when token is available
+  }, []); // Run once on mount
 
   // Load saved participant data on page load
   useEffect(() => {

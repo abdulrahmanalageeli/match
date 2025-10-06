@@ -1762,6 +1762,41 @@ export default function WelcomePage() {
     }
   }
 
+  // Poll participant data when missing from localStorage
+  const pollParticipantData = async (token: string) => {
+    try {
+      console.log('📡 Polling participant data with token...');
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resolve-token", secure_token: token }),
+      })
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        console.log('✅ Successfully polled participant data:', data.name, '#' + data.assigned_number);
+        
+        // Update state
+        if (data.name && !participantName) {
+          setParticipantName(data.name);
+          localStorage.setItem('blindmatch_participant_name', data.name);
+          console.log('💾 Saved participant name to localStorage:', data.name);
+        }
+        
+        if (data.assigned_number && !assignedNumber) {
+          setAssignedNumber(data.assigned_number);
+          localStorage.setItem('blindmatch_participant_number', data.assigned_number.toString());
+          console.log('💾 Saved participant number to localStorage:', data.assigned_number);
+        }
+      } else {
+        console.log('❌ Failed to poll participant data:', data.message);
+      }
+    } catch (err) {
+      console.error("Error polling participant data:", err)
+      // Silently fail - this is not critical functionality
+    }
+  }
+
   // Check if logged in user needs next event signup
   const checkNextEventSignup = async (token: string) => {
     // Don't show next event popup if survey completion popup is already showing
@@ -1940,6 +1975,7 @@ export default function WelcomePage() {
   useEffect(() => {
     const savedName = localStorage.getItem('blindmatch_participant_name');
     const savedNumber = localStorage.getItem('blindmatch_participant_number');
+    const savedToken = localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
     
     if (savedName) {
       setParticipantName(savedName);
@@ -1952,6 +1988,12 @@ export default function WelcomePage() {
         setAssignedNumber(numberValue);
         console.log('📋 Loaded saved participant number:', numberValue);
       }
+    }
+    
+    // If we have a token but missing name or number, poll the API to get them
+    if (savedToken && (!savedName || !savedNumber)) {
+      console.log('🔍 Missing participant data, polling API with saved token...');
+      pollParticipantData(savedToken);
     }
   }, []);
 

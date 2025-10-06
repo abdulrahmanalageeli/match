@@ -1764,6 +1764,12 @@ export default function WelcomePage() {
 
   // Check if logged in user needs next event signup
   const checkNextEventSignup = async (token: string) => {
+    // Don't show next event popup if survey completion popup is already showing
+    if (showSurveyCompletionPopup) {
+      console.log('❌ Survey completion popup is showing, skipping next event signup popup');
+      return;
+    }
+    
     try {
       const res = await fetch("/api/participant", {
         method: "POST",

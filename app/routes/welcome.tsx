@@ -1529,8 +1529,8 @@ export default function WelcomePage() {
 
   // Participant Icon Component - shows when user has saved token
   const ParticipantIcon = () => {
-    // Only show if user has assigned number and name
-    if (!assignedNumber || !participantName) {
+    // Only show if user has assigned number and name, and not during initial loading
+    if (!assignedNumber || !participantName || isResolving || !showRegistrationContent) {
       return null;
     }
     

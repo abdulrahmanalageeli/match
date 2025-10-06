@@ -1803,7 +1803,7 @@ export default function WelcomePage() {
   // Check if user has incomplete survey data
   const checkIncompleteSurvey = async (token: string) => {
     try {
-      console.log('🔍 Checking survey completion status for saved token...');
+      console.log('🔍 Checking survey completion status for saved token on main page...');
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1919,12 +1919,12 @@ export default function WelcomePage() {
           checkNextEventSignup(tokenToUse);
         }, 2000); // Give page time to load
         
-        // Also check if user has incomplete survey data
+        // Also check if user has incomplete survey data (only on main page, not when token in URL)
         setTimeout(() => {
           checkIncompleteSurvey(tokenToUse);
         }, 1000); // Check survey completion status
       } else {
-        console.log('❌ Token in URL or not on main page, skipping next event signup check');
+        console.log('❌ Token in URL or not on main page, skipping checks');
       }
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');

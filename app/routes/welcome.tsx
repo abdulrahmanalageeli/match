@@ -342,6 +342,7 @@ export default function WelcomePage() {
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
   const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
+  const [showNextEventSignup, setShowNextEventSignup] = useState(false)
   const [participantInfo, setParticipantInfo] = useState<{name: string, assigned_number: number} | null>(null)
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
@@ -3667,14 +3668,14 @@ export default function WelcomePage() {
                           <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
                           <Button
                             onClick={handleAutoSignupNextEvent}
-                            disabled={returningLoading || showNextEventSignup}
+                            disabled={nextEventSignupLoading || showNextEventSignup}
                             className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
                               showNextEventSignup 
                                 ? "bg-gray-400 cursor-not-allowed opacity-60" 
                                 : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
                             } text-white`}
                           >
-                            {returningLoading ? (
+                            {nextEventSignupLoading ? (
                               <div className="flex items-center gap-2">
                                 <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                                 جاري التسجيل...

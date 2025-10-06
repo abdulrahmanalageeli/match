@@ -344,6 +344,10 @@ export default function WelcomePage() {
   const [nextEventSignupLoading, setNextEventSignupLoading] = useState(false)
   const [showNextEventSignup, setShowNextEventSignup] = useState(false)
   const [participantInfo, setParticipantInfo] = useState<{name: string, assigned_number: number} | null>(null)
+  
+  // Survey Completion Popup states
+  const [showSurveyCompletionPopup, setShowSurveyCompletionPopup] = useState(false)
+  const [incompleteSurveyInfo, setIncompleteSurveyInfo] = useState<{name: string, assigned_number: number, secure_token: string} | null>(null)
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
@@ -795,6 +799,16 @@ export default function WelcomePage() {
           
           // Check if user has filled the survey using new structure
           const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
+          
+          // Show survey completion popup if user hasn't filled the survey
+          if (!hasFilledForm) {
+            setIncompleteSurveyInfo({
+              name: data.name,
+              assigned_number: data.assigned_number,
+              secure_token: token
+            });
+            setShowSurveyCompletionPopup(true);
+          }
           
           // Reset all states to prevent stuck states on refresh
           setModalStep(null);
@@ -3199,6 +3213,67 @@ export default function WelcomePage() {
                     )}
                   </button>
                 </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Survey Completion Popup */}
+        {showSurveyCompletionPopup && incompleteSurveyInfo && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+              <div className="p-6 overflow-y-auto">
+                <div className="text-center space-y-4">
+                  {/* Header */}
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="p-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-full border border-orange-400/30">
+                      <AlertCircle className="w-8 h-8 text-orange-400" />
+                    </div>
+                  </div>
+                  
+                  <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                    مرحباً {incompleteSurveyInfo.name}!
+                  </h3>
+                  
+                  <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                    المشارك رقم #{incompleteSurveyInfo.assigned_number}
+                  </p>
+                  
+                  <div className={`p-4 rounded-xl border ${dark ? "bg-orange-500/10 border-orange-400/30" : "bg-orange-50 border-orange-200"}`}>
+                    <p className={`text-sm font-medium ${dark ? "text-orange-300" : "text-orange-700"}`}>
+                      📝 يجب إكمال الاستبيان أولاً
+                    </p>
+                    <p className={`text-xs mt-2 ${dark ? "text-orange-200" : "text-orange-600"}`}>
+                      لم تكمل الاستبيان بعد. يجب إكماله للمشاركة في الفعالية والحصول على مطابقات.
+                    </p>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setShowSurveyCompletionPopup(false)}
+                      className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                        dark 
+                          ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                          : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                      }`}
+                    >
+                      إغلاق
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setShowSurveyCompletionPopup(false);
+                        // Navigate to survey with the secure token
+                        window.location.href = `/welcome?token=${incompleteSurveyInfo.secure_token}`;
+                      }}
+                      className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      إكمال الاستبيان
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

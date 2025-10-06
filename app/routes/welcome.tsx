@@ -1938,7 +1938,7 @@ export default function WelcomePage() {
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');
     }
-  }, []);
+  }, [token]); // Add token as dependency so it re-runs when token is available
 
   // Load saved participant data on page load
   useEffect(() => {

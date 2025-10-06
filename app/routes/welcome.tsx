@@ -3660,123 +3660,157 @@ export default function WelcomePage() {
                         <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full"></div>
                         <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
                       </div>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
-                      <p className="text-amber-300 text-xs sm:text-sm mb-3 sm:mb-4">ملاحظة: إذا كنت تريد تعديل استبيانك، فاستخدم رمزك الخاص في قسم 'لاعب عائد' أدناه.</p>
                       
-                      <div className="space-y-3">
-                        <Input
-                          type="tel"
-                          placeholder="مثال: 0560123456 أو +966560123456"
-                          value={returningPhoneNumber}
-                          onChange={(e) => setReturningPhoneNumber(e.target.value)}
-                          className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
-                          dir="ltr"
-                        />
+                      {/* Show simplified version if user has saved token */}
+                      {(resultToken || returningPlayerToken) ? (
+                        <>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
+                          <Button
+                            onClick={handleAutoSignupNextEvent}
+                            disabled={returningLoading || showNextEventSignup}
+                            className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
+                              showNextEventSignup 
+                                ? "bg-gray-400 cursor-not-allowed opacity-60" 
+                                : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
+                            } text-white`}
+                          >
+                            {returningLoading ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                جاري التسجيل...
+                              </div>
+                            ) : showNextEventSignup ? (
+                              "مسجل بالفعل في الفعالية القادمة ✓"
+                            ) : (
+                              "سجل في الفعالية القادمة"
+                            )}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
+                          <p className="text-amber-300 text-xs sm:text-sm mb-3 sm:mb-4">ملاحظة: إذا كنت تريد تعديل استبيانك، فاستخدم رمزك الخاص في قسم 'لاعب عائد' أدناه.</p>
+                          
+                          <div className="space-y-3">
+                            <Input
+                              type="tel"
+                              placeholder="مثال: 0560123456 أو +966560123456"
+                              value={returningPhoneNumber}
+                              onChange={(e) => setReturningPhoneNumber(e.target.value)}
+                              className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
+                              dir="ltr"
+                            />
 
-
-                        <Button
-                          onClick={handleReturningParticipant}
-                          disabled={returningLoading || !returningPhoneNumber.trim()}
-                          className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {returningLoading ? (
-                            <div className="flex items-center gap-2">
-                              <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                              جاري البحث...
-                            </div>
-                          ) : (
-                            "سجل في الفعالية القادمة"
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Divider */}
-                    <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                      <div className="flex-1 h-px bg-white/20"></div>
-                      <span className="text-white/60 text-xs sm:text-sm">أو</span>
-                      <div className="flex-1 h-px bg-white/20"></div>
-                    </div>
-                    
-                    {/* New Player Option */}
-                    <div className="mb-6 sm:mb-8">
-                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
-                        <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
-                      </div>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
-                      <Button
-                        onClick={async () => {
-                          setLoading(true)
-                          try {
-                            const res = await fetch("/api/participant", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ action: "create-token" }),
-                            })
-                            const data = await res.json()
-                            console.log("Token creation response:", data)
-                            
-                            if (res.status === 403) {
-                              // Registration is closed
-                              alert("❌ " + (data.message || "التسجيل مغلق حالياً"))
-                              return
-                            }
-                            
-                            if (res.ok && data.secure_token) {
-                              setAssignedNumber(data.assigned_number)
-                              // Mark just-created to show modal after redirect
-                              sessionStorage.setItem('justCreatedToken', '1')
-                              sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
-                              saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
-                              console.log("Redirecting to:", `/welcome?token=${data.secure_token}`)
-                              // Try multiple redirect methods to ensure it works
-                              try {
-                                window.location.href = `/welcome?token=${data.secure_token}`
-                              } catch (redirectError) {
-                                console.error("Redirect failed, trying alternative:", redirectError)
-                                window.location.replace(`/welcome?token=${data.secure_token}`)
-                              }
-                            } else {
-                              console.error("Token creation failed:", data)
-                              alert("❌ فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
-                            }
-                          } catch (err) {
-                            console.error("Error creating token:", err)
-                            // alert("❌ فشل في الحصول على رقم")
-                          } finally {
-                            setLoading(false)
-                          }
-                        }}
-                        disabled={loading || phase === "round_1"}
-                        className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
-                          phase === "round_1" 
-                            ? "bg-gray-400 cursor-not-allowed opacity-60" 
-                            : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 hover:scale-105"
-                        } text-white`}
-                      >
-                        {loading ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            جاري التخصيص...
+                            <Button
+                              onClick={handleReturningParticipant}
+                              disabled={returningLoading || !returningPhoneNumber.trim()}
+                              className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {returningLoading ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                  جاري البحث...
+                                </div>
+                              ) : (
+                                "سجل في الفعالية القادمة"
+                              )}
+                            </Button>
                           </div>
-                        ) : phase === "round_1" ? (
-                          "الجولة الفردية نشطة حالياً"
-                        ) : (
-                          "ابدأ رحلتك!"
-                        )}
-                      </Button>
+                        </>
+                      )}
                     </div>
 
-                    {/* Divider */}
-                    <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                      <div className="flex-1 h-px bg-white/20"></div>
-                      <span className="text-white/60 text-xs sm:text-sm">أو</span>
-                      <div className="flex-1 h-px bg-white/20"></div>
-                    </div>
+                    {/* Only show New Player section if no saved tokens */}
+                    {!resultToken && !returningPlayerToken && (
+                      <>
+                        {/* Divider */}
+                        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                          <div className="flex-1 h-px bg-white/20"></div>
+                          <span className="text-white/60 text-xs sm:text-sm">أو</span>
+                          <div className="flex-1 h-px bg-white/20"></div>
+                        </div>
+                        
+                        {/* New Player Option */}
+                        <div className="mb-6 sm:mb-8">
+                          <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
+                            <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
+                          </div>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
+                          <Button
+                            onClick={async () => {
+                              setLoading(true)
+                              try {
+                                const res = await fetch("/api/participant", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ action: "create-token" }),
+                                })
+                                const data = await res.json()
+                                console.log("Token creation response:", data)
+                                
+                                if (res.status === 403) {
+                                  // Registration is closed
+                                  alert("❌ " + (data.message || "التسجيل مغلق حالياً"))
+                                  return
+                                }
+                                
+                                if (res.ok && data.secure_token) {
+                                  setAssignedNumber(data.assigned_number)
+                                  // Mark just-created to show modal after redirect
+                                  sessionStorage.setItem('justCreatedToken', '1')
+                                  sessionStorage.setItem('justCreatedTokenValue', data.secure_token)
+                                  saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
+                                  console.log("Redirecting to:", `/welcome?token=${data.secure_token}`)
+                                  // Try multiple redirect methods to ensure it works
+                                  try {
+                                    window.location.href = `/welcome?token=${data.secure_token}`
+                                  } catch (redirectError) {
+                                    console.error("Redirect failed, trying alternative:", redirectError)
+                                    window.location.replace(`/welcome?token=${data.secure_token}`)
+                                  }
+                                } else {
+                                  console.error("Token creation failed:", data)
+                                  alert("❌ فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
+                                }
+                              } catch (err) {
+                                console.error("Error creating token:", err)
+                                // alert("❌ فشل في الحصول على رقم")
+                              } finally {
+                                setLoading(false)
+                              }
+                            }}
+                            disabled={loading || phase === "round_1"}
+                            className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
+                              phase === "round_1" 
+                                ? "bg-gray-400 cursor-not-allowed opacity-60" 
+                                : "bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 hover:scale-105"
+                            } text-white`}
+                          >
+                            {loading ? (
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                                جاري التخصيص...
+                              </div>
+                            ) : phase === "round_1" ? (
+                              "الجولة الفردية نشطة حالياً"
+                            ) : (
+                              "ابدأ رحلتك!"
+                            )}
+                          </Button>
+                        </div>
+
+                        {/* Divider */}
+                        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+                          <div className="flex-1 h-px bg-white/20"></div>
+                          <span className="text-white/60 text-xs sm:text-sm">أو</span>
+                          <div className="flex-1 h-px bg-white/20"></div>
+                        </div>
+                      </>
+                    )}
 
                     {/* Returning Player Option */}
-                    <div>
+                    <div id="returning-player">
                       <div className="flex items-center gap-3 mb-3 sm:mb-4">
                         <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full"></div>
                         <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
@@ -3980,7 +4014,9 @@ export default function WelcomePage() {
                 {/* Floating Scroll to Start Journey Button */}
                 <button
                     onClick={() => {
-                      const element = document.getElementById('start-journey');
+                      // Navigate to different sections based on whether user has saved tokens
+                      const targetId = (resultToken || returningPlayerToken) ? 'returning-player' : 'start-journey';
+                      const element = document.getElementById(targetId);
                       if (element) {
                         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                       }
@@ -3989,7 +4025,7 @@ export default function WelcomePage() {
                     style={{ 
                       boxShadow: '0 20px 40px rgba(34, 211, 238, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.1)',
                     }}
-                    aria-label="انتقل إلى ابدأ رحلتك"
+                    aria-label={(resultToken || returningPlayerToken) ? "انتقل إلى لاعب عائد" : "انتقل إلى ابدأ رحلتك"}
                   >
                     <div className="flex items-center gap-3 px-6 py-4">
                       <div className="flex flex-col items-center">
@@ -4009,8 +4045,12 @@ export default function WelcomePage() {
                         <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-bold leading-tight">ابدأ رحلتك</div>
-                        <div className="text-xs text-cyan-100 opacity-90">انضم الآن</div>
+                        <div className="text-sm font-bold leading-tight">
+                          {(resultToken || returningPlayerToken) ? "لاعب عائد" : "ابدأ رحلتك"}
+                        </div>
+                        <div className="text-xs text-cyan-100 opacity-90">
+                          {(resultToken || returningPlayerToken) ? "عودة للحساب" : "انضم الآن"}
+                        </div>
                       </div>
                     </div>
                     

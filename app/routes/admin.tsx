@@ -2758,6 +2758,26 @@ const fetchParticipants = async () => {
           setWhatsappParticipant(null);
         }}
       />
+
+      {/* Participant Results Modal */}
+      <ParticipantResultsModal
+        isOpen={showResultsModal}
+        onClose={() => setShowResultsModal(false)}
+        results={participantResults}
+        matchType={matchType}
+        totalMatches={totalMatches}
+        calculatedPairs={calculatedPairs}
+        isFromCache={isFromCache}
+      />
+
+      {/* Group Assignments Modal */}
+      <GroupAssignmentsModal
+        isOpen={showGroupAssignmentsModal}
+        onClose={() => setShowGroupAssignmentsModal(false)}
+        groupAssignments={groupAssignments}
+        totalGroups={totalGroups}
+        totalParticipants={totalGroupParticipants}
+      />
     </div>
   )
 }

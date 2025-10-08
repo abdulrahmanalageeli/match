@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -40,6 +40,7 @@ interface ParticipantResultsModalProps {
   } | null
   currentEventId?: number
   isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
+  onSelectParticipant?: (participantNumber: number) => void // NEW: For selecting participants
 }
 
 export default function ParticipantResultsModal({ 
@@ -54,7 +55,8 @@ export default function ParticipantResultsModal({
   sessionId = null,
   sessionInfo = null,
   currentEventId = 1,
-  isFreshData = false
+  isFreshData = false,
+  onSelectParticipant
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -396,6 +398,9 @@ export default function ParticipantResultsModal({
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">عرض التفاصيل</th>
                         )}
+                        {matchType !== "group" && onSelectParticipant && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">اختيار للواتساب</th>
+                        )}
                         {matchType !== "group" && (
                           <>
                             <th className="text-center p-4 text-sm font-semibold text-slate-300">
@@ -600,6 +605,21 @@ export default function ParticipantResultsModal({
                               >
                                 <Eye className="w-3 h-3" />
                                 <span>عرض</span>
+                              </button>
+                            </td>
+                          )}
+                          {matchType !== "group" && onSelectParticipant && (
+                            <td className="p-4 text-center">
+                              <button
+                                onClick={() => {
+                                  onSelectParticipant(participant.assigned_number)
+                                  onClose() // Close the modal after selection
+                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-500/20 border border-green-400/30 text-green-300 hover:bg-green-500/30 transition-all duration-300 text-sm"
+                                title="اختيار للواتساب"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>اختيار</span>
                               </button>
                             </td>
                           )}

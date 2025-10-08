@@ -133,7 +133,8 @@ export default function AdminPage() {
 *طرق الدفع:*
 • STC Pay: 0560899666
 • مصرف الراجحي: عبدالرحمن عبدالملك
-• IBAN: SA2480000588608016007502
+• IBAN:
+SA2480000588608016007502
 
 بعد إتمام التحويل، يرجى إرسال صورة الإيصال فوراً لتأكيد حجزكم.
 
@@ -204,12 +205,42 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       link.click();
       document.body.removeChild(link);
       
-      alert(`✅ تم تصدير ${selectedData.length} مشارك بنجاح!`);
+      // Mark selected participants as "message sent" (PAID = true)
+      await markParticipantsAsMessageSent(Array.from(selectedParticipants));
+      
+      alert(`✅ تم تصدير ${selectedData.length} مشارك بنجاح وتم تحديث حالة الرسائل!`);
+      
+      // Refresh participants list to show updated status
+      fetchParticipants();
+      
     } catch (error) {
       console.error('Export error:', error);
       alert('❌ حدث خطأ أثناء التصدير');
     } finally {
       setIsExporting(false);
+    }
+  }
+
+  // Function to mark participants as message sent
+  const markParticipantsAsMessageSent = async (participantNumbers: number[]) => {
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "mark-messages-sent",
+          participantNumbers: participantNumbers
+        })
+      });
+      
+      const data = await response.json();
+      if (!response.ok) {
+        console.error("Error marking messages as sent:", data.error);
+      } else {
+        console.log(`✅ Marked ${participantNumbers.length} participants as message sent`);
+      }
+    } catch (error) {
+      console.error("Error marking messages as sent:", error);
     }
   }
 
@@ -2786,6 +2817,7 @@ const fetchParticipants = async () => {
             {filteredParticipants.map((p) => (
               <div
                 key={p.id}
+                data-participant={p.assigned_number}
                 className={`group bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${
                   selectedParticipants.has(p.assigned_number) ? 'ring-2 ring-slate-400 bg-slate-400/10' : ''
                 }`}
@@ -2844,7 +2876,7 @@ const fetchParticipants = async () => {
                     </div>
                     
                     {/* Eligibility Badges */}
-                    <div className="flex flex-wrap items-center justify-center gap-1">
+                    <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
                       {p.event_id === currentEventId && (
                         <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
                           Current Event
@@ -2858,6 +2890,35 @@ const fetchParticipants = async () => {
                       {p.signup_for_next_event && (
                         <span className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded-full border border-green-400/30">
                           Next Event
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Payment and WhatsApp Status Badges */}
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {/* WhatsApp Status Badge */}
+                      {p.PAID ? (
+                        <span className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded-full border border-green-400/30">
+                          📱 Sent
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded-full border border-red-400/30">
+                          📱 Not Sent
+                        </span>
+                      )}
+
+                      {/* Payment Status Badge */}
+                      {p.PAID_DONE ? (
+                        <span className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-400/30">
+                          💰 Paid
+                        </span>
+                      ) : p.PAID ? (
+                        <span className="px-2 py-1 text-xs bg-yellow-500/20 text-yellow-300 rounded-full border border-yellow-400/30">
+                          💰 Pending
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded-full border border-gray-400/30">
+                          💰 No Contact
                         </span>
                       )}
                     </div>
@@ -2888,6 +2949,20 @@ const fetchParticipants = async () => {
         totalMatches={totalMatches}
         calculatedPairs={calculatedPairs}
         isFromCache={isFromCache}
+        onSelectParticipant={(participantNumber) => {
+          // Find the participant and add them to selection
+          const participant = participants.find(p => p.assigned_number === participantNumber);
+          if (participant) {
+            setSelectedParticipants(prev => new Set([...prev, participantNumber]));
+            // Scroll to the participant in the main list for visual confirmation
+            setTimeout(() => {
+              const element = document.querySelector(`[data-participant="${participantNumber}"]`);
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }
+            }, 100);
+          }
+        }}
       />
 
       {/* Group Assignments Modal */}

@@ -2321,6 +2321,43 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 MARK MESSAGES SENT - Update PAID status for selected participants
+    if (action === "mark-messages-sent") {
+      try {
+        const { participantNumbers } = req.body
+        
+        if (!participantNumbers || !Array.isArray(participantNumbers) || participantNumbers.length === 0) {
+          return res.status(400).json({ error: "Missing or invalid participantNumbers array" })
+        }
+        
+        console.log(`📱 Marking ${participantNumbers.length} participants as message sent: ${participantNumbers.join(', ')}`)
+        
+        // Update PAID column to true for selected participants
+        const { data, error } = await supabase
+          .from("participants")
+          .update({ PAID: true })
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", participantNumbers)
+        
+        if (error) {
+          console.error("Error updating message sent status:", error)
+          return res.status(500).json({ error: "Failed to update message sent status" })
+        }
+        
+        console.log(`✅ Successfully marked ${participantNumbers.length} participants as message sent`)
+        
+        return res.status(200).json({ 
+          success: true,
+          message: `Marked ${participantNumbers.length} participants as message sent`,
+          updatedParticipants: participantNumbers.length
+        })
+        
+      } catch (error) {
+        console.error("Error in mark-messages-sent:", error)
+        return res.status(500).json({ error: "Failed to mark messages as sent" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

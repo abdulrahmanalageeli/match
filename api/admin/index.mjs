@@ -2358,6 +2358,82 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 TOGGLE MESSAGE STATUS - Toggle PAID status for individual participant
+    if (action === "toggle-message-status") {
+      try {
+        const { participantNumber, newStatus } = req.body
+        
+        if (typeof participantNumber !== 'number' || typeof newStatus !== 'boolean') {
+          return res.status(400).json({ error: "Invalid participantNumber or newStatus" })
+        }
+        
+        console.log(`📱 Toggling message status for participant #${participantNumber} to ${newStatus}`)
+        
+        // Update PAID column for the specific participant
+        const { data, error } = await supabase
+          .from("participants")
+          .update({ PAID: newStatus })
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("assigned_number", participantNumber)
+        
+        if (error) {
+          console.error("Error updating message status:", error)
+          return res.status(500).json({ error: "Failed to update message status" })
+        }
+        
+        console.log(`✅ Successfully updated message status for participant #${participantNumber} to ${newStatus}`)
+        
+        return res.status(200).json({ 
+          success: true,
+          message: `Updated message status for participant #${participantNumber}`,
+          participantNumber,
+          newStatus
+        })
+        
+      } catch (error) {
+        console.error("Error in toggle-message-status:", error)
+        return res.status(500).json({ error: "Failed to toggle message status" })
+      }
+    }
+
+    // 🔹 TOGGLE PAYMENT STATUS - Toggle PAID_DONE status for individual participant
+    if (action === "toggle-payment-status") {
+      try {
+        const { participantNumber, newStatus } = req.body
+        
+        if (typeof participantNumber !== 'number' || typeof newStatus !== 'boolean') {
+          return res.status(400).json({ error: "Invalid participantNumber or newStatus" })
+        }
+        
+        console.log(`💰 Toggling payment status for participant #${participantNumber} to ${newStatus}`)
+        
+        // Update PAID_DONE column for the specific participant
+        const { data, error } = await supabase
+          .from("participants")
+          .update({ PAID_DONE: newStatus })
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("assigned_number", participantNumber)
+        
+        if (error) {
+          console.error("Error updating payment status:", error)
+          return res.status(500).json({ error: "Failed to update payment status" })
+        }
+        
+        console.log(`✅ Successfully updated payment status for participant #${participantNumber} to ${newStatus}`)
+        
+        return res.status(200).json({ 
+          success: true,
+          message: `Updated payment status for participant #${participantNumber}`,
+          participantNumber,
+          newStatus
+        })
+        
+      } catch (error) {
+        console.error("Error in toggle-payment-status:", error)
+        return res.status(500).json({ error: "Failed to toggle payment status" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

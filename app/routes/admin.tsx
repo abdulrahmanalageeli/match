@@ -109,6 +109,9 @@ export default function AdminPage() {
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
+  
+  // Status update state
+  const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -241,6 +244,66 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       }
     } catch (error) {
       console.error("Error marking messages as sent:", error);
+    }
+  }
+
+  // Function to toggle message sent status
+  const toggleMessageSentStatus = async (participantNumber: number, currentStatus: boolean) => {
+    setUpdatingStatus({participantNumber, type: 'message'});
+    
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "toggle-message-status",
+          participantNumber: participantNumber,
+          newStatus: !currentStatus
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Refresh participants list to show updated status
+        fetchParticipants();
+      } else {
+        alert(`❌ خطأ في تحديث حالة الرسالة: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error toggling message status:", error);
+      alert('❌ حدث خطأ في تحديث حالة الرسالة');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  }
+
+  // Function to toggle payment status
+  const togglePaymentStatus = async (participantNumber: number, currentStatus: boolean) => {
+    setUpdatingStatus({participantNumber, type: 'payment'});
+    
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "toggle-payment-status",
+          participantNumber: participantNumber,
+          newStatus: !currentStatus
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok) {
+        // Refresh participants list to show updated status
+        fetchParticipants();
+      } else {
+        alert(`❌ خطأ في تحديث حالة الدفع: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error toggling payment status:", error);
+      alert('❌ حدث خطأ في تحديث حالة الدفع');
+    } finally {
+      setUpdatingStatus(null);
     }
   }
 
@@ -2896,31 +2959,55 @@ const fetchParticipants = async () => {
 
                     {/* Payment and WhatsApp Status Badges */}
                     <div className="flex flex-wrap items-center justify-center gap-1">
-                      {/* WhatsApp Status Badge */}
-                      {p.PAID ? (
-                        <span className="px-2 py-1 text-xs bg-green-500/20 text-green-300 rounded-full border border-green-400/30">
-                          📱 Sent
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded-full border border-red-400/30">
-                          📱 Not Sent
-                        </span>
-                      )}
+                      {/* WhatsApp Status Badge - Clickable */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMessageSentStatus(p.assigned_number, p.PAID);
+                        }}
+                        disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message'}
+                        className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 ${
+                          p.PAID 
+                            ? 'bg-green-500/20 text-green-300 border-green-400/30 hover:bg-green-500/30' 
+                            : 'bg-red-500/20 text-red-300 border-red-400/30 hover:bg-red-500/30'
+                        }`}
+                        title={`Click to ${p.PAID ? 'mark as not sent' : 'mark as sent'}`}
+                      >
+                        {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message' ? (
+                          <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin"></div>
+                            📱
+                          </span>
+                        ) : (
+                          p.PAID ? '📱 Sent' : '📱 Not Sent'
+                        )}
+                      </button>
 
-                      {/* Payment Status Badge */}
-                      {p.PAID_DONE ? (
-                        <span className="px-2 py-1 text-xs bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-400/30">
-                          💰 Paid
-                        </span>
-                      ) : p.PAID ? (
-                        <span className="px-2 py-1 text-xs bg-yellow-500/20 text-yellow-300 rounded-full border border-yellow-400/30">
-                          💰 Pending
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs bg-gray-500/20 text-gray-300 rounded-full border border-gray-400/30">
-                          💰 No Contact
-                        </span>
-                      )}
+                      {/* Payment Status Badge - Clickable */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          togglePaymentStatus(p.assigned_number, p.PAID_DONE);
+                        }}
+                        disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment'}
+                        className={`px-2 py-1 text-xs rounded-full border transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-50 ${
+                          p.PAID_DONE 
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30 hover:bg-emerald-500/30'
+                            : p.PAID 
+                              ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30 hover:bg-yellow-500/30'
+                              : 'bg-gray-500/20 text-gray-300 border-gray-400/30 hover:bg-gray-500/30'
+                        }`}
+                        title={`Click to ${p.PAID_DONE ? 'mark as unpaid' : 'mark as paid'}`}
+                      >
+                        {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment' ? (
+                          <span className="flex items-center gap-1">
+                            <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin"></div>
+                            💰
+                          </span>
+                        ) : (
+                          p.PAID_DONE ? '💰 Paid' : (p.PAID ? '💰 Pending' : '💰 No Contact')
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>

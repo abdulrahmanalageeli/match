@@ -1998,29 +1998,6 @@ export default function WelcomePage() {
   }, [step, phase])
 
   // Local storage functionality for auto-filling tokens
-  // Validate if participant still exists in database
-  const validateParticipantExists = async (token: string): Promise<boolean> => {
-    try {
-      console.log('🔍 Validating participant existence for token:', token);
-      const res = await fetch("/api/participant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "resolve-token", secure_token: token }),
-      });
-      const data = await res.json();
-      
-      if (data.assigned_number) {
-        console.log('✅ Participant exists in database:', data.assigned_number);
-        return true;
-      } else {
-        console.log('❌ Participant not found in database - likely cleaned up');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ Error validating participant existence:', error);
-      return false;
-    }
-  };
 
   useEffect(() => {
     // Load saved tokens from localStorage on component mount
@@ -2032,38 +2009,28 @@ export default function WelcomePage() {
     const tokenToUse = savedResultToken || savedReturningToken;
     
     if (tokenToUse) {
-      // First validate if participant still exists in database
-      validateParticipantExists(tokenToUse).then((exists) => {
-        if (exists) {
-          // Participant exists - proceed with normal token loading
-          setResultToken(tokenToUse);
-          setReturningPlayerToken(tokenToUse);
-          console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
-          
-          // Only check for next event signup if there's NO token in URL (main welcome page)
-          // AND user is on step 0 (main welcome page)
-          // Don't show popup when user is accessing a specific token URL or in other steps
-          if (!token && step === 0) {
-            console.log('✅ No token in URL and on main page, checking next event signup...');
-            setTimeout(() => {
-              checkNextEventSignup(tokenToUse);
-            }, 2000); // Give page time to load
-            
-            // Also check if user has incomplete survey data (only on main page, not when token in URL)
-            setTimeout(() => {
-              checkIncompleteSurvey(tokenToUse);
-            }, 1000); // Check survey completion status
-          } else {
-            console.log('❌ Token in URL or not on main page, skipping checks');
-          }
-        } else {
-          // Participant doesn't exist - clear all saved data and treat as new user
-          console.log('🗑️ Participant not found in database - clearing saved data and treating as new user');
-          clearSavedTokens();
-          // Don't fill token fields or show any popups - treat as completely new user
-        }
-        setTokenValidationCompleted(true);
-      });
+      // Auto-fill token fields with saved token (no validation)
+      setResultToken(tokenToUse);
+      setReturningPlayerToken(tokenToUse);
+      console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
+      
+      // Only check for next event signup if there's NO token in URL (main welcome page)
+      // AND user is on step 0 (main welcome page)
+      // Don't show popup when user is accessing a specific token URL or in other steps
+      if (!token && step === 0) {
+        console.log('✅ No token in URL and on main page, checking next event signup...');
+        setTimeout(() => {
+          checkNextEventSignup(tokenToUse);
+        }, 2000); // Give page time to load
+        
+        // Also check if user has incomplete survey data (only on main page, not when token in URL)
+        setTimeout(() => {
+          checkIncompleteSurvey(tokenToUse);
+        }, 1000); // Check survey completion status
+      } else {
+        console.log('❌ Token in URL or not on main page, skipping checks');
+      }
+      setTokenValidationCompleted(true);
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');
       setTokenValidationCompleted(true);

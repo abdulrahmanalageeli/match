@@ -28,7 +28,8 @@ import {
   Square,
   X,
   MessageSquare,
-  Ban
+  Ban,
+  FileText
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -105,9 +106,112 @@ export default function AdminPage() {
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
   const [showWhatsappModal, setShowWhatsappModal] = useState(false);
+  
+  // Excel export state
+  const [isExporting, setIsExporting] = useState(false);
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
+
+  // Function to generate WhatsApp message for a participant
+  const generateWhatsAppMessage = (participant: any) => {
+    const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
+    const assignedNumber = participant.assigned_number;
+    const secureToken = participant.secure_token;
+
+    return `*التوافق الأعمى* ✨
+
+السلام عليكم *${name}*،
+
+نسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم من بين المشاركين.
+
+⏰ *يرجى تأكيد المشاركة خلال 24 ساعة*
+💳 رسوم المشاركة: 45 ريال سعودي
+
+⚠️ *ملاحظة مهمة:* لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال. في حالة عدم التحويل خلال المدة المحددة، سيتم إعطاء الفرصة لمشارك آخر.
+
+*طرق الدفع:*
+• STC Pay: 0560899666
+• مصرف الراجحي: عبدالرحمن عبدالملك
+• IBAN: SA2480000588608016007502
+
+بعد إتمام التحويل، يرجى إرسال صورة الإيصال فوراً لتأكيد حجزكم.
+
+*تنبيه:* في حالة التأكيد ثم عدم الحضور أو الإلغاء، لا يمكن استرداد الرسوم.
+
+📍 *تفاصيل الفعالية:*
+المكان: كوفي بلانيت - الدور الثاني
+العنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+
+📅 التاريخ: الخميس 9 يناير 2025
+🕰️ الوقت: 8:30 مساءً
+⏱️ المدة: 60 دقيقة
+
+*يرجى الحضور قبل الموعد بـ 10 دقائق*
+
+معلوماتكم للفعالية:
+رقم المشارك: *${assignedNumber}*
+الرمز الخاص: *${secureToken}*
+
+🔗 رابط الدخول المباشر:
+https://match-omega.vercel.app/welcome?token=${secureToken}
+
+نتطلع لحضوركم وتمنى لكم تجربة ممتعة.
+
+فريق التوافق الأعمى`;
+  }
+
+  // Function to export selected participants to Excel/CSV
+  const exportToExcel = async () => {
+    if (selectedParticipants.size === 0) {
+      alert('❌ يرجى اختيار مشاركين أولاً');
+      return;
+    }
+
+    setIsExporting(true);
+    
+    try {
+      // Get selected participants data
+      const selectedData = participants.filter(p => selectedParticipants.has(p.assigned_number));
+      
+      // Create CSV content
+      const headers = ['Contact number', 'Name', 'Message 1', 'Message 2'];
+      const csvContent = [
+        headers.join(','),
+        ...selectedData.map(participant => {
+          const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
+          const phone = participant.phone_number || '';
+          const message1 = generateWhatsAppMessage(participant).replace(/"/g, '""'); // Escape quotes for CSV
+          const message2 = ''; // Empty as requested
+          
+          return [
+            `"${phone}"`,
+            `"${name}"`,
+            `"${message1}"`,
+            `"${message2}"`
+          ].join(',');
+        })
+      ].join('\n');
+
+      // Create and download file
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for proper UTF-8
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `whatsapp_participants_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      alert(`✅ تم تصدير ${selectedData.length} مشارك بنجاح!`);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('❌ حدث خطأ أثناء التصدير');
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   // Function to load available sessions
 const loadAvailableSessions = async () => {
@@ -2649,6 +2753,22 @@ const fetchParticipants = async () => {
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
               </div>
+            )}
+
+            {/* Export Selected Participants Button */}
+            {selectedParticipants.size > 0 && (
+              <button
+                onClick={exportToExcel}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
+              >
+                {isExporting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileText className="w-4 h-4" />
+                )}
+                Export ({selectedParticipants.size}) to Excel
+              </button>
             )}
           </div>
         </div>

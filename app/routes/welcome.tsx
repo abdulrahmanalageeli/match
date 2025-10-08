@@ -248,6 +248,7 @@ export default function WelcomePage() {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [formFilledChoiceMade, setFormFilledChoiceMade] = useState(false); // Track if user has made choice about form filled prompt
   const [justCompletedEditing, setJustCompletedEditing] = useState(false); // Track if user just completed editing to prevent popup loop
+  const [tokenValidationCompleted, setTokenValidationCompleted] = useState(false); // Track if token validation has been completed
   
   // Helper function to check if user has substantial survey data (more than just default values)
   const hasSubstantialSurveyData = (answers: Record<string, string | string[]> | undefined) => {
@@ -1466,7 +1467,8 @@ export default function WelcomePage() {
           // Handle form filled prompt logic - only show if user hasn't made a choice yet
           // This prevents the prompt from appearing repeatedly after user makes their choice
           // Also prevent showing if user just completed editing their survey
-          if (hasSubstantialSurveyData(surveyData.answers) && !formFilledChoiceMade && !justCompletedEditing) {
+          // IMPORTANT: Only show popup after token validation is completed to ensure participant still exists
+          if (hasSubstantialSurveyData(surveyData.answers) && !formFilledChoiceMade && !justCompletedEditing && tokenValidationCompleted) {
             if (!showFormFilledPrompt && step === (2 as number)) {
               console.log("🔔 Showing form filled prompt - user has survey data but hasn't made choice")
               setShowFormFilledPrompt(true);
@@ -1474,6 +1476,8 @@ export default function WelcomePage() {
           } else {
             if (justCompletedEditing) {
               console.log("🚫 Not showing form filled prompt - user just completed editing")
+            } else if (!tokenValidationCompleted) {
+              console.log("🚫 Not showing form filled prompt - token validation not completed yet")
             }
             setShowFormFilledPrompt(false);
           }
@@ -1984,6 +1988,30 @@ export default function WelcomePage() {
   }, [step, phase])
 
   // Local storage functionality for auto-filling tokens
+  // Validate if participant still exists in database
+  const validateParticipantExists = async (token: string): Promise<boolean> => {
+    try {
+      console.log('🔍 Validating participant existence for token:', token);
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resolve-token", secure_token: token }),
+      });
+      const data = await res.json();
+      
+      if (data.success && data.participant) {
+        console.log('✅ Participant exists in database:', data.participant.assigned_number);
+        return true;
+      } else {
+        console.log('❌ Participant not found in database - likely cleaned up');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error validating participant existence:', error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     // Load saved tokens from localStorage on component mount
     // Since both fields use the same token, use whichever is available
@@ -1994,28 +2022,41 @@ export default function WelcomePage() {
     const tokenToUse = savedResultToken || savedReturningToken;
     
     if (tokenToUse) {
-      setResultToken(tokenToUse);
-      setReturningPlayerToken(tokenToUse);
-      console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
-      
-      // Only check for next event signup if there's NO token in URL (main welcome page)
-      // AND user is on step 0 (main welcome page)
-      // Don't show popup when user is accessing a specific token URL or in other steps
-      if (!token && step === 0) {
-        console.log('✅ No token in URL and on main page, checking next event signup...');
-        setTimeout(() => {
-          checkNextEventSignup(tokenToUse);
-        }, 2000); // Give page time to load
-        
-        // Also check if user has incomplete survey data (only on main page, not when token in URL)
-        setTimeout(() => {
-          checkIncompleteSurvey(tokenToUse);
-        }, 1000); // Check survey completion status
-      } else {
-        console.log('❌ Token in URL or not on main page, skipping checks');
-      }
+      // First validate if participant still exists in database
+      validateParticipantExists(tokenToUse).then((exists) => {
+        if (exists) {
+          // Participant exists - proceed with normal token loading
+          setResultToken(tokenToUse);
+          setReturningPlayerToken(tokenToUse);
+          console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
+          
+          // Only check for next event signup if there's NO token in URL (main welcome page)
+          // AND user is on step 0 (main welcome page)
+          // Don't show popup when user is accessing a specific token URL or in other steps
+          if (!token && step === 0) {
+            console.log('✅ No token in URL and on main page, checking next event signup...');
+            setTimeout(() => {
+              checkNextEventSignup(tokenToUse);
+            }, 2000); // Give page time to load
+            
+            // Also check if user has incomplete survey data (only on main page, not when token in URL)
+            setTimeout(() => {
+              checkIncompleteSurvey(tokenToUse);
+            }, 1000); // Check survey completion status
+          } else {
+            console.log('❌ Token in URL or not on main page, skipping checks');
+          }
+        } else {
+          // Participant doesn't exist - clear all saved data and treat as new user
+          console.log('🗑️ Participant not found in database - clearing saved data and treating as new user');
+          clearSavedTokens();
+          // Don't fill token fields or show any popups - treat as completely new user
+        }
+        setTokenValidationCompleted(true);
+      });
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');
+      setTokenValidationCompleted(true);
     }
   }, []); // Run once on mount
 

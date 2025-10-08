@@ -2009,8 +2009,8 @@ export default function WelcomePage() {
       });
       const data = await res.json();
       
-      if (data.success && data.participant) {
-        console.log('✅ Participant exists in database:', data.participant.assigned_number);
+      if (data.assigned_number) {
+        console.log('✅ Participant exists in database:', data.assigned_number);
         return true;
       } else {
         console.log('❌ Participant not found in database - likely cleaned up');

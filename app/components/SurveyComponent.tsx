@@ -487,6 +487,17 @@ const surveyQuestions = [
 
 const questionsPerPage = 5
 
+// Function to convert Arabic numbers to English numbers
+const convertArabicToEnglish = (input: string): string => {
+  const arabicNumbers = '٠١٢٣٤٥٦٧٨٩'
+  const englishNumbers = '0123456789'
+  
+  return input.replace(/[٠-٩]/g, (match) => {
+    const index = arabicNumbers.indexOf(match)
+    return englishNumbers[index]
+  })
+}
+
 // Function to get MBTI personality type from dropdown
 const getMBTIType = (answers: Record<string, string | string[]>): string => {
   const mbtiType = answers['mbti_type'] as string
@@ -994,13 +1005,19 @@ const SurveyComponent = React.memo(function SurveyComponent({
         return (
           <div className="mt-4">
             <Input
-              type="number"
+              type="text"
               value={value as string || ""}
-              onChange={(e) => handleInputChange(question.id, e.target.value)}
+              onChange={(e) => {
+                // Convert Arabic numbers to English numbers
+                const convertedValue = convertArabicToEnglish(e.target.value)
+                // Only allow numbers and basic characters
+                const numericValue = convertedValue.replace(/[^0-9]/g, '')
+                handleInputChange(question.id, numericValue)
+              }}
               placeholder={question.placeholder}
-              min={question.min}
-              max={question.max}
               className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
+              inputMode="numeric"
+              pattern="[0-9]*"
             />
             {(question.min || question.max) && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-2">

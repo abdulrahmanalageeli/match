@@ -339,10 +339,36 @@ function checkGenderCompatibility(participantA, participantB) {
     return true
   }
   
-  // If either participant accepts any gender, they can match with anyone
+  // Any-gender participants can only match with:
+  // 1. Other any-gender participants, OR
+  // 2. Same-gender participants if they are the same gender
   if (anyGenderPrefA || anyGenderPrefB) {
-    console.log(`✅ Any-gender match: ${participantA.assigned_number} (${genderA}, any: ${anyGenderPrefA}) × ${participantB.assigned_number} (${genderB}, any: ${anyGenderPrefB}) - at least one accepts any gender`)
-    return true
+    // If both have any-gender preference, they can match
+    if (anyGenderPrefA && anyGenderPrefB) {
+      console.log(`✅ Any-gender match: ${participantA.assigned_number} (${genderA}, any: ${anyGenderPrefA}) × ${participantB.assigned_number} (${genderB}, any: ${anyGenderPrefB}) - both accept any gender`)
+      return true
+    }
+    
+    // If only one has any-gender preference, check if the other has same-gender preference AND they are same gender
+    if (anyGenderPrefA && !anyGenderPrefB) {
+      if (sameGenderPrefB && genderA === genderB) {
+        console.log(`✅ Any-gender + same-gender match: ${participantA.assigned_number} (${genderA}, any: ${anyGenderPrefA}) × ${participantB.assigned_number} (${genderB}, same: ${sameGenderPrefB}) - same gender`)
+        return true
+      } else {
+        console.log(`🚫 Any-gender mismatch: ${participantA.assigned_number} (${genderA}, any: ${anyGenderPrefA}) × ${participantB.assigned_number} (${genderB}, same: ${sameGenderPrefB}) - incompatible preferences`)
+        return false
+      }
+    }
+    
+    if (anyGenderPrefB && !anyGenderPrefA) {
+      if (sameGenderPrefA && genderA === genderB) {
+        console.log(`✅ Same-gender + any-gender match: ${participantA.assigned_number} (${genderA}, same: ${sameGenderPrefA}) × ${participantB.assigned_number} (${genderB}, any: ${anyGenderPrefB}) - same gender`)
+        return true
+      } else {
+        console.log(`🚫 Any-gender mismatch: ${participantA.assigned_number} (${genderA}, same: ${sameGenderPrefA}) × ${participantB.assigned_number} (${genderB}, any: ${anyGenderPrefB}) - incompatible preferences`)
+        return false
+      }
+    }
   }
   
   // Check same-gender preferences - BOTH must have same-gender preference for same-gender matching

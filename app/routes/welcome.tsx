@@ -2079,6 +2079,11 @@ export default function WelcomePage() {
       }
     }
     
+    if (savedToken) {
+      setSecureToken(savedToken);
+      console.log('📋 Loaded saved secure token:', savedToken);
+    }
+    
     // If we have a token but missing name or number, poll the API to get them
     if (savedToken && (!savedName || !savedNumber)) {
       console.log('🔍 Missing participant data, polling API with saved token...');
@@ -2155,6 +2160,7 @@ export default function WelcomePage() {
     setReturningPlayerToken('');
     setParticipantName(null);
     setAssignedNumber(null);
+    setSecureToken(null); // Clear secure token state
     console.log('🗑️ Cleared all saved tokens from localStorage and sessionStorage');
   };
 
@@ -2171,6 +2177,7 @@ export default function WelcomePage() {
       setReturningPlayerToken('');
       setParticipantName(null);
       setAssignedNumber(null);
+      setSecureToken(null); // Clear secure token state
       console.log('🗑️ Cleared result token from localStorage and sessionStorage');
     } else if (tokenType === 'returning') {
       localStorage.removeItem('blindmatch_returning_token');
@@ -2183,6 +2190,7 @@ export default function WelcomePage() {
       setReturningPlayerToken('');
       setParticipantName(null);
       setAssignedNumber(null);
+      setSecureToken(null); // Clear secure token state
       console.log('🗑️ Cleared returning token from localStorage and sessionStorage');
     }
   };
@@ -4909,6 +4917,19 @@ export default function WelcomePage() {
                           console.log("🔍 Start Survey - userData received:", userData);
                           if (userData.success && userData.survey_data) {
                             console.log("🔍 Start Survey - survey_data exists:", userData.survey_data);
+                            
+                            // Set assigned number if available
+                            if (userData.assigned_number && !assignedNumber) {
+                              setAssignedNumber(userData.assigned_number);
+                              console.log("🔍 Start Survey - Set assigned number:", userData.assigned_number);
+                            }
+                            
+                            // Set participant name if available
+                            if (userData.name && !participantName) {
+                              setParticipantName(userData.name);
+                              console.log("🔍 Start Survey - Set participant name:", userData.name);
+                            }
+                            
                             // Ensure the survey_data has the expected structure
                             const formattedSurveyData = {
                               answers: userData.survey_data.answers || {},
@@ -7159,6 +7180,19 @@ export default function WelcomePage() {
                       console.log("🔍 Redo Form - userData received:", userData);
                       if (userData.success && userData.survey_data) {
                         console.log("🔍 Redo Form - survey_data exists:", userData.survey_data);
+                        
+                        // Set assigned number if available
+                        if (userData.assigned_number && !assignedNumber) {
+                          setAssignedNumber(userData.assigned_number);
+                          console.log("🔍 Redo Form - Set assigned number:", userData.assigned_number);
+                        }
+                        
+                        // Set participant name if available
+                        if (userData.name && !participantName) {
+                          setParticipantName(userData.name);
+                          console.log("🔍 Redo Form - Set participant name:", userData.name);
+                        }
+                        
                         // Ensure the survey_data has the expected structure
                         const formattedSurveyData = {
                           answers: userData.survey_data.answers || {},

@@ -1738,6 +1738,11 @@ export default function WelcomePage() {
     // For now, we assume the token is valid if it's not empty
     // In a real implementation, you'd validate against the server first
     handleTokenAttempt('token', true);
+    
+    // Save token to localStorage before redirecting
+    saveUserToken(token);
+    console.log('💾 Saved returning player token before navigation:', token);
+    
     window.location.href = `/welcome?token=${token}`;
   };
 
@@ -1758,6 +1763,11 @@ export default function WelcomePage() {
     // For now, we assume the token is valid if it's not empty
     // In a real implementation, you'd validate against the server first
     handleTokenAttempt('resultToken', true);
+    
+    // Save token to localStorage before redirecting
+    saveUserToken(token);
+    console.log('💾 Saved result token before navigation:', token);
+    
     // Navigate to results page with token as URL parameter
     window.location.href = `/results?token=${encodeURIComponent(token)}`;
   };

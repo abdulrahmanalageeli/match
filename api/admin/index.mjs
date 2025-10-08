@@ -2277,9 +2277,9 @@ export default async function handler(req, res) {
           console.log("ℹ️ No admin results found to remove")
         }
         
-        // Step 2: Remove ALL matches for the current event from result_match table
+        // Step 2: Remove ALL matches for the current event from match_results table
         const { data: matchesToDelete, error: fetchMatchesError } = await supabase
-          .from("result_match")
+          .from("match_results")
           .select("id")
           .eq("event_id", event_id)
         
@@ -2290,7 +2290,7 @@ export default async function handler(req, res) {
         
         if (matchesToDelete && matchesToDelete.length > 0) {
           const { error: deleteMatchesError } = await supabase
-            .from("result_match")
+            .from("match_results")
             .delete()
             .eq("event_id", event_id)
           

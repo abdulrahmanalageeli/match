@@ -54,6 +54,16 @@ const games: Game[] = [
     color: "from-purple-500 to-pink-500"
   },
   {
+    id: "charades",
+    name: "Wala Kelma",
+    nameAr: "ولا كلمة",
+    description: "Act out fun pop culture topics without speaking",
+    descriptionAr: "مثلوا مواضيع ممتعة ومشهورة بدون كلام",
+    duration: 15,
+    icon: <ThumbsUp className="w-6 h-6" />,
+    color: "from-green-500 to-teal-500"
+  },
+  {
     id: "never-have-i-ever",
     name: "Never Have I Ever",
     nameAr: "لم أفعل من قبل",
@@ -162,6 +172,32 @@ const wouldYouRatherQuestions = [
   }
 ];
 
+// ولا كلمة topics - focused on 3 main categories with no duplicates
+const charadesTopics = {
+  "أفلام ومسلسلات": [
+    "تايتانيك", "سبايدرمان", "باتمان", "فروزن", "شريك", "هاري بوتر", "أفاتار", 
+    "الأسود يليق بك", "ولد الغلابة", "الكبير أوي", "مدرسة الحب", "فيلم هندي",
+    "أفنجرز", "فاست آند فيوريوس", "جوراسيك بارك", "ستار وورز", "مهمة مستحيلة", "ماتريكس"
+  ],
+  "مشاهير وشخصيات": [
+    "كريستيانو رونالدو", "ميسي", "محمد صلاح", "نيمار", "كيليان مبابي",
+    "إيلون ماسك", "بيل جيتس", "الملكة إليزابيث", "مايكل جاكسون",
+    "جيم كاري", "ويل سميث", "توم كروز", "براد بيت", "ليوناردو دي كابريو", "جاكي شان",
+    "مصطفى شعبان", "عادل إمام", "محمد هنيدي", "أحمد حلمي", "رامز جلال", "أحمد مكي", "محمد رمضان",
+    "تامر حسني", "عمرو دياب", "فيروز", "أم كلثوم", "محمد عبده", "راشد الماجد", "نوال الكويتية", "أصالة",
+    "كاظم الساهر", "نانسي عجرم", "إليسا", "حسين الجسمي", "ماجد المهندس", "أنغام"
+  ],
+  "تطبيقات ومواقع": [
+    "واتساب", "سناب شات", "انستقرام", "تيك توك", "يوتيوب", "تويتر", "فيسبوك",
+    "جوجل", "أمازون", "نتفليكس", "سبوتيفاي", "أوبر", "كريم", "طلبات", "هنقرستيشن",
+    "زوم", "تيمز", "ديسكورد", "تيليجرام", "لينكد إن", "تندر", "بلايستيشن",
+    "شاهد", "ستارزبلاي", "OSN", "MBC", "روتانا", "العربية", "الجزيرة"
+  ]
+};
+
+// Flatten all topics for random selection
+const allCharadesWords = Object.values(charadesTopics).flat();
+
 
 export default function GroupsPage() {
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -170,6 +206,13 @@ export default function GroupsPage() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
+  
+  // Charades game state
+  const [currentCharadesWord, setCurrentCharadesWord] = useState<string>("");
+  const [currentCharadesCategory, setCurrentCharadesCategory] = useState<string>("");
+  const [charadesTimer, setCharadesTimer] = useState(90); // 90 seconds (1:30) per word
+  const [charadesTimerActive, setCharadesTimerActive] = useState(false);
+  const [charadesScore, setCharadesScore] = useState({ correct: 0, total: 0 });
   
   // Participant data state
   const [participantName, setParticipantName] = useState<string>("");
@@ -285,6 +328,27 @@ export default function GroupsPage() {
     };
   }, [timerActive, timeRemaining]);
 
+  // Charades timer useEffect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (charadesTimerActive && charadesTimer > 0) {
+      interval = setInterval(() => {
+        setCharadesTimer(prev => {
+          if (prev <= 1) {
+            setCharadesTimerActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [charadesTimerActive, charadesTimer]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -313,6 +377,37 @@ export default function GroupsPage() {
     }
   };
 
+  // Charades helper functions
+  const getRandomCharadesWord = () => {
+    const randomWord = allCharadesWords[Math.floor(Math.random() * allCharadesWords.length)];
+    
+    // Find which category this word belongs to
+    const category = Object.entries(charadesTopics).find(([_, words]) => 
+      words.includes(randomWord)
+    )?.[0] || "عام";
+    
+    setCurrentCharadesWord(randomWord);
+    setCurrentCharadesCategory(category);
+    setCharadesTimer(90); // 90 seconds (1:30)
+    setCharadesTimerActive(false);
+  };
+
+  const startCharadesRound = () => {
+    getRandomCharadesWord();
+    setCharadesTimerActive(true);
+  };
+
+  const charadesCorrect = () => {
+    setCharadesScore(prev => ({ correct: prev.correct + 1, total: prev.total + 1 }));
+    setCharadesTimerActive(false);
+    getRandomCharadesWord();
+  };
+
+  const charadesSkip = () => {
+    setCharadesScore(prev => ({ correct: prev.correct, total: prev.total + 1 }));
+    setCharadesTimerActive(false);
+    getRandomCharadesWord();
+  };
 
   const nextPrompt = () => {
     setCurrentPromptIndex(prev => (prev + 1) % wouldYouRatherQuestions.length);
@@ -544,6 +639,129 @@ export default function GroupsPage() {
                   السؤال التالي
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentGame.id === "charades" && (
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-white mb-4">ولا كلمة</h3>
+              </div>
+
+              {/* Game Instructions */}
+              <div className="bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
+                <h4 className="text-white font-bold text-lg mb-4 flex items-center">
+                  <Lightbulb className="w-5 h-5 ml-3 text-yellow-400" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                  <li className="flex items-start">
+                    <span className="font-medium">شخص واحد يقرأ الكلمة سراً (لا يقولها بصوت عالٍ)</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">يمثل الكلمة بالحركات فقط - ممنوع الكلام أو الأصوات</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">الباقي يحاولون تخمين الكلمة خلال دقيقة ونصف</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">إذا خمنوا صح: اضغطوا "صحيح" - إذا لم يخمنوا: اضغطوا "تخطي"</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">تناوبوا الأدوار - كل شخص يمثل كلمة</span>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Score Display */}
+              <div className="flex justify-center mb-6">
+                <div className="bg-slate-700/50 rounded-lg px-6 py-3">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-400">
+                      {charadesScore.correct}/{charadesScore.total}
+                    </div>
+                    <div className="text-slate-300 text-sm">نقاط صحيحة</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Word Display */}
+              {currentCharadesWord && (
+                <div className="mb-8">
+                  <div className="bg-gradient-to-r from-green-500/20 to-teal-500/20 border border-green-500/30 rounded-xl p-6 text-center">
+                    <div className="mb-2">
+                      <span className="text-green-400 text-sm font-medium bg-green-500/20 px-3 py-1 rounded-full">
+                        {currentCharadesCategory}
+                      </span>
+                    </div>
+                    <div className="text-3xl font-bold text-white mb-4">
+                      {currentCharadesWord}
+                    </div>
+                    
+                    {/* Timer */}
+                    <div className="mb-4">
+                      <div className={`text-2xl font-bold ${
+                        charadesTimer <= 15 ? 'text-red-400 animate-pulse' : 
+                        charadesTimer <= 45 ? 'text-yellow-400' : 'text-green-400'
+                      }`}>
+                        {Math.floor(charadesTimer / 60)}:{(charadesTimer % 60).toString().padStart(2, '0')}
+                      </div>
+                      <Progress 
+                        value={(charadesTimer / 90) * 100} 
+                        className="w-full mt-2"
+                      />
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-center gap-4">
+                      <Button 
+                        onClick={charadesCorrect}
+                        disabled={charadesTimer === 0}
+                        className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                      >
+                        <ThumbsUp className="w-5 h-5 mr-2" />
+                        صحيح!
+                      </Button>
+                      <Button 
+                        onClick={charadesSkip}
+                        disabled={charadesTimer === 0}
+                        className="bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                      >
+                        <SkipForward className="w-5 h-5 mr-2" />
+                        تخطي
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Start/Next Round Button */}
+              {!currentCharadesWord && (
+                <div className="text-center">
+                  <Button 
+                    onClick={startCharadesRound}
+                    className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-8 py-4 text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  >
+                    <Play className="w-6 h-6 mr-3" />
+                    ابدأ الجولة
+                  </Button>
+                </div>
+              )}
+
+              {/* Next Round Button (when timer ends) */}
+              {currentCharadesWord && charadesTimer === 0 && (
+                <div className="text-center mt-6">
+                  <Button 
+                    onClick={startCharadesRound}
+                    className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  >
+                    <ChevronRight className="w-5 h-5 mr-2" />
+                    الكلمة التالية
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

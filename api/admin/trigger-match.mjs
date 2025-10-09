@@ -417,7 +417,7 @@ function checkAgeCompatibility(participantA, participantB) {
   
   if (hasFemale) {
     const ageDifference = Math.abs(ageA - ageB)
-    const isCompatible = ageDifference <= 5
+    const isCompatible = ageDifference <= 6
     
     if (!isCompatible) {
       console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)

@@ -6957,7 +6957,7 @@ export default function WelcomePage() {
                     />
                     <div className="flex justify-between items-center mt-2">
                       <span className={`text-xs ${dark ? 'text-purple-300/60' : 'text-purple-600/60'}`}>
-                        الرسالة ستظهر مع حماية الخصوصية في صفحة النتائج
+                        الرسالة ستظهر في صفحة النتائج
                       </span>
                       <span className={`text-xs ${
                         feedbackAnswers.participantMessage.length > 450 

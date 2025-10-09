@@ -386,7 +386,8 @@ export default async function handler(req, res) {
           communicationStyle,
           wouldMeetAgain,
           overallExperience,
-          recommendations
+          recommendations,
+          participantMessage
         } = feedback
 
         // Check if feedback already exists for this participant, round, and event
@@ -418,6 +419,7 @@ export default async function handler(req, res) {
           would_meet_again: wouldMeetAgain,
           overall_experience: overallExperience,
           recommendations: recommendations || null,
+          participant_message: participantMessage || null,
           submitted_at: new Date().toISOString()
         }
 
@@ -701,6 +703,7 @@ export default async function handler(req, res) {
         
         // Fetch partner information from the same match_id
         let partnerInfo = null
+        let partnerMessage = null
         if (partnerNumber && partnerNumber !== 9999) {
           try {
             const { data: partnerData, error: partnerError } = await supabase
@@ -715,6 +718,24 @@ export default async function handler(req, res) {
             }
           } catch (err) {
             console.log(`[API] Could not fetch partner info for #${partnerNumber}:`, err)
+          }
+
+          // Fetch partner's message from match_feedback
+          try {
+            const { data: feedbackData, error: feedbackError } = await supabase
+              .from("match_feedback")
+              .select("participant_message")
+              .eq("match_id", match.match_id)
+              .eq("participant_number", partnerNumber)
+              .eq("round", match.round || 1)
+              .eq("event_id", match.event_id || 1)
+              .single()
+            
+            if (!feedbackError && feedbackData && feedbackData.participant_message) {
+              partnerMessage = feedbackData.participant_message
+            }
+          } catch (err) {
+            console.log(`[API] Could not fetch partner message for #${partnerNumber}:`, err)
           }
         }
         
@@ -740,7 +761,8 @@ export default async function handler(req, res) {
           partner_wants_match: partnerWantsMatch,
           created_at: match.created_at,
           ai_personality_analysis: match.ai_personality_analysis || null,
-          event_id: match.event_id
+          event_id: match.event_id,
+          partner_message: partnerMessage
         }
       }));
 

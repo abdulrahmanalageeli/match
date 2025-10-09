@@ -193,7 +193,8 @@ export default function WelcomePage() {
     communicationStyle: 3, // 1-5 scale
     wouldMeetAgain: 3, // 1-5 scale
     overallExperience: 3, // 1-5 scale
-    recommendations: ""
+    recommendations: "",
+    participantMessage: "" // Optional message to conversation partner
   })
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
@@ -880,7 +881,8 @@ export default function WelcomePage() {
             communicationStyle: 3,
             wouldMeetAgain: 3,
             overallExperience: 3,
-            recommendations: ""
+            recommendations: "",
+            participantMessage: ""
           });
           setShowFormFilledPrompt(false);
           setAnalysisStarted(false);
@@ -1311,7 +1313,8 @@ export default function WelcomePage() {
               communicationStyle: 3,
               wouldMeetAgain: 3,
               overallExperience: 3,
-              recommendations: ""
+              recommendations: "",
+              participantMessage: ""
             });
                 setTypewriterCompleted(false);
                 setTimerEnded(false);
@@ -6921,6 +6924,48 @@ export default function WelcomePage() {
                             : "border-blue-400/30 bg-white/90 text-gray-800 focus:ring-blue-400/30 focus:border-blue-500 shadow-sm placeholder-gray-500"
                         }`}
                       />
+                    </div>
+                  </div>
+
+                  {/* Optional Message to Partner */}
+                  <div className={`mt-6 p-4 rounded-xl border ${dark ? 'bg-purple-900/20 border-purple-400/30' : 'bg-purple-50 border-purple-200'}`}>
+                    <div className="flex items-center justify-center gap-2 mb-3">
+                      <MessageSquare className={`w-4 h-4 ${dark ? 'text-purple-300' : 'text-purple-600'}`} />
+                      <span className={`text-sm font-bold ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
+                        رسالة اختيارية لشريك المحادثة
+                      </span>
+                    </div>
+                    <p className={`text-xs text-center mb-4 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
+                      يمكنك إرسال رسالة لطيفة لشريك المحادثة • يرجى التحلي بالاحترام والأدب
+                    </p>
+                    <textarea
+                      value={feedbackAnswers.participantMessage}
+                      onChange={(e) => {
+                        const message = e.target.value;
+                        if (message.length <= 500) {
+                          setFeedbackAnswers(prev => ({ ...prev, participantMessage: message }));
+                        }
+                      }}
+                      placeholder="اكتب رسالة لطيفة لشريك المحادثة (اختياري)..."
+                      rows={3}
+                      maxLength={500}
+                      className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 resize-none ${
+                        dark 
+                          ? "border-purple-400/30 bg-white/10 text-white focus:ring-purple-400/30 focus:border-purple-400 placeholder-slate-400" 
+                          : "border-purple-400/30 bg-white/90 text-gray-800 focus:ring-purple-400/30 focus:border-purple-500 shadow-sm placeholder-gray-500"
+                      }`}
+                    />
+                    <div className="flex justify-between items-center mt-2">
+                      <span className={`text-xs ${dark ? 'text-purple-300/60' : 'text-purple-600/60'}`}>
+                        الرسالة ستظهر مع حماية الخصوصية في صفحة النتائج
+                      </span>
+                      <span className={`text-xs ${
+                        feedbackAnswers.participantMessage.length > 450 
+                          ? 'text-red-500 font-bold' 
+                          : dark ? 'text-purple-300/80' : 'text-purple-600/80'
+                      }`}>
+                        {feedbackAnswers.participantMessage.length}/500
+                      </span>
                     </div>
                   </div>
 

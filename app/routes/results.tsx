@@ -35,6 +35,7 @@ interface MatchResult {
   created_at?: string
   ai_personality_analysis?: string | null
   event_id?: number
+  partner_message?: string | null
 }
 
 interface ResultsData {
@@ -52,6 +53,7 @@ export default function ResultsPage() {
   const [resultsData, setResultsData] = useState<ResultsData | null>(null)
   const [dark] = useState(true) // Match the welcome page theme
   const [showAiAnalysis, setShowAiAnalysis] = useState<{[key: number]: boolean}>({})
+  const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
 
   // Function to convert technical compatibility reason to natural Arabic description
   const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
@@ -534,6 +536,56 @@ export default function ResultsPage() {
                             </div>
                           )}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Partner Message (if exists) */}
+                    {match.partner_message && (
+                      <div className={`mt-3 p-3 rounded-lg border ${
+                        dark ? 'bg-purple-500/10 border-purple-400/30' : 'bg-purple-50 border-purple-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Mail className={`w-4 h-4 ${dark ? 'text-purple-200' : 'text-purple-700'}`} />
+                          <h4 className={`font-bold text-sm ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
+                            رسالة من شريك المحادثة
+                          </h4>
+                        </div>
+                        
+                        {!showPartnerMessage[match.round] ? (
+                          <div className="text-center">
+                            <p className={`text-xs mb-3 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
+                              شريك المحادثة أرسل لك رسالة
+                            </p>
+                            <Button
+                              onClick={() => setShowPartnerMessage(prev => ({ ...prev, [match.round]: true }))}
+                              className={`text-xs px-3 py-1 ${
+                                dark 
+                                  ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+                              }`}
+                            >
+                              اضغط لقراءة الرسالة
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className={`p-3 rounded-lg ${
+                            dark ? 'bg-slate-800/50' : 'bg-white/50'
+                          }`}>
+                            <p className={`text-sm leading-relaxed ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                              "{match.partner_message}"
+                            </p>
+                            <Button
+                              onClick={() => setShowPartnerMessage(prev => ({ ...prev, [match.round]: false }))}
+                              className={`mt-2 text-xs px-2 py-1 ${
+                                dark 
+                                  ? 'bg-slate-600 hover:bg-slate-700 text-slate-200' 
+                                  : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                              }`}
+                            >
+                              إخفاء الرسالة
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

@@ -171,6 +171,13 @@ export default function GroupsPage() {
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
   
+  // Participant data state
+  const [participantName, setParticipantName] = useState<string>("");
+  const [participantNumber, setParticipantNumber] = useState<number | null>(null);
+  const [tableNumber, setTableNumber] = useState<number | null>(null);
+  const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
+  
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
   const [timerActive, setTimerActive] = useState(false);
@@ -178,6 +185,82 @@ export default function GroupsPage() {
   const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(false);
 
   const currentGame = games[currentGameIndex];
+
+  // Load participant data and group assignment on component mount
+  useEffect(() => {
+    const loadParticipantData = async () => {
+      try {
+        // Get saved token from localStorage
+        const savedToken = localStorage.getItem('blindmatch_result_token') || 
+                          localStorage.getItem('blindmatch_returning_token');
+        
+        if (!savedToken) {
+          console.log('No saved token found');
+          setDataLoaded(true);
+          return;
+        }
+
+        // Resolve participant data
+        const participantRes = await fetch("/api/participant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "resolve-token", 
+            secure_token: savedToken 
+          }),
+        });
+
+        if (!participantRes.ok) {
+          console.error('Failed to resolve participant token');
+          setDataLoaded(true);
+          return;
+        }
+
+        const participantData = await participantRes.json();
+        
+        if (participantData.success && participantData.assigned_number) {
+          const name = participantData.name || participantData.survey_data?.name || `المشارك #${participantData.assigned_number}`;
+          setParticipantName(name);
+          setParticipantNumber(participantData.assigned_number);
+
+          // Try to fetch group assignment (fallback gracefully if fails)
+          try {
+            const groupRes = await fetch("/api/admin", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "get-group-matches",
+                match_id: "00000000-0000-0000-0000-000000000000"
+              }),
+            });
+
+            if (groupRes.ok) {
+              const groupData = await groupRes.json();
+              
+              // Find the group that contains this participant
+              const userGroup = groupData.groups?.find((group: any) => 
+                group.participant_numbers?.includes(participantData.assigned_number)
+              );
+
+              if (userGroup) {
+                setTableNumber(userGroup.table_number);
+                setGroupMembers(userGroup.participant_names || []);
+              }
+            }
+          } catch (groupError) {
+            console.log('Could not fetch group assignment, continuing without table info');
+            // Continue without group info - don't set error state
+          }
+        }
+      } catch (error) {
+        console.error('Error loading participant data:', error);
+      } finally {
+        setDataLoaded(true);
+      }
+    };
+
+    loadParticipantData();
+  }, []);
 
   // Timer useEffect
   useEffect(() => {
@@ -482,6 +565,43 @@ export default function GroupsPage() {
             <h1 className="text-4xl font-bold text-white mb-2">ألعاب جماعية</h1>
             <p className="text-slate-300 text-lg">30 دقيقة من المرح والتفاعل</p>
           </div>
+
+          {/* Welcome Message for Participants with Data - Only show if we have participant data */}
+          {dataLoaded && participantName && participantNumber && (
+            <div className="max-w-2xl mx-auto mb-6">
+              <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/30">
+                <CardContent className="p-6 text-center">
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                      <Heart className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    أهلاً وسهلاً {participantName}! 👋
+                  </h3>
+                  {/* Only show table info if we successfully retrieved it */}
+                  {tableNumber && (
+                    <p className="text-green-300 text-lg font-medium">
+                      يجب أن تكون على الطاولة رقم <span className="font-bold text-green-200">{tableNumber}</span> حسب مجموعتك
+                    </p>
+                  )}
+                  {/* Only show group members if we have them */}
+                  {groupMembers.length > 0 && (
+                    <div className="mt-4 p-4 bg-slate-800/50 rounded-lg">
+                      <p className="text-slate-300 text-sm mb-2">أعضاء مجموعتك:</p>
+                      <div className="flex flex-wrap justify-center gap-2">
+                        {groupMembers.map((member, index) => (
+                          <Badge key={index} variant="secondary" className="bg-slate-700 text-slate-200">
+                            {member}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
 
           <div className="max-w-2xl mx-auto">
             {/* Comprehensive Game Instructions */}

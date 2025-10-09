@@ -165,7 +165,7 @@ function checkGenderCompatibility(participantA, participantB) {
   return isOppositeGender
 }
 
-// Function to check age compatibility (females must be within 3 years of their match)
+// Function to check age compatibility (females must be within 3 years of their match, unless both have any_gender_preference)
 function checkAgeCompatibility(participantA, participantB) {
   const ageA = participantA.age || participantA.survey_data?.age
   const ageB = participantB.age || participantB.survey_data?.age
@@ -176,6 +176,32 @@ function checkAgeCompatibility(participantA, participantB) {
   if (!ageA || !ageB) {
     console.warn(`⚠️ Missing age info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
     return true
+  }
+  
+  // Check any_gender_preference from both new and old structure
+  let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender')
+  let anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender')
+  
+  // Handle new radio button structure (string)
+  if (participantA.survey_data?.answers?.gender_preference === 'any_gender') {
+    anyGenderPrefA = true
+  }
+  if (participantB.survey_data?.answers?.gender_preference === 'any_gender') {
+    anyGenderPrefB = true
+  }
+  
+  // If both participants have any_gender_preference, allow up to 10 years age gap
+  if (anyGenderPrefA && anyGenderPrefB) {
+    const ageDifference = Math.abs(ageA - ageB)
+    const isCompatible = ageDifference <= 10
+    
+    if (!isCompatible) {
+      console.log(`🚫 Age mismatch (any_gender): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 10 for any_gender)`)
+    } else {
+      console.log(`✅ Age compatible (any_gender): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 10 for any_gender)`)
+    }
+    
+    return isCompatible
   }
   
   // Apply age constraint if any participant is female (including same-gender female matches)

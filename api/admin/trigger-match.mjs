@@ -1,15 +1,10 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import munkres from "munkres-js"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
 )
-const munkresClient = new munkres.Client({
-  apiKey: process.env.MUNKRES_API_KEY,
-  apiSecret: process.env.MUNKRES_API_SECRET
-})
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -822,84 +817,7 @@ Aggregation: Core (0-31) + Bonus (0-4) = 0-35.
   }
 }
 
-// GPT-powered vibe compatibility analysis for group formation
-async function calculateVibeCompatibility(participantA, participantB) {
-  try {
-    // Extract vibe-related answers from survey data
-    const getVibeAnswers = (participant) => {
-      const answers = participant.survey_data?.answers || {}
-      return {
-        vibeDescription: answers.vibe_description || '',
-        idealPersonDescription: answers.ideal_person_description || '',
-        humorStyle: answers.humor_banter_style || '',
-        opennessLevel: answers.early_openness_comfort || '',
-        communicationStyle: answers.communication_style || participant.communication_style || '',
-        lifestylePreferences: answers.lifestyle_preferences || '',
-        personalityType: participant.mbti_personality_type || answers.mbti_type || ''
-      }
-    }
-
-    const vibeA = getVibeAnswers(participantA)
-    const vibeB = getVibeAnswers(participantB)
-
-    // Skip if missing critical vibe data
-    if (!vibeA.vibeDescription || !vibeB.vibeDescription) {
-      console.log(`⚠️ Missing vibe data for participants ${participantA.assigned_number} or ${participantB.assigned_number}, using fallback score`)
-      return 50 // Neutral fallback score
-    }
-
-    const prompt = `Analyze the compatibility between these two participants for a group social activity. Focus on their vibe and personality compatibility.
-
-Participant A (#${participantA.assigned_number}):
-- Vibe Description: "${vibeA.vibeDescription}"
-- Ideal Person: "${vibeA.idealPersonDescription}"
-- Humor Style: "${vibeA.humorStyle}"
-- Openness Level: "${vibeA.opennessLevel}"
-- Communication Style: "${vibeA.communicationStyle}"
-- MBTI Type: "${vibeA.personalityType}"
-
-Participant B (#${participantB.assigned_number}):
-- Vibe Description: "${vibeB.vibeDescription}"
-- Ideal Person: "${vibeB.idealPersonDescription}"
-- Humor Style: "${vibeB.humorStyle}"
-- Openness Level: "${vibeB.opennessLevel}"
-- Communication Style: "${vibeB.communicationStyle}"
-- MBTI Type: "${vibeB.personalityType}"
-
-Rate their compatibility for a group setting on a scale of 0-100, considering:
-1. Vibe alignment and energy levels (80% weight)
-2. MBTI personality compatibility (20% weight)
-3. Communication style compatibility
-4. Humor compatibility
-5. Social comfort levels
-
-Respond with ONLY a number between 0-100. No explanation needed.`
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 10,
-      temperature: 0.3
-    })
-
-    const scoreText = response.choices[0]?.message?.content?.trim()
-    const score = parseInt(scoreText)
-
-    if (isNaN(score) || score < 0 || score > 100) {
-      console.log(`⚠️ Invalid GPT score "${scoreText}" for participants ${participantA.assigned_number} × ${participantB.assigned_number}, using fallback`)
-      return 50
-    }
-
-    console.log(`🤖 GPT Vibe Score: ${participantA.assigned_number} × ${participantB.assigned_number} = ${score}%`)
-    return score
-
-  } catch (error) {
-    console.error(`❌ Error calculating vibe compatibility for ${participantA.assigned_number} × ${participantB.assigned_number}:`, error)
-    return 50 // Fallback score on error
-  }
-}
-
-// Function to create groups of 3-4 (or 5) based on vibe (80%) + MBTI (20%) compatibility, avoiding matched pairs
+// Function to create groups of 3-4 (or 5) based on MBTI compatibility, avoiding matched pairs
 async function generateGroupMatches(participants, match_id, eventId) {
   console.log("🎯 Starting enhanced group matching for", participants.length, "total participants")
   
@@ -974,8 +892,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
     throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
   }
 
-  // Calculate vibe (80%) + MBTI (20%) compatibility scores for all pairs (with gender compatibility check)
-  console.log("🤖 Starting GPT-powered vibe analysis for group formation...")
+  // Calculate MBTI compatibility scores for all pairs (with gender compatibility check)
   const pairScores = []
   for (let i = 0; i < eligibleParticipants.length; i++) {
     for (let j = i + 1; j < eligibleParticipants.length; j++) {
@@ -994,36 +911,26 @@ async function generateGroupMatches(participants, match_id, eventId) {
         continue
       }
       
-      // Calculate MBTI compatibility (20% weight)
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
       const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
+      
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
-      
-      // Calculate GPT vibe compatibility (80% weight)
-      const vibeScore = await calculateVibeCompatibility(a, b)
-      
-      // Combined score: 80% vibe + 20% MBTI
-      const combinedScore = Math.round((vibeScore * 0.8) + (mbtiScore * 0.2))
-      
-      console.log(`📊 Pair ${a.assigned_number} × ${b.assigned_number}: Vibe=${vibeScore}% (80%), MBTI=${mbtiScore}% (20%) → Combined=${combinedScore}%`)
       
       pairScores.push({
         participants: [a.assigned_number, b.assigned_number],
-        score: combinedScore,
-        vibeScore,
-        mbtiScore,
+        score: mbtiScore,
         aMBTI,
         bMBTI
       })
     }
   }
 
-  // Sort pairs by combined compatibility (descending)
+  // Sort pairs by MBTI compatibility (descending)
   pairScores.sort((a, b) => b.score - a.score)
   
-  console.log("📊 Top vibe + MBTI compatibility pairs:")
+  console.log("📊 Top MBTI compatibility pairs:")
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${pair.score}% (Vibe: ${pair.vibeScore}%, MBTI: ${pair.mbtiScore}% - ${pair.aMBTI} × ${pair.bMBTI})`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${pair.score}% (${pair.aMBTI} × ${pair.bMBTI})`)
   })
 
   // Enhanced group formation algorithm with fallback support

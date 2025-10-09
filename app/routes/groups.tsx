@@ -577,7 +577,7 @@ export default function GroupsPage() {
                     </div>
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-2">
-                    أهلاً وسهلاً {participantName}! 👋
+                    أهلاً وسهلاً {participantName}!
                   </h3>
                   {/* Only show table info if we successfully retrieved it */}
                   {tableNumber && (

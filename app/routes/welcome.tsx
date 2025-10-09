@@ -7074,17 +7074,6 @@ export default function WelcomePage() {
                             </p>
                           </div>
                         )}
-                  {/* Reveal partner info if mutual match */}
-                  {partnerInfo && (
-                    <div className={`mt-6 p-4 rounded-xl border ${dark ? 'bg-emerald-500/10 border-emerald-400/30' : 'bg-emerald-50 border-emerald-200'}`}>
-                      <h4 className={`text-lg font-bold mb-2 ${dark ? 'text-emerald-200' : 'text-emerald-700'}`}>مطابقة متبادلة!</h4>
-                      <div className={`text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                        <div>الاسم: <span className="font-bold">{partnerInfo.name || 'غير متوفر'}</span></div>
-                        <div>العمر: <span className="font-bold">{partnerInfo.age ?? 'غير متوفر'}</span></div>
-                        <div>رقم الهاتف: <span className="font-bold">{partnerInfo.phone_number || 'غير متوفر'}</span></div>
-                      </div>
-                    </div>
-                  )}
                         {currentRound === 1 && (
                           <div className="flex flex-col items-center justify-center py-8">
                             <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">

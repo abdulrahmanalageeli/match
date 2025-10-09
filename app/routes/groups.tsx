@@ -886,7 +886,7 @@ export default function GroupsPage() {
                     <span className="text-cyan-400 font-semibold">مؤقت 30 دقيقة</span>
                   </div>
                   <p className="text-slate-300 text-sm text-center">
-                    سيبدأ المؤقت عند الضغط على "ابدأ الجلسة" وعند انتهاء الوقت ستنتقلون للجولة الأولى
+                    سيبدأ المؤقت عند الضغط على "ابدأ الجلسة" وعند انتهاء الوقت ستنتقلون للجولة الفردية
                   </p>
                 </div>
               </CardContent>

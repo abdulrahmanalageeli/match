@@ -85,13 +85,13 @@ export default function ResultsPage() {
       return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
     }
     
-    // Get strength levels for each component
-    const mbtiStrength = getStrengthLevel(mbtiScore, 10)
-    const attachmentStrength = getStrengthLevel(attachmentScore, 15)
+    // Get strength levels for each component (using actual max scores from trigger-match.mjs)
+    const mbtiStrength = getStrengthLevel(mbtiScore, 5)
+    const attachmentStrength = getStrengthLevel(attachmentScore, 5)
     const communicationStrength = getStrengthLevel(communicationScore, 25)
-    const lifestyleStrength = getStrengthLevel(lifestyleScore, 15)
-    const coreValuesStrength = getStrengthLevel(coreValuesScore, 20)
-    const vibeStrength = getStrengthLevel(vibeScore, 15)
+    const lifestyleStrength = getStrengthLevel(lifestyleScore, 20)
+    const coreValuesStrength = getStrengthLevel(coreValuesScore, 10)
+    const vibeStrength = getStrengthLevel(vibeScore, 35)
     
     // Create natural language description
     const components = []
@@ -116,9 +116,9 @@ export default function ResultsPage() {
         color: attachmentStrength.color,
         bgColor: attachmentStrength.bgColor,
         borderColor: attachmentStrength.borderColor,
-        description: attachmentScore >= 12 ? "أنماط تعلق متوافقة ومستقرة - نهج متشابه في بناء العلاقات والثقة المتبادلة يخلق بيئة آمنة ومريحة للتواصل العميق" : 
-                    attachmentScore >= 8 ? "أنماط تعلق متوازنة - اختلافات بسيطة في احتياجات الأمان العاطفي قابلة للتفهم والتكيف المتبادل" : 
-                    "أنماط تعلق مختلفة ومكملة - تنوع في احتياجات القرب والاستقلالية يتطلب تفهماً وصبراً لبناء توازن صحي"
+        description: attachmentScore >= 12 ? "نفس احتياجات القرب والأمان - ستشعران بالراحة والثقة بسرعة" : 
+                    attachmentScore >= 8 ? "احتياجات عاطفية متقاربة - قليل من الصبر وستجدان التوازن المثالي" : 
+                    "احتياجات مختلفة للمساحة الشخصية - أحدكما يحب القرب والآخر يقدر الاستقلالية"
       })
     }
     
@@ -129,9 +129,9 @@ export default function ResultsPage() {
         color: communicationStrength.color,
         bgColor: communicationStrength.bgColor,
         borderColor: communicationStrength.borderColor,
-        description: communicationScore >= 20 ? "تواصل ممتاز ومتناغم - أساليب تعبير متشابهة وفهم سريع للإشارات غير اللفظية يسهل الحوارات العميقة والمثمرة" : 
-                    communicationScore >= 15 ? "تواصل جيد ومتوازن - اختلافات طفيفة في أساليب التعبير مع قدرة جيدة على التفاهم والتكيف مع بعضكما البعض" : 
-                    "تواصل مختلف ومكمل - تنوع في طرق التعبير والاستماع يحتاج لصبر وتفهم لكنه يثري التجربة بوجهات نظر متنوعة"
+        description: communicationScore >= 20 ? "تتكلمان نفس اللغة - تفهمان بعضكما من نظرة واحدة" : 
+                    communicationScore >= 15 ? "تواصل سهل وطبيعي - أحياناً تحتاجان لتوضيح أكثر لكن التفاهم موجود" : 
+                    "أساليب تواصل مختلفة - أحدكما مباشر والآخر يفضل الإشارات الخفية"
       })
     }
     
@@ -142,9 +142,9 @@ export default function ResultsPage() {
         color: lifestyleStrength.color,
         bgColor: lifestyleStrength.bgColor,
         borderColor: lifestyleStrength.borderColor,
-        description: lifestyleScore >= 12 ? "أنماط حياة متوافقة - إيقاع حياة متشابه واهتمامات مشتركة تسهل التخطيط المشترك وقضاء وقت ممتع ومريح معاً" : 
-                    lifestyleScore >= 8 ? "أنماط حياة متوازنة - اختلافات معتدلة في الروتين والاهتمامات مع مساحات مشتركة للاستمتاع والتفاهم" : 
-                    "أنماط حياة مختلفة ومكملة - تنوع في الأنشطة والاهتمامات يوفر فرصاً لاكتشاف تجارب جديدة وتوسيع الآفاق"
+        description: lifestyleScore >= 12 ? "تعيشان نفس الإيقاع - نوم مبكر أم سهر؟ رياضة أم قراءة؟ أنتما متفقان" : 
+                    lifestyleScore >= 8 ? "روتين متشابه مع لمسات مختلفة - ستجدان أنشطة مشتركة تستمتعان بها" : 
+                    "عوالم مختلفة تماماً - أحدكما صباحي والآخر ليلي، لكن هذا قد يكون مثيراً"
       })
     }
     
@@ -155,9 +155,9 @@ export default function ResultsPage() {
         color: coreValuesStrength.color,
         bgColor: coreValuesStrength.bgColor,
         borderColor: coreValuesStrength.borderColor,
-        description: coreValuesScore >= 16 ? "قيم متطابقة ومتناغمة - رؤية مشتركة للحياة والأولويات تخلق أساساً قوياً للتفاهم في القرارات المهمة والأهداف المستقبلية" : 
-                    coreValuesScore >= 12 ? "قيم متوازنة - تشابه في المبادئ الأساسية مع اختلافات طفيفة في التطبيق تثري النقاشات وتوسع المدارك" : 
-                    "قيم مختلفة ومكملة - تنوع في المنظور الأخلاقي والأولويات يتطلب حواراً مفتوحاً لكنه يوفر فرصاً للنمو والتعلم"
+        description: coreValuesScore >= 16 ? "نفس المبادئ والأحلام - تتفقان على ما هو مهم في الحياة" : 
+                    coreValuesScore >= 12 ? "قيم متقاربة مع اختلافات بسيطة - ستثري نقاشاتكما بوجهات نظر جديدة" : 
+                    "أولويات مختلفة في الحياة - ما يهمك قد لا يهمه والعكس صحيح"
       })
     }
     
@@ -168,9 +168,9 @@ export default function ResultsPage() {
         color: vibeStrength.color,
         bgColor: vibeStrength.bgColor,
         borderColor: vibeStrength.borderColor,
-        description: vibeScore >= 12 ? "كيمياء شخصية ممتازة - انجذاب طبيعي وتناغم في الطاقة والاهتمامات يخلق شعوراً بالراحة والاستمتاع في قضاء الوقت معاً" : 
-                    vibeScore >= 8 ? "كيمياء شخصية جيدة - تفاهم جيد وانسجام في الشخصية مع إمكانية تطوير علاقة مريحة وممتعة بمرور الوقت" : 
-                    "كيمياء شخصية متوازنة - تفاعل هادئ ومتوازن قد يحتاج لوقت أطول لتطوير الألفة والراحة المتبادلة"
+        description: vibeScore >= 12 ? "كيمياء قوية - طاقة متشابهة وحس دعابة متقارب، ستستمتعان بصحبة بعضكما" : 
+                    vibeScore >= 8 ? "انسجام جيد - شخصيتان لطيفتان ستجدان أرضية مشتركة للمرح" : 
+                    "طاقات مختلفة - أحدكما هادئ والآخر نشيط، قد تحتاجان وقت للتعود على بعضكما"
       })
     }
     

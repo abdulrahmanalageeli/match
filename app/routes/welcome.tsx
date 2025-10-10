@@ -152,6 +152,10 @@ export default function WelcomePage() {
   const [secureToken, setSecureToken] = useState<string | null>(null)
   const [showTokenModal, setShowTokenModal] = useState(false)
   
+  // Database check states for conditional question display
+  const [participantHasHumorStyle, setParticipantHasHumorStyle] = useState(false)
+  const [participantHasOpennessComfort, setParticipantHasOpennessComfort] = useState(false)
+  
 
   const [freeTime, setFreeTime] = useState("")
   const [friendDesc, setFriendDesc] = useState("")
@@ -1783,12 +1787,62 @@ export default function WelcomePage() {
   }
   const previous = () => setStep((s) => Math.max(s - 1, -2))
 
+  // Check participant data from database to determine which questions to show
+  const checkParticipantData = async (phoneNumber: string) => {
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "phone-lookup-data",
+          phone_number: phoneNumber
+        }),
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.participant) {
+          const participant = data.participant
+          
+          // Check if participant has filled humor style and openness comfort
+          const hasHumorStyle = participant.humor_banter_style || 
+                               participant.survey_data?.humor_banter_style ||
+                               participant.survey_data?.answers?.humor_banter_style
+          
+          const hasOpennessComfort = participant.early_openness_comfort !== undefined || 
+                                    participant.survey_data?.early_openness_comfort !== undefined ||
+                                    participant.survey_data?.answers?.early_openness_comfort !== undefined
+          
+          setParticipantHasHumorStyle(!!hasHumorStyle)
+          setParticipantHasOpennessComfort(!!hasOpennessComfort)
+          
+          console.log('📊 Participant data check:', {
+            hasHumorStyle: !!hasHumorStyle,
+            hasOpennessComfort: !!hasOpennessComfort
+          })
+        }
+      } else {
+        // If participant not found, show all questions
+        setParticipantHasHumorStyle(false)
+        setParticipantHasOpennessComfort(false)
+      }
+    } catch (err) {
+      console.error("Error checking participant data:", err)
+      // Default to showing all questions if check fails
+      setParticipantHasHumorStyle(false)
+      setParticipantHasOpennessComfort(false)
+    }
+  }
+
   // Handle returning participant phone lookup - show popup first
-  const handleReturningParticipant = () => {
+  const handleReturningParticipant = async () => {
     if (!returningPhoneNumber.trim()) {
       alert("يرجى إدخال رقم الهاتف")
       return
     }
+    
+    // Check participant data before showing popup
+    await checkParticipantData(returningPhoneNumber)
     setShowReturningSignupPopup(true)
   }
 
@@ -1885,6 +1939,24 @@ export default function WelcomePage() {
       
       if (res.ok && data.participant) {
         const participant = data.participant
+        
+        // Check what questions the participant has already filled
+        const hasHumorStyle = participant.humor_banter_style || 
+                             participant.survey_data?.humor_banter_style ||
+                             participant.survey_data?.answers?.humor_banter_style
+        
+        const hasOpennessComfort = participant.early_openness_comfort !== undefined || 
+                                  participant.survey_data?.early_openness_comfort !== undefined ||
+                                  participant.survey_data?.answers?.early_openness_comfort !== undefined
+        
+        setParticipantHasHumorStyle(!!hasHumorStyle)
+        setParticipantHasOpennessComfort(!!hasOpennessComfort)
+        
+        console.log('📊 Next event participant data check:', {
+          hasHumorStyle: !!hasHumorStyle,
+          hasOpennessComfort: !!hasOpennessComfort
+        })
+        
         // Show popup if signup_for_next_event is false
         if (!participant.signup_for_next_event) {
           setParticipantInfo({
@@ -7614,11 +7686,11 @@ export default function WelcomePage() {
                 </RadioGroup>
               </div>
 
-              {/* Show other questions only if they haven't been filled locally */}
-              {(!returningHumorStyle || !returningOpennessComfort) && (
+              {/* Show other questions only if they haven't been filled in database */}
+              {(!participantHasHumorStyle || !participantHasOpennessComfort) && (
                 <>
                   {/* Humor/Banter Style */}
-                  {!returningHumorStyle && (
+                  {!participantHasHumorStyle && (
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
                         أسلوب الدعابة والمزاح
@@ -7638,7 +7710,7 @@ export default function WelcomePage() {
                   )}
 
                   {/* Early Openness Comfort */}
-                  {!returningOpennessComfort && (
+                  {!participantHasOpennessComfort && (
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
                         مستوى الراحة في الانفتاح المبكر
@@ -7725,11 +7797,11 @@ export default function WelcomePage() {
                 </RadioGroup>
               </div>
 
-              {/* Show other questions only if they haven't been filled locally */}
-              {(!returningHumorStyle || !returningOpennessComfort) && (
+              {/* Show other questions only if they haven't been filled in database */}
+              {(!participantHasHumorStyle || !participantHasOpennessComfort) && (
                 <>
                   {/* Humor/Banter Style */}
-                  {!returningHumorStyle && (
+                  {!participantHasHumorStyle && (
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
                         أسلوب الدعابة والمزاح
@@ -7749,7 +7821,7 @@ export default function WelcomePage() {
                   )}
 
                   {/* Early Openness Comfort */}
-                  {!returningOpennessComfort && (
+                  {!participantHasOpennessComfort && (
                     <div>
                       <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
                         مستوى الراحة في الانفتاح المبكر

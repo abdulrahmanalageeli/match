@@ -918,6 +918,62 @@ export default async function handler(req, res) {
     }
   }
 
+  // PHONE LOOKUP FOR PARTICIPANT DATA (to check what questions they've filled)
+  if (action === "phone-lookup-data") {
+    const { phone_number } = req.body
+
+    if (!phone_number) {
+      return res.status(400).json({ error: "يرجى إدخال رقم الهاتف" })
+    }
+
+    try {
+      // Normalize phone number - extract last 6 digits (same logic as signup)
+      const normalizedPhone = phone_number.replace(/\D/g, '')
+      if (normalizedPhone.length < 6) {
+        return res.status(400).json({ error: "رقم الهاتف يجب أن يحتوي على 6 أرقام على الأقل" })
+      }
+
+      const lastSixDigits = normalizedPhone.slice(-6)
+
+      // Find participant by phone number (last 6 digits)
+      const { data: participants, error: searchError } = await supabase
+        .from("participants")
+        .select("assigned_number, name, humor_banter_style, early_openness_comfort, survey_data")
+        .eq("match_id", "00000000-0000-0000-0000-000000000000")
+        .ilike("phone_number", `%${lastSixDigits}`)
+
+      if (searchError) {
+        console.error("Phone lookup error:", searchError)
+        return res.status(500).json({ error: "خطأ في البحث عن المشارك" })
+      }
+
+      if (!participants || participants.length === 0) {
+        return res.status(404).json({ error: "لم يتم العثور على مشارك بهذا الرقم" })
+      }
+
+      if (participants.length > 1) {
+        return res.status(400).json({ error: "تم العثور على أكثر من مشارك بهذا الرقم، يرجى التواصل مع المنظم" })
+      }
+
+      const participant = participants[0]
+
+      return res.status(200).json({
+        success: true,
+        participant: {
+          assigned_number: participant.assigned_number,
+          name: participant.name,
+          humor_banter_style: participant.humor_banter_style,
+          early_openness_comfort: participant.early_openness_comfort,
+          survey_data: participant.survey_data
+        }
+      })
+
+    } catch (err) {
+      console.error("Phone lookup data error:", err)
+      return res.status(500).json({ error: "حدث خطأ في النظام" })
+    }
+  }
+
   // PHONE LOOKUP FOR RETURNING PARTICIPANTS
   if (action === "phone-lookup-signup") {
     const { phone_number, gender_preference, humor_banter_style, early_openness_comfort } = req.body

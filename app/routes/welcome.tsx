@@ -7577,6 +7577,226 @@ export default function WelcomePage() {
       {/* Prompts/Questions Modal */}
       <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
 
+      {/* Returning Participant Signup Popup */}
+      <Dialog open={showReturningSignupPopup} onOpenChange={setShowReturningSignupPopup}>
+        <DialogContent className={`max-w-md ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`} dir="rtl">
+          <DialogHeader>
+            <DialogTitle className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
+              تسجيل مشارك سابق
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
+              مرحباً بعودتك! يرجى تحديث تفضيلاتك للحدث القادم
+            </p>
+
+            <div className="space-y-4">
+              {/* Gender Preference - Always show */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
+                  تفضيل الجنس للمطابقة
+                </label>
+                <RadioGroup value={returningGenderPreference} onValueChange={setReturningGenderPreference}>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <RadioGroupItem value="opposite_gender" id="opposite" />
+                    <Label htmlFor="opposite" className={dark ? 'text-slate-300' : 'text-gray-600'}>الجنس المقابل (افتراضي)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <RadioGroupItem value="same_gender" id="same" />
+                    <Label htmlFor="same" className={dark ? 'text-slate-300' : 'text-gray-600'}>نفس الجنس فقط</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <RadioGroupItem value="any_gender" id="any" />
+                    <Label htmlFor="any" className={dark ? 'text-slate-300' : 'text-gray-600'}>أي جنس</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Show other questions only if they haven't been filled */}
+              {(!returningHumorStyle || !returningOpennessComfort) && (
+                <>
+                  {/* Humor/Banter Style */}
+                  {!returningHumorStyle && (
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
+                        أسلوب الدعابة والمزاح
+                      </label>
+                      <Select value={returningHumorStyle} onValueChange={setReturningHumorStyle}>
+                        <SelectTrigger className={dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'}>
+                          <SelectValue placeholder="اختر أسلوبك" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">مرح وخفيف الظل</SelectItem>
+                          <SelectItem value="B">ساخر ومتفهم</SelectItem>
+                          <SelectItem value="C">جدي مع لمسة مرح</SelectItem>
+                          <SelectItem value="D">هادئ ومتحفظ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Early Openness Comfort */}
+                  {!returningOpennessComfort && (
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
+                        مستوى الراحة في الانفتاح المبكر
+                      </label>
+                      <RadioGroup value={returningOpennessComfort} onValueChange={setReturningOpennessComfort}>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="0" id="comfort0" />
+                          <Label htmlFor="comfort0" className={dark ? 'text-slate-300' : 'text-gray-600'}>محادثات سطحية وخفيفة</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="1" id="comfort1" />
+                          <Label htmlFor="comfort1" className={dark ? 'text-slate-300' : 'text-gray-600'}>مشاركة بعض التفاصيل الشخصية</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="2" id="comfort2" />
+                          <Label htmlFor="comfort2" className={dark ? 'text-slate-300' : 'text-gray-600'}>انفتاح متوسط</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="3" id="comfort3" />
+                          <Label htmlFor="comfort3" className={dark ? 'text-slate-300' : 'text-gray-600'}>انفتاح كامل ومحادثات عميقة</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                onClick={() => setShowReturningSignupPopup(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                إلغاء
+              </Button>
+              <Button 
+                onClick={handleReturningSignupSubmit}
+                disabled={returningLoading}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                {returningLoading ? "جاري التسجيل..." : "تسجيل للحدث القادم"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Next Event Signup Popup */}
+      <Dialog open={showNextEventPopup} onOpenChange={setShowNextEventPopup}>
+        <DialogContent className={`max-w-md ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`} dir="rtl">
+          <DialogHeader>
+            <DialogTitle className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
+              التسجيل للحدث القادم
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {participantInfo && (
+              <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
+                مرحباً {participantInfo.name} (#{participantInfo.assigned_number})! هل تود التسجيل للحدث القادم؟
+              </p>
+            )}
+
+            <div className="space-y-4">
+              {/* Gender Preference - Always show */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
+                  تفضيل الجنس للمطابقة
+                </label>
+                <RadioGroup value={returningGenderPreference} onValueChange={setReturningGenderPreference}>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <RadioGroupItem value="opposite_gender" id="next_opposite" />
+                    <Label htmlFor="next_opposite" className={dark ? 'text-slate-300' : 'text-gray-600'}>الجنس المقابل (افتراضي)</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <RadioGroupItem value="same_gender" id="next_same" />
+                    <Label htmlFor="next_same" className={dark ? 'text-slate-300' : 'text-gray-600'}>نفس الجنس فقط</Label>
+                  </div>
+                  <div className="flex items-center space-x-2 space-x-reverse">
+                    <RadioGroupItem value="any_gender" id="next_any" />
+                    <Label htmlFor="next_any" className={dark ? 'text-slate-300' : 'text-gray-600'}>أي جنس</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+
+              {/* Show other questions only if they haven't been filled */}
+              {(!returningHumorStyle || !returningOpennessComfort) && (
+                <>
+                  {/* Humor/Banter Style */}
+                  {!returningHumorStyle && (
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
+                        أسلوب الدعابة والمزاح
+                      </label>
+                      <Select value={returningHumorStyle} onValueChange={setReturningHumorStyle}>
+                        <SelectTrigger className={dark ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-300'}>
+                          <SelectValue placeholder="اختر أسلوبك" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="A">مرح وخفيف الظل</SelectItem>
+                          <SelectItem value="B">ساخر ومتفهم</SelectItem>
+                          <SelectItem value="C">جدي مع لمسة مرح</SelectItem>
+                          <SelectItem value="D">هادئ ومتحفظ</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Early Openness Comfort */}
+                  {!returningOpennessComfort && (
+                    <div>
+                      <label className={`block text-sm font-medium mb-2 ${dark ? 'text-slate-200' : 'text-gray-700'}`}>
+                        مستوى الراحة في الانفتاح المبكر
+                      </label>
+                      <RadioGroup value={returningOpennessComfort} onValueChange={setReturningOpennessComfort}>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="0" id="next_comfort0" />
+                          <Label htmlFor="next_comfort0" className={dark ? 'text-slate-300' : 'text-gray-600'}>محادثات سطحية وخفيفة</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="1" id="next_comfort1" />
+                          <Label htmlFor="next_comfort1" className={dark ? 'text-slate-300' : 'text-gray-600'}>مشاركة بعض التفاصيل الشخصية</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="2" id="next_comfort2" />
+                          <Label htmlFor="next_comfort2" className={dark ? 'text-slate-300' : 'text-gray-600'}>انفتاح متوسط</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 space-x-reverse">
+                          <RadioGroupItem value="3" id="next_comfort3" />
+                          <Label htmlFor="next_comfort3" className={dark ? 'text-slate-300' : 'text-gray-600'}>انفتاح كامل ومحادثات عميقة</Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-2 pt-4">
+              <Button 
+                onClick={() => setShowNextEventPopup(false)}
+                variant="outline"
+                className="flex-1"
+              >
+                لاحقاً
+              </Button>
+              <Button 
+                onClick={handleAutoSignupNextEvent}
+                disabled={nextEventSignupLoading}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                {nextEventSignupLoading ? "جاري التسجيل..." : "نعم، سجلني"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       </div>
 
       

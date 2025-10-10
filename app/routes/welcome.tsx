@@ -151,6 +151,7 @@ export default function WelcomePage() {
   const [participantName, setParticipantName] = useState<string | null>(null)
   const [secureToken, setSecureToken] = useState<string | null>(null)
   const [showTokenModal, setShowTokenModal] = useState(false)
+  
 
   const [freeTime, setFreeTime] = useState("")
   const [friendDesc, setFriendDesc] = useState("")
@@ -7613,7 +7614,7 @@ export default function WelcomePage() {
                 </RadioGroup>
               </div>
 
-              {/* Show other questions only if they haven't been filled */}
+              {/* Show other questions only if they haven't been filled locally */}
               {(!returningHumorStyle || !returningOpennessComfort) && (
                 <>
                   {/* Humor/Banter Style */}
@@ -7724,7 +7725,7 @@ export default function WelcomePage() {
                 </RadioGroup>
               </div>
 
-              {/* Show other questions only if they haven't been filled */}
+              {/* Show other questions only if they haven't been filled locally */}
               {(!returningHumorStyle || !returningOpennessComfort) && (
                 <>
                   {/* Humor/Banter Style */}

@@ -3496,7 +3496,7 @@ export default function WelcomePage() {
                   
                   <button
                     onClick={handleAutoSignupNextEvent}
-                    disabled={nextEventSignupLoading || !returningHumorStyle || !returningOpennessComfort}
+                    disabled={nextEventSignupLoading || (!participantHasHumorStyle && !returningHumorStyle) || (!participantHasOpennessComfort && !returningOpennessComfort)}
                     className="flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {nextEventSignupLoading ? (

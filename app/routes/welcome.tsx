@@ -1804,14 +1804,9 @@ export default function WelcomePage() {
         if (data.participant) {
           const participant = data.participant
           
-          // Check if participant has filled humor style and openness comfort
-          const hasHumorStyle = participant.humor_banter_style || 
-                               participant.survey_data?.humor_banter_style ||
-                               participant.survey_data?.answers?.humor_banter_style
-          
-          const hasOpennessComfort = participant.early_openness_comfort !== undefined || 
-                                    participant.survey_data?.early_openness_comfort !== undefined ||
-                                    participant.survey_data?.answers?.early_openness_comfort !== undefined
+          // Check if participant has filled humor style and openness comfort (direct columns)
+          const hasHumorStyle = participant?.humor_banter_style !== null && participant?.humor_banter_style !== undefined
+          const hasOpennessComfort = participant?.early_openness_comfort !== null && participant?.early_openness_comfort !== undefined
           
           setParticipantHasHumorStyle(!!hasHumorStyle)
           setParticipantHasOpennessComfort(!!hasOpennessComfort)
@@ -1940,14 +1935,9 @@ export default function WelcomePage() {
       if (res.ok && data.participant) {
         const participant = data.participant
         
-        // Check what questions the participant has already filled
-        const hasHumorStyle = participant.humor_banter_style || 
-                             participant.survey_data?.humor_banter_style ||
-                             participant.survey_data?.answers?.humor_banter_style
-        
-        const hasOpennessComfort = participant.early_openness_comfort !== undefined || 
-                                  participant.survey_data?.early_openness_comfort !== undefined ||
-                                  participant.survey_data?.answers?.early_openness_comfort !== undefined
+        // Check what questions the participant has already filled (direct columns)
+        const hasHumorStyle = participant.humor_banter_style !== null && participant.humor_banter_style !== undefined
+        const hasOpennessComfort = participant.early_openness_comfort !== null && participant.early_openness_comfort !== undefined
         
         setParticipantHasHumorStyle(!!hasHumorStyle)
         setParticipantHasOpennessComfort(!!hasOpennessComfort)

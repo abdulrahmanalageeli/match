@@ -3568,85 +3568,94 @@ export default function WelcomePage() {
                   </RadioGroup>
                 </div>
 
-                {/* Humor/Banter Style */}
-                <div className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
-                  <p className={`text-sm font-medium mb-3 ${dark ? "text-purple-300" : "text-purple-700"}`}>
-                    أسلوب التفاعل (مطلوب)
-                  </p>
-                  <p className={`text-xs mb-3 ${dark ? "text-purple-200" : "text-purple-600"}`}>
-                    في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟
-                  </p>
-                  <RadioGroup 
-                    value={returningHumorStyle} 
-                    onValueChange={setReturningHumorStyle}
-                    className="space-y-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="A" id="humor-A" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
-                      <Label htmlFor="humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
-                        المزاح والمرح
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="B" id="humor-B" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
-                      <Label htmlFor="humor-B" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
-                        النكات الودودة الخفيفة
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="C" id="humor-C" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
-                      <Label htmlFor="humor-C" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
-                        الصدق والدفء
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="D" id="humor-D" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
-                      <Label htmlFor="humor-D" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
-                        المباشرة والجدية
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                {/* Show other questions only if they haven't been filled in database */}
+                {(!participantHasHumorStyle || !participantHasOpennessComfort) && (
+                  <>
+                    {/* Humor/Banter Style */}
+                    {!participantHasHumorStyle && (
+                      <div className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
+                        <p className={`text-sm font-medium mb-3 ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                          أسلوب التفاعل (مطلوب)
+                        </p>
+                        <p className={`text-xs mb-3 ${dark ? "text-purple-200" : "text-purple-600"}`}>
+                          في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟
+                        </p>
+                        <RadioGroup 
+                          value={returningHumorStyle} 
+                          onValueChange={setReturningHumorStyle}
+                          className="space-y-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="A" id="humor-A" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
+                            <Label htmlFor="humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
+                              المزاح والمرح
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="B" id="humor-B" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
+                            <Label htmlFor="humor-B" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
+                              النكات الودودة الخفيفة
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="C" id="humor-C" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
+                            <Label htmlFor="humor-C" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
+                              الصدق والدفء
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="D" id="humor-D" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
+                            <Label htmlFor="humor-D" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
+                              المباشرة والجدية
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    )}
 
-                {/* Early Openness Comfort */}
-                <div className={`p-4 rounded-xl border ${dark ? "bg-orange-500/10 border-orange-400/30" : "bg-orange-50 border-orange-200"}`}>
-                  <p className={`text-sm font-medium mb-3 ${dark ? "text-orange-300" : "text-orange-700"}`}>
-                    مستوى الانفتاح المبكر (مطلوب)
-                  </p>
-                  <p className={`text-xs mb-3 ${dark ? "text-orange-200" : "text-orange-600"}`}>
-                    عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟
-                  </p>
-                  <RadioGroup 
-                    value={returningOpennessComfort} 
-                    onValueChange={setReturningOpennessComfort}
-                    className="space-y-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="0" id="openness-0" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
-                      <Label htmlFor="openness-0" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                        أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="1" id="openness-1" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
-                      <Label htmlFor="openness-1" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                        أفضل الحديث السطحي في البداية
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="2" id="openness-2" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
-                      <Label htmlFor="openness-2" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                        أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي
-                      </Label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value="3" id="openness-3" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
-                      <Label htmlFor="openness-3" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
-                        أنفتح بسرعة وأشارك القصص الشخصية
-                      </Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                    {/* Early Openness Comfort */}
+                    {!participantHasOpennessComfort && (
+                      <div className={`p-4 rounded-xl border ${dark ? "bg-orange-500/10 border-orange-400/30" : "bg-orange-50 border-orange-200"}`}>
+                        <p className={`text-sm font-medium mb-3 ${dark ? "text-orange-300" : "text-orange-700"}`}>
+                          مستوى الانفتاح المبكر (مطلوب)
+                        </p>
+                        <p className={`text-xs mb-3 ${dark ? "text-orange-200" : "text-orange-600"}`}>
+                          عندما تقابل شخصاً جديداً، ما الذي يبدو مناسباً لك؟
+                        </p>
+                        <RadioGroup 
+                          value={returningOpennessComfort} 
+                          onValueChange={setReturningOpennessComfort}
+                          className="space-y-2"
+                        >
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="0" id="openness-0" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
+                            <Label htmlFor="openness-0" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
+                              أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="1" id="openness-1" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
+                            <Label htmlFor="openness-1" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
+                              أفضل الحديث السطحي في البداية
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="2" id="openness-2" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
+                            <Label htmlFor="openness-2" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
+                              أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي
+                            </Label>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <RadioGroupItem value="3" id="openness-3" className={`${dark ? "border-orange-400/50 text-orange-400" : "border-orange-500/50 text-orange-500"}`} />
+                            <Label htmlFor="openness-3" className={`text-sm cursor-pointer ${dark ? "text-orange-200" : "text-orange-700"}`}>
+                              أنفتح بسرعة وأشارك القصص الشخصية
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    )}
+                  </>
+                )}
                 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4">

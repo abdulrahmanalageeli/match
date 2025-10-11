@@ -1954,6 +1954,10 @@ export default function WelcomePage() {
             assigned_number: participant.assigned_number
           })
           setShowNextEventPopup(true)
+        } else {
+          // User is already signed up, update the button state
+          console.log('✅ User already signed up for next event, updating button state')
+          setShowNextEventSignup(true)
         }
       }
     } catch (err) {

@@ -44,6 +44,8 @@ import {
   ChevronLeft,
   UserPlus,
   RotateCcw,
+  Mail,
+  MessageCircle,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Timeline, TimelineItem } from "../../components/ui/timeline"
@@ -352,6 +354,16 @@ export default function WelcomePage() {
   const [showNewUserTypePopup, setShowNewUserTypePopup] = useState(false)
   const [newUserTokenInput, setNewUserTokenInput] = useState("")
   const [newUserTokenLoading, setNewUserTokenLoading] = useState(false)
+  
+  // Contact Form states
+  const [showContactForm, setShowContactForm] = useState(false)
+  const [contactForm, setContactForm] = useState({
+    email: "",
+    name: "",
+    message: "",
+    subject: ""
+  })
+  const [contactFormLoading, setContactFormLoading] = useState(false)
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -1577,26 +1589,49 @@ export default function WelcomePage() {
     
     return (
     <div className="fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-50">
-      <div 
-        onClick={handleLogoClick}
-        className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
-      >
-        <div className="relative">
-          {/* Glow effect background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg sm:rounded-xl md:rounded-2xl blur-sm sm:blur-md md:blur-xl opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
-          
-          {/* Main logo container */}
-          <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-2.5 md:p-3 shadow-lg sm:shadow-xl md:shadow-2xl group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
-            <img 
-              src={logoPng} 
-              alt="BlindMatch" 
-              className="w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-sm sm:drop-shadow-md md:drop-shadow-lg" 
-            />
+      <div className="flex flex-col items-end gap-2">
+        {/* Logo */}
+        <div 
+          onClick={handleLogoClick}
+          className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105"
+        >
+          <div className="relative">
+            {/* Glow effect background */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg sm:rounded-xl md:rounded-2xl blur-sm sm:blur-md md:blur-xl opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
+            
+            {/* Main logo container */}
+            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl md:rounded-2xl p-2 sm:p-2.5 md:p-3 shadow-lg sm:shadow-xl md:shadow-2xl group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
+              <img 
+                src={logoPng} 
+                alt="BlindMatch" 
+                className="w-12 h-12 xs:w-14 xs:h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 lg:w-24 lg:h-24 object-contain drop-shadow-sm sm:drop-shadow-md md:drop-shadow-lg" 
+              />
+            </div>
+            
+            {/* Subtle animated border */}
+            <div className="absolute inset-0 rounded-lg sm:rounded-xl md:rounded-2xl bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
           </div>
-          
-          {/* Subtle animated border */}
-          <div className="absolute inset-0 rounded-lg sm:rounded-xl md:rounded-2xl bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
         </div>
+
+        {/* Contact Button - Only show on pre-registration page */}
+        {!token && showRegistrationContent && (
+          <button
+            onClick={() => setShowContactForm(true)}
+            className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-lg sm:rounded-xl p-2 sm:p-2.5 shadow-lg sm:shadow-xl hover:shadow-purple-500/20 transition-all duration-500 ease-out hover:scale-105"
+            title="تواصل معنا"
+          >
+            {/* Glow effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-700"></div>
+            
+            {/* Icon */}
+            <div className="relative">
+              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm" />
+            </div>
+            
+            {/* Animated border */}
+            <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+          </button>
+        )}
       </div>
     </div>
     );
@@ -2088,7 +2123,7 @@ export default function WelcomePage() {
         
         if (data.assigned_number) {
           localStorage.setItem('blindmatch_participant_number', data.assigned_number.toString());
-          setParticipantNumber(data.assigned_number);
+          setAssignedNumber(data.assigned_number);
         }
         
         // Set token fields
@@ -2126,6 +2161,67 @@ export default function WelcomePage() {
     setShowNewUserTypePopup(false);
     setNewUserTokenInput("");
     console.log('🆕 User selected new user, popup closed');
+    
+    // Scroll to the new user section
+    setTimeout(() => {
+      const newUserSection = document.querySelector('[data-section="new-user"]');
+      if (newUserSection) {
+        newUserSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center' 
+        });
+      }
+    }, 300); // Small delay to allow popup to close
+  };
+
+  // Handle contact form submission
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!contactForm.email || !contactForm.message) {
+      alert("❌ يرجى ملء البريد الإلكتروني والرسالة");
+      return;
+    }
+
+    setContactFormLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('email', contactForm.email);
+      formData.append('name', contactForm.name || 'غير محدد');
+      formData.append('subject', contactForm.subject || 'رسالة من BlindMatch');
+      formData.append('message', contactForm.message);
+      formData.append('_replyto', contactForm.email);
+      
+      const response = await fetch('https://formspree.io/f/mqayygpv', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
+        setContactForm({ email: "", name: "", message: "", subject: "" });
+        setShowContactForm(false);
+      } else {
+        throw new Error('Form submission failed');
+      }
+    } catch (error) {
+      console.error('Contact form error:', error);
+      alert("❌ حدث خطأ في إرسال الرسالة\nيرجى المحاولة مرة أخرى");
+    } finally {
+      setContactFormLoading(false);
+    }
+  };
+
+  // Handle contact form input changes
+  const handleContactInputChange = (field: string, value: string) => {
+    setContactForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   useEffect(() => {
@@ -3231,8 +3327,13 @@ export default function WelcomePage() {
   // New User Type Popup - Highest Priority (before any conditional returns)
   if (showNewUserTypePopup) {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`} dir="rtl">
+      <>
+        {/* Blurred Background Overlay */}
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"></div>
+        
+        {/* Popup Content */}
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
+          <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col pointer-events-auto`} dir="rtl">
           <div className="p-6">
             <div className="text-center mb-6">
               <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-blue-500/20" : "bg-blue-100"}`}>
@@ -3311,6 +3412,144 @@ export default function WelcomePage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+        </div>
+      </>
+    );
+  }
+
+  // Contact Form Popup - High Priority
+  if (showContactForm) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`max-w-md w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`} dir="rtl">
+          <div className="p-6">
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-purple-500/20" : "bg-purple-100"}`}>
+                <Mail className={`w-8 h-8 ${dark ? "text-purple-400" : "text-purple-600"}`} />
+              </div>
+              <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                تواصل معنا
+              </h3>
+              <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                نحن هنا للمساعدة! أرسل لنا رسالتك وسنتواصل معك قريباً
+              </p>
+            </div>
+
+            {/* Contact Form */}
+            <form onSubmit={handleContactSubmit} className="space-y-4">
+              {/* Name Field */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                  الاسم (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={contactForm.name}
+                  onChange={(e) => handleContactInputChange('name', e.target.value)}
+                  placeholder="أدخل اسمك"
+                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                    dark 
+                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                />
+              </div>
+
+              {/* Email Field */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                  البريد الإلكتروني *
+                </label>
+                <input
+                  type="email"
+                  value={contactForm.email}
+                  onChange={(e) => handleContactInputChange('email', e.target.value)}
+                  placeholder="example@email.com"
+                  required
+                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                    dark 
+                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                  dir="ltr"
+                />
+              </div>
+
+              {/* Subject Field */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                  الموضوع (اختياري)
+                </label>
+                <input
+                  type="text"
+                  value={contactForm.subject}
+                  onChange={(e) => handleContactInputChange('subject', e.target.value)}
+                  placeholder="موضوع الرسالة"
+                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                    dark 
+                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                />
+              </div>
+
+              {/* Message Field */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                  الرسالة *
+                </label>
+                <textarea
+                  value={contactForm.message}
+                  onChange={(e) => handleContactInputChange('message', e.target.value)}
+                  placeholder="اكتب رسالتك هنا..."
+                  required
+                  rows={4}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors resize-none ${
+                    dark 
+                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowContactForm(false);
+                    setContactForm({ email: "", name: "", message: "", subject: "" });
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
+                    dark 
+                      ? "border-slate-600 text-slate-300 hover:bg-slate-700" 
+                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={contactFormLoading || !contactForm.email || !contactForm.message}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {contactFormLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      جاري الإرسال...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      إرسال
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       </div>
@@ -4241,7 +4480,7 @@ export default function WelcomePage() {
                         </div>
                         
                         {/* New Player Option */}
-                        <div className="mb-6 sm:mb-8">
+                        <div className="mb-6 sm:mb-8" data-section="new-user">
                           <div className="flex items-center gap-3 mb-3 sm:mb-4">
                             <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
                             <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>

@@ -57,7 +57,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
-import { useForm, ValidationError } from '@formspree/react'
 import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Input } from "../../components/ui/input"
@@ -358,7 +357,13 @@ export default function WelcomePage() {
   
   // Contact Form states
   const [showContactForm, setShowContactForm] = useState(false)
-  const [formspreeState, handleFormspreeSubmit] = useForm("mqayygpv")
+  const [contactForm, setContactForm] = useState({
+    email: "",
+    name: "",
+    message: "",
+    subject: ""
+  })
+  const [contactFormLoading, setContactFormLoading] = useState(false)
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -2169,13 +2174,55 @@ export default function WelcomePage() {
     }, 300); // Small delay to allow popup to close
   };
 
-  // Handle contact form success
-  React.useEffect(() => {
-    if (formspreeState.succeeded) {
-      alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
-      setShowContactForm(false);
+  // Handle contact form submission
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!contactForm.email || !contactForm.message) {
+      alert("❌ يرجى ملء البريد الإلكتروني والرسالة");
+      return;
     }
-  }, [formspreeState.succeeded]);
+
+    setContactFormLoading(true);
+    
+    try {
+      const formData = new FormData();
+      formData.append('email', contactForm.email);
+      formData.append('name', contactForm.name || 'غير محدد');
+      formData.append('subject', contactForm.subject || 'رسالة من BlindMatch');
+      formData.append('message', contactForm.message);
+      formData.append('_replyto', contactForm.email);
+      
+      const response = await fetch('https://formspree.io/f/mqayygpv', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
+        setContactForm({ email: "", name: "", message: "", subject: "" });
+        setShowContactForm(false);
+      } else {
+        throw new Error('Form submission failed');
+      }
+    } catch (error) {
+      console.error('Contact form error:', error);
+      alert("❌ حدث خطأ في إرسال الرسالة\nيرجى المحاولة مرة أخرى");
+    } finally {
+      setContactFormLoading(false);
+    }
+  };
+
+  // Handle contact form input changes
+  const handleContactInputChange = (field: string, value: string) => {
+    setContactForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -3671,10 +3718,9 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Show general form errors */}
-                  {formspreeState.errors && Object.keys(formspreeState.errors).length > 0 && (
+                  {formspreeState.errors && (
                     <div className={`p-3 rounded-lg border ${dark ? "bg-red-900/20 border-red-500/30 text-red-300" : "bg-red-50 border-red-200 text-red-700"}`}>
-                      <p className="text-sm font-medium">❌ يرجى تصحيح الأخطاء التالية:</p>
-                      <ValidationError errors={formspreeState.errors} />
+                      <p className="text-sm font-medium">❌ يرجى تصحيح الأخطاء وإعادة المحاولة</p>
                     </div>
                   )}
 

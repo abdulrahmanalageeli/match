@@ -3333,7 +3333,7 @@ export default function WelcomePage() {
         
         {/* Popup Content */}
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-          <div className={`max-w-sm w-full rounded-2xl shadow-2xl border backdrop-blur-md ${dark ? "bg-slate-800/20 border-slate-600/30" : "bg-white/20 border-gray-200/30"} flex flex-col pointer-events-auto`} dir="rtl">
+          <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col pointer-events-auto`} dir="rtl">
           <div className="p-6">
             <div className="text-center mb-6">
               <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-blue-500/20" : "bg-blue-100"}`}>
@@ -3423,7 +3423,7 @@ export default function WelcomePage() {
   if (showContactForm) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`max-w-md w-full rounded-2xl shadow-2xl border backdrop-blur-md ${dark ? "bg-slate-800/20 border-slate-600/30" : "bg-white/20 border-gray-200/30"} flex flex-col`} dir="rtl">
+        <div className={`max-w-md w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
           <div className="p-6">
             {/* Header */}
             <div className="text-center mb-6">

@@ -57,6 +57,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs"
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
+import { useForm, ValidationError } from '@formspree/react'
 import { Label } from "../../components/ui/label"
 import { Textarea } from "../../components/ui/textarea"
 import { Input } from "../../components/ui/input"
@@ -357,13 +358,7 @@ export default function WelcomePage() {
   
   // Contact Form states
   const [showContactForm, setShowContactForm] = useState(false)
-  const [contactForm, setContactForm] = useState({
-    email: "",
-    name: "",
-    message: "",
-    subject: ""
-  })
-  const [contactFormLoading, setContactFormLoading] = useState(false)
+  const [formspreeState, handleFormspreeSubmit] = useForm("mqayygpv")
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -2174,55 +2169,13 @@ export default function WelcomePage() {
     }, 300); // Small delay to allow popup to close
   };
 
-  // Handle contact form submission
-  const handleContactSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!contactForm.email || !contactForm.message) {
-      alert("❌ يرجى ملء البريد الإلكتروني والرسالة");
-      return;
+  // Handle contact form success
+  React.useEffect(() => {
+    if (formspreeState.succeeded) {
+      alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
+      setShowContactForm(false);
     }
-
-    setContactFormLoading(true);
-    
-    try {
-      const formData = new FormData();
-      formData.append('email', contactForm.email);
-      formData.append('name', contactForm.name || 'غير محدد');
-      formData.append('subject', contactForm.subject || 'رسالة من BlindMatch');
-      formData.append('message', contactForm.message);
-      formData.append('_replyto', contactForm.email);
-      
-      const response = await fetch('https://formspree.io/f/mqayygpv', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
-        setContactForm({ email: "", name: "", message: "", subject: "" });
-        setShowContactForm(false);
-      } else {
-        throw new Error('Form submission failed');
-      }
-    } catch (error) {
-      console.error('Contact form error:', error);
-      alert("❌ حدث خطأ في إرسال الرسالة\nيرجى المحاولة مرة أخرى");
-    } finally {
-      setContactFormLoading(false);
-    }
-  };
-
-  // Handle contact form input changes
-  const handleContactInputChange = (field: string, value: string) => {
-    setContactForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
+  }, [formspreeState.succeeded]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -3621,16 +3574,16 @@ export default function WelcomePage() {
                 </div>
 
                 {/* Contact Form */}
-                <form onSubmit={handleContactSubmit} className="space-y-4">
+                <form onSubmit={handleFormspreeSubmit} className="space-y-4">
                   {/* Name Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="name" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الاسم (اختياري)
                     </label>
                     <input
+                      id="name"
                       type="text"
-                      value={contactForm.name}
-                      onChange={(e) => handleContactInputChange('name', e.target.value)}
+                      name="name"
                       placeholder="أدخل اسمك"
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
                         dark 
@@ -3638,17 +3591,22 @@ export default function WelcomePage() {
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
                       } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
                     />
+                    <ValidationError 
+                      prefix="Name" 
+                      field="name"
+                      errors={formspreeState.errors}
+                    />
                   </div>
 
                   {/* Email Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="email" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       البريد الإلكتروني *
                     </label>
                     <input
+                      id="email"
                       type="email"
-                      value={contactForm.email}
-                      onChange={(e) => handleContactInputChange('email', e.target.value)}
+                      name="email"
                       placeholder="example@email.com"
                       required
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
@@ -3658,17 +3616,22 @@ export default function WelcomePage() {
                       } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
                       dir="ltr"
                     />
+                    <ValidationError 
+                      prefix="Email" 
+                      field="email"
+                      errors={formspreeState.errors}
+                    />
                   </div>
 
                   {/* Subject Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="subject" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الموضوع (اختياري)
                     </label>
                     <input
+                      id="subject"
                       type="text"
-                      value={contactForm.subject}
-                      onChange={(e) => handleContactInputChange('subject', e.target.value)}
+                      name="subject"
                       placeholder="موضوع الرسالة"
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
                         dark 
@@ -3676,16 +3639,21 @@ export default function WelcomePage() {
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
                       } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
                     />
+                    <ValidationError 
+                      prefix="Subject" 
+                      field="subject"
+                      errors={formspreeState.errors}
+                    />
                   </div>
 
                   {/* Message Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="message" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الرسالة *
                     </label>
                     <textarea
-                      value={contactForm.message}
-                      onChange={(e) => handleContactInputChange('message', e.target.value)}
+                      id="message"
+                      name="message"
                       placeholder="اكتب رسالتك هنا..."
                       required
                       rows={4}
@@ -3695,16 +3663,26 @@ export default function WelcomePage() {
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
                       } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
                     />
+                    <ValidationError 
+                      prefix="Message" 
+                      field="message"
+                      errors={formspreeState.errors}
+                    />
                   </div>
+
+                  {/* Show general form errors */}
+                  {formspreeState.errors && Object.keys(formspreeState.errors).length > 0 && (
+                    <div className={`p-3 rounded-lg border ${dark ? "bg-red-900/20 border-red-500/30 text-red-300" : "bg-red-50 border-red-200 text-red-700"}`}>
+                      <p className="text-sm font-medium">❌ يرجى تصحيح الأخطاء التالية:</p>
+                      <ValidationError errors={formspreeState.errors} />
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowContactForm(false);
-                        setContactForm({ email: "", name: "", message: "", subject: "" });
-                      }}
+                      onClick={() => setShowContactForm(false)}
                       className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
                         dark 
                           ? "border-slate-600 text-slate-300 hover:bg-slate-700" 
@@ -3715,10 +3693,10 @@ export default function WelcomePage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={contactFormLoading || !contactForm.email || !contactForm.message}
+                      disabled={formspreeState.submitting}
                       className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      {contactFormLoading ? (
+                      {formspreeState.submitting ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                           جاري الإرسال...

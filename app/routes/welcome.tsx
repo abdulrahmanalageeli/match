@@ -3324,237 +3324,9 @@ export default function WelcomePage() {
     }
   }, [globalTimerActive, timerRestored])
 
-  // New User Type Popup - Highest Priority (before any conditional returns)
-  if (showNewUserTypePopup) {
-    return (
-      <>
-        {/* Blurred Background Overlay */}
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"></div>
-        
-        {/* Popup Content */}
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-          <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col pointer-events-auto`} dir="rtl">
-          <div className="p-6">
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                <UserPlus className={`w-8 h-8 ${dark ? "text-blue-400" : "text-blue-600"}`} />
-              </div>
-              <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
-                مرحباً بك!
-              </h3>
-              <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                هل سبق لك التسجيل في فعالياتنا من قبل؟
-              </p>
-            </div>
+  // New User Type Popup will be rendered within main page structure
 
-            <div className="space-y-4">
-              {/* Returning User Option */}
-              <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-green-400/30 bg-green-500/10" : "border-green-300 bg-green-50"}`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <RotateCcw className={`w-5 h-5 ${dark ? "text-green-400" : "text-green-600"}`} />
-                  <span className={`font-semibold ${dark ? "text-green-300" : "text-green-700"}`}>
-                    نعم، لدي رمز مميز
-                  </span>
-                </div>
-                <p className={`text-xs mb-3 ${dark ? "text-green-200" : "text-green-600"}`}>
-                  أدخل رمزك المميز لاستعادة بياناتك
-                </p>
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    value={newUserTokenInput}
-                    onChange={(e) => setNewUserTokenInput(e.target.value)}
-                    placeholder="أدخل الرمز المميز"
-                    className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
-                      dark 
-                        ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-green-400" 
-                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-green-500"
-                    } focus:outline-none focus:ring-2 focus:ring-green-500/20`}
-                    dir="ltr"
-                  />
-                  <button
-                    onClick={handleReturningUserToken}
-                    disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                    className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {newUserTokenLoading ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                        جاري التحقق...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4" />
-                        استعادة البيانات
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* New User Option */}
-              <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-cyan-400/30 bg-cyan-500/10" : "border-cyan-300 bg-cyan-50"}`}>
-                <div className="flex items-center gap-3 mb-3">
-                  <UserPlus className={`w-5 h-5 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
-                  <span className={`font-semibold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                    لا، أنا مشارك جديد
-                  </span>
-                </div>
-                <p className={`text-xs mb-3 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
-                  ابدأ رحلتك معنا من البداية
-                </p>
-                <button
-                  onClick={handleNewUser}
-                  className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  لاعب جديد
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        </div>
-      </>
-    );
-  }
-
-  // Contact Form Popup - High Priority
-  if (showContactForm) {
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`max-w-md w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
-          <div className="p-6">
-            {/* Header */}
-            <div className="text-center mb-6">
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-purple-500/20" : "bg-purple-100"}`}>
-                <Mail className={`w-8 h-8 ${dark ? "text-purple-400" : "text-purple-600"}`} />
-              </div>
-              <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
-                تواصل معنا
-              </h3>
-              <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                نحن هنا للمساعدة! أرسل لنا رسالتك وسنتواصل معك قريباً
-              </p>
-            </div>
-
-            {/* Contact Form */}
-            <form onSubmit={handleContactSubmit} className="space-y-4">
-              {/* Name Field */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                  الاسم (اختياري)
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.name}
-                  onChange={(e) => handleContactInputChange('name', e.target.value)}
-                  placeholder="أدخل اسمك"
-                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
-                    dark 
-                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
-                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
-                />
-              </div>
-
-              {/* Email Field */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                  البريد الإلكتروني *
-                </label>
-                <input
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(e) => handleContactInputChange('email', e.target.value)}
-                  placeholder="example@email.com"
-                  required
-                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
-                    dark 
-                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
-                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
-                  dir="ltr"
-                />
-              </div>
-
-              {/* Subject Field */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                  الموضوع (اختياري)
-                </label>
-                <input
-                  type="text"
-                  value={contactForm.subject}
-                  onChange={(e) => handleContactInputChange('subject', e.target.value)}
-                  placeholder="موضوع الرسالة"
-                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
-                    dark 
-                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
-                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
-                />
-              </div>
-
-              {/* Message Field */}
-              <div>
-                <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                  الرسالة *
-                </label>
-                <textarea
-                  value={contactForm.message}
-                  onChange={(e) => handleContactInputChange('message', e.target.value)}
-                  placeholder="اكتب رسالتك هنا..."
-                  required
-                  rows={4}
-                  className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors resize-none ${
-                    dark 
-                      ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
-                      : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
-                  } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowContactForm(false);
-                    setContactForm({ email: "", name: "", message: "", subject: "" });
-                  }}
-                  className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
-                    dark 
-                      ? "border-slate-600 text-slate-300 hover:bg-slate-700" 
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  إلغاء
-                </button>
-                <button
-                  type="submit"
-                  disabled={contactFormLoading || !contactForm.email || !contactForm.message}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {contactFormLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      جاري الإرسال...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      إرسال
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Contact Form Popup will be rendered within main page structure
 
   // Survey Completion Popup - Top Level (before any conditional returns)
   if (showSurveyCompletionPopup && incompleteSurveyInfo) {
@@ -8298,6 +8070,228 @@ export default function WelcomePage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* New User Type Popup */}
+      {showNewUserTypePopup && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
+            <div className="p-6">
+              <div className="text-center mb-6">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-blue-500/20" : "bg-blue-100"}`}>
+                  <UserPlus className={`w-8 h-8 ${dark ? "text-blue-400" : "text-blue-600"}`} />
+                </div>
+                <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  مرحباً بك!
+                </h3>
+                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  هل سبق لك التسجيل في فعالياتنا من قبل؟
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Returning User Option */}
+                <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-green-400/30 bg-green-500/10" : "border-green-300 bg-green-50"}`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <RotateCcw className={`w-5 h-5 ${dark ? "text-green-400" : "text-green-600"}`} />
+                    <span className={`font-semibold ${dark ? "text-green-300" : "text-green-700"}`}>
+                      نعم، لدي رمز مميز
+                    </span>
+                  </div>
+                  <p className={`text-xs mb-3 ${dark ? "text-green-200" : "text-green-600"}`}>
+                    أدخل رمزك المميز لاستعادة بياناتك
+                  </p>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={newUserTokenInput}
+                      onChange={(e) => setNewUserTokenInput(e.target.value)}
+                      placeholder="أدخل الرمز المميز"
+                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        dark 
+                          ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-green-400" 
+                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-green-500"
+                      } focus:outline-none focus:ring-2 focus:ring-green-500/20`}
+                      dir="ltr"
+                    />
+                    <button
+                      onClick={handleReturningUserToken}
+                      disabled={newUserTokenLoading || !newUserTokenInput.trim()}
+                      className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {newUserTokenLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          جاري التحقق...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          استعادة البيانات
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* New User Option */}
+                <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-cyan-400/30 bg-cyan-500/10" : "border-cyan-300 bg-cyan-50"}`}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <UserPlus className={`w-5 h-5 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
+                    <span className={`font-semibold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                      لا، أنا مشارك جديد
+                    </span>
+                  </div>
+                  <p className={`text-xs mb-3 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
+                    ابدأ رحلتك معنا من البداية
+                  </p>
+                  <button
+                    onClick={handleNewUser}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    لاعب جديد
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Form Popup */}
+      {showContactForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-md w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
+            <div className="p-6">
+              {/* Header */}
+              <div className="text-center mb-6">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-purple-500/20" : "bg-purple-100"}`}>
+                  <Mail className={`w-8 h-8 ${dark ? "text-purple-400" : "text-purple-600"}`} />
+                </div>
+                <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  تواصل معنا
+                </h3>
+                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  نحن هنا للمساعدة! أرسل لنا رسالتك وسنتواصل معك قريباً
+                </p>
+              </div>
+
+              {/* Contact Form */}
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                {/* Name Field */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    الاسم (اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    value={contactForm.name}
+                    onChange={(e) => handleContactInputChange('name', e.target.value)}
+                    placeholder="أدخل اسمك"
+                    className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      dark 
+                        ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                    } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                  />
+                </div>
+
+                {/* Email Field */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    البريد الإلكتروني *
+                  </label>
+                  <input
+                    type="email"
+                    value={contactForm.email}
+                    onChange={(e) => handleContactInputChange('email', e.target.value)}
+                    placeholder="example@email.com"
+                    required
+                    className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      dark 
+                        ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                    } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                    dir="ltr"
+                  />
+                </div>
+
+                {/* Subject Field */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    الموضوع (اختياري)
+                  </label>
+                  <input
+                    type="text"
+                    value={contactForm.subject}
+                    onChange={(e) => handleContactInputChange('subject', e.target.value)}
+                    placeholder="موضوع الرسالة"
+                    className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      dark 
+                        ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                    } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                  />
+                </div>
+
+                {/* Message Field */}
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    الرسالة *
+                  </label>
+                  <textarea
+                    value={contactForm.message}
+                    onChange={(e) => handleContactInputChange('message', e.target.value)}
+                    placeholder="اكتب رسالتك هنا..."
+                    required
+                    rows={4}
+                    className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors resize-none ${
+                      dark 
+                        ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                    } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowContactForm(false);
+                      setContactForm({ email: "", name: "", message: "", subject: "" });
+                    }}
+                    className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
+                      dark 
+                        ? "border-slate-600 text-slate-300 hover:bg-slate-700" 
+                        : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    }`}
+                  >
+                    إلغاء
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={contactFormLoading || !contactForm.email || !contactForm.message}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {contactFormLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        جاري الإرسال...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        إرسال
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
 

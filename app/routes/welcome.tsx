@@ -42,6 +42,8 @@ import {
   CheckSquare,
   ChevronRight,
   ChevronLeft,
+  UserPlus,
+  RotateCcw,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Timeline, TimelineItem } from "../../components/ui/timeline"
@@ -345,6 +347,11 @@ export default function WelcomePage() {
       </div>
     );
   };
+  
+  // New User Type Popup states (highest priority)
+  const [showNewUserTypePopup, setShowNewUserTypePopup] = useState(false)
+  const [newUserTokenInput, setNewUserTokenInput] = useState("")
+  const [newUserTokenLoading, setNewUserTokenLoading] = useState(false)
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -1914,9 +1921,9 @@ export default function WelcomePage() {
 
   // Check if logged in user needs next event signup
   const checkNextEventSignup = async (token: string) => {
-    // Don't show next event popup if survey completion popup is already showing
-    if (showSurveyCompletionPopup) {
-      console.log('❌ Survey completion popup is showing, skipping next event signup popup');
+    // Don't show next event popup if other popups are already showing
+    if (showSurveyCompletionPopup || showNewUserTypePopup) {
+      console.log('❌ Other popup is showing, skipping next event signup popup');
       return;
     }
     
@@ -1968,9 +1975,9 @@ export default function WelcomePage() {
 
   // Check if user has incomplete survey data
   const checkIncompleteSurvey = async (savedToken: string) => {
-    // Simple check: Don't show popup if URL has ?token parameter
-    if (window.location.search.includes('?token')) {
-      console.log('❌ URL has ?token parameter, skipping survey completion popup');
+    // Don't show popup if URL has ?token parameter or other popups are showing
+    if (window.location.search.includes('?token') || showNewUserTypePopup) {
+      console.log('❌ URL has ?token parameter or other popup showing, skipping survey completion popup');
       return;
     }
     
@@ -2049,6 +2056,78 @@ export default function WelcomePage() {
     }
   }
 
+  // Handle returning user token input in new user popup
+  const handleReturningUserToken = async () => {
+    if (!newUserTokenInput.trim()) {
+      alert("❌ يرجى إدخال الرمز المميز");
+      return;
+    }
+
+    setNewUserTokenLoading(true);
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "resolve-token", 
+          secure_token: newUserTokenInput.trim() 
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (res.ok && data.success) {
+        // Save token and participant data to localStorage
+        localStorage.setItem('blindmatch_result_token', newUserTokenInput.trim());
+        localStorage.setItem('blindmatch_returning_token', newUserTokenInput.trim());
+        
+        if (data.name) {
+          localStorage.setItem('blindmatch_participant_name', data.name);
+          setParticipantName(data.name);
+        }
+        
+        if (data.assigned_number) {
+          localStorage.setItem('blindmatch_participant_number', data.assigned_number.toString());
+          setParticipantNumber(data.assigned_number);
+        }
+        
+        // Set token fields
+        setResultToken(newUserTokenInput.trim());
+        setReturningPlayerToken(newUserTokenInput.trim());
+        
+        // Close popup and show success
+        setShowNewUserTypePopup(false);
+        setNewUserTokenInput("");
+        
+        alert(`✅ مرحباً بعودتك ${data.name || ''}!\nتم تحميل بياناتك بنجاح`);
+        
+        // Check for next event signup and incomplete survey
+        setTimeout(() => {
+          checkNextEventSignup(newUserTokenInput.trim());
+        }, 1000);
+        
+        setTimeout(() => {
+          checkIncompleteSurvey(newUserTokenInput.trim());
+        }, 1500);
+        
+      } else {
+        alert(`❌ ${data.error || 'رمز غير صحيح'}\nيرجى التأكد من الرمز والمحاولة مرة أخرى`);
+      }
+    } catch (err) {
+      console.error("Error resolving token:", err);
+      alert("❌ حدث خطأ في النظام");
+    } finally {
+      setNewUserTokenLoading(false);
+    }
+  };
+
+  // Handle new user selection
+  const handleNewUser = () => {
+    setShowNewUserTypePopup(false);
+    setNewUserTokenInput("");
+    console.log('🆕 User selected new user, popup closed');
+  };
+
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
   }, [dark])
@@ -2103,6 +2182,16 @@ export default function WelcomePage() {
       setTokenValidationCompleted(true);
     } else {
       console.log('ℹ️ No saved tokens found in localStorage');
+      
+      // Show new user type popup for users without saved credentials
+      // Only on main page (step 0) and no token in URL
+      if (!token && step === 0) {
+        console.log('🆕 New user detected, showing user type popup...');
+        setTimeout(() => {
+          setShowNewUserTypePopup(true);
+        }, 1000); // Small delay to let page load
+      }
+      
       setTokenValidationCompleted(true);
     }
   }, []); // Run once on mount
@@ -3139,11 +3228,100 @@ export default function WelcomePage() {
     }
   }, [globalTimerActive, timerRestored])
 
+  // New User Type Popup - Highest Priority (before any conditional returns)
+  if (showNewUserTypePopup) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`} dir="rtl">
+          <div className="p-6">
+            <div className="text-center mb-6">
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-blue-500/20" : "bg-blue-100"}`}>
+                <UserPlus className={`w-8 h-8 ${dark ? "text-blue-400" : "text-blue-600"}`} />
+              </div>
+              <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                مرحباً بك!
+              </h3>
+              <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                هل سبق لك التسجيل في فعالياتنا من قبل؟
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Returning User Option */}
+              <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-green-400/30 bg-green-500/10" : "border-green-300 bg-green-50"}`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <RotateCcw className={`w-5 h-5 ${dark ? "text-green-400" : "text-green-600"}`} />
+                  <span className={`font-semibold ${dark ? "text-green-300" : "text-green-700"}`}>
+                    نعم، لدي رمز مميز
+                  </span>
+                </div>
+                <p className={`text-xs mb-3 ${dark ? "text-green-200" : "text-green-600"}`}>
+                  أدخل رمزك المميز لاستعادة بياناتك
+                </p>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={newUserTokenInput}
+                    onChange={(e) => setNewUserTokenInput(e.target.value)}
+                    placeholder="أدخل الرمز المميز"
+                    className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      dark 
+                        ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-green-400" 
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-green-500"
+                    } focus:outline-none focus:ring-2 focus:ring-green-500/20`}
+                    dir="ltr"
+                  />
+                  <button
+                    onClick={handleReturningUserToken}
+                    disabled={newUserTokenLoading || !newUserTokenInput.trim()}
+                    className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {newUserTokenLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        جاري التحقق...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        استعادة البيانات
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* New User Option */}
+              <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-cyan-400/30 bg-cyan-500/10" : "border-cyan-300 bg-cyan-50"}`}>
+                <div className="flex items-center gap-3 mb-3">
+                  <UserPlus className={`w-5 h-5 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
+                  <span className={`font-semibold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                    لا، أنا مشارك جديد
+                  </span>
+                </div>
+                <p className={`text-xs mb-3 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
+                  ابدأ رحلتك معنا من البداية
+                </p>
+                <button
+                  onClick={handleNewUser}
+                  className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  لاعب جديد
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Survey Completion Popup - Top Level (before any conditional returns)
   if (showSurveyCompletionPopup && incompleteSurveyInfo) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+        <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
           <div className="p-6 overflow-y-auto">
             <div className="text-center space-y-4">
               {/* Header */}
@@ -3329,7 +3507,7 @@ export default function WelcomePage() {
         {/* Next Event Signup Popup - Moved to top level */}
         {showNextEventPopup && participantInfo && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
               <div className="p-6 overflow-y-auto">
                 <div className="text-center space-y-4">
                 {/* Header */}
@@ -3525,7 +3703,7 @@ export default function WelcomePage() {
         {/* Returning Participant Signup Popup */}
         {showReturningSignupPopup && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
               <div className="p-6 overflow-y-auto">
                 <div className="text-center space-y-4">
                 {/* Icon */}
@@ -4428,7 +4606,7 @@ export default function WelcomePage() {
       {/* Token Modal */}
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className={`w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl ${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"}`}>
+          <div className={`w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl ${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"}`} dir="rtl">
             <div className="flex items-center justify-between mb-3">
               <h3 className={`text-lg font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تم إنشاء حسابك بنجاح</h3>
               <button onClick={() => setShowTokenModal(false)} className={`rounded-full p-1 ${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"}`}>✕</button>
@@ -4544,7 +4722,7 @@ export default function WelcomePage() {
       
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`}>
+          <div className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`} dir="rtl">
             <div className="flex items-center justify-between mb-3">
               <h3 className={`${dark ? "text-slate-100" : "text-gray-800"} text-lg font-bold`}>تم إنشاء حسابك بنجاح</h3>
               <button onClick={() => setShowTokenModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`}>✕</button>
@@ -7250,7 +7428,7 @@ export default function WelcomePage() {
       {/* Form filled prompt modal */}
       {showFormFilledPrompt && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`w-full max-w-md rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+          <div className={`w-full max-w-md rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`} dir="rtl">
             <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-slate-100" : "text-gray-800"}`}>لقد قمت بتعبئة النموذج مسبقاً</h3>
             <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>هل ترغب في إعادة تعبئة النموذج أم الانتقال مباشرةً إلى التحليل؟</p>
             <div className="flex gap-4 justify-center">
@@ -7331,7 +7509,7 @@ export default function WelcomePage() {
       )}
       {showHistory && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`max-w-lg w-auto mx-4 rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`}>
+          <div className={`max-w-lg w-auto mx-4 rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`} dir="rtl">
             <div className="flex justify-between items-center mb-4">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>سجل اللقاءات السابقة</h3>
               <Button variant="ghost" onClick={() => setShowHistory(false)}><X /></Button>
@@ -7496,7 +7674,7 @@ export default function WelcomePage() {
         {/* History Detail Modal */}
         {showHistoryDetail && selectedHistoryItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto custom-scrollbar`}>
+          <div className={`max-w-md w-full sm:max-w-lg mx-2 sm:mx-4 rounded-2xl p-4 sm:p-8 shadow-2xl border-2 ${dark ? "bg-slate-800/80 border-slate-600" : "bg-white/80 border-gray-200"} max-h-[90vh] overflow-y-auto custom-scrollbar`} dir="rtl">
             <div className="flex justify-between items-center mb-6">
               <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>تفاصيل اللقاء</h3>
               <Button variant="ghost" onClick={() => {

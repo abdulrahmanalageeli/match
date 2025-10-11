@@ -1617,15 +1617,18 @@ export default function WelcomePage() {
         {!token && showRegistrationContent && (
           <button
             onClick={() => setShowContactForm(true)}
-            className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-lg sm:rounded-xl p-2 sm:p-2.5 shadow-lg sm:shadow-xl hover:shadow-purple-500/20 transition-all duration-500 ease-out hover:scale-105"
+            className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-lg sm:rounded-xl px-3 py-2 sm:px-4 sm:py-2.5 shadow-lg sm:shadow-xl hover:shadow-purple-500/20 transition-all duration-500 ease-out hover:scale-105"
             title="تواصل معنا"
           >
             {/* Glow effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-700"></div>
             
-            {/* Icon */}
-            <div className="relative">
-              <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6 text-white drop-shadow-sm" />
+            {/* Icon and Text */}
+            <div className="relative flex items-center gap-2" dir="rtl">
+              <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
+              <span className="text-white text-sm sm:text-base font-medium drop-shadow-sm">
+                تواصل معنا
+              </span>
             </div>
             
             {/* Animated border */}

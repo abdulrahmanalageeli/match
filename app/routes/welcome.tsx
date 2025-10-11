@@ -3631,26 +3631,26 @@ export default function WelcomePage() {
         {/* Contact Form Popup */}
         {showContactForm && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`max-w-md w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
-              <div className="p-6">
+            <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
+              <div className="p-4 overflow-y-auto">
                 {/* Header */}
-                <div className="text-center mb-6">
-                  <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-purple-500/20" : "bg-purple-100"}`}>
-                    <Mail className={`w-8 h-8 ${dark ? "text-purple-400" : "text-purple-600"}`} />
+                <div className="text-center mb-4">
+                  <div className={`w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center ${dark ? "bg-purple-500/20" : "bg-purple-100"}`}>
+                    <Mail className={`w-6 h-6 ${dark ? "text-purple-400" : "text-purple-600"}`} />
                   </div>
-                  <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  <h3 className={`text-lg font-bold mb-1 ${dark ? "text-slate-100" : "text-gray-800"}`}>
                     تواصل معنا
                   </h3>
-                  <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                  <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
                     نحن هنا للمساعدة! أرسل لنا رسالتك وسنتواصل معك قريباً
                   </p>
                 </div>
 
                 {/* Contact Form */}
-                <form onSubmit={handleContactSubmit} className="space-y-4">
+                <form onSubmit={handleContactSubmit} className="space-y-3">
                   {/* Name Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label className={`block text-xs font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       {participantName && assignedNumber ? "المشارك" : "الاسم (اختياري)"}
                     </label>
                     <input
@@ -3659,7 +3659,7 @@ export default function WelcomePage() {
                       onChange={(e) => handleContactInputChange('name', e.target.value)}
                       placeholder="أدخل اسمك"
                       readOnly={!!(participantName && assignedNumber)}
-                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      className={`w-full px-2 py-1.5 text-sm rounded-md border transition-colors ${
                         participantName && assignedNumber
                           ? dark 
                             ? "bg-slate-600 border-slate-500 text-slate-100 cursor-not-allowed" 
@@ -3673,7 +3673,7 @@ export default function WelcomePage() {
 
                   {/* Email Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label className={`block text-xs font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       البريد الإلكتروني *
                     </label>
                     <input
@@ -3682,7 +3682,7 @@ export default function WelcomePage() {
                       onChange={(e) => handleContactInputChange('email', e.target.value)}
                       placeholder="example@email.com"
                       required
-                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      className={`w-full px-2 py-1.5 text-sm rounded-md border transition-colors ${
                         dark 
                           ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
@@ -3693,7 +3693,7 @@ export default function WelcomePage() {
 
                   {/* Phone Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label className={`block text-xs font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       رقم الهاتف *
                     </label>
                     <input
@@ -3702,7 +3702,7 @@ export default function WelcomePage() {
                       onChange={(e) => handleContactInputChange('phone', e.target.value)}
                       placeholder="05xxxxxxxx"
                       required
-                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      className={`w-full px-2 py-1.5 text-sm rounded-md border transition-colors ${
                         dark 
                           ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
@@ -3713,7 +3713,7 @@ export default function WelcomePage() {
 
                   {/* Subject Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label className={`block text-xs font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الموضوع (اختياري)
                     </label>
                     <input
@@ -3721,7 +3721,7 @@ export default function WelcomePage() {
                       value={contactForm.subject}
                       onChange={(e) => handleContactInputChange('subject', e.target.value)}
                       placeholder="موضوع الرسالة"
-                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                      className={`w-full px-2 py-1.5 text-sm rounded-md border transition-colors ${
                         dark 
                           ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
@@ -3731,7 +3731,7 @@ export default function WelcomePage() {
 
                   {/* Message Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label className={`block text-xs font-medium mb-1 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الرسالة *
                     </label>
                     <textarea
@@ -3739,8 +3739,8 @@ export default function WelcomePage() {
                       onChange={(e) => handleContactInputChange('message', e.target.value)}
                       placeholder="اكتب رسالتك هنا..."
                       required
-                      rows={4}
-                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors resize-none ${
+                      rows={3}
+                      className={`w-full px-2 py-1.5 text-sm rounded-md border transition-colors resize-none ${
                         dark 
                           ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
@@ -3749,14 +3749,14 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-3 pt-2">
+                  <div className="flex gap-2 pt-1">
                     <button
                       type="button"
                       onClick={() => {
                         setShowContactForm(false);
                         setContactForm({ email: "", name: "", phone: "", message: "", subject: "" });
                       }}
-                      className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
+                      className={`flex-1 px-3 py-1.5 text-sm rounded-md border transition-all duration-300 ${
                         dark 
                           ? "border-slate-600 text-slate-300 hover:bg-slate-700" 
                           : "border-gray-300 text-gray-700 hover:bg-gray-50"
@@ -3767,7 +3767,7 @@ export default function WelcomePage() {
                     <button
                       type="submit"
                       disabled={contactFormLoading || !contactForm.email || !contactForm.message || !contactForm.phone}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 px-3 py-1.5 text-sm bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-md transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {contactFormLoading ? (
                         <>

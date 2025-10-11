@@ -357,13 +357,6 @@ export default function WelcomePage() {
   
   // Contact Form states
   const [showContactForm, setShowContactForm] = useState(false)
-  const [contactForm, setContactForm] = useState({
-    email: "",
-    name: "",
-    message: "",
-    subject: ""
-  })
-  const [contactFormLoading, setContactFormLoading] = useState(false)
   
   // Next Event Signup Popup states
   const [showNextEventPopup, setShowNextEventPopup] = useState(false)
@@ -2174,55 +2167,6 @@ export default function WelcomePage() {
     }, 300); // Small delay to allow popup to close
   };
 
-  // Handle contact form submission
-  const handleContactSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!contactForm.email || !contactForm.message) {
-      alert("❌ يرجى ملء البريد الإلكتروني والرسالة");
-      return;
-    }
-
-    setContactFormLoading(true);
-    
-    try {
-      const formData = new FormData();
-      formData.append('email', contactForm.email);
-      formData.append('name', contactForm.name || 'غير محدد');
-      formData.append('subject', contactForm.subject || 'رسالة من BlindMatch');
-      formData.append('message', contactForm.message);
-      formData.append('_replyto', contactForm.email);
-      
-      const response = await fetch('https://formspree.io/f/mqayygpv', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
-        setContactForm({ email: "", name: "", message: "", subject: "" });
-        setShowContactForm(false);
-      } else {
-        throw new Error('Form submission failed');
-      }
-    } catch (error) {
-      console.error('Contact form error:', error);
-      alert("❌ حدث خطأ في إرسال الرسالة\nيرجى المحاولة مرة أخرى");
-    } finally {
-      setContactFormLoading(false);
-    }
-  };
-
-  // Handle contact form input changes
-  const handleContactInputChange = (field: string, value: string) => {
-    setContactForm(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -3621,16 +3565,21 @@ export default function WelcomePage() {
                 </div>
 
                 {/* Contact Form */}
-                <form onSubmit={handleContactSubmit} className="space-y-4">
+                <form
+                  action="https://formspree.io/f/mqayygpv"
+                  method="POST"
+                  target="_top"
+                  className="space-y-4"
+                >
                   {/* Name Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="name" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الاسم (اختياري)
                     </label>
                     <input
                       type="text"
-                      value={contactForm.name}
-                      onChange={(e) => handleContactInputChange('name', e.target.value)}
+                      id="name"
+                      name="name"
                       placeholder="أدخل اسمك"
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
                         dark 
@@ -3642,13 +3591,13 @@ export default function WelcomePage() {
 
                   {/* Email Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="email" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       البريد الإلكتروني *
                     </label>
                     <input
                       type="email"
-                      value={contactForm.email}
-                      onChange={(e) => handleContactInputChange('email', e.target.value)}
+                      id="email"
+                      name="email"
                       placeholder="example@email.com"
                       required
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
@@ -3662,13 +3611,13 @@ export default function WelcomePage() {
 
                   {/* Subject Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="subject" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الموضوع (اختياري)
                     </label>
                     <input
                       type="text"
-                      value={contactForm.subject}
-                      onChange={(e) => handleContactInputChange('subject', e.target.value)}
+                      id="subject"
+                      name="subject"
                       placeholder="موضوع الرسالة"
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
                         dark 
@@ -3680,12 +3629,12 @@ export default function WelcomePage() {
 
                   {/* Message Field */}
                   <div>
-                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                    <label htmlFor="message" className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
                       الرسالة *
                     </label>
                     <textarea
-                      value={contactForm.message}
-                      onChange={(e) => handleContactInputChange('message', e.target.value)}
+                      id="message"
+                      name="message"
                       placeholder="اكتب رسالتك هنا..."
                       required
                       rows={4}
@@ -3695,16 +3644,16 @@ export default function WelcomePage() {
                           : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
                       } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
                     />
+                    <p className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-gray-500"}`}>
+                      سنتواصل معك خلال 1-2 يوم عمل عادة
+                    </p>
                   </div>
 
                   {/* Action Buttons */}
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setShowContactForm(false);
-                        setContactForm({ email: "", name: "", message: "", subject: "" });
-                      }}
+                      onClick={() => setShowContactForm(false)}
                       className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
                         dark 
                           ? "border-slate-600 text-slate-300 hover:bg-slate-700" 
@@ -3715,20 +3664,10 @@ export default function WelcomePage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={contactFormLoading || !contactForm.email || !contactForm.message}
-                      className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
                     >
-                      {contactFormLoading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          جاري الإرسال...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          إرسال
-                        </>
-                      )}
+                      <Send className="w-4 h-4" />
+                      إرسال
                     </button>
                   </div>
                 </form>

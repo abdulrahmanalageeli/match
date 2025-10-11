@@ -1619,32 +1619,35 @@ export default function WelcomePage() {
     );
   };
 
-  // Centered Contact Button Component - shows on pre-registration page
-  const CenteredContactButton = () => {
+  // Bottom Left Contact Button Component - shows on pre-registration page
+  const BottomLeftContactButton = () => {
     if (token || !showRegistrationContent) {
       return null;
     }
     
     return (
-      <div className="fixed top-2 sm:top-3 md:top-4 left-1/2 transform -translate-x-1/2 z-40">
+      <div className="fixed bottom-4 left-4 z-40 animate-in slide-in-from-left-5 fade-in duration-1000">
         <button
           onClick={() => setShowContactForm(true)}
-          className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-lg sm:rounded-xl px-4 py-2 sm:px-5 sm:py-2.5 shadow-lg sm:shadow-xl hover:shadow-purple-500/20 transition-all duration-500 ease-out hover:scale-105"
+          className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-xl px-4 py-3 shadow-lg hover:shadow-purple-500/25 transition-all duration-500 ease-out hover:scale-105 hover:-translate-y-1"
           title="تواصل معنا"
         >
           {/* Glow effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-700"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-purple-500/20 rounded-xl blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-700"></div>
+          
+          {/* Floating animation */}
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-400/10 via-pink-400/10 to-purple-400/10 animate-pulse"></div>
           
           {/* Icon and Text */}
           <div className="relative flex items-center gap-2" dir="rtl">
-            <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white drop-shadow-sm" />
-            <span className="text-white text-sm sm:text-base font-medium drop-shadow-sm">
+            <MessageCircle className="w-5 h-5 text-white drop-shadow-sm animate-bounce" style={{ animationDuration: '2s' }} />
+            <span className="text-white text-sm font-medium drop-shadow-sm">
               تواصل معنا
             </span>
           </div>
           
           {/* Animated border */}
-          <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+          <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
         </button>
       </div>
     );
@@ -3475,7 +3478,7 @@ export default function WelcomePage() {
     return (
       <>
         <LogoHeader />
-        <CenteredContactButton />
+        <BottomLeftContactButton />
         <ParticipantIcon />
         <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
@@ -4176,7 +4179,7 @@ export default function WelcomePage() {
         )}
 
         <LogoHeader />
-        <CenteredContactButton />
+        <BottomLeftContactButton />
         <ParticipantIcon />
         <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Animated Background Elements */}
@@ -4886,7 +4889,7 @@ export default function WelcomePage() {
     return (
       <>
         <LogoHeader />
-        <CenteredContactButton />
+        <BottomLeftContactButton />
         <ParticipantIcon />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Token Modal */}
@@ -4940,7 +4943,7 @@ export default function WelcomePage() {
   return (
       <>
         <LogoHeader />
-        <CenteredContactButton />
+        <BottomLeftContactButton />
         <ParticipantIcon />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
@@ -4960,7 +4963,7 @@ export default function WelcomePage() {
     return (
       <>
         <LogoHeader />
-        <CenteredContactButton />
+        <BottomLeftContactButton />
         <ParticipantIcon />
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-red-800 to-red-900 animate-in fade-in duration-500">
         <div className="text-center space-y-8 max-w-md mx-auto p-8">
@@ -5005,8 +5008,8 @@ export default function WelcomePage() {
     <>
       {/* Clickable Logo Header */}
       <LogoHeader />
-      {/* Centered Contact Button */}
-      <CenteredContactButton />
+      {/* Bottom Left Contact Button */}
+      <BottomLeftContactButton />
       {/* Participant Icon */}
       <ParticipantIcon />
       

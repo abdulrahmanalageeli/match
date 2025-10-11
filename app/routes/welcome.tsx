@@ -1626,7 +1626,7 @@ export default function WelcomePage() {
     }
     
     return (
-      <div className="fixed bottom-4 left-4 z-40 animate-in slide-in-from-left-5 fade-in duration-1000">
+      <div className="fixed bottom-4 left-4 z-40">
         <button
           onClick={() => setShowContactForm(true)}
           className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-xl px-4 py-3 shadow-lg hover:shadow-purple-500/25 transition-all duration-500 ease-out hover:scale-105 hover:-translate-y-1"

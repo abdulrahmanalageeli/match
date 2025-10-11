@@ -360,6 +360,7 @@ export default function WelcomePage() {
   const [contactForm, setContactForm] = useState({
     email: "",
     name: "",
+    phone: "",
     message: "",
     subject: ""
   })
@@ -2181,8 +2182,8 @@ export default function WelcomePage() {
   const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!contactForm.email || !contactForm.message) {
-      alert("❌ يرجى ملء البريد الإلكتروني والرسالة");
+    if (!contactForm.email || !contactForm.message || !contactForm.phone) {
+      alert("❌ يرجى ملء البريد الإلكتروني ورقم الهاتف والرسالة");
       return;
     }
 
@@ -2192,6 +2193,7 @@ export default function WelcomePage() {
       const formData = new FormData();
       formData.append('email', contactForm.email);
       formData.append('name', contactForm.name || 'غير محدد');
+      formData.append('phone', contactForm.phone);
       formData.append('subject', contactForm.subject || 'رسالة من BlindMatch');
       formData.append('message', contactForm.message);
       formData.append('_replyto', contactForm.email);
@@ -2206,7 +2208,7 @@ export default function WelcomePage() {
       
       if (response.ok) {
         alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
-        setContactForm({ email: "", name: "", message: "", subject: "" });
+        setContactForm({ email: "", name: "", phone: "", message: "", subject: "" });
         setShowContactForm(false);
       } else {
         throw new Error('Form submission failed');
@@ -2226,6 +2228,17 @@ export default function WelcomePage() {
       [field]: value
     }));
   };
+
+  // Initialize contact form with participant data when form opens
+  useEffect(() => {
+    if (showContactForm && participantName && assignedNumber) {
+      const participantDisplayName = `${participantName} | #${assignedNumber}`;
+      setContactForm(prev => ({
+        ...prev,
+        name: participantDisplayName
+      }));
+    }
+  }, [showContactForm, participantName, assignedNumber]);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark)
@@ -3628,18 +3641,23 @@ export default function WelcomePage() {
                   {/* Name Field */}
                   <div>
                     <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
-                      الاسم (اختياري)
+                      {participantName && assignedNumber ? "المشارك" : "الاسم (اختياري)"}
                     </label>
                     <input
                       type="text"
                       value={contactForm.name}
                       onChange={(e) => handleContactInputChange('name', e.target.value)}
                       placeholder="أدخل اسمك"
+                      readOnly={!!(participantName && assignedNumber)}
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
-                        dark 
-                          ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
-                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
-                      } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                        participantName && assignedNumber
+                          ? dark 
+                            ? "bg-slate-600 border-slate-500 text-slate-100 cursor-not-allowed" 
+                            : "bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed"
+                          : dark 
+                            ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                            : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                      } ${!(participantName && assignedNumber) ? 'focus:outline-none focus:ring-2 focus:ring-purple-500/20' : ''}`}
                     />
                   </div>
 
@@ -3653,6 +3671,26 @@ export default function WelcomePage() {
                       value={contactForm.email}
                       onChange={(e) => handleContactInputChange('email', e.target.value)}
                       placeholder="example@email.com"
+                      required
+                      className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
+                        dark 
+                          ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-purple-400" 
+                          : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500"
+                      } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
+                      dir="ltr"
+                    />
+                  </div>
+
+                  {/* Phone Field */}
+                  <div>
+                    <label className={`block text-sm font-medium mb-2 ${dark ? "text-slate-200" : "text-gray-700"}`}>
+                      رقم الهاتف *
+                    </label>
+                    <input
+                      type="tel"
+                      value={contactForm.phone}
+                      onChange={(e) => handleContactInputChange('phone', e.target.value)}
+                      placeholder="05xxxxxxxx"
                       required
                       className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
                         dark 
@@ -3706,7 +3744,7 @@ export default function WelcomePage() {
                       type="button"
                       onClick={() => {
                         setShowContactForm(false);
-                        setContactForm({ email: "", name: "", message: "", subject: "" });
+                        setContactForm({ email: "", name: "", phone: "", message: "", subject: "" });
                       }}
                       className={`flex-1 px-4 py-2 rounded-lg border transition-all duration-300 ${
                         dark 
@@ -3718,7 +3756,7 @@ export default function WelcomePage() {
                     </button>
                     <button
                       type="submit"
-                      disabled={contactFormLoading || !contactForm.email || !contactForm.message}
+                      disabled={contactFormLoading || !contactForm.email || !contactForm.message || !contactForm.phone}
                       className="flex-1 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
                       {contactFormLoading ? (

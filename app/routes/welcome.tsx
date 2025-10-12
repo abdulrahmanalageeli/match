@@ -1533,8 +1533,13 @@ export default function WelcomePage() {
       return null;
     }
     
+    // Use absolute positioning in round mode (step 4), fixed otherwise
+    const positionClass = step === 4 
+      ? "absolute top-4 left-1/2 transform -translate-x-1/2 z-[100]" 
+      : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
+    
     return (
-      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]">
+      <div className={positionClass}>
         <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
           <div className="flex items-center gap-3">
             {/* Logo - Center */}
@@ -1598,8 +1603,13 @@ export default function WelcomePage() {
       return null;
     }
     
+    // Use absolute positioning in round mode (step 4), fixed otherwise
+    const positionClass = step === 4 
+      ? "absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]" 
+      : "fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]";
+    
     return (
-    <div className="fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]">
+    <div className={positionClass}>
       <div className="flex flex-col items-end gap-2">
         {/* Logo */}
         <div 
@@ -1640,8 +1650,13 @@ export default function WelcomePage() {
       return null;
     }
     
+    // Use absolute positioning in round mode (step 4), fixed otherwise
+    const positionClass = step === 4 
+      ? "absolute bottom-4 left-4 z-[100]" 
+      : "fixed bottom-4 left-4 z-[100]";
+    
     return (
-      <div className="fixed bottom-4 left-4 z-[100]">
+      <div className={positionClass}>
         <button
           onClick={() => setShowContactForm(true)}
           className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-xl px-4 py-3 shadow-lg hover:shadow-purple-500/25 transition-all duration-500 ease-out hover:scale-105 hover:-translate-y-1"
@@ -1684,8 +1699,13 @@ export default function WelcomePage() {
       return null;
     }
     
+    // Use absolute positioning in round mode (step 4), fixed otherwise
+    const positionClass = step === 4 
+      ? "absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]" 
+      : "fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]";
+    
     return (
-      <div className="fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]">
+      <div className={positionClass}>
         <div className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105">
           <div className="relative">
             {/* Glow effect background */}
@@ -5310,14 +5330,14 @@ export default function WelcomePage() {
   
   return (
     <>
-      {/* Unified Navigation Bar */}
-      <NavigationBar />
-      {/* Clickable Logo Header */}
-      <LogoHeader />
-      {/* Bottom Left Contact Button */}
-      <BottomLeftContactButton />
-      {/* Participant Icon */}
-      <ParticipantIcon />
+      {/* Unified Navigation Bar - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <NavigationBar />}
+      {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <LogoHeader />}
+      {/* Bottom Left Contact Button - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <BottomLeftContactButton />}
+      {/* Participant Icon - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <ParticipantIcon />}
       
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -5970,6 +5990,14 @@ export default function WelcomePage() {
 
         {step === 4 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
+            {/* In-page navbar for round mode */}
+            <div className="relative mb-6">
+              <NavigationBar />
+              <LogoHeader />
+              <ParticipantIcon />
+              <BottomLeftContactButton />
+            </div>
+            
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>

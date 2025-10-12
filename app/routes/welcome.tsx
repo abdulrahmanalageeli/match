@@ -1572,32 +1572,30 @@ export default function WelcomePage() {
               </>
             )}
 
-            {/* Round Timer - Show only when accessing via token URL AND in round phase */}
+            {/* Global Timer - Show only when accessing via token URL AND in round phase */}
             {isTokenAndRoundPhase && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
                 <div className={`border rounded-full px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
-                  !round1TimerStarted
+                  !conversationStarted
                     ? "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30 text-blue-300"
-                    : round1LocalTimer <= 0 // Time's up
+                    : conversationTimer <= 0 // Time's up
                       ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/30 text-green-300"
-                      : round1LocalTimer <= 900 // Last 15 minutes
+                      : conversationTimer <= 300 // Last 5 minutes
                         ? "bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-400/30 text-red-300"
-                        : round1LocalTimer <= 1800 // 30 minutes or less
+                        : conversationTimer <= 900 // Last 15 minutes
                           ? "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-400/30 text-yellow-300"
                           : "bg-gradient-to-r from-orange-500/20 to-red-500/20 border-orange-400/30 text-orange-300"
                 }`}>
                   <Clock className="w-3 h-3" />
                   <span className="font-mono">
-                    {!round1TimerStarted 
+                    {!conversationStarted 
                       ? "انتظار" 
-                      : round1LocalTimer <= 0 
+                      : conversationTimer <= 0 
                         ? "انتهى!" 
-                        : `${Math.floor(round1LocalTimer / 60)}:${(round1LocalTimer % 60).toString().padStart(2, '0')}`
+                        : `${Math.floor(conversationTimer / 60)}:${(conversationTimer % 60).toString().padStart(2, '0')}`
                     }
                   </span>
-                  <div className="w-px h-3 bg-current/40"></div>
-                  <span className="text-current/80">الجولة 1</span>
                 </div>
               </>
             )}
@@ -6376,11 +6374,6 @@ export default function WelcomePage() {
                 </>
               ) : (
                 <>
-                  <h3 className={`text-xl font-bold text-center mb-4 ${
-                    dark ? "text-slate-200" : "text-gray-800"
-                  }`}>
-                    {matchResult === "المنظم" ? "حوار مع المنظم" : `حوار مع رقم ${matchResult}`}
-                  </h3>
                   
                   {/* Match Info Card - Compact - Same design as timer not active */}
                   <div className={`mb-6 p-4 rounded-xl border shadow-md ${

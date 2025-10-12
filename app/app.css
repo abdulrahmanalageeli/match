@@ -206,22 +206,22 @@
 html,
 body {
   @apply bg-white;
-  color-scheme: light !important;
+  color-scheme: light;
 }
 
 /* Force light mode - disable dark mode completely */
 :root {
-  color-scheme: light !important;
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    color-scheme: light !important;
+    color-scheme: light;
   }
   
   body {
-    @apply bg-white !important;
-    color-scheme: light !important;
+    @apply bg-white;
+    color-scheme: light;
   }
 }
 

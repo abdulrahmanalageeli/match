@@ -347,7 +347,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
         <DialogPortal>
           <DialogOverlay className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogContent
-          className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border border-white/20 shadow-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-white/10 backdrop-blur-xl text-white"
+          className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
           dir="rtl"
           aria-label="أسئلة للنقاش"
         >

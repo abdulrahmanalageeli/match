@@ -547,7 +547,7 @@ export default async function handler(req, res) {
         }
         
         // Handle gender preferences from new structure
-        const genderPref = answers.gender_preference || answers.same_gender_preference
+        const genderPref = answers.actual_gender_preference || answers.gender_preference || answers.same_gender_preference
         if (Array.isArray(genderPref)) {
           // Old checkbox structure: check for specific values
           updateFields.same_gender_preference = genderPref.includes('same_gender') || genderPref.includes('yes')

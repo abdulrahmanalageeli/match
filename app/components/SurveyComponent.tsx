@@ -75,16 +75,16 @@ const surveyQuestions = [
   {
     id: "gender_preference",
     question: "السؤال 4.5",
-    description: "تفضيلات التواصل",
+    description: "تبي تتعرف على:",
     type: "radio",
     options: [
-      { value: "opposite_gender", label: "الجنس الآخر (افتراضي)" },
-      { value: "same_gender", label: "نفس الجنس فقط" },
-      { value: "any_gender", label: "أي جنس (ذكر أو أنثى)" }
+      { value: "male", label: "ذكر" },
+      { value: "female", label: "أنثى" },
+      { value: "any", label: "مايفرق (ذكر او أنثى عادي)" }
     ],
     required: true,
     category: "personal_info",
-    defaultValue: "opposite_gender"
+    defaultValue: "any"
   },
   // Humor/Banter Style - Matching Determinant
   {
@@ -93,9 +93,9 @@ const surveyQuestions = [
     description: "في أول 10 دقائق، ما هو الأسلوب الذي يبدو طبيعياً لك؟",
     type: "radio",
     options: [
-      { value: "A", label: "المزاح والمرح" },
-      { value: "B", label: "النكات الودودة الخفيفة" },
-      { value: "C", label: "الصدق والدفء" },
+      { value: "A", label: "خفة دم وضحك" },
+      { value: "B", label: "كلام لطيف ومجاملة" },
+      { value: "C", label: "هدوء وصدق" },
       { value: "D", label: "المباشرة والجدية" }
     ],
     required: true,
@@ -702,6 +702,20 @@ const extractIdealPersonDescription = (answers: Record<string, string | string[]
   return '' // No longer needed as all information is in vibeDescription
 }
 
+// Function to determine actual gender preference based on user's gender and choice
+const determineGenderPreference = (answers: Record<string, string | string[]>): string => {
+  const userGender = answers['gender'] as string
+  const genderChoice = answers['gender_preference'] as string
+  
+  if (genderChoice === 'any') {
+    return 'any_gender'
+  } else if (genderChoice === userGender) {
+    return 'same_gender'
+  } else {
+    return 'opposite_gender'
+  }
+}
+
 const SurveyComponent = React.memo(function SurveyComponent({ 
   onSubmit, 
   surveyData, 
@@ -925,6 +939,9 @@ const SurveyComponent = React.memo(function SurveyComponent({
       const gender = surveyData.answers['gender'] as string
       const phoneNumber = surveyData.answers['phone_number'] as string
       
+      // Determine actual gender preference based on user's gender and choice
+      const actualGenderPreference = determineGenderPreference(surveyData.answers)
+      
       // Add all personality types and personal info to survey data
       const finalData = {
         ...surveyData,
@@ -937,7 +954,13 @@ const SurveyComponent = React.memo(function SurveyComponent({
         lifestylePreferences,
         coreValues,
         vibeDescription,
-        idealPersonDescription
+        idealPersonDescription,
+        // Store both the raw choice and the determined preference
+        answers: {
+          ...surveyData.answers,
+          // Add the determined preference for backend compatibility
+          actual_gender_preference: actualGenderPreference
+        }
       }
       
       onSubmit(finalData);

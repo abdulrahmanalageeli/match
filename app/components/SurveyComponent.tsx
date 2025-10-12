@@ -1206,7 +1206,7 @@ const SurveyComponent = React.memo(function SurveyComponent({
   )
 
   return (
-    <div className="bg-transparent">
+    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
@@ -1345,7 +1345,7 @@ const SurveyComponent = React.memo(function SurveyComponent({
         {/* Survey Content */}
         <div className="space-y-4">
           {currentPage === totalPages - 1 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-4">
+            <div className="bg-transparent rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-4">
               {renderTermsPage()}
             </div>
           ) : (

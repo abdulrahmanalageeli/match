@@ -4431,34 +4431,35 @@ export default function WelcomePage() {
                               </p>
                             </div>
                           </div>
+                          
+                          {/* Privacy Notice - Moved inside */}
+                          <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                            <div className="flex items-start gap-3">
+                              <Shield className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <h4 className="text-white font-semibold mb-1 text-sm">حماية الخصوصية</h4>
+                                <p className="text-cyan-200 text-xs">
+                                  معلوماتك الشخصية محمية تماماً ولن تُشارك إلا في حالة التطابق المتبادل بين الطرفين
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                           </div>
                         </div>
                       </div>
                     </details>
-
-                    {/* Privacy Notice */}
-                    <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-white/5 border border-white/10 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <h4 className="text-white font-semibold mb-2">حماية الخصوصية</h4>
-                          <p className="text-cyan-200 text-sm">
-                            معلوماتك الشخصية محمية تماماً ولن تُشارك إلا في حالة التطابق المتبادل بين الطرفين
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 </div>
 
-                {/* Registration Options - Card Style */}
-                <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
-                  <div className="text-center mb-6">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
-                    <p className="text-cyan-200 text-sm">اختر الطريقة المناسبة للانضمام</p>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Registration Options - Only for Non-Saved Users */}
+                {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                    <div className="text-center mb-6">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
+                      <p className="text-cyan-200 text-sm">اختر الطريقة المناسبة للانضمام</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     
                     {/* Previous Participant Card */}
                     <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300">
@@ -4468,61 +4469,35 @@ export default function WelcomePage() {
                       <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشارك سابق</h3>
                       
                       <p className="text-cyan-200 text-xs sm:text-sm mb-3">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
-                      {(resultToken || returningPlayerToken) ? (
-                        <>
-                          <Button
-                            onClick={handleAutoSignupNextEvent}
-                            disabled={nextEventSignupLoading || showNextEventSignup}
-                            className={`w-full spring-btn border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-base sm:text-lg py-3 sm:py-4 ${
-                              showNextEventSignup 
-                                ? "bg-gray-400 cursor-not-allowed opacity-60" 
-                                : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
-                            } text-white`}
-                          >
-                            {nextEventSignupLoading ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                جاري التسجيل...
-                              </div>
-                            ) : showNextEventSignup ? (
-                              "أنت مسجل بالفعل ✓"
-                            ) : (
-                              "سجل في الفعالية القادمة"
-                            )}
-                          </Button>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام رقم هاتفك</p>
-                          <p className="text-amber-300 text-xs sm:text-sm mb-3 sm:mb-4">ملاحظة: إذا كنت تريد تعديل استبيانك، فاستخدم رمزك الخاص في قسم 'لاعب عائد' أدناه.</p>
-                          
-                          <div className="space-y-3">
-                            <Input
-                              type="tel"
-                              placeholder="مثال: 0560123456 أو +966560123456"
-                              value={returningPhoneNumber}
-                              onChange={(e) => setReturningPhoneNumber(e.target.value)}
-                              className="w-full text-center bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:ring-green-400"
-                              dir="ltr"
-                            />
-
-                            <Button
-                              onClick={handleReturningParticipant}
-                              disabled={returningLoading || !returningPhoneNumber.trim()}
-                              className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {returningLoading ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                  جاري البحث...
-                                </div>
-                              ) : (
-                                "سجل في الفعالية القادمة"
-                              )}
-                            </Button>
-                          </div>
-                        </>
-                      )}
+                      
+                      <button
+                        onClick={handleAutoSignupNextEvent}
+                        disabled={nextEventSignupLoading || showNextEventSignup}
+                        className={`w-full border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform text-sm py-3 rounded-lg ${
+                          showNextEventSignup 
+                            ? "bg-gray-400 cursor-not-allowed opacity-60" 
+                            : "bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 hover:scale-105"
+                        } text-white`}
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          {nextEventSignupLoading ? (
+                            <>
+                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>جاري التسجيل...</span>
+                            </>
+                          ) : showNextEventSignup ? (
+                            <>
+                              <CheckCircle className="w-4 h-4" />
+                              <span>مسجل بالفعل ✓</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>سجل في الفعالية القادمة</span>
+                              <ChevronLeft className="w-4 h-4 transform rotate-180" />
+                            </>
+                          )}
+                        </div>
+                      </button>
                     </div>
 
                     {/* New Player Card */}
@@ -4603,67 +4578,26 @@ export default function WelcomePage() {
                         <RotateCcw className="w-6 h-6 text-white" />
                       </div>
                       <h3 className="text-base sm:text-lg font-bold text-white mb-2">لاعب عائد</h3>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">أدخل رمزك للعودة إلى رحلتك</p>
-                      {(localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token')) && !returningPlayerToken && (
-                        <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
-                          <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">العودة إلى رحلتك باستخدام البيانات المحفوظة</p>
+                      
+                      <button
+                        onClick={() => {
+                          const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
+                          if (token) {
+                            handleTokenNavigation(token);
+                          }
+                        }}
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-sm py-3 rounded-lg"
+                      >
+                        <div className="flex items-center justify-center gap-2">
+                          <span>العودة للرحلة</span>
+                          <ChevronLeft className="w-4 h-4 transform rotate-180" />
                         </div>
-                      )}
-                      {(() => {
-                        const securityStatus = getSecurityStatus('token');
-                        return securityStatus.message && (
-                          <div className={`text-xs p-2 rounded-lg mb-3 ${
-                            securityStatus.warningLevel === 'error' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                            securityStatus.warningLevel === 'warning' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                            'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                          }`}>
-                            {securityStatus.message}
-                          </div>
-                        );
-                      })()}
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="أدخل رمز الدخول..."
-                            value={returningPlayerToken}
-                            onChange={(e) => setReturningPlayerToken(e.target.value)}
-                            className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 transition-all duration-300 text-sm sm:text-base"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleTokenNavigation(returningPlayerToken);
-                              }
-                            }}
-                          />
-                          {returningPlayerToken && (localStorage.getItem('blindmatch_returning_token') === returningPlayerToken || localStorage.getItem('blindmatch_result_token') === returningPlayerToken) && (
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-md">
-                                <CheckCircle className="w-3 h-3 text-green-400" />
-                                <span className="text-xs text-green-300">محفوظ</span>
-                              </div>
-                              <button
-                                onClick={() => clearSpecificToken('returning')}
-                                className="p-1 rounded-full bg-red-500/20 border border-red-400/30 hover:bg-red-500/30 transition-colors"
-                                title="مسح الرمز المحفوظ"
-                              >
-                                <X className="w-3 h-3 text-red-400" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          onClick={() => {
-                            handleTokenNavigation(returningPlayerToken);
-                          }}
-                          disabled={getSecurityStatus('token').isLocked}
-                          className="w-full spring-btn bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        >
-                          العودة للرحلة
-                        </Button>
-                      </div>
+                      </button>
                     </div>
                   </div>
-                </div>
+                  </div>
+                )}
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
@@ -4674,7 +4608,7 @@ export default function WelcomePage() {
                         <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {/* Results Button */}
                         <button
                           onClick={() => {
@@ -4685,11 +4619,11 @@ export default function WelcomePage() {
                           }}
                           className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-105"
                         >
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
-                            <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
+                            <Search className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base sm:text-lg font-bold text-white mb-2">عرض نتائج المطابقة</h4>
-                          <p className="text-cyan-200 text-xs sm:text-sm mb-3">
+                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج المطابقة</h4>
+                          <p className="text-cyan-200 text-xs mb-3">
                             اعرض جميع نتائج المطابقة والتوافق الخاصة بك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-orange-300">
@@ -4703,17 +4637,48 @@ export default function WelcomePage() {
                           onClick={() => window.location.href = '/groups'}
                           className="group bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 transform hover:scale-105"
                         >
-                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
-                            <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
+                            <Users className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base sm:text-lg font-bold text-white mb-2">ألعاب جماعية</h4>
-                          <p className="text-cyan-200 text-xs sm:text-sm mb-3">
+                          <h4 className="text-base font-bold text-white mb-2">ألعاب جماعية</h4>
+                          <p className="text-cyan-200 text-xs mb-3">
                             30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
                           </p>
                           <div className="flex items-center justify-center gap-2 text-green-300">
                             <span className="text-xs font-medium">انقر للوصول</span>
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
+                        </button>
+
+                        {/* Next Event Signup Button */}
+                        <button
+                          onClick={handleAutoSignupNextEvent}
+                          disabled={nextEventSignupLoading || showNextEventSignup}
+                          className={`group transition-all duration-300 transform hover:scale-105 rounded-xl p-4 sm:p-6 text-center ${
+                            showNextEventSignup 
+                              ? "bg-gray-500/20 border-gray-400/30 cursor-not-allowed opacity-60" 
+                              : "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-green-500/30"
+                          }`}
+                        >
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                            showNextEventSignup 
+                              ? "bg-gray-500" 
+                              : "bg-gradient-to-r from-emerald-500 to-green-500"
+                          }`}>
+                            <UserCheck className="w-6 h-6 text-white" />
+                          </div>
+                          <h4 className="text-base font-bold text-white mb-2">
+                            {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
+                          </h4>
+                          <p className="text-cyan-200 text-xs mb-3">
+                            {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
+                          </p>
+                          {!showNextEventSignup && (
+                            <div className="flex items-center justify-center gap-2 text-emerald-300">
+                              <span className="text-xs font-medium">انقر للتسجيل</span>
+                              <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          )}
                         </button>
                       </div>
                       

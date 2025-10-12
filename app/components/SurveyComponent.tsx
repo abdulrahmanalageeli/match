@@ -116,38 +116,59 @@ const surveyQuestions = [
     required: true,
     category: "interaction_style"
   },
-  // MBTI Personality Type Dropdown
+  // MBTI Questions - Four individual questions to determine personality type
   {
-    id: "mbti_type",
+    id: "mbti_1",
     question: "السؤال 5",
-    description: "ما هو نوع شخصيتك حسب اختبار MBTI؟",
-    type: "select",
+    description: "عندما تتم دعوتك إلى مناسبة اجتماعية كبيرة، هل:",
+    type: "radio",
     options: [
-      { value: "INTJ", label: "INTJ - المعماري" },
-      { value: "INTP", label: "INTP - المنطقي" },
-      { value: "ENTJ", label: "ENTJ - القائد" },
-      { value: "ENTP", label: "ENTP - المبتكر" },
-      { value: "INFJ", label: "INFJ - المستشار" },
-      { value: "INFP", label: "INFP - الوسيط" },
-      { value: "ENFJ", label: "ENFJ - المعلم" },
-      { value: "ENFP", label: "ENFP - المبدع" },
-      { value: "ISTJ", label: "ISTJ - المفتش" },
-      { value: "ISFJ", label: "ISFJ - المدافع" },
-      { value: "ESTJ", label: "ESTJ - المدير" },
-      { value: "ESFJ", label: "ESFJ - القنصل" },
-      { value: "ISTP", label: "ISTP - الحرفي" },
-      { value: "ISFP", label: "ISFP - المغامر" },
-      { value: "ESTP", label: "ESTP - المقنع" },
-      { value: "ESFP", label: "ESFP - الممثل" }
+      { value: "أ", label: "أ. تشعر بالحماس لحضورها والتعرّف على أشخاص جدد، وربما تبقى حتى آخر الحفل" },
+      { value: "ب", label: "ب. تشعر بأنك أخذت كفايتك بعد فترة وجيزة وتفكر في المغادرة باكرًا لقضاء بعض الوقت الهادئ" }
     ],
     required: true,
-    category: "mbti",
-    helpText: "إذا كنت لا تعرف نوع شخصيتك، يمكنك اختبار مجاني على موقع 16personalities.com"
+    category: "mbti"
   },
-  // Attachment Style Questions 5-9
+  {
+    id: "mbti_2",
+    question: "السؤال 6",
+    description: "عندما تواجه مشكلة جديدة أو تحديًا غير مألوف، كيف تتعامل معه غالبًا؟",
+    type: "radio",
+    options: [
+      { value: "أ", label: "أ. تبحث عن حلول مجرّبة ومستندة إلى خبرات سابقة أو معلومات واضحة لتطبيقها على الموقف الحالي" },
+      { value: "ب", label: "ب. تفكر بأسلوب ابتكاري وتتبع حدسك في استكشاف حلول جديدة وغير تقليدية قد تقود إلى نتائج أفضل" }
+    ],
+    required: true,
+    category: "mbti"
+  },
+  {
+    id: "mbti_3",
+    question: "السؤال 7",
+    description: "عند اتخاذ قرار مصيري يؤثّر على الآخرين، هل تميل إلى:",
+    type: "radio",
+    options: [
+      { value: "أ", label: "أ. إعطاء الأولوية للمنطق والحقائق الموضوعية حتى لو أدى ذلك إلى إزعاج البعض بالحقيقة" },
+      { value: "ب", label: "ب. مراعاة مشاعر الأطراف المعنيّة والتأكد من أن القرار لا يسبب ضيقًا لأحد قدر الإمكان" }
+    ],
+    required: true,
+    category: "mbti"
+  },
+  {
+    id: "mbti_4",
+    question: "السؤال 8",
+    description: "إذا وضعت خطة مسبقًا لشيء ما (مثل رحلة أو مشروع) ثم تغيّرت الظروف بشكل مفاجئ واضطررت لتغيير خطتك، فكيف يكون شعورك؟",
+    type: "radio",
+    options: [
+      { value: "أ", label: "أ. تشعر بالتوتر والانزعاج لأنك تفضل الالتزام بالخطة الأصلية وتجد صعوبة في تقبّل التغيير المفاجئ" },
+      { value: "ب", label: "ب. تتأقلم بسهولة وترى في التغيير فرصة لخوض تجربة جديدة، ولا تمانع تعديل خططك حسب المعطيات الحالية" }
+    ],
+    required: true,
+    category: "mbti"
+  },
+  // Attachment Style Questions 9-13
   {
     id: "attachment_1",
-    question: "السؤال 5",
+    question: "السؤال 9",
     description: "كيف تشعر إذا لم يتواصل معك صديقك المقرّب لعدة أيام؟",
     type: "radio",
     options: [
@@ -161,7 +182,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_2",
-    question: "السؤال 6",
+    question: "السؤال 10",
     description: "كيف تتصرف عندما يحدث خلاف بينك وبين شخص قريب منك؟",
     type: "radio",
     options: [
@@ -175,7 +196,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_3",
-    question: "السؤال 7",
+    question: "السؤال 11",
     description: "ما شعورك تجاه القرب العاطفي من الآخرين؟",
     type: "radio",
     options: [
@@ -189,7 +210,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_4",
-    question: "السؤال 8",
+    question: "السؤال 12",
     description: "عندما تمرّ بوقت صعب، كيف تتعامل مع الأصدقاء؟",
     type: "radio",
     options: [
@@ -203,7 +224,7 @@ const surveyQuestions = [
   },
   {
     id: "attachment_5",
-    question: "السؤال 9",
+    question: "السؤال 13",
     description: "ما رأيك في العلاقات المقربة طويلة المدى؟",
     type: "radio",
     options: [
@@ -215,10 +236,10 @@ const surveyQuestions = [
     required: true,
     category: "attachment"
   },
-  // Lifestyle Questions 10-14
+  // Lifestyle Questions 14-18
   {
     id: "lifestyle_1",
-    question: "السؤال 10",
+    question: "السؤال 14",
     description: "في أي وقت من اليوم تكون عادة في أفضل حالتك؟",
     type: "radio",
     options: [
@@ -231,7 +252,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_2",
-    question: "السؤال 11",
+    question: "السؤال 15",
     description: "كم تفضل أن تتواصل مع صديقك المقرّب؟",
     type: "radio",
     options: [
@@ -244,7 +265,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_3",
-    question: "السؤال 12",
+    question: "السؤال 16",
     description: "كم تهمك المساحة الشخصية في علاقات الصداقة؟",
     type: "radio",
     options: [
@@ -257,7 +278,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_4",
-    question: "السؤال 13",
+    question: "السؤال 17",
     description: "كيف تفضل أن تدير وقتك عادة؟",
     type: "radio",
     options: [
@@ -270,7 +291,7 @@ const surveyQuestions = [
   },
   {
     id: "lifestyle_5",
-    question: "السؤال 14",
+    question: "السؤال 18",
     description: "كيف تحب تقضي نهاية الأسبوع غالبًا؟",
     type: "radio",
     options: [
@@ -281,10 +302,10 @@ const surveyQuestions = [
     required: true,
     category: "lifestyle"
   },
-  // Core Values Questions 15-19
+  // Core Values Questions 19-23
   {
     id: "core_values_1",
-    question: "السؤال 15",
+    question: "السؤال 19",
     description: "الصدق أم الحفاظ على العلاقة؟ صديقك ارتكب خطأ بسيط في العمل وطلب منك ألا تتدخل. فجأة، مديرك يسألك: \"هل كنت تعرف عن هذا؟\"",
     type: "radio",
     options: [
@@ -297,7 +318,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_2",
-    question: "السؤال 16",
+    question: "السؤال 20",
     description: "الطموح أم الاستقرار؟ صديقك قرر يترك وظيفة مستقرة ويبدأ مشروعًا من الصفر. يسألك عن رأيك بصراحة.",
     type: "radio",
     options: [
@@ -310,7 +331,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_3",
-    question: "السؤال 17",
+    question: "السؤال 21",
     description: "التقبل أم التشابه؟ بدأت تقترب من شخص تختلف معه في الدين أو القيم الثقافية، لكنه محترم. هل تعتقد أن علاقتكما ستنجح؟",
     type: "radio",
     options: [
@@ -323,7 +344,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_4",
-    question: "السؤال 18",
+    question: "السؤال 22",
     description: "الاعتماد أم الاستقلال؟ تمر بمرحلة صعبة، وصديقك المقرب لم يتواصل معك كثيرًا، لكنه قال إنه \"يعرف إنك تفضل الخصوصية.\"",
     type: "radio",
     options: [
@@ -336,7 +357,7 @@ const surveyQuestions = [
   },
   {
     id: "core_values_5",
-    question: "السؤال 19",
+    question: "السؤال 23",
     description: "الواجب الشخصي أم الحرية الفردية؟ صديقك قطع علاقته بشخص آخر لأنه أخطأ، ويطلب منك أن تفعل الشيء نفسه. الشخص الآخر لم يخطئ في حقك مباشرة.",
     type: "radio",
     options: [
@@ -348,10 +369,10 @@ const surveyQuestions = [
     category: "core_values"
   },
 
-  // Communication Style Questions 20-24
+  // Communication Style Questions 24-28
   {
     id: "communication_1",
-    question: "السؤال 20",
+    question: "السؤال 24",
     description: "إذا شعرت أن صديقك تخطى حدودك بطريقة أزعجتك، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -365,7 +386,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_2",
-    question: "السؤال 21",
+    question: "السؤال 25",
     description: "عندما تحتاج إلى شيء من شخص مقرّب، كيف تطلبه عادة؟",
     type: "radio",
     options: [
@@ -379,7 +400,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_3",
-    question: "السؤال 22",
+    question: "السؤال 26",
     description: "إذا لم يعجبك رأي في نقاش جماعي، كيف تتصرف؟",
     type: "radio",
     options: [
@@ -393,7 +414,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_4",
-    question: "السؤال 23",
+    question: "السؤال 27",
     description: "عندما تشعر بالتوتر أو الغضب، كيف تُعبّر عنه؟",
     type: "radio",
     options: [
@@ -407,7 +428,7 @@ const surveyQuestions = [
   },
   {
     id: "communication_5",
-    question: "السؤال 24",
+    question: "السؤال 28",
     description: "كيف تُعبّر عن رأيك عندما لا توافق أحدًا مقرّبًا منك؟",
     type: "radio",
     options: [
@@ -419,10 +440,10 @@ const surveyQuestions = [
     required: true,
     category: "communication"
   },
-  // Vibe and Compatibility Questions 25-30
+  // Vibe and Compatibility Questions 29-34
   {
     id: "vibe_1",
-    question: "السؤال 25",
+    question: "السؤال 29",
     description: "كيف توصف الويكند المثالي بالنسبه لك؟",
     type: "text",
     placeholder: "مثال: أحب النوم كثيراً، أخرج مع الأصدقاء، أشاهد الأفلام في البيت، أقرأ كتاب...",
@@ -432,7 +453,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_2",
-    question: "السؤال 26",
+    question: "السؤال 30",
     description: "عدد خمس هوايات تستمتع فيها؟",
     type: "text",
     placeholder: "مثال: القراءة، السفر، الطبخ، الرسم، الرياضة...",
@@ -442,7 +463,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_3",
-    question: "السؤال 27",
+    question: "السؤال 31",
     description: "لو بتروح حفل موسيقي، مين الفنان اللي تختار؟",
     type: "text",
     placeholder: "مثال: عبد المجيد عبد الله، أم كلثوم، Ed Sheeran، أو أي فنان تفضله...",
@@ -452,7 +473,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_4",
-    question: "السؤال 28",
+    question: "السؤال 32",
     description: "هل تحب السوالف العميقه والفلسفية؟",
     type: "radio",
     options: [
@@ -465,7 +486,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_5",
-    question: "السؤال 29",
+    question: "السؤال 33",
     description: "كيف يوصفونك اصدقائك بالعادة؟",
     type: "text",
     placeholder: "مثال: مضحك، هادئ، مستمع جيد، طموح، مساعد...",
@@ -475,7 +496,7 @@ const surveyQuestions = [
   },
   {
     id: "vibe_6",
-    question: "السؤال 30",
+    question: "السؤال 34",
     description: "كيف تصف اصدقائك؟",
     type: "text",
     placeholder: "مثال: مخلصين، مضحكين، داعمين، أذكياء، متفهمين...",
@@ -498,9 +519,31 @@ const convertArabicToEnglish = (input: string): string => {
   })
 }
 
-// Function to get MBTI personality type from dropdown
+// Function to calculate MBTI personality type from four questions
 const getMBTIType = (answers: Record<string, string | string[]>): string => {
-  const mbtiType = answers['mbti_type'] as string
+  // For each question, الخيار (أ) represents the first trait in the pair (E, S, T, or J) 
+  // and الخيار (ب) represents the second trait (I, N, F, or P)
+  
+  const mbti1 = answers['mbti_1'] as string // E vs I (Extroversion vs Introversion)
+  const mbti2 = answers['mbti_2'] as string // S vs N (Sensing vs Intuition)
+  const mbti3 = answers['mbti_3'] as string // T vs F (Thinking vs Feeling)
+  const mbti4 = answers['mbti_4'] as string // J vs P (Judging vs Perceiving)
+  
+  // Build MBTI type string
+  let mbtiType = ''
+  
+  // Question 1: Social events preference (E vs I)
+  mbtiType += (mbti1 === 'أ') ? 'E' : 'I'
+  
+  // Question 2: Problem solving approach (S vs N)
+  mbtiType += (mbti2 === 'أ') ? 'S' : 'N'
+  
+  // Question 3: Decision making style (T vs F)
+  mbtiType += (mbti3 === 'أ') ? 'T' : 'F'
+  
+  // Question 4: Planning preference (J vs P)
+  mbtiType += (mbti4 === 'أ') ? 'J' : 'P'
+  
   return mbtiType || ''
 }
 
@@ -513,7 +556,7 @@ const calculateAttachmentStyle = (answers: Record<string, string | string[]>): s
     د: 0  // Fearful/Disorganized
   }
 
-  // Count answers for attachment style questions (now questions 5-9)
+  // Count answers for attachment style questions (now questions 9-13)
   for (let i = 1; i <= 5; i++) {
     const questionId = `attachment_${i}`
     const answer = answers[questionId] as string
@@ -557,7 +600,7 @@ const calculateCommunicationStyle = (answers: Record<string, string | string[]>)
     د: 0  // Passive-Aggressive
   }
 
-  // Count answers for communication style questions (now questions 20-24)
+  // Count answers for communication style questions (now questions 24-28)
   for (let i = 1; i <= 5; i++) {
     const questionId = `communication_${i}`
     const answer = answers[questionId] as string
@@ -600,7 +643,7 @@ const calculateCommunicationStyle = (answers: Record<string, string | string[]>)
 const calculateLifestylePreferences = (answers: Record<string, string | string[]>): string => {
   const preferences = []
   
-  // Process each lifestyle question (now questions 10-14)
+  // Process each lifestyle question (now questions 14-18)
   for (let i = 1; i <= 5; i++) {
     const questionId = `lifestyle_${i}`
     const answer = answers[questionId] as string
@@ -618,7 +661,7 @@ const calculateLifestylePreferences = (answers: Record<string, string | string[]
 const calculateCoreValues = (answers: Record<string, string | string[]>): string => {
   const values = []
   
-  // Process each core values question (now questions 15-19)
+  // Process each core values question (now questions 19-23)
   for (let i = 1; i <= 5; i++) {
     const questionId = `core_values_${i}`
     const answer = answers[questionId] as string
@@ -632,7 +675,7 @@ const calculateCoreValues = (answers: Record<string, string | string[]>): string
   return values.join(',')
 }
 
-// Function to extract and merge vibe description from all 6 questions (now questions 25-30)
+// Function to extract and merge vibe description from all 6 questions (now questions 29-34)
 const extractVibeDescription = (answers: Record<string, string | string[]>): string => {
   const weekend = (answers['vibe_1'] as string) || ''
   const hobbies = (answers['vibe_2'] as string) || ''
@@ -858,22 +901,22 @@ const SurveyComponent = React.memo(function SurveyComponent({
     
     if (surveyData.termsAccepted && surveyData.dataConsent) {
       
-      // Get MBTI personality type from dropdown
+      // Get MBTI personality type from four questions (5-8)
       const mbtiType = getMBTIType(surveyData.answers)
       
-      // Calculate attachment style (questions 2-6)
+      // Calculate attachment style (questions 9-13)
       const attachmentStyle = calculateAttachmentStyle(surveyData.answers)
       
-      // Calculate communication style (questions 17-21)
+      // Calculate communication style (questions 24-28)
       const communicationStyle = calculateCommunicationStyle(surveyData.answers)
       
-      // Calculate lifestyle preferences (questions 7-11)
+      // Calculate lifestyle preferences (questions 14-18)
       const lifestylePreferences = calculateLifestylePreferences(surveyData.answers)
       
-      // Calculate core values (questions 12-16)
+      // Calculate core values (questions 19-23)
       const coreValues = calculateCoreValues(surveyData.answers)
       
-      // Extract vibe descriptions (questions 22-27)
+      // Extract vibe descriptions (questions 29-34)
       const vibeDescription = extractVibeDescription(surveyData.answers)
       const idealPersonDescription = extractIdealPersonDescription(surveyData.answers)
       

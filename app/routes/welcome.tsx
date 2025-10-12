@@ -4572,29 +4572,6 @@ export default function WelcomePage() {
                       </div>
                     )}
 
-                    {/* Returning Player Card */}
-                    <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300" id="returning-player">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3">
-                        <RotateCcw className="w-6 h-6 text-white" />
-                      </div>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-2">لاعب عائد</h3>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">العودة إلى رحلتك باستخدام البيانات المحفوظة</p>
-                      
-                      <button
-                        onClick={() => {
-                          const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
-                          if (token) {
-                            handleTokenNavigation(token);
-                          }
-                        }}
-                        className="w-full bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-sm py-3 rounded-lg"
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <span>العودة للرحلة</span>
-                          <ChevronLeft className="w-4 h-4 transform rotate-180" />
-                        </div>
-                      </button>
-                    </div>
                   </div>
                   </div>
                 )}
@@ -4679,6 +4656,30 @@ export default function WelcomePage() {
                               <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                             </div>
                           )}
+                        </button>
+
+                        {/* Returning Player Button */}
+                        <button
+                          onClick={() => {
+                            const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
+                            if (token) {
+                              handleTokenNavigation(token);
+                            }
+                          }}
+                          className="group bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 transform hover:scale-105"
+                          id="returning-player"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3">
+                            <RotateCcw className="w-6 h-6 text-white" />
+                          </div>
+                          <h4 className="text-base font-bold text-white mb-2">لاعب عائد</h4>
+                          <p className="text-cyan-200 text-xs mb-3">
+                            العودة إلى رحلتك باستخدام البيانات المحفوظة
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-purple-300">
+                            <span className="text-xs font-medium">العودة للرحلة</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
                         </button>
                       </div>
                       

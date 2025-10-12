@@ -1534,7 +1534,7 @@ export default function WelcomePage() {
     }
     
     return (
-      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]" style={{ position: 'fixed' }}>
+      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]" style={{ position: 'fixed', top: '1rem', left: '50%', transform: 'translateX(-50%)' }}>
         <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
           <div className="flex items-center gap-3">
             {/* Logo - Center */}
@@ -1599,7 +1599,7 @@ export default function WelcomePage() {
     }
     
     return (
-    <div className="fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]" style={{ position: 'fixed' }}>
+    <div className="fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]" style={{ position: 'fixed', top: '0.5rem', right: '0.5rem' }}>
       <div className="flex flex-col items-end gap-2">
         {/* Logo */}
         <div 
@@ -1641,7 +1641,7 @@ export default function WelcomePage() {
     }
     
     return (
-      <div className="fixed bottom-4 left-4 z-[100]" style={{ position: 'fixed' }}>
+      <div className="fixed bottom-4 left-4 z-[100]" style={{ position: 'fixed', bottom: '1rem', left: '1rem' }}>
         <button
           onClick={() => setShowContactForm(true)}
           className="group relative bg-gradient-to-br from-purple-600/90 via-purple-700/90 to-pink-600/90 backdrop-blur-xl border border-purple-400/20 rounded-xl px-4 py-3 shadow-lg hover:shadow-purple-500/25 transition-all duration-500 ease-out hover:scale-105 hover:-translate-y-1"
@@ -1685,7 +1685,7 @@ export default function WelcomePage() {
     }
     
     return (
-      <div className="fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]" style={{ position: 'fixed' }}>
+      <div className="fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]" style={{ position: 'fixed', top: '0.5rem', left: '0.5rem' }}>
         <div className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105">
           <div className="relative">
             {/* Glow effect background */}

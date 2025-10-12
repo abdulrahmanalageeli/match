@@ -234,12 +234,26 @@ export default function GroupsPage() {
 
   const currentGame = games[currentGameIndex];
 
-  // Handle browser back button to redirect to /welcome instead of exiting website
+  // Handle browser back button intelligently based on current state
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      // Prevent default back behavior and redirect to welcome page
       event.preventDefault();
-      window.location.href = "/welcome";
+      
+      // If currently in a game session, go back to main groups page
+      if (gameStarted) {
+        setGameStarted(false);
+        setCurrentGameIndex(0);
+        setGamePhase("intro");
+        setTimeRemaining(30 * 60); // Reset timer
+        setTimerActive(false);
+        setShowTimeUpModal(false);
+        setShowIndividualRoundsModal(false);
+        setCharadesTimerActive(false);
+        setCharadesTimer(90);
+      } else {
+        // If on main groups page, go to welcome page
+        window.location.href = "/welcome";
+      }
     };
 
     // Add event listener for browser back button
@@ -252,7 +266,7 @@ export default function GroupsPage() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, []);
+  }, [gameStarted]); // Add gameStarted as dependency
 
   // Load participant data and group assignment on component mount
   useEffect(() => {

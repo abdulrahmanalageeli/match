@@ -1618,7 +1618,7 @@ export default function WelcomePage() {
                     #{assignedNumber}
                   </div>
                   {participantName && (
-                    <span className="text-white/90 text-sm font-medium truncate max-w-[80px]">
+                    <span className="text-white/90 text-sm font-medium whitespace-nowrap">
                       {participantName}
                     </span>
                   )}
@@ -1690,7 +1690,12 @@ export default function WelcomePage() {
 
   // Bottom Left Contact Button Component - shows on pre-registration page
   const BottomLeftContactButton = () => {
-    if (token || !showRegistrationContent) {
+    // Check localStorage safely (client-side only)
+    const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
+    const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
+    
+    // Hide if user has token or saved tokens (NavigationBar will show contact button instead)
+    if (token || !showRegistrationContent || assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
       return null;
     }
     
@@ -3669,78 +3674,84 @@ export default function WelcomePage() {
         {/* New User Type Popup */}
         {showNewUserTypePopup && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="max-w-md w-full p-4 sm:p-6" dir="rtl">
+            <div className="max-w-md w-full bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6" dir="rtl">
+              {/* Header with centered logo and help icon */}
               <div className="text-center mb-6">
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
-                    <UserPlus className="w-6 h-6 text-white" />
+                <div className="flex items-center justify-center mb-4">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                    <UserPlus className="w-8 h-8 text-white" />
                   </div>
+                </div>
+                <div className="flex items-center justify-center gap-2 mb-4">
+                  <h3 className="text-xl font-bold text-white">مرحباً بك!</h3>
                   <button
                     onClick={() => setShowInfoPopup(true)}
-                    className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all duration-300"
-                    title="معلومات مفصلة"
+                    className="group relative w-6 h-6 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 flex items-center justify-center hover:from-cyan-500/40 hover:to-blue-500/40 transition-all duration-300"
+                    title="اضغط لمعرفة المزيد عن النظام"
                   >
-                    <HelpCircle className="w-4 h-4 text-white" />
+                    <HelpCircle className="w-3 h-3 text-cyan-300" />
+                    {/* Pulsing indicator */}
+                    <div className="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping"></div>
                   </button>
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">مرحباً بك!</h3>
-                <p className="text-cyan-200 text-xs sm:text-sm">هل سبق لك التسجيل في فعالياتنا من قبل؟</p>
+                <p className="text-slate-300 text-sm">هل سبق لك التسجيل في فعالياتنا من قبل؟</p>
               </div>
               
-              <div className="grid grid-cols-1 gap-4">
-                {/* Returning User Option - Full Width */}
-                <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
-                    <RotateCcw className="w-6 h-6 text-white" />
+              <div className="space-y-4">
+                {/* Returning User Option */}
+                <div className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-400/30 rounded-xl p-5 hover:from-green-500/20 hover:to-emerald-500/20 transition-all duration-300">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                      <RotateCcw className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-white">نعم، لدي رمز مميز</h4>
+                      <p className="text-green-200 text-xs">أدخل رمزك المميز لاستعادة بياناتك</p>
+                    </div>
                   </div>
-                  <h4 className="text-base font-bold text-white mb-2">نعم، لدي رمز مميز</h4>
-                  <p className="text-cyan-200 text-xs mb-3">
-                    أدخل رمزك المميز لاستعادة بياناتك
-                  </p>
                   <div className="space-y-3">
                     <input
                       type="text"
                       value={newUserTokenInput}
                       onChange={(e) => setNewUserTokenInput(e.target.value)}
                       placeholder="أدخل الرمز المميز"
-                      className="w-full px-3 py-2 text-sm rounded-lg border bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                      className="w-full px-4 py-3 text-sm rounded-lg border bg-slate-700/50 border-slate-600 text-white placeholder-slate-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20"
                       dir="ltr"
                     />
                     <button
                       onClick={handleReturningUserToken}
                       disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                      className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="w-full px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
                     >
                       {newUserTokenLoading ? (
                         <>
                           <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          <span className="text-xs font-medium">جاري التحقق...</span>
+                          <span>جاري التحقق...</span>
                         </>
                       ) : (
                         <>
                           <CheckCircle className="w-4 h-4" />
-                          <span className="text-xs font-medium">استعادة البيانات</span>
+                          <span>استعادة البيانات</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
 
-                {/* New User Option - Full Width */}
+                {/* New User Option */}
                 <button
                   onClick={handleNewUserDirect}
-                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-105"
+                  className="w-full bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-400/30 rounded-xl p-5 hover:from-cyan-500/20 hover:to-blue-500/20 transition-all duration-300 transform hover:scale-[1.02]"
                 >
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
-                    <Sparkles className="w-6 h-6 text-white" />
-                  </div>
-                  <h4 className="text-base font-bold text-white mb-2">لا، أنا مشارك جديد</h4>
-                  <p className="text-cyan-200 text-xs mb-3">
-                    ابدأ رحلتك معنا من البداية
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-cyan-300">
-                    <span className="text-xs font-medium">لاعب جديد</span>
-                    <ChevronLeft className="w-4 h-4 transform rotate-180" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
+                      <Sparkles className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="text-right">
+                      <h4 className="text-base font-bold text-white mb-1">لا، أنا مشارك جديد</h4>
+                      <p className="text-cyan-200 text-xs">ابدأ رحلتك معنا من البداية</p>
+                    </div>
+                    <ChevronLeft className="w-5 h-5 text-cyan-300 transform rotate-180 ml-auto" />
                   </div>
                 </button>
               </div>
@@ -4552,7 +4563,7 @@ export default function WelcomePage() {
                       </div>
 
                       <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
-                        نظام التوافق الذكي
+                        التوافق الأعمى
                       </h1>
                       <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
                         اكتشف أشخاص متوافقين معك من خلال الذكاء الاصطناعي المتقدم

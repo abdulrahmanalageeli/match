@@ -2274,7 +2274,7 @@ export default function WelcomePage() {
     }, 300); // Small delay to allow popup to close
   };
 
-  // Handle new user direct action (like clicking the main page button)
+  // Handle new user direct action (same as main page button)
   const handleNewUserDirect = async () => {
     setShowNewUserTypePopup(false);
     setNewUserTokenInput("");
@@ -2297,13 +2297,12 @@ export default function WelcomePage() {
       }
       
       if (res.ok && data.secure_token) {
-        setAssignedNumber(data.assigned_number);
         // Mark just-created to show modal after redirect
         sessionStorage.setItem('justCreatedToken', '1');
         sessionStorage.setItem('justCreatedTokenValue', data.secure_token);
         saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
         
-        // Navigate to survey
+        // Navigate to survey with token
         window.location.href = `/welcome?token=${data.secure_token}`;
       } else {
         console.error("Failed to create token:", data);
@@ -2435,12 +2434,14 @@ export default function WelcomePage() {
       console.log('ℹ️ No saved tokens found in localStorage');
       
       // Show new user type popup for users without saved credentials
-      // Only on main page (step 0) and no token in URL
-      if (!token && step === 0) {
+      // Show new user type popup for users without tokens (but not if URL has token parameter)
+      if (!token && step === 0 && !window.location.search.includes('token=')) {
         console.log('🆕 New user detected, showing user type popup...');
         setTimeout(() => {
           setShowNewUserTypePopup(true);
         }, 1000); // Small delay to let page load
+      } else {
+        console.log('❌ Skipping new user type popup since URL has token parameter or user is not on main page');
       }
       
       setTokenValidationCompleted(true);

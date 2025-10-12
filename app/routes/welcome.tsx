@@ -4181,23 +4181,107 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          {/* Floating orbs */}
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
+                i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 4) * 20}px`,
+                top: `${10 + (i * 10) % 70}%`,
+                left: `${5 + (i * 13) % 85}%`,
+                animationDelay: `${i * 0.7}s`,
+                zIndex: 0,
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 opacity-20" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B7280' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}></div>
 
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-4xl w-full">
-            {/* Simple Loading Animation */}
+            {/* Initial Loading Animation */}
             {!showRegistrationContent && (
               <div className="text-center">
-                <div className="mb-8">
-                  <div className="w-20 h-20 mx-auto mb-6 bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-700">
-                    <img src={logoPng} alt="BlindMatch" className="w-12 h-12 object-contain" />
+                <div className="relative inline-block mb-8">
+                  {/* AI Loading Effect */}
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gradient-to-r from-cyan-600 to-blue-700 rounded-full flex items-center justify-center mx-auto mb-8 animate-pulse">
+                    <Brain className="w-12 h-12 sm:w-16 sm:h-16 text-white animate-spin" />
                   </div>
-                  <h1 className="text-3xl font-bold text-white mb-4">
-                    نظام التوافق الذكي
+                  
+                  {/* Neural Network Animation */}
+                  <div className="relative w-64 h-32 mx-auto mb-8">
+                    {[...Array(6)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-2 h-2 bg-cyan-400 rounded-full animate-ping"
+                        style={{
+                          left: `${20 + (i * 40)}px`,
+                          top: `${20 + (i % 2) * 80}px`,
+                          animationDelay: `${i * 0.2}s`,
+                        }}
+                      />
+                    ))}
+                    {[...Array(5)].map((_, i) => (
+                      <div
+                        key={`line-${i}`}
+                        className="absolute h-px bg-gradient-to-r from-cyan-400 to-transparent animate-pulse"
+                        style={{
+                          left: `${20 + (i * 40)}px`,
+                          top: `${60 + (i % 2) * 20}px`,
+                          width: '40px',
+                          animationDelay: `${i * 0.3}s`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  
+                  <h1 className="text-2xl sm:text-4xl font-bold text-white mb-4 tracking-tight animate-in slide-in-from-bottom-4 duration-1000">
+                    <div className="relative inline-block">
+                      {/* Animated Background Glow */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-600 to-purple-600 rounded-3xl blur-2xl opacity-30 animate-pulse"></div>
+                      
+                      {/* Main Logo Container */}
+                      <div className="relative bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 rounded-3xl p-6 sm:p-8 border border-cyan-400/30 shadow-2xl">
+                        {/* Animated Border */}
+                        <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 opacity-20 animate-spin" style={{ animationDuration: '8s' }}></div>
+                        
+                        {/* Logo Content */}
+                        <div className="relative flex items-center justify-center">
+                          <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
+                        </div>
+                        
+                        {/* Floating Particles */}
+                        <div className="absolute inset-0 overflow-hidden rounded-3xl">
+                          {[...Array(8)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-ping"
+                              style={{
+                                left: `${15 + (i * 12)}%`,
+                                top: `${25 + (i % 2) * 50}%`,
+                                animationDelay: `${i * 0.2}s`,
+                                animationDuration: '2s'
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
                   </h1>
-                  <p className="text-slate-300 text-lg">
-                    جاري التحميل...
+                  <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed animate-in slide-in-from-bottom-4 duration-1000 delay-300">
+                    جاري تحميل الذكاء الاصطناعي...
                   </p>
                 </div>
               </div>
@@ -4207,84 +4291,155 @@ export default function WelcomePage() {
             {showRegistrationContent && (
               <>
                 {/* Header Section */}
-                <div className="text-center mb-12 pt-20">
-                  <h1 className="text-4xl sm:text-5xl font-bold text-white mb-6">
-                    نظام التوافق الذكي
-                  </h1>
-                  <p className="text-xl text-slate-300 max-w-2xl mx-auto mb-8">
-                    اكتشف أشخاص متوافقين معك من خلال الذكاء الاصطناعي المتقدم
-                  </p>
-                  
-                  {/* Clean Disclaimer */}
-                  <div className="max-w-3xl mx-auto">
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-lg px-6 py-4">
-                      <p className="text-sm text-slate-400">
-                        هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
+                <div className="text-center mb-8 sm:mb-12 pt-32 animate-in slide-in-from-bottom-4 duration-1000">
+                  <div className="relative inline-block mb-6 sm:mb-8">
+                      <div className="flex items-center justify-center mb-4 sm:mb-6">
+                      </div>
+
+                      <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
+                        نظام التوافق الذكي
+                      </h1>
+                      <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
+                        اكتشف أشخاص متوافقين معك من خلال الذكاء الاصطناعي المتقدم
                       </p>
+                      
+                      {/* Sleek Disclaimer */}
+                      <div className="mt-6 max-w-3xl mx-auto">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm border ${
+                          dark ? "bg-slate-800/30 border-slate-600/50 text-slate-300" : "bg-white/20 border-white/30 text-gray-700"
+                        }`}>
+                          <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs sm:text-sm font-medium">
+                            هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                {/* Simple Features List */}
-                <div className="max-w-2xl mx-auto mb-12">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
-                      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Users className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">لقاءات ذكية</h3>
-                        <p className="text-slate-400 text-sm">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
-                      </div>
+                {/* Features Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-200">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                     </div>
-                    
-                    <div className="flex items-center gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
-                      <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Brain className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">تحليل متقدم</h3>
-                        <p className="text-slate-400 text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
-                      </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
+                    <p className="text-cyan-200 text-xs sm:text-sm">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-400">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                     </div>
-                    
-                    <div className="flex items-center gap-4 p-4 bg-slate-800/30 border border-slate-700 rounded-lg">
-                      <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Target className="w-5 h-5 text-white" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">نتائج دقيقة</h3>
-                        <p className="text-slate-400 text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
-                      </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل متقدم</h3>
+                    <p className="text-cyan-200 text-xs sm:text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
+                  </div>
+                  
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 sm:col-span-2 lg:col-span-1 animate-in slide-in-from-bottom-4 duration-1000 delay-600">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Target className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
                     </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">نتائج دقيقة</h3>
+                    <p className="text-cyan-200 text-xs sm:text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
                   </div>
                 </div>
 
-                {/* How it Works */}
-                <div className="max-w-3xl mx-auto mb-12">
-                  <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
-                    <h2 className="text-2xl font-bold text-white mb-6 text-center">كيف يعمل النظام؟</h2>
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                        <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
-                        <span className="text-slate-300">املأ استبيان التوافق</span>
+                {/* Process Guide */}
+                <div className="max-w-4xl mx-auto px-4 mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                    <details className="group">
+                      <summary className="flex items-center justify-center text-xl sm:text-2xl font-bold text-white mb-3 cursor-pointer list-none">
+                        <h2 className="inline">كيف يعمل النظام؟</h2>
+                        <ChevronLeft className="w-6 h-6 ml-2 transition-transform duration-300 group-open:rotate-[-90deg]" />
+                      </summary>
+                      
+                      <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1000px]">
+                        <div className="text-center mb-6 sm:mb-8 pt-4">
+                          <p className="text-cyan-200 text-sm sm:text-base max-w-3xl mx-auto">
+                            نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
+                          </p>
+                        </div>
+                        
+                        <div className="space-y-6 sm:space-y-8">
+                          {/* Step 1 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">1</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">املأ استبيان التوافق</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                أجب على أسئلة شخصية مدروسة لتحليل شخصيتك وتفضيلاتك بدقة
+                              </p>
+                            </div>
+                            <div className="hidden sm:block flex-shrink-0">
+                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                            </div>
+                          </div>
+
+                          {/* Step 2 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">2</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل ذكي للتوافق</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                الذكاء الاصطناعي يحلل جميع المشاركين ويجد أكثر الأشخاص توافقاً معك
+                              </p>
+                            </div>
+                            <div className="hidden sm:block flex-shrink-0">
+                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                            </div>
+                          </div>
+
+                          {/* Step 3 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">3</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تواصل عبر واتساب</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                سيتم التواصل معك عبر واتساب للدفع وتأكيد حضورك للفعالية
+                              </p>
+                            </div>
+                            <div className="hidden sm:block flex-shrink-0">
+                              <ChevronLeft className="w-6 h-6 text-cyan-400 transform rotate-180" />
+                            </div>
+                          </div>
+
+                          {/* Step 4 */}
+                          <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                            <div className="flex-shrink-0">
+                              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold text-lg sm:text-xl">4</span>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاء وقرار التطابق</h3>
+                              <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                                تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                        <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
-                        <span className="text-slate-300">تحليل ذكي للتوافق</span>
-                      </div>
-                      <div className="flex items-center gap-3 p-3 bg-slate-700/30 rounded-lg">
-                        <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
-                        <span className="text-slate-300">لقاء وقرار التطابق</span>
-                      </div>
-                    </div>
-                    
-                    <div className="mt-6 p-4 bg-slate-700/20 border border-slate-600 rounded-lg">
+                    </details>
+
+                    {/* Privacy Notice */}
+                    <div className="mt-6 sm:mt-8 p-4 sm:p-6 bg-white/5 border border-white/10 rounded-lg">
                       <div className="flex items-start gap-3">
-                        <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-400 flex-shrink-0 mt-0.5" />
                         <div>
-                          <h4 className="text-white font-medium mb-1">حماية الخصوصية</h4>
-                          <p className="text-slate-400 text-sm">
-                            معلوماتك محمية ولن تُشارك إلا في حالة التطابق المتبادل
+                          <h4 className="text-white font-semibold mb-2">حماية الخصوصية</h4>
+                          <p className="text-cyan-200 text-sm">
+                            معلوماتك الشخصية محمية تماماً ولن تُشارك إلا في حالة التطابق المتبادل بين الطرفين
                           </p>
                         </div>
                       </div>
@@ -4293,8 +4448,8 @@ export default function WelcomePage() {
                 </div>
 
                 {/* Registration Options */}
-                <div id="start-journey" className="max-w-2xl mx-auto">
-                  <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-6">
+                <div id="start-journey" className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
                     <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
                     
                     {/* Returning Participant for Next Event Option */}

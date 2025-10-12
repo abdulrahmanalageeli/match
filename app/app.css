@@ -205,10 +205,23 @@
 
 html,
 body {
-  @apply bg-white dark:bg-gray-950;
+  @apply bg-white;
+  color-scheme: light !important;
+}
 
-  @media (prefers-color-scheme: dark) {
-    color-scheme: dark;
+/* Force light mode - disable dark mode completely */
+:root {
+  color-scheme: light !important;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: light !important;
+  }
+  
+  body {
+    @apply bg-white !important;
+    color-scheme: light !important;
   }
 }
 

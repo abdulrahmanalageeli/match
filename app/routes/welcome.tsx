@@ -5995,7 +5995,7 @@ export default function WelcomePage() {
         {step === 4 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             {/* In-page navbar for round mode */}
-            <div className="relative mb-6">
+            <div className="relative mb-12">
               <NavigationBar />
               <LogoHeader />
               <ParticipantIcon />

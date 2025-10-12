@@ -1585,7 +1585,11 @@ export default function WelcomePage() {
   // Unified Navigation Bar for saved users (similar to groups page)
   const NavigationBar = () => {
     // Show for users with saved tokens or assigned numbers
-    if ((!token && !showRegistrationContent) || (!assignedNumber && !resultToken && !returningPlayerToken && !localStorage.getItem('blindmatch_result_token') && !localStorage.getItem('blindmatch_returning_token'))) {
+    // Check localStorage safely (client-side only)
+    const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
+    const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
+    
+    if ((!token && !showRegistrationContent) || (!assignedNumber && !resultToken && !returningPlayerToken && !hasStoredResultToken && !hasStoredReturningToken)) {
       return null;
     }
     
@@ -1628,7 +1632,7 @@ export default function WelcomePage() {
               {/* Action Buttons - Right */}
               <div className="flex items-center gap-2 shrink-0">
                 {/* Returning Player Button - only show if user has saved tokens */}
-                {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                {(resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) && (
                   <button
                     onClick={() => {
                       const targetId = 'returning-player';
@@ -1667,8 +1671,12 @@ export default function WelcomePage() {
       return null;
     }
     
+    // Check localStorage safely (client-side only)
+    const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
+    const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
+    
     // Hide if user has saved tokens (NavigationBar will show instead)
-    if (assignedNumber || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) {
+    if (assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
       return null;
     }
     
@@ -1739,8 +1747,12 @@ export default function WelcomePage() {
 
   // Participant Icon Component - shows when user has saved token (but NavigationBar is not showing)
   const ParticipantIcon = () => {
+    // Check localStorage safely (client-side only)
+    const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
+    const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
+    
     // Hide if NavigationBar should be showing instead
-    if (assignedNumber || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) {
+    if (assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
       return null;
     }
     

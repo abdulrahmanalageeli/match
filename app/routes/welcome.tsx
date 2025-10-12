@@ -1571,15 +1571,19 @@ export default function WelcomePage() {
               </>
             )}
 
-            {/* Contact Button */}
-            <div className="w-px h-4 bg-slate-600"></div>
-            <button
-              onClick={() => setShowContactForm(true)}
-              className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
-            >
-              <MessageCircle className="w-3 h-3" />
-              <span className="hidden sm:inline">تواصل</span>
-            </button>
+            {/* Contact Button - Hide in round mode (step 4) */}
+            {step !== 4 && (
+              <>
+                <div className="w-px h-4 bg-slate-600"></div>
+                <button
+                  onClick={() => setShowContactForm(true)}
+                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
+                >
+                  <MessageCircle className="w-3 h-3" />
+                  <span className="hidden sm:inline">تواصل</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -6035,12 +6039,6 @@ export default function WelcomePage() {
               {/* Player Avatar - Right corner (original position) */}
               <div className="absolute -top-3 -right-3 z-10">
                 <ParticipantBadge size="small" />
-              </div>
-
-              <div className="flex justify-center mb-4">
-                <Target className={`w-12 h-12 animate-bounce ${
-                  dark ? "text-slate-400" : "text-gray-600"
-                }`} />
               </div>
               
               {!conversationStarted ? (

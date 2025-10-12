@@ -3697,7 +3697,7 @@ export default function WelcomePage() {
                 title="الأسئلة الشائعة"
               >
                 <MessageCircle className="w-4 h-4 text-orange-300" />
-                <span className="text-orange-300 text-xs font-medium">FAQ</span>
+                <span className="text-orange-300 text-xs font-medium">أسئلة شائعة</span>
                 {/* Pulsing indicator */}
                 <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-orange-400/60 animate-ping"></div>
               </button>
@@ -3962,7 +3962,7 @@ export default function WelcomePage() {
                     </h4>
                     <p className="text-slate-300 text-sm leading-relaxed">
                       يتم التوافق مع أشخاص قريبين من عمرك لضمان التجانس في مراحل الحياة والاهتمامات. 
-                      الفارق العمري المسموح عادة لا يتجاوز 5-7 سنوات، مما يضمن وجود أرضية مشتركة للحديث والتفاهم.
+                      الفارق العمري المسموح لا يتجاوز 5 سنوات إلا في حالات معينة، مما يضمن وجود أرضية مشتركة للحديث والتفاهم.
                     </p>
                   </div>
 

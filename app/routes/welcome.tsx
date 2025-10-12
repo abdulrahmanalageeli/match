@@ -1641,6 +1641,29 @@ export default function WelcomePage() {
     );
   };
 
+  // Top Left Help Button Component
+  const TopLeftHelpButton = () => {
+    // Only show for new users (when no token and showRegistrationContent is true)
+    if (token || !showRegistrationContent) {
+      return null;
+    }
+    
+    return (
+      <div className="fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setShowInfoPopup(true)}
+          className="group relative bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl px-4 py-3 flex items-center gap-3 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 backdrop-blur-sm"
+          title="اضغط لمعرفة المزيد عن الفعالية"
+        >
+          <HelpCircle className="w-5 h-5 text-cyan-300" />
+          <span className="text-cyan-300 text-sm font-medium">شرح الفعالية</span>
+          {/* Pulsing indicator */}
+          <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyan-400/60 animate-ping"></div>
+        </button>
+      </div>
+    );
+  };
+
   // Reusable Logo Component for non-saved users
   const LogoHeader = () => {
     // Hide logo during loading screen and if NavigationBar is showing
@@ -3682,17 +3705,8 @@ export default function WelcomePage() {
                     <UserPlus className="w-8 h-8 text-white" />
                   </div>
                 </div>
-                <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="flex items-center justify-center mb-4">
                   <h3 className="text-xl font-bold text-white">مرحباً بك!</h3>
-                  <button
-                    onClick={() => setShowInfoPopup(true)}
-                    className="group relative w-6 h-6 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 flex items-center justify-center hover:from-cyan-500/40 hover:to-blue-500/40 transition-all duration-300"
-                    title="اضغط لمعرفة المزيد عن النظام"
-                  >
-                    <HelpCircle className="w-3 h-3 text-cyan-300" />
-                    {/* Pulsing indicator */}
-                    <div className="absolute inset-0 rounded-full bg-cyan-400/20 animate-ping"></div>
-                  </button>
                 </div>
                 <p className="text-slate-300 text-sm">هل سبق لك التسجيل في فعالياتنا من قبل؟</p>
               </div>
@@ -4717,8 +4731,8 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
-                {/* Registration Options - Only for Non-Saved Users */}
-                {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}
+                {false && !(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
                     <div className="text-center mb-6">
                       <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
@@ -4772,7 +4786,7 @@ export default function WelcomePage() {
                         <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
                           <UserPlus className="w-6 h-6 text-white" />
                         </div>
-                        <h3 className="text-base sm:text-lg font-bold text-white mb-2">لاعب جديد</h3>
+                        <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشترك جديد</h3>
                         <p className="text-cyan-200 text-xs sm:text-sm mb-3">احصل على رقم مخصص وابدأ رحلة التوافق</p>
                           <Button
                             onClick={async () => {
@@ -5223,6 +5237,8 @@ export default function WelcomePage() {
   
   return (
     <>
+      {/* Top Left Help Button */}
+      <TopLeftHelpButton />
       {/* Unified Navigation Bar */}
       <NavigationBar />
       {/* Clickable Logo Header */}

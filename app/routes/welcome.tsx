@@ -1594,70 +1594,47 @@ export default function WelcomePage() {
     }
     
     return (
-      <div className="fixed top-4 left-4 right-4 z-50">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-lg px-3 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
-            <div className="flex items-center justify-between gap-2">
-              {/* Logo - Compact */}
-              <div 
-                onClick={handleLogoClick}
-                className="cursor-pointer transition-all duration-200 hover:opacity-80 shrink-0"
-              >
-                <img 
-                  src={logoPng} 
-                  alt="BlindMatch" 
-                  className="w-8 h-8 sm:w-9 sm:h-9 object-contain" 
-                />
-              </div>
-
-              {/* Participant Info - Center */}
-              <div className="flex items-center gap-3 sm:gap-6 flex-1 justify-center">
-                {assignedNumber && (
-                  <div className="flex items-center gap-1.5">
-                    <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm sm:text-base">
-                      #{assignedNumber}
-                    </div>
-                    {participantName && (
-                      <>
-                        <div className="w-px h-4 bg-slate-600"></div>
-                        <span className="text-white/90 text-sm sm:text-base font-medium truncate max-w-[100px] sm:max-w-[150px]">
-                          {participantName}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons - Right */}
-              <div className="flex items-center gap-2 shrink-0">
-                {/* Returning Player Button - only show if user has saved tokens */}
-                {(resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) && (
-                  <button
-                    onClick={() => {
-                      const targetId = 'returning-player';
-                      const element = document.getElementById(targetId);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    }}
-                    className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-lg px-2 py-1.5 text-xs sm:text-sm font-medium text-purple-300 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4" />
-                    <span className="hidden sm:inline">لاعب عائد</span>
-                  </button>
-                )}
-
-                {/* Contact Button */}
-                <button
-                  onClick={() => setShowContactForm(true)}
-                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-lg px-2 py-1.5 text-xs sm:text-sm font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
-                >
-                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">تواصل معنا</span>
-                </button>
-              </div>
+      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50">
+        <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            {/* Logo - Center */}
+            <div 
+              onClick={handleLogoClick}
+              className="cursor-pointer transition-all duration-200 hover:opacity-80"
+            >
+              <img 
+                src={logoPng} 
+                alt="BlindMatch" 
+                className="w-8 h-8 object-contain" 
+              />
             </div>
+
+            {/* Participant Info */}
+            {assignedNumber && (
+              <>
+                <div className="w-px h-4 bg-slate-600"></div>
+                <div className="flex items-center gap-1.5">
+                  <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm">
+                    #{assignedNumber}
+                  </div>
+                  {participantName && (
+                    <span className="text-white/90 text-sm font-medium truncate max-w-[80px]">
+                      {participantName}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+
+            {/* Contact Button */}
+            <div className="w-px h-4 bg-slate-600"></div>
+            <button
+              onClick={() => setShowContactForm(true)}
+              className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
+            >
+              <MessageCircle className="w-3 h-3" />
+              <span className="hidden sm:inline">تواصل</span>
+            </button>
           </div>
         </div>
       </div>

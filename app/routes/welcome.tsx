@@ -4316,50 +4316,53 @@ export default function WelcomePage() {
                       </div>
                     </div>
                   </div>
-                {/* Features Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-200">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Users className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاءات ذكية</h3>
-                    <p className="text-cyan-200 text-xs sm:text-sm">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
-                  </div>
-                  
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 animate-in slide-in-from-bottom-4 duration-1000 delay-400">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل متقدم</h3>
-                    <p className="text-cyan-200 text-xs sm:text-sm">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
-                  </div>
-                  
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 sm:col-span-2 lg:col-span-1 animate-in slide-in-from-bottom-4 duration-1000 delay-600">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-                      <Target className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">نتائج دقيقة</h3>
-                    <p className="text-cyan-200 text-xs sm:text-sm">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
-                  </div>
-                </div>
 
-                {/* Process Guide */}
-                <div className="max-w-4xl mx-auto px-4 mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                {/* Process Guide - Compact and Sleek */}
+                <div className="max-w-3xl mx-auto px-4 mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
+                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-4 sm:p-6">
                     <details className="group">
-                      <summary className="flex items-center justify-center text-xl sm:text-2xl font-bold text-white mb-3 cursor-pointer list-none">
+                      <summary className="flex items-center justify-center text-lg sm:text-xl font-semibold text-white cursor-pointer list-none hover:text-cyan-300 transition-colors">
+                        <HelpCircle className="w-5 h-5 ml-2 text-cyan-400" />
                         <h2 className="inline">كيف يعمل النظام؟</h2>
-                        <ChevronLeft className="w-6 h-6 ml-2 transition-transform duration-300 group-open:rotate-[-90deg]" />
+                        <ChevronLeft className="w-5 h-5 mr-2 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-400" />
                       </summary>
                       
-                      <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1000px]">
-                        <div className="text-center mb-6 sm:mb-8 pt-4">
-                          <p className="text-cyan-200 text-sm sm:text-base max-w-3xl mx-auto">
-                            نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
-                          </p>
-                        </div>
-                        
-                        <div className="space-y-6 sm:space-y-8">
+                      <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
+                        <div className="pt-4">
+                          {/* Features Grid - Moved inside */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                              <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Users className="w-4 h-4 text-white" />
+                              </div>
+                              <h4 className="text-sm font-bold text-white mb-1">لقاءات ذكية</h4>
+                              <p className="text-cyan-200 text-xs">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
+                            </div>
+                            
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Brain className="w-4 h-4 text-white" />
+                              </div>
+                              <h4 className="text-sm font-bold text-white mb-1">تحليل متقدم</h4>
+                              <p className="text-cyan-200 text-xs">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
+                            </div>
+                            
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <Target className="w-4 h-4 text-white" />
+                              </div>
+                              <h4 className="text-sm font-bold text-white mb-1">نتائج دقيقة</h4>
+                              <p className="text-cyan-200 text-xs">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                            </div>
+                          </div>
+                          
+                          <div className="text-center mb-4">
+                            <p className="text-cyan-200 text-sm max-w-2xl mx-auto">
+                              نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
+                            </p>
+                          </div>
+                          
+                          <div className="space-y-6 sm:space-y-8">
                           {/* Step 1 */}
                           <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
                             <div className="flex-shrink-0">
@@ -4427,6 +4430,7 @@ export default function WelcomePage() {
                                 تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
                               </p>
                             </div>
+                          </div>
                           </div>
                         </div>
                       </div>
@@ -4675,121 +4679,169 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
-                {/* See Match Results Section */}
-                <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
-                    <div className="text-center">
-                      <div className="flex justify-center mb-4">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
-                          <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-                        </div>
+                {/* Navbar for Saved Data Users */}
+                {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+                      <div className="text-center mb-4">
+                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الخدمات المتاحة</h3>
+                        <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
                       </div>
                       
-                      <h3 className="text-lg sm:text-xl font-bold text-white mb-2">عرض نتائج المطابقة</h3>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-4">
-                        أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
-                      </p>
-                      {(localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && !resultToken && (
-                        <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
-                          <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>
-                        </div>
-                      )}
-                      {(() => {
-                        const securityStatus = getSecurityStatus('resultToken');
-                        return securityStatus.message && (
-                          <div className={`text-xs p-2 rounded-lg mb-3 ${
-                            securityStatus.warningLevel === 'error' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
-                            securityStatus.warningLevel === 'warning' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
-                            'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                          }`}>
-                            {securityStatus.message}
-                          </div>
-                        );
-                      })()}
-                      
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="أدخل الرمز المميز للنتائج..."
-                            value={resultToken}
-                            onChange={(e) => setResultToken(e.target.value)}
-                            className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                viewResults(resultToken);
-                              }
-                            }}
-                          />
-                          {resultToken && (localStorage.getItem('blindmatch_result_token') === resultToken || localStorage.getItem('blindmatch_returning_token') === resultToken) && (
-                            <div className="absolute left-2 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
-                              <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 border border-green-400/30 rounded-md">
-                                <CheckCircle className="w-3 h-3 text-green-400" />
-                                <span className="text-xs text-green-300">محفوظ</span>
-                              </div>
-                              <button
-                                onClick={() => clearSpecificToken('result')}
-                                className="p-1 rounded-full bg-red-500/20 border border-red-400/30 hover:bg-red-500/30 transition-colors"
-                                title="مسح الرمز المحفوظ"
-                              >
-                                <X className="w-3 h-3 text-red-400" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          onClick={() => viewResults(resultToken)}
-                          disabled={!resultToken.trim() || getSecurityStatus('resultToken').isLocked}
-                          className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {/* Results Button */}
+                        <button
+                          onClick={() => {
+                            const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+                            if (token) {
+                              window.location.href = `/results?token=${token}`;
+                            }
+                          }}
+                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-105"
                         >
-                          عرض النتائج
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
+                            <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                          </div>
+                          <h4 className="text-base sm:text-lg font-bold text-white mb-2">عرض نتائج المطابقة</h4>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-3">
+                            اعرض جميع نتائج المطابقة والتوافق الخاصة بك
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-orange-300">
+                            <span className="text-xs font-medium">انقر للوصول</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
 
-                {/* Group Activities Section */}
-                <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1200">
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
-                    <div className="text-center">
-                      <div className="flex justify-center mb-4">
-                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                          <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
-                        </div>
+                        {/* Groups Button */}
+                        <button
+                          onClick={() => window.location.href = '/groups'}
+                          className="group bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 transform hover:scale-105"
+                        >
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
+                            <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                          </div>
+                          <h4 className="text-base sm:text-lg font-bold text-white mb-2">ألعاب جماعية</h4>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-3">
+                            30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-green-300">
+                            <span className="text-xs font-medium">انقر للوصول</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
                       </div>
                       
-                      <h3 className="text-lg sm:text-xl font-bold text-white mb-2">ألعاب جماعية</h3>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-4">
-                        30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
-                      </p>
-                      
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="grid grid-cols-3 gap-2 text-xs text-cyan-200">
-                          <div className="flex items-center justify-center gap-1">
-                            <Sparkles className="w-3 h-3" />
-                            <span>أسئلة للنقاش</span>
-                          </div>
-                          <div className="flex items-center justify-center gap-1">
-                            <Target className="w-3 h-3" />
-                            <span>لم أفعل من قبل</span>
-                          </div>
-                          <div className="flex items-center justify-center gap-1">
-                            <Handshake className="w-3 h-3" />
-                            <span>ماذا تفضل</span>
-                          </div>
+                      {/* Quick Info */}
+                      <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                        <div className="flex items-center justify-center gap-2 text-cyan-300">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs sm:text-sm">تم حفظ بياناتك - يمكنك الوصول للخدمات مباشرة</span>
                         </div>
-                        <Button
-                          onClick={() => window.location.href = '/groups'}
-                          className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
-                        >
-                          <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                          ابدأ الألعاب الجماعية
-                        </Button>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* Token Input Sections for Non-Saved Users */}
+                {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <>
+                    {/* See Match Results Section */}
+                    <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                        <div className="text-center">
+                          <div className="flex justify-center mb-4">
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
+                              <Search className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                            </div>
+                          </div>
+                          
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">عرض نتائج المطابقة</h3>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-4">
+                            أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
+                          </p>
+                          {(() => {
+                            const securityStatus = getSecurityStatus('resultToken');
+                            return securityStatus.message && (
+                              <div className={`text-xs p-2 rounded-lg mb-3 ${
+                                securityStatus.warningLevel === 'error' ? 'bg-red-500/20 text-red-300 border border-red-500/30' :
+                                securityStatus.warningLevel === 'warning' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' :
+                                'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              }`}>
+                                {securityStatus.message}
+                              </div>
+                            );
+                          })()}
+                          
+                          <div className="space-y-3 sm:space-y-4">
+                            <div className="relative">
+                              <input
+                                type="text"
+                                placeholder="أدخل الرمز المميز للنتائج..."
+                                value={resultToken}
+                                onChange={(e) => setResultToken(e.target.value)}
+                                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
+                                onKeyPress={(e) => {
+                                  if (e.key === 'Enter') {
+                                    viewResults(resultToken);
+                                  }
+                                }}
+                              />
+                            </div>
+                            <Button
+                              onClick={() => viewResults(resultToken)}
+                              disabled={!resultToken.trim() || getSecurityStatus('resultToken').isLocked}
+                              className="w-full spring-btn bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            >
+                              عرض النتائج
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Group Activities Section */}
+                    <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1200">
+                      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                        <div className="text-center">
+                          <div className="flex justify-center mb-4">
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
+                              <Users className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                            </div>
+                          </div>
+                          
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">ألعاب جماعية</h3>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-4">
+                            30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
+                          </p>
+                          
+                          <div className="space-y-3 sm:space-y-4">
+                            <div className="grid grid-cols-3 gap-2 text-xs text-cyan-200">
+                              <div className="flex items-center justify-center gap-1">
+                                <Sparkles className="w-3 h-3" />
+                                <span>أسئلة للنقاش</span>
+                              </div>
+                              <div className="flex items-center justify-center gap-1">
+                                <Target className="w-3 h-3" />
+                                <span>لم أفعل من قبل</span>
+                              </div>
+                              <div className="flex items-center justify-center gap-1">
+                                <Handshake className="w-3 h-3" />
+                                <span>ماذا تفضل</span>
+                              </div>
+                            </div>
+                            <Button
+                              onClick={() => window.location.href = '/groups'}
+                              className="w-full spring-btn bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 text-base sm:text-lg py-3 sm:py-4"
+                            >
+                              <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                              ابدأ الألعاب الجماعية
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
 
                 {/* Footer Info */}
                 <div className="text-center mt-8 sm:mt-12 mb-8 sm:mb-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">

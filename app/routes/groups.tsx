@@ -19,7 +19,8 @@ import {
   Plus,
   Trash2,
   BookOpen,
-  Lightbulb
+  Lightbulb,
+  Home
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -936,7 +937,7 @@ export default function GroupsPage() {
             </Card>
           </div>
 
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 space-y-4">
             <Button 
               onClick={startSession}
               className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-10 py-5 text-xl font-bold rounded-2xl shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-500/50"
@@ -944,6 +945,16 @@ export default function GroupsPage() {
               <Play className="w-7 h-7 mr-3" />
               ابدأ الجلسة
             </Button>
+            
+            <div>
+              <Button 
+                onClick={() => window.location.href = "/welcome"}
+                className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-slate-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
+              >
+                <Home className="w-5 h-5 mr-2" />
+                العودة للشاشة الرئيسية
+              </Button>
+            </div>
           </div>
         </div>
       </div>

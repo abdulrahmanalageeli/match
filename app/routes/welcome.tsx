@@ -2304,7 +2304,7 @@ export default function WelcomePage() {
         saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
         
         // Navigate to survey
-        window.location.href = `/?token=${data.secure_token}`;
+        window.location.href = `/welcome?token=${data.secure_token}`;
       } else {
         console.error("Failed to create token:", data);
         alert("❌ فشل في إنشاء الرمز المميز. حاول مرة أخرى.");

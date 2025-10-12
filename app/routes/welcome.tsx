@@ -3711,7 +3711,7 @@ export default function WelcomePage() {
                     </div>
                     <div>
                       <h4 className="text-base font-bold text-white">نعم، لدي رمز مميز</h4>
-                      <p className="text-green-200 text-xs">أدخل رمزك المميز لاستعادة بياناتك</p>
+                      <p className="text-green-200 text-xs">تواصل مع المنظم في حال نسيانك للرمز</p>
                     </div>
                   </div>
                   <div className="space-y-3">
@@ -3754,7 +3754,7 @@ export default function WelcomePage() {
                     </div>
                     <div className="text-right">
                       <h4 className="text-base font-bold text-white mb-1">لا، أنا مشارك جديد</h4>
-                      <p className="text-cyan-200 text-xs">ابدأ رحلتك معنا من البداية</p>
+                      <p className="text-cyan-200 text-xs">لا يسمح بإنشاء أكثر من حساب</p>
                     </div>
                     <ChevronLeft className="w-5 h-5 text-cyan-300 transform rotate-180 ml-auto" />
                   </div>

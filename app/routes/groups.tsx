@@ -233,6 +233,26 @@ export default function GroupsPage() {
 
   const currentGame = games[currentGameIndex];
 
+  // Handle browser back button to redirect to /welcome instead of exiting website
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      // Prevent default back behavior and redirect to welcome page
+      event.preventDefault();
+      window.location.href = "/welcome";
+    };
+
+    // Add event listener for browser back button
+    window.addEventListener('popstate', handlePopState);
+
+    // Push current state to history so back button is intercepted
+    window.history.pushState(null, '', window.location.pathname);
+
+    // Cleanup event listener on component unmount
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+
   // Load participant data and group assignment on component mount
   useEffect(() => {
     const loadParticipantData = async () => {

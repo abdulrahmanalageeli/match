@@ -3696,7 +3696,7 @@ export default function WelcomePage() {
                 className="absolute top-4 right-4 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl px-3 py-2 flex items-center gap-2 hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300"
                 title="الأسئلة الشائعة"
               >
-                <MessageCircle className="w-4 h-4 text-orange-300" />
+                <HelpCircle className="w-4 h-4 text-orange-300" />
                 <span className="text-orange-300 text-xs font-medium">أسئلة شائعة</span>
                 {/* Pulsing indicator */}
                 <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-orange-400/60 animate-ping"></div>

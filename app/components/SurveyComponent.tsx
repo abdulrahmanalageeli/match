@@ -1206,7 +1206,7 @@ const SurveyComponent = React.memo(function SurveyComponent({
   )
 
   return (
-    <div className="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="bg-transparent">
       {/* Loading Overlay */}
       {loading && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">

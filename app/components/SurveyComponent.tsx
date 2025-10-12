@@ -7,8 +7,9 @@ import { Textarea } from "../../components/ui/textarea"
 import { Input } from "../../components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Progress } from "../../components/ui/progress"
-import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star } from "lucide-react"
+import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X } from "lucide-react"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -735,9 +736,10 @@ const SurveyComponent = React.memo(function SurveyComponent({
 }) {
   
   const [currentPage, setCurrentPage] = useState(0)
+  const [showTermsModal, setShowTermsModal] = useState(false)
 
-  // Memoize expensive calculations
-  const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage) + 1, [])
+  // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
+  const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
   const progress = useMemo(() => ((currentPage + 1) / totalPages) * 100, [currentPage, totalPages])
   
   // Memoize current page questions to avoid re-slicing on every render
@@ -1009,8 +1011,8 @@ const SurveyComponent = React.memo(function SurveyComponent({
                   <Checkbox
                     id={`${question.id}-${option.value}`}
                     checked={(value as string[] || []).includes(option.value)}
-                    onCheckedChange={(checked) => 
-                      handleCheckboxChange(question.id, option.value, checked as boolean)
+                    onCheckedChange={(checked: boolean) => 
+                      handleCheckboxChange(question.id, option.value, checked)
                     }
                     className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20 mt-0.5 flex-shrink-0"
                   />
@@ -1175,100 +1177,74 @@ const SurveyComponent = React.memo(function SurveyComponent({
     }
   }
 
-  const renderTermsPage = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-6">
-        <div className="relative inline-block mb-4">
-          <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-xl">
-          <Shield className="w-6 h-6 text-white" />
-        </div>
-        <div className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full"></div>
-        </div>
-        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">الشروط والأحكام</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-400">يرجى قراءة والموافقة على الشروط التالية</p>
-      </div>
-
-      <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl p-3 border-2 border-blue-200 dark:border-blue-700 shadow-lg">
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-            <AlertTriangle className="w-4 h-4 text-white" />
+  const renderTermsModal = () => (
+    <Dialog open={showTermsModal} onOpenChange={setShowTermsModal}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto" dir="rtl">
+        <DialogHeader>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              <Shield className="w-6 h-6 text-blue-500" />
+              الشروط والأحكام
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowTermsModal(false)}
+              className="h-8 w-8 p-0"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-          <h3 className="text-base font-bold text-blue-800 dark:text-blue-200">
-            شروط الخصوصية وحماية البيانات
-          </h3>
-        </div>
-        <div className="space-y-3 text-right">
-          <div className="space-y-3 text-sm">
-            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
-              <p className="text-gray-700 dark:text-gray-200 text-xs">
-                <strong className="text-blue-600 dark:text-blue-400">1. جمع البيانات:</strong> نقوم بجمع بياناتك الشخصية لغرض التوافق والمطابقة فقط.
-              </p>
+        </DialogHeader>
+        
+        <div className="space-y-4 mt-4">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-slate-800 dark:to-slate-700 rounded-2xl p-4 border-2 border-blue-200 dark:border-blue-700 shadow-lg">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <AlertTriangle className="w-4 h-4 text-white" />
+              </div>
+              <h3 className="text-base font-bold text-blue-800 dark:text-blue-200">
+                شروط الخصوصية وحماية البيانات
+              </h3>
             </div>
-            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
-              <p className="text-gray-700 dark:text-gray-200 text-xs">
-                <strong className="text-blue-600 dark:text-blue-400">2. استخدام البيانات:</strong> تستخدم البيانات حصرياً لتحليل التوافق وتقديم خدمات المطابقة.
-              </p>
+            <div className="space-y-3 text-right">
+              <div className="space-y-3 text-sm">
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                  <p className="text-gray-700 dark:text-gray-200 text-xs">
+                    <strong className="text-blue-600 dark:text-blue-400">1. جمع البيانات:</strong> نقوم بجمع بياناتك الشخصية لغرض التوافق والمطابقة فقط.
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                  <p className="text-gray-700 dark:text-gray-200 text-xs">
+                    <strong className="text-blue-600 dark:text-blue-400">2. استخدام البيانات:</strong> تستخدم البيانات حصرياً لتحليل التوافق وتقديم خدمات المطابقة.
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                  <p className="text-gray-700 dark:text-gray-200 text-xs">
+                    <strong className="text-blue-600 dark:text-blue-400">3. حماية البيانات:</strong> نلتزم بمعايير حماية البيانات السعودية (PDPL) ونحافظ على سرية معلوماتك.
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                  <p className="text-gray-700 dark:text-gray-200 text-xs">
+                    <strong className="text-blue-600 dark:text-blue-400">4. الذكاء الاصطناعي:</strong> نستخدم تقنيات الذكاء الاصطناعي المطابقة للوائح السعودية.
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                  <p className="text-gray-700 dark:text-gray-200 text-xs">
+                    <strong className="text-blue-600 dark:text-blue-400">5. حقوقك:</strong> يمكنك طلب حذف بياناتك أو تعديلها في أي وقت.
+                  </p>
+                </div>
+                <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
+                  <p className="text-gray-700 dark:text-gray-200 text-xs">
+                    <strong className="text-blue-600 dark:text-blue-400">6. الأمان:</strong> نستخدم تقنيات تشفير متقدمة لحماية بياناتك.
+                  </p>
+                </div>
+              </div>
             </div>
-            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
-              <p className="text-gray-700 dark:text-gray-200 text-xs">
-                <strong className="text-blue-600 dark:text-blue-400">3. حماية البيانات:</strong> نلتزم بمعايير حماية البيانات السعودية (PDPL) ونحافظ على سرية معلوماتك.
-              </p>
-            </div>
-            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
-              <p className="text-gray-700 dark:text-gray-200 text-xs">
-                <strong className="text-blue-600 dark:text-blue-400">4. الذكاء الاصطناعي:</strong> نستخدم تقنيات الذكاء الاصطناعي المطابقة للوائح السعودية.
-              </p>
-            </div>
-            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
-              <p className="text-gray-700 dark:text-gray-200 text-xs">
-                <strong className="text-blue-600 dark:text-blue-400">5. حقوقك:</strong> يمكنك طلب حذف بياناتك أو تعديلها في أي وقت.
-              </p>
-            </div>
-            <div className="bg-white dark:bg-slate-700 rounded-xl p-3">
-              <p className="text-gray-700 dark:text-gray-200 text-xs">
-                <strong className="text-blue-600 dark:text-blue-400">6. الأمان:</strong> نستخدم تقنيات تشفير متقدمة لحماية بياناتك.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        <div className="group">
-          <div className="flex items-center space-x-4 space-x-reverse bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-gray-200 dark:border-slate-600">
-            <Checkbox
-              id="terms"
-              checked={surveyData.termsAccepted}
-              onCheckedChange={(checked) => {
-                setIsEditingSurvey?.(true)
-                setSurveyData({ ...surveyData, termsAccepted: checked as boolean })
-              }}
-              className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
-            />
-            <Label htmlFor="terms" className="text-right cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
-              أوافق على الشروط والأحكام
-            </Label>
           </div>
         </div>
-
-        <div className="group">
-          <div className="flex items-center space-x-4 space-x-reverse bg-white dark:bg-slate-800 rounded-xl p-3 border-2 border-gray-200 dark:border-slate-600">
-            <Checkbox
-              id="dataConsent"
-              checked={surveyData.dataConsent}
-              onCheckedChange={(checked) => {
-                setIsEditingSurvey?.(true)
-                setSurveyData({ ...surveyData, dataConsent: checked as boolean })
-              }}
-              className="w-3.5 h-3.5 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20"
-            />
-            <Label htmlFor="dataConsent" className="text-right cursor-pointer text-xs font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1">
-              أوافق على معالجة بياناتي الشخصية وفقاً لسياسة الخصوصية
-            </Label>
-          </div>
-        </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 
   return (
@@ -1410,40 +1386,34 @@ const SurveyComponent = React.memo(function SurveyComponent({
 
         {/* Survey Content */}
         <div className="space-y-4">
-          {currentPage === totalPages - 1 ? (
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-4">
-              {renderTermsPage()}
-            </div>
-          ) : (
-            <div className="space-y-4">
-                              {currentQuestions.map((question, index) => (
-                    <div key={question.id} className="group">
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
-                      <div className="flex items-start gap-3">
-                        <div className="relative">
-                          <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
-                            {currentPage * questionsPerPage + index + 1}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 text-right leading-relaxed">
-                            {question.question}
-                          </h3>
-                          {question.description && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 text-right leading-relaxed">
-                              {question.description}
-                            </p>
-                          )}
-                          <div className="space-y-3">
-                            {renderQuestion(question)}
-                          </div>
-                        </div>
+          <div className="space-y-4">
+            {currentQuestions.map((question, index) => (
+              <div key={question.id} className="group">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
+                  <div className="flex items-start gap-3">
+                    <div className="relative">
+                      <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
+                        {currentPage * questionsPerPage + index + 1}
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 text-right leading-relaxed">
+                        {question.question}
+                      </h3>
+                      {question.description && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 text-right leading-relaxed">
+                          {question.description}
+                        </p>
+                      )}
+                      <div className="space-y-3">
+                        {renderQuestion(question)}
                       </div>
                     </div>
                   </div>
-                ))}
-            </div>
-          )}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Enhanced Navigation */}
@@ -1459,25 +1429,44 @@ const SurveyComponent = React.memo(function SurveyComponent({
           </Button>
 
           {currentPage === totalPages - 1 ? (
-            <Button
-              onClick={() => {
-                handleSubmit()
-              }}
-              disabled={!surveyData.termsAccepted || !surveyData.dataConsent || loading}
-              className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>جاري التحليل...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>إرسال الاستبيان</span>
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col items-end gap-3">
+              {/* Terms and Conditions Link */}
+              <div className="text-center w-full">
+                <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">
+                  بالضغط على "إرسال الاستبيان" فإنك توافق على{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline font-medium transition-colors duration-200"
+                  >
+                    الشروط والأحكام
+                  </button>
+                  {' '}وسياسة الخصوصية
+                </p>
+              </div>
+              
+              <Button
+                onClick={() => {
+                  // Auto-accept terms when submitting
+                  setSurveyData(prev => ({ ...prev, termsAccepted: true, dataConsent: true }))
+                  handleSubmit()
+                }}
+                disabled={loading}
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>جاري التحليل...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    <span>إرسال الاستبيان</span>
+                  </>
+                )}
+              </Button>
+            </div>
           ) : (
             <Button
               onClick={nextPage}
@@ -1489,6 +1478,9 @@ const SurveyComponent = React.memo(function SurveyComponent({
             </Button>
           )}
         </div>
+        
+        {/* Terms Modal */}
+        {renderTermsModal()}
       </div>
     </div>
   )

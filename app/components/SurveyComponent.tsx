@@ -1352,7 +1352,7 @@ const SurveyComponent = React.memo(function SurveyComponent({
             <div className="space-y-4">
                               {currentQuestions.map((question, index) => (
                     <div key={question.id} className="group">
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
+                      <div className="bg-transparent rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
                       <div className="flex items-start gap-3">
                         <div className="relative">
                           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">

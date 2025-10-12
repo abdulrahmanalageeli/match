@@ -3922,7 +3922,7 @@ export default function WelcomePage() {
                 {/* Header */}
                 <div className="text-center mb-6">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
-                    <MessageCircle className="w-6 h-6 text-white" />
+                    <HelpCircle className="w-6 h-6 text-white" />
                   </div>
                   <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الأسئلة الشائعة</h3>
                   <p className="text-orange-200 text-xs sm:text-sm">إجابات شاملة على أهم الأسئلة حول منصة التوافق الفكري</p>

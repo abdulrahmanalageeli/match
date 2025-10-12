@@ -4291,7 +4291,7 @@ export default function WelcomePage() {
             {showRegistrationContent && (
               <>
                 {/* Header Section */}
-                <div className="text-center mb-8 sm:mb-12 pt-32 animate-in slide-in-from-bottom-4 duration-1000">
+                <div className="text-center mb-6 sm:mb-8 pt-16 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
@@ -4304,12 +4304,12 @@ export default function WelcomePage() {
                       </p>
                       
                       {/* Sleek Disclaimer */}
-                      <div className="mt-6 max-w-3xl mx-auto">
-                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm border ${
+                      <div className="mt-4 max-w-3xl mx-auto">
+                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm border ${
                           dark ? "bg-slate-800/30 border-slate-600/50 text-slate-300" : "bg-white/20 border-white/30 text-gray-700"
                         }`}>
-                          <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></div>
-                          <span className="text-xs sm:text-sm font-medium">
+                          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-medium">
                             هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
                           </span>
                         </div>
@@ -4317,14 +4317,14 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                {/* Process Guide - Compact and Sleek */}
-                <div className="max-w-3xl mx-auto px-4 mb-8 sm:mb-12 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-4 sm:p-6">
+                {/* Process Guide - Ultra Compact */}
+                <div className="max-w-2xl mx-auto px-4 mb-6 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3">
                     <details className="group">
-                      <summary className="flex items-center justify-center text-lg sm:text-xl font-semibold text-white cursor-pointer list-none hover:text-cyan-300 transition-colors">
-                        <HelpCircle className="w-5 h-5 ml-2 text-cyan-400" />
+                      <summary className="flex items-center justify-center text-base font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors py-1">
+                        <HelpCircle className="w-4 h-4 ml-2 text-cyan-400" />
                         <h2 className="inline">كيف يعمل النظام؟</h2>
-                        <ChevronLeft className="w-5 h-5 mr-2 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-400" />
+                        <ChevronLeft className="w-4 h-4 mr-2 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-400" />
                       </summary>
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
@@ -4451,22 +4451,25 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
-                {/* Registration Options */}
-                <div id="start-journey" className="max-w-2xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
-                  <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6 sm:mb-8">انضم إلى الرحلة</h2>
+                {/* Registration Options - Card Style */}
+                <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
+                  <div className="text-center mb-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
+                    <p className="text-cyan-200 text-sm">اختر الطريقة المناسبة للانضمام</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     
-                    {/* Returning Participant for Next Event Option */}
-                    <div className="mb-6 sm:mb-8">
-                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-green-400 rounded-full"></div>
-                        <h3 className="text-base sm:text-lg font-semibold text-white">مشارك سابق</h3>
+                    {/* Previous Participant Card */}
+                    <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
+                        <UserCheck className="w-6 h-6 text-white" />
                       </div>
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-2">مشارك سابق</h3>
                       
-                      {/* Show simplified version if user has saved token */}
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
                       {(resultToken || returningPlayerToken) ? (
                         <>
-                          <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">سجل للفعالية القادمة باستخدام حسابك الحالي</p>
                           <Button
                             onClick={handleAutoSignupNextEvent}
                             disabled={nextEventSignupLoading || showNextEventSignup}
@@ -4522,23 +4525,14 @@ export default function WelcomePage() {
                       )}
                     </div>
 
-                    {/* Only show New Player section if no saved tokens */}
+                    {/* New Player Card */}
                     {!resultToken && !returningPlayerToken && (
-                      <>
-                        {/* Divider */}
-                        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                          <div className="flex-1 h-px bg-white/20"></div>
-                          <span className="text-white/60 text-xs sm:text-sm">أو</span>
-                          <div className="flex-1 h-px bg-white/20"></div>
+                      <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300" data-section="new-user">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
+                          <UserPlus className="w-6 h-6 text-white" />
                         </div>
-                        
-                        {/* New Player Option */}
-                        <div className="mb-6 sm:mb-8" data-section="new-user">
-                          <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                            <div className="w-2 h-2 sm:w-3 sm:h-3 bg-cyan-400 rounded-full"></div>
-                            <h3 className="text-base sm:text-lg font-semibold text-white">لاعب جديد</h3>
-                          </div>
-                          <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">احصل على رقم مخصص وابدأ رحلة التوافق</p>
+                        <h3 className="text-base sm:text-lg font-bold text-white mb-2">لاعب جديد</h3>
+                        <p className="text-cyan-200 text-xs sm:text-sm mb-3">احصل على رقم مخصص وابدأ رحلة التوافق</p>
                           <Button
                             onClick={async () => {
                               setLoading(true)
@@ -4600,24 +4594,16 @@ export default function WelcomePage() {
                               "ابدأ رحلتك!"
                             )}
                           </Button>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="flex items-center gap-3 sm:gap-4 mb-6 sm:mb-8">
-                          <div className="flex-1 h-px bg-white/20"></div>
-                          <span className="text-white/60 text-xs sm:text-sm">أو</span>
-                          <div className="flex-1 h-px bg-white/20"></div>
-                        </div>
-                      </>
+                      </div>
                     )}
 
-                    {/* Returning Player Option */}
-                    <div id="returning-player">
-                      <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                        <div className="w-2 h-2 sm:w-3 sm:h-3 bg-purple-400 rounded-full"></div>
-                        <h3 className="text-base sm:text-lg font-semibold text-white">لاعب عائد</h3>
+                    {/* Returning Player Card */}
+                    <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300" id="returning-player">
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3">
+                        <RotateCcw className="w-6 h-6 text-white" />
                       </div>
-                      <p className="text-cyan-200 text-xs sm:text-sm mb-3 sm:mb-4">أدخل رمزك للعودة إلى رحلتك</p>
+                      <h3 className="text-base sm:text-lg font-bold text-white mb-2">لاعب عائد</h3>
+                      <p className="text-cyan-200 text-xs sm:text-sm mb-3">أدخل رمزك للعودة إلى رحلتك</p>
                       {(localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token')) && !returningPlayerToken && (
                         <div className="mb-3 p-2 bg-blue-500/10 border border-blue-400/20 rounded-lg">
                           <p className="text-blue-300 text-xs">💡 تم حفظ رمزك السابق تلقائياً - سيتم ملء الحقل عند تحميل الصفحة</p>

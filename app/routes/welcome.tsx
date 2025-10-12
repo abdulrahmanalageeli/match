@@ -4579,68 +4579,27 @@ export default function WelcomePage() {
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                    <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6">
-                      <div className="text-center mb-4">
+                    <div className="p-4 sm:p-6">
+                      <div className="text-center mb-6">
                         <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الخدمات المتاحة</h3>
                         <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
                       </div>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {/* Results Button */}
-                        <button
-                          onClick={() => {
-                            const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
-                            if (token) {
-                              window.location.href = `/results?token=${token}`;
-                            }
-                          }}
-                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-105"
-                        >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
-                            <Search className="w-6 h-6 text-white" />
-                          </div>
-                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج المطابقة</h4>
-                          <p className="text-cyan-200 text-xs mb-3">
-                            اعرض جميع نتائج المطابقة والتوافق الخاصة بك
-                          </p>
-                          <div className="flex items-center justify-center gap-2 text-orange-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </button>
-
-                        {/* Groups Button */}
-                        <button
-                          onClick={() => window.location.href = '/groups'}
-                          className="group bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300 transform hover:scale-105"
-                        >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
-                            <Users className="w-6 h-6 text-white" />
-                          </div>
-                          <h4 className="text-base font-bold text-white mb-2">ألعاب جماعية</h4>
-                          <p className="text-cyan-200 text-xs mb-3">
-                            30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
-                          </p>
-                          <div className="flex items-center justify-center gap-2 text-green-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </button>
-
-                        {/* Next Event Signup Button */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Next Event Signup Button - Full Width Row 1 */}
                         <button
                           onClick={handleAutoSignupNextEvent}
                           disabled={nextEventSignupLoading || showNextEventSignup}
-                          className={`group transition-all duration-300 transform hover:scale-105 rounded-xl p-4 sm:p-6 text-center ${
+                          className={`col-span-2 group transition-all duration-300 transform hover:scale-105 rounded-xl p-4 sm:p-6 text-center ${
                             showNextEventSignup 
-                              ? "bg-gray-500/20 border-gray-400/30 cursor-not-allowed opacity-60" 
-                              : "bg-gradient-to-r from-emerald-500/20 to-green-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-green-500/30"
+                              ? "bg-gray-500/20 border border-gray-400/30 cursor-not-allowed opacity-60" 
+                              : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30"
                           }`}
                         >
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
                             showNextEventSignup 
                               ? "bg-gray-500" 
-                              : "bg-gradient-to-r from-emerald-500 to-green-500"
+                              : "bg-gradient-to-r from-emerald-500 to-teal-500"
                           }`}>
                             <UserCheck className="w-6 h-6 text-white" />
                           </div>
@@ -4658,7 +4617,7 @@ export default function WelcomePage() {
                           )}
                         </button>
 
-                        {/* Returning Player Button */}
+                        {/* Returning Player Button - Row 2 Left */}
                         <button
                           onClick={() => {
                             const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
@@ -4681,10 +4640,51 @@ export default function WelcomePage() {
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </button>
+
+                        {/* Results Button - Row 2 Right */}
+                        <button
+                          onClick={() => {
+                            const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+                            if (token) {
+                              window.location.href = `/results?token=${token}`;
+                            }
+                          }}
+                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-105"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
+                            <Search className="w-6 h-6 text-white" />
+                          </div>
+                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج المطابقة</h4>
+                          <p className="text-cyan-200 text-xs mb-3">
+                            اعرض جميع نتائج المطابقة والتوافق الخاصة بك
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-orange-300">
+                            <span className="text-xs font-medium">انقر للوصول</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
+
+                        {/* Groups Button - Full Width Row 3 */}
+                        <button
+                          onClick={() => window.location.href = '/groups'}
+                          className="col-span-2 group bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border border-indigo-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-indigo-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-105"
+                        >
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
+                            <Users className="w-6 h-6 text-white" />
+                          </div>
+                          <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
+                          <p className="text-cyan-200 text-xs mb-3">
+                            30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-indigo-300">
+                            <span className="text-xs font-medium">انقر للوصول</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
                       </div>
                       
                       {/* Quick Info */}
-                      <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                      <div className="mt-6 p-3 bg-white/5 border border-white/10 rounded-lg">
                         <div className="flex items-center justify-center gap-2 text-cyan-300">
                           <CheckCircle className="w-4 h-4" />
                           <span className="text-xs sm:text-sm">تم حفظ بياناتك - يمكنك الوصول للخدمات مباشرة</span>

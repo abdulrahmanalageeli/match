@@ -285,10 +285,10 @@ export default function ResultsPage() {
                 </div>
                 <div>
                   <h1 className={`text-2xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
-                    نتائج المطابقة
+                    نتائج التوافق
                   </h1>
                   <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    جميع جلسات المطابقة ونتائج التوافق
+                    جميع جلسات التوافق ونتائج التوافق
                   </p>
                 </div>
               </div>

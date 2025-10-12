@@ -4902,9 +4902,9 @@ export default function WelcomePage() {
                           <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3">
                             <RotateCcw className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-white mb-2">لاعب عائد</h4>
+                          <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
                           <p className="text-cyan-200 text-xs mb-3">
-                            العودة إلى رحلتك باستخدام البيانات المحفوظة
+                            العودة إلى رحلتك او تعديل بياناتك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-purple-300">
                             <span className="text-xs font-medium">العودة للرحلة</span>
@@ -4925,9 +4925,9 @@ export default function WelcomePage() {
                           <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
                             <Search className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج المطابقة</h4>
+                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
                           <p className="text-cyan-200 text-xs mb-3">
-                            اعرض جميع نتائج المطابقة والتوافق الخاصة بك
+                            اعرض جميع نتائج التوافق الخاصة بك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-orange-300">
                             <span className="text-xs font-medium">انقر للوصول</span>
@@ -4978,9 +4978,9 @@ export default function WelcomePage() {
                             </div>
                           </div>
                           
-                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">عرض نتائج المطابقة</h3>
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">عرض نتائج التوافق</h3>
                           <p className="text-cyan-200 text-xs sm:text-sm mb-4">
-                            أدخل الرمز المميز الخاص بك لعرض جميع نتائج المطابقة والتوافق
+                            أدخل الرمز المميز الخاص بك لعرض جميع نتائج التوافق
                           </p>
                           {(() => {
                             const securityStatus = getSecurityStatus('resultToken');
@@ -7195,7 +7195,7 @@ export default function WelcomePage() {
                         <span className="text-sm font-bold">صدقك يساعد الجميع</span>
                         <div className="w-2 h-2 bg-current rounded-full animate-pulse"></div>
                       </div>
-                      <p className="text-xs opacity-80">تقييماتك الصادقة تساعدنا في تحسين خوارزمية المطابقة</p>
+                      <p className="text-xs opacity-80">تقييماتك الصادقة تساعدنا في تحسين خوارزمية التوافق</p>
                     </div>
                   </div>
 
@@ -7674,7 +7674,7 @@ export default function WelcomePage() {
                             ⏰ يمكنك الوصول للنتائج بعد 30 دقيقة من الصفحة الرئيسية
                           </p>
                           <p className={`text-xs mt-1 ${dark ? "text-indigo-300/80" : "text-indigo-600/80"}`}>
-                            في قسم "عرض نتائج المطابقة"
+                            في قسم "عرض نتائج التوافق"
                           </p>
                         </div>
                       </div>
@@ -7787,7 +7787,7 @@ export default function WelcomePage() {
                 <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
                 <div className={`text-center mb-4 p-4 rounded-xl border-2 ${dark ? "bg-blue-900/20 border-blue-400/40" : "bg-blue-50 border-blue-300/60"}`}>
                   <p className={`text-sm font-semibold ${dark ? "text-blue-200" : "text-blue-700"}`}>
-                    💡 هذه هي النتيجة الحقيقية التي حصلتما عليها من خوارزمية المطابقة عند التوفيق بينكما
+                    💡 هذه هي النتيجة الحقيقية التي حصلتما عليها من خوارزمية التوافق عند التوفيق بينكما
                   </p>
                   <p className={`text-xs mt-1 ${dark ? "text-blue-300/80" : "text-blue-600/80"}`}>
                     (وليست التقييمات التي أعطيتماها لبعضكما)

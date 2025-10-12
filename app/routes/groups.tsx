@@ -60,7 +60,7 @@ const games: Game[] = [
     nameAr: "ولا كلمة",
     description: "Act out fun pop culture topics without speaking",
     descriptionAr: "مثلوا مواضيع ممتعة ومشهورة بدون كلام",
-    duration: 15,
+    duration: 10,
     icon: <ThumbsUp className="w-6 h-6" />,
     color: "from-green-500 to-teal-500"
   },

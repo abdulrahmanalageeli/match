@@ -944,20 +944,20 @@ export default async function handler(req, res) {
 
       if (searchError) {
         console.error("Phone lookup error:", searchError)
-        return res.status(500).json({ error: "خطأ في البحث عن المشارك" })
+        return NextResponse.json({ success: false, error: 'خطأ في البحث عن المشارك' }, { status: 500 })
       }
 
       if (!participants || participants.length === 0) {
-        return res.status(404).json({ error: "لم يتم العثور على مشارك بهذا الرقم" })
+        return NextResponse.json({ success: false, error: 'لم يتم العثور على نتائج التوافق' }, { status: 404 })
       }
 
       if (participants.length > 1) {
-        return res.status(400).json({ error: "تم العثور على أكثر من مشارك بهذا الرقم، يرجى التواصل مع المنظم" })
+        return NextResponse.json({ success: false, error: "تم العثور على أكثر من مشارك بهذا الرقم، يرجى التواصل مع المنظم" }, { status: 400 })
       }
-
+      
       const participant = participants[0]
 
-      return res.status(200).json({
+      return NextResponse.json({
         success: true,
         participant: {
           assigned_number: participant.assigned_number,

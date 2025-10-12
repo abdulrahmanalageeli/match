@@ -188,7 +188,7 @@ export default function ParticipantResultsModal({
       const data = await response.json()
       if (response.ok) {
         // Prepare success message with cleanup information
-        let successMessage = `✅ تم تبديل المطابقة بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`
+        let successMessage = `✅ تم تبديل التوافق بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`
         
         // Add cleanup summary if any conflicts were resolved
         if (data.cleanup_summary && data.cleanup_summary.length > 0) {
@@ -211,7 +211,7 @@ export default function ParticipantResultsModal({
       }
     } catch (error) {
       console.error("Error swapping match:", error)
-      alert("❌ حدث خطأ أثناء تبديل المطابقة")
+      alert("❌ حدث خطأ أثناء تبديل التوافق")
     }
   }
 
@@ -294,10 +294,10 @@ export default function ParticipantResultsModal({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">
-                نتائج المطابقة - {matchType === "ai" ? "مع الذكاء الاصطناعي" : matchType === "no-ai" ? "بدون ذكاء اصطناعي" : "مجموعات"}
+                نتائج التوافق - {matchType === "ai" ? "مع الذكاء الاصطناعي" : matchType === "no-ai" ? "بدون ذكاء اصطناعي" : "مجموعات"}
               </h2>
               <p className="text-slate-400 text-sm">
-                إجمالي المطابقات: {totalMatches} | المشاركين: {sortedResults.length}
+                إجمالي التوافقات: {totalMatches} | المشاركين: {sortedResults.length}
                 {matchType !== "group" && results.length !== sortedResults.length && (
                   <span className="text-yellow-400"> (تم إزالة {results.length - sortedResults.length} مكرر)</span>
                 )}
@@ -393,7 +393,7 @@ export default function ParticipantResultsModal({
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">تبديل</th>
                         )}
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تثبيت المطابقة</th>
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تثبيت التوافق</th>
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">عرض التفاصيل</th>

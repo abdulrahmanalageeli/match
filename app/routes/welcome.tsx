@@ -1535,7 +1535,7 @@ export default function WelcomePage() {
     
     // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "relative top-4 left-1/2 transform -translate-x-1/2 z-[100]" 
+      ? "relative top-0 left-1/2 transform -translate-x-1/2 z-[100]" 
       : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
     
     return (
@@ -1567,6 +1567,19 @@ export default function WelcomePage() {
                       {participantName}
                     </span>
                   )}
+                </div>
+              </>
+            )}
+
+            {/* Round Timer - Show only in round mode (step 4) */}
+            {step === 4 && (
+              <>
+                <div className="w-px h-4 bg-slate-600"></div>
+                <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-orange-300 flex items-center gap-1.5">
+                  <Clock className="w-3 h-3" />
+                  <span className="font-mono">15:00</span>
+                  <div className="w-px h-3 bg-orange-400/40"></div>
+                  <span className="text-orange-200">الجولة 1</span>
                 </div>
               </>
             )}
@@ -1609,7 +1622,7 @@ export default function WelcomePage() {
     
     // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "relative top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]" 
+      ? "relative top-0 right-2 sm:right-3 md:right-4 z-[100]" 
       : "fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]";
     
     return (
@@ -1656,7 +1669,7 @@ export default function WelcomePage() {
     
     // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "relative bottom-4 left-4 z-[100]" 
+      ? "relative bottom-0 left-4 z-[100]" 
       : "fixed bottom-4 left-4 z-[100]";
     
     return (
@@ -1705,7 +1718,7 @@ export default function WelcomePage() {
     
     // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "relative top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]" 
+      ? "relative top-0 left-2 sm:left-3 md:left-4 z-[100]" 
       : "fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]";
     
     return (

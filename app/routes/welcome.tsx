@@ -1533,8 +1533,8 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Use relative positioning in round mode (step 4), fixed otherwise
-    const positionClass = step === 4 
+    // Use relative positioning when accessing via token URL, fixed otherwise
+    const positionClass = token 
       ? "relative top-0 left-1/2 transform -translate-x-1/2 z-[100]" 
       : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
     
@@ -1571,8 +1571,8 @@ export default function WelcomePage() {
               </>
             )}
 
-            {/* Round Timer - Show only in round mode (step 4) */}
-            {step === 4 && (
+            {/* Round Timer - Show only when accessing via token URL */}
+            {token && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
                 <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-orange-300 flex items-center gap-1.5">
@@ -1584,8 +1584,8 @@ export default function WelcomePage() {
               </>
             )}
 
-            {/* Contact Button - Hide in round mode (step 4) */}
-            {step !== 4 && (
+            {/* Contact Button - Hide when accessing via token URL */}
+            {!token && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
                 <button
@@ -6008,7 +6008,7 @@ export default function WelcomePage() {
         {step === 4 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             {/* In-page navbar for round mode */}
-            <div className="fixed mb-12">
+            <div className="relative mb-12">
               <NavigationBar />
               <LogoHeader />
               <ParticipantIcon />

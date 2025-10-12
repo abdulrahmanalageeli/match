@@ -357,6 +357,7 @@ export default function WelcomePage() {
   
   // Contact Form states
   const [showContactForm, setShowContactForm] = useState(false)
+  const [showInfoPopup, setShowInfoPopup] = useState(false)
   const [contactForm, setContactForm] = useState({
     email: "",
     name: "",
@@ -1581,10 +1582,93 @@ export default function WelcomePage() {
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
 
-  // Reusable Logo Component  
+  // Unified Navigation Bar for saved users (similar to groups page)
+  const NavigationBar = () => {
+    // Show for users with saved tokens or assigned numbers
+    if ((!token && !showRegistrationContent) || (!assignedNumber && !resultToken && !returningPlayerToken && !localStorage.getItem('blindmatch_result_token') && !localStorage.getItem('blindmatch_returning_token'))) {
+      return null;
+    }
+    
+    return (
+      <div className="fixed top-4 left-4 right-4 z-50">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-lg px-3 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
+            <div className="flex items-center justify-between gap-2">
+              {/* Logo - Compact */}
+              <div 
+                onClick={handleLogoClick}
+                className="cursor-pointer transition-all duration-200 hover:opacity-80 shrink-0"
+              >
+                <img 
+                  src={logoPng} 
+                  alt="BlindMatch" 
+                  className="w-8 h-8 sm:w-9 sm:h-9 object-contain" 
+                />
+              </div>
+
+              {/* Participant Info - Center */}
+              <div className="flex items-center gap-3 sm:gap-6 flex-1 justify-center">
+                {assignedNumber && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm sm:text-base">
+                      #{assignedNumber}
+                    </div>
+                    {participantName && (
+                      <>
+                        <div className="w-px h-4 bg-slate-600"></div>
+                        <span className="text-white/90 text-sm sm:text-base font-medium truncate max-w-[100px] sm:max-w-[150px]">
+                          {participantName}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons - Right */}
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Returning Player Button - only show if user has saved tokens */}
+                {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
+                  <button
+                    onClick={() => {
+                      const targetId = 'returning-player';
+                      const element = document.getElementById(targetId);
+                      if (element) {
+                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                      }
+                    }}
+                    className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-lg px-2 py-1.5 text-xs sm:text-sm font-medium text-purple-300 hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 flex items-center gap-1"
+                  >
+                    <RotateCcw className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">لاعب عائد</span>
+                  </button>
+                )}
+
+                {/* Contact Button */}
+                <button
+                  onClick={() => setShowContactForm(true)}
+                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-lg px-2 py-1.5 text-xs sm:text-sm font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
+                >
+                  <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">تواصل معنا</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Reusable Logo Component for non-saved users
   const LogoHeader = () => {
-    // Hide logo during loading screen (when no token and showRegistrationContent is false)
+    // Hide logo during loading screen and if NavigationBar is showing
     if (!token && !showRegistrationContent) {
+      return null;
+    }
+    
+    // Hide if user has saved tokens (NavigationBar will show instead)
+    if (assignedNumber || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) {
       return null;
     }
     
@@ -1653,8 +1737,13 @@ export default function WelcomePage() {
     );
   };
 
-  // Participant Icon Component - shows when user has saved token
+  // Participant Icon Component - shows when user has saved token (but NavigationBar is not showing)
   const ParticipantIcon = () => {
+    // Hide if NavigationBar should be showing instead
+    if (assignedNumber || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) {
+      return null;
+    }
+    
     // Only show if user has assigned number and name, and not during initial loading
     if (!assignedNumber || !participantName || isResolving || !showRegistrationContent) {
       return null;
@@ -2188,6 +2277,49 @@ export default function WelcomePage() {
         });
       }
     }, 300); // Small delay to allow popup to close
+  };
+
+  // Handle new user direct action (like clicking the main page button)
+  const handleNewUserDirect = async () => {
+    setShowNewUserTypePopup(false);
+    setNewUserTokenInput("");
+    console.log('🆕 User selected new user, creating token directly');
+    
+    setLoading(true);
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-token" }),
+      });
+      const data = await res.json();
+      console.log("Token creation response:", data);
+      
+      if (res.status === 403) {
+        // Registration is closed
+        alert("❌ " + (data.message || "التسجيل مغلق حالياً"));
+        return;
+      }
+      
+      if (res.ok && data.secure_token) {
+        setAssignedNumber(data.assigned_number);
+        // Mark just-created to show modal after redirect
+        sessionStorage.setItem('justCreatedToken', '1');
+        sessionStorage.setItem('justCreatedTokenValue', data.secure_token);
+        saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
+        
+        // Navigate to survey
+        window.location.href = `/?token=${data.secure_token}`;
+      } else {
+        console.error("Failed to create token:", data);
+        alert("❌ فشل في إنشاء الرمز المميز. حاول مرة أخرى.");
+      }
+    } catch (error) {
+      console.error("Error creating token:", error);
+      alert("❌ حدث خطأ. حاول مرة أخرى.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle contact form submission
@@ -3477,6 +3609,7 @@ export default function WelcomePage() {
   if (token && !isResolving && isTokenValid === false) {
     return (
       <>
+        <NavigationBar />
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
@@ -3547,85 +3680,217 @@ export default function WelcomePage() {
         {/* New User Type Popup */}
         {showNewUserTypePopup && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`max-w-sm w-full rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"} flex flex-col`} dir="rtl">
-              <div className="p-6">
-                <div className="text-center mb-6">
-                  <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${dark ? "bg-blue-500/20" : "bg-blue-100"}`}>
-                    <UserPlus className={`w-8 h-8 ${dark ? "text-blue-400" : "text-blue-600"}`} />
+            <div className="max-w-md w-full p-4 sm:p-6" dir="rtl">
+              <div className="text-center mb-6">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                    <UserPlus className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className={`text-xl font-bold mb-2 ${dark ? "text-slate-100" : "text-gray-800"}`}>
-                    مرحباً بك!
-                  </h3>
-                  <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                    هل سبق لك التسجيل في فعالياتنا من قبل؟
-                  </p>
+                  <button
+                    onClick={() => setShowInfoPopup(true)}
+                    className="w-8 h-8 rounded-full bg-white/10 border border-white/20 flex items-center justify-center hover:bg-white/20 transition-all duration-300"
+                    title="معلومات مفصلة"
+                  >
+                    <HelpCircle className="w-4 h-4 text-white" />
+                  </button>
                 </div>
-
-                <div className="space-y-4">
-                  {/* Returning User Option */}
-                  <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-green-400/30 bg-green-500/10" : "border-green-300 bg-green-50"}`}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <RotateCcw className={`w-5 h-5 ${dark ? "text-green-400" : "text-green-600"}`} />
-                      <span className={`font-semibold ${dark ? "text-green-300" : "text-green-700"}`}>
-                        نعم، لدي رمز مميز
-                      </span>
-                    </div>
-                    <p className={`text-xs mb-3 ${dark ? "text-green-200" : "text-green-600"}`}>
-                      أدخل رمزك المميز لاستعادة بياناتك
-                    </p>
-                    <div className="space-y-3">
-                      <input
-                        type="text"
-                        value={newUserTokenInput}
-                        onChange={(e) => setNewUserTokenInput(e.target.value)}
-                        placeholder="أدخل الرمز المميز"
-                        className={`w-full px-3 py-2 text-sm rounded-lg border transition-colors ${
-                          dark 
-                            ? "bg-slate-700 border-slate-600 text-slate-100 placeholder-slate-400 focus:border-green-400" 
-                            : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-green-500"
-                        } focus:outline-none focus:ring-2 focus:ring-green-500/20`}
-                        dir="ltr"
-                      />
-                      <button
-                        onClick={handleReturningUserToken}
-                        disabled={newUserTokenLoading || !newUserTokenInput.trim()}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                      >
-                        {newUserTokenLoading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            جاري التحقق...
-                          </>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-4 h-4" />
-                            استعادة البيانات
-                          </>
-                        )}
-                      </button>
-                    </div>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">مرحباً بك!</h3>
+                <p className="text-cyan-200 text-xs sm:text-sm">هل سبق لك التسجيل في فعالياتنا من قبل؟</p>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-4">
+                {/* Returning User Option - Full Width */}
+                <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-green-500/30 hover:to-emerald-500/30 transition-all duration-300">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center mx-auto mb-3">
+                    <RotateCcw className="w-6 h-6 text-white" />
                   </div>
-
-                  {/* New User Option */}
-                  <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-300 ${dark ? "border-cyan-400/30 bg-cyan-500/10" : "border-cyan-300 bg-cyan-50"}`}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <UserPlus className={`w-5 h-5 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
-                      <span className={`font-semibold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                        لا، أنا مشارك جديد
-                      </span>
-                    </div>
-                    <p className={`text-xs mb-3 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
-                      ابدأ رحلتك معنا من البداية
-                    </p>
+                  <h4 className="text-base font-bold text-white mb-2">نعم، لدي رمز مميز</h4>
+                  <p className="text-cyan-200 text-xs mb-3">
+                    أدخل رمزك المميز لاستعادة بياناتك
+                  </p>
+                  <div className="space-y-3">
+                    <input
+                      type="text"
+                      value={newUserTokenInput}
+                      onChange={(e) => setNewUserTokenInput(e.target.value)}
+                      placeholder="أدخل الرمز المميز"
+                      className="w-full px-3 py-2 text-sm rounded-lg border bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                      dir="ltr"
+                    />
                     <button
-                      onClick={handleNewUser}
-                      className="w-full px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                      onClick={handleReturningUserToken}
+                      disabled={newUserTokenLoading || !newUserTokenInput.trim()}
+                      className="w-full px-4 py-2 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      <Sparkles className="w-4 h-4" />
-                      لاعب جديد
+                      {newUserTokenLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          <span className="text-xs font-medium">جاري التحقق...</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-xs font-medium">استعادة البيانات</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
+
+                {/* New User Option - Full Width */}
+                <button
+                  onClick={handleNewUserDirect}
+                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-105"
+                >
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
+                    <Sparkles className="w-6 h-6 text-white" />
+                  </div>
+                  <h4 className="text-base font-bold text-white mb-2">لا، أنا مشارك جديد</h4>
+                  <p className="text-cyan-200 text-xs mb-3">
+                    ابدأ رحلتك معنا من البداية
+                  </p>
+                  <div className="flex items-center justify-center gap-2 text-cyan-300">
+                    <span className="text-xs font-medium">لاعب جديد</span>
+                    <ChevronLeft className="w-4 h-4 transform rotate-180" />
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Info Popup */}
+        {showInfoPopup && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="max-w-2xl w-full max-h-[90vh] p-4 sm:p-6 overflow-y-auto" dir="rtl">
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
+                  <HelpCircle className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">كيف يعمل النظام؟</h3>
+                <p className="text-cyan-200 text-xs sm:text-sm">نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية</p>
+              </div>
+              
+              {/* Features Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                  <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Users className="w-4 h-4 text-white" />
+                  </div>
+                  <h4 className="text-sm font-bold text-white mb-1">لقاءات ذكية</h4>
+                  <p className="text-cyan-200 text-xs">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
+                </div>
+                
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Brain className="w-4 h-4 text-white" />
+                  </div>
+                  <h4 className="text-sm font-bold text-white mb-1">تحليل متقدم</h4>
+                  <p className="text-cyan-200 text-xs">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
+                </div>
+                
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                  <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                    <Target className="w-4 h-4 text-white" />
+                  </div>
+                  <h4 className="text-sm font-bold text-white mb-1">نتائج دقيقة</h4>
+                  <p className="text-cyan-200 text-xs">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                </div>
+              </div>
+              
+              <div className="space-y-6 sm:space-y-8">
+                {/* Step 1 */}
+                <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg sm:text-xl">1</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">املأ استبيان التوافق</h3>
+                    <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                      أجب على أسئلة شخصية مدروسة لتحليل شخصيتك وتفضيلاتك بدقة
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 2 */}
+                <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg sm:text-xl">2</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تحليل ذكي للتوافق</h3>
+                    <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                      الذكاء الاصطناعي يحلل جميع المشاركين ويجد أكثر الأشخاص توافقاً معك
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 3 */}
+                <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg sm:text-xl">3</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">تواصل عبر واتساب</h3>
+                    <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                      سيتم التواصل معك عبر واتساب للدفع وتأكيد حضورك للفعالية
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 4 */}
+                <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                  <div className="flex-shrink-0">
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center">
+                      <span className="text-white font-bold text-lg sm:text-xl">4</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg sm:text-xl font-bold text-white mb-2">لقاء وقرار التطابق</h3>
+                    <p className="text-cyan-200 text-sm sm:text-base mb-3">
+                      تلتقي بالشخص وتقرر إذا كنت تريد التطابق ومشاركة معلوماتك الشخصية أم لا - كل شيء يحدث بسلاسة على الموقع
+                    </p>
+                  </div>
+                </div>
+                
+                {/* Privacy Notice */}
+                <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <Shield className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-white font-semibold mb-1 text-sm">حماية الخصوصية</h4>
+                      <p className="text-cyan-200 text-xs">
+                        معلوماتك الشخصية محمية تماماً ولن تُشارك إلا في حالة التطابق المتبادل بين الطرفين
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Contact and Close Buttons */}
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => {
+                    setShowInfoPopup(false);
+                    setShowContactForm(true);
+                  }}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="text-sm font-medium">تواصل معنا</span>
+                </button>
+                <button
+                  onClick={() => setShowInfoPopup(false)}
+                  className="flex-1 px-4 py-3 bg-white/10 border border-white/20 text-white rounded-lg hover:bg-white/20 transition-all duration-300"
+                >
+                  <span className="text-sm font-medium">إغلاق</span>
+                </button>
               </div>
             </div>
           </div>
@@ -4178,6 +4443,7 @@ export default function WelcomePage() {
           </div>
         )}
 
+        <NavigationBar />
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
@@ -4813,62 +5079,6 @@ export default function WelcomePage() {
                   </div>
                 </div>
 
-                {/* Floating Scroll to Start Journey Button */}
-                <button
-                    onClick={() => {
-                      // Navigate to different sections based on whether user has saved tokens
-                      const targetId = (resultToken || returningPlayerToken) ? 'returning-player' : 'start-journey';
-                      const element = document.getElementById(targetId);
-                      if (element) {
-                        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                      }
-                    }}
-                    className={`group fixed bottom-6 right-6 z-[99999] text-white rounded-2xl shadow-2xl transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 backdrop-blur-xl ${
-                      (resultToken || returningPlayerToken) 
-                        ? "bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 border border-purple-400/30" 
-                        : "bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 border border-cyan-400/30"
-                    }`}
-                    style={{ 
-                      boxShadow: (resultToken || returningPlayerToken) 
-                        ? '0 20px 40px rgba(168, 85, 247, 0.3), 0 0 0 1px rgba(168, 85, 247, 0.1)'
-                        : '0 20px 40px rgba(34, 211, 238, 0.3), 0 0 0 1px rgba(34, 211, 238, 0.1)',
-                    }}
-                    aria-label={(resultToken || returningPlayerToken) ? "انتقل إلى لاعب عائد" : "انتقل إلى ابدأ رحلتك"}
-                  >
-                    <div className="flex items-center gap-3 px-6 py-4">
-                      <div className="flex flex-col items-center">
-                        <svg 
-                          className="w-6 h-6 mb-1 group-hover:animate-bounce" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2.5} 
-                            d="M19 14l-7 7m0 0l-7-7m7 7V3" 
-                          />
-                        </svg>
-                        <div className="w-1 h-1 bg-white/60 rounded-full animate-pulse"></div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-bold leading-tight">
-                          {(resultToken || returningPlayerToken) ? "لاعب عائد" : "ابدأ رحلتك"}
-                        </div>
-                        <div className="text-xs text-cyan-100 opacity-90">
-                          {(resultToken || returningPlayerToken) ? "عودة للحساب" : "انضم الآن"}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Subtle glow effect */}
-                    <div className={`absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl ${
-                      (resultToken || returningPlayerToken) 
-                        ? "bg-gradient-to-r from-purple-400/20 to-violet-500/20" 
-                        : "bg-gradient-to-r from-cyan-400/20 to-blue-500/20"
-                    }`}></div>
-                  </button>
               </>
             )}
           </div>
@@ -4892,6 +5102,7 @@ export default function WelcomePage() {
   if (phase === null) {
     return (
       <>
+        <NavigationBar />
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
@@ -4946,6 +5157,7 @@ export default function WelcomePage() {
     if (!isResolving && (phase === "round_1" || /* phase === "round_2" || phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
   return (
       <>
+        <NavigationBar />
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
@@ -4966,6 +5178,7 @@ export default function WelcomePage() {
   if (emergencyPaused) {
     return (
       <>
+        <NavigationBar />
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
@@ -5010,6 +5223,8 @@ export default function WelcomePage() {
   
   return (
     <>
+      {/* Unified Navigation Bar */}
+      <NavigationBar />
       {/* Clickable Logo Header */}
       <LogoHeader />
       {/* Bottom Left Contact Button */}

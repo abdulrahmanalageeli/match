@@ -48,7 +48,6 @@ import {
   MessageCircle,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
-import { Timeline, TimelineItem } from "../../components/ui/timeline"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
 import { Badge } from "../../components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
@@ -87,66 +86,6 @@ interface SurveyData {
   phoneNumber?: string
 }
 
-const SleekTimeline = ({ currentStep, totalSteps, dark, formCompleted, currentRound, totalRounds }: { currentStep: number; totalSteps: number; dark: boolean; formCompleted?: boolean; currentRound?: number; totalRounds?: number }) => {
-  const stepLabels = ["الجولة ١", "تحليل", "النموذج"];
-  // Reverse for RTL
-  const steps = Array.from({ length: totalSteps });
-  return (
-    <div className="w-full max-w-[90%] mx-auto mb-8 flex flex-col items-center" dir="rtl">
-      <div className="relative w-full flex flex-row-reverse items-center justify-between" style={{ height: 32 }}>
-        {/* Timeline line */}
-        <div className={`absolute left-0 right-0 top-1/2 h-1 rounded-full ${dark ? 'bg-slate-700/60' : 'bg-blue-100/80'}`} style={{ transform: 'translateY(-50%)' }} />
-        {steps.map((_, i) => {
-          // For RTL, currentStep is counted from the right
-          const rtlIndex = totalSteps - 1 - i;
-          const isCurrent = rtlIndex === currentStep;
-          const isPast = rtlIndex < currentStep;
-          const isFormStep = rtlIndex === 0; // Form step (rightmost in RTL)
-          const isCompleted = isPast || (isFormStep && formCompleted);
-          
-          return (
-            <div key={i} className="relative z-10 flex flex-col items-center" style={{ width: 1, flex: 1 }}>
-              <div
-                className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-500 ${
-                  isCurrent
-                    ? dark
-                      ? 'bg-cyan-400 border-cyan-300 shadow-lg shadow-cyan-400/40'
-                      : 'bg-blue-500 border-blue-400 shadow-lg shadow-blue-400/40'
-                    : isCompleted
-                      ? dark
-                        ? 'bg-green-500 border-green-400'
-                        : 'bg-green-400 border-green-300'
-                      : dark
-                        ? 'bg-slate-800 border-slate-700'
-                        : 'bg-gray-200 border-gray-300'
-                }`}
-                style={{ boxShadow: isCurrent ? `0 0 12px 2px ${dark ? '#22d3ee88' : '#3b82f688'}` : undefined }}
-              >
-                {/* AI-themed indicators for completed steps */}
-                {isCompleted && (
-                  <div className="relative">
-                    {/* Neural network nodes */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                    </div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-1 h-1 bg-white rounded-full animate-ping" style={{ animationDelay: '0.2s' }}></div>
-                    </div>
-                    {/* AI check mark */}
-                    <svg className="w-3 h-3 text-white relative z-10" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                )}
-              </div>
-              <span className={`mt-2 text-xs font-medium ${isCurrent ? (dark ? 'text-cyan-300' : 'text-blue-600') : isCompleted ? (dark ? 'text-green-400' : 'text-green-600') : (dark ? 'text-slate-400' : 'text-gray-500')}`}>{stepLabels[i]}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
 export default function WelcomePage() {
   const [step, setStep] = useState<number>(0)
@@ -5541,48 +5480,6 @@ export default function WelcomePage() {
 
 
       <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
-        {step >= 0 && (
-          <SleekTimeline 
-            currentStep={(() => {
-              // Timeline labels in RTL order: ["الجولة ١", "تحليل", "النموذج"]
-              // RTL indices: 2=Round1, 1=Analysis, 0=Form
-              let timelineStep = 0;
-              
-              if (phase === "registration") timelineStep = 0; // Form (rightmost)
-              else if (phase === "form") timelineStep = 0; // Form (rightmost)
-              else if (phase === "waiting") timelineStep = 1; // Analysis
-              else if (phase === "round_1") timelineStep = 2; // Round 1
-              // Commented out multi-round and groups logic
-              // else if (phase === "waiting_2") timelineStep = 2; // Round 1 (waiting for round 2)
-              // else if (phase === "round_2") timelineStep = 3; // Round 2
-              // else if (phase === "waiting_3") timelineStep = 3; // Round 2 (waiting for round 3)
-              // else if (phase === "round_3") timelineStep = 4; // Round 3
-              // else if (phase === "waiting_4") timelineStep = 4; // Round 3 (waiting for round 4)
-              // else if (phase === "round_4") timelineStep = 5; // Round 4
-              // else if (phase === "group_phase") timelineStep = 3; // Groups (removed)
-              else {
-                // Fallback to step-based calculation if phase is not set
-                if (step === 0) timelineStep = 0; // Welcome screen -> Form
-                else if (step === 1) timelineStep = 0; // Number entry -> Form
-                else if (step === 2) timelineStep = 0; // Form -> Form
-                else if (step === 3) timelineStep = 1; // Analysis -> Analysis
-                else if (step === 4) timelineStep = 2; // Round 1 -> Round 1
-                // Commented out multi-round and groups logic
-                // else if (step === 5) timelineStep = Math.min(2 + currentRound, 3); // Waiting -> Next Round (max 3 for Round 2)
-                // else if (step === 7) timelineStep = 3; // Group phase -> Groups (removed)
-                else timelineStep = 0;
-              }
-              
-              console.log(`Timeline Debug: phase=${phase}, currentRound=${currentRound}, step=${step}, timelineStep=${timelineStep}`);
-              return timelineStep;
-            })()} 
-                            totalSteps={3} 
-            dark={dark} 
-            formCompleted={step >= 3}
-            currentRound={currentRound}
-            totalRounds={totalRounds}
-          />
-        )}
 
         {/* Welcome Landing Page */}
         {step === -1 && (

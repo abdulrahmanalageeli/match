@@ -354,6 +354,7 @@ export default function WelcomePage() {
   const [showNewUserTypePopup, setShowNewUserTypePopup] = useState(false)
   const [newUserTokenInput, setNewUserTokenInput] = useState("")
   const [newUserTokenLoading, setNewUserTokenLoading] = useState(false)
+  const [showFAQPopup, setShowFAQPopup] = useState(false)
   
   // Contact Form states
   const [showContactForm, setShowContactForm] = useState(false)
@@ -3688,6 +3689,18 @@ export default function WelcomePage() {
                 {/* Pulsing indicator */}
                 <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400/60 animate-ping"></div>
               </button>
+
+              {/* Top Right FAQ Button */}
+              <button
+                onClick={() => setShowFAQPopup(true)}
+                className="absolute top-4 right-4 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl px-3 py-2 flex items-center gap-2 hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300"
+                title="الأسئلة الشائعة"
+              >
+                <MessageCircle className="w-4 h-4 text-orange-300" />
+                <span className="text-orange-300 text-xs font-medium">FAQ</span>
+                {/* Pulsing indicator */}
+                <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full bg-orange-400/60 animate-ping"></div>
+              </button>
               
               {/* Header with centered logo */}
               <div className="text-center mb-6">
@@ -3896,6 +3909,136 @@ export default function WelcomePage() {
                 >
                   <span className="text-sm font-medium">إغلاق</span>
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* FAQ Popup */}
+        {showFAQPopup && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="max-w-4xl w-full max-h-[90vh] p-4 sm:p-6 overflow-y-auto" dir="rtl">
+              <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6">
+                {/* Header */}
+                <div className="text-center mb-6">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
+                    <MessageCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الأسئلة الشائعة</h3>
+                  <p className="text-orange-200 text-xs sm:text-sm">إجابات شاملة على أهم الأسئلة حول منصة التوافق الفكري</p>
+                </div>
+
+                {/* FAQ Content */}
+                <div className="space-y-4 mb-6">
+                  {/* Platform Purpose */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Target className="w-4 h-4" />
+                      ما هو الهدف من هذه المنصة؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      منصة التوافق الفكري هي منصة احترافية تهدف إلى ربط الأشخاص ذوي التفكير المتشابه والاهتمامات المتوافقة لبناء علاقات فكرية وثقافية هادفة. 
+                      نحن لسنا منصة مواعدة، بل مساحة آمنة للتبادل الفكري والثقافي بين الأشخاص المتوافقين فكرياً وشخصياً.
+                    </p>
+                  </div>
+
+                  {/* Nationality Policy */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      هل يمكنني اختيار جنسية معينة؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      لا، لا يُسمح باختيار جنسية محددة. نحن نؤمن بالتنوع الثقافي والفكري، ونهدف إلى كسر الحواجز وبناء جسور التفاهم بين جميع الثقافات والجنسيات. 
+                      التوافق الفكري والشخصي أهم من الخلفية الجغرافية.
+                    </p>
+                  </div>
+
+                  {/* Age Matching */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      كيف يتم التوافق حسب العمر؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      يتم التوافق مع أشخاص قريبين من عمرك لضمان التجانس في مراحل الحياة والاهتمامات. 
+                      الفارق العمري المسموح عادة لا يتجاوز 5-7 سنوات، مما يضمن وجود أرضية مشتركة للحديث والتفاهم.
+                    </p>
+                  </div>
+
+                  {/* Repeat Matching */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <RotateCcw className="w-4 h-4" />
+                      هل سأتم مطابقتي مع نفس الأشخاص مرة أخرى؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      لا، لن يتم مطابقتك مع نفس الشخص في جلستين متتاليتين. نظامنا الذكي يضمن التنويع في المطابقات 
+                      لتتيح لك فرصة التعرف على أكبر عدد من الأشخاص المتوافقين معك فكرياً.
+                    </p>
+                  </div>
+
+                  {/* Session Duration */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Activity className="w-4 h-4" />
+                      كم تستغرق الجلسات؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      <strong className="text-orange-200">الجلسات الجماعية:</strong> 30 دقيقة مع مجموعة من 4-6 أشخاص<br/>
+                      <strong className="text-orange-200">الجلسات الفردية:</strong> 30 دقيقة كحد أدنى، لكن يمكنكما الاستمرار كما تشاءان<br/>
+                      هذا التوقيت مصمم لإتاحة فرصة كافية للتعارف دون إرهاق أو ملل.
+                    </p>
+                  </div>
+
+                  {/* Activities Provided */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      ما الأنشطة المتوفرة؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      <strong className="text-orange-200">للجلسات الفردية:</strong> أسئلة محفزة للحوار ومواضيع نقاش متنوعة<br/>
+                      <strong className="text-orange-200">للجلسات الجماعية:</strong> 4 أنشطة تفاعلية مختلفة تشمل ألعاب كسر الجليد، 
+                      أسئلة التعارف، وأنشطة بناء الفريق لضمان تجربة ممتعة ومفيدة.
+                    </p>
+                  </div>
+
+                  {/* Privacy & Safety */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Shield className="w-4 h-4" />
+                      كيف تضمنون الخصوصية والأمان؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      نحن ملتزمون بأعلى معايير الخصوصية والأمان. جميع البيانات محمية بتشفير متقدم، ولا يتم مشاركة المعلومات الشخصية 
+                      إلا في حالة التوافق المتبادل. كما نوفر بيئة آمنة ومراقبة لضمان احترام جميع المشاركين.
+                    </p>
+                  </div>
+
+                  {/* Platform Values */}
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
+                      <Heart className="w-4 h-4" />
+                      ما قيمنا ومبادئنا؟
+                    </h4>
+                    <p className="text-slate-300 text-sm leading-relaxed">
+                      نؤمن بالاحترام المتبادل، التنوع الثقافي، والتبادل الفكري الهادف. نسعى لبناء مجتمع من المفكرين والمثقفين 
+                      الذين يقدرون الحوار البناء والعلاقات الإنسانية القائمة على التفاهم والاحترام المتبادل.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Close Button */}
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowFAQPopup(false)}
+                    className="px-6 py-3 bg-gradient-to-r from-orange-600 to-red-700 hover:from-orange-700 hover:to-red-800 text-white rounded-xl transition-all duration-300 flex items-center gap-2 font-medium"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>فهمت، شكراً</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

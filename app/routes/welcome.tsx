@@ -1533,9 +1533,9 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Use absolute positioning in round mode (step 4), fixed otherwise
+    // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "absolute top-4 left-1/2 transform -translate-x-1/2 z-[100]" 
+      ? "relative top-4 left-1/2 transform -translate-x-1/2 z-[100]" 
       : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
     
     return (
@@ -1607,9 +1607,9 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Use absolute positioning in round mode (step 4), fixed otherwise
+    // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "absolute top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]" 
+      ? "relative top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]" 
       : "fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]";
     
     return (
@@ -1654,9 +1654,9 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Use absolute positioning in round mode (step 4), fixed otherwise
+    // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "absolute bottom-4 left-4 z-[100]" 
+      ? "relative bottom-4 left-4 z-[100]" 
       : "fixed bottom-4 left-4 z-[100]";
     
     return (
@@ -1703,9 +1703,9 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Use absolute positioning in round mode (step 4), fixed otherwise
+    // Use relative positioning in round mode (step 4), fixed otherwise
     const positionClass = step === 4 
-      ? "absolute top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]" 
+      ? "relative top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]" 
       : "fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]";
     
     return (

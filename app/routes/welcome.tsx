@@ -1533,8 +1533,9 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Use relative positioning when accessing via token URL, fixed otherwise
-    const positionClass = token 
+    // Use relative positioning when accessing via token URL AND in round phase, fixed otherwise
+    const isTokenAndRoundPhase = token && phase === "round_1";
+    const positionClass = isTokenAndRoundPhase 
       ? "relative top-0 left-1/2 transform -translate-x-1/2 z-[100]" 
       : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
     
@@ -1571,21 +1572,38 @@ export default function WelcomePage() {
               </>
             )}
 
-            {/* Round Timer - Show only when accessing via token URL */}
-            {token && (
+            {/* Round Timer - Show only when accessing via token URL AND in round phase */}
+            {isTokenAndRoundPhase && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
-                <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-orange-300 flex items-center gap-1.5">
+                <div className={`border rounded-full px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 ${
+                  !round1TimerStarted
+                    ? "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30 text-blue-300"
+                    : round1LocalTimer <= 0 // Time's up
+                      ? "bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-400/30 text-green-300"
+                      : round1LocalTimer <= 900 // Last 15 minutes
+                        ? "bg-gradient-to-r from-red-500/20 to-rose-500/20 border-red-400/30 text-red-300"
+                        : round1LocalTimer <= 1800 // 30 minutes or less
+                          ? "bg-gradient-to-r from-yellow-500/20 to-amber-500/20 border-yellow-400/30 text-yellow-300"
+                          : "bg-gradient-to-r from-orange-500/20 to-red-500/20 border-orange-400/30 text-orange-300"
+                }`}>
                   <Clock className="w-3 h-3" />
-                  <span className="font-mono">15:00</span>
-                  <div className="w-px h-3 bg-orange-400/40"></div>
-                  <span className="text-orange-200">الجولة 1</span>
+                  <span className="font-mono">
+                    {!round1TimerStarted 
+                      ? "انتظار" 
+                      : round1LocalTimer <= 0 
+                        ? "انتهى!" 
+                        : `${Math.floor(round1LocalTimer / 60)}:${(round1LocalTimer % 60).toString().padStart(2, '0')}`
+                    }
+                  </span>
+                  <div className="w-px h-3 bg-current/40"></div>
+                  <span className="text-current/80">الجولة 1</span>
                 </div>
               </>
             )}
 
-            {/* Contact Button - Hide when accessing via token URL */}
-            {!token && (
+            {/* Contact Button - Hide when accessing via token URL AND in round phase */}
+            {!isTokenAndRoundPhase && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
                 <button

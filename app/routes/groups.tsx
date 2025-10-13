@@ -837,38 +837,64 @@ export default function GroupsPage() {
             <p className="text-slate-400 text-base">30 دقيقة من المرح والتفاعل</p>
           </div>
 
-          {/* Mobile-Optimized Participant Welcome */}
+          {/* Navigation Bar - Similar to main page */}
           {dataLoaded && participantName && participantNumber && (
             <div className="mb-6">
-              <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm border border-green-400/30 rounded-2xl p-5 shadow-xl">
-                <div className="text-center">
-                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
-                    <Heart className="w-6 h-6 text-white" />
+              <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-3 border border-slate-600/50 shadow-md backdrop-blur-sm">
+                <div className="flex items-center justify-between">
+                  {/* Logo */}
+                  <div 
+                    onClick={() => window.location.href = "/welcome"}
+                    className="cursor-pointer transition-all duration-200 hover:opacity-80"
+                  >
+                    <img 
+                      src={logoPng} 
+                      alt="BlindMatch" 
+                      className="w-8 h-8 object-contain" 
+                    />
                   </div>
-                  <h3 className="text-xl font-bold text-white mb-2">
-                    أهلاً {participantName}! 👋
-                  </h3>
-                  {tableNumber && (
-                    <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-3">
-                      <p className="text-green-200 text-sm font-medium">
-                        طاولة رقم <span className="text-lg font-bold text-green-100">{tableNumber}</span>
-                      </p>
-                    </div>
-                  )}
-                  {groupMembers.length > 0 && (
-                    <div className="bg-slate-800/40 rounded-xl p-3">
-                      <p className="text-slate-300 text-xs mb-2">أعضاء مجموعتك:</p>
-                      <div className="flex flex-wrap justify-center gap-1.5">
-                        {groupMembers.map((member, index) => (
-                          <span key={index} className="bg-slate-700/60 text-slate-200 px-2 py-1 rounded-lg text-xs font-medium">
-                            {member}
-                          </span>
-                        ))}
+
+                  {/* Participant Info */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm">
+                        #{participantNumber}
                       </div>
+                      <span className="text-white/90 text-sm font-medium">
+                        {participantName}
+                      </span>
                     </div>
-                  )}
+
+                    {/* Table Number */}
+                    {tableNumber && (
+                      <>
+                        <div className="w-px h-4 bg-slate-600"></div>
+                        <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-green-300 flex items-center gap-1.5">
+                          <Target className="w-3 h-3" />
+                          <span>طاولة {tableNumber}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Group Members - Separate compact section */}
+              {groupMembers.length > 0 && (
+                <div className="mt-3 bg-slate-800/30 backdrop-blur-sm border border-slate-600/40 rounded-xl p-3">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <Users className="w-4 h-4 text-slate-400" />
+                    <span className="text-slate-300 text-xs font-medium">أعضاء مجموعتك</span>
+                  </div>
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {groupMembers.map((member, index) => (
+                      <span key={index} className="bg-slate-700/50 text-slate-200 px-2 py-1 rounded-lg text-xs font-medium border border-slate-600/30">
+                        {member}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

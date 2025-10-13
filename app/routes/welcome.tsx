@@ -1676,7 +1676,8 @@ export default function WelcomePage() {
     const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
     
     // Hide if user has token or saved tokens (NavigationBar will show contact button instead)
-    if (token || !showRegistrationContent || assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
+    // Also hide when new user popup is active and info popup is open
+    if (token || !showRegistrationContent || assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken || (showFormFilledPrompt && showInfoPopup)) {
       return null;
     }
     

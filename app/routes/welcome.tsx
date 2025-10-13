@@ -6029,7 +6029,7 @@ export default function WelcomePage() {
             </div>
             
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
-              dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
+              dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (

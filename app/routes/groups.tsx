@@ -454,25 +454,33 @@ export default function GroupsPage() {
 
   const renderGameSelection = () => {
     return (
-      <div className="text-center space-y-8">
-        <div className="space-y-3">
-          <h2 className="text-4xl font-bold text-white">اختر لعبة</h2>
-          <p className="text-slate-400 text-lg">انقر على اللعبة التي تريد أن تبدأ بها</p>
+      <div className="text-center space-y-6">
+        <div className="space-y-2">
+          <h2 className="text-2xl font-bold text-white">اختر لعبة للبدء</h2>
+          <p className="text-slate-400 text-sm">انقر على اللعبة المفضلة لديك</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-4">
           {games.map((game) => (
             <div 
               key={game.id} 
-              className="group bg-slate-800/50 rounded-xl p-6 border border-slate-700 hover:border-cyan-400 hover:bg-slate-700/50 transition-all duration-300 cursor-pointer transform hover:scale-105 hover:shadow-xl hover:shadow-cyan-500/20" 
+              className="group bg-slate-700/40 backdrop-blur-sm rounded-2xl p-4 border border-slate-600/50 hover:border-cyan-400/60 hover:bg-slate-700/60 transition-all duration-300 cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl" 
               onClick={() => startGame(game.id)}
             >
-              <div className={`w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
-                {game.icon}
-              </div>
-              <h3 className="text-xl font-bold text-white mb-3 group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
-              <p className="text-slate-300 text-sm leading-relaxed">{game.descriptionAr}</p>
-              <div className="mt-4 text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                انقر للبدء ←
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
+                  {game.icon}
+                </div>
+                <div className="flex-1 text-right">
+                  <h3 className="text-lg font-bold text-white mb-1 group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
+                  <p className="text-slate-300 text-sm leading-relaxed mb-2">{game.descriptionAr}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-400">{game.duration} دقائق</span>
+                    <div className="text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1">
+                      <span>ابدأ</span>
+                      <ChevronLeft className="w-4 h-4" />
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -813,162 +821,135 @@ export default function GroupsPage() {
   if (!gameStarted) {
     return (
       <>
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center">
-              <Users className="w-8 h-8 text-white" />
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        <div className="max-w-md mx-auto px-4 py-6">
+          {/* Mobile-First Header */}
+          <div className="text-center mb-6">
+            <div className="relative inline-block mb-4">
+              <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 flex items-center justify-center shadow-2xl">
+                <Users className="w-10 h-10 text-white" />
+              </div>
+              <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center">
+                <Sparkles className="w-3 h-3 text-white" />
+              </div>
             </div>
-            <h1 className="text-4xl font-bold text-white mb-2">ألعاب جماعية</h1>
-            <p className="text-slate-300 text-lg">30 دقيقة من المرح والتفاعل</p>
+            <h1 className="text-3xl font-bold text-white mb-2 leading-tight">ألعاب جماعية</h1>
+            <p className="text-slate-400 text-base">30 دقيقة من المرح والتفاعل</p>
           </div>
 
-          {/* Welcome Message for Participants with Data - Only show if we have participant data */}
+          {/* Mobile-Optimized Participant Welcome */}
           {dataLoaded && participantName && participantNumber && (
-            <div className="max-w-2xl mx-auto mb-6">
-              <Card className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-400/30">
-                <CardContent className="p-6 text-center">
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
-                      <Heart className="w-6 h-6 text-white" />
-                    </div>
+            <div className="mb-6">
+              <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm border border-green-400/30 rounded-2xl p-5 shadow-xl">
+                <div className="text-center">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-lg">
+                    <Heart className="w-6 h-6 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold text-white mb-2">
-                    أهلاً وسهلاً {participantName}!
+                  <h3 className="text-xl font-bold text-white mb-2">
+                    أهلاً {participantName}! 👋
                   </h3>
-                  {/* Only show table info if we successfully retrieved it */}
                   {tableNumber && (
-                    <p className="text-green-300 text-lg font-medium">
-                      يجب أن تكون على الطاولة رقم <span className="font-bold text-green-200">{tableNumber}</span> حسب مجموعتك
-                    </p>
+                    <div className="bg-green-500/20 border border-green-400/40 rounded-xl p-3 mb-3">
+                      <p className="text-green-200 text-sm font-medium">
+                        طاولة رقم <span className="text-lg font-bold text-green-100">{tableNumber}</span>
+                      </p>
+                    </div>
                   )}
-                  {/* Only show group members if we have them */}
                   {groupMembers.length > 0 && (
-                    <div className="mt-4 p-4 bg-slate-800/50 rounded-lg">
-                      <p className="text-slate-300 text-sm mb-2">أعضاء مجموعتك:</p>
-                      <div className="flex flex-wrap justify-center gap-2">
+                    <div className="bg-slate-800/40 rounded-xl p-3">
+                      <p className="text-slate-300 text-xs mb-2">أعضاء مجموعتك:</p>
+                      <div className="flex flex-wrap justify-center gap-1.5">
                         {groupMembers.map((member, index) => (
-                          <Badge key={index} variant="secondary" className="bg-slate-700 text-slate-200">
+                          <span key={index} className="bg-slate-700/60 text-slate-200 px-2 py-1 rounded-lg text-xs font-medium">
                             {member}
-                          </Badge>
+                          </span>
                         ))}
                       </div>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
           )}
 
-          <div className="max-w-2xl mx-auto">
-            {/* Comprehensive Game Instructions */}
-            <Card className="bg-slate-800/50 border-slate-700 mb-8">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center justify-center">
+          {/* Mobile-First Instructions */}
+          <div className="mb-6">
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl overflow-hidden shadow-xl">
+              <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 p-4 border-b border-slate-600/50">
+                <h2 className="text-lg font-bold text-white flex items-center justify-center">
                   <BookOpen className="w-5 h-5 ml-2" />
-                  تعليمات الألعاب الجماعية
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {/* Step 1 */}
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-sm">
-                    1
+                  كيف نلعب؟
+                </h2>
+              </div>
+              <div className="p-4 space-y-3">
+                {/* Compact Steps */}
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-center gap-3 bg-slate-700/30 rounded-xl p-3">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs">1</div>
+                    <div className="flex-1">
+                      <p className="text-white text-sm font-medium">اجلسوا في دائرة واختاروا من يبدأ</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-white font-semibold mb-2">اجلسوا في دائرة</h4>
-                    <p className="text-slate-300 text-sm">رتبوا أنفسكم في دائرة بحيث يمكن للجميع رؤية بعضهم البعض</p>
-                  </div>
-                </div>
-
-                {/* Step 2 */}
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-sm">
-                    2
-                  </div>
-                  <div>
-                    <h4 className="text-white font-semibold mb-2">اختاروا شخصاً للبداية</h4>
-                    <p className="text-slate-300 text-sm">قرروا من سيبدأ أولاً، ثم العبوا بالترتيب في اتجاه عقارب الساعة</p>
-                  </div>
-                </div>
-
-                {/* Step 3 */}
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm">
-                    3
-                  </div>
-                  <div>
-                    <h4 className="text-white font-semibold mb-2">اتبعوا قواعد كل لعبة</h4>
-                    <p className="text-slate-300 text-sm">كل لعبة لها قواعدها الخاصة - اقرؤوا التعليمات قبل البدء</p>
-                  </div>
-                </div>
-
-                {/* Step 4 */}
-                <div className="flex items-start space-x-4">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center text-white font-bold text-sm">
-                    4
-                  </div>
-                  <div>
-                    <h4 className="text-white font-semibold mb-2">استمتعوا وتفاعلوا</h4>
-                    <p className="text-slate-300 text-sm">الهدف هو التعرف على بعضكم البعض والاستمتاع بالوقت معاً</p>
+                  <div className="flex items-center gap-3 bg-slate-700/30 rounded-xl p-3">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-xs">2</div>
+                    <div className="flex-1">
+                      <p className="text-white text-sm font-medium">اتبعوا قواعد كل لعبة واستمتعوا</p>
+                    </div>
                   </div>
                 </div>
 
                 {/* Timer Info */}
-                <div className="bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 rounded-lg p-4 mt-6">
-                  <div className="flex items-center justify-center mb-2">
-                    <Clock className="w-5 h-5 text-cyan-400 ml-2" />
-                    <span className="text-cyan-400 font-semibold">مؤقت 30 دقيقة</span>
+                <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-3 mt-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <Clock className="w-4 h-4 text-cyan-300" />
+                    <span className="text-cyan-200 font-medium text-sm">30 دقيقة → ثم الجولات الفردية</span>
                   </div>
-                  <p className="text-slate-300 text-sm text-center">
-                    سيبدأ المؤقت عند الضغط على "ابدأ الجلسة" وعند انتهاء الوقت ستنتقلون للجولة الفردية
-                  </p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Games Overview */}
-            <Card className="bg-slate-800/50 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white flex items-center">
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  الألعاب المتاحة
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {games.map((game, index) => (
-                  <div key={game.id} className="flex items-center space-x-3 p-3 bg-slate-700/30 rounded-lg">
-                    <div className={`w-10 h-10 rounded-full bg-gradient-to-r ${game.color} flex items-center justify-center text-white`}>
-                      {game.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-semibold">{game.nameAr}</h3>
-                      <p className="text-slate-400 text-sm">{game.duration} دقائق</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
-          <div className="text-center mt-8 space-y-4">
+          {/* Mobile Games Preview */}
+          <div className="mb-6">
+            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl overflow-hidden shadow-xl">
+              <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 p-4 border-b border-slate-600/50">
+                <h2 className="text-lg font-bold text-white flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 ml-2" />
+                  الألعاب المتاحة
+                </h2>
+              </div>
+              <div className="p-4 grid grid-cols-2 gap-3">
+                {games.map((game, index) => (
+                  <div key={game.id} className="bg-slate-700/40 rounded-xl p-3 text-center">
+                    <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg`}>
+                      {game.icon}
+                    </div>
+                    <h3 className="text-white font-medium text-sm mb-1">{game.nameAr}</h3>
+                    <p className="text-slate-400 text-xs">{game.duration} دقائق</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Mobile Action Buttons */}
+          <div className="space-y-3 mt-6">
             <Button 
               onClick={startSession}
-              className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white px-10 py-5 text-xl font-bold rounded-2xl shadow-2xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-cyan-500/50"
+              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white py-4 text-lg font-bold rounded-2xl shadow-xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
             >
-              <Play className="w-7 h-7 mr-3" />
-              ابدأ الجلسة
+              <Play className="w-6 h-6 ml-2" />
+              ابدأ الجلسة الآن
             </Button>
             
-            <div>
-              <Button 
-                onClick={() => window.location.href = "/welcome"}
-                className="bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white px-8 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-slate-500/25 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-slate-500/50"
-              >
-                <Home className="w-5 h-5 mr-2" />
-                العودة للشاشة الرئيسية
-              </Button>
-            </div>
+            <Button 
+              onClick={() => window.location.href = "/welcome"}
+              variant="outline"
+              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700/50 py-3 rounded-xl transition-all duration-300"
+            >
+              <Home className="w-4 h-4 ml-2" />
+              العودة للشاشة الرئيسية
+            </Button>
           </div>
         </div>
       </div>
@@ -978,69 +959,62 @@ export default function GroupsPage() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4" dir="rtl">
-      <div className="max-w-4xl mx-auto">
-        {/* Sleek Horizontal Header */}
-        <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-lg px-3 py-2 mb-6 border border-slate-600/50 shadow-md backdrop-blur-sm">
-          <div className="flex items-center justify-between gap-2">
-            {/* Logo - Compact */}
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <div className="max-w-md mx-auto px-4 py-4">
+        {/* Mobile-Optimized Header */}
+        <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl p-4 mb-4 border border-slate-600/50 shadow-2xl">
+          <div className="flex items-center justify-between mb-3">
+            {/* Logo */}
             <div 
               onClick={() => window.location.href = "/"}
-              className="cursor-pointer transition-all duration-200 hover:opacity-80 shrink-0"
+              className="cursor-pointer transition-all duration-200 hover:opacity-80"
             >
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-8 h-8 sm:w-9 sm:h-9 object-contain" 
+                className="w-8 h-8 object-contain" 
               />
             </div>
 
-            {/* Timer & Game Info - Horizontal */}
-            <div className="flex items-center gap-3 sm:gap-6 flex-1 justify-center">
-              {/* Timer */}
-              <div className="flex items-center gap-1.5">
-                <Clock className={`w-4 h-4 ${timeRemaining <= 300 ? 'text-red-400' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`} />
-                <span className={`text-lg sm:text-xl font-bold ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
-                  {formatTime(timeRemaining)}
-                </span>
-              </div>
-
-              {/* Divider */}
-              <div className="w-px h-6 bg-slate-600"></div>
-
-              {/* Current Game */}
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span className="text-sm sm:text-base font-semibold text-cyan-400 truncate max-w-[120px] sm:max-w-none">
-                  {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
-                </span>
-              </div>
-            </div>
-
-            {/* Back Button - Sleek */}
-            {selectedGameId ? (
+            {/* Back Button */}
+            {selectedGameId && (
               <button
                 onClick={() => {
                   setSelectedGameId(null);
                   setGamePhase('intro');
                 }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/5 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-xs sm:text-sm font-medium shrink-0"
+                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium"
               >
-                <ChevronLeft className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">عودة</span>
+                <ChevronLeft className="w-4 h-4" />
+                عودة
               </button>
-            ) : (
-              <div className="w-8 sm:w-16"></div>
             )}
+          </div>
+
+          {/* Timer & Game Info - Stacked */}
+          <div className="space-y-2">
+            {/* Timer */}
+            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl p-3">
+              <Clock className={`w-5 h-5 ${timeRemaining <= 300 ? 'text-red-400' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`} />
+              <span className={`text-xl font-bold ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
+                {formatTime(timeRemaining)}
+              </span>
+            </div>
+
+            {/* Current Game */}
+            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl p-2">
+              <Sparkles className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-medium text-cyan-400">
+                {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Game Content */}
-        <Card className="bg-slate-800/30 border-slate-700">
-          <CardContent className="p-8">
-            {renderGameContent()}
-          </CardContent>
-        </Card>
+        {/* Mobile Game Content */}
+        <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl">
+          {renderGameContent()}
+        </div>
 
       </div>
 

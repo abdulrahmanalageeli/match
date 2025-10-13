@@ -1044,12 +1044,6 @@ export default function GroupsPage() {
 
       </div>
 
-      {/* Prompts/Questions Modal */}
-      <PromptTopicsModal 
-        open={showPromptTopicsModal} 
-        onClose={() => setShowPromptTopicsModal(false)} 
-      />
-
       {/* Time Up Modal */}
       {showTimeUpModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -1140,6 +1134,12 @@ export default function GroupsPage() {
         </div>
       )}
     </div>
+
+    {/* Prompts/Questions Modal - Placed outside main container for proper backdrop blur */}
+    <PromptTopicsModal 
+      open={showPromptTopicsModal} 
+      onClose={() => setShowPromptTopicsModal(false)} 
+    />
     </>
   );
 }

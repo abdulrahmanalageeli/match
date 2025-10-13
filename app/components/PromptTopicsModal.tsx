@@ -354,7 +354,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       }}
     >
       <div
-        className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative"
+        className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative flex flex-col"
         dir="rtl"
         aria-label="أسئلة للنقاش"
         onClick={(e) => e.stopPropagation()}
@@ -462,12 +462,8 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
 
         {/* Main Content Area - Mobile Optimized with Scroll Container */}
         <div 
-          className="relative z-10 flex-1 overflow-y-auto custom-scrollbar" 
+          className="relative z-10 flex-1 overflow-y-auto scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600 hover:scrollbar-thumb-slate-500" 
           data-scroll-container
-          style={{
-            scrollbarWidth: 'thin',
-            scrollbarColor: 'rgba(71, 85, 105, 0.8) rgba(30, 41, 59, 0.5)',
-          }}
         >
           <div className="p-4 sm:p-6">
             {!selectedTopic ? (

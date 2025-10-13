@@ -6615,25 +6615,6 @@ export default function WelcomePage() {
                     </div>
                   )}
 
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-slate-300" : "text-gray-500"
-                      }`} />
-                      <span className={`text-sm font-medium ${
-                        dark ? "text-slate-200" : "text-gray-700"
-                      }`}>الوقت المتبقي:</span>
-                    </div>
-                    <p className={`text-2xl font-bold ${
-                      dark ? "text-slate-200" : "text-gray-800"
-                    }`}>
-                      {formatTime(conversationTimer)}
-                    </p>
-                  </div>
 
                   {/* Round 1 Recommended Time Message - Shows every 2 minutes for 15 seconds */}
                   {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (

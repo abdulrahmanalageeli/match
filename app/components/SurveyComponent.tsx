@@ -971,6 +971,90 @@ const SurveyComponent = React.memo(function SurveyComponent({
     }
   }, [surveyData, onSubmit])
 
+  // Handle submit with provided data (to avoid race condition)
+  const handleSubmitWithData = useCallback((dataToSubmit: SurveyData) => {
+    // Validate all required questions (including MBTI dropdown and all other questions)
+    for (const question of surveyQuestions) {
+      if (question.required) {
+        const value = dataToSubmit.answers[question.id];
+        
+        if (Array.isArray(value)) {
+          if (!value || value.length === 0) {
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+        } else {
+          if (!value || value === "" || value.trim() === "") {
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+          
+          // Check character limit for text questions
+          if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
+            alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
+            return;
+          }
+        }
+      }
+    }
+    
+    // Terms are already accepted in the provided data, so skip that check
+    if (dataToSubmit.termsAccepted && dataToSubmit.dataConsent) {
+      
+      // Get MBTI personality type from four questions (5-8)
+      const mbtiType = getMBTIType(dataToSubmit.answers)
+      
+      // Calculate attachment style (questions 9-13)
+      const attachmentStyle = calculateAttachmentStyle(dataToSubmit.answers)
+      
+      // Calculate communication style (questions 24-28)
+      const communicationStyle = calculateCommunicationStyle(dataToSubmit.answers)
+      
+      // Calculate lifestyle preferences (questions 14-18)
+      const lifestylePreferences = calculateLifestylePreferences(dataToSubmit.answers)
+      
+      // Calculate core values (questions 19-23)
+      const coreValues = calculateCoreValues(dataToSubmit.answers)
+      
+      // Extract vibe descriptions (questions 29-34)
+      const vibeDescription = extractVibeDescription(dataToSubmit.answers)
+      const idealPersonDescription = extractIdealPersonDescription(dataToSubmit.answers)
+      
+      // Extract personal information
+      const name = dataToSubmit.answers['name'] as string
+      const gender = dataToSubmit.answers['gender'] as string
+      const phoneNumber = dataToSubmit.answers['phone_number'] as string
+      
+      // Determine actual gender preference based on user's gender and choice
+      const actualGenderPreference = determineGenderPreference(dataToSubmit.answers)
+      
+      // Add all personality types and personal info to survey data
+      const finalData = {
+        ...dataToSubmit,
+        name,
+        gender,
+        phoneNumber,
+        mbtiType,
+        attachmentStyle,
+        communicationStyle,
+        lifestylePreferences,
+        coreValues,
+        vibeDescription,
+        idealPersonDescription,
+        // Store both the raw choice and the determined preference
+        answers: {
+          ...dataToSubmit.answers,
+          // Add the determined preference for backend compatibility
+          actual_gender_preference: actualGenderPreference
+        }
+      }
+      
+      onSubmit(finalData);
+    } else {
+      alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
+    }
+  }, [onSubmit])
+
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]
 
@@ -1447,9 +1531,12 @@ const SurveyComponent = React.memo(function SurveyComponent({
               
               <Button
                 onClick={() => {
-                  // Auto-accept terms when submitting
-                  setSurveyData(prev => ({ ...prev, termsAccepted: true, dataConsent: true }))
-                  handleSubmit()
+                  // Auto-accept terms when submitting and call handleSubmit with updated data
+                  const updatedData = { ...surveyData, termsAccepted: true, dataConsent: true };
+                  setSurveyData(updatedData);
+                  
+                  // Call handleSubmit with the updated data directly to avoid race condition
+                  handleSubmitWithData(updatedData);
                 }}
                 disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"

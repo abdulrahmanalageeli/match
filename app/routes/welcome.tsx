@@ -365,6 +365,13 @@ export default function WelcomePage() {
   const round1Questions = [
     // Level 0: Quick Connect - Natural Common Ground ⚡
     {
+      title: "التعريف الذاتي",
+      question: "لو طُلب منك تعرّف نفسك في ثلاث كلمات فقط، وش بتكون هالكلمات؟ وليه اخترت هذي الكلمات تحديدًا؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelEmoji: "⚡"
+    },
+    {
       title: "الانسجام",
       question: "وش تصرّف صغير يخليك ترتاح لشخص بسرعة؟ ووش تصرّف بسيط يخليك تتراجع خطوة؟",
       level: 0,
@@ -6349,18 +6356,6 @@ export default function WelcomePage() {
                     </div>
                   ) : null}
 
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-slate-700/30 border-slate-600" 
-                      : "bg-blue-50 border-blue-200"
-                  }`}>
-                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                      انتظر بدء المنظم للمؤقت
-                    </p>
-                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                      سيبدأ المؤقت تلقائياً لجميع المشاركين في نفس الوقت
-                    </p>
-                  </div>
                 </>
               ) : (
                 <>
@@ -6669,18 +6664,6 @@ export default function WelcomePage() {
                     </div>
                   )}
 
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-slate-700/30 border-slate-600" 
-                      : "bg-orange-50 border-orange-200"
-                  }`}>
-                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                      انتظر إنهاء المنظم للمؤقت
-                    </p>
-                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                      سينتهي المؤقت تلقائياً لجميع المشاركين في نفس الوقت
-                    </p>
-                  </div>
                 </>
               )}
 </div>
@@ -6895,35 +6878,11 @@ export default function WelcomePage() {
                   </h3>
                   
 
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-slate-700/30 border-slate-600" 
-                      : "bg-blue-50 border-blue-200"
-                  }`}>
-                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                      انتظر بدء المنظم للمؤقت
-                    </p>
-                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                      سيبدأ المؤقت تلقائياً لجميع المشاركين في نفس الوقت
-                    </p>
-                  </div>
                 </>
               ) : (
                 // Show this block if conversation has started and timer is running
                 <>
                   // ... existing code ...
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-slate-700/30 border-slate-600" 
-                      : "bg-orange-50 border-orange-200"
-                  }`}>
-                    <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                      انتظر إنهاء المنظم للمؤقت
-                    </p>
-                    <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                      سينتهي المؤقت تلقائياً لجميع المشاركين في نفس الوقت
-                    </p>
-                  </div>
                 </>
               )}
     </div>
@@ -7090,39 +7049,8 @@ export default function WelcomePage() {
                     </p>
                   </div>
 
-                  <div className={`text-center mb-6 p-4 rounded-xl border ${
-                    dark 
-                      ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30"
-                      : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"
-                  }`}>
-                    <div className="flex items-center justify-center gap-2 mb-2">
-                      <Clock className={`w-5 h-5 ${
-                        dark ? "text-slate-300" : "text-gray-500"
-                      }`} />
-                      <span className={`text-sm font-medium ${
-                        dark ? "text-slate-200" : "text-gray-700"
-                      }`}>الوقت المتبقي للحوار الجماعي:</span>
-                    </div>
-                    <p className={`text-3xl font-bold ${
-                      dark ? "text-orange-200" : "text-orange-800"
-                    }`}>
-                      {formatTime(conversationTimer)}
-                    </p>
-                  </div>
 
                   <div className="flex justify-center">
-                    <div className={`text-center mb-6 p-4 rounded-xl border ${
-                      dark 
-                        ? "bg-slate-700/30 border-slate-600" 
-                        : "bg-orange-50 border-orange-200"
-                    }`}>
-                      <p className={`text-lg ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                        انتظر إنهاء المنظم للمؤقت الجماعي
-                      </p>
-                      <p className={`text-sm mt-2 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                        سينتهي المؤقت تلقائياً لجميع المشاركين في نفس الوقت
-                      </p>
-                    </div>
                   </div>
                 </>
               )}

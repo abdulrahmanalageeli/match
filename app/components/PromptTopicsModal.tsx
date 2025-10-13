@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain, Copy, Shuffle, Filter, Search } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogPortal, DialogOverlay } from "../../components/ui/dialog";
+// Removed Dialog imports - using custom modal implementation
 import { Button } from "../../components/ui/button";
 
 // Topics data: from shallow to deep
@@ -342,15 +342,23 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }
   }, [selectedTopic]);
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onOpenChange={v => { if (!v) onClose(); }}>
-        <DialogPortal>
-          <DialogOverlay className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <DialogContent
-          className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-[9999] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
-          dir="rtl"
-          aria-label="أسئلة للنقاش"
-        >
+    <div 
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="w-[95vw] max-w-4xl h-[90vh] max-h-[800px] rounded-2xl p-0 overflow-hidden border-0 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative"
+        dir="rtl"
+        aria-label="أسئلة للنقاش"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Animated Background Pattern */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 animate-pulse"></div>
@@ -358,9 +366,9 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
         </div>
 
         {/* Modern Header - Mobile Optimized */}
-        <DialogHeader className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
+        <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
+            <h2 className="text-lg sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
               <div className="relative">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
                   <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
@@ -370,7 +378,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
               <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                 أسئلة للنقاش
               </span>
-            </DialogTitle>
+            </h2>
             
             <Button 
               variant="ghost" 
@@ -387,7 +395,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
           <p className="text-slate-300 text-xs sm:text-sm mt-1 sm:mt-2 opacity-80 hidden sm:block">
             اختر موضوعاً واستكشف أسئلة متنوعة لإثراء المحادثة
           </p>
-        </DialogHeader>
+        </div>
 
         {/* Modern Navigation Bar - Mobile Optimized */}
         {selectedTopic && (
@@ -663,8 +671,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
             )}
           </div>
         </div>
-        </DialogContent>
-      </DialogPortal>
-    </Dialog>
+      </div>
+    </div>
   );
 } 

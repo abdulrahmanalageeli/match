@@ -346,7 +346,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] bg-black/30 backdrop-blur-md flex items-center justify-center p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();

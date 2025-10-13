@@ -100,8 +100,8 @@ export default function AIQuestionsGenerator({
       
       <div className={`rounded-xl p-4 border ${
         dark 
-          ? "bg-transparent border-purple-400/30"
-          : "bg-transparent border-purple-400/30"
+          ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/30"
+          : "bg-gradient-to-r from-purple-200/50 to-pink-200/50 border-purple-400/30"
       }`}>
         <div className="flex items-center justify-between gap-2">
           <button

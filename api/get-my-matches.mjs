@@ -14,11 +14,12 @@ export default async function handler(req, res) {
 
       // New endpoint for matrix: return all matches
       if (action === "all-matches") {
-        // Individual matches
+        // Individual matches - only show results for finished events
         const { data: matches, error } = await supabase
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
+          .eq("event_finished", true)
           .order("round", { ascending: true })
 
         if (error) {
@@ -77,11 +78,12 @@ export default async function handler(req, res) {
           }
         }
 
-        // Group matches from match_results table (round = 0 for group phase)
+        // Group matches from match_results table (round = 0 for group phase) - only show results for finished events
         const { data: groupMatches, error: groupError } = await supabase
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
+          .eq("event_finished", true)
           .eq("round", 0) // Group phase round
 
         if (groupError) {
@@ -121,12 +123,13 @@ export default async function handler(req, res) {
       }
 
       if (match_type === "محايد" && round === 0) {
-        // Get group matches from match_results table (round = 0 for group phase)
+        // Get group matches from match_results table (round = 0 for group phase) - only show results for finished events
         const { data: groupMatches, error: groupError } = await supabase
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
           .eq("event_id", currentEventId)
+          .eq("event_finished", true)
           .eq("round", 0) // Group phase round
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
@@ -157,12 +160,13 @@ export default async function handler(req, res) {
 
         return res.status(200).json({ matches: results })
       } else {
-        // Get individual matches
+        // Get individual matches - only show results for finished events
         const { data: matches, error } = await supabase
           .from("match_results")
           .select("*")
           .eq("match_id", match_id)
           .eq("event_id", currentEventId)
+          .eq("event_finished", true)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .order("round", { ascending: true })
 

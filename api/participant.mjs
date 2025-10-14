@@ -674,11 +674,12 @@ export default async function handler(req, res) {
         });
       }
 
-      // Fetch ALL match results for this participant number across ALL events
-      console.log(`[API] Fetching ALL match results for participant #${participant.assigned_number} across all events`);
+      // Fetch match results for this participant number across ALL events - only show results for finished events
+      console.log(`[API] Fetching match results for participant #${participant.assigned_number} across all finished events`);
       const { data: matches, error: matchError } = await supabase
         .from("match_results")
         .select("*")
+        .eq("event_finished", true)
         .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
         .order("event_id", { ascending: false })
         .order("created_at", { ascending: false });

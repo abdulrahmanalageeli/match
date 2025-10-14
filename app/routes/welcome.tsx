@@ -5696,7 +5696,7 @@ export default function WelcomePage() {
         {step === 2 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
-              dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              dark ? "bg-white/0 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
             }`}>
               <div className="flex flex-col items-center gap-4 mb-6">
                 <div className="relative">

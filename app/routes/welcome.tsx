@@ -5716,9 +5716,7 @@ export default function WelcomePage() {
                     </span>
                     
                     {/* Corner accent */}
-                    <div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full border-2 ${
-                      dark ? "bg-green-400 border-white" : "bg-green-500 border-white"
-                    } animate-pulse`}></div>
+
                     
                     {/* Subtle corner lines */}
                     <div className={`absolute top-2 left-2 w-2 h-2 border-l-2 border-t-2 rounded-tl ${

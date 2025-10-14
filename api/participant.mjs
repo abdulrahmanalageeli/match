@@ -1297,10 +1297,10 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Match record not found" })
       }
 
-      // Get partner data
+      // Get partner data with personality info
       const { data: partner, error: partnerError } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, age, gender")
         .eq("assigned_number", partner_number)
         .eq("match_id", match_id)
         .single()
@@ -1308,6 +1308,19 @@ export default async function handler(req, res) {
       if (partnerError || !partner) {
         console.error("Partner lookup error:", partnerError)
         return res.status(404).json({ error: "Partner not found" })
+      }
+
+      // Get current participant's personality info too
+      const { data: participantFull, error: participantFullError } = await supabase
+        .from("participants")
+        .select("mbti_personality_type, attachment_style, communication_style, age, gender")
+        .eq("assigned_number", participant.assigned_number)
+        .eq("match_id", match_id)
+        .single()
+
+      if (participantFullError) {
+        console.error("Participant full data lookup error:", participantFullError)
+        return res.status(500).json({ error: "Failed to get participant personality data" })
       }
 
       // Extract and process names
@@ -1344,67 +1357,174 @@ export default async function handler(req, res) {
         describesFriends: partner.survey_data?.vibe_6 || ''
       }
 
-      // Extract lifestyle data
-      const participantLifestyle = {
-        lifestyle_1: participant.survey_data?.answers?.lifestyle_1 || participant.survey_data?.lifestyle_1 || '',
-        lifestyle_2: participant.survey_data?.answers?.lifestyle_2 || participant.survey_data?.lifestyle_2 || '',
-        lifestyle_3: participant.survey_data?.answers?.lifestyle_3 || participant.survey_data?.lifestyle_3 || '',
-        lifestyle_4: participant.survey_data?.answers?.lifestyle_4 || participant.survey_data?.lifestyle_4 || '',
-        lifestyle_5: participant.survey_data?.answers?.lifestyle_5 || participant.survey_data?.lifestyle_5 || ''
+      // Extract comprehensive survey data for detailed analysis
+      const participantData = {
+        // Basic info
+        age: participantFull.age || 'غير محدد',
+        gender: participantFull.gender || 'غير محدد',
+        mbti: participantFull.mbti_personality_type || 'غير محدد',
+        attachment: participantFull.attachment_style || 'غير محدد',
+        communication: participantFull.communication_style || 'غير محدد',
+        
+        // Lifestyle preferences
+        lifestyle: {
+          energy: participant.survey_data?.answers?.lifestyle_1 || participant.survey_data?.lifestyle_1 || '',
+          social: participant.survey_data?.answers?.lifestyle_2 || participant.survey_data?.lifestyle_2 || '',
+          adventure: participant.survey_data?.answers?.lifestyle_3 || participant.survey_data?.lifestyle_3 || '',
+          planning: participant.survey_data?.answers?.lifestyle_4 || participant.survey_data?.lifestyle_4 || '',
+          growth: participant.survey_data?.answers?.lifestyle_5 || participant.survey_data?.lifestyle_5 || ''
+        },
+        
+        // Core values
+        values: {
+          value1: participant.survey_data?.answers?.core_values_1 || participant.survey_data?.core_values_1 || '',
+          value2: participant.survey_data?.answers?.core_values_2 || participant.survey_data?.core_values_2 || '',
+          value3: participant.survey_data?.answers?.core_values_3 || participant.survey_data?.core_values_3 || '',
+          value4: participant.survey_data?.answers?.core_values_4 || participant.survey_data?.core_values_4 || '',
+          value5: participant.survey_data?.answers?.core_values_5 || participant.survey_data?.core_values_5 || ''
+        },
+        
+        // Personal details
+        education: participant.survey_data?.answers?.education || participant.survey_data?.education || '',
+        work: participant.survey_data?.answers?.work_field || participant.survey_data?.work_field || '',
+        relationship_goals: participant.survey_data?.answers?.relationship_goals || participant.survey_data?.relationship_goals || '',
+        
+        // Red lines
+        redLines: participant.survey_data?.answers?.redLines || participant.survey_data?.redLines || []
       }
 
-      const partnerLifestyle = {
-        lifestyle_1: partner.survey_data?.answers?.lifestyle_1 || partner.survey_data?.lifestyle_1 || '',
-        lifestyle_2: partner.survey_data?.answers?.lifestyle_2 || partner.survey_data?.lifestyle_2 || '',
-        lifestyle_3: partner.survey_data?.answers?.lifestyle_3 || partner.survey_data?.lifestyle_3 || '',
-        lifestyle_4: partner.survey_data?.answers?.lifestyle_4 || partner.survey_data?.lifestyle_4 || '',
-        lifestyle_5: partner.survey_data?.answers?.lifestyle_5 || partner.survey_data?.lifestyle_5 || ''
+      const partnerData = {
+        // Basic info
+        age: partner.age || 'غير محدد',
+        gender: partner.gender || 'غير محدد',
+        mbti: partner.mbti_personality_type || 'غير محدد',
+        attachment: partner.attachment_style || 'غير محدد',
+        communication: partner.communication_style || 'غير محدد',
+        
+        // Lifestyle preferences
+        lifestyle: {
+          energy: partner.survey_data?.answers?.lifestyle_1 || partner.survey_data?.lifestyle_1 || '',
+          social: partner.survey_data?.answers?.lifestyle_2 || partner.survey_data?.lifestyle_2 || '',
+          adventure: partner.survey_data?.answers?.lifestyle_3 || partner.survey_data?.lifestyle_3 || '',
+          planning: partner.survey_data?.answers?.lifestyle_4 || partner.survey_data?.lifestyle_4 || '',
+          growth: partner.survey_data?.answers?.lifestyle_5 || partner.survey_data?.lifestyle_5 || ''
+        },
+        
+        // Core values
+        values: {
+          value1: partner.survey_data?.answers?.core_values_1 || partner.survey_data?.core_values_1 || '',
+          value2: partner.survey_data?.answers?.core_values_2 || partner.survey_data?.core_values_2 || '',
+          value3: partner.survey_data?.answers?.core_values_3 || partner.survey_data?.core_values_3 || '',
+          value4: partner.survey_data?.answers?.core_values_4 || partner.survey_data?.core_values_4 || '',
+          value5: partner.survey_data?.answers?.core_values_5 || partner.survey_data?.core_values_5 || ''
+        },
+        
+        // Personal details
+        education: partner.survey_data?.answers?.education || partner.survey_data?.education || '',
+        work: partner.survey_data?.answers?.work_field || partner.survey_data?.work_field || '',
+        relationship_goals: partner.survey_data?.answers?.relationship_goals || partner.survey_data?.relationship_goals || '',
+        
+        // Red lines
+        redLines: partner.survey_data?.answers?.redLines || partner.survey_data?.redLines || []
       }
 
-      // Create AI prompt for personalized analysis
-      const prompt = `أنت خبير توافق شخصي متخصص في الثقافة السعودية. اكتب تحليلاً دافئاً وطبيعياً عن التوافق بين شخصين في سياق التعارف والصداقة (ليس رومانسياً).
+      // Create comprehensive AI prompt for highly personalized analysis
+      const prompt = `أنت خبير توافق شخصي متخصص في الثقافة السعودية والعربية. مهمتك كتابة تحليل شخصي مفصل ومحدد جداً عن التوافق بين شخصين في سياق التعارف والصداقة.
 
-السياق: هذا تحليل لتوافق شخصين التقيا في فعالية ترابط فكري بهدف بناء صداقات وعلاقات اجتماعية صحية قائمة على التوافق الفكري والاهتمامات المشتركة.
+السياق: هذا تحليل لتوافق شخصين التقيا في فعالية ترابط فكري بهدف بناء صداقات وعلاقات اجتماعية صحية.
 
-معلومات الشخص الأول (${participantName}):
-عطلة نهاية الأسبوع: ${participantVibes.weekend}
-الهوايات: ${participantVibes.hobbies}
-الموسيقى: ${participantVibes.music}
-المحادثات: ${participantVibes.conversations}
-وصف الأصدقاء: ${participantVibes.friendsDescribe}
-الطاقة اليومية: ${participantLifestyle.lifestyle_1}
-التواصل: ${participantLifestyle.lifestyle_2}
-التخطيط: ${participantLifestyle.lifestyle_4}
+=== بيانات شاملة للشخص الأول (${participantName}) ===
+الجنس: ${participantData.gender}
+نمط الشخصية (MBTI): ${participantData.mbti}
+نمط التعلق: ${participantData.attachment}
+أسلوب التواصل: ${participantData.communication}
+التعليم: ${participantData.education}
+مجال العمل: ${participantData.work}
 
-معلومات الشخص الثاني (${partnerName}):
-عطلة نهاية الأسبوع: ${partnerVibes.weekend}
-الهوايات: ${partnerVibes.hobbies}
-الموسيقى: ${partnerVibes.music}
-المحادثات: ${partnerVibes.conversations}
-وصف الأصدقاء: ${partnerVibes.friendsDescribe}
-الطاقة اليومية: ${partnerLifestyle.lifestyle_1}
-التواصل: ${partnerLifestyle.lifestyle_2}
-التخطيط: ${partnerLifestyle.lifestyle_4}
+الأنشطة والاهتمامات:
+- عطلة نهاية الأسبوع: ${participantVibes.weekend}
+- الهوايات الخمس: ${participantVibes.hobbies}
+- الموسيقى المفضلة: ${participantVibes.music}
+- نوع المحادثات المفضل: ${participantVibes.conversations}
+- كيف يصفه أصدقاؤه: ${participantVibes.friendsDescribe}
+- كيف يصف أصدقاءه: ${participantVibes.describesFriends}
 
-اكتب تحليلاً بالعربية (180-220 كلمة) بأسلوب سردي طبيعي ومتدفق، كأنك تحكي قصة توافقهم كأصدقاء محتملين لصديق. لا تستخدم نقاط أو قوائم.
+نمط الحياة:
+- مستوى الطاقة: ${participantData.lifestyle.energy}
+- التفاعل الاجتماعي: ${participantData.lifestyle.social}
+- حب المغامرة: ${participantData.lifestyle.adventure}
+- التخطيط والتنظيم: ${participantData.lifestyle.planning}
+- النمو الشخصي: ${participantData.lifestyle.growth}
 
-ابدأ بمقدمة دافئة تذكر اسميهما وتشير للتوافق بينهما كأصدقاء أو معارف اجتماعيين. ثم تحدث بشكل طبيعي عن الاهتمامات المشتركة التي تجمعهم، وكيف أن نمط حياتهم متناغم. اذكر تفاصيل محددة من إجاباتهم لتجعل التحليل شخصياً وحقيقياً.
+القيم الأساسية:
+- القيمة الأولى: ${participantData.values.value1}
+- القيمة الثانية: ${participantData.values.value2}
+- القيمة الثالثة: ${participantData.values.value3}
+- القيمة الرابعة: ${participantData.values.value4}
+- القيمة الخامسة: ${participantData.values.value5}
 
-وضح كيف تكمل شخصياتهم بعضها البعض في سياق الصداقة والتعارف الاجتماعي. في نهاية التحليل، اقترح نشاطين محددين يمكنهم الاستمتاع بهما معاً في الرياض كأصدقاء.
+أهداف العلاقات: ${participantData.relationship_goals}
 
-اختم بجملة أو جملتين محفزة تشجعهم على الاستمرار في التعرف على بعضهم البعض وبناء صداقة.
+=== بيانات شاملة للشخص الثاني (${partnerName}) ===
+الجنس: ${partnerData.gender}
+نمط الشخصية (MBTI): ${partnerData.mbti}
+نمط التعلق: ${partnerData.attachment}
+أسلوب التواصل: ${partnerData.communication}
+التعليم: ${partnerData.education}
+مجال العمل: ${partnerData.work}
 
-مهم جداً - الأسماء:
-- الاسم الأول: ${participantName} - إذا كان بالإنجليزية، يجب ترجمته للعربية حتماً (Ahmed=أحمد، Sara=سارة، Mohammad=محمد، Ali=علي، Fatima=فاطمة، Omar=عمر، Nora=نورا، Khalid=خالد، Lama=لمى)
-- الاسم الثاني: ${partnerName} - إذا كان بالإنجليزية، يجب ترجمته للعربية حتماً
-- استخدم الأسماء المترجمة في كل التحليل
-- لا تذكر أرقام المشاركين أبداً
+الأنشطة والاهتمامات:
+- عطلة نهاية الأسبوع: ${partnerVibes.weekend}
+- الهوايات الخمس: ${partnerVibes.hobbies}
+- الموسيقى المفضلة: ${partnerVibes.music}
+- نوع المحادثات المفضل: ${partnerVibes.conversations}
+- كيف يصفه أصدقاؤه: ${partnerVibes.friendsDescribe}
+- كيف يصف أصدقاءه: ${partnerVibes.describesFriends}
 
-إرشادات الكتابة:
-- اكتب بلغة عربية فصحى سهلة وودية
-- لا تستخدم نقاط أو قوائم، اكتب فقرات متصلة
-- اجعل النص يتدفق بشكل طبيعي من فكرة لأخرى
-- ركز على الصداقة والتعارف الاجتماعي، ليس الرومانسية`
+نمط الحياة:
+- مستوى الطاقة: ${partnerData.lifestyle.energy}
+- التفاعل الاجتماعي: ${partnerData.lifestyle.social}
+- حب المغامرة: ${partnerData.lifestyle.adventure}
+- التخطيط والتنظيم: ${partnerData.lifestyle.planning}
+- النمو الشخصي: ${partnerData.lifestyle.growth}
+
+القيم الأساسية:
+- القيمة الأولى: ${partnerData.values.value1}
+- القيمة الثانية: ${partnerData.values.value2}
+- القيمة الثالثة: ${partnerData.values.value3}
+- القيمة الرابعة: ${partnerData.values.value4}
+- القيمة الخامسة: ${partnerData.values.value5}
+
+أهداف العلاقات: ${partnerData.relationship_goals}
+
+=== مطلوب منك ===
+اكتب تحليلاً شخصياً مفصلاً (250-300 كلمة) بأسلوب سردي دافئ وطبيعي، مع التركيز على:
+
+1. **التوافق في الشخصية**: حلل أنماط MBTI والتعلق والتواصل وكيف تتكامل
+2. **الاهتمامات المشتركة المحددة**: اذكر تفاصيل دقيقة من هواياتهم وأنشطتهم
+3. **التوافق في نمط الحياة**: قارن مستويات الطاقة والتفاعل الاجتماعي والتخطيط
+4. **القيم المشتركة**: حدد القيم المتشابهة وكيف تقوي صداقتهم
+5. **التكامل والاختلافات الإيجابية**: وضح كيف تكمل شخصياتهم بعضها البعض
+6. **أنشطة محددة جداً**: اقترح 2-3 أنشطة مفصلة يمكنهم الاستمتاع بها في الرياض
+
+متطلبات التحليل:
+- استخدم تفاصيل محددة من إجاباتهم الفعلية (لا تكن عاماً)
+- اذكر أمثلة دقيقة من هواياتهم وأنشطتهم
+- حلل التوافق النفسي بناءً على أنماط الشخصية
+- اربط بين قيمهم المشتركة وكيف تظهر في حياتهم
+- اجعل كل جملة مبنية على بيانات حقيقية من الاستبيان
+
+أسلوب الكتابة:
+- عربية فصحى سهلة وودية
+- نبرة دافئة ومشجعة
+- فقرات متصلة بدون نقاط أو قوائم
+- تدفق طبيعي من فكرة لأخرى
+- تركيز على الصداقة والتعارف الاجتماعي
+
+ترجمة الأسماء:
+- ${participantName} → إذا كان إنجليزياً، ترجمه للعربية (Ahmed=أحمد، Sara=سارة، Mohammad=محمد، Ali=علي، Fatima=فاطمة، Omar=عمر، Nora=نورا، Khalid=خالد، Lama=لمى، Reem=ريم، Nouf=نوف، Abdulrahman=عبدالرحمن)
+- ${partnerName} → إذا كان إنجليزياً، ترجمه للعربية بنفس الطريقة
+- استخدم الأسماء المترجمة في كل التحليل`
 
       // Generate AI analysis
       console.log(`🤖 Generating AI vibe analysis for participants ${participant.assigned_number} and ${partner.assigned_number}`)
@@ -1412,8 +1532,8 @@ export default async function handler(req, res) {
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7,
+        max_tokens: 800,
+        temperature: 0.8,
       })
 
       const analysis = completion.choices[0]?.message?.content?.trim()

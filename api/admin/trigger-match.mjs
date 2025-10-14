@@ -1711,7 +1711,6 @@ export default async function handler(req, res) {
         lifestyle_compatibility_score: lifestyleScore,
         core_values_compatibility_score: coreValuesScore,
         vibe_compatibility_score: vibeScore,
-        humor_compatibility_bonus: humorBonus,
         round: 1,
         ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
         created_at: new Date().toISOString()
@@ -2166,8 +2165,7 @@ export default async function handler(req, res) {
             communication_compatibility_score: pair.communicationScore,
             lifestyle_compatibility_score: pair.lifestyleScore,
             core_values_compatibility_score: pair.coreValuesScore,
-            vibe_compatibility_score: pair.vibeScore,
-            humor_compatibility_bonus: pair.humorBonus
+            vibe_compatibility_score: pair.vibeScore
           })
           
           tableCounter++ // Increment for next pair

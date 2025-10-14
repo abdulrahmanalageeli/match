@@ -1531,11 +1531,6 @@ export default function WelcomePage() {
 
   // Unified Navigation Bar for saved users (similar to groups page)
   const NavigationBar = () => {
-    // Hide during survey step
-    if (step === 3) {
-      return null;
-    }
-    
     // Show for users with saved tokens or assigned numbers
     // Check localStorage safely (client-side only)
     const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
@@ -1720,11 +1715,6 @@ export default function WelcomePage() {
 
   // Participant Icon Component - shows when user has saved token (but NavigationBar is not showing)
   const ParticipantIcon = () => {
-    // Hide during survey step
-    if (step === 3) {
-      return null;
-    }
-    
     // Check localStorage safely (client-side only)
     const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
     const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
@@ -5370,14 +5360,14 @@ export default function WelcomePage() {
   
   return (
     <>
-      {/* Unified Navigation Bar - Hide in step 3 (survey) and step 4 (round mode) */}
-      {step !== 3 && step !== 4 && <NavigationBar />}
-      {/* Clickable Logo Header - Hide in step 3 (survey) and step 4 (round mode) */}
-      {step !== 3 && step !== 4 && <LogoHeader />}
-      {/* Bottom Left Contact Button - Hide in step 3 (survey) and step 4 (round mode) */}
-      {step !== 3 && step !== 4 && <BottomLeftContactButton />}
-      {/* Participant Icon - Hide in step 3 (survey) and step 4 (round mode) */}
-      {step !== 3 && step !== 4 && <ParticipantIcon />}
+      {/* Unified Navigation Bar - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <NavigationBar />}
+      {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <LogoHeader />}
+      {/* Bottom Left Contact Button - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <BottomLeftContactButton />}
+      {/* Participant Icon - Hide in step 4 (round mode) as it's included in page content */}
+      {step !== 4 && <ParticipantIcon />}
       
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -5844,21 +5834,6 @@ export default function WelcomePage() {
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-white/10 border-white/20" : "bg-black/10 border-gray-300/30"
             }`}>
-              {/* Contact Button - Top Right Corner */}
-              <button
-                onClick={() => setShowContactForm(true)}
-                className={`absolute top-4 right-4 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
-                  dark 
-                    ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50 hover:border-cyan-400" 
-                    : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50 hover:border-cyan-500"
-                }`}
-              >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <MessageCircle className={`w-5 h-5 transition-colors ${
-                    dark ? "text-cyan-300 hover:text-cyan-100" : "text-cyan-700 hover:text-cyan-800"
-                  }`} />
-                </div>
-              </button>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
                 <div 

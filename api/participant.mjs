@@ -1433,7 +1433,9 @@ export default async function handler(req, res) {
 
 السياق: هذا تحليل لتوافق شخصين التقيا في فعالية ترابط فكري بهدف بناء صداقات وعلاقات اجتماعية صحية.
 
-=== بيانات شاملة للشخص الأول (${participantName}) ===
+مهم جداً: أنت تحلل التوافق بين المشارك رقم ${participant.assigned_number} والمشارك رقم ${partner.assigned_number} تحديداً.
+
+=== بيانات شاملة للشخص الأول (${participantName} - رقم المشارك ${participant.assigned_number}) ===
 الجنس: ${participantData.gender}
 نمط الشخصية (MBTI): ${participantData.mbti}
 نمط التعلق: ${participantData.attachment}
@@ -1465,7 +1467,7 @@ export default async function handler(req, res) {
 
 أهداف العلاقات: ${participantData.relationship_goals}
 
-=== بيانات شاملة للشخص الثاني (${partnerName}) ===
+=== بيانات شاملة للشخص الثاني (${partnerName} - رقم المشارك ${partner.assigned_number}) ===
 الجنس: ${partnerData.gender}
 نمط الشخصية (MBTI): ${partnerData.mbti}
 نمط التعلق: ${partnerData.attachment}
@@ -1527,7 +1529,7 @@ export default async function handler(req, res) {
 - استخدم الأسماء المترجمة في كل التحليل`
 
       // Generate AI analysis
-      console.log(`🤖 Generating AI vibe analysis for participants ${participant.assigned_number} and ${partner.assigned_number}`)
+      console.log(`🤖 Generating AI vibe analysis for participants #${participant.assigned_number} (${participantName}) and #${partner.assigned_number} (${partnerName})`)
       
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",

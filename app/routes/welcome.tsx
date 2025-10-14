@@ -5696,13 +5696,13 @@ export default function WelcomePage() {
         {step === 2 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             <div className={`backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
-              dark ? "bg-white/0 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              dark ? "bg-white/0 border-white/20 hover:bg-white/0" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
             }`}>
               <div className="flex flex-col items-center gap-4 mb-6">
                 <div className="relative">
                   <div className={`relative w-24 h-24 rounded-2xl border-2 shadow-2xl flex items-center justify-center transform transition-all duration-500 hover:scale-110 ${
                     dark 
-                      ? "bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 border-slate-400/50 shadow-slate-500/20" 
+                      ? "bg-white/0" 
                       : "bg-gradient-to-br from-gray-100 via-white to-gray-200 border-gray-400/50 shadow-gray-500/20"
                   }`}>
                     {/* Animated background glow */}

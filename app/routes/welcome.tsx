@@ -5370,14 +5370,14 @@ export default function WelcomePage() {
   
   return (
     <>
-      {/* Unified Navigation Bar - Hide in step 4 (round mode) as it's included in page content */}
-      {step !== 4 && <NavigationBar />}
-      {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}
-      {step !== 4 && <LogoHeader />}
-      {/* Bottom Left Contact Button - Hide in step 4 (round mode) as it's included in page content */}
-      {step !== 4 && <BottomLeftContactButton />}
-      {/* Participant Icon - Hide in step 4 (round mode) as it's included in page content */}
-      {step !== 4 && <ParticipantIcon />}
+      {/* Unified Navigation Bar - Hide in step 3 (survey) and step 4 (round mode) */}
+      {step !== 3 && step !== 4 && <NavigationBar />}
+      {/* Clickable Logo Header - Hide in step 3 (survey) and step 4 (round mode) */}
+      {step !== 3 && step !== 4 && <LogoHeader />}
+      {/* Bottom Left Contact Button - Hide in step 3 (survey) and step 4 (round mode) */}
+      {step !== 3 && step !== 4 && <BottomLeftContactButton />}
+      {/* Participant Icon - Hide in step 3 (survey) and step 4 (round mode) */}
+      {step !== 3 && step !== 4 && <ParticipantIcon />}
       
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -5847,7 +5847,7 @@ export default function WelcomePage() {
               {/* Contact Button - Top Right Corner */}
               <button
                 onClick={() => setShowContactForm(true)}
-                className={`absolute -top-3 -right-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
+                className={`absolute top-4 right-4 z-10 w-10 h-10 rounded-full border-2 shadow-lg cursor-pointer transition-all duration-300 hover:scale-110 ${
                   dark 
                     ? "border-cyan-400/50 bg-cyan-700/30 hover:bg-cyan-700/50 hover:border-cyan-400" 
                     : "border-cyan-400/50 bg-cyan-200/30 hover:bg-cyan-200/50 hover:border-cyan-500"

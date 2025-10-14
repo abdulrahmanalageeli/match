@@ -1031,11 +1031,19 @@ export default function WelcomePage() {
           setIsTokenValid(false)
           setTokenError(data.error || "الرابط غير صحيح أو منتهي الصلاحية")
           console.error("Invalid token:", data.error)
+          
+          // Clear localStorage to allow user to create new account
+          console.log("🗑️ Clearing localStorage due to invalid token")
+          clearSavedTokens()
         }
       } catch (err) {
         console.error("Error resolving token:", err)
         setIsTokenValid(false)
         setTokenError("حدث خطأ في التحقق من الرابط. يرجى المحاولة مرة أخرى.")
+        
+        // Clear localStorage to allow user to create new account
+        console.log("🗑️ Clearing localStorage due to token resolution error")
+        clearSavedTokens()
       } finally {
         setIsResolving(false)
       }

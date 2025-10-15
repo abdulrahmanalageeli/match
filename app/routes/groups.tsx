@@ -971,7 +971,7 @@ export default function GroupsPage() {
             <Button 
               onClick={() => window.location.href = "/welcome"}
               variant="outline"
-              className="w-full border-slate-600 text-slate-300 hover:bg-slate-700/50 py-3 rounded-xl transition-all duration-300"
+              className="w-full bg-slate-700/30 border-slate-500 text-white hover:bg-slate-600/50 hover:border-slate-400 py-3 rounded-xl transition-all duration-300"
             >
               <Home className="w-4 h-4 ml-2" />
               العودة للشاشة الرئيسية

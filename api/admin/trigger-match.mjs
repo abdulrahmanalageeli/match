@@ -1174,11 +1174,29 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       continue
     }
     
+    // Check conversation depth preference (vibe_4) compatibility
+    const conversationPrefs = combination.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return participant?.survey_data?.vibe_4
+    }).filter(Boolean)
+    
+    // Count preferences: "نعم" (yes), "لا" (no), "أحياناً" (sometimes)
+    const yesCount = conversationPrefs.filter(p => p === 'نعم').length
+    const noCount = conversationPrefs.filter(p => p === 'لا').length
+    const sometimesCount = conversationPrefs.filter(p => p === 'أحياناً').length
+    
+    // Skip if mixing "yes" and "no" preferences ("sometimes" can go with either)
+    if (yesCount > 0 && noCount > 0) {
+      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - conversation depth mismatch (${yesCount} deep, ${noCount} light, ${sometimesCount} flexible)`)
+      continue
+    }
+    
     const score = calculateGroupMBTIScore(combination, pairScores)
     if (score > bestScore) {
       bestScore = score
       bestGroup = combination
-      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${score}%, Gender: ${maleCount}M/${femaleCount}F`)
+      const convType = yesCount > 0 ? 'deep' : noCount > 0 ? 'light' : 'flexible'
+      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${score}%, Gender: ${maleCount}M/${femaleCount}F, Conv: ${convType}`)
     }
   }
   
@@ -1197,7 +1215,7 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
   const combinations = getCombinations(availableParticipants, targetSize)
   
   for (const combination of combinations) {
-    // If we have participant data, still try to prefer gender balance
+    // If we have participant data, still try to prefer gender balance and conversation compatibility
     if (eligibleParticipants) {
       const genders = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
@@ -1207,10 +1225,22 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       const maleCount = genders.filter(g => g === 'male').length
       const femaleCount = genders.filter(g => g === 'female').length
       
-      // Prefer groups with gender balance, but don't require it in fallback
+      // Check conversation depth preference compatibility
+      const conversationPrefs = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.survey_data?.vibe_4
+      }).filter(Boolean)
+      
+      const yesCount = conversationPrefs.filter(p => p === 'نعم').length
+      const noCount = conversationPrefs.filter(p => p === 'لا').length
+      const hasConversationCompatibility = !(yesCount > 0 && noCount > 0) // Compatible if not mixing yes and no
+      
+      // Prefer groups with gender balance and conversation compatibility, but don't require it in fallback
       const hasGenderBalance = maleCount > 0 && femaleCount > 0
       const score = calculateGroupMBTIScore(combination, pairScores)
-      const adjustedScore = hasGenderBalance ? score + 5 : score // Bonus for gender balance
+      let adjustedScore = score
+      if (hasGenderBalance) adjustedScore += 5 // Bonus for gender balance
+      if (hasConversationCompatibility) adjustedScore += 3 // Bonus for conversation compatibility
       
       if (adjustedScore > bestScore) {
         bestScore = adjustedScore

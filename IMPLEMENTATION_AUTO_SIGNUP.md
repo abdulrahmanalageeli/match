@@ -189,6 +189,100 @@ AND event_id = <previous_event_id>
 - **Description**: "لن تحتاج للتسجيل يدوياً في كل حدث - سيتم تسجيلك تلقائياً"
   - Translation: "You won't need to register manually for each event - you'll be registered automatically"
 
+## Navbar Auto-Signup Button Implementation ✅
+
+### Non-Intrusive Approach
+Added a **subtle button in the NavigationBar** that appears only for users who:
+- Have signed up for next event (`signup_for_next_event = true`)
+- Haven't enabled auto-signup yet (`auto_signup_next_event = false`)
+
+### NavigationBar Button Features
+
+**Visual Design:**
+- Cyan-themed button matching existing navbar style
+- Sparkles icon (✨) with hover pulse animation
+- Text: "تسجيل تلقائي" (Auto Signup) on desktop
+- Icon only (✨) on mobile for space efficiency
+- Tooltip: "فعّل التسجيل التلقائي لجميع الأحداث القادمة"
+
+**Behavior:**
+- Only appears when conditions are met (signed up but not auto-enabled)
+- One-click activation - no popup required
+- Success alert in Arabic after enabling
+- Button disappears after activation (state updated)
+- Positioned between participant info and contact button
+
+**Technical Implementation:**
+```typescript
+// Check if user qualifies for auto-signup offer
+const showAutoSignupOffer = showNextEventSignup && !autoSignupEnabled;
+
+// Button appears in navbar with proper spacing
+{showAutoSignupOffer && !isTokenAndRoundPhase && (
+  <>
+    <div className="w-px h-4 bg-slate-600"></div>
+    <button onClick={handleEnableAutoSignup}>
+      <Sparkles className="w-3 h-3 group-hover:animate-pulse" />
+      <span className="hidden sm:inline">تسجيل تلقائي</span>
+    </button>
+  </>
+)}
+```
+
+### API Integration
+
+**New Endpoint:** `enable-auto-signup`
+- **Action**: Updates `auto_signup_next_event` to `true`
+- **Validation**: Checks if already enabled
+- **Response**: Success message with participant details
+- **Logging**: Tracks when auto-signup is enabled
+
+**Enhanced check-next-event-signup:**
+- Now returns `auto_signup_next_event` status
+- Frontend uses this to determine button visibility
+- Automatic state management on page load
+
+### User Experience Flow
+
+1. **User signs up for next event** (via any method)
+2. **Visits site again** → NavigationBar loads
+3. **Sees sparkle button** "✨ تسجيل تلقائي"
+4. **Clicks button** → One API call
+5. **Success alert** → "✅ تم تفعيل التسجيل التلقائي لجميع الأحداث القادمة!"
+6. **Button disappears** → Feature enabled permanently
+
+### Benefits of Navbar Approach
+
+✅ **Always Visible**: Present throughout the pre-registration experience
+✅ **Non-Intrusive**: No popups or modals to dismiss
+✅ **Contextual**: Appears exactly when relevant
+✅ **One-Click**: Immediate activation without forms
+✅ **Space Efficient**: Fits naturally in existing navbar
+✅ **Mobile Friendly**: Icon-only on small screens
+✅ **Clear Feedback**: Success message confirms activation
+
+### When Button Appears
+
+**Shows:**
+- User has saved token (logged in)
+- User signed up for next event
+- Auto-signup NOT yet enabled
+- Not in round phase (timer showing)
+
+**Hidden:**
+- User hasn't signed up for next event
+- Auto-signup already enabled
+- During active rounds (timer takes priority)
+- No saved token (not logged in)
+
 ## Implementation Complete ✅
 
-All changes have been implemented and are ready for testing and deployment.
+All changes have been implemented including:
+- ✅ Database column and migration
+- ✅ Checkbox in all 3 next event signup popups
+- ✅ API endpoints for saving preference
+- ✅ **Navbar button for existing signups (NEW)**
+- ✅ State management and UI integration
+- ✅ Complete documentation
+
+Ready for testing and deployment!

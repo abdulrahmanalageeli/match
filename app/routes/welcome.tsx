@@ -2450,21 +2450,22 @@ export default function WelcomePage() {
       setReturningPlayerToken(tokenToUse);
       console.log('💾 Auto-filled both token fields with saved token:', tokenToUse);
       
-      // Only check for next event signup if there's NO token in URL (main welcome page)
-      // AND user is on step 0 (main welcome page)
-      // Don't show popup when user is accessing a specific token URL or in other steps
-      if (!token && step === 0) {
-        console.log('✅ No token in URL and on main page, checking next event signup...');
+      // Check for next event signup on all steps EXCEPT survey (step 1)
+      // Don't show popup when user is accessing a specific token URL
+      if (!token && step !== 1) {
+        console.log('✅ Checking next event signup status (step:', step, ')');
         setTimeout(() => {
           checkNextEventSignup(tokenToUse);
         }, 2000); // Give page time to load
         
-        // Also check if user has incomplete survey data (only on main page, not when token in URL)
-        setTimeout(() => {
-          checkIncompleteSurvey(tokenToUse);
-        }, 1000); // Check survey completion status
+        // Also check if user has incomplete survey data (only on main page)
+        if (step === 0) {
+          setTimeout(() => {
+            checkIncompleteSurvey(tokenToUse);
+          }, 1000); // Check survey completion status
+        }
       } else {
-        console.log('❌ Token in URL or not on main page, skipping checks');
+        console.log('❌ Token in URL or on survey step, skipping next event check');
       }
       setTokenValidationCompleted(true);
     } else {

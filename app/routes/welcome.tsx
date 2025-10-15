@@ -1545,6 +1545,17 @@ export default function WelcomePage() {
     // Check if user is signed up for next event but hasn't enabled auto-signup
     const showAutoSignupOffer = showNextEventSignup && !autoSignupEnabled;
     
+    // Debug: Log the button visibility logic
+    if (assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
+      console.log('🔍 NavigationBar Auto-Signup Button Check:', {
+        showNextEventSignup,
+        autoSignupEnabled,
+        showAutoSignupOffer,
+        isTokenAndRoundPhase,
+        willShowButton: showAutoSignupOffer && !isTokenAndRoundPhase
+      });
+    }
+    
     return (
       <div className={positionClass}>
         <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">

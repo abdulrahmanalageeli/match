@@ -345,6 +345,7 @@ export default function WelcomePage() {
   const [returningGenderPreference, setReturningGenderPreference] = useState("");
   const [returningHumorStyle, setReturningHumorStyle] = useState("");
   const [returningOpennessComfort, setReturningOpennessComfort] = useState("");
+  const [autoSignupNextEvent, setAutoSignupNextEvent] = useState(false);
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
@@ -1979,7 +1980,8 @@ export default function WelcomePage() {
           phone_number: returningPhoneNumber,
           gender_preference: returningGenderPreference,
           humor_banter_style: returningHumorStyle,
-          early_openness_comfort: returningOpennessComfort
+          early_openness_comfort: returningOpennessComfort,
+          auto_signup_next_event: autoSignupNextEvent
         }),
       })
       
@@ -2147,7 +2149,8 @@ export default function WelcomePage() {
           secure_token: token,
           gender_preference: returningGenderPreference,
           humor_banter_style: returningHumorStyle,
-          early_openness_comfort: returningOpennessComfort
+          early_openness_comfort: returningOpennessComfort,
+          auto_signup_next_event: autoSignupNextEvent
         }),
       })
       
@@ -4339,6 +4342,27 @@ export default function WelcomePage() {
                     )}
                   </>
                 )}
+
+                {/* Auto Signup Checkbox */}
+                <div className={`p-4 rounded-xl border ${dark ? "bg-cyan-500/10 border-cyan-400/30" : "bg-cyan-50 border-cyan-200"}`}>
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="auto-signup-next-popup"
+                      checked={autoSignupNextEvent}
+                      onChange={(e) => setAutoSignupNextEvent(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded border-cyan-400/50 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="auto-signup-next-popup" className={`text-sm font-medium cursor-pointer ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                        ✨ سجلني تلقائياً في جميع الأحداث القادمة
+                      </Label>
+                      <p className={`text-xs mt-1 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
+                        لن تحتاج للتسجيل يدوياً في كل حدث - سيتم تسجيلك تلقائياً
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4">
@@ -4348,6 +4372,7 @@ export default function WelcomePage() {
                       setReturningGenderPreference("") // Reset gender preference
                       setReturningHumorStyle("") // Reset humor style
                       setReturningOpennessComfort("") // Reset openness comfort
+                      setAutoSignupNextEvent(false) // Reset auto signup
                     }}
                     disabled={nextEventSignupLoading}
                     className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
@@ -4530,6 +4555,27 @@ export default function WelcomePage() {
                     )}
                   </>
                 )}
+
+                {/* Auto Signup Checkbox */}
+                <div className={`p-4 rounded-xl border ${dark ? "bg-cyan-500/10 border-cyan-400/30" : "bg-cyan-50 border-cyan-200"}`}>
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="auto-signup-returning-popup"
+                      checked={autoSignupNextEvent}
+                      onChange={(e) => setAutoSignupNextEvent(e.target.checked)}
+                      className="mt-1 w-4 h-4 rounded border-cyan-400/50 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <Label htmlFor="auto-signup-returning-popup" className={`text-sm font-medium cursor-pointer ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                        ✨ سجلني تلقائياً في جميع الأحداث القادمة
+                      </Label>
+                      <p className={`text-xs mt-1 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
+                        لن تحتاج للتسجيل يدوياً في كل حدث - سيتم تسجيلك تلقائياً
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-4">
@@ -4539,6 +4585,7 @@ export default function WelcomePage() {
                       setReturningGenderPreference("") // Reset gender preference
                       setReturningHumorStyle("") // Reset humor style
                       setReturningOpennessComfort("") // Reset openness comfort
+                      setAutoSignupNextEvent(false) // Reset auto signup
                     }}
                     disabled={returningLoading}
                     className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
@@ -8510,11 +8557,35 @@ export default function WelcomePage() {
                   )}
                 </>
               )}
+
+              {/* Auto Signup Checkbox */}
+              <div className={`p-4 rounded-xl border ${dark ? "bg-cyan-500/10 border-cyan-400/30" : "bg-cyan-50 border-cyan-200"}`}>
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="auto-signup-dialog-popup"
+                    checked={autoSignupNextEvent}
+                    onChange={(e) => setAutoSignupNextEvent(e.target.checked)}
+                    className="mt-1 w-4 h-4 rounded border-cyan-400/50 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <Label htmlFor="auto-signup-dialog-popup" className={`text-sm font-medium cursor-pointer ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                      ✨ سجلني تلقائياً في جميع الأحداث القادمة
+                    </Label>
+                    <p className={`text-xs mt-1 ${dark ? "text-cyan-200" : "text-cyan-600"}`}>
+                      لن تحتاج للتسجيل يدوياً في كل حدث - سيتم تسجيلك تلقائياً
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="flex gap-2 pt-4">
               <Button 
-                onClick={() => setShowNextEventPopup(false)}
+                onClick={() => {
+                  setShowNextEventPopup(false)
+                  setAutoSignupNextEvent(false)
+                }}
                 variant="outline"
                 className="flex-1"
               >

@@ -977,7 +977,7 @@ export default async function handler(req, res) {
 
   // PHONE LOOKUP FOR RETURNING PARTICIPANTS
   if (action === "phone-lookup-signup") {
-    const { phone_number, gender_preference, humor_banter_style, early_openness_comfort } = req.body
+    const { phone_number, gender_preference, humor_banter_style, early_openness_comfort, auto_signup_next_event } = req.body
 
     if (!phone_number) {
       return res.status(400).json({ error: "Phone number is required" })
@@ -1051,8 +1051,11 @@ export default async function handler(req, res) {
       // Prepare update data
       const updateData = {
         signup_for_next_event: true,
-        next_event_signup_timestamp: new Date().toISOString()
+        next_event_signup_timestamp: new Date().toISOString(),
+        auto_signup_next_event: auto_signup_next_event === true ? true : false
       }
+
+      console.log(`✨ Auto signup for all future events: ${auto_signup_next_event === true ? 'YES' : 'NO'}`)
 
       // Handle gender preference update if provided
       if (gender_preference) {
@@ -1154,7 +1157,7 @@ export default async function handler(req, res) {
   // AUTO SIGNUP FOR NEXT EVENT ACTION (for logged in users)
   if (action === "auto-signup-next-event") {
     try {
-      const { secure_token, gender_preference, humor_banter_style, early_openness_comfort } = req.body
+      const { secure_token, gender_preference, humor_banter_style, early_openness_comfort, auto_signup_next_event } = req.body
       
       if (!secure_token) {
         return res.status(400).json({ error: "Missing secure_token" })
@@ -1183,8 +1186,11 @@ export default async function handler(req, res) {
       // Prepare update data
       const updateData = {
         signup_for_next_event: true,
-        next_event_signup_timestamp: new Date().toISOString()
+        next_event_signup_timestamp: new Date().toISOString(),
+        auto_signup_next_event: auto_signup_next_event === true ? true : false
       }
+
+      console.log(`✨ Auto signup for all future events: ${auto_signup_next_event === true ? 'YES' : 'NO'}`)
 
       // Handle gender preference update if provided
       if (gender_preference) {

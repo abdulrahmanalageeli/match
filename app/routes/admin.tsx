@@ -109,6 +109,7 @@ export default function AdminPage() {
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
+  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'payment-reminder'>('match');
   
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
@@ -117,10 +118,64 @@ export default function AdminPage() {
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
   // Function to generate WhatsApp message for a participant
-  const generateWhatsAppMessage = (participant: any) => {
+  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'payment-reminder' = 'match') => {
     const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
+
+    if (templateType === 'payment-reminder') {
+      return `*التوافق الأعمى* 💳
+
+السلام عليكم *${name}*،
+
+⚠️ *تذكير مهم - الدفع المطلوب*
+
+🔴 *لم نستلم تحويلكم بعد!*
+
+نذكركم بأنه تم العثور على شريك متوافق معكم، ولكن لم يتم إتمام الدفع حتى الآن.
+
+⏰ *مهم جداً:* يرجى إتمام التحويل في أقرب وقت ممكن لتأكيد حجزكم.
+
+💳 *رسوم المشاركة:* 45 ريال سعودي
+
+⚠️ *تحذير:* في حالة عدم استلام التحويل قريباً، سيتم إعطاء الفرصة لمشارك آخر.
+
+🚨 *لماذا يجب الدفع الآن؟*
+• شريكك المتوافق ينتظر تأكيدك
+• المقاعد محدودة وقد تُعطى لآخرين
+• لضمان مشاركتك في الفعالية
+• لتجنب خسارة هذه الفرصة الفريدة
+
+*طرق الدفع السريعة:*
+• STC Pay: 0560899666
+• مصرف الراجحي: عبدالرحمن عبدالملك
+• IBAN:
+SA2480000588608016007502
+
+📸 *بعد التحويل:*
+أرسل صورة الإيصال فوراً عبر الواتساب لتأكيد حجزكم.
+
+📍 *تفاصيل الفعالية:*
+المكان: كوفي بلانيت - الدور الثاني
+العنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+
+📅 التاريخ: الخميس 16 أكتوبر 2025
+🕰️ الوقت: 8:30 مساءً
+⏱️ المدة: 60 دقيقة
+
+📱 *معلوماتك:*
+رقم المشارك: *${assignedNumber}*
+الرمز الخاص: *${secureToken}*
+
+🔗 رابط حسابك:
+https://match-omega.vercel.app/welcome?token=${secureToken}
+
+⚡ *يرجى التحويل وإرسال الإيصال في أقرب وقت!*
+
+🔥 لا تفوت هذه الفرصة!
+
+فريق التوافق الأعمى`;
+    }
 
     return `*التوافق الأعمى* ✨
 
@@ -185,7 +240,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
         ...selectedData.map(participant => {
           const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
           const phone = participant.phone_number || '';
-          const message1 = generateWhatsAppMessage(participant).replace(/"/g, '""'); // Escape quotes for CSV
+          const message1 = generateWhatsAppMessage(participant, exportTemplateType).replace(/"/g, '""'); // Escape quotes for CSV
           const message2 = ''; // Empty as requested
           
           return [
@@ -198,11 +253,12 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       ].join('\n');
 
       // Create and download file
+      const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 'match_notification';
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for proper UTF-8
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `whatsapp_participants_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `whatsapp_${templateName}_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
@@ -211,7 +267,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       // Mark selected participants as "message sent" (PAID = true)
       await markParticipantsAsMessageSent(Array.from(selectedParticipants));
       
-      alert(`✅ تم تصدير ${selectedData.length} مشارك بنجاح وتم تحديث حالة الرسائل!`);
+      const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 'إشعار المطابقة';
+      alert(`✅ تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
       
       // Refresh participants list to show updated status
       fetchParticipants();
@@ -2849,20 +2906,35 @@ const fetchParticipants = async () => {
               </div>
             )}
 
-            {/* Export Selected Participants Button */}
+            {/* Export Template Selection */}
             {selectedParticipants.size > 0 && (
-              <button
-                onClick={exportToExcel}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
-              >
-                {isExporting ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileText className="w-4 h-4" />
-                )}
-                Export ({selectedParticipants.size}) to Excel
-              </button>
+              <>
+                <div className="relative">
+                  <select
+                    value={exportTemplateType}
+                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'payment-reminder')}
+                    className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
+                  >
+                    <option value="match" className="bg-slate-800 text-white">Match Notification</option>
+                    <option value="payment-reminder" className="bg-slate-800 text-white">Payment Reminder</option>
+                  </select>
+                  <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+
+                {/* Export Selected Participants Button */}
+                <button
+                  onClick={exportToExcel}
+                  disabled={isExporting}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {isExporting ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}
+                  Export ({selectedParticipants.size}) to Excel
+                </button>
+              </>
             )}
           </div>
         </div>

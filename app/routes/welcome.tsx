@@ -1620,7 +1620,7 @@ export default function WelcomePage() {
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
                   <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse text-emerald-300" />
-                  <span className="hidden sm:inline">للأحداث القادمة</span>
+                  <span className="hidden sm:inline">تسجيل تلقائي للأحداث القادمة</span>
                   <span className="sm:hidden">✨</span>
                 </button>
               </>

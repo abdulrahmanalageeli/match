@@ -1616,11 +1616,11 @@ export default function WelcomePage() {
                       console.error("Error enabling auto-signup:", err);
                     }
                   }}
-                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1.5 group"
+                  className="bg-gradient-to-r from-emerald-500/30 to-green-500/30 border-2 border-emerald-400/50 rounded-full px-3 py-1.5 text-xs font-bold text-emerald-200 hover:from-emerald-500/40 hover:to-green-500/40 hover:border-emerald-300/70 hover:scale-105 transition-all duration-300 flex items-center gap-1.5 group shadow-lg shadow-emerald-500/20"
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
-                  <Sparkles className="w-3 h-3 group-hover:animate-pulse" />
-                  <span className="hidden sm:inline">تسجيل تلقائي</span>
+                  <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse text-emerald-300" />
+                  <span className="hidden sm:inline">للأحداث القادمة</span>
                   <span className="sm:hidden">✨</span>
                 </button>
               </>

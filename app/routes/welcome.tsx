@@ -346,6 +346,7 @@ export default function WelcomePage() {
   const [returningHumorStyle, setReturningHumorStyle] = useState("");
   const [returningOpennessComfort, setReturningOpennessComfort] = useState("");
   const [autoSignupNextEvent, setAutoSignupNextEvent] = useState(false);
+  const [autoSignupEnabled, setAutoSignupEnabled] = useState(false);
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
@@ -1541,6 +1542,9 @@ export default function WelcomePage() {
       ? "relative top-0 left-1/2 transform -translate-x-1/2 z-[100]" 
       : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
     
+    // Check if user is signed up for next event but hasn't enabled auto-signup
+    const showAutoSignupOffer = showNextEventSignup && !autoSignupEnabled;
+    
     return (
       <div className={positionClass}>
         <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
@@ -1571,6 +1575,43 @@ export default function WelcomePage() {
                     </span>
                   )}
                 </div>
+              </>
+            )}
+
+            {/* Auto-Signup Offer Button - Show for users signed up for next event but auto-signup disabled */}
+            {showAutoSignupOffer && !isTokenAndRoundPhase && (
+              <>
+                <div className="w-px h-4 bg-slate-600"></div>
+                <button
+                  onClick={async () => {
+                    const token = resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken;
+                    if (!token) return;
+                    
+                    try {
+                      const res = await fetch("/api/participant", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          action: "enable-auto-signup",
+                          secure_token: token
+                        }),
+                      });
+                      
+                      if (res.ok) {
+                        setAutoSignupEnabled(true);
+                        alert("✅ تم تفعيل التسجيل التلقائي لجميع الأحداث القادمة!");
+                      }
+                    } catch (err) {
+                      console.error("Error enabling auto-signup:", err);
+                    }
+                  }}
+                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1.5 group"
+                  title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
+                >
+                  <Sparkles className="w-3 h-3 group-hover:animate-pulse" />
+                  <span className="hidden sm:inline">تسجيل تلقائي</span>
+                  <span className="sm:hidden">✨</span>
+                </button>
               </>
             )}
 
@@ -2086,6 +2127,15 @@ export default function WelcomePage() {
           // User is already signed up, update the button state
           console.log('✅ User already signed up for next event, updating button state')
           setShowNextEventSignup(true)
+          
+          // Check if auto-signup is enabled
+          if (participant.auto_signup_next_event) {
+            setAutoSignupEnabled(true)
+            console.log('✨ Auto-signup for all future events is enabled')
+          } else {
+            setAutoSignupEnabled(false)
+            console.log('💡 Auto-signup available - show offer in navbar')
+          }
         }
       }
     } catch (err) {

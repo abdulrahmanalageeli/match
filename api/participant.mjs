@@ -1127,7 +1127,7 @@ export default async function handler(req, res) {
       // Get participant data by token
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, signup_for_next_event, humor_banter_style, early_openness_comfort")
+        .select("id, assigned_number, name, phone_number, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
         .eq("secure_token", secure_token)
         .single()
 
@@ -1143,6 +1143,7 @@ export default async function handler(req, res) {
           name: participant.name,
           phone_number: participant.phone_number,
           signup_for_next_event: participant.signup_for_next_event,
+          auto_signup_next_event: participant.auto_signup_next_event,
           humor_banter_style: participant.humor_banter_style,
           early_openness_comfort: participant.early_openness_comfort
         }
@@ -1455,6 +1456,62 @@ export default async function handler(req, res) {
         error: "Failed to generate vibe analysis",
         details: error.message 
       })
+    }
+  }
+
+  // ENABLE AUTO-SIGNUP FOR ALL FUTURE EVENTS
+  if (action === "enable-auto-signup") {
+    try {
+      const { secure_token } = req.body
+      
+      if (!secure_token) {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      // Get participant data by token
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("id, assigned_number, name, auto_signup_next_event")
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (participantError || !participant) {
+        console.error("Participant lookup error:", participantError)
+        return res.status(404).json({ error: "Participant not found" })
+      }
+
+      // Check if already enabled
+      if (participant.auto_signup_next_event) {
+        return res.status(200).json({ 
+          success: true,
+          message: "التسجيل التلقائي مفعّل بالفعل",
+          already_enabled: true
+        })
+      }
+
+      // Enable auto-signup
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({ auto_signup_next_event: true })
+        .eq("id", participant.id)
+
+      if (updateError) {
+        console.error("Update Error:", updateError)
+        return res.status(500).json({ error: "Failed to enable auto-signup" })
+      }
+
+      console.log(`✨ Auto-signup enabled for participant ${participant.assigned_number} (${participant.name})`)
+
+      return res.status(200).json({
+        success: true,
+        message: "تم تفعيل التسجيل التلقائي لجميع الأحداث القادمة!",
+        participant_name: participant.name,
+        participant_number: participant.assigned_number
+      })
+
+    } catch (error) {
+      console.error("Error in enable-auto-signup:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء تفعيل التسجيل التلقائي" })
     }
   }
 

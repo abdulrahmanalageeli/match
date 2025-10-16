@@ -722,13 +722,16 @@ export default function GroupsPage() {
 
               <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-center">
                 <p className="text-white text-lg font-semibold">
-                  {shuffledNeverHaveIEver[currentPromptIndex % shuffledNeverHaveIEver.length]}
+                  {shuffledNeverHaveIEver.length > 0 
+                    ? shuffledNeverHaveIEver[currentPromptIndex % shuffledNeverHaveIEver.length]
+                    : neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]
+                  }
                 </p>
               </div>
 
               <div className="flex justify-center space-x-3 mt-8">
                 <Button 
-                  onClick={() => setCurrentPromptIndex(prev => (prev + 1) % shuffledNeverHaveIEver.length)} 
+                  onClick={() => setCurrentPromptIndex(prev => (prev + 1) % (shuffledNeverHaveIEver.length || neverHaveIEverQuestions.length))} 
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ChevronRight className="w-5 h-5 mr-2" />
@@ -781,13 +784,19 @@ export default function GroupsPage() {
                 <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 text-center">
                   <div className="text-red-400 font-bold mb-2">الخيار أ</div>
                   <p className="text-white font-semibold">
-                    {shuffledWouldYouRather[currentPromptIndex]?.optionA}
+                    {(shuffledWouldYouRather.length > 0 
+                      ? shuffledWouldYouRather[currentPromptIndex]
+                      : wouldYouRatherQuestions[currentPromptIndex]
+                    )?.optionA}
                   </p>
                 </div>
                 <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 text-center">
                   <div className="text-blue-400 font-bold mb-2">الخيار ب</div>
                   <p className="text-white font-semibold">
-                    {shuffledWouldYouRather[currentPromptIndex]?.optionB}
+                    {(shuffledWouldYouRather.length > 0 
+                      ? shuffledWouldYouRather[currentPromptIndex]
+                      : wouldYouRatherQuestions[currentPromptIndex]
+                    )?.optionB}
                   </p>
                 </div>
               </div>

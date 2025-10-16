@@ -13,7 +13,7 @@ interface WhatsappMessageModalProps {
 export default function WhatsappMessageModal({ participant, isOpen, onClose }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
-  const [isUrgent, setIsUrgent] = useState(false);
+  const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
   const [templateType, setTemplateType] = useState<'match' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder'>('match');
 
   const message = useMemo(() => {
@@ -26,9 +26,12 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
     // Generate message based on template type
     switch (templateType) {
       case 'match':
-        if (isUrgent) {
+        if (urgencyLevel === 'urgent') {
           // Urgent match message with 1-hour deadline
           return `🚨 *عاجل - التوافق الأعمى* 🚨\n\nالسلام عليكم *${name}*،\n\n🔥 *عاجل جداً:* تم العثور على شريك متوافق معكم!\n\n⏰ *مهم للغاية: يجب الرد خلال ساعة واحدة فقط!*\n⚡ *إذا لم تردوا خلال 60 دقيقة، سيتم إعطاء الفرصة لمشارك آخر فوراً*\n\n🚨 *تحذير شديد:* هذه فرصة محدودة جداً ولن تتكرر!\n💳 رسوم المشاركة: 45 ريال سعودي\n\n⚠️ *إجراء فوري مطلوب:*\n1️⃣ احولوا المبلغ الآن فوراً\n2️⃣ ارسلوا صورة الإيصال خلال دقائق\n3️⃣ أكدوا حضوركم خلال الساعة\n\n*طرق الدفع السريعة:*\n• STC Pay: 0560899666\n• مصرف الراجحي: عبدالرحمن عبدالملك\n• IBAN:\nSA2480000588608016007502\n\n🔥 *لا تفوتوا هذه الفرصة الذهبية!*\nشريككم المتوافق ينتظر تأكيدكم الآن!\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n📅 التاريخ: الخميس 16 أكتوبر 2025\n🕰️ الوقت: 8:30 مساءً\n⏱️ المدة: 60 دقيقة\n\n*يرجى الحضور قبل الموعد بـ 10 دقائق*\n\nمعلوماتكم للفعالية:\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n🔗 رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n⏰ *تذكير أخير: لديكم ساعة واحدة فقط للرد!*\n\nفريق التوافق الأعمى`;
+        } else if (urgencyLevel === 'semi-urgent') {
+          // Semi-urgent match message with 2-hour deadline
+          return `⚠️ *مهم - التوافق الأعمى* ⚠️\n\nالسلام عليكم *${name}*،\n\n🎯 *مهم:* تم العثور على شريك متوافق معكم!\n\n⏰ *يرجى الرد خلال ساعتين*\n⚡ المقاعد محدودة وقد تُعطى الفرصة لمشارك آخر إذا لم نتلقى ردكم\n\n💳 رسوم المشاركة: 45 ريال سعودي\n\n📋 *المطلوب منكم:*\n1️⃣ تحويل المبلغ خلال الساعتين القادمتين\n2️⃣ إرسال صورة الإيصال فوراً بعد التحويل\n3️⃣ تأكيد حضوركم\n\n*طرق الدفع:*\n• STC Pay: 0560899666\n• مصرف الراجحي: عبدالرحمن عبدالملك\n• IBAN:\nSA2480000588608016007502\n\n⚠️ *ملاحظة مهمة:* لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال خلال المدة المحددة. في حالة عدم التحويل، سيتم إعطاء الفرصة لمشارك آخر.\n\n*تنبيه:* في حالة التأكيد ثم عدم الحضور أو الإلغاء، لا يمكن استرداد الرسوم.\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n📅 التاريخ: الخميس 16 أكتوبر 2025\n🕰️ الوقت: 8:30 مساءً\n⏱️ المدة: 60 دقيقة\n\n*يرجى الحضور قبل الموعد بـ 10 دقائق*\n\nمعلوماتكم للفعالية:\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n🔗 رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n⏰ *تذكير: لديكم ساعتين للرد وتأكيد المشاركة*\n\nنتطلع لحضوركم!\n\nفريق التوافق الأعمى`;
         } else {
           // Regular match message with 24-hour deadline
           return `*التوافق الأعمى* ✨\n\nالسلام عليكم *${name}*،\n\nنسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم من بين المشاركين.\n\n⏰ *يرجى تأكيد المشاركة خلال 24 ساعة*\n💳 رسوم المشاركة: 45 ريال سعودي\n\n⚠️ *ملاحظة مهمة:* لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال. في حالة عدم التحويل خلال المدة المحددة، سيتم إعطاء الفرصة لمشارك آخر.\n\n*طرق الدفع:*\n• STC Pay: 0560899666\n• مصرف الراجحي: عبدالرحمن عبدالملك\n• IBAN:\nSA2480000588608016007502\n\nبعد إتمام التحويل، يرجى إرسال صورة الإيصال فوراً لتأكيد حجزكم.\n\n*تنبيه:* في حالة التأكيد ثم عدم الحضور أو الإلغاء، لا يمكن استرداد الرسوم.\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n📅 التاريخ: الخميس 16 أكتوبر 2025\n🕰️ الوقت: 8:30 مساءً\n⏱️ المدة: 60 دقيقة\n\n*يرجى الحضور قبل الموعد بـ 10 دقائق*\n\nمعلوماتكم للفعالية:\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n🔗 رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\nنتطلع لحضوركم وتمنى لكم تجربة ممتعة.\n\nفريق التوافق الأعمى`;
@@ -55,7 +58,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
       default:
         return "";
     }
-  }, [participant, isUrgent, templateType]);
+  }, [participant, urgencyLevel, templateType]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
@@ -200,31 +203,79 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
             </div>
           </div>
 
-          {/* Urgency Checkbox - Only for match template */}
+          {/* Urgency Level - Only for match template */}
           {templateType === 'match' && (
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
-              <div className="flex items-center space-x-3 space-x-reverse">
-                <Checkbox
-                  id="urgent-checkbox"
-                  checked={isUrgent}
-                  onCheckedChange={(checked) => setIsUrgent(checked as boolean)}
-                  className="data-[state=checked]:bg-red-600 data-[state=checked]:border-red-600"
-                />
-                <div className="flex-1">
-                  <label 
-                    htmlFor="urgent-checkbox" 
-                    className="text-sm font-medium text-slate-200 cursor-pointer flex items-center"
-                  >
-                    <Clock className="w-4 h-4 ml-2 text-red-400" />
-                    رسالة عاجلة - يجب الرد خلال ساعة واحدة فقط
-                  </label>
-                  <p className="text-xs text-slate-400 mt-1">
-                    {isUrgent ? 
-                      "🚨 سيتم إرسال رسالة عاجلة جداً مع مهلة ساعة واحدة فقط" : 
-                      "📅 رسالة عادية مع مهلة 24 ساعة للرد"
-                    }
-                  </p>
-                </div>
+              <label className="text-sm font-medium text-slate-300 mb-3 flex items-center">
+                <Clock className="w-4 h-4 ml-2" />
+                مستوى الاستعجال
+              </label>
+              <div className="space-y-3">
+                {/* Normal - 24 hours */}
+                <button
+                  onClick={() => setUrgencyLevel('normal')}
+                  className={`w-full p-3 rounded-lg text-right transition-all ${
+                    urgencyLevel === 'normal'
+                      ? 'bg-blue-600 border-2 border-blue-400 text-white'
+                      : 'bg-slate-700 border-2 border-slate-600 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="font-medium">📅 رسالة عادية</div>
+                      <div className="text-xs mt-1 opacity-80">مهلة 24 ساعة للرد - نبرة احترافية</div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ml-3 ${
+                      urgencyLevel === 'normal' ? 'border-white' : 'border-slate-400'
+                    }`}>
+                      {urgencyLevel === 'normal' && <div className="w-3 h-3 rounded-full bg-white"></div>}
+                    </div>
+                  </div>
+                </button>
+
+                {/* Semi-urgent - 2 hours */}
+                <button
+                  onClick={() => setUrgencyLevel('semi-urgent')}
+                  className={`w-full p-3 rounded-lg text-right transition-all ${
+                    urgencyLevel === 'semi-urgent'
+                      ? 'bg-orange-600 border-2 border-orange-400 text-white'
+                      : 'bg-slate-700 border-2 border-slate-600 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="font-medium">⚠️ رسالة شبه عاجلة</div>
+                      <div className="text-xs mt-1 opacity-80">مهلة ساعتين للرد - نبرة مهمة</div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ml-3 ${
+                      urgencyLevel === 'semi-urgent' ? 'border-white' : 'border-slate-400'
+                    }`}>
+                      {urgencyLevel === 'semi-urgent' && <div className="w-3 h-3 rounded-full bg-white"></div>}
+                    </div>
+                  </div>
+                </button>
+
+                {/* Urgent - 1 hour */}
+                <button
+                  onClick={() => setUrgencyLevel('urgent')}
+                  className={`w-full p-3 rounded-lg text-right transition-all ${
+                    urgencyLevel === 'urgent'
+                      ? 'bg-red-600 border-2 border-red-400 text-white'
+                      : 'bg-slate-700 border-2 border-slate-600 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="font-medium">🚨 رسالة عاجلة جداً</div>
+                      <div className="text-xs mt-1 opacity-80">مهلة ساعة واحدة فقط - ضغط نفسي عالي</div>
+                    </div>
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ml-3 ${
+                      urgencyLevel === 'urgent' ? 'border-white' : 'border-slate-400'
+                    }`}>
+                      {urgencyLevel === 'urgent' && <div className="w-3 h-3 rounded-full bg-white"></div>}
+                    </div>
+                  </div>
+                </button>
               </div>
             </div>
           )}

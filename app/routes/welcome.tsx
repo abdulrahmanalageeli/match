@@ -5099,55 +5099,19 @@ export default function WelcomePage() {
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">
-                        {/* Next Event Signup Button - Full Width Row 1 */}
+                        {/* Next Event Signup Card - Full Width Row 1 */}
                         <button
-                          onClick={async () => {
-                            if (showNextEventSignup && autoSignupEnabled) {
-                              // User wants to disable auto-signup
-                              const confirmed = window.confirm(
-                                "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إلغاء تسجيلك من الفعالية القادمة وإيقاف التسجيل التلقائي."
-                              );
-                              if (!confirmed) return;
-                              
-                              setNextEventSignupLoading(true);
-                              try {
-                                const token = resultToken || returningPlayerToken;
-                                const response = await fetch("/api/participant", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ 
-                                    action: "disable-auto-signup",
-                                    secure_token: token
-                                  }),
-                                });
-                                
-                                const data = await response.json();
-                                if (response.ok) {
-                                  setShowNextEventSignup(false);
-                                  setAutoSignupEnabled(false);
-                                  alert("✅ تم إيقاف التسجيل التلقائي بنجاح");
-                                } else {
-                                  alert(`❌ فشل إيقاف التسجيل: ${data.error}`);
-                                }
-                              } catch (error) {
-                                alert(`❌ خطأ في الشبكة: ${error}`);
-                              }
-                              setNextEventSignupLoading(false);
-                            } else {
-                              // User wants to enable auto-signup
-                              handleAutoSignupNextEvent();
-                            }
-                          }}
-                          disabled={nextEventSignupLoading}
+                          onClick={handleAutoSignupNextEvent}
+                          disabled={nextEventSignupLoading || showNextEventSignup}
                           className={`col-span-2 group transition-all duration-300 transform hover:scale-105 rounded-xl p-4 sm:p-6 text-center ${
                             showNextEventSignup 
-                              ? "bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-400/30 hover:from-red-500/30 hover:to-orange-500/30" 
+                              ? "bg-gray-500/20 border border-gray-400/30 cursor-not-allowed opacity-60" 
                               : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30"
                           }`}
                         >
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
                             showNextEventSignup 
-                              ? "bg-gradient-to-r from-red-500 to-orange-500" 
+                              ? "bg-gray-500" 
                               : "bg-gradient-to-r from-emerald-500 to-teal-500"
                           }`}>
                             <UserCheck className="w-6 h-6 text-white" />
@@ -5156,15 +5120,106 @@ export default function WelcomePage() {
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
                           </h4>
                           <p className="text-cyan-200 text-xs mb-3">
-                            {showNextEventSignup ? "انقر لإيقاف التسجيل التلقائي" : "سجل باستخدام حسابك الحالي"}
+                            {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
                           </p>
-                          <div className={`flex items-center justify-center gap-2 ${showNextEventSignup ? 'text-red-300' : 'text-emerald-300'}`}>
-                            <span className="text-xs font-medium">
-                              {showNextEventSignup ? "إيقاف التسجيل التلقائي" : "انقر للتسجيل"}
-                            </span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
+                          {!showNextEventSignup && (
+                            <div className="flex items-center justify-center gap-2 text-emerald-300">
+                              <span className="text-xs font-medium">انقر للتسجيل</span>
+                              <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          )}
                         </button>
+
+                        {/* Auto-Signup Toggle Button - Full Width Row 2 */}
+                        {showNextEventSignup && (
+                          <button
+                            onClick={async () => {
+                              if (autoSignupEnabled) {
+                                // User wants to disable auto-signup
+                                const confirmed = window.confirm(
+                                  "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إيقاف التسجيل التلقائي فقط (ستبقى مسجلاً للفعالية القادمة)."
+                                );
+                                if (!confirmed) return;
+                                
+                                setNextEventSignupLoading(true);
+                                try {
+                                  const token = resultToken || returningPlayerToken;
+                                  const response = await fetch("/api/participant", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ 
+                                      action: "disable-auto-signup",
+                                      secure_token: token
+                                    }),
+                                  });
+                                  
+                                  const data = await response.json();
+                                  if (response.ok) {
+                                    setAutoSignupEnabled(false);
+                                    alert("✅ تم إيقاف التسجيل التلقائي بنجاح");
+                                  } else {
+                                    alert(`❌ فشل إيقاف التسجيل: ${data.error}`);
+                                  }
+                                } catch (error) {
+                                  alert(`❌ خطأ في الشبكة: ${error}`);
+                                }
+                                setNextEventSignupLoading(false);
+                              } else {
+                                // User wants to enable auto-signup
+                                setNextEventSignupLoading(true);
+                                try {
+                                  const token = resultToken || returningPlayerToken;
+                                  const response = await fetch("/api/participant", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ 
+                                      action: "auto-signup-next-event",
+                                      secure_token: token,
+                                      auto_signup_next_event: true
+                                    }),
+                                  });
+                                  
+                                  const data = await response.json();
+                                  if (response.ok) {
+                                    setAutoSignupEnabled(true);
+                                    alert("✅ تم تفعيل التسجيل التلقائي بنجاح");
+                                  } else {
+                                    alert(`❌ فشل تفعيل التسجيل: ${data.error}`);
+                                  }
+                                } catch (error) {
+                                  alert(`❌ خطأ في الشبكة: ${error}`);
+                                }
+                                setNextEventSignupLoading(false);
+                              }
+                            }}
+                            disabled={nextEventSignupLoading}
+                            className={`col-span-2 group transition-all duration-300 transform hover:scale-105 rounded-xl p-4 sm:p-6 text-center ${
+                              autoSignupEnabled 
+                                ? "bg-gradient-to-r from-red-500/20 to-orange-500/20 border border-red-400/30 hover:from-red-500/30 hover:to-orange-500/30" 
+                                : "bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 hover:from-blue-500/30 hover:to-cyan-500/30"
+                            }`}
+                          >
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                              autoSignupEnabled 
+                                ? "bg-gradient-to-r from-red-500 to-orange-500" 
+                                : "bg-gradient-to-r from-blue-500 to-cyan-500"
+                            }`}>
+                              <UserCheck className="w-6 h-6 text-white" />
+                            </div>
+                            <h4 className="text-base font-bold text-white mb-2">
+                              {autoSignupEnabled ? "التسجيل التلقائي مفعّل ✓" : "تفعيل التسجيل التلقائي"}
+                            </h4>
+                            <p className="text-cyan-200 text-xs mb-3">
+                              {autoSignupEnabled ? "سيتم تسجيلك تلقائياً في كل فعالية قادمة" : "سجل تلقائياً في جميع الفعاليات القادمة"}
+                            </p>
+                            <div className={`flex items-center justify-center gap-2 ${autoSignupEnabled ? 'text-red-300' : 'text-blue-300'}`}>
+                              <span className="text-xs font-medium">
+                                {autoSignupEnabled ? "إيقاف التسجيل التلقائي" : "تفعيل التسجيل التلقائي"}
+                              </span>
+                              <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                          </button>
+                        )}
 
                         {/* Returning Player Button - Row 2 Left */}
                         <button

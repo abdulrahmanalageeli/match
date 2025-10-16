@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -1270,13 +1270,11 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "المشارك غير موجود" })
       }
 
-      // Update participant to disable auto-signup and remove next event signup
+      // Update participant to disable auto-signup only (keep next event signup)
       const { error: updateError } = await supabase
         .from("participants")
         .update({
-          signup_for_next_event: false,
-          auto_signup_next_event: false,
-          next_event_signup_timestamp: null
+          auto_signup_next_event: false
         })
         .eq("secure_token", secure_token)
 

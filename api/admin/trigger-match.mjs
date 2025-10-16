@@ -1198,6 +1198,14 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       continue
     }
     
+    // Prioritize groups with at least 2 females to avoid single females feeling uncomfortable
+    // Only apply this for groups of 4 (for groups of 3, we allow 1F/2M as minimum)
+    const hasSingleFemale = femaleCount === 1 && targetSize === 4
+    if (hasSingleFemale) {
+      console.log(`⚠️ Deprioritizing group combination [${combination.join(', ')}] - single female in group of 4 (${maleCount}M, ${femaleCount}F)`)
+      // Don't skip, but reduce score to deprioritize this combination
+    }
+    
     // Check conversation depth preference (vibe_4) compatibility
     const conversationPrefs = combination.map(participantNum => {
       const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
@@ -1215,12 +1223,20 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       continue
     }
     
-    const score = calculateGroupMBTIScore(combination, pairScores)
+    let score = calculateGroupMBTIScore(combination, pairScores)
+    
+    // Apply penalty for single female in group of 4 to prioritize 2+ females
+    if (hasSingleFemale) {
+      score = score * 0.7 // 30% penalty to deprioritize single female groups
+      console.log(`   📉 Applied 30% penalty for single female: ${score}% (original: ${calculateGroupMBTIScore(combination, pairScores)}%)`)
+    }
+    
     if (score > bestScore) {
       bestScore = score
       bestGroup = combination
       const convType = yesCount > 0 ? 'deep' : noCount > 0 ? 'light' : 'flexible'
-      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${score}%, Gender: ${maleCount}M/${femaleCount}F, Conv: ${convType}`)
+      const femaleStatus = hasSingleFemale ? ' (⚠️ single F)' : femaleCount >= 2 ? ' (✅ 2+ F)' : ''
+      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${Math.round(score)}%, Gender: ${maleCount}M/${femaleCount}F${femaleStatus}, Conv: ${convType}`)
     }
   }
   
@@ -1365,7 +1381,10 @@ function calculateGroupMBTIScore(group, pairScores) {
     }
   }
   
-  return pairCount > 0 ? totalScore / pairCount : 0
+  // Scale from 0-5 range to 0-100 range for display
+  // MBTI scores are 0-5%, so multiply by 20 to get 0-100%
+  const averageScore = pairCount > 0 ? totalScore / pairCount : 0
+  return averageScore * 20
 }
 
 // Helper function to generate combinations

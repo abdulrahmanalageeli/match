@@ -1176,19 +1176,15 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Participant not found" })
       }
 
-      // Check if already signed up for next event
-      if (participant.signup_for_next_event) {
-        return res.status(400).json({ 
-          error: "أنت مسجل بالفعل للحدث القادم",
-          message: "سيتم التواصل معك قريباً"
-        })
-      }
-
       // Prepare update data
       const updateData = {
         signup_for_next_event: true,
-        next_event_signup_timestamp: new Date().toISOString(),
         auto_signup_next_event: auto_signup_next_event === true ? true : false
+      }
+
+      // Only update timestamp if not already signed up
+      if (!participant.signup_for_next_event) {
+        updateData.next_event_signup_timestamp = new Date().toISOString()
       }
 
       console.log(`✨ Auto signup for all future events: ${auto_signup_next_event === true ? 'YES' : 'NO'}`)
@@ -1248,6 +1244,58 @@ export default async function handler(req, res) {
     } catch (error) {
       console.error("Error in auto-signup-next-event:", error)
       return res.status(500).json({ error: "حدث خطأ أثناء التسجيل للحدث القادم" })
+    }
+  }
+
+  // DISABLE AUTO SIGNUP FOR NEXT EVENT ACTION
+  if (action === "disable-auto-signup") {
+    try {
+      const { secure_token } = req.body
+      
+      if (!secure_token) {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+      // Find participant by secure_token
+      const { data: participant, error: findError } = await supabase
+        .from("participants")
+        .select("assigned_number")
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (findError || !participant) {
+        console.error("Participant not found:", findError)
+        return res.status(404).json({ error: "المشارك غير موجود" })
+      }
+
+      // Update participant to disable auto-signup and remove next event signup
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({
+          signup_for_next_event: false,
+          auto_signup_next_event: false,
+          next_event_signup_timestamp: null
+        })
+        .eq("secure_token", secure_token)
+
+      if (updateError) {
+        console.error("Error disabling auto-signup:", updateError)
+        return res.status(500).json({ error: "فشل إيقاف التسجيل التلقائي" })
+      }
+
+      console.log(`✅ Auto-signup disabled for participant #${participant.assigned_number}`)
+
+      return res.status(200).json({
+        success: true,
+        message: "تم إيقاف التسجيل التلقائي بنجاح",
+        participant_number: participant.assigned_number
+      })
+
+    } catch (error) {
+      console.error("Error in disable-auto-signup:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء إيقاف التسجيل التلقائي" })
     }
   }
 

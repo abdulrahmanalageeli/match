@@ -517,15 +517,15 @@ function checkInteractionStyleCompatibility(participantA, participantB) {
 function checkHumorCompatibility(humorA, humorB) {
   // Allowed combinations:
   // A↔A, A↔B, A↔C
-  // B↔B, B↔C  
+  // B↔B, B↔C, B↔D  
   // C↔C, C↔D
   // D↔D
-  // Blocked: A↔D, B↔D
+  // Blocked: A↔D only
   
   if (humorA === 'A') return ['A', 'B', 'C'].includes(humorB)
-  if (humorA === 'B') return ['A', 'B', 'C'].includes(humorB)
+  if (humorA === 'B') return ['A', 'B', 'C', 'D'].includes(humorB)
   if (humorA === 'C') return ['A', 'B', 'C', 'D'].includes(humorB)
-  if (humorA === 'D') return ['C', 'D'].includes(humorB)
+  if (humorA === 'D') return ['B', 'C', 'D'].includes(humorB)
   
   return false
 }

@@ -337,18 +337,6 @@ export default function GroupsPage() {
     return shuffled;
   };
 
-  // Initialize shuffled questions when game starts
-  useEffect(() => {
-    if (gameStarted && currentGame) {
-      if (currentGame.id === "never-have-i-ever" && shuffledNeverHaveIEver.length === 0) {
-        setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
-      }
-      if (currentGame.id === "would-you-rather" && shuffledWouldYouRather.length === 0) {
-        setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions));
-      }
-    }
-  }, [gameStarted, currentGame]);
-
   // Handle browser back button intelligently based on current state
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
@@ -519,6 +507,13 @@ export default function GroupsPage() {
     setSelectedGameId(gameId);
     setGamePhase("playing");
     setCurrentPromptIndex(0);
+    
+    // Shuffle questions when starting the game
+    if (gameId === "never-have-i-ever") {
+      setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
+    } else if (gameId === "would-you-rather") {
+      setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions));
+    }
   };
 
   const nextGame = () => {

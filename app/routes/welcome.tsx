@@ -7856,8 +7856,8 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  {/* Next Event Signup Checkbox - Only show if not already signed up */}
-                  {!showNextEventSignup && !autoSignupEnabled && (
+                  {/* Next Event Signup Checkbox - Only show if auto-signup not enabled */}
+                  {!autoSignupEnabled && (
                     <div className={`mt-6 p-4 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border-cyan-400/30' : 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300/50'}`}>
                       <div className="flex items-start gap-3">
                         <input

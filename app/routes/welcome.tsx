@@ -5133,14 +5133,12 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-2 gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <button
-                          onClick={handleAutoSignupNextEvent}
-                          disabled={nextEventSignupLoading || showNextEventSignup}
-                          className={`col-span-2 group transition-all duration-300 transform hover:scale-105 rounded-xl p-4 sm:p-6 text-center ${
-                            showNextEventSignup 
-                              ? "bg-gray-500/20 border border-gray-400/30 cursor-not-allowed opacity-60" 
-                              : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30"
-                          }`}
+                        <div className={`col-span-2 rounded-xl p-4 sm:p-6 text-center ${
+                          showNextEventSignup 
+                            ? "bg-gray-500/20 border border-gray-400/30" 
+                            : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30 group transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                        }`}
+                        onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
                             showNextEventSignup 
@@ -5155,13 +5153,52 @@ export default function WelcomePage() {
                           <p className="text-cyan-200 text-xs mb-3">
                             {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
                           </p>
-                          {!showNextEventSignup && (
+                          
+                          {!showNextEventSignup ? (
                             <div className="flex items-center justify-center gap-2 text-emerald-300">
                               <span className="text-xs font-medium">انقر للتسجيل</span>
                               <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                             </div>
+                          ) : autoSignupEnabled && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                const confirmed = window.confirm(
+                                  "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إيقاف التسجيل التلقائي فقط (ستبقى مسجلاً للفعالية القادمة)."
+                                );
+                                if (!confirmed) return;
+                                
+                                setNextEventSignupLoading(true);
+                                try {
+                                  const token = resultToken || returningPlayerToken;
+                                  const response = await fetch("/api/participant", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ 
+                                      action: "disable-auto-signup",
+                                      secure_token: token
+                                    }),
+                                  });
+                                  
+                                  const data = await response.json();
+                                  if (response.ok) {
+                                    setAutoSignupEnabled(false);
+                                    alert("✅ تم إيقاف التسجيل التلقائي بنجاح");
+                                  } else {
+                                    alert(`❌ فشل إيقاف التسجيل: ${data.error}`);
+                                  }
+                                } catch (error) {
+                                  alert(`❌ خطأ في الشبكة: ${error}`);
+                                }
+                                setNextEventSignupLoading(false);
+                              }}
+                              disabled={nextEventSignupLoading}
+                              className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                            >
+                              إيقاف التسجيل التلقائي
+                            </button>
                           )}
-                        </button>
+                        </div>
 
                         {/* Returning Player Button - Row 2 Left */}
                         <button

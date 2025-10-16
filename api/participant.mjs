@@ -256,6 +256,8 @@ export default async function handler(req, res) {
       name: data.name,
       survey_data: data.survey_data,
       summary: data.summary,
+      signup_for_next_event: data.signup_for_next_event,
+      auto_signup_next_event: data.auto_signup_next_event,
       history: history
     })
   }

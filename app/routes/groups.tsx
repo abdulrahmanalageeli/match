@@ -107,7 +107,36 @@ const neverHaveIEverQuestions = [
   "لم أفعل من قبل: عشت تجربة روحانية عميقة في الحج أو العمرة",
   "لم أفعل من قبل: تعرضت لموقف ظلم وقفت ضده رغم الثمن",
   "لم أفعل من قبل: اكتشفت شغفاً حقيقياً غير مجال عملي",
-  "لم أفعل من قبل: عشت لحظة فخر حقيقي بإنجاز حققته بنفسي"
+  "لم أفعل من قبل: عشت لحظة فخر حقيقي بإنجاز حققته بنفسي",
+  "لم أفعل من قبل: كنت في موقف خطير وتصرفت بطريقة لم أتوقعها من نفسي",
+  "لم أفعل من قبل: قابلت شخص مشهور أو مؤثر وكان الموقف غريباً أو مضحكاً",
+  "لم أفعل من قبل: وقعت في موقف محرج جداً أمام مجموعة كبيرة من الناس",
+  "لم أفعل من قبل: أنقذت شخصاً من موقف صعب أو خطير",
+  "لم أفعل من قبل: تورطت في مشكلة كبيرة بسبب سوء فهم",
+  "لم أفعل من قبل: ضعت في مكان غريب ولم أعرف كيف أرجع",
+  "لم أفعل من قبل: شهدت حادثة غريبة جداً لا أحد يصدقها عندما أرويها",
+  "لم أفعل من قبل: اكتشفت سراً كبيراً عن شخص قريب مني بالصدفة",
+  "لم أفعل من قبل: تعرضت لموقف خارق للطبيعة أو غريب جداً لا أستطيع تفسيره",
+  "لم أفعل من قبل: قمت بمغامرة جنونية ندمت عليها في منتصفها",
+  "لم أفعل من قبل: واجهت شخصاً ظالماً أو متنمراً ووقفت في وجهه",
+  "لم أفعل من قبل: عشت تجربة سفر كارثية تحولت لذكرى مضحكة",
+  "لم أفعل من قبل: اكتشفت موهبة مخفية عندي في موقف غير متوقع",
+  "لم أفعل من قبل: تسببت في موقف فوضوي كبير بدون قصد",
+  "لم أفعل من قبل: نجوت من موقف كان ممكن ينتهي بشكل سيء جداً",
+  "لم أفعل من قبل: قابلت شخصاً غيّر طريقة تفكيري في لقاء واحد فقط",
+  "لم أفعل من قبل: عشت تجربة رعب حقيقية في مكان مهجور أو مخيف",
+  "لم أفعل من قبل: اكتشفت خيانة أو كذبة كبيرة بطريقة درامية",
+  "لم أفعل من قبل: قمت بشيء شجاع جداً رغم خوفي الشديد",
+  "لم أفعل من قبل: تعرضت لموقف طريف جداً في مكان رسمي أو مهم",
+  "لم أفعل من قبل: ساعدت شخصاً غريباً وتحول لصديق مقرب",
+  "لم أفعل من قبل: عشت تجربة غريبة أو مرعبة في الطيران أو السفر",
+  "لم أفعل من قبل: اتخذت قراراً متهوراً غيّر حياتي للأفضل",
+  "لم أفعل من قبل: تعرضت لموقف سوء تفاهم كبير مع السلطات أو الشرطة",
+  "لم أفعل من قبل: اكتشفت مكاناً سرياً أو مخفياً بالصدفة",
+  "لم أفعل من قبل: عشت لحظة بطولية أنقذت فيها موقفاً صعباً",
+  "لم أفعل من قبل: تعرضت لموقف كوميدي في أسوأ توقيت ممكن",
+  "لم أفعل من قبل: واجهت مخاوفي وقمت بشيء كنت أخاف منه لسنوات",
+  "لم أفعل من قبل: عشت تجربة غريبة أو خطيرة مع حيوان في الطبيعة"
 ];
 
 const wouldYouRatherQuestions = [
@@ -170,6 +199,66 @@ const wouldYouRatherQuestions = [
   {
     optionA: "أن تعيش حياة مليئة بالمغامرات والمخاطر",
     optionB: "أن تعيش حياة آمنة ومستقرة ولكن روتينية"
+  },
+  {
+    optionA: "أن تعيش تجربة حب عظيمة تنتهي بألم كبير",
+    optionB: "أن لا تحب أبداً ولكن تعيش بدون ألم"
+  },
+  {
+    optionA: "أن تكتشف أن حياتك كلها كانت كذبة",
+    optionB: "أن تعيش في وهم سعيد لبقية حياتك"
+  },
+  {
+    optionA: "أن تضحي بأحلامك من أجل شخص تحبه",
+    optionB: "أن تضحي بشخص تحبه من أجل أحلامك"
+  },
+  {
+    optionA: "أن تعرف كل أسرار الناس من حولك",
+    optionB: "أن لا تعرف أي شيء عن حقيقة الناس"
+  },
+  {
+    optionA: "أن تعيش تجربة خيانة من أقرب صديق",
+    optionB: "أن لا يكون لك أصدقاء مقربين أبداً"
+  },
+  {
+    optionA: "أن تكون محبوباً من الجميع ولكن وحيداً من الداخل",
+    optionB: "أن تكون مكروهاً ولكن راضياً عن نفسك"
+  },
+  {
+    optionA: "أن تعيش في عالم بدون موسيقى",
+    optionB: "أن تعيش في عالم بدون ألوان"
+  },
+  {
+    optionA: "أن تنسى كل ذكرياتك السعيدة",
+    optionB: "أن تتذكر كل ذكرياتك المؤلمة بوضوح شديد"
+  },
+  {
+    optionA: "أن تموت بطلاً شاباً",
+    optionB: "أن تعيش طويلاً ولكن منسياً"
+  },
+  {
+    optionA: "أن تكون قادراً على رؤية المستقبل ولكن لا تستطيع تغييره",
+    optionB: "أن تكون قادراً على تغيير الماضي ولكن بعواقب غير متوقعة"
+  },
+  {
+    optionA: "أن تعيش في عالم بدون كذب ولكن الحقيقة مؤلمة دائماً",
+    optionB: "أن تعيش في عالم مليء بالأكاذيب ولكن الجميع سعداء"
+  },
+  {
+    optionA: "أن تفقد ذاكرتك كل يوم وتبدأ من جديد",
+    optionB: "أن تتذكر كل شيء بتفاصيل مؤلمة ولا تنسى أبداً"
+  },
+  {
+    optionA: "أن تعيش حياة عادية في الواقع",
+    optionB: "أن تعيش حياة مثالية في حلم لا ينتهي"
+  },
+  {
+    optionA: "أن تكون آخر شخص على الأرض",
+    optionB: "أن تعيش في عالم مزدحم ولكن لا أحد يراك"
+  },
+  {
+    optionA: "أن تعرف تاريخ موتك بالضبط",
+    optionB: "أن تعرف سبب موتك ولكن ليس التاريخ"
   }
 ];
 
@@ -212,6 +301,10 @@ export default function GroupsPage() {
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
   
+  // Shuffled questions state
+  const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
+  const [shuffledWouldYouRather, setShuffledWouldYouRather] = useState<typeof wouldYouRatherQuestions>([]);
+  
   // Charades game state
   const [currentCharadesWord, setCurrentCharadesWord] = useState<string>("");
   const [currentCharadesCategory, setCurrentCharadesCategory] = useState<string>("");
@@ -233,6 +326,28 @@ export default function GroupsPage() {
   const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(false);
 
   const currentGame = games[currentGameIndex];
+
+  // Shuffle array function
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  // Initialize shuffled questions when game starts
+  useEffect(() => {
+    if (gameStarted && currentGame) {
+      if (currentGame.id === "never-have-i-ever" && shuffledNeverHaveIEver.length === 0) {
+        setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
+      }
+      if (currentGame.id === "would-you-rather" && shuffledWouldYouRather.length === 0) {
+        setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions));
+      }
+    }
+  }, [gameStarted, currentGame]);
 
   // Handle browser back button intelligently based on current state
   useEffect(() => {
@@ -607,13 +722,13 @@ export default function GroupsPage() {
 
               <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-center">
                 <p className="text-white text-lg font-semibold">
-                  {neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]}
+                  {shuffledNeverHaveIEver[currentPromptIndex % shuffledNeverHaveIEver.length]}
                 </p>
               </div>
 
               <div className="flex justify-center space-x-3 mt-8">
                 <Button 
-                  onClick={() => setCurrentPromptIndex(prev => (prev + 1) % neverHaveIEverQuestions.length)} 
+                  onClick={() => setCurrentPromptIndex(prev => (prev + 1) % shuffledNeverHaveIEver.length)} 
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ChevronRight className="w-5 h-5 mr-2" />
@@ -666,13 +781,13 @@ export default function GroupsPage() {
                 <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 text-center">
                   <div className="text-red-400 font-bold mb-2">الخيار أ</div>
                   <p className="text-white font-semibold">
-                    {wouldYouRatherQuestions[currentPromptIndex]?.optionA}
+                    {shuffledWouldYouRather[currentPromptIndex]?.optionA}
                   </p>
                 </div>
                 <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 text-center">
                   <div className="text-blue-400 font-bold mb-2">الخيار ب</div>
                   <p className="text-white font-semibold">
-                    {wouldYouRatherQuestions[currentPromptIndex]?.optionB}
+                    {shuffledWouldYouRather[currentPromptIndex]?.optionB}
                   </p>
                 </div>
               </div>

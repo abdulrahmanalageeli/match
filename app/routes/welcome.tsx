@@ -647,6 +647,39 @@ export default function WelcomePage() {
     }
   }, [modalStep]);
 
+  // Check auto-signup status when feedback modal is shown
+  useEffect(() => {
+    const checkAutoSignupStatus = async () => {
+      if (modalStep === "feedback" && secureToken) {
+        try {
+          const response = await fetch("/api/participant", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "resolve-token",
+              secure_token: secureToken
+            }),
+          })
+          
+          const data = await response.json()
+          if (response.ok && data) {
+            if (data.auto_signup_next_event) {
+              setAutoSignupEnabled(true)
+              console.log('✅ Feedback: Auto-signup is enabled, hiding checkbox')
+            } else {
+              setAutoSignupEnabled(false)
+              console.log('💡 Feedback: Auto-signup not enabled, showing checkbox')
+            }
+          }
+        } catch (error) {
+          console.error("Error checking auto-signup status:", error)
+        }
+      }
+    }
+    
+    checkAutoSignupStatus()
+  }, [modalStep, secureToken]);
+
 
 
 

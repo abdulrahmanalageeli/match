@@ -144,6 +144,7 @@ export default function WelcomePage() {
     recommendations: "",
     participantMessage: "" // Optional message to conversation partner
   })
+  const [feedbackNextEventSignup, setFeedbackNextEventSignup] = useState(false)
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
   const [typewriterText, setTypewriterText] = useState("")
@@ -2958,6 +2959,32 @@ export default function WelcomePage() {
       } catch (error) {
         console.error("Error saving feedback:", error)
         // Continue with UI updates even if saving fails
+      }
+    }
+
+    // Handle next event signup if checkbox was checked
+    if (feedbackNextEventSignup && secureToken) {
+      try {
+        const signupResponse = await fetch("/api/participant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "auto-signup-next-event",
+            secure_token: secureToken,
+            auto_signup_next_event: true
+          }),
+        })
+
+        const signupData = await signupResponse.json()
+        if (signupResponse.ok) {
+          console.log("✅ Auto-signup for next event enabled successfully")
+          setShowNextEventSignup(true)
+          setAutoSignupEnabled(true)
+        } else {
+          console.error("Failed to enable auto-signup:", signupData.error)
+        }
+      } catch (error) {
+        console.error("Error enabling auto-signup:", error)
       }
     }
 
@@ -7806,6 +7833,29 @@ export default function WelcomePage() {
                       شريك المحادثة لن يرى أي من إجاباتك • فقط المنظم لتحسين النظام
                     </p>
                   </div>
+
+                  {/* Next Event Signup Checkbox - Only show if not already signed up */}
+                  {!showNextEventSignup && !autoSignupEnabled && (
+                    <div className={`mt-6 p-4 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-cyan-900/20 to-blue-900/20 border-cyan-400/30' : 'bg-gradient-to-r from-cyan-50 to-blue-50 border-cyan-300/50'}`}>
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="feedback-next-event-signup"
+                          checked={feedbackNextEventSignup}
+                          onChange={(e) => setFeedbackNextEventSignup(e.target.checked)}
+                          className="mt-1 w-4 h-4 rounded border-cyan-400/50 text-cyan-600 focus:ring-cyan-500 focus:ring-offset-0 cursor-pointer"
+                        />
+                        <label htmlFor="feedback-next-event-signup" className="flex-1 cursor-pointer">
+                          <div className={`font-semibold text-sm mb-1 ${dark ? 'text-cyan-200' : 'text-cyan-700'}`}>
+                            🎉 سجلني تلقائياً في الفعاليات القادمة
+                          </div>
+                          <div className={`text-xs ${dark ? 'text-cyan-300/80' : 'text-cyan-600/80'}`}>
+                            سنسجلك تلقائياً في كل فعالية قادمة بنفس معلوماتك وتفضيلاتك
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex justify-center gap-3 mt-8">
                      <Button

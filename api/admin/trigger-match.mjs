@@ -61,24 +61,30 @@ async function autoSaveAdminResults(eventId, matchType, generationType, matchRes
 
 // MBTI Compatibility Matrix
 const MBTI_COMPATIBILITY = {
-  'ESTP': { top1: 'ENTP', top2: 'ENFJ', top3: 'INTJ', bonus: [] },
-  'ISFP': { top1: 'INFJ', top2: 'ENFP', top3: 'ENTJ', bonus: ['INTJ'] },
-  'ISTP': { top1: 'ESTJ', top2: 'ISFJ', top3: 'ISTJ', bonus: ['ENFP', 'ENTP', 'INTP'] },
-  'ESFP': { top1: 'ESFJ', top2: 'ISTJ', top3: 'INFP', bonus: [] },
-  'ESTJ': { top1: 'ISFJ', top2: 'ISTP', top3: 'ISTJ', bonus: [] },
-  'ESFJ': { top1: 'ESFP', top2: 'ISTJ', top3: 'ESFJ', bonus: [] },
-  'ISTJ': { top1: 'ISTJ', top2: 'ESTJ', top3: 'ESFJ', bonus: ['ISFJ'] },
-  'ISFJ': { top1: 'ESTJ', top2: 'ISFJ', top3: 'ISTP', bonus: ['ISTJ'] },
-  'ENFJ': { top1: 'ENFJ', top2: 'ESTP', top3: 'ENTJ', bonus: ['INTJ'] },
-  'INFJ': { top1: 'ISFP', top2: 'ENTJ', top3: 'ENFP', bonus: ['INFP'] },
-  'ENFP': { top1: 'ISFP', top2: 'ISTP', top3: 'INFJ', bonus: ['ENTP'] },
-  'INFP': { top1: 'ESFP', top2: 'INFJ', top3: 'INTP', bonus: [] },
-  'ENTJ': { top1: 'INFJ', top2: 'ISFP', top3: 'ESFJ', bonus: ['ENFJ'] },
-  'INTJ': { top1: 'ENTP', top2: 'INTP', top3: 'ESTP', bonus: ['ISFP', 'ENFJ'] },
-  'ENTP': { top1: 'ESTP', top2: 'INTJ', top3: 'ISTP', bonus: ['ENFP', 'INTP'] },
-  'INTP': { top1: 'INTJ', top2: 'ISTP', top3: 'INFP', bonus: ['ENTP'] }
-}
+  // Analyst Types (NT)
+  'INTJ': { top1: 'ENTP', top2: 'ENFP', top3: 'INFJ', bonus: ['INTP', 'ENTJ'] },
+  'INTP': { top1: 'ENTJ', top2: 'ESTJ', top3: 'ENFP', bonus: ['INTJ', 'ENTP'] },
+  'ENTJ': { top1: 'INTP', top2: 'INFJ', top3: 'ENFP', bonus: ['INTJ', 'ENTP'] },
+  'ENTP': { top1: 'INTJ', top2: 'INFJ', top3: 'ISFJ', bonus: ['ENFP', 'ENTJ'] },
 
+  // Diplomat Types (NF)
+  'INFJ': { top1: 'ENFP', top2: 'ENTP', top3: 'ENFJ', bonus: ['INTJ', 'INFP'] },
+  'INFP': { top1: 'ENFJ', top2: 'ENTJ', top3: 'ESFJ', bonus: ['INFJ', 'ENFP'] },
+  'ENFJ': { top1: 'INFP', top2: 'ISFP', top3: 'INFJ', bonus: ['ENFP', 'ESFJ'] },
+  'ENFP': { top1: 'INFJ', top2: 'INTJ', top3: 'ISTJ', bonus: ['ENTP', 'ENFJ'] },
+
+  // Sentinel Types (SJ)
+  'ISTJ': { top1: 'ENFP', top2: 'ESFP', top3: 'ESTJ', bonus: ['ISFJ', 'ISTP'] },
+  'ISFJ': { top1: 'ENTP', top2: 'ESFP', top3: 'ESTJ', bonus: ['ISTJ', 'ESFJ'] },
+  'ESTJ': { top1: 'ISTP', top2: 'ISFJ', top3: 'INTP', bonus: ['ISTJ', 'ESFJ'] },
+  'ESFJ': { top1: 'ISFP', top2: 'ISTP', top3: 'INFP', bonus: ['ISFJ', 'ESTJ'] },
+
+  // Explorer Types (SP)
+  'ISTP': { top1: 'ESTJ', top2: 'ESFJ', top3: 'ENTP', bonus: ['ISTJ', 'ESTP'] },
+  'ISFP': { top1: 'ESFJ', top2: 'ENFJ', top3: 'ESTJ', bonus: ['ESFP', 'ISTP'] },
+  'ESTP': { top1: 'ISFJ', top2: 'ISTP', top3: 'ENTP', bonus: ['ESFP', 'INTP'] },
+  'ESFP': { top1: 'ISFJ', top2: 'ISTJ', top3: 'ESFJ', bonus: ['ISFP', 'ESTP'] }
+}
 // Function to validate if participant has complete data for matching
 function isParticipantComplete(participant) {
   // Check if participant has survey_data (not null and not empty object)

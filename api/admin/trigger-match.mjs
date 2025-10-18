@@ -59,31 +59,31 @@ async function autoSaveAdminResults(eventId, matchType, generationType, matchRes
   }
 }
 
-// MBTI Compatibility Matrix
+// MBTI Compatibility Matrix (Keirseyan top1, Socionics top2, Cognitive Shadow top3)
 const MBTI_COMPATIBILITY = {
-  // Analyst Types (NT)
-  'INTJ': { top1: 'ENTP', top2: 'ENFP', top3: 'INFJ', bonus: ['INTP', 'ENTJ'] },
-  'INTP': { top1: 'ENTJ', top2: 'ESTJ', top3: 'ENFP', bonus: ['INTJ', 'ENTP'] },
-  'ENTJ': { top1: 'INTP', top2: 'INFJ', top3: 'ENFP', bonus: ['INTJ', 'ENTP'] },
-  'ENTP': { top1: 'INTJ', top2: 'INFJ', top3: 'ISFJ', bonus: ['ENFP', 'ENTJ'] },
+  // Analyst Types (NT) - Keirseyan pair with NF, Socionics duals, Cognitive Shadow
+  'INTJ': { top1: 'ENFP', top2: 'ESFP', top3: 'INFP', bonus: ['INTP', 'ENTP'] },
+  'INTP': { top1: 'ENFJ', top2: 'ESFJ', top3: 'ENTJ', bonus: ['INTJ', 'INFJ'] },
+  'ENTJ': { top1: 'INFP', top2: 'ISFJ', top3: 'INTP', bonus: ['ENTP'] },
+  'ENTP': { top1: 'INFJ', top2: 'ISFJ', top3: 'INTJ', bonus: ['ENTJ'] },
 
-  // Diplomat Types (NF)
-  'INFJ': { top1: 'ENFP', top2: 'ENTP', top3: 'ENFJ', bonus: ['INTJ', 'INFP'] },
-  'INFP': { top1: 'ENFJ', top2: 'ENTJ', top3: 'ESFJ', bonus: ['INFJ', 'ENFP'] },
-  'ENFJ': { top1: 'INFP', top2: 'ISFP', top3: 'INFJ', bonus: ['ENFP', 'ESFJ'] },
-  'ENFP': { top1: 'INFJ', top2: 'INTJ', top3: 'ISTJ', bonus: ['ENTP', 'ENFJ'] },
+  // Diplomat Types (NF) - Keirseyan pair with NT, Socionics duals, Cognitive Shadow
+  'INFJ': { top1: 'ENTP', top2: 'ESTP', top3: 'ENFP', bonus: ['INFP'] },
+  'INFP': { top1: 'ENTJ', top2: 'ESTJ', top3: 'ENFJ', bonus: ['INFJ'] },
+  'ENFJ': { top1: 'INTP', top2: 'ISTJ', top3: 'INFP', bonus: ['ENFP'] },
+  'ENFP': { top1: 'INTJ', top2: 'ISTP', top3: 'INFJ', bonus: ['ENFJ'] },
 
-  // Sentinel Types (SJ)
-  'ISTJ': { top1: 'ENFP', top2: 'ESFP', top3: 'ESTJ', bonus: ['ISFJ', 'ISTP'] },
-  'ISFJ': { top1: 'ENTP', top2: 'ESFP', top3: 'ESTJ', bonus: ['ISTJ', 'ESFJ'] },
-  'ESTJ': { top1: 'ISTP', top2: 'ISFJ', top3: 'INTP', bonus: ['ISTJ', 'ESFJ'] },
-  'ESFJ': { top1: 'ISFP', top2: 'ISTP', top3: 'INFP', bonus: ['ISFJ', 'ESTJ'] },
+  // Sentinel Types (SJ) - Keirseyan pair with SP, Socionics duals, Cognitive Shadow
+  'ISTJ': { top1: 'ESFP', top2: 'ENFJ', top3: 'ESTP', bonus: ['ISTP'] },
+  'ISFJ': { top1: 'ESTP', top2: 'ENTJ', top3: 'ESFP', bonus: ['ISFP'] },
+  'ESTJ': { top1: 'ISFP', top2: 'INFP', top3: 'ISTP', bonus: ['ESTP'] },
+  'ESFJ': { top1: 'ISTP', top2: 'INTP', top3: 'ISFP', bonus: ['ESFP'] },
 
-  // Explorer Types (SP)
-  'ISTP': { top1: 'ESTJ', top2: 'ESFJ', top3: 'ENTP', bonus: ['ISTJ', 'ESTP'] },
-  'ISFP': { top1: 'ESFJ', top2: 'ENFJ', top3: 'ESTJ', bonus: ['ESFP', 'ISTP'] },
-  'ESTP': { top1: 'ISFJ', top2: 'ISTP', top3: 'ENTP', bonus: ['ESFP', 'INTP'] },
-  'ESFP': { top1: 'ISFJ', top2: 'ISTJ', top3: 'ESFJ', bonus: ['ISFP', 'ESTP'] }
+  // Explorer Types (SP) - Keirseyan pair with SJ, Socionics duals, Cognitive Shadow
+  'ISTP': { top1: 'ESFJ', top2: 'ENFP', top3: 'ESTJ', bonus: ['ISTJ'] },
+  'ISFP': { top1: 'ESTJ', top2: 'ENTJ', top3: 'ESFJ', bonus: ['ISFJ'] },
+  'ESTP': { top1: 'ISFJ', top2: 'INFJ', top3: 'ISTJ', bonus: ['ESTJ'] },
+  'ESFP': { top1: 'ISTJ', top2: 'INTJ', top3: 'ISFJ', bonus: ['ESFJ'] }
 }
 // Function to validate if participant has complete data for matching
 function isParticipantComplete(participant) {
@@ -107,15 +107,17 @@ function calculateMBTICompatibility(type1, type2) {
   
   const compatibility = MBTI_COMPATIBILITY[type1]
   
-  // Updated scores for new 10% weight (doubled from 5%)
+  // Updated scores: top1 & top2 = full score, top3 = half score, bonus = quarter score
   if (compatibility.top1 === type2) {
-    return 10 // Top 1 match gets 10%
+    return 10 // Top 1 (Keirseyan) gets full score 10%
   } else if (compatibility.top2 === type2) {
-    return 7.5 // Top 2 match gets 7.5%
-  } else if (compatibility.top3 === type2 || compatibility.bonus.includes(type2)) {
-    return 5 // Top 3 or bonus match gets 5%
+    return 10 // Top 2 (Socionics) gets full score 10%
+  } else if (compatibility.top3 === type2) {
+    return 5 // Top 3 (Cognitive Shadow) gets half score 5%
+  } else if (compatibility.bonus.includes(type2)) {
+    return 2.5 // Bonus matches get quarter score 2.5%
   } else {
-    // If not in top matches, compare individual letters
+    // If not in top matches, compare individual letters for fallback scoring
     let sharedLetters = 0
     for (let i = 0; i < 4; i++) {
       if (type1[i] === type2[i]) {
@@ -123,15 +125,11 @@ function calculateMBTICompatibility(type1, type2) {
       }
     }
     
-    // Score based on shared letters (doubled from previous)
+    // Only 3 shared letters get bonus score
     if (sharedLetters === 3) {
-      return 10 // 3 letters shared gets 10%
-    } else if (sharedLetters === 2) {
-      return 5 // 2 letters shared gets 5%
-    } else if (sharedLetters === 1) {
-      return 2.5 // 1 letter shared gets 2.5%
+      return 5 // 3 letters shared gets same as top3 (5%)
     } else {
-      return 0 // No letters shared gets 0%
+      return 0 // Less than 3 letters shared gets 0%
     }
   }
 }

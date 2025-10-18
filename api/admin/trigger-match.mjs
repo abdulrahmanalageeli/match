@@ -1654,7 +1654,13 @@ export default async function handler(req, res) {
         p2 = allParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
         
         if (!p1 || !p2) {
-          return res.status(400).json({ error: "One or both participants not found in database" })
+          const missingParticipants = []
+          if (!p1) missingParticipants.push(`#${manualMatch.participant1}`)
+          if (!p2) missingParticipants.push(`#${manualMatch.participant2}`)
+          
+          return res.status(400).json({ 
+            error: `⚠️ BYPASS MODE: Participant(s) ${missingParticipants.join(' and ')} not found in database.\n\nEven with eligibility bypass enabled, participants must exist in the database to be matched.\n\nPlease verify the participant numbers are correct.`
+          })
         }
         
         console.log(`⚠️ BYPASS: Matching participants regardless of eligibility:`)
@@ -1666,7 +1672,13 @@ export default async function handler(req, res) {
         p2 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
         
         if (!p1 || !p2) {
-          return res.status(400).json({ error: "One or both participants not found or not eligible" })
+          const missingParticipants = []
+          if (!p1) missingParticipants.push(`#${manualMatch.participant1}`)
+          if (!p2) missingParticipants.push(`#${manualMatch.participant2}`)
+          
+          return res.status(400).json({ 
+            error: `❌ Participant(s) ${missingParticipants.join(' and ')} not found or not eligible for matching.\n\nPossible reasons:\n• Participant doesn't exist in database\n• Missing survey data\n• Excluded by admin\n• Payment not completed (if required)\n\n💡 Enable "Bypass Eligibility Checks" to override these restrictions.`
+          })
         }
         
         console.log(`✅ Standard eligibility: Both participants are eligible for matching`)

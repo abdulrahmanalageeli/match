@@ -1648,10 +1648,25 @@ export default async function handler(req, res) {
       let p1, p2
       
       if (manualMatch.bypassEligibility) {
-        console.log(`⚠️ Eligibility bypass enabled - searching ALL participants`)
-        // Use all participants regardless of eligibility when bypass is enabled
-        p1 = allParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))
-        p2 = allParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
+        console.log(`⚠️ Eligibility bypass enabled - searching ALL participants in database`)
+        
+        // Fetch ALL participants from database without any filtering for true bypass
+        const { data: allDatabaseParticipants, error: bypassError } = await supabase
+          .from("participants")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event")
+          .eq("match_id", match_id)
+          .neq("assigned_number", 9999)  // Only exclude organizer
+        
+        if (bypassError) {
+          console.error("Error fetching all participants for bypass:", bypassError)
+          return res.status(500).json({ error: "Failed to fetch participants for bypass mode" })
+        }
+        
+        console.log(`🔍 BYPASS: Found ${allDatabaseParticipants?.length || 0} total participants in database (no filtering applied)`)
+        
+        // Use completely unfiltered participants for bypass
+        p1 = allDatabaseParticipants?.find(p => p.assigned_number === parseInt(manualMatch.participant1))
+        p2 = allDatabaseParticipants?.find(p => p.assigned_number === parseInt(manualMatch.participant2))
         
         if (!p1 || !p2) {
           const missingParticipants = []
@@ -1663,9 +1678,10 @@ export default async function handler(req, res) {
           })
         }
         
-        console.log(`⚠️ BYPASS: Matching participants regardless of eligibility:`)
-        console.log(`   - #${p1.assigned_number}: survey_data=${!!p1.survey_data}, PAID_DONE=${p1.PAID_DONE}`)
-        console.log(`   - #${p2.assigned_number}: survey_data=${!!p2.survey_data}, PAID_DONE=${p2.PAID_DONE}`)
+        console.log(`⚠️ BYPASS: Matching participants regardless of ALL eligibility checks:`)
+        console.log(`   - #${p1.assigned_number}: survey_data=${!!p1.survey_data}, PAID_DONE=${p1.PAID_DONE}, signup_for_next_event=${p1.signup_for_next_event}`)
+        console.log(`   - #${p2.assigned_number}: survey_data=${!!p2.survey_data}, PAID_DONE=${p2.PAID_DONE}, signup_for_next_event=${p2.signup_for_next_event}`)
+        console.log(`   - Bypassed filters: event signup, payment status, survey completion, admin exclusions`)
       } else {
         // Find the two specific participants from eligible participants only
         p1 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))

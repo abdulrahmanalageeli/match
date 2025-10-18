@@ -1645,12 +1645,31 @@ export default async function handler(req, res) {
     if (manualMatch) {
       console.log(`🎯 Manual match requested: #${manualMatch.participant1} ↔ #${manualMatch.participant2}`)
       
-      // Find the two specific participants
-      const p1 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))
-      const p2 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
+      let p1, p2
       
-      if (!p1 || !p2) {
-        return res.status(400).json({ error: "One or both participants not found or not eligible" })
+      if (manualMatch.bypassEligibility) {
+        console.log(`⚠️ Eligibility bypass enabled - searching ALL participants`)
+        // Use all participants regardless of eligibility when bypass is enabled
+        p1 = allParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))
+        p2 = allParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
+        
+        if (!p1 || !p2) {
+          return res.status(400).json({ error: "One or both participants not found in database" })
+        }
+        
+        console.log(`⚠️ BYPASS: Matching participants regardless of eligibility:`)
+        console.log(`   - #${p1.assigned_number}: survey_data=${!!p1.survey_data}, PAID_DONE=${p1.PAID_DONE}`)
+        console.log(`   - #${p2.assigned_number}: survey_data=${!!p2.survey_data}, PAID_DONE=${p2.PAID_DONE}`)
+      } else {
+        // Find the two specific participants from eligible participants only
+        p1 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant1))
+        p2 = eligibleParticipants.find(p => p.assigned_number === parseInt(manualMatch.participant2))
+        
+        if (!p1 || !p2) {
+          return res.status(400).json({ error: "One or both participants not found or not eligible" })
+        }
+        
+        console.log(`✅ Standard eligibility: Both participants are eligible for matching`)
       }
       
       // Check if match already exists for this event
@@ -1820,7 +1839,8 @@ export default async function handler(req, res) {
           communication_compatibility_score: communicationScore,
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
-          vibe_compatibility_score: vibeScore
+          vibe_compatibility_score: vibeScore,
+          humor_bonus: humorBonus
         }],
         sessionId: null // Manual matches don't create new sessions, they modify existing data
       })

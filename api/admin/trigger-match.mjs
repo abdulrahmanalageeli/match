@@ -115,7 +115,7 @@ function calculateMBTICompatibility(type1, type2) {
   } else if (compatibility.top3 === type2) {
     return 5 // Top 3 (Cognitive Shadow) gets half score 5%
   } else if (compatibility.bonus.includes(type2)) {
-    return 2.5 // Bonus matches get quarter score 2.5%
+    return 5 // Bonus matches get 5% (increased from 2.5%)
   } else {
     // If not in top matches, compare individual letters for fallback scoring
     let sharedLetters = 0
@@ -125,9 +125,16 @@ function calculateMBTICompatibility(type1, type2) {
       }
     }
     
-    // Only 3 shared letters get bonus score
+    // Enhanced scoring system for 3 shared letters
     if (sharedLetters === 3) {
-      return 5 // 3 letters shared gets same as top3 (5%)
+      // Check if the difference is introvert/extrovert (first letter)
+      if (type1[0] !== type2[0]) {
+        return 8 // 3 letters shared with I/E difference gets 8%
+      } else {
+        return 7 // 3 letters shared with other difference gets 7%
+      }
+    } else if (sharedLetters === 4) {
+      return 6 // 4 letters shared (identical types) gets 6%
     } else {
       return 0 // Less than 3 letters shared gets 0%
     }

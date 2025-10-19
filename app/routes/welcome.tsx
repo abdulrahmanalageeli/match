@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react"
+import type { MouseEvent, FormEvent, CSSProperties } from "react"
 import { useSearchParams } from "react-router-dom"
 import { X } from "lucide-react"
 import toast, { Toaster } from 'react-hot-toast'
@@ -582,7 +583,7 @@ export default function WelcomePage() {
   };
 
   // Helper function to handle history icon interactions
-  const handleHistoryIconClick = (event: React.MouseEvent) => {
+  const handleHistoryIconClick = (event: MouseEvent) => {
     try {
       if (historyMatches.length === 0) return;
       
@@ -599,7 +600,7 @@ export default function WelcomePage() {
   };
 
   // Drag functionality for history modal
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = (e: MouseEvent) => {
     if (!historyBoxRef.current) return;
     
     const rect = historyBoxRef.current.getBoundingClientRect();
@@ -2380,7 +2381,7 @@ export default function WelcomePage() {
   };
 
   // Handle contact form submission
-  const handleContactSubmit = async (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
     if (!contactForm.email || !contactForm.message || !contactForm.phone) {
@@ -7397,7 +7398,7 @@ export default function WelcomePage() {
                               boxShadow: `inset 0 1px 2px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.1)`,
                               '--thumb-color': feedbackAnswers.compatibilityRate >= 80 ? '#10b981' : 
                                 feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'
-                            } as React.CSSProperties & { '--thumb-color': string }}
+                            } as CSSProperties & { '--thumb-color': string }}
                           />
                           <style>
                             {`

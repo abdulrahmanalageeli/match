@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useSearchParams } from "react-router-dom"
 import { X } from "lucide-react"
+import toast, { Toaster } from 'react-hot-toast'
 import logoPng from "../welcome/blindmatch.png"
 
 import {
@@ -1624,7 +1625,7 @@ export default function WelcomePage() {
                       
                       if (res.ok) {
                         setAutoSignupEnabled(true);
-                        alert("✅ تم تفعيل التسجيل التلقائي لجميع الأحداث القادمة!");
+                        toast.success("تم تفعيل التسجيل التلقائي لجميع الأحداث القادمة!");
                       }
                     } catch (err) {
                       console.error("Error enabling auto-signup:", err);
@@ -1926,13 +1927,13 @@ export default function WelcomePage() {
   const handleTokenNavigation = (token: string) => {
     const lockoutTime = checkTokenLockout('token');
     if (lockoutTime > 0) {
-      alert(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
+      toast.error(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
       return;
     }
     
     if (!token.trim()) {
       handleTokenAttempt('token', false);
-      alert("يرجى إدخال رمز صحيح");
+      toast.error("يرجى إدخال رمز صحيح");
       return;
     }
     
@@ -1951,13 +1952,13 @@ export default function WelcomePage() {
   const viewResults = (token: string) => {
     const lockoutTime = checkTokenLockout('resultToken');
     if (lockoutTime > 0) {
-      alert(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
+      toast.error(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
       return;
     }
     
     if (!token.trim()) {
       handleTokenAttempt('resultToken', false);
-      alert("يرجى إدخال رمز صحيح");
+      toast.error("يرجى إدخال رمز صحيح");
       return;
     }
     
@@ -2025,7 +2026,7 @@ export default function WelcomePage() {
   // Handle returning participant phone lookup - show popup first
   const handleReturningParticipant = async () => {
     if (!returningPhoneNumber.trim()) {
-      alert("يرجى إدخال رقم الهاتف")
+      toast.error("يرجى إدخال رقم الهاتف")
       return
     }
     
@@ -2054,18 +2055,18 @@ export default function WelcomePage() {
       const data = await res.json()
       
       if (res.ok) {
-        alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
+        toast.success(`${data.message} - مرحباً ${data.participant_name} (#${data.participant_number})`)
         setReturningPhoneNumber("")
         setReturningGenderPreference("")
         setReturningHumorStyle("")
         setReturningOpennessComfort("")
         setShowReturningSignupPopup(false)
       } else {
-        alert(`❌ ${data.error}\n${data.message || ""}`)
+        toast.error(`${data.error}${data.message ? ' - ' + data.message : ''}`)
       }
     } catch (err) {
       console.error("Error with returning participant:", err)
-      alert("❌ حدث خطأ في النظام")
+      toast.error("حدث خطأ في النظام")
     } finally {
       setReturningLoading(false)
     }
@@ -2232,7 +2233,7 @@ export default function WelcomePage() {
       const data = await res.json()
       
       if (res.ok) {
-        alert(`✅ ${data.message}\nمرحباً ${data.participant_name} (#${data.participant_number})`)
+        toast.success(`${data.message} - مرحباً ${data.participant_name} (#${data.participant_number})`)
         setShowNextEventSignup(true) // Mark as already signed up
         setShowNextEventPopup(false)
         setReturningGenderPreference("") // Reset gender preference
@@ -2243,11 +2244,11 @@ export default function WelcomePage() {
         if (data.error && data.error.includes("already signed up")) {
           setShowNextEventSignup(true) // Mark as already signed up
         }
-        alert(`❌ ${data.error}\n${data.message || ""}`)
+        toast.error(`${data.error}${data.message ? ' - ' + data.message : ''}`)
       }
     } catch (err) {
       console.error("Error with auto signup:", err)
-      alert("❌ حدث خطأ في النظام")
+      toast.error("حدث خطأ في النظام")
     } finally {
       setNextEventSignupLoading(false)
     }
@@ -2256,7 +2257,7 @@ export default function WelcomePage() {
   // Handle returning user token input in new user popup
   const handleReturningUserToken = async () => {
     if (!newUserTokenInput.trim()) {
-      alert("❌ يرجى إدخال الرمز المميز");
+      toast.error("يرجى إدخال الرمز المميز");
       return;
     }
 
@@ -2296,7 +2297,7 @@ export default function WelcomePage() {
         setShowNewUserTypePopup(false);
         setNewUserTokenInput("");
         
-        alert(`✅ مرحباً بعودتك ${data.name || ''}!\nتم تحميل بياناتك بنجاح`);
+        toast.success(`مرحباً بعودتك ${data.name || ''}! تم تحميل بياناتك بنجاح`);
         
         // Check for next event signup and incomplete survey
         setTimeout(() => {
@@ -2308,11 +2309,11 @@ export default function WelcomePage() {
         }, 1500);
         
       } else {
-        alert(`❌ ${data.error || 'رمز غير صحيح'}\nيرجى التأكد من الرمز والمحاولة مرة أخرى`);
+        toast.error(`${data.error || 'رمز غير صحيح'} - يرجى التأكد من الرمز والمحاولة مرة أخرى`);
       }
     } catch (err) {
       console.error("Error resolving token:", err);
-      alert("❌ حدث خطأ في النظام");
+      toast.error("حدث خطأ في النظام");
     } finally {
       setNewUserTokenLoading(false);
     }
@@ -2354,7 +2355,7 @@ export default function WelcomePage() {
       
       if (res.status === 403) {
         // Registration is closed
-        alert("❌ " + (data.message || "التسجيل مغلق حالياً"));
+        toast.error(data.message || "التسجيل مغلق حالياً");
         return;
       }
       
@@ -2368,11 +2369,11 @@ export default function WelcomePage() {
         window.location.href = `/welcome?token=${data.secure_token}`;
       } else {
         console.error("Failed to create token:", data);
-        alert("❌ فشل في إنشاء الرمز المميز. حاول مرة أخرى.");
+        toast.error("فشل في إنشاء الرمز المميز. حاول مرة أخرى.");
       }
     } catch (error) {
       console.error("Error creating token:", error);
-      alert("❌ حدث خطأ. حاول مرة أخرى.");
+      toast.error("حدث خطأ. حاول مرة أخرى.");
     } finally {
       setLoading(false);
     }
@@ -2383,7 +2384,7 @@ export default function WelcomePage() {
     e.preventDefault();
     
     if (!contactForm.email || !contactForm.message || !contactForm.phone) {
-      alert("❌ يرجى ملء البريد الإلكتروني ورقم الهاتف والرسالة");
+      toast.error("يرجى ملء البريد الإلكتروني ورقم الهاتف والرسالة");
       return;
     }
 
@@ -2407,7 +2408,7 @@ export default function WelcomePage() {
       });
       
       if (response.ok) {
-        alert("✅ تم إرسال رسالتك بنجاح!\nسنتواصل معك قريباً");
+        toast.success("تم إرسال رسالتك بنجاح! سنتواصل معك قريباً");
         setContactForm({ email: "", name: "", phone: "", message: "", subject: "" });
         setShowContactForm(false);
       } else {
@@ -2415,7 +2416,7 @@ export default function WelcomePage() {
       }
     } catch (error) {
       console.error('Contact form error:', error);
-      alert("❌ حدث خطأ في إرسال الرسالة\nيرجى المحاولة مرة أخرى");
+      toast.error("حدث خطأ في إرسال الرسالة. يرجى المحاولة مرة أخرى");
     } finally {
       setContactFormLoading(false);
     }
@@ -2949,11 +2950,11 @@ export default function WelcomePage() {
         }
       } else {
         console.error('Failed to generate AI analysis:', data.error)
-        alert('حدث خطأ أثناء توليد التحليل الذكي. يرجى المحاولة مرة أخرى.')
+        toast.error('حدث خطأ أثناء توليد التحليل الذكي. يرجى المحاولة مرة أخرى.')
       }
     } catch (error) {
       console.error('Error generating AI analysis:', error)
-      alert('حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى.')
+      toast.error('حدث خطأ أثناء الاتصال بالخادم. يرجى المحاولة مرة أخرى.')
     } finally {
       setIsGeneratingAnalysis(false)
     }
@@ -2962,7 +2963,7 @@ export default function WelcomePage() {
   const submitFeedback = async () => {
     // Only validate the match preference question for round 1 - allow default values for rating questions
     if (currentRound === 1 && matchResult && matchResult !== 'المنظم' && wantMatch === null) {
-      alert('يرجى الإجابة على سؤال: هل ترغب في التواصل مع هذا الشخص مرة أخرى؟');
+      toast.error('يرجى الإجابة على سؤال: هل ترغب في التواصل مع هذا الشخص مرة أخرى؟');
       return;
     }
 
@@ -5068,7 +5069,7 @@ export default function WelcomePage() {
                                 
                                 if (res.status === 403) {
                                   // Registration is closed
-                                  alert("❌ " + (data.message || "التسجيل مغلق حالياً"))
+                                  toast.error(data.message || "التسجيل مغلق حالياً")
                                   return
                                 }
                                 
@@ -5088,7 +5089,7 @@ export default function WelcomePage() {
                                   }
                                 } else {
                                   console.error("Token creation failed:", data)
-                                  alert("❌ فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
+                                  toast.error("فشل في الحصول على رقم: " + (data.error || "خطأ غير معروف"))
                                 }
                               } catch (err) {
                                 console.error("Error creating token:", err)
@@ -5183,12 +5184,12 @@ export default function WelcomePage() {
                                   const data = await response.json();
                                   if (response.ok) {
                                     setAutoSignupEnabled(false);
-                                    alert("✅ تم إيقاف التسجيل التلقائي بنجاح");
+                                    toast.success("تم إيقاف التسجيل التلقائي بنجاح");
                                   } else {
-                                    alert(`❌ فشل إيقاف التسجيل: ${data.error}`);
+                                    toast.error(`فشل إيقاف التسجيل: ${data.error}`);
                                   }
                                 } catch (error) {
-                                  alert(`❌ خطأ في الشبكة: ${error}`);
+                                  toast.error(`خطأ في الشبكة: ${error}`);
                                 }
                                 setNextEventSignupLoading(false);
                               }}
@@ -5843,7 +5844,7 @@ export default function WelcomePage() {
                       const data = await res.json()
                       if (res.status === 403) {
                         // Registration is closed
-                        alert(" " + (data.message || "التسجيل مغلق حالياً"))
+                        toast.error(data.message || "التسجيل مغلق حالياً")
                         return
                       }
                       if (data.secure_token) {
@@ -5853,7 +5854,7 @@ export default function WelcomePage() {
                         saveUserToken(data.secure_token); // Save token to localStorage for auto-fill
                         window.location.href = `/welcome?token=${data.secure_token}`
                       } else {
-                        alert("❌ فشل في الحصول على رقم")
+                        toast.error("فشل في الحصول على رقم")
                       }
                     } catch (err) {
                       console.error("Error creating token:", err)
@@ -7917,7 +7918,7 @@ export default function WelcomePage() {
                      <Button
                        onClick={() => {
                          if (!feedbackAnswers.sliderMoved || feedbackAnswers.compatibilityRate === 50) {
-                           alert('⚠️ يرجى تحريك مؤشر التوافق لتخمين الدرجة - لا يمكن أن تكون 50%');
+                           toast.error('يرجى تحريك مؤشر التوافق لتخمين الدرجة - لا يمكن أن تكون 50%');
                            return;
                          }
                          submitFeedback();
@@ -8754,6 +8755,36 @@ export default function WelcomePage() {
 
       </div>
 
+      {/* React Hot Toast Container */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'var(--toast-bg)',
+            color: 'var(--toast-color)',
+            border: '1px solid var(--toast-border)',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: '500',
+            padding: '12px 16px',
+            maxWidth: '400px',
+            direction: 'rtl',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#ffffff',
+            },
+          },
+        }}
+      />
       
     </>
   )

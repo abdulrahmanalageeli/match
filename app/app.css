@@ -32,6 +32,11 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  
+  /* Toast variables for light mode */
+  --toast-bg: oklch(1 0 0);
+  --toast-color: oklch(0.145 0 0);
+  --toast-border: oklch(0.922 0 0);
 }
 
 :root.dark {
@@ -67,6 +72,11 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.274 0.006 286.033);
   --sidebar-ring: oklch(0.442 0.017 285.786);
+  
+  /* Toast variables for dark mode */
+  --toast-bg: oklch(0.205 0 0);
+  --toast-color: oklch(0.985 0 0);
+  --toast-border: oklch(0.274 0.006 286.033);
 }
 
 @import "tailwindcss";

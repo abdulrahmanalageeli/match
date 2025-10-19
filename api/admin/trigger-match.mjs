@@ -857,7 +857,7 @@ Return a single integer from 0 to 25. No other text.
 
 الملف الشخصي للشخص الثاني: "${profileB}"
 
-قيّم التوافق الشخصي بينهما من 0 إلى 35:`
+قيّم التوافق الشخصي بينهما من 0 إلى 25:`
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",

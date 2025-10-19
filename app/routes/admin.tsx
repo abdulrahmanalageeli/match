@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react"
+import { useState, useEffect } from "react"
+import toast, { Toaster } from 'react-hot-toast'
 import {
   UserRound,
   QrCode,
@@ -224,7 +225,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
   // Function to export selected participants to Excel/CSV
   const exportToExcel = async () => {
     if (selectedParticipants.size === 0) {
-      alert('❌ يرجى اختيار مشاركين أولاً');
+      toast.error('يرجى اختيار مشاركين أولاً');
       return;
     }
 
@@ -269,14 +270,14 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       await markParticipantsAsMessageSent(Array.from(selectedParticipants));
       
       const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 'إشعار المطابقة';
-      alert(`✅ تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
+      toast.success(`تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
       
       // Refresh participants list to show updated status
       fetchParticipants();
       
     } catch (error) {
       console.error('Export error:', error);
-      alert('❌ حدث خطأ أثناء التصدير');
+      toast.error('حدث خطأ أثناء التصدير');
     } finally {
       setIsExporting(false);
     }
@@ -325,11 +326,11 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
         // Refresh participants list to show updated status
         fetchParticipants();
       } else {
-        alert(`❌ خطأ في تحديث حالة الرسالة: ${data.error}`);
+        toast.error(`خطأ في تحديث حالة الرسالة: ${data.error}`);
       }
     } catch (error) {
       console.error("Error toggling message status:", error);
-      alert('❌ حدث خطأ في تحديث حالة الرسالة');
+      toast.error('حدث خطأ في تحديث حالة الرسالة');
     } finally {
       setUpdatingStatus(null);
     }
@@ -355,11 +356,11 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
         // Refresh participants list to show updated status
         fetchParticipants();
       } else {
-        alert(`❌ خطأ في تحديث حالة الدفع: ${data.error}`);
+        toast.error(`خطأ في تحديث حالة الدفع: ${data.error}`);
       }
     } catch (error) {
       console.error("Error toggling payment status:", error);
-      alert('❌ حدث خطأ في تحديث حالة الدفع');
+      toast.error('حدث خطأ في تحديث حالة الدفع');
     } finally {
       setUpdatingStatus(null);
     }
@@ -648,15 +649,15 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         setResultsVisible(newVisibility)
-        alert(`✅ Results are now ${newVisibility ? 'visible' : 'hidden'} to participants`)
+        toast.success(`Results are now ${newVisibility ? 'visible' : 'hidden'} to participants`)
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
         console.error("API Error:", errorData)
-        alert(`❌ Failed to update results visibility: ${errorData.error || 'Unknown error'}`)
+        toast.error(`Failed to update results visibility: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error("Error toggling results visibility:", err)
-      alert("❌ Error updating results visibility")
+      toast.error("Error updating results visibility")
     }
   }
 
@@ -674,15 +675,15 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         setRegistrationEnabled(newEnabled)
-        alert(`✅ Registration is now ${newEnabled ? 'enabled' : 'disabled'}`)
+        toast.success(`Registration is now ${newEnabled ? 'enabled' : 'disabled'}`)
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
         console.error("API Error:", errorData)
-        alert(`❌ Failed to update registration status: ${errorData.error || 'Unknown error'}`)
+        toast.error(`Failed to update registration status: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error("Error toggling registration:", err)
-      alert("❌ Error updating registration status")
+      toast.error("Error updating registration status")
     }
   }
 
@@ -701,15 +702,15 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         setEventFinished(newFinished)
-        alert(`✅ Event ${currentEventId} is now marked as ${newFinished ? 'finished' : 'ongoing'}`)
+        toast.success(`Event ${currentEventId} is now marked as ${newFinished ? 'finished' : 'ongoing'}`)
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
         console.error("API Error:", errorData)
-        alert(`❌ Failed to update event status: ${errorData.error || 'Unknown error'}`)
+        toast.error(`Failed to update event status: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error("Error toggling event finished:", err)
-      alert("❌ Error updating event status")
+      toast.error("Error updating event status")
     }
   }
 
@@ -731,15 +732,15 @@ const fetchParticipants = async () => {
       const data = await res.json()
       
       if (res.ok) {
-        alert(`✅ Successfully prepared for next event!\n\n📊 Updated ${data.updatedCount} participants:\n• signup_for_next_event: FALSE\n• PAID: FALSE\n• PAID_DONE: FALSE\n\nAll participants are now ready for the next event cycle.`)
+        toast.success(`Successfully prepared for next event! Updated ${data.updatedCount} participants. All participants are now ready for the next event cycle.`)
         fetchParticipants() // Refresh the participants list
       } else {
         console.error("API Error:", data)
-        alert(`❌ Failed to prepare for next event: ${data.error || 'Unknown error'}`)
+        toast.error(`Failed to prepare for next event: ${data.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error("Network error:", error)
-      alert("❌ Network error occurred")
+      toast.error("Network error occurred")
     } finally {
       setLoading(false)
     }
@@ -748,7 +749,7 @@ const fetchParticipants = async () => {
   const updateCurrentEventId = async (newEventId: number) => {
     try {
       if (newEventId < 1) {
-        alert("❌ Event ID must be at least 1")
+        toast.error("Event ID must be at least 1")
         return
       }
 
@@ -764,7 +765,7 @@ const fetchParticipants = async () => {
       if (res.ok) {
         setCurrentEventId(newEventId)
         setMaxEventId(Math.max(maxEventId, newEventId))
-        alert(`✅ Current event ID set to ${newEventId}\n\n🎯 New participants will be assigned to Event ${newEventId}`)
+        toast.success(`Current event ID set to ${newEventId}. New participants will be assigned to Event ${newEventId}`)
         
         // Refresh event finished state for the new event
         const eventFinishedRes = await fetch("/api/admin", {
@@ -777,11 +778,11 @@ const fetchParticipants = async () => {
       } else {
         const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
         console.error("API Error:", errorData)
-        alert(`❌ Failed to update current event ID: ${errorData.error || 'Unknown error'}`)
+        toast.error(`Failed to update current event ID: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error("Error updating current event ID:", err)
-      alert("❌ Error updating current event ID")
+      toast.error("Error updating current event ID")
     }
   }
 
@@ -798,15 +799,15 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         setCurrentRounds(newRounds)
-        alert(`✅ Rounds updated to ${newRounds}`)
+        toast.success(`Rounds updated to ${newRounds}`)
         fetchParticipants()
       } else {
         const data = await res.json()
-        alert("❌ Failed to update rounds: " + (data.error || "Unknown error"))
+        toast.error("Failed to update rounds: " + (data.error || "Unknown error"))
       }
     } catch (err) {
       console.error("Error updating rounds:", err)
-      alert("❌ Failed to update rounds")
+      toast.error("Failed to update rounds")
     }
   }
 
@@ -832,7 +833,7 @@ const fetchParticipants = async () => {
       setAuthenticated(true)
       fetchParticipants()
     } else {
-      alert("❌ Wrong password.")
+      toast.error("Wrong password.")
     }
   }
 
@@ -898,11 +899,11 @@ const fetchParticipants = async () => {
     const data = await res.json()
     if (!res.ok) {
       console.error(`❌ Admin: Failed to update phase to ${phase}:`, data.error);
-      alert("❌ Error: " + data.error)
+      toast.error("Error: " + data.error)
     } else {
       console.log(`✅ Admin: Successfully updated phase to ${phase}`);
       setCurrentPhase(phase)
-      alert("✅ Phase updated to " + phase + "\n\n🚀 All players will instantly transition from ANY state they're in!\n⚡ Change visible within 2 seconds!")
+      toast.success("Phase updated to " + phase + ". All players will instantly transition from ANY state they're in!")
     }
   }
 
@@ -924,20 +925,20 @@ const fetchParticipants = async () => {
       
       if (!res.ok) {
         console.error("❌ Error starting timer:", data.error)
-        alert("❌ Error starting timer: " + data.error)
+        toast.error("Error starting timer: " + data.error)
       } else {
         console.log("✅ Timer started successfully")
         setGlobalTimerActive(true)
         setGlobalTimerRound(round)
         setGlobalTimerRemaining(1800) // Set initial remaining time
-        alert(`✅ Global timer started for ${round === 0 ? 'Group Phase' : `Round ${round}`}!\n⏰ 30 minutes timer is now active for all participants.`)
+        toast.success(`Global timer started for ${round === 0 ? 'Group Phase' : `Round ${round}`}! 30 minutes timer is now active for all participants.`)
         
         // Refresh to get updated state
         setTimeout(() => fetchParticipants(), 500)
       }
     } catch (error) {
       console.error("❌ Network error starting timer:", error)
-      alert("❌ Network error starting timer")
+      toast.error("Network error starting timer")
     }
   }
 
@@ -957,19 +958,19 @@ const fetchParticipants = async () => {
       
       if (!res.ok) {
         console.error("❌ Error ending timer:", data.error)
-        alert("❌ Error ending timer: " + data.error)
+        toast.error("Error ending timer: " + data.error)
       } else {
         console.log("✅ Timer ended successfully")
         setGlobalTimerActive(false)
         setGlobalTimerRemaining(0)
-        alert("✅ Global timer ended!\n⏹️ All participants will see feedback form.")
+        toast.success("Global timer ended! All participants will see feedback form.")
         
         // Refresh to get updated state
         setTimeout(() => fetchParticipants(), 500)
       }
     } catch (error) {
       console.error("❌ Network error ending timer:", error)
-      alert("❌ Network error ending timer")
+      toast.error("Network error ending timer")
     }
   }
 
@@ -1012,12 +1013,12 @@ const fetchParticipants = async () => {
     const p2 = parseInt(newExcludedPair.participant2)
     
     if (!p1 || !p2) {
-      alert("❌ Please enter valid participant numbers")
+      toast.error("Please enter valid participant numbers")
       return
     }
     
     if (p1 === p2) {
-      alert("❌ Cannot exclude a participant from themselves")
+      toast.error("Cannot exclude a participant from themselves")
       return
     }
     
@@ -1037,13 +1038,13 @@ const fetchParticipants = async () => {
       if (res.ok) {
         setNewExcludedPair({ participant1: '', participant2: '' })
         await fetchExcludedPairs() // Refresh the list
-        alert(`✅ ${data.message}`)
+        toast.success(data.message)
       } else {
-        alert(`❌ ${data.error}`)
+        toast.error(data.error)
       }
     } catch (error) {
       console.error("Error adding excluded pair:", error)
-      alert("❌ Failed to add excluded pair")
+      toast.error("Failed to add excluded pair")
     }
   }
 
@@ -1061,13 +1062,13 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         await fetchExcludedPairs() // Refresh the list
-        alert(`✅ ${data.message}`)
+        toast.success(data.message)
       } else {
-        alert(`❌ ${data.error}`)
+        toast.error(data.error)
       }
     } catch (error) {
       console.error("Error removing excluded pair:", error)
-      alert("❌ Failed to remove excluded pair")
+      toast.error("Failed to remove excluded pair")
     }
   }
 
@@ -1093,12 +1094,12 @@ const fetchParticipants = async () => {
     const participantNumber = parseInt(newExcludedParticipant)
     
     if (!participantNumber || participantNumber <= 0) {
-      alert("❌ Please enter a valid participant number")
+      toast.error("Please enter a valid participant number")
       return
     }
     
     if (participantNumber === 9999) {
-      alert("❌ Cannot exclude the organizer participant")
+      toast.error("Cannot exclude the organizer participant")
       return
     }
     
@@ -1121,13 +1122,13 @@ const fetchParticipants = async () => {
         setNewExcludedParticipant('')
         setBanPermanently(false) // Reset checkbox
         await fetchExcludedParticipants() // Refresh the list
-        alert(`✅ ${data.message}`)
+        toast.success(data.message)
       } else {
-        alert(`❌ ${data.error}`)
+        toast.error(data.error)
       }
     } catch (error) {
       console.error("Error adding excluded participant:", error)
-      alert("❌ Failed to add excluded participant")
+      toast.error("Failed to add excluded participant")
     }
   }
 
@@ -1145,13 +1146,13 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         await fetchExcludedParticipants() // Refresh the list
-        alert(`✅ ${data.message}`)
+        toast.success(data.message)
       } else {
-        alert(`❌ ${data.error}`)
+        toast.error(data.error)
       }
     } catch (error) {
       console.error("Error removing excluded participant:", error)
-      alert("❌ Failed to remove excluded participant")
+      toast.error("Failed to remove excluded participant")
     }
   }
 
@@ -1160,17 +1161,17 @@ const fetchParticipants = async () => {
     const participant2 = parseInt(newManualMatch.participant2)
     
     if (!participant1 || !participant2 || participant1 <= 0 || participant2 <= 0) {
-      alert("❌ Please enter valid participant numbers")
+      toast.error("Please enter valid participant numbers")
       return
     }
     
     if (participant1 === participant2) {
-      alert("❌ Cannot match a participant with themselves")
+      toast.error("Cannot match a participant with themselves")
       return
     }
     
     if (participant1 === 9999 || participant2 === 9999) {
-      alert("❌ Cannot create matches with the organizer participant")
+      toast.error("Cannot create matches with the organizer participant")
       return
     }
     
@@ -1209,14 +1210,14 @@ const fetchParticipants = async () => {
           }
         }
         
-        alert(detailedMessage)
+        toast.success(detailedMessage, { duration: 6000 })
         fetchParticipants() // Refresh to show updated data
       } else {
-        alert(`❌ ${data.error}`)
+        toast.error(data.error)
       }
     } catch (error) {
       console.error("Error adding manual match:", error)
-      alert("❌ Failed to add manual match")
+      toast.error("Failed to add manual match")
     }
   }
 
@@ -1314,9 +1315,9 @@ const fetchParticipants = async () => {
       setAnnouncement("")
       setShowAnnouncementModal(false)
       fetchParticipants() // Refresh to get updated state
-      alert("✅ Announcement sent!")
+      toast.success("Announcement sent!")
     } else {
-      alert("❌ Failed to send announcement")
+      toast.error("Failed to send announcement")
     }
   }
 
@@ -1330,9 +1331,9 @@ const fetchParticipants = async () => {
     if (res.ok) {
       setCurrentAnnouncement(null)
       fetchParticipants()
-      alert("✅ Announcement cleared!")
+      toast.success("Announcement cleared!")
     } else {
-      alert("❌ Failed to clear announcement")
+      toast.error("Failed to clear announcement")
     }
   }
 
@@ -1350,9 +1351,9 @@ const fetchParticipants = async () => {
     if (res.ok) {
       setEmergencyPaused(newPausedState)
       fetchParticipants()
-      alert(`✅ Emergency ${newPausedState ? 'pause' : 'resume'} activated!`)
+      toast.success(`Emergency ${newPausedState ? 'pause' : 'resume'} activated!`)
     } else {
-      alert("❌ Failed to toggle emergency pause")
+      toast.error("Failed to toggle emergency pause")
     }
   }
 
@@ -1375,11 +1376,11 @@ const fetchParticipants = async () => {
         setShowGroupAssignmentsModal(true)
       } else {
         console.error("Error fetching group assignments:", data.error)
-        alert("❌ Failed to fetch group assignments: " + (data.error || "Unknown error"))
+        toast.error("Failed to fetch group assignments: " + (data.error || "Unknown error"))
       }
     } catch (error) {
       console.error("Error fetching group assignments:", error)
-      alert("❌ Error fetching group assignments")
+      toast.error("Error fetching group assignments")
     }
   }
 
@@ -1561,7 +1562,7 @@ const fetchParticipants = async () => {
       setShowResultsModal(true)
     } catch (err) {
       console.error("Error preparing participant results:", err)
-      alert("❌ Error preparing results display")
+      toast.error("Error preparing results display")
     }
   }
 
@@ -1603,14 +1604,14 @@ const fetchParticipants = async () => {
         setShowResultsModal(true)
         
         // Show success message with cache stats
-        alert(`✅ Loaded cached results!\n\n📊 Statistics:\n• ${data.participantResults.length} participants with matches\n• ${data.calculatedPairs.length} total compatibility calculations\n• Average cache usage: ${data.cacheStats.avgUseCount} times\n\n💾 All data loaded from compatibility cache table`)
+        toast.success(`Loaded cached results! ${data.participantResults.length} participants with matches, ${data.calculatedPairs.length} total compatibility calculations. All data loaded from compatibility cache table.`, { duration: 5000 })
       } else {
         console.error("Failed to load cached results:", data.error)
-        alert(`❌ Failed to load cached results: ${data.error || 'Unknown error'}`)
+        toast.error(`Failed to load cached results: ${data.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error("Error loading cached results:", error)
-      alert("❌ Error loading cached results")
+      toast.error("Error loading cached results")
     } finally {
       setLoading(false)
     }
@@ -1638,15 +1639,15 @@ const fetchParticipants = async () => {
       
       const data = await res.json()
       if (res.ok) {
-        alert(`✅ Clean slate completed!\n\n📊 Removed:\n• ${data.adminResultsRemoved || 0} admin result(s)\n• ${data.matchesRemoved || 0} match(es) for Event ${currentEventId}\n\nYou now have a clean slate for new match generation.`)
+        toast.success(`Clean slate completed! Removed ${data.adminResultsRemoved || 0} admin result(s) and ${data.matchesRemoved || 0} match(es) for Event ${currentEventId}. You now have a clean slate for new match generation.`, { duration: 5000 })
         // Refresh the participants list to reflect changes
         fetchParticipants()
       } else {
-        alert(`❌ Clean slate failed: ${data.error || 'Unknown error'}`)
+        toast.error(`Clean slate failed: ${data.error || 'Unknown error'}`)
       }
     } catch (error) {
       console.error("Error during clean slate:", error)
-      alert("❌ Error during clean slate operation")
+      toast.error("Error during clean slate operation")
     } finally {
       setLoading(false)
     }
@@ -1857,7 +1858,7 @@ const fetchParticipants = async () => {
                       })
                       fetchParticipants()
                     } else {
-                      alert("❌ فشل في توليد الرابط")
+                      toast.error("فشل في توليد الرابط")
                     }
                     setLoading(false)
                   }}
@@ -1884,7 +1885,7 @@ const fetchParticipants = async () => {
                       setManualNumber(null)
                       fetchParticipants()
                     } else {
-                      alert("❌ فشل في توليد الرابط")
+                      toast.error("فشل في توليد الرابط")
                     }
                   }}
                   className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl disabled:opacity-50 transition-all duration-300"
@@ -1909,9 +1910,9 @@ const fetchParticipants = async () => {
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ ${data.message}\n\nAssigned tables: ${data.assignedTables}\nTotal matches: ${data.totalMatches}`)
+                    toast.success(`${data.message}. Assigned tables: ${data.assignedTables}, Total matches: ${data.totalMatches}`, { duration: 4000 })
                   } else {
-                    alert(`❌ Failed: ${data.error}`)
+                    toast.error(`Failed: ${data.error}`)
                   }
                   fetchParticipants()
                 }}
@@ -1932,10 +1933,10 @@ const fetchParticipants = async () => {
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ Phase advanced to ${data.new_phase}\n\n🚀 All players instantly transition to new phase!\n⚡ Change visible within 2 seconds!`)
+                    toast.success(`Phase advanced to ${data.new_phase}. All players instantly transition to new phase!`)
                     fetchParticipants()
                   } else {
-                    alert("❌ Failed to advance phase")
+                    toast.error("Failed to advance phase")
                   }
                   setLoading(false)
                 }}
@@ -1991,12 +1992,12 @@ const fetchParticipants = async () => {
                       }
                     }
                     
-                    alert(successMessage)
+                    toast.success(successMessage, { duration: 5000 })
                     fetchParticipants()
                     // Show results modal with calculated pairs
                     await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
                   } else {
-                    alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
+                    toast.error("Failed to generate matches: " + (data.error || "Unknown error"))
                   }
                   setLoading(false)
                 }}
@@ -2024,12 +2025,12 @@ const fetchParticipants = async () => {
                   })
                   const data = await res.json()
                   if (res.ok) {
-                    alert(`✅ ${data.message}\n\nGroups created: ${data.count}\n\nGroup details:\n${data.groups?.map((g: any) => `Group ${g.group_number}: [${g.participants.join(', ')}] - Score: ${g.score}%`).join('\n') || 'No details available'}`)
+                    toast.success(`${data.message}. Groups created: ${data.count}`, { duration: 4000 })
                     fetchParticipants()
                     // Show results modal (groups don't have calculated pairs)
                     await showParticipantResults(data.results || [], data.count || 0, "group", [])
                   } else {
-                    alert("❌ Failed to generate group matches: " + (data.error || "Unknown error"))
+                    toast.error("Failed to generate group matches: " + (data.error || "Unknown error"))
                   }
                   setLoading(false)
                 }}
@@ -2085,13 +2086,13 @@ const fetchParticipants = async () => {
                     })
                     const data = await res.json()
                     if (res.ok) {
-                      alert(`✅ Cleanup completed!\n\n🗑️ Removed ${data.deletedCount} incomplete profiles\n📊 ${data.remainingCount} complete profiles remain`)
+                      toast.success(`Cleanup completed! Removed ${data.deletedCount} incomplete profiles. ${data.remainingCount} complete profiles remain.`, { duration: 4000 })
                       fetchParticipants()
                     } else {
-                      alert(`❌ Error: ${data.error}`)
+                      toast.error(`Error: ${data.error}`)
                     }
                   } catch (error) {
-                    alert(`❌ Network error: ${error}`)
+                    toast.error(`Network error: ${error}`)
                   }
                   setLoading(false)
                 }}
@@ -2714,12 +2715,12 @@ const fetchParticipants = async () => {
                         }
                       }
                       
-                      alert(successMessage)
+                      toast.success(successMessage, { duration: 5000 })
                       fetchParticipants()
                       // Show results modal with calculated pairs
                       await showParticipantResults(data.results || [], data.count || 0, "no-ai", data.calculatedPairs || [])
                     } else {
-                      alert("❌ Failed to generate matches: " + (data.error || "Unknown error"))
+                      toast.error("Failed to generate matches: " + (data.error || "Unknown error"))
                     }
                     setLoading(false)
                   }}
@@ -3174,6 +3175,37 @@ const fetchParticipants = async () => {
         groupAssignments={groupAssignments}
         totalGroups={totalGroups}
         totalParticipants={totalGroupParticipants}
+      />
+
+      {/* React Hot Toast Container */}
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: 'var(--toast-bg)',
+            color: 'var(--toast-color)',
+            border: '1px solid var(--toast-border)',
+            borderRadius: '12px',
+            fontSize: '14px',
+            fontWeight: '500',
+            padding: '12px 16px',
+            maxWidth: '400px',
+            direction: 'rtl',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#ffffff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#ffffff',
+            },
+          },
+        }}
       />
     </div>
   )

@@ -125,7 +125,7 @@ function calculateMBTICompatibility(type1, type2) {
       }
     }
     
-    // Enhanced scoring system for 3 shared letters
+    // Enhanced scoring system for shared letters
     if (sharedLetters === 3) {
       // Check if the difference is introvert/extrovert (first letter)
       if (type1[0] !== type2[0]) {
@@ -135,8 +135,10 @@ function calculateMBTICompatibility(type1, type2) {
       }
     } else if (sharedLetters === 4) {
       return 6 // 4 letters shared (identical types) gets 6%
+    } else if (sharedLetters === 2) {
+      return 5 // 2 letters shared gets 5%
     } else {
-      return 0 // Less than 3 letters shared gets 0%
+      return 0 // Less than 2 letters shared gets 0%
     }
   }
 }

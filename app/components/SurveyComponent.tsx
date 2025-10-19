@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react"
 import { Button } from "../../components/ui/button"
 import { Checkbox } from "../../components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group"
@@ -717,7 +717,7 @@ const determineGenderPreference = (answers: Record<string, string | string[]>): 
   }
 }
 
-const SurveyComponent = React.memo(function SurveyComponent({ 
+const SurveyComponent = memo(function SurveyComponent({ 
   onSubmit, 
   surveyData, 
   setSurveyData,

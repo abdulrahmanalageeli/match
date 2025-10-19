@@ -611,7 +611,7 @@ export default function WelcomePage() {
     setIsDragging(true);
   };
 
-  const handleMouseMove = (e: MouseEvent) => {
+  const handleMouseMove = (e: globalThis.MouseEvent) => {
     if (!isDragging) return;
     
     setHistoryBoxPosition({

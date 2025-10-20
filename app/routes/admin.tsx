@@ -112,7 +112,7 @@ export default function AdminPage() {
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
-  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'payment-reminder'>('match');
+  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder'>('match');
   
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
@@ -121,12 +121,68 @@ export default function AdminPage() {
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
   // Function to generate WhatsApp message for a participant
-  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'payment-reminder' = 'match') => {
+  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'early-match' | 'payment-reminder' = 'match') => {
     const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
 
-    if (templateType === 'payment-reminder') {
+    if (templateType === 'early-match') {
+      return `*التوافق الأعمى* 🎯
+
+السلام عليكم *${name}*،
+
+🎉 *أخبار رائعة!* تم العثور على شريك متوافق معكم!
+
+📅 *لديكم حتى يوم الجمعة لتأكيد المشاركة*
+
+⭐ *كلما أكدتم مشاركتكم مبكراً، كلما زادت موثوقيتكم وأولويتكم في الفعاليات القادمة*
+
+💡 *لماذا التأكيد المبكر مهم؟*
+• يضمن مقعدكم في الفعالية
+• يزيد من موثوقيتكم كمشارك
+• يساعدنا في التخطيط الأفضل للفعالية
+• يعطيكم أولوية في الفعاليات المستقبلية
+
+💳 *رسوم المشاركة:* 45 ريال سعودي
+
+📋 *للتأكيد:*
+1️⃣ حولوا المبلغ عبر إحدى الطرق أدناه
+2️⃣ أرسلوا صورة الإيصال
+3️⃣ انتظروا تأكيد الحجز منا
+
+*طرق الدفع:*
+• STC Pay: 0560899666
+• مصرف الراجحي: عبدالرحمن عبدالملك
+• IBAN:
+SA2480000588608016007502
+
+💬 *مهم جداً:* تواصلوا مع شريككم مبكراً وتأكدوا من قدرتكم على الحضور معاً. التنسيق المسبق يضمن تجربة أفضل للجميع.
+
+⚠️ *ملاحظة:* في حالة عدم التأكيد حتى يوم الجمعة، سيتم إعطاء الفرصة لمشارك آخر.
+
+*تنبيه:* في حالة التأكيد ثم عدم الحضور أو الإلغاء، لا يمكن استرداد الرسوم.
+
+📍 *تفاصيل الفعالية:*
+المكان: كوفي بلانيت - الدور الثاني
+العنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+
+📅 التاريخ: الأحد 26 أكتوبر 2025
+🕰️ الوقت: 8:30 مساءً
+⏱️ المدة: 60 دقيقة
+
+*يرجى الحضور قبل الموعد بـ 10 دقائق*
+
+معلوماتكم للفعالية:
+رقم المشارك: *${assignedNumber}*
+الرمز الخاص: *${secureToken}*
+
+🔗 رابط الدخول المباشر:
+https://match-omega.vercel.app/welcome?token=${secureToken}
+
+🌟 *نقدر التزامكم ونتطلع لمشاركتكم المبكرة!*
+
+فريق التوافق الأعمى`;
+    } else if (templateType === 'payment-reminder') {
       return `*التوافق الأعمى* 💳
 
 السلام عليكم *${name}*،
@@ -162,7 +218,7 @@ SA2480000588608016007502
 المكان: كوفي بلانيت - الدور الثاني
 العنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
 
-📅 التاريخ: الخميس 16 أكتوبر 2025
+📅 التاريخ: الأحد 26 أكتوبر 2025
 🕰️ الوقت: 8:30 مساءً
 ⏱️ المدة: 60 دقيقة
 
@@ -205,7 +261,7 @@ SA2480000588608016007502
 المكان: كوفي بلانيت - الدور الثاني
 العنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
 
-📅 التاريخ: الخميس 16 أكتوبر 2025
+📅 التاريخ: الأحد 26 أكتوبر 2025
 🕰️ الوقت: 8:30 مساءً
 ⏱️ المدة: 60 دقيقة
 
@@ -256,7 +312,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       ].join('\n');
 
       // Create and download file
-      const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 'match_notification';
+      const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 
+                           exportTemplateType === 'early-match' ? 'early_match_notification' : 'match_notification';
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for proper UTF-8
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -270,7 +327,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       // Mark selected participants as "message sent" (PAID = true)
       await markParticipantsAsMessageSent(Array.from(selectedParticipants));
       
-      const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 'إشعار المطابقة';
+      const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 
+                            exportTemplateType === 'early-match' ? 'إشعار مبكر' : 'إشعار المطابقة';
       toast.success(`تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
       
       // Refresh participants list to show updated status
@@ -3009,10 +3067,11 @@ const fetchParticipants = async () => {
                 <div className="relative">
                   <select
                     value={exportTemplateType}
-                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'payment-reminder')}
+                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'early-match' | 'payment-reminder')}
                     className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
                   >
                     <option value="match" className="bg-slate-800 text-white">Match Notification</option>
+                    <option value="early-match" className="bg-slate-800 text-white">Early Match Notification</option>
                     <option value="payment-reminder" className="bg-slate-800 text-white">Payment Reminder</option>
                   </select>
                   <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />

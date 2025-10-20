@@ -725,15 +725,21 @@ function calculateHumorCompatibilityBonus(participantA, participantB) {
 }
 
 // Function to calculate full compatibility with caching
-async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false) {
-  // Check cache first
-  const cached = await getCachedCompatibility(participantA, participantB)
-  if (cached) {
-    return cached
+async function calculateFullCompatibilityWithCache(participantA, participantB, skipAI = false, ignoreCache = false) {
+  // Check cache first (skip if ignoreCache is true)
+  if (!ignoreCache) {
+    const cached = await getCachedCompatibility(participantA, participantB)
+    if (cached) {
+      return cached
+    }
   }
   
-  // Cache miss - calculate all scores
-  console.log(`💾 Cache MISS: #${participantA.assigned_number}-#${participantB.assigned_number} - calculating...`)
+  // Cache miss or ignored - calculate all scores
+  if (ignoreCache) {
+    console.log(`🧪 Cache IGNORED: #${participantA.assigned_number}-#${participantB.assigned_number} - calculating fresh...`)
+  } else {
+    console.log(`💾 Cache MISS: #${participantA.assigned_number}-#${participantB.assigned_number} - calculating...`)
+  }
   
   // Extract all the data needed for calculations
   const aMBTI = participantA.mbti_personality_type || participantA.survey_data?.mbtiType
@@ -786,8 +792,10 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     cached: false
   }
   
-  // Store in cache for future use
-  await storeCachedCompatibility(participantA, participantB, result)
+  // Store in cache for future use (skip if ignoreCache is true)
+  if (!ignoreCache) {
+    await storeCachedCompatibility(participantA, participantB, result)
+  }
   
   return result
 }
@@ -1713,68 +1721,74 @@ export default async function handler(req, res) {
         console.log(`✅ Standard eligibility: Both participants are eligible for matching`)
       }
       
-      // Check if match already exists for this event
-      const { data: existingMatch, error: existingError } = await supabase
-        .from("match_results")
-        .select("id")
-        .eq("event_id", eventId)
-        .or(`and(participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p2.assigned_number}),and(participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p1.assigned_number})`)
+      // Check if match already exists for this event (skip in test mode)
+      if (!manualMatch.testModeOnly) {
+        const { data: existingMatch, error: existingError } = await supabase
+          .from("match_results")
+          .select("id")
+          .eq("event_id", eventId)
+          .or(`and(participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p2.assigned_number}),and(participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p1.assigned_number})`)
 
-      if (existingMatch && existingMatch.length > 0) {
-        return res.status(400).json({ error: "Match already exists for this event" })
-      }
-
-      // AUTOMATIC CLEANUP: Remove conflicting matches before creating new one
-      console.log(`🧹 Cleaning up conflicting matches for participants #${p1.assigned_number} and #${p2.assigned_number}`)
-      
-      // Find all existing matches for both participants in this event
-      const { data: conflictingMatches, error: conflictError } = await supabase
-        .from("match_results")
-        .select("id, participant_a_number, participant_b_number")
-        .eq("event_id", eventId)
-        .or(`participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p1.assigned_number},participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p2.assigned_number}`)
-
-      if (conflictError) {
-        console.error("Error finding conflicting matches:", conflictError)
-        return res.status(500).json({ error: "Failed to check for conflicting matches" })
+        if (existingMatch && existingMatch.length > 0) {
+          return res.status(400).json({ error: "Match already exists for this event" })
+        }
       }
 
       let cleanupSummary = []
       
-      if (conflictingMatches && conflictingMatches.length > 0) {
-        console.log(`🔍 Found ${conflictingMatches.length} conflicting matches to remove:`)
+      // AUTOMATIC CLEANUP: Remove conflicting matches before creating new one (skip in test mode)
+      if (!manualMatch.testModeOnly) {
+        console.log(`🧹 Cleaning up conflicting matches for participants #${p1.assigned_number} and #${p2.assigned_number}`)
         
-        for (const match of conflictingMatches) {
-          const partnerA = match.participant_a_number
-          const partnerB = match.participant_b_number
-          console.log(`  - Removing match: #${partnerA} ↔ #${partnerB}`)
-          
-          // Track which participants will no longer have partners
-          if (partnerA === p1.assigned_number) {
-            cleanupSummary.push(`#${partnerB} no longer has partner`)
-          } else if (partnerB === p1.assigned_number) {
-            cleanupSummary.push(`#${partnerA} no longer has partner`)
-          } else if (partnerA === p2.assigned_number) {
-            cleanupSummary.push(`#${partnerB} no longer has partner`)
-          } else if (partnerB === p2.assigned_number) {
-            cleanupSummary.push(`#${partnerA} no longer has partner`)
-          }
-        }
-
-        // Delete all conflicting matches
-        const { error: deleteError } = await supabase
+        // Find all existing matches for both participants in this event
+        const { data: conflictingMatches, error: conflictError } = await supabase
           .from("match_results")
-          .delete()
-          .in("id", conflictingMatches.map(m => m.id))
+          .select("id, participant_a_number, participant_b_number")
+          .eq("event_id", eventId)
+          .or(`participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p1.assigned_number},participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p2.assigned_number}`)
 
-        if (deleteError) {
-          console.error("Error deleting conflicting matches:", deleteError)
-          return res.status(500).json({ error: "Failed to clean up conflicting matches" })
+        if (conflictError) {
+          console.error("Error finding conflicting matches:", conflictError)
+          return res.status(500).json({ error: "Failed to check for conflicting matches" })
         }
+        
+        if (conflictingMatches && conflictingMatches.length > 0) {
+          console.log(`🔍 Found ${conflictingMatches.length} conflicting matches to remove:`)
+          
+          for (const match of conflictingMatches) {
+            const partnerA = match.participant_a_number
+            const partnerB = match.participant_b_number
+            console.log(`  - Removing match: #${partnerA} ↔ #${partnerB}`)
+            
+            // Track which participants will no longer have partners
+            if (partnerA === p1.assigned_number) {
+              cleanupSummary.push(`#${partnerB} no longer has partner`)
+            } else if (partnerB === p1.assigned_number) {
+              cleanupSummary.push(`#${partnerA} no longer has partner`)
+            } else if (partnerA === p2.assigned_number) {
+              cleanupSummary.push(`#${partnerB} no longer has partner`)
+            } else if (partnerB === p2.assigned_number) {
+              cleanupSummary.push(`#${partnerA} no longer has partner`)
+            }
+          }
 
-        console.log(`✅ Successfully removed ${conflictingMatches.length} conflicting matches`)
+          // Delete all conflicting matches
+          const { error: deleteError } = await supabase
+            .from("match_results")
+            .delete()
+            .in("id", conflictingMatches.map(m => m.id))
+
+          if (deleteError) {
+            console.error("Error deleting conflicting matches:", deleteError)
+            return res.status(500).json({ error: "Failed to clean up conflicting matches" })
+          }
+
+          console.log(`✅ Successfully removed ${conflictingMatches.length} conflicting matches`)
+        } else {
+          console.log(`✅ No conflicting matches found - clean swap`)
+        }
       } else {
-        console.log(`✅ No conflicting matches found - clean swap`)
+        console.log(`🧪 TEST MODE: Skipping cleanup and database checks`)
       }
       
       // Extract values the same way as the main matching algorithm
@@ -1807,8 +1821,8 @@ export default async function handler(req, res) {
           [p2.survey_data.answers.core_values_1, p2.survey_data.answers.core_values_2, p2.survey_data.answers.core_values_3, p2.survey_data.answers.core_values_4, p2.survey_data.answers.core_values_5].join(',') : 
           null)
       
-      // Use caching system for manual match calculation
-      const compatibilityResult = await calculateFullCompatibilityWithCache(p1, p2, skipAI)
+      // Use caching system for manual match calculation (ignore cache in test mode)
+      const compatibilityResult = await calculateFullCompatibilityWithCache(p1, p2, skipAI, manualMatch.testModeOnly)
       
       const mbtiScore = compatibilityResult.mbtiScore
       const attachmentScore = compatibilityResult.attachmentScore
@@ -1819,58 +1833,67 @@ export default async function handler(req, res) {
       const humorBonus = compatibilityResult.humorBonus
       const totalCompatibility = Math.round(compatibilityResult.totalScore)
       
-      if (compatibilityResult.cached) {
+      if (compatibilityResult.cached && !manualMatch.testModeOnly) {
         console.log(`🎯 Manual match used cached result for #${p1.assigned_number}-#${p2.assigned_number}`)
+      } else if (manualMatch.testModeOnly) {
+        console.log(`🧪 TEST MODE: Fresh calculation for #${p1.assigned_number}-#${p2.assigned_number} (cache ignored)`)
       }
       
-      // Create match record
-      const matchRecord = {
-        match_id,
-        event_id: eventId,
-        participant_a_number: p1.assigned_number,
-        participant_b_number: p2.assigned_number,
-        compatibility_score: totalCompatibility,
-        mbti_compatibility_score: mbtiScore,
-        attachment_compatibility_score: attachmentScore,
-        communication_compatibility_score: communicationScore,
-        lifestyle_compatibility_score: lifestyleScore,
-        core_values_compatibility_score: coreValuesScore,
-        vibe_compatibility_score: vibeScore,
-        round: 1,
-        ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
-        created_at: new Date().toISOString()
-      }
+      let insertData = null
       
-      // Insert the match
-      const { data: insertData, error: insertError } = await supabase
-        .from("match_results")
-        .insert([matchRecord])
-        .select()
+      // Create and insert match record (skip in test mode)
+      if (!manualMatch.testModeOnly) {
+        const matchRecord = {
+          match_id,
+          event_id: eventId,
+          participant_a_number: p1.assigned_number,
+          participant_b_number: p2.assigned_number,
+          compatibility_score: totalCompatibility,
+          mbti_compatibility_score: mbtiScore,
+          attachment_compatibility_score: attachmentScore,
+          communication_compatibility_score: communicationScore,
+          lifestyle_compatibility_score: lifestyleScore,
+          core_values_compatibility_score: coreValuesScore,
+          vibe_compatibility_score: vibeScore,
+          round: 1,
+          ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
+          created_at: new Date().toISOString()
+        }
+        
+        // Insert the match
+        const { data: insertResult, error: insertError } = await supabase
+          .from("match_results")
+          .insert([matchRecord])
+          .select()
 
-      if (insertError) {
-        console.error("Error inserting manual match:", insertError)
-        return res.status(500).json({ error: "Failed to create manual match" })
+        if (insertError) {
+          console.error("Error inserting manual match:", insertError)
+          return res.status(500).json({ error: "Failed to create manual match" })
+        }
+        
+        insertData = insertResult
+        console.log(`✅ Manual match created: #${p1.assigned_number} ↔ #${p2.assigned_number} (Score: ${totalCompatibility}%)`)
+        console.log(`ℹ️ Manual match added to database with automatic cleanup. Admin panel will reload fresh data on refresh.`)
+      } else {
+        console.log(`🧪 TEST MODE: Compatibility calculated for #${p1.assigned_number} ↔ #${p2.assigned_number} (Score: ${totalCompatibility}%) - NOT saved to database`)
       }
-
-      console.log(`✅ Manual match created: #${p1.assigned_number} ↔ #${p2.assigned_number} (Score: ${totalCompatibility}%)`)
-
-      // Note: Manual matches create new database records and automatically clean up conflicts
-      // The admin panel refresh function will reload fresh data from database to show changes
-      console.log(`ℹ️ Manual match added to database with automatic cleanup. Admin panel will reload fresh data on refresh.`)
 
       // Prepare success message with cleanup summary
-      let successMessage = `Manual match created successfully`
-      if (cleanupSummary.length > 0) {
+      let successMessage = manualMatch.testModeOnly 
+        ? `Test compatibility calculation completed successfully`
+        : `Manual match created successfully`
+      if (cleanupSummary.length > 0 && !manualMatch.testModeOnly) {
         successMessage += `\n\nAutomatic cleanup:\n${cleanupSummary.join('\n')}`
       }
 
       return res.status(200).json({
         success: true,
         message: successMessage,
-        count: 1,
+        count: manualMatch.testModeOnly ? 0 : 1,
         compatibility_score: totalCompatibility,
         cleanup_summary: cleanupSummary,
-        match: insertData[0],
+        match: insertData ? insertData[0] : null,
+        testMode: manualMatch.testModeOnly || false,
         results: [{
           participant: p1.assigned_number,
           partner: p2.assigned_number,

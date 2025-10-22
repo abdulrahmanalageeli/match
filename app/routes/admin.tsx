@@ -2021,34 +2021,13 @@ Proceed?`
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={async () => {
-                  if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers (1, 2, 3...) only to locked/pinned matches")) return
-                  const res = await fetch("/api/admin", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                      action: "set-table",
-                      event_id: currentEventId
-                    }),
-                  })
-                  const data = await res.json()
-                  if (res.ok) {
-                    toast.success(`${data.message}. Assigned tables: ${data.assignedTables}, Total matches: ${data.totalMatches}`, { duration: 4000 })
-                  } else {
-                    toast.error(`Failed: ${data.error}`)
-                  }
-                  fetchParticipants()
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
-              >
-                <Table2 className="w-4 h-4" />
-                Auto Assign Tables (Locked Only)
-              </button>
-
-              {/* Row 1: Advance Phase, Generate Matches, Pre-Cache */}
-              <div className="flex items-center gap-2 flex-wrap">
+            {/* Admin Actions - Organized in sections */}
+            <div className="space-y-3">
+              
+              {/* Section 1: Match Generation */}
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Match Generation</h3>
+                <div className="flex items-center gap-2 flex-wrap">
                 <button
                   onClick={async () => {
                     if (!confirm("Are you sure you want to advance to the next phase?")) return
@@ -2181,82 +2160,113 @@ Proceed?`
                     )}
                     Pre-Cache
                   </button>
+                  <button
+                    onClick={async () => {
+                      let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
+                      if (excludedParticipants.length > 0) {
+                        confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                      }
+                      if (!confirm(confirmMessage)) return
+                      setLoading(true)
+                      const res = await fetch("/api/admin/trigger-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          matchType: "group",
+                          eventId: currentEventId
+                        }),
+                      })
+                      const data = await res.json()
+                      if (res.ok) {
+                        toast.success(`${data.message}. Groups created: ${data.count}`, { duration: 4000 })
+                        fetchParticipants()
+                        // Show results modal (groups don't have calculated pairs)
+                        await showParticipantResults(data.results || [], data.count || 0, "group", [])
+                      } else {
+                        toast.error("Failed to generate group matches: " + (data.error || "Unknown error"))
+                      }
+                      setLoading(false)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Generate Groups
+                  </button>
+
+                  <button
+                    onClick={loadCachedResults}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <BarChart3 className="w-3.5 h-3.5" />
+                    )}
+                    Load Cached Results
+                  </button>
                 </div>
               </div>
 
-              {/* Row 2: Generate Groups, Load Cached Results */}
-              <div className="flex items-center gap-2 flex-wrap">
-                <button
-                  onClick={async () => {
-                    let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
-                    if (excludedParticipants.length > 0) {
-                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
-                    }
-                    if (!confirm(confirmMessage)) return
-                    setLoading(true)
-                    const res = await fetch("/api/admin/trigger-match", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ 
-                        matchType: "group",
-                        eventId: currentEventId
-                      }),
-                    })
-                    const data = await res.json()
-                    if (res.ok) {
-                      toast.success(`${data.message}. Groups created: ${data.count}`, { duration: 4000 })
-                      fetchParticipants()
-                      // Show results modal (groups don't have calculated pairs)
-                      await showParticipantResults(data.results || [], data.count || 0, "group", [])
-                    } else {
-                      toast.error("Failed to generate group matches: " + (data.error || "Unknown error"))
-                    }
-                    setLoading(false)
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 text-sm"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  Generate Groups
-                </button>
+              {/* Section 2: View & Manage */}
+              <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">View & Manage</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={fetchGroupAssignments}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Show Groups
+                  </button>
 
-                <button
-                  onClick={loadCachedResults}
-                  disabled={loading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
-                >
-                  {loading ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <BarChart3 className="w-3.5 h-3.5" />
-                  )}
-                  Load Cached Results
-                </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers (1, 2, 3...) only to locked/pinned matches")) return
+                      const res = await fetch("/api/admin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          action: "set-table",
+                          event_id: currentEventId
+                        }),
+                      })
+                      const data = await res.json()
+                      if (res.ok) {
+                        toast.success(`${data.message}. Assigned tables: ${data.assignedTables}, Total matches: ${data.totalMatches}`, { duration: 4000 })
+                      } else {
+                        toast.error(`Failed: ${data.error}`)
+                      }
+                      fetchParticipants()
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  >
+                    <Table2 className="w-3.5 h-3.5" />
+                    Auto Assign Tables
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={fetchGroupAssignments}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300"
-              >
-                <Users className="w-4 h-4" />
-                Show Groups
-              </button>
+              {/* Section 3: Danger Zone */}
+              <div className="bg-red-900/10 p-3 rounded-lg border border-red-800/30">
+                <h3 className="text-xs font-semibold text-red-400 uppercase tracking-wide mb-2">Danger Zone</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={cleanSlate}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    Clean Slate
+                  </button>
 
-              <button
-                onClick={cleanSlate}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4" />
-                )}
-                Clean Slate
-              </button>
-
-              <button
-                onClick={async () => {
-                  if (!confirm("⚠️ This will permanently delete all profiles that haven't completed the survey. Are you sure?")) return
+                  <button
+                    onClick={async () => {
+                      if (!confirm("⚠️ This will permanently delete all profiles that haven't completed the survey. Are you sure?")) return
                   setLoading(true)
                   try {
                     const res = await fetch("/api/admin", {
@@ -2274,35 +2284,38 @@ Proceed?`
                   } catch (error) {
                     toast.error(`Network error: ${error}`)
                   }
-                  setLoading(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-xl transition-all duration-300"
-              >
-                <Trash2 className="w-4 h-4" />
-                Cleanup Incomplete
-              </button>
+                      setLoading(false)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Cleanup Incomplete
+                  </button>
 
-              {/* Results Visibility Control */}
-              <button
-                onClick={toggleResultsVisibility}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
-                  resultsVisible 
-                    ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white' 
-                    : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
-                }`}
-              >
-                {resultsVisible ? (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    Hide Results
-                  </>
-                ) : (
-                  <>
-                    <Eye className="w-4 h-4" />
-                    Show Results
-                  </>
-                )}
-              </button>
+                  {/* Results Visibility Control */}
+                  <button
+                    onClick={toggleResultsVisibility}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-300 text-sm ${
+                      resultsVisible 
+                        ? 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white' 
+                        : 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white'
+                    }`}
+                  >
+                    {resultsVisible ? (
+                      <>
+                        <Eye className="w-3.5 h-3.5" />
+                        Hide Results
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3.5 h-3.5" />
+                        Show Results
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
 
               {/* View Last Results Button - Only show when results exist but modal is closed */}
               {participantResults.length > 0 && !showResultsModal && (

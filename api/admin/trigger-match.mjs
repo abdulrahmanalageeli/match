@@ -1567,7 +1567,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, action = null, count = 50 } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, action = null, count = 50, direction = 'forward', cacheAll = false } = req.body || {}
   
   // Handle pre-cache action
   if (action === "pre-cache") {
@@ -1578,7 +1578,9 @@ export default async function handler(req, res) {
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
     const startTime = Date.now()
     
-    console.log(`💾 PRE-CACHE START: Caching ${count} participant pairs for event ${eventId}`)
+    const directionText = direction === 'forward' ? 'top→bottom' : 'bottom→top'
+    const countText = cacheAll ? 'ALL eligible pairs' : `${count} pairs`
+    console.log(`💾 PRE-CACHE START: Caching ${countText} (${directionText}) for event ${eventId}`)
     
     try {
       // Fetch eligible participants
@@ -1600,29 +1602,37 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `Need at least 2 participants. Found ${participants.length}` })
       }
       
-      // Generate all possible pairs
-      const allPairs = []
-      for (let i = 0; i < participants.length; i++) {
-        for (let j = i + 1; j < participants.length; j++) {
-          allPairs.push([participants[i], participants[j]])
-        }
+      // Reverse participants if direction is 'reverse' (bottom to top)
+      if (direction === 'reverse') {
+        participants.reverse()
+        console.log(`🔄 Reversed participant order for bottom→top processing`)
       }
       
-      console.log(`🔢 Total possible pairs: ${allPairs.length}`)
-      
-      // Shuffle pairs for random selection
-      for (let i = allPairs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]]
-      }
-      
+      // Generate pairs linearly (no shuffling for sequential processing)
       let cachedCount = 0
       let alreadyCached = 0
       let skipped = 0
-      const maxPairs = Math.min(count, allPairs.length)
+      let totalPairs = 0
       
-      for (let i = 0; i < allPairs.length && cachedCount < maxPairs; i++) {
-        const [p1, p2] = allPairs[i]
+      // Calculate total possible pairs for logging
+      for (let i = 0; i < participants.length; i++) {
+        for (let j = i + 1; j < participants.length; j++) {
+          totalPairs++
+        }
+      }
+      
+      const targetCount = cacheAll ? totalPairs : Math.min(count, totalPairs)
+      
+      console.log(`🔢 Total possible pairs: ${totalPairs}`)
+      console.log(`🎯 Target pairs to cache: ${targetCount}`)
+      console.log(`📋 Processing pairs linearly (${direction === 'forward' ? 'top→bottom' : 'bottom→top'})`)
+      
+      // Process pairs linearly until we reach the requested count
+      outerLoop:
+      for (let i = 0; i < participants.length && cachedCount < targetCount; i++) {
+        for (let j = i + 1; j < participants.length && cachedCount < targetCount; j++) {
+          const p1 = participants[i]
+          const p2 = participants[j]
         
         // Check gender compatibility
         if (!checkGenderCompatibility(p1, p2)) {
@@ -1644,9 +1654,10 @@ export default async function handler(req, res) {
         }
         
         // Calculate and cache
-        console.log(`💾 Caching pair ${cachedCount + 1}/${maxPairs}: #${p1.assigned_number} × #${p2.assigned_number}`)
+        console.log(`💾 Caching pair ${cachedCount + 1}/${targetCount}: #${p1.assigned_number} × #${p2.assigned_number}`)
         await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
         cachedCount++
+        }
       }
       
       // Get total cached count

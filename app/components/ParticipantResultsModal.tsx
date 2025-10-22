@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -192,6 +192,72 @@ export default function ParticipantResultsModal({
     } catch (error) {
       console.error("Error excluding pair:", error)
       alert("❌ حدث خطأ أثناء استبعاد الزوج")
+    }
+  }
+
+  const handleExcludeParticipant = async (participantNumber: number, participantName: string) => {
+    if (!confirm(`هل أنت متأكد من استبعاد هذا المشارك من جميع المطابقات؟\n\n#${participantNumber} - ${participantName}\n\nسيتم استبعاده من المطابقات المستقبلية (يمكن إلغاء الاستبعاد لاحقاً).`)) {
+      return
+    }
+    
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "add-excluded-participant",
+          participant_number: participantNumber,
+          is_banned: false
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        alert(`✅ تم استبعاد المشارك بنجاح!\n\n#${participantNumber} - ${participantName}\n\nلن يتم مطابقته في الأجيال المستقبلية.`)
+        
+        // Refresh if callback provided
+        if (onRefresh) {
+          await onRefresh()
+        }
+      } else {
+        alert(`❌ فشل الاستبعاد: ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error excluding participant:", error)
+      alert("❌ حدث خطأ أثناء استبعاد المشارك")
+    }
+  }
+
+  const handleBanParticipant = async (participantNumber: number, participantName: string) => {
+    if (!confirm(`⚠️ هل أنت متأكد من حظر هذا المشارك نهائياً؟\n\n#${participantNumber} - ${participantName}\n\nسيتم حظره نهائياً ولن يتمكن من المشاركة أبداً (حظر دائم).`)) {
+      return
+    }
+    
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "add-excluded-participant",
+          participant_number: participantNumber,
+          is_banned: true
+        })
+      })
+      
+      const data = await response.json()
+      if (response.ok) {
+        alert(`✅ تم حظر المشارك بنجاح!\n\n#${participantNumber} - ${participantName}\n\nتم حظره نهائياً من جميع المطابقات.`)
+        
+        // Refresh if callback provided
+        if (onRefresh) {
+          await onRefresh()
+        }
+      } else {
+        alert(`❌ فشل الحظر: ${data.error}`)
+      }
+    } catch (error) {
+      console.error("Error banning participant:", error)
+      alert("❌ حدث خطأ أثناء حظر المشارك")
     }
   }
 
@@ -471,6 +537,28 @@ export default function ParticipantResultsModal({
                                   <XCircle className="w-3 h-3 text-white" />
                                 </div>
                               )}
+                              {/* Exclude Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleExcludeParticipant(participant.assigned_number, participant.name || "غير محدد")
+                                }}
+                                className="p-1 rounded-md bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 hover:text-orange-300 transition-all duration-200"
+                                title="استبعاد من جميع المطابقات (-1)"
+                              >
+                                <UserX className="w-3.5 h-3.5" />
+                              </button>
+                              {/* Ban Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleBanParticipant(participant.assigned_number, participant.name || "غير محدد")
+                                }}
+                                className="p-1 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 transition-all duration-200"
+                                title="حظر نهائي (-10)"
+                              >
+                                <Ban className="w-3.5 h-3.5" />
+                              </button>
                               {participant.is_organizer_match && participant.incompatibility_reason && (
                                 <div className="group relative">
                                   <Info className="w-4 h-4 text-yellow-400 cursor-help" />

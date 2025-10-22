@@ -2047,185 +2047,191 @@ Proceed?`
                 Auto Assign Tables (Locked Only)
               </button>
 
-              <button
-                onClick={async () => {
-                  if (!confirm("Are you sure you want to advance to the next phase?")) return
-                  setLoading(true)
-                  const res = await fetch("/api/admin", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "advance-phase", currentPhase: safeCurrentPhase }),
-                  })
-                  const data = await res.json()
-                  if (res.ok) {
-                    toast.success(`Phase advanced to ${data.new_phase}. All players instantly transition to new phase!`)
-                    fetchParticipants()
-                  } else {
-                    toast.error("Failed to advance phase")
-                  }
-                  setLoading(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
-              >
-                <ChevronRight className="w-4 h-4" />
-                Advance Phase
-              </button>
+              {/* Row 1: Advance Phase, Generate Matches, Pre-Cache */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={async () => {
+                    if (!confirm("Are you sure you want to advance to the next phase?")) return
+                    setLoading(true)
+                    const res = await fetch("/api/admin", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ action: "advance-phase", currentPhase: safeCurrentPhase }),
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                      toast.success(`Phase advanced to ${data.new_phase}. All players instantly transition to new phase!`)
+                      fetchParticipants()
+                    } else {
+                      toast.error("Failed to advance phase")
+                    }
+                    setLoading(false)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                  Advance Phase
+                </button>
 
-              <button
-                onClick={async () => {
-                  let confirmMessage = `Are you sure you want to generate matches for Event ${currentEventId} using the new personality-based algorithm?\n\nThis will check previous events to avoid repeated matches.`
-                  if (excludedPairs.length > 0) {
-                    confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1_number} ↔ #${p.participant2_number}`).join('\n')}`
-                  }
-                  if (excludedParticipants.length > 0) {
-                    confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
-                  }
-                  if (!confirm(confirmMessage)) return
-                  setLoading(true)
-                  const res = await fetch("/api/admin/trigger-match", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                      eventId: currentEventId,
-                      excludedPairs: excludedPairs
-                    }),
-                  })
-                  const data = await res.json()
-                  setLoading(false)
-                  
-                  if (res.ok) {
-                    let successMessage = `✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `Are you sure you want to generate matches for Event ${currentEventId} using the new personality-based algorithm?\n\nThis will check previous events to avoid repeated matches.`
                     if (excludedPairs.length > 0) {
-                      successMessage += `\nExcluded pairs enforced: ${excludedPairs.length}`
+                      confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1_number} ↔ #${p.participant2_number}`).join('\n')}`
                     }
                     if (excludedParticipants.length > 0) {
-                      successMessage += `\nParticipants excluded from all matching: ${excludedParticipants.length}`
+                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
                     }
+                    if (!confirm(confirmMessage)) return
+                    setLoading(true)
+                    const res = await fetch("/api/admin/trigger-match", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ 
+                        eventId: currentEventId,
+                        excludedPairs: excludedPairs
+                      }),
+                    })
+                    const data = await res.json()
+                    setLoading(false)
                     
-                    // Add performance metrics if available
-                    if (data.performance) {
-                      successMessage += `\n\n⚡ Performance Metrics:`
-                      successMessage += `\nTotal time: ${data.performance.totalTimeSeconds}s`
-                      successMessage += `\nCache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)`
-                      successMessage += `\nAI calls: ${data.performance.aiCalls}`
-                      successMessage += `\nAvg time per pair: ${data.performance.avgTimePerPair}ms`
-                      
-                      if (data.performance.cacheHitRate > 0) {
-                        const timeSaved = ((data.performance.cacheHits * 2500) / 1000).toFixed(1)
-                        const costSaved = (data.performance.cacheHits * 0.002).toFixed(3)
-                        successMessage += `\n\n💰 Savings from cache:`
-                        successMessage += `\nTime saved: ~${timeSaved}s`
-                        successMessage += `\nCost saved: ~$${costSaved}`
+                    if (res.ok) {
+                      let successMessage = `✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`
+                      if (excludedPairs.length > 0) {
+                        successMessage += `\nExcluded pairs enforced: ${excludedPairs.length}`
                       }
+                      if (excludedParticipants.length > 0) {
+                        successMessage += `\nParticipants excluded from all matching: ${excludedParticipants.length}`
+                      }
+                      
+                      // Add performance metrics if available
+                      if (data.performance) {
+                        successMessage += `\n\n⚡ Performance Metrics:`
+                        successMessage += `\nTotal time: ${data.performance.totalTimeSeconds}s`
+                        successMessage += `\nCache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)`
+                        successMessage += `\nAI calls: ${data.performance.aiCalls}`
+                        successMessage += `\nAvg time per pair: ${data.performance.avgTimePerPair}ms`
+                        
+                        if (data.performance.cacheHitRate > 0) {
+                          const timeSaved = ((data.performance.cacheHits * 2500) / 1000).toFixed(1)
+                          const costSaved = (data.performance.cacheHits * 0.002).toFixed(3)
+                          successMessage += `\n\n💰 Savings from cache:`
+                          successMessage += `\nTime saved: ~${timeSaved}s`
+                          successMessage += `\nCost saved: ~$${costSaved}`
+                        }
+                      }
+                      
+                      alert(successMessage)
+                      fetchParticipants()
+                      // Show results modal with calculated pairs
+                      await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                    } else {
+                      alert(`❌ Failed to generate matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                     }
-                    
-                    alert(successMessage)
-                    fetchParticipants()
-                    // Show results modal with calculated pairs
-                    await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
-                  } else {
-                    alert(`❌ Failed to generate matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
-                  }
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
-              >
-                <RefreshCcw className="w-3.5 h-3.5" />
-                Generate Matches
-              </button>
-
-              {/* Pre-Cache Button with Options */}
-              <div className="flex items-center gap-1.5 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
-                <div className="flex items-center gap-1.5">
-                  <label className="flex items-center gap-1 text-xs text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={preCacheAll}
-                      onChange={(e) => setPreCacheAll(e.target.checked)}
-                      className="w-3.5 h-3.5"
-                    />
-                    All
-                  </label>
-                  {!preCacheAll && (
-                    <input
-                      type="number"
-                      value={preCacheCount}
-                      onChange={(e) => setPreCacheCount(Math.max(1, parseInt(e.target.value) || 1))}
-                      min="1"
-                      max="5000"
-                      className="w-16 px-1.5 py-1 bg-slate-700 text-white border border-slate-600 rounded text-xs"
-                      placeholder="50"
-                    />
-                  )}
-                </div>
-                
-                <select
-                  value={preCacheDirection}
-                  onChange={(e) => setPreCacheDirection(e.target.value as 'forward' | 'reverse')}
-                  className="px-1.5 py-1 bg-slate-700 text-white border border-slate-600 rounded text-xs"
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
                 >
-                  <option value="forward">↓ Top→Bottom</option>
-                  <option value="reverse">↑ Bottom→Top</option>
-                </select>
-                
-                <button
-                  onClick={preCacheMatches}
-                  disabled={preCaching || loading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded transition-all duration-300 disabled:opacity-50 text-xs"
-                >
-                  {preCaching ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Activity className="w-3.5 h-3.5" />
-                  )}
-                  Pre-Cache
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                  Generate Matches
                 </button>
+
+                {/* Pre-Cache Button with Options */}
+                <div className="flex items-center gap-1.5 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                  <div className="flex items-center gap-1.5">
+                    <label className="flex items-center gap-1 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={preCacheAll}
+                        onChange={(e) => setPreCacheAll(e.target.checked)}
+                        className="w-3.5 h-3.5"
+                      />
+                      All
+                    </label>
+                    {!preCacheAll && (
+                      <input
+                        type="number"
+                        value={preCacheCount}
+                        onChange={(e) => setPreCacheCount(Math.max(1, parseInt(e.target.value) || 1))}
+                        min="1"
+                        max="5000"
+                        className="w-16 px-1.5 py-1 bg-slate-700 text-white border border-slate-600 rounded text-xs"
+                        placeholder="50"
+                      />
+                    )}
+                  </div>
+                  
+                  <select
+                    value={preCacheDirection}
+                    onChange={(e) => setPreCacheDirection(e.target.value as 'forward' | 'reverse')}
+                    className="px-1.5 py-1 bg-slate-700 text-white border border-slate-600 rounded text-xs"
+                  >
+                    <option value="forward">↓ Top→Bottom</option>
+                    <option value="reverse">↑ Bottom→Top</option>
+                  </select>
+                  
+                  <button
+                    onClick={preCacheMatches}
+                    disabled={preCaching || loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded transition-all duration-300 disabled:opacity-50 text-xs"
+                  >
+                    {preCaching ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Activity className="w-3.5 h-3.5" />
+                    )}
+                    Pre-Cache
+                  </button>
+                </div>
               </div>
 
-              <button
-                onClick={async () => {
-                  let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
-                  if (excludedParticipants.length > 0) {
-                    confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
-                  }
-                  if (!confirm(confirmMessage)) return
-                  setLoading(true)
-                  const res = await fetch("/api/admin/trigger-match", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ 
-                      matchType: "group",
-                      eventId: currentEventId
-                    }),
-                  })
-                  const data = await res.json()
-                  if (res.ok) {
-                    toast.success(`${data.message}. Groups created: ${data.count}`, { duration: 4000 })
-                    fetchParticipants()
-                    // Show results modal (groups don't have calculated pairs)
-                    await showParticipantResults(data.results || [], data.count || 0, "group", [])
-                  } else {
-                    toast.error("Failed to generate group matches: " + (data.error || "Unknown error"))
-                  }
-                  setLoading(false)
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-xl transition-all duration-300"
-              >
-                <Users className="w-4 h-4" />
-                Generate Groups
-              </button>
+              {/* Row 2: Generate Groups, Load Cached Results */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
+                    if (excludedParticipants.length > 0) {
+                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                    }
+                    if (!confirm(confirmMessage)) return
+                    setLoading(true)
+                    const res = await fetch("/api/admin/trigger-match", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ 
+                        matchType: "group",
+                        eventId: currentEventId
+                      }),
+                    })
+                    const data = await res.json()
+                    if (res.ok) {
+                      toast.success(`${data.message}. Groups created: ${data.count}`, { duration: 4000 })
+                      fetchParticipants()
+                      // Show results modal (groups don't have calculated pairs)
+                      await showParticipantResults(data.results || [], data.count || 0, "group", [])
+                    } else {
+                      toast.error("Failed to generate group matches: " + (data.error || "Unknown error"))
+                    }
+                    setLoading(false)
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white rounded-lg transition-all duration-300 text-sm"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Generate Groups
+                </button>
 
-              <button
-                onClick={loadCachedResults}
-                disabled={loading}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-xl transition-all duration-300 disabled:opacity-50"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <BarChart3 className="w-4 h-4" />
-                )}
-                Load Cached Results
-              </button>
+                <button
+                  onClick={loadCachedResults}
+                  disabled={loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
+                >
+                  {loading ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <BarChart3 className="w-3.5 h-3.5" />
+                  )}
+                  Load Cached Results
+                </button>
+              </div>
 
               <button
                 onClick={fetchGroupAssignments}

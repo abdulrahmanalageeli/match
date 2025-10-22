@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 
 interface ParticipantResult {
@@ -64,7 +64,6 @@ export default function ParticipantResultsModal({
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [lockedMatches, setLockedMatches] = useState<any[]>([])
   const [loadingLock, setLoadingLock] = useState<number | null>(null)
-  const [swappingParticipant, setSwappingParticipant] = useState<number | null>(null)
 
   // Fetch locked matches when modal opens
   useEffect(() => {
@@ -163,55 +162,36 @@ export default function ParticipantResultsModal({
     }
   }
 
-  const handleSwapMatch = (participantNumber: number, participantName: string) => {
-    setSwappingParticipant(participantNumber)
-    fetchParticipantDetails(participantNumber, participantName)
-  }
-
-  const handleSwapConfirm = async (newPartnerNumber: number) => {
-    if (!swappingParticipant) return
+  const handleExcludePair = async (participant1: number, participant2: number) => {
+    if (!confirm(`هل أنت متأكد من استبعاد هذا الزوج؟\n\n#${participant1} ↔ #${participant2}\n\nلن يتم مطابقتهما في الأجيال المستقبلية.`)) {
+      return
+    }
     
     try {
-      // Create a new manual match with the selected partner
-      const response = await fetch("/api/admin/trigger-match", {
+      const response = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          eventId: currentEventId,
-          manualMatch: {
-            participant1: swappingParticipant,
-            participant2: newPartnerNumber
-          }
+          action: "add-excluded-pair",
+          participant1_number: participant1,
+          participant2_number: participant2
         })
       })
       
       const data = await response.json()
       if (response.ok) {
-        // Prepare success message with cleanup information
-        let successMessage = `✅ تم تبديل التوافق بنجاح! #${swappingParticipant} ↔ #${newPartnerNumber}\n\nالتوافق: ${data.compatibility_score}%`
+        alert(`✅ تم استبعاد الزوج بنجاح!\n\n#${participant1} ↔ #${participant2}\n\nلن يتم مطابقتهما في المستقبل.`)
         
-        // Add cleanup summary if any conflicts were resolved
-        if (data.cleanup_summary && data.cleanup_summary.length > 0) {
-          successMessage += `\n\n🧹 تنظيف تلقائي:\n${data.cleanup_summary.join('\n')}`
-        }
-        
-        successMessage += `\n\n🔄 سيتم تحديث النتائج تلقائياً...`
-        
-        alert(successMessage)
-        setShowDetailModal(false)
-        setSwappingParticipant(null)
-        
-        // Refresh the results to show the new match
-        // This will reload from the database and show updated persistent session
+        // Refresh if callback provided
         if (onRefresh) {
           await onRefresh()
         }
       } else {
-        alert(`❌ فشل التبديل: ${data.error}`)
+        alert(`❌ فشل الاستبعاد: ${data.error}`)
       }
     } catch (error) {
-      console.error("Error swapping match:", error)
-      alert("❌ حدث خطأ أثناء تبديل التوافق")
+      console.error("Error excluding pair:", error)
+      alert("❌ حدث خطأ أثناء استبعاد الزوج")
     }
   }
 
@@ -390,7 +370,7 @@ export default function ParticipantResultsModal({
                         <th className="text-right p-4 text-sm font-semibold text-slate-300">الشريك</th>
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
                         {matchType !== "group" && (
-                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تبديل</th>
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">استبعاد</th>
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">تثبيت التوافق</th>
@@ -552,12 +532,12 @@ export default function ParticipantResultsModal({
                             <td className="p-4 text-center">
                               {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
                                 <button
-                                  onClick={() => handleSwapMatch(participant.assigned_number, participant.name)}
-                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:bg-purple-500/30 transition-all duration-300 text-sm"
-                                  title="تبديل الشريك"
+                                  onClick={() => handleExcludePair(participant.assigned_number, participant.partner_assigned_number!)}
+                                  className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-red-500/20 border border-red-400/30 text-red-300 hover:bg-red-500/30 transition-all duration-300 text-sm"
+                                  title="استبعاد هذا الزوج من المطابقات المستقبلية"
                                 >
-                                  <ArrowLeftRight className="w-3 h-3" />
-                                  <span>تبديل</span>
+                                  <Ban className="w-3 h-3" />
+                                  <span>استبعاد</span>
                                 </button>
                               ) : (
                                 <span className="text-slate-500 text-xs">غير متاح</span>
@@ -596,10 +576,7 @@ export default function ParticipantResultsModal({
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
                               <button
-                                onClick={() => {
-                                  setSwappingParticipant(null)
-                                  fetchParticipantDetails(participant.assigned_number, participant.name)
-                                }}
+                                onClick={() => fetchParticipantDetails(participant.assigned_number, participant.name)}
                                 disabled={loadingDetails}
                                 className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-blue-500/20 border border-blue-400/30 text-blue-300 hover:bg-blue-500/30 transition-all duration-300 text-sm disabled:opacity-50"
                               >
@@ -688,15 +665,12 @@ export default function ParticipantResultsModal({
       {/* Participant Detail Modal */}
       <ParticipantDetailModal
         isOpen={showDetailModal}
-        onClose={() => {
-          setShowDetailModal(false)
-          setSwappingParticipant(null)
-        }}
+        onClose={() => setShowDetailModal(false)}
         participant={selectedParticipant}
         matches={participantMatches}
         matchType={matchType}
-        swapMode={swappingParticipant !== null}
-        onSwapSelect={handleSwapConfirm}
+        swapMode={false}
+        onSwapSelect={async () => {}}
       />
     </div>
   )

@@ -1627,12 +1627,20 @@ export default async function handler(req, res) {
       console.log(`🎯 Target pairs to cache: ${targetCount}`)
       console.log(`📋 Processing pairs linearly (${direction === 'forward' ? 'top→bottom' : 'bottom→top'})`)
       
-      // Process pairs linearly until we reach the requested count
+      // Process pairs linearly until we reach the requested count OR run out of pairs
+      let pairsProcessed = 0
       outerLoop:
-      for (let i = 0; i < participants.length && cachedCount < targetCount; i++) {
-        for (let j = i + 1; j < participants.length && cachedCount < targetCount; j++) {
+      for (let i = 0; i < participants.length; i++) {
+        for (let j = i + 1; j < participants.length; j++) {
+          // Stop if we've cached enough (only when not caching all)
+          if (!cacheAll && cachedCount >= targetCount) {
+            console.log(`✅ Reached target of ${targetCount} cached pairs`)
+            break outerLoop
+          }
+          
           const p1 = participants[i]
           const p2 = participants[j]
+          pairsProcessed++
         
         // Check gender compatibility
         if (!checkGenderCompatibility(p1, p2)) {
@@ -1654,10 +1662,15 @@ export default async function handler(req, res) {
         }
         
         // Calculate and cache
-        console.log(`💾 Caching pair ${cachedCount + 1}/${targetCount}: #${p1.assigned_number} × #${p2.assigned_number}`)
+        console.log(`💾 Caching pair ${cachedCount + 1}/${cacheAll ? totalPairs : targetCount}: #${p1.assigned_number} × #${p2.assigned_number} (processed ${pairsProcessed}/${totalPairs} pairs)`)
         await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
         cachedCount++
         }
+      }
+      
+      // Log completion status
+      if (!cacheAll && cachedCount < targetCount) {
+        console.log(`⚠️ Only cached ${cachedCount}/${targetCount} pairs - ran out of uncached compatible pairs after processing ${pairsProcessed}/${totalPairs} total pairs`)
       }
       
       // Get total cached count

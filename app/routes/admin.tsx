@@ -2091,6 +2091,8 @@ Proceed?`
                     }),
                   })
                   const data = await res.json()
+                  setLoading(false)
+                  
                   if (res.ok) {
                     let successMessage = `✅ ${data.message}\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`
                     if (excludedPairs.length > 0) {
@@ -2117,14 +2119,13 @@ Proceed?`
                       }
                     }
                     
-                    toast.success(successMessage, { duration: 5000 })
+                    alert(successMessage)
                     fetchParticipants()
                     // Show results modal with calculated pairs
                     await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
                   } else {
-                    toast.error("Failed to generate matches: " + (data.error || "Unknown error"))
+                    alert(`❌ Failed to generate matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                   }
-                  setLoading(false)
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition-all duration-300"
               >

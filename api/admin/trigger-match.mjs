@@ -2190,49 +2190,61 @@ export default async function handler(req, res) {
     for (const [a, b] of pairs) {
       processedPairs++
       
-      // Check if this pair is in the excluded pairs list
-      if (isPairExcluded(a.assigned_number, b.assigned_number, excludedPairs)) {
-        skippedExcluded++
-        console.log(`🚫 Skipping excluded pair: #${a.assigned_number} ↔ #${b.assigned_number}`)
-        continue
+      // Log progress every 10 pairs
+      if (processedPairs % 10 === 0) {
+        console.log(`📊 Progress: ${processedPairs}/${pairs.length} pairs processed (${((processedPairs/pairs.length)*100).toFixed(1)}%)`)
       }
       
-      // Check gender compatibility first (opposite gender only)
-      if (!checkGenderCompatibility(a, b)) {
-        skippedGender++
-        continue
-      }
-      
-      // Check age compatibility (girls must be within 3 years)
-      if (!checkAgeCompatibility(a, b)) {
-        skippedAge++
-        continue
-      }
-      
-      // Check interaction style compatibility (matching determinants)
-      if (!checkInteractionStyleCompatibility(a, b)) {
-        skippedInteractionStyle++
-        continue
-      }
-      
-      // Check if this pair has been matched in previous events
-      const hasPreviousMatch = await havePreviousMatch(a.assigned_number, b.assigned_number, eventId)
-      if (hasPreviousMatch) {
-        skippedPrevious++
-        continue
-      }
-      
-      // Use caching system for all compatibility calculations
-      const compatibilityResult = await calculateFullCompatibilityWithCache(a, b, skipAI)
-      
-      // Track cache performance
-      if (compatibilityResult.cached) {
-        cacheHits++
-      } else {
-        cacheMisses++
-        if (!skipAI) {
-          aiCalls++
+      try {
+        // Check if this pair is in the excluded pairs list
+        if (isPairExcluded(a.assigned_number, b.assigned_number, excludedPairs)) {
+          skippedExcluded++
+          console.log(`🚫 Skipping excluded pair: #${a.assigned_number} ↔ #${b.assigned_number}`)
+          continue
         }
+        
+        // Check gender compatibility first (opposite gender only)
+        if (!checkGenderCompatibility(a, b)) {
+          skippedGender++
+          continue
+        }
+        
+        // Check age compatibility (girls must be within 3 years)
+        if (!checkAgeCompatibility(a, b)) {
+          skippedAge++
+          continue
+        }
+        
+        // Check interaction style compatibility (matching determinants)
+        if (!checkInteractionStyleCompatibility(a, b)) {
+          skippedInteractionStyle++
+          continue
+        }
+        
+        // Check if this pair has been matched in previous events
+        const hasPreviousMatch = await havePreviousMatch(a.assigned_number, b.assigned_number, eventId)
+        if (hasPreviousMatch) {
+          skippedPrevious++
+          continue
+        }
+        
+        // Use caching system for all compatibility calculations
+        const compatibilityResult = await calculateFullCompatibilityWithCache(a, b, skipAI)
+        
+        // Track cache performance
+        if (compatibilityResult.cached) {
+          cacheHits++
+        } else {
+          cacheMisses++
+          if (!skipAI) {
+            aiCalls++
+          }
+        }
+      } catch (pairError) {
+        console.error(`❌ ERROR processing pair #${a.assigned_number} × #${b.assigned_number}:`, pairError.message)
+        console.error(`   Stack:`, pairError.stack)
+        // Continue with next pair instead of crashing
+        continue
       }
       
       const mbtiScore = compatibilityResult.mbtiScore
@@ -2302,6 +2314,28 @@ export default async function handler(req, res) {
         bVibeDescription: b.survey_data?.vibeDescription || ''
       })
     }
+    
+    // Log completion summary
+    const calculationTime = Date.now() - startTime
+    console.log(`\n✅ COMPATIBILITY CALCULATION COMPLETE`)
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
+    console.log(`📊 Summary:`)
+    console.log(`   Total pairs processed: ${processedPairs}`)
+    console.log(`   Compatible pairs found: ${compatibilityScores.length}`)
+    console.log(`   Skipped - Gender incompatible: ${skippedGender}`)
+    console.log(`   Skipped - Age incompatible: ${skippedAge}`)
+    console.log(`   Skipped - Interaction style: ${skippedInteractionStyle}`)
+    console.log(`   Skipped - Previous matches: ${skippedPrevious}`)
+    console.log(`   Skipped - Excluded pairs: ${skippedExcluded}`)
+    console.log(`\n💾 Cache Performance:`)
+    console.log(`   Cache hits: ${cacheHits}`)
+    console.log(`   Cache misses: ${cacheMisses}`)
+    console.log(`   Cache hit rate: ${cacheHits + cacheMisses > 0 ? ((cacheHits / (cacheHits + cacheMisses)) * 100).toFixed(1) : 0}%`)
+    console.log(`   AI calls made: ${aiCalls}`)
+    console.log(`\n⏱️ Performance:`)
+    console.log(`   Total time: ${(calculationTime / 1000).toFixed(1)}s`)
+    console.log(`   Avg time per pair: ${compatibilityScores.length > 0 ? (calculationTime / compatibilityScores.length).toFixed(0) : 0}ms`)
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`)
 
     // Print simple pair results
     console.log(`📊 All Pair Compatibility Scores:`)
@@ -2597,8 +2631,23 @@ export default async function handler(req, res) {
     })
 
   } catch (err) {
-    console.error("🔥 Matching error:", err)
-    return res.status(500).json({ error: err.message || "Unexpected error" })
+    console.error("🔥🔥🔥 CRITICAL MATCHING ERROR 🔥🔥🔥")
+    console.error("Error name:", err.name)
+    console.error("Error message:", err.message)
+    console.error("Error stack:", err.stack)
+    
+    // Log additional context
+    console.error("Context:")
+    console.error("  - Event ID:", eventId)
+    console.error("  - Match Type:", matchType)
+    console.error("  - Skip AI:", skipAI)
+    
+    // Return detailed error to frontend
+    return res.status(500).json({ 
+      error: `Matching failed: ${err.message || "Unexpected error"}`,
+      errorType: err.name,
+      details: err.stack?.split('\n').slice(0, 3).join('\n') // First 3 lines of stack
+    })
   }
 }
 

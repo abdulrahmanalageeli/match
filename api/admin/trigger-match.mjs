@@ -2240,79 +2240,79 @@ export default async function handler(req, res) {
             aiCalls++
           }
         }
+        
+        const mbtiScore = compatibilityResult.mbtiScore
+        const attachmentScore = compatibilityResult.attachmentScore
+        const communicationScore = compatibilityResult.communicationScore
+        const lifestyleScore = compatibilityResult.lifestyleScore
+        const coreValuesScore = compatibilityResult.coreValuesScore
+        const vibeScore = compatibilityResult.vibeScore
+        const humorBonus = compatibilityResult.humorBonus
+        const totalScore = compatibilityResult.totalScore
+        
+        // Extract data for reason string and storage
+        const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
+        const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
+        const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
+        const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
+        const aCommunication = a.communication_style || a.survey_data?.communicationStyle
+        const bCommunication = b.communication_style || b.survey_data?.communicationStyle
+        const aLifestyle = a.survey_data?.lifestylePreferences || 
+          (a.survey_data?.answers ? 
+            [a.survey_data.answers.lifestyle_1, a.survey_data.answers.lifestyle_2, a.survey_data.answers.lifestyle_3, a.survey_data.answers.lifestyle_4, a.survey_data.answers.lifestyle_5].join(',') : 
+            null)
+        const bLifestyle = b.survey_data?.lifestylePreferences || 
+          (b.survey_data?.answers ? 
+            [b.survey_data.answers.lifestyle_1, b.survey_data.answers.lifestyle_2, b.survey_data.answers.lifestyle_3, b.survey_data.answers.lifestyle_4, b.survey_data.answers.lifestyle_5].join(',') : 
+            null)
+        const aCoreValues = a.survey_data?.coreValues || 
+          (a.survey_data?.answers ? 
+            [a.survey_data.answers.core_values_1, a.survey_data.answers.core_values_2, a.survey_data.answers.core_values_3, a.survey_data.answers.core_values_4, a.survey_data.answers.core_values_5].join(',') : 
+            null)
+        const bCoreValues = b.survey_data?.coreValues || 
+          (b.survey_data?.answers ? 
+            [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
+            null)
+        
+        let reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
+        
+        // Add humor bonus to reason if applicable
+        if (humorBonus > 0) {
+          reason += ` + مكافأة الدعابة المتشابهة: (+${humorBonus}%)`
+        }
+        
+        compatibilityScores.push({
+          a: a.assigned_number,
+          b: b.assigned_number,
+          score: totalScore,
+          reason: reason,
+          mbtiScore: mbtiScore,
+          attachmentScore: attachmentScore,
+          communicationScore: communicationScore,
+          lifestyleScore: lifestyleScore,
+          coreValuesScore: coreValuesScore,
+          vibeScore: vibeScore,
+          humorBonus: humorBonus,
+          // Store personality data for later use
+          aMBTI: aMBTI,
+          bMBTI: bMBTI,
+          aAttachment: aAttachment,
+          bAttachment: bAttachment,
+          aCommunication: aCommunication,
+          bCommunication: bCommunication,
+          aLifestyle: aLifestyle,
+          bLifestyle: bLifestyle,
+          aCoreValues: aCoreValues,
+          bCoreValues: bCoreValues,
+          aVibeDescription: a.survey_data?.vibeDescription || '',
+          bVibeDescription: b.survey_data?.vibeDescription || ''
+        })
       } catch (pairError) {
         console.error(`❌ ERROR processing pair #${a.assigned_number} × #${b.assigned_number}:`, pairError.message)
         console.error(`   Stack:`, pairError.stack)
         // Continue with next pair instead of crashing
         continue
       }
-      
-      const mbtiScore = compatibilityResult.mbtiScore
-      const attachmentScore = compatibilityResult.attachmentScore
-      const communicationScore = compatibilityResult.communicationScore
-      const lifestyleScore = compatibilityResult.lifestyleScore
-      const coreValuesScore = compatibilityResult.coreValuesScore
-      const vibeScore = compatibilityResult.vibeScore
-      const humorBonus = compatibilityResult.humorBonus
-      const totalScore = compatibilityResult.totalScore
-      
-      // Extract data for reason string and storage
-      const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
-      const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
-      const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
-      const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
-      const aCommunication = a.communication_style || a.survey_data?.communicationStyle
-      const bCommunication = b.communication_style || b.survey_data?.communicationStyle
-      const aLifestyle = a.survey_data?.lifestylePreferences || 
-        (a.survey_data?.answers ? 
-          [a.survey_data.answers.lifestyle_1, a.survey_data.answers.lifestyle_2, a.survey_data.answers.lifestyle_3, a.survey_data.answers.lifestyle_4, a.survey_data.answers.lifestyle_5].join(',') : 
-          null)
-      const bLifestyle = b.survey_data?.lifestylePreferences || 
-        (b.survey_data?.answers ? 
-          [b.survey_data.answers.lifestyle_1, b.survey_data.answers.lifestyle_2, b.survey_data.answers.lifestyle_3, b.survey_data.answers.lifestyle_4, b.survey_data.answers.lifestyle_5].join(',') : 
-          null)
-      const aCoreValues = a.survey_data?.coreValues || 
-        (a.survey_data?.answers ? 
-          [a.survey_data.answers.core_values_1, a.survey_data.answers.core_values_2, a.survey_data.answers.core_values_3, a.survey_data.answers.core_values_4, a.survey_data.answers.core_values_5].join(',') : 
-          null)
-      const bCoreValues = b.survey_data?.coreValues || 
-        (b.survey_data?.answers ? 
-          [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
-          null)
-      
-      let reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
-      
-      // Add humor bonus to reason if applicable
-      if (humorBonus > 0) {
-        reason += ` + مكافأة الدعابة المتشابهة: (+${humorBonus}%)`
-      }
-      
-      compatibilityScores.push({
-        a: a.assigned_number,
-        b: b.assigned_number,
-        score: totalScore,
-        reason: reason,
-        mbtiScore: mbtiScore,
-        attachmentScore: attachmentScore,
-        communicationScore: communicationScore,
-        lifestyleScore: lifestyleScore,
-        coreValuesScore: coreValuesScore,
-        vibeScore: vibeScore,
-        humorBonus: humorBonus,
-        // Store personality data for later use
-        aMBTI: aMBTI,
-        bMBTI: bMBTI,
-        aAttachment: aAttachment,
-        bAttachment: bAttachment,
-        aCommunication: aCommunication,
-        bCommunication: bCommunication,
-        aLifestyle: aLifestyle,
-        bLifestyle: bLifestyle,
-        aCoreValues: aCoreValues,
-        bCoreValues: bCoreValues,
-        aVibeDescription: a.survey_data?.vibeDescription || '',
-        bVibeDescription: b.survey_data?.vibeDescription || ''
-      })
     }
     
     // Log completion summary

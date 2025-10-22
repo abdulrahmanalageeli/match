@@ -2127,21 +2127,21 @@ Proceed?`
                     alert(`❌ Failed to generate matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                   }
                 }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-xl transition-all duration-300"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
               >
-                <RefreshCcw className="w-4 h-4" />
+                <RefreshCcw className="w-3.5 h-3.5" />
                 Generate Matches
               </button>
 
               {/* Pre-Cache Button with Options */}
-              <div className="flex items-center gap-2 bg-slate-800 p-2 rounded-xl border border-slate-700">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
+                <div className="flex items-center gap-1.5">
                   <label className="flex items-center gap-1 text-xs text-slate-300">
                     <input
                       type="checkbox"
                       checked={preCacheAll}
                       onChange={(e) => setPreCacheAll(e.target.checked)}
-                      className="w-4 h-4"
+                      className="w-3.5 h-3.5"
                     />
                     All
                   </label>
@@ -2152,7 +2152,7 @@ Proceed?`
                       onChange={(e) => setPreCacheCount(Math.max(1, parseInt(e.target.value) || 1))}
                       min="1"
                       max="5000"
-                      className="w-20 px-2 py-1 bg-slate-700 text-white border border-slate-600 rounded-lg text-sm"
+                      className="w-16 px-1.5 py-1 bg-slate-700 text-white border border-slate-600 rounded text-xs"
                       placeholder="50"
                     />
                   )}
@@ -2161,7 +2161,7 @@ Proceed?`
                 <select
                   value={preCacheDirection}
                   onChange={(e) => setPreCacheDirection(e.target.value as 'forward' | 'reverse')}
-                  className="px-2 py-1 bg-slate-700 text-white border border-slate-600 rounded-lg text-sm"
+                  className="px-1.5 py-1 bg-slate-700 text-white border border-slate-600 rounded text-xs"
                 >
                   <option value="forward">↓ Top→Bottom</option>
                   <option value="reverse">↑ Bottom→Top</option>
@@ -2170,12 +2170,12 @@ Proceed?`
                 <button
                   onClick={preCacheMatches}
                   disabled={preCaching || loading}
-                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded transition-all duration-300 disabled:opacity-50 text-xs"
                 >
                   {preCaching ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <Activity className="w-4 h-4" />
+                    <Activity className="w-3.5 h-3.5" />
                   )}
                   Pre-Cache
                 </button>

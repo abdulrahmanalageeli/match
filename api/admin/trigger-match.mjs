@@ -672,7 +672,10 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
     
-    const { error } = await supabase
+    console.log(`💾 Attempting to store cache for #${smaller}-#${larger}...`)
+    console.log(`   Scores: total=${scores.totalScore}, vibe=${scores.vibeScore}, humor=${scores.humorBonus}`)
+    
+    const { data, error } = await supabase
       .from('compatibility_cache')
       .upsert({
         participant_a_number: smaller,
@@ -693,14 +696,18 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
         total_compatibility_score: scores.totalScore,
         use_count: 1
       })
+      .select()
       
     if (!error) {
-      console.log(`💾 Cache STORE: #${smaller}-#${larger}`)
+      console.log(`   ✅ Cache STORED successfully: #${smaller}-#${larger}`)
     } else {
-      console.error("Cache store error:", error)
+      console.error(`   ❌ Cache store error for #${smaller}-#${larger}:`, error)
+      console.error(`   Error details:`, JSON.stringify(error, null, 2))
     }
   } catch (error) {
-    console.error("Cache store error:", error)
+    console.error(`   ❌ Cache store exception for #${participantA.assigned_number}-#${participantB.assigned_number}:`, error)
+    console.error(`   Exception message:`, error.message)
+    console.error(`   Exception stack:`, error.stack)
   }
 }
 
@@ -876,6 +883,9 @@ Return a single integer from 0 to 25. No other text.
 
 قيّم التوافق الشخصي بينهما من 0 إلى 25:`
 
+    console.log(`🤖 Calling OpenAI API (model: gpt-4o-mini)...`)
+    const apiStartTime = Date.now()
+    
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -885,6 +895,9 @@ Return a single integer from 0 to 25. No other text.
       max_tokens: 60,
       temperature: 0
     })
+    
+    const apiDuration = Date.now() - apiStartTime
+    console.log(`   ✅ OpenAI API responded in ${apiDuration}ms`)
 
     const rawResponse = completion.choices[0].message.content.trim()
     const score = parseInt(rawResponse)
@@ -901,6 +914,12 @@ Return a single integer from 0 to 25. No other text.
 
   } catch (error) {
     console.error("🔥 AI compatibility calculation error:", error)
+    console.error("   Error name:", error.name)
+    console.error("   Error message:", error.message)
+    if (error.response) {
+      console.error("   API response status:", error.response.status)
+      console.error("   API response data:", error.response.data)
+    }
     return 12.5 // Default score (50% of max 25%)
   }
 }
@@ -1655,16 +1674,27 @@ export default async function handler(req, res) {
         }
         
         // Check if already cached
+        console.log(`🔍 Checking pair #${p1.assigned_number} × #${p2.assigned_number}...`)
         const cached = await getCachedCompatibility(p1, p2)
         if (cached) {
+          console.log(`   ⏭️  Already cached (total already cached: ${alreadyCached + 1})`)
           alreadyCached++
           continue
         }
         
         // Calculate and cache
         console.log(`💾 Caching pair ${cachedCount + 1}/${cacheAll ? totalPairs : targetCount}: #${p1.assigned_number} × #${p2.assigned_number} (processed ${pairsProcessed}/${totalPairs} pairs)`)
-        await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
-        cachedCount++
+        console.log(`   🔄 Calling calculateFullCompatibilityWithCache (skipAI=${skipAI})...`)
+        
+        try {
+          const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+          console.log(`   ✅ Successfully cached! Total: ${result.totalScore.toFixed(2)}% (vibe: ${result.vibeScore}, humor: ${result.humorBonus})`)
+          cachedCount++
+        } catch (error) {
+          console.error(`   ❌ ERROR caching pair #${p1.assigned_number} × #${p2.assigned_number}:`, error.message)
+          console.error(`   Stack trace:`, error.stack)
+          // Don't increment cachedCount on error, continue to next pair
+        }
         }
       }
       

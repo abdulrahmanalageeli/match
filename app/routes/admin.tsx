@@ -35,6 +35,7 @@ import {
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
+import ParticipantQRModal from "~/components/ParticipantQRModal"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -3414,6 +3415,13 @@ Proceed?`
         groupAssignments={groupAssignments}
         totalGroups={totalGroups}
         totalParticipants={totalGroupParticipants}
+      />
+
+      {/* Participant QR Code Modal */}
+      <ParticipantQRModal
+        isOpen={detailParticipant !== null}
+        onClose={() => setDetailParticipant(null)}
+        participant={detailParticipant}
       />
 
       {/* React Hot Toast Container */}

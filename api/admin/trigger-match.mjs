@@ -1567,7 +1567,111 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, action = null, count = 50 } = req.body || {}
+  
+  // Handle pre-cache action
+  if (action === "pre-cache") {
+    if (!eventId) {
+      return res.status(400).json({ error: "eventId is required" })
+    }
+    
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const startTime = Date.now()
+    
+    console.log(`💾 PRE-CACHE START: Caching ${count} participant pairs for event ${eventId}`)
+    
+    try {
+      // Fetch eligible participants
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+      
+      if (error) throw error
+      
+      // Filter for complete participants
+      const participants = allParticipants.filter(p => isParticipantComplete(p))
+      
+      console.log(`📊 Found ${participants.length} eligible participants for pre-caching`)
+      
+      if (participants.length < 2) {
+        return res.status(400).json({ error: `Need at least 2 participants. Found ${participants.length}` })
+      }
+      
+      // Generate all possible pairs
+      const allPairs = []
+      for (let i = 0; i < participants.length; i++) {
+        for (let j = i + 1; j < participants.length; j++) {
+          allPairs.push([participants[i], participants[j]])
+        }
+      }
+      
+      console.log(`🔢 Total possible pairs: ${allPairs.length}`)
+      
+      // Shuffle pairs for random selection
+      for (let i = allPairs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allPairs[i], allPairs[j]] = [allPairs[j], allPairs[i]]
+      }
+      
+      let cachedCount = 0
+      let alreadyCached = 0
+      let skipped = 0
+      const maxPairs = Math.min(count, allPairs.length)
+      
+      for (let i = 0; i < allPairs.length && cachedCount < maxPairs; i++) {
+        const [p1, p2] = allPairs[i]
+        
+        // Check gender compatibility
+        if (!checkGenderCompatibility(p1, p2)) {
+          skipped++
+          continue
+        }
+        
+        // Check age compatibility
+        if (!checkAgeCompatibility(p1, p2)) {
+          skipped++
+          continue
+        }
+        
+        // Check if already cached
+        const cached = await getCachedCompatibility(p1, p2)
+        if (cached) {
+          alreadyCached++
+          continue
+        }
+        
+        // Calculate and cache
+        console.log(`💾 Caching pair ${cachedCount + 1}/${maxPairs}: #${p1.assigned_number} × #${p2.assigned_number}`)
+        await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+        cachedCount++
+      }
+      
+      // Get total cached count
+      const { count: totalCached } = await supabase
+        .from('compatibility_cache')
+        .select('*', { count: 'exact', head: true })
+      
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+      
+      console.log(`✅ PRE-CACHE COMPLETE: ${cachedCount} new, ${alreadyCached} already cached, ${skipped} skipped, ${duration}s`)
+      
+      return res.status(200).json({
+        success: true,
+        cached_count: cachedCount,
+        already_cached: alreadyCached,
+        skipped: skipped,
+        total_cached: totalCached || 0,
+        duration_seconds: duration,
+        message: `Pre-cached ${cachedCount} compatibility calculations`
+      })
+    } catch (error) {
+      console.error("❌ Pre-cache error:", error)
+      return res.status(500).json({ error: error.message })
+    }
+  }
   
   if (!eventId) {
     return res.status(400).json({ error: "eventId is required" })

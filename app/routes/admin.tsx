@@ -116,6 +116,10 @@ export default function AdminPage() {
   
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
+  
+  // Pre-cache state
+  const [preCacheCount, setPreCacheCount] = useState(50);
+  const [preCaching, setPreCaching] = useState(false);
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -1678,6 +1682,59 @@ const fetchParticipants = async () => {
     }
   }
 
+  // Pre-Cache Function - Cache compatibility calculations before running full match generation
+  const preCacheMatches = async () => {
+    const confirmMessage = `Pre-cache ${preCacheCount} participant pair compatibility calculations?
+
+This will:
+• Calculate compatibility for ${preCacheCount} random uncached pairs
+• Store results in compatibility_cache table
+• Help prevent timeouts during full match generation
+
+Proceed?`
+    
+    if (!confirm(confirmMessage)) return
+    
+    setPreCaching(true)
+    try {
+      const res = await fetch("/api/admin/trigger-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "pre-cache",
+          eventId: currentEventId,
+          count: preCacheCount
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        let successMessage = `✅ Pre-cached ${data.cached_count} compatibility calculations!`
+        
+        if (data.already_cached > 0) {
+          successMessage += `\n\n📊 ${data.already_cached} pairs were already cached`
+        }
+        
+        if (data.skipped > 0) {
+          successMessage += `\n⚠️ ${data.skipped} pairs skipped (incompatible)`
+        }
+        
+        successMessage += `\n\n⏱️ Time taken: ${data.duration_seconds}s`
+        successMessage += `\n💾 Total cached pairs now: ${data.total_cached}`
+        
+        toast.success(successMessage, { duration: 6000 })
+      } else {
+        toast.error(`Failed to pre-cache: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error pre-caching:", error)
+      toast.error("Error pre-caching matches")
+    } finally {
+      setPreCaching(false)
+    }
+  }
+
   // Clean Slate Function - Remove last admin result and current event matches
   const cleanSlate = async () => {
     const confirmMessage = `⚠️ CLEAN SLATE OPERATION\n\nThis will permanently:\n• Remove the LAST admin result from admin_results table\n• Delete ALL matches for Event ${currentEventId} from result_match table\n\nThis gives you a clean slate to generate new matches.\n\nAre you absolutely sure?`
@@ -2067,6 +2124,31 @@ const fetchParticipants = async () => {
                 <RefreshCcw className="w-4 h-4" />
                 Generate Matches
               </button>
+
+              {/* Pre-Cache Button with Count Input */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  value={preCacheCount}
+                  onChange={(e) => setPreCacheCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                  max="500"
+                  className="w-20 px-2 py-1 bg-slate-700 text-white border border-slate-600 rounded-lg text-sm"
+                  placeholder="50"
+                />
+                <button
+                  onClick={preCacheMatches}
+                  disabled={preCaching || loading}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-xl transition-all duration-300 disabled:opacity-50"
+                >
+                  {preCaching ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Activity className="w-4 h-4" />
+                  )}
+                  Pre-Cache
+                </button>
+              </div>
 
               <button
                 onClick={async () => {

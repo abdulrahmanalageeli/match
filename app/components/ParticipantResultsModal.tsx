@@ -173,8 +173,8 @@ export default function ParticipantResultsModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "add-excluded-pair",
-          participant1_number: participant1,
-          participant2_number: participant2
+          participant1: participant1,
+          participant2: participant2
         })
       })
       
@@ -206,8 +206,8 @@ export default function ParticipantResultsModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "add-excluded-participant",
-          participant_number: participantNumber,
-          is_banned: false
+          participantNumber: participantNumber,
+          banPermanently: false
         })
       })
       
@@ -239,8 +239,8 @@ export default function ParticipantResultsModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "add-excluded-participant",
-          participant_number: participantNumber,
-          is_banned: true
+          participantNumber: participantNumber,
+          banPermanently: true
         })
       })
       

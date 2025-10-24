@@ -51,6 +51,8 @@ import {
   Flame,
   Compass,
   Layers,
+  Bell,
+  Info,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -336,6 +338,9 @@ export default function WelcomePage() {
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [timeOnCurrentQuestion, setTimeOnCurrentQuestion] = useState(0);
   const [showPaceNudge, setShowPaceNudge] = useState(false);
+  
+  // 5-minute warning notification
+  const [showFiveMinuteWarning, setShowFiveMinuteWarning] = useState(false);
   
   // Question transition animation
   const [questionTransition, setQuestionTransition] = useState<'none' | 'next' | 'prev'>('none');
@@ -1540,6 +1545,12 @@ export default function WelcomePage() {
       interval = setInterval(() => {
         setRound1LocalTimer(prev => {
           if (prev <= 0) return 0
+          
+          // Show 5-minute warning when exactly 5 minutes remain
+          if (prev === 300 && !showFiveMinuteWarning) {
+            setShowFiveMinuteWarning(true)
+          }
+          
           return prev - 1
         })
       }, 1000)
@@ -1548,7 +1559,7 @@ export default function WelcomePage() {
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [step, currentRound, round1TimerStarted])
+  }, [step, currentRound, round1TimerStarted, showFiveMinuteWarning])
 
   // Track time spent on current question and show gentle nudge
   useEffect(() => {
@@ -6548,6 +6559,47 @@ export default function WelcomePage() {
                         <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
                           {round1Questions[currentQuestionIndex].question}
                         </p>
+
+                        {/* 5-Minute Warning Notification */}
+                        {showFiveMinuteWarning && (
+                          <div className={`mt-6 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-500 ${
+                            dark 
+                              ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30" 
+                              : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300"
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                dark ? "bg-blue-500/20" : "bg-blue-100"
+                              }`}>
+                                <Bell className={`w-5 h-5 ${dark ? "text-blue-400" : "text-blue-600"} animate-pulse`} />
+                              </div>
+                              
+                              <div className="flex-1">
+                                <h4 className={`text-sm font-bold mb-1 ${
+                                  dark ? "text-blue-200" : "text-blue-800"
+                                }`}>
+                                  ⏰ باقي 5 دقائق
+                                </h4>
+                                <p className={`text-sm leading-relaxed ${
+                                  dark ? "text-blue-300/90" : "text-blue-700"
+                                }`}>
+                                  سيظهر نموذج التقييم قريباً. بعد تعبئته، ستحصلون على تحليل فوري من الذكاء الاصطناعي يشرح لكم سبب المطابقة بينكم! 🤖✨
+                                </p>
+                              </div>
+
+                              <button
+                                className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
+                                  dark 
+                                    ? "hover:bg-blue-500/20 text-blue-400" 
+                                    : "hover:bg-blue-100 text-blue-600"
+                                }`}
+                                onClick={() => setShowFiveMinuteWarning(false)}
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Gentle Pace Nudge */}
                         {showPaceNudge && (

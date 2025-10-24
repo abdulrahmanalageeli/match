@@ -48,6 +48,9 @@ import {
   RotateCcw,
   Mail,
   MessageCircle,
+  Flame,
+  Compass,
+  Layers,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -333,6 +336,9 @@ export default function WelcomePage() {
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [timeOnCurrentQuestion, setTimeOnCurrentQuestion] = useState(0);
   const [showPaceNudge, setShowPaceNudge] = useState(false);
+  
+  // Question transition animation
+  const [questionTransition, setQuestionTransition] = useState<'none' | 'next' | 'prev'>('none');
 
   // Token validation states
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
@@ -379,49 +385,49 @@ export default function WelcomePage() {
       question: "لو طلبنا منك توصف نفسك بثلاث كلمات، إيش بتكون هالكلمات؟ وليش اخترتها بالذات؟",
       level: 0,
       levelTitle: "اتصال سريع",
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },
     {
       title: "الانسجام",
       question: "وش الحركة الصغيرة أو الكلمة البسيطة اللي تفرحك وتخليك ترتاح لشخص جديد بسرعة؟ وفي المقابل، إيش الشيء الصغير اللي لو سواه أحد يخليك تنسحب أو تتردد؟",
       level: 0,
       levelTitle: "اتصال سريع",
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },    
     {
       title: "الطاقة",
       question: "إذا فتحنا أي موضوع وتسولفنا فيه وانت ناسي الوقت، إيش يكون ذاك الموضوع؟",
       level: 0,
       levelTitle: "اتصال سريع",
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },
     {
       title: "الويكند",
       question: "كيف تحب تقضي وقتك في ويكند مثالي؟ جلسة هادئة في البيت، لقاء مع الأصدقاء، ولا مغامرة مشوّقة خارج المدينة؟",
       level: 0,
       levelTitle: "اتصال سريع", 
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },
     {
       title: "الموسيقى",
       question: "إيش آخر ٣ أغاني أو فنّانين على تكرار عندك وما تملّ سماعهم؟",
       level: 0,
       levelTitle: "اتصال سريع",
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },    
     {
       title: "الانطباع العكسي",
       question: "إيش الانطباع اللي الناس عادةً تاخذونه عنك من أول مرة، بس أنت تحس إنه مو صحيح أو مبالغ فيه؟",
       level: 0,
       levelTitle: "اتصال سريع",
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },
     {
       title: "فن فاكت",
       question: "فيك تسولف لنا عن حقيقة ممتعة أو موهبة غريبة تمتلكها وممكن تدهش الناس؟",
       level: 0,
       levelTitle: "اتصال سريع",
-      levelEmoji: "⚡"
+      levelIcon: "Zap"
     },
     // Level 1: The Spark - Breaking the Ice 🧊
     {
@@ -429,28 +435,28 @@ export default function WelcomePage() {
       question: "أوصف لنا يومك المثالي من أول ما تصحى لين آخر لحظة قبل النوم. إيش تسوي طول اليوم علشان تحس أنه يوم رائع؟",
       level: 1,
       levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
-      levelEmoji: "🧊"
+      levelIcon: "Flame"
     },
     {
       title: "العالم الموازي",
       question: "لو صار عندك فرصة تشتغل في شي بعيد تمامًا عن تخصصك الحالي (مثلاً هواية أو شغف ثاني)، إيش ممكن يكون؟ وليش تشعر إنه يناسب شخصيتك؟",
       level: 1,
       levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
-      levelEmoji: "🧊"
+      levelIcon: "Flame"
     },
     {
       title: "مصدر الطاقة",
       question: "تذكر آخر مرة حسيت فيها أنك مليان طاقة وحيوية: إيش كنت تسوي وقتها؟ وهل كنت لوحدك أو مع أحد؟",
       level: 1,
       levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
-      levelEmoji: "🧊"
+      levelIcon: "Flame"
     },
     {
       title: "التأثير المعرفي",
       question: "إذا في كتاب أو فيلم أو مسلسل وثائقي أثر فيك السنة اللي راحت، أي واحد وإيش كان أثره عليك؟ كيف غيّر نظرتك لشي معيّن؟",
       level: 1,
       levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
-      levelEmoji: "🧊"
+      levelIcon: "Flame"
     },
     // Level 2: The Core - Understanding Values 🧭
     {
@@ -458,42 +464,42 @@ export default function WelcomePage() {
       question: "وش القيمة أو المبدأ اللي تلتزم فيه دومًا وما تتنازل عنه لأي سبب، سواء كان عمل أو صديق أو أي وضع آخر؟",
       level: 2,
       levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
-      levelEmoji: "🧭"
+      levelIcon: "Compass"
     },
     {
       title: "الخط الفاصل",
       question: "إيش التصرفات أو المواقف اللي تعتبرها عندك خط أحمر لو شفت حد يقيمها عادية؟",
       level: 2,
       levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
-      levelEmoji: "🧭"
+      levelIcon: "Compass"
     },
     {
       title: "الصفة المُقدَّرة",
       question: "فكّر في الأشخاص اللي تقدرهم وتحترمهم بحياتك: إيش الصفة المشتركة بينهم؟ وليش تعجبك هالصفة؟",
       level: 2,
       levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
-      levelEmoji: "🧭"
+      levelIcon: "Compass"
     },
     {
       title: "سؤال الأثر",
       question: "كيف تتمنى يكون أثرك أو إضافتك في حياة الناس حولك؟ يعني لو يحكوا عنك بعدين، إيش كان الأثر اللي حابب يتذكرك فيه؟",
       level: 2,
       levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
-      levelEmoji: "🧭"
+      levelIcon: "Compass"
     },
     {
       title: "الموقف الحاسم",
       question: "وش موقف خلاك تعرف حدودك فعلاً؟ كيف تغيّرت بعدها؟",
       level: 2,
       levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
-      levelEmoji: "🧭"
+      levelIcon: "Compass"
     },
     {
       title: "الحرية الشخصية",
       question: "إذا اعتبرت حياتك كتاب، وش الفصل اللي أنت تكتب فيه الآن؟ وليش اخترت هالعنوان؟",
       level: 2,
       levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
-      levelEmoji: "🧭"
+      levelIcon: "Compass"
     },
     // Level 3: Sharing Experiences - مشاركة التجارب 💫
     {
@@ -501,42 +507,42 @@ export default function WelcomePage() {
       question: "احكي لنا عن ذكرى عزيزة عليك كثير. إيش تفاصيلها المميزة وليش ما تنساها؟",
       level: 3,
       levelTitle: "المستوى الثالث: مشاركة التجارب",
-      levelEmoji: "💫"
+      levelIcon: "Sparkles"
     },
     {
       title: "لحظة التحول",
       question: "هل مرت عليك لحظة أو تجربة حسيت بعدها إنك ما صرت نفس الشخص القديم؟ إيش صار داخلك وخلاك تتغير بعدها؟",
       level: 3,
       levelTitle: "المستوى الثالث: مشاركة التجارب",
-      levelEmoji: "💫"
+      levelIcon: "Sparkles"
     },
     {
       title: "الفخر الصامت",
       question: "في شي عملته أو حققته أنت فخور فيه جدًا، بس نادرًا ما تجيك الفرصة تحكيله عنه؟ إيش هو هذا الإنجاز الصامت؟",
       level: 3,
       levelTitle: "المستوى الثالث: مشاركة التجارب",
-      levelEmoji: "💫"
+      levelIcon: "Sparkles"
     },
     {
       title: "الدرس العميق",
       question: "إيش أكثر فكرة أو اقتناع كنت مؤمن فيه زمان وتغيّرت نظرتك له تمامًا؟ وش اللي سبب التغيير؟",
       level: 3,
       levelTitle: "المستوى الثالث: مشاركة التجارب",
-      levelEmoji: "💫"
+      levelIcon: "Sparkles"
     },
     {
       title: "وجه ثاني",
       question: "فيه أحد غيّر نظرتك للعلاقات أو الصداقة تمامًا؟ وش اللي صار؟",
       level: 3,
       levelTitle: "المستوى الثالث: مشاركة التجارب",
-      levelEmoji: "💫"
+      levelIcon: "Sparkles"
     },
     {
       title: "الظل والضوء",
       question: "شاركنا جانب من شخصيتك قليل الناس يعرفونه، لكن تحسه جزء مهم من حقيقتك. إيش هو هذا الجانب؟",
       level: 3,
       levelTitle: "المستوى الثالث: مشاركة التجارب",
-      levelEmoji: "💫"
+      levelIcon: "Sparkles"
     },
     // Level 4: "What If?" - Exploring Scenarios 🤝
     {
@@ -544,28 +550,28 @@ export default function WelcomePage() {
       question: "لو قلت شي بنية طيبة وانفهم بالعكس، تبرّر ولا تترك الموقف يشرح نفسه؟",
       level: 4,
       levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
-      levelEmoji: "🤝"
+      levelIcon: "Handshake"
     },
     {
       title: "أسلوب الدعم",
       question: "صديق مقرب لكم يمر بوقت صعب بعد غلطه في مشكلة. هل تركزون على نصايح عملية عشان يساعدونه يحل المشكلة، أو تركزون على الدعمه المعنوي والاستماع له أكثر؟ وتفسرون إيش أسلوب كل واحد فيكم.",
       level: 4,
       levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
-      levelEmoji: "🤝"
+      levelIcon: "Handshake"
     },
     {
       title: "الاختلاف الهادئ",
       question: "لو اكتشفت إنك أنت وشريكك في الحوار تختلفون في نقطة مبادئية (مثلاً رأي أو قيمة أساسية) لكن العلاقة طيبة، تمشيها ولا توقف وتتناقش فيها؟ وليش؟",
       level: 4,
       levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
-      levelEmoji: "🤝"
+      levelIcon: "Handshake"
     },
     {
       title: "نظرة على التوافق",
       question: "بناءً على حوارنا هذا، ليش تعتقدون إن الذكاء الاصطناعي شاف إنكم متوافقين؟ ايش هي نقاط التشابه أو التكامل اللي لاحظتوها بينكم؟",
       level: 4,
       levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
-      levelEmoji: "🤝"
+      levelIcon: "Handshake"
     }
   ];
   const [promptIndex, setPromptIndex] = useState(0);
@@ -1575,6 +1581,25 @@ export default function WelcomePage() {
   }, [step, currentRound, questionStartTime, currentQuestionIndex, showPaceNudge])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
+
+  // Helper function to render level icon
+  const renderLevelIcon = (iconName: string) => {
+    const iconProps = { className: "w-4 h-4 text-white" }
+    switch (iconName) {
+      case "Zap":
+        return <Zap {...iconProps} />
+      case "Flame":
+        return <Flame {...iconProps} />
+      case "Compass":
+        return <Compass {...iconProps} />
+      case "Sparkles":
+        return <Sparkles {...iconProps} />
+      case "Handshake":
+        return <Handshake {...iconProps} />
+      default:
+        return <Layers {...iconProps} />
+    }
+  }
 
   // Unified Navigation Bar for saved users (similar to groups page)
   const NavigationBar = () => {
@@ -6447,9 +6472,7 @@ export default function WelcomePage() {
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
-                            <span className="text-white font-bold text-sm">
-                              {round1Questions[currentQuestionIndex].levelEmoji}
-                            </span>
+                            {renderLevelIcon(round1Questions[currentQuestionIndex].levelIcon)}
                           </div>
                           <h4 className={`text-lg font-bold ${
                             round1Questions[currentQuestionIndex].level === 0
@@ -6490,11 +6513,16 @@ export default function WelcomePage() {
                       </div>
 
                       {/* Question Card */}
-                      <div className={`relative p-6 rounded-xl border ${
-                        dark 
-                          ? "bg-slate-800/50 border-slate-600/50" 
-                          : "bg-white/80 border-gray-200"
-                      } shadow-lg backdrop-blur-sm`}>
+                      <div 
+                        key={currentQuestionIndex}
+                        className={`relative p-6 rounded-xl border ${
+                          dark 
+                            ? "bg-slate-800/50 border-slate-600/50" 
+                            : "bg-white/80 border-gray-200"
+                        } shadow-lg backdrop-blur-sm ${
+                          questionTransition === 'next' ? 'animate-slide-in-right' : 
+                          questionTransition === 'prev' ? 'animate-slide-in-left' : ''
+                        }`}>
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
@@ -6566,7 +6594,11 @@ export default function WelcomePage() {
                         {/* Navigation */}
                         <div className="flex items-center justify-between mt-6">
                           <button
-                            onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
+                            onClick={() => {
+                              setQuestionTransition('prev')
+                              setCurrentQuestionIndex(prev => Math.max(0, prev - 1))
+                              setTimeout(() => setQuestionTransition('none'), 400)
+                            }}
                             disabled={currentQuestionIndex === 0}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
                               currentQuestionIndex === 0
@@ -6584,7 +6616,11 @@ export default function WelcomePage() {
 
 
                           <button
-                            onClick={() => setCurrentQuestionIndex(prev => Math.min(round1Questions.length - 1, prev + 1))}
+                            onClick={() => {
+                              setQuestionTransition('next')
+                              setCurrentQuestionIndex(prev => Math.min(round1Questions.length - 1, prev + 1))
+                              setTimeout(() => setQuestionTransition('none'), 400)
+                            }}
                             disabled={currentQuestionIndex === round1Questions.length - 1}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
                               currentQuestionIndex === round1Questions.length - 1
@@ -6752,9 +6788,7 @@ export default function WelcomePage() {
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
-                            <span className="text-white font-bold text-sm">
-                              {round1Questions[currentQuestionIndex].levelEmoji}
-                            </span>
+                            {renderLevelIcon(round1Questions[currentQuestionIndex].levelIcon)}
                           </div>
                           <h4 className={`text-lg font-bold ${
                             round1Questions[currentQuestionIndex].level === 0

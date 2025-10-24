@@ -1092,7 +1092,8 @@ export default function WelcomePage() {
     // Poll for all steps except the initial welcome screen (step -1)
     if (isResolving || step === -1) return
 
-    const interval = setInterval(async () => {
+    // Shared polling function that can be called on-demand or via interval
+    const pollEventState = async () => {
       try {
         // Polling for updates...
         // Fetch both phase and event state in one call
@@ -1516,10 +1517,37 @@ export default function WelcomePage() {
       } catch (err) {
         console.error("Failed to fetch real-time updates", err)
       }
-    }, 2000) // Poll every 2 seconds (reduced from 1s for better performance) for better responsiveness
+    }
+
+    // Start regular polling interval
+    const interval = setInterval(pollEventState, 2000) // Poll every 2 seconds
+    
+    // Also poll immediately on mount
+    pollEventState()
+
+    // Page Visibility API: Force sync when user returns to the page
+    // This handles cases when:
+    // - Screen is locked/unlocked
+    // - Browser tab is switched away and back
+    // - Mobile device screen turns off/on
+    // - Computer goes to sleep and wakes up
+    // When any of these happen, JavaScript timers can be throttled or paused,
+    // causing the UI to become out of sync. This forces an immediate sync when
+    // the user returns to the page.
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log("👁️ Page became visible - forcing immediate sync to catch up with server state")
+        pollEventState() // Immediate sync when page becomes visible again
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
   
-    return () => clearInterval(interval)
-  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive])
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive, phase, currentEventId, announcement, emergencyPaused, timerRestored, globalTimerStartTime, globalTimerDuration, conversationStarted, modalStep, isScoreRevealed, isShowingFinishedEventFeedback, secureToken, formFilledChoiceMade, justCompletedEditing, tokenValidationCompleted, surveyData, showFormFilledPrompt])
 
   // Round 1 Local Timer - counts down from 45 minutes
   // Track if timer has ever started to keep it running even after global timer ends

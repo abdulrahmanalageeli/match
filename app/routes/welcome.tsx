@@ -6514,7 +6514,6 @@ export default function WelcomePage() {
 
                       {/* Question Card */}
                       <div 
-                        key={currentQuestionIndex}
                         className={`relative p-6 rounded-xl border ${
                           dark 
                             ? "bg-slate-800/50 border-slate-600/50" 

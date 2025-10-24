@@ -5649,7 +5649,7 @@ export default function WelcomePage() {
           dark
             ? step === 4 && currentRound === 1
               ? round1Questions[currentQuestionIndex].level === 0
-                ? "bg-gradient-to-br from-yellow-900/20 via-slate-800 to-orange-900/20 text-white"
+                ? "bg-gradient-to-br from-emerald-900/20 via-slate-800 to-green-900/20 text-white"
                 : round1Questions[currentQuestionIndex].level === 1
                   ? "bg-gradient-to-br from-cyan-900/20 via-slate-800 to-blue-900/20 text-white"
                   : round1Questions[currentQuestionIndex].level === 2
@@ -5660,7 +5660,7 @@ export default function WelcomePage() {
               : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
             : step === 4 && currentRound === 1
               ? round1Questions[currentQuestionIndex].level === 0
-                ? "bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-100 text-gray-900"
+                ? "bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 text-gray-900"
                 : round1Questions[currentQuestionIndex].level === 1
                   ? "bg-gradient-to-br from-cyan-50 via-blue-50 to-cyan-100 text-gray-900"
                   : round1Questions[currentQuestionIndex].level === 2
@@ -6452,8 +6452,8 @@ export default function WelcomePage() {
                     <div className={`mb-6 p-6 rounded-2xl border ${
                       round1Questions[currentQuestionIndex].level === 0
                         ? dark 
-                          ? "bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-400/30" 
-                          : "bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200"
+                          ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
+                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
                         : round1Questions[currentQuestionIndex].level === 1
                           ? dark 
                             ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
@@ -6474,7 +6474,7 @@ export default function WelcomePage() {
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                             round1Questions[currentQuestionIndex].level === 0
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                              ? "bg-gradient-to-r from-emerald-500 to-green-500"
                               : round1Questions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
                                 : round1Questions[currentQuestionIndex].level === 2
@@ -6487,7 +6487,7 @@ export default function WelcomePage() {
                           </div>
                           <h4 className={`text-lg font-bold ${
                             round1Questions[currentQuestionIndex].level === 0
-                              ? dark ? "text-yellow-200" : "text-yellow-800"
+                              ? dark ? "text-emerald-200" : "text-emerald-800"
                               : round1Questions[currentQuestionIndex].level === 1
                                 ? dark ? "text-cyan-200" : "text-cyan-800"
                                 : round1Questions[currentQuestionIndex].level === 2
@@ -6501,7 +6501,7 @@ export default function WelcomePage() {
                         </div>
                         <p className={`text-sm ${
                           round1Questions[currentQuestionIndex].level === 0
-                            ? dark ? "text-yellow-300" : "text-yellow-700"
+                            ? dark ? "text-emerald-300" : "text-emerald-700"
                             : round1Questions[currentQuestionIndex].level === 1
                               ? dark ? "text-cyan-300" : "text-cyan-700"
                               : round1Questions[currentQuestionIndex].level === 2
@@ -6537,7 +6537,7 @@ export default function WelcomePage() {
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
                             round1Questions[currentQuestionIndex].level === 0
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                              ? "bg-gradient-to-r from-emerald-500 to-green-500"
                               : round1Questions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
                                 : round1Questions[currentQuestionIndex].level === 2
@@ -6694,7 +6694,7 @@ export default function WelcomePage() {
                             <div 
                               className={`h-full rounded-full transition-all duration-500 ${
                                 round1Questions[currentQuestionIndex].level === 0
-                                  ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                                  ? "bg-gradient-to-r from-emerald-500 to-green-500"
                                   : round1Questions[currentQuestionIndex].level === 1
                                     ? "bg-gradient-to-r from-cyan-500 to-blue-600"
                                     : round1Questions[currentQuestionIndex].level === 2
@@ -6808,8 +6808,8 @@ export default function WelcomePage() {
                     <div className={`mb-6 p-6 rounded-2xl border ${
                       round1Questions[currentQuestionIndex].level === 0
                         ? dark 
-                          ? "bg-gradient-to-br from-yellow-500/10 to-orange-500/10 border-yellow-400/30" 
-                          : "bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200"
+                          ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
+                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
                         : round1Questions[currentQuestionIndex].level === 1
                           ? dark 
                             ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
@@ -6830,7 +6830,7 @@ export default function WelcomePage() {
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                             round1Questions[currentQuestionIndex].level === 0
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                              ? "bg-gradient-to-r from-emerald-500 to-green-500"
                               : round1Questions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
                                 : round1Questions[currentQuestionIndex].level === 2
@@ -6843,7 +6843,7 @@ export default function WelcomePage() {
                           </div>
                           <h4 className={`text-lg font-bold ${
                             round1Questions[currentQuestionIndex].level === 0
-                              ? dark ? "text-yellow-200" : "text-yellow-800"
+                              ? dark ? "text-emerald-200" : "text-emerald-800"
                               : round1Questions[currentQuestionIndex].level === 1
                                 ? dark ? "text-cyan-200" : "text-cyan-800"
                                 : round1Questions[currentQuestionIndex].level === 2
@@ -6857,7 +6857,7 @@ export default function WelcomePage() {
                         </div>
                         <p className={`text-sm ${
                           round1Questions[currentQuestionIndex].level === 0
-                            ? dark ? "text-yellow-300" : "text-yellow-700"
+                            ? dark ? "text-emerald-300" : "text-emerald-700"
                             : round1Questions[currentQuestionIndex].level === 1
                               ? dark ? "text-cyan-300" : "text-cyan-700"
                               : round1Questions[currentQuestionIndex].level === 2
@@ -6884,7 +6884,7 @@ export default function WelcomePage() {
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
                             round1Questions[currentQuestionIndex].level === 0
-                              ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                              ? "bg-gradient-to-r from-emerald-500 to-green-500"
                               : round1Questions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
                                 : round1Questions[currentQuestionIndex].level === 2
@@ -6946,7 +6946,7 @@ export default function WelcomePage() {
                             <div 
                               className={`h-2 rounded-full transition-all duration-300 ${
                                 round1Questions[currentQuestionIndex].level === 0
-                                  ? "bg-gradient-to-r from-yellow-500 to-orange-500"
+                                  ? "bg-gradient-to-r from-emerald-500 to-green-500"
                                   : round1Questions[currentQuestionIndex].level === 1
                                     ? "bg-gradient-to-r from-cyan-500 to-blue-600"
                                     : round1Questions[currentQuestionIndex].level === 2

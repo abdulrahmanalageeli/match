@@ -1563,10 +1563,10 @@ export default function WelcomePage() {
       setTimeOnCurrentQuestion(elapsed)
 
       // Show nudge if:
-      // 1. Spending more than 10 seconds on one question (for testing)
+      // 1. Spending more than 5 minutes on one question (300 seconds)
       // 2. Still have 10+ questions remaining
       const remainingQuestions = round1Questions.length - currentQuestionIndex - 1
-      if (elapsed >= 10 && remainingQuestions > 10 && !showPaceNudge) {
+      if (elapsed >= 300 && remainingQuestions > 10 && !showPaceNudge) {
         setShowPaceNudge(true)
       }
     }, 1000)
@@ -5609,10 +5609,30 @@ export default function WelcomePage() {
         </div>
       )}
       <div
-        className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden ${
+        className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden transition-colors duration-1000 ${
           dark
-            ? "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
-            : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
+            ? step === 4 && currentRound === 1
+              ? round1Questions[currentQuestionIndex].level === 0
+                ? "bg-gradient-to-br from-yellow-900/20 via-slate-800 to-orange-900/20 text-white"
+                : round1Questions[currentQuestionIndex].level === 1
+                  ? "bg-gradient-to-br from-cyan-900/20 via-slate-800 to-blue-900/20 text-white"
+                  : round1Questions[currentQuestionIndex].level === 2
+                    ? "bg-gradient-to-br from-amber-900/20 via-slate-800 to-orange-900/20 text-white"
+                    : round1Questions[currentQuestionIndex].level === 3
+                      ? "bg-gradient-to-br from-purple-900/20 via-slate-800 to-pink-900/20 text-white"
+                      : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
+              : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
+            : step === 4 && currentRound === 1
+              ? round1Questions[currentQuestionIndex].level === 0
+                ? "bg-gradient-to-br from-yellow-50 via-orange-50 to-yellow-100 text-gray-900"
+                : round1Questions[currentQuestionIndex].level === 1
+                  ? "bg-gradient-to-br from-cyan-50 via-blue-50 to-cyan-100 text-gray-900"
+                  : round1Questions[currentQuestionIndex].level === 2
+                    ? "bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 text-gray-900"
+                    : round1Questions[currentQuestionIndex].level === 3
+                      ? "bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 text-gray-900"
+                      : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
+              : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
         }`}
         dir="rtl"
       >

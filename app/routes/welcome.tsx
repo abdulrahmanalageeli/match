@@ -328,6 +328,11 @@ export default function WelcomePage() {
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showRound1Guide, setShowRound1Guide] = useState(false);
+  
+  // Question pace tracking for gentle nudge
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [timeOnCurrentQuestion, setTimeOnCurrentQuestion] = useState(0);
+  const [showPaceNudge, setShowPaceNudge] = useState(false);
 
   // Token validation states
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
@@ -1538,6 +1543,36 @@ export default function WelcomePage() {
       if (interval) clearInterval(interval)
     }
   }, [step, currentRound, round1TimerStarted])
+
+  // Track time spent on current question and show gentle nudge
+  useEffect(() => {
+    // Reset timer when question changes
+    setQuestionStartTime(Date.now())
+    setTimeOnCurrentQuestion(0)
+    setShowPaceNudge(false)
+  }, [currentQuestionIndex])
+
+  useEffect(() => {
+    // Only track during Round 1 conversation phase
+    if (step !== 4 || currentRound !== 1) {
+      return
+    }
+
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - questionStartTime) / 1000)
+      setTimeOnCurrentQuestion(elapsed)
+
+      // Show nudge if:
+      // 1. Spending more than 10 seconds on one question (for testing)
+      // 2. Still have 10+ questions remaining
+      const remainingQuestions = round1Questions.length - currentQuestionIndex - 1
+      if (elapsed >= 10 && remainingQuestions > 10 && !showPaceNudge) {
+        setShowPaceNudge(true)
+      }
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [step, currentRound, questionStartTime, currentQuestionIndex, showPaceNudge])
 
   const next = () => setStep((s) => Math.min(s + 1, 6))
 
@@ -6466,6 +6501,47 @@ export default function WelcomePage() {
                         <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
                           {round1Questions[currentQuestionIndex].question}
                         </p>
+
+                        {/* Gentle Pace Nudge */}
+                        {showPaceNudge && (
+                          <div className={`mt-6 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
+                            dark 
+                              ? "bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-orange-400/30" 
+                              : "bg-gradient-to-r from-orange-50 to-amber-50 border-orange-300"
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                dark ? "bg-orange-500/20" : "bg-orange-100"
+                              }`}>
+                                <Clock className={`w-5 h-5 ${dark ? "text-orange-400" : "text-orange-600"}`} />
+                              </div>
+                              
+                              <div className="flex-1">
+                                <h4 className={`text-sm font-bold mb-1 ${
+                                  dark ? "text-orange-200" : "text-orange-800"
+                                }`}>
+                                  تذكير لطيف
+                                </h4>
+                                <p className={`text-sm leading-relaxed ${
+                                  dark ? "text-orange-300/90" : "text-orange-700"
+                                }`}>
+                                  لديكم {round1Questions.length - currentQuestionIndex - 1} سؤال آخر - جربوا الانتقال للسؤال التالي لاستكشاف المزيد من المواضيع
+                                </p>
+                              </div>
+
+                              <button
+                                className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
+                                  dark 
+                                    ? "hover:bg-orange-500/20 text-orange-400" 
+                                    : "hover:bg-orange-100 text-orange-600"
+                                }`}
+                                onClick={() => setShowPaceNudge(false)}
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* Navigation */}
                         <div className="flex items-center justify-between mt-6">

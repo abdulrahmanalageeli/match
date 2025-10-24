@@ -8280,7 +8280,7 @@ export default function WelcomePage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className={`w-full max-w-md rounded-2xl p-8 shadow-2xl border-2 ${dark ? "bg-slate-800 border-slate-600" : "bg-white border-gray-200"}`} dir="rtl">
             <h3 className={`text-xl font-bold text-center mb-4 ${dark ? "text-slate-100" : "text-gray-800"}`}>لقد قمت بتعبئة النموذج مسبقاً</h3>
-            <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>هل ترغب في إعادة تعبئة النموذج أم الانتقال مباشرةً إلى التحليل؟</p>
+            <p className={`text-center mb-6 ${dark ? "text-slate-300" : "text-gray-600"}`}>هل ترغب في إعادة تعبئة النموذج أم الانتقال مباشرةً إلى الإنتظار؟</p>
             <div className="flex gap-4 justify-center">
               <Button
                 className="px-6 py-2 font-bold"
@@ -8351,7 +8351,7 @@ export default function WelcomePage() {
                   setAnalysisStarted(true);
                 }}
               >
-                الانتقال إلى التحليل
+                الانتقال إلى الإنتظار
               </Button>
             </div>
           </div>

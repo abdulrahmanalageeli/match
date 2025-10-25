@@ -1735,8 +1735,8 @@ export default function WelcomePage() {
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
                   <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse text-emerald-300" />
-                  <span className="hidden sm:inline">تسجيل تلقائي للفعاليات القادمة</span>
-                  <span className="sm:hidden">✨</span>
+                  <span className="hidden md:inline">تسجيل تلقائي للفعاليات القادمة</span>
+                  <span className="md:hidden">تسجيل تلقائي</span>
                 </button>
               </>
             )}
@@ -1768,7 +1768,7 @@ export default function WelcomePage() {
                   className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
                 >
                   <MessageCircle className="w-3 h-3" />
-                  <span className="hidden sm:inline">تواصل</span>
+                  <span>تواصل</span>
                 </button>
               </>
             )}

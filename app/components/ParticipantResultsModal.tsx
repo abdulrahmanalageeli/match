@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
+import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantResult {
   id: string
@@ -64,13 +65,15 @@ export default function ParticipantResultsModal({
   const [loadingDetails, setLoadingDetails] = useState(false)
   const [lockedMatches, setLockedMatches] = useState<any[]>([])
   const [loadingLock, setLoadingLock] = useState<number | null>(null)
+  const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
 
-  // Fetch locked matches when modal opens
+  // Fetch locked matches and participant data when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchLockedMatches()
+      fetchParticipantData()
     }
-  }, [isOpen])
+  }, [isOpen, results])
 
   const fetchLockedMatches = async () => {
     try {
@@ -85,6 +88,42 @@ export default function ParticipantResultsModal({
       }
     } catch (error) {
       console.error("Error fetching locked matches:", error)
+    }
+  }
+
+  const fetchParticipantData = async () => {
+    try {
+      // Get unique participant numbers from results
+      const participantNumbers = new Set<number>()
+      results.forEach(r => {
+        participantNumbers.add(r.assigned_number)
+        if (r.partner_assigned_number && r.partner_assigned_number !== 9999) {
+          participantNumbers.add(r.partner_assigned_number)
+        }
+      })
+
+      // Fetch all participants data
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "participants",
+          event_id: currentEventId 
+        })
+      })
+      const data = await response.json()
+      
+      if (response.ok && data.participants) {
+        const dataMap = new Map()
+        data.participants.forEach((p: any) => {
+          if (participantNumbers.has(p.assigned_number)) {
+            dataMap.set(p.assigned_number, p)
+          }
+        })
+        setParticipantData(dataMap)
+      }
+    } catch (error) {
+      console.error("Error fetching participant data:", error)
     }
   }
 
@@ -524,9 +563,97 @@ export default function ParticipantResultsModal({
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-medium">
-                                {participant.name || "غير محدد"}
-                              </span>
+                              <Tooltip.Provider delayDuration={300}>
+                                <Tooltip.Root>
+                                  <Tooltip.Trigger asChild>
+                                    <span className="text-white font-medium cursor-help hover:text-cyan-300 transition-colors">
+                                      {participant.name || "غير محدد"}
+                                    </span>
+                                  </Tooltip.Trigger>
+                                  <Tooltip.Portal>
+                                    <Tooltip.Content
+                                      className="z-[100] max-w-md p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                      sideOffset={5}
+                                    >
+                                      {(() => {
+                                        const pData = participantData.get(participant.assigned_number)
+                                        const surveyData = pData?.survey_data || {}
+                                        const answers = surveyData.answers || {}
+                                        
+                                        return (
+                                          <div className="space-y-3">
+                                            {/* Header */}
+                                            <div className="border-b border-cyan-400/20 pb-2">
+                                              <div className="text-cyan-300 font-bold text-lg">{participant.name || "غير محدد"}</div>
+                                              <div className="text-slate-400 text-sm">#{participant.assigned_number}</div>
+                                            </div>
+                                            
+                                            {/* Basic Info */}
+                                            <div className="grid grid-cols-2 gap-2 text-sm">
+                                              <div>
+                                                <div className="text-slate-400">العمر:</div>
+                                                <div className="text-white font-medium">{answers.age || surveyData.age || "غير محدد"}</div>
+                                              </div>
+                                              <div>
+                                                <div className="text-slate-400">MBTI:</div>
+                                                <div className="text-white font-medium">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</div>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Vibe Section */}
+                                            <div className="space-y-2 pt-2 border-t border-cyan-400/20">
+                                              <div className="text-cyan-300 font-semibold text-sm">الطاقة والشخصية:</div>
+                                              
+                                              {answers.vibe_1 && (
+                                                <div>
+                                                  <div className="text-slate-400 text-xs">الويكند المثالي:</div>
+                                                  <div className="text-white text-sm">{answers.vibe_1}</div>
+                                                </div>
+                                              )}
+                                              
+                                              {answers.vibe_2 && (
+                                                <div>
+                                                  <div className="text-slate-400 text-xs">الهوايات:</div>
+                                                  <div className="text-white text-sm">{answers.vibe_2}</div>
+                                                </div>
+                                              )}
+                                              
+                                              {answers.vibe_3 && (
+                                                <div>
+                                                  <div className="text-slate-400 text-xs">الفنان المفضل:</div>
+                                                  <div className="text-white text-sm">{answers.vibe_3}</div>
+                                                </div>
+                                              )}
+                                              
+                                              {answers.vibe_4 && (
+                                                <div>
+                                                  <div className="text-slate-400 text-xs">السوالف العميقة:</div>
+                                                  <div className="text-white text-sm">{answers.vibe_4}</div>
+                                                </div>
+                                              )}
+                                              
+                                              {answers.vibe_5 && (
+                                                <div>
+                                                  <div className="text-slate-400 text-xs">كيف يصفك أصدقاؤك:</div>
+                                                  <div className="text-white text-sm">{answers.vibe_5}</div>
+                                                </div>
+                                              )}
+                                              
+                                              {answers.vibe_6 && (
+                                                <div>
+                                                  <div className="text-slate-400 text-xs">كيف تصف أصدقاءك:</div>
+                                                  <div className="text-white text-sm">{answers.vibe_6}</div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      })()}
+                                      <Tooltip.Arrow className="fill-cyan-400/30" />
+                                    </Tooltip.Content>
+                                  </Tooltip.Portal>
+                                </Tooltip.Root>
+                              </Tooltip.Provider>
                               {/* Payment indicator */}
                               {participant.paid_done ? (
                                 <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center" title="دفع مكتمل">
@@ -589,7 +716,95 @@ export default function ParticipantResultsModal({
                                     <div>
                                       <div className="font-mono">#{participant.partner_assigned_number}</div>
                                       {participant.partner_name && (
-                                        <div className="text-xs text-slate-400">{participant.partner_name}</div>
+                                        <Tooltip.Provider delayDuration={300}>
+                                          <Tooltip.Root>
+                                            <Tooltip.Trigger asChild>
+                                              <div className="text-xs text-slate-400 cursor-help hover:text-cyan-300 transition-colors">{participant.partner_name}</div>
+                                            </Tooltip.Trigger>
+                                            <Tooltip.Portal>
+                                              <Tooltip.Content
+                                                className="z-[100] max-w-md p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                                sideOffset={5}
+                                              >
+                                                {(() => {
+                                                  const pData = participantData.get(participant.partner_assigned_number!)
+                                                  const surveyData = pData?.survey_data || {}
+                                                  const answers = surveyData.answers || {}
+                                                  
+                                                  return (
+                                                    <div className="space-y-3">
+                                                      {/* Header */}
+                                                      <div className="border-b border-cyan-400/20 pb-2">
+                                                        <div className="text-cyan-300 font-bold text-lg">{participant.partner_name}</div>
+                                                        <div className="text-slate-400 text-sm">#{participant.partner_assigned_number}</div>
+                                                      </div>
+                                                      
+                                                      {/* Basic Info */}
+                                                      <div className="grid grid-cols-2 gap-2 text-sm">
+                                                        <div>
+                                                          <div className="text-slate-400">العمر:</div>
+                                                          <div className="text-white font-medium">{answers.age || surveyData.age || "غير محدد"}</div>
+                                                        </div>
+                                                        <div>
+                                                          <div className="text-slate-400">MBTI:</div>
+                                                          <div className="text-white font-medium">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</div>
+                                                        </div>
+                                                      </div>
+                                                      
+                                                      {/* Vibe Section */}
+                                                      <div className="space-y-2 pt-2 border-t border-cyan-400/20">
+                                                        <div className="text-cyan-300 font-semibold text-sm">الطاقة والشخصية:</div>
+                                                        
+                                                        {answers.vibe_1 && (
+                                                          <div>
+                                                            <div className="text-slate-400 text-xs">الويكند المثالي:</div>
+                                                            <div className="text-white text-sm">{answers.vibe_1}</div>
+                                                          </div>
+                                                        )}
+                                                        
+                                                        {answers.vibe_2 && (
+                                                          <div>
+                                                            <div className="text-slate-400 text-xs">الهوايات:</div>
+                                                            <div className="text-white text-sm">{answers.vibe_2}</div>
+                                                          </div>
+                                                        )}
+                                                        
+                                                        {answers.vibe_3 && (
+                                                          <div>
+                                                            <div className="text-slate-400 text-xs">الفنان المفضل:</div>
+                                                            <div className="text-white text-sm">{answers.vibe_3}</div>
+                                                          </div>
+                                                        )}
+                                                        
+                                                        {answers.vibe_4 && (
+                                                          <div>
+                                                            <div className="text-slate-400 text-xs">السوالف العميقة:</div>
+                                                            <div className="text-white text-sm">{answers.vibe_4}</div>
+                                                          </div>
+                                                        )}
+                                                        
+                                                        {answers.vibe_5 && (
+                                                          <div>
+                                                            <div className="text-slate-400 text-xs">كيف يصفك أصدقاؤك:</div>
+                                                            <div className="text-white text-sm">{answers.vibe_5}</div>
+                                                          </div>
+                                                        )}
+                                                        
+                                                        {answers.vibe_6 && (
+                                                          <div>
+                                                            <div className="text-slate-400 text-xs">كيف تصف أصدقاءك:</div>
+                                                            <div className="text-white text-sm">{answers.vibe_6}</div>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  )
+                                                })()}
+                                                <Tooltip.Arrow className="fill-cyan-400/30" />
+                                              </Tooltip.Content>
+                                            </Tooltip.Portal>
+                                          </Tooltip.Root>
+                                        </Tooltip.Provider>
                                       )}
                                     </div>
                                     {/* Partner payment indicator */}

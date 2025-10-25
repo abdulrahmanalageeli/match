@@ -1287,7 +1287,7 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
   const combinations = getCombinations(availableParticipants, targetSize)
   
   for (const combination of combinations) {
-    // If we have participant data, still try to prefer gender balance and conversation compatibility
+    // If we have participant data, enforce gender balance and prefer conversation compatibility
     if (eligibleParticipants) {
       const genders = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
@@ -1296,6 +1296,12 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       
       const maleCount = genders.filter(g => g === 'male').length
       const femaleCount = genders.filter(g => g === 'female').length
+      
+      // ENFORCE gender balance - skip all-male or all-female groups
+      if (maleCount === 0 || femaleCount === 0) {
+        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no gender balance (${maleCount}M, ${femaleCount}F)`)
+        continue
+      }
       
       // Check conversation depth preference compatibility
       const conversationPrefs = combination.map(participantNum => {
@@ -1307,16 +1313,14 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       const noCount = conversationPrefs.filter(p => p === 'لا').length
       const hasConversationCompatibility = !(yesCount > 0 && noCount > 0) // Compatible if not mixing yes and no
       
-      // Prefer groups with gender balance and conversation compatibility, but don't require it in fallback
-      const hasGenderBalance = maleCount > 0 && femaleCount > 0
       const score = calculateGroupMBTIScore(combination, pairScores)
       let adjustedScore = score
-      if (hasGenderBalance) adjustedScore += 5 // Bonus for gender balance
       if (hasConversationCompatibility) adjustedScore += 3 // Bonus for conversation compatibility
       
       if (adjustedScore > bestScore) {
         bestScore = adjustedScore
         bestGroup = combination
+        console.log(`✅ Fallback: Better group found [${combination.join(', ')}] - Score: ${Math.round(adjustedScore)}%, Gender: ${maleCount}M/${femaleCount}F`)
       }
     } else {
       const score = calculateGroupMBTIScore(combination, pairScores)

@@ -102,14 +102,10 @@ export default function ParticipantResultsModal({
         }
       })
 
-      // Fetch all participants data
+      // Fetch all participants data (without event_id filter to get participants from all events)
       const response = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action: "participants",
-          event_id: currentEventId 
-        })
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
       })
       const data = await response.json()
       

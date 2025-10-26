@@ -991,7 +991,13 @@ export default function GroupsPage() {
   if (!gameStarted) {
     return (
       <>
-        {/* Group Guide Popup - Render FIRST to ensure it's on top */}
+        {/* Prompt Topics Modal */}
+      <PromptTopicsModal
+        open={showPromptTopicsModal}
+        onClose={() => setShowPromptTopicsModal(false)}
+      />
+
+      {/* Group Guide Popup - Render FIRST to ensure it's on top */}
         {showGroupGuide && (
           <div 
             className="fixed z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
@@ -1210,6 +1216,16 @@ export default function GroupsPage() {
             >
               <Play className="w-6 h-6 ml-2" />
               ابدأ الجلسة الآن
+            </Button>
+            
+            {/* Discussion Questions Button - Available before starting games */}
+            <Button 
+              onClick={() => setShowPromptTopicsModal(true)}
+              variant="outline"
+              className="w-full bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-purple-500/50 text-purple-200 hover:bg-purple-600/30 hover:border-purple-400/70 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02]"
+            >
+              <Sparkles className="w-5 h-5 ml-2" />
+              اختر أسئلة للنقاش
             </Button>
             
             <Button 

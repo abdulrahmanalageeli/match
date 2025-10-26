@@ -1316,6 +1316,13 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       continue
     }
     
+    // ENFORCE: Maximum 2 females per group to prevent running out of males
+    // This ensures even distribution when male/female numbers are equal
+    if (femaleCount > 2) {
+      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - too many females (${maleCount}M, ${femaleCount}F) - max 2 females per group`)
+      continue
+    }
+    
     // Prioritize groups with at least 2 females to avoid single females feeling uncomfortable
     // Only apply this for groups of 4 (for groups of 3, we allow 1F/2M as minimum)
     const hasSingleFemale = femaleCount === 1 && targetSize === 4
@@ -1469,6 +1476,12 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       // ENFORCE gender balance - skip all-male or all-female groups
       if (maleCount === 0 || femaleCount === 0) {
         console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no gender balance (${maleCount}M, ${femaleCount}F)`)
+        continue
+      }
+      
+      // ENFORCE: Maximum 2 females per group to prevent running out of males
+      if (femaleCount > 2) {
+        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - too many females (${maleCount}M, ${femaleCount}F) - max 2 females per group`)
         continue
       }
       

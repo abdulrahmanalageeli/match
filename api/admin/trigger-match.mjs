@@ -999,45 +999,64 @@ async function generateGroupMatches(participants, match_id, eventId) {
     throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
   }
 
-  // Calculate MBTI compatibility scores for all pairs (with gender compatibility check)
+  // Calculate FULL compatibility scores for all pairs (WITHOUT AI vibe - groups only)
   const pairScores = []
   for (let i = 0; i < eligibleParticipants.length; i++) {
     for (let j = i + 1; j < eligibleParticipants.length; j++) {
       const a = eligibleParticipants[i]
       const b = eligibleParticipants[j]
       
-      // Check gender compatibility first (opposite gender only)
+      // Check gender compatibility first
       if (!checkGenderCompatibility(a, b)) {
-        console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - same gender`)
+        console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - gender incompatible`)
         continue
       }
       
-      // Check age compatibility (girls must be within 3 years)
+      // Check age compatibility
       if (!checkAgeCompatibility(a, b)) {
         console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
         continue
       }
       
+      // Calculate ALL compatibility scores (except AI vibe)
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
       const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
+      const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
+      const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
+      const aCommunication = a.communication_style || a.survey_data?.communicationStyle
+      const bCommunication = b.communication_style || b.survey_data?.communicationStyle
+      const aLifestyle = a.survey_data?.lifestylePreferences
+      const bLifestyle = b.survey_data?.lifestylePreferences
+      const aCoreValues = a.survey_data?.coreValues
+      const bCoreValues = b.survey_data?.coreValues
       
       const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
+      const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
+      const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
+      const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
+      const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
+      
+      // Total compatibility (0-75% without AI vibe)
+      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore
       
       pairScores.push({
         participants: [a.assigned_number, b.assigned_number],
-        score: mbtiScore,
-        aMBTI,
-        bMBTI
+        score: totalScore, // Use total score instead of just MBTI
+        mbtiScore,
+        attachmentScore,
+        communicationScore,
+        lifestyleScore,
+        coreValuesScore
       })
     }
   }
 
-  // Sort pairs by MBTI compatibility (descending)
+  // Sort pairs by total compatibility (descending)
   pairScores.sort((a, b) => b.score - a.score)
   
-  console.log("📊 Top MBTI compatibility pairs:")
+  console.log("📊 Top compatibility pairs for groups (0-75% without AI):")
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${pair.score}% (${pair.aMBTI} × ${pair.bMBTI})`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (MBTI: ${pair.mbtiScore}%, Attach: ${pair.attachmentScore}%, Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${pair.coreValuesScore}%)`)
   })
 
   // Enhanced group formation algorithm with fallback support
@@ -1150,7 +1169,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
   const groupMatches = []
   for (let i = 0; i < groups.length; i++) {
     const group = groups[i]
-    const groupScore = calculateGroupMBTIScore(group, pairScores)
+    const groupScore = calculateGroupCompatibilityScore(group, pairScores)
     
     // Assign table numbers: sequential numbering for groups
     const tableNumber = i + 1
@@ -1171,7 +1190,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
       participant_numbers: group, // Array of participant numbers
       participant_names: participantNames, // Array of participant names
       compatibility_score: Math.round(groupScore),
-      reason: `مجموعة من ${group.length} أشخاص بتوافق MBTI عالي (${Math.round(groupScore)}%)`,
+      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 75%)`,
       table_number: tableNumber,
       event_id: eventId,
       conversation_status: 'pending'
@@ -1255,12 +1274,12 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       continue
     }
     
-    let score = calculateGroupMBTIScore(combination, pairScores)
+    let score = calculateGroupCompatibilityScore(combination, pairScores)
     
     // Apply penalty for single female in group of 4 to prioritize 2+ females
     if (hasSingleFemale) {
       score = score * 0.7 // 30% penalty to deprioritize single female groups
-      console.log(`   📉 Applied 30% penalty for single female: ${score}% (original: ${calculateGroupMBTIScore(combination, pairScores)}%)`)
+      console.log(`   📉 Applied 30% penalty for single female: ${Math.round(score)}% (original: ${Math.round(calculateGroupCompatibilityScore(combination, pairScores))}%)`)
     }
     
     if (score > bestScore) {
@@ -1313,7 +1332,7 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       const noCount = conversationPrefs.filter(p => p === 'لا').length
       const hasConversationCompatibility = !(yesCount > 0 && noCount > 0) // Compatible if not mixing yes and no
       
-      const score = calculateGroupMBTIScore(combination, pairScores)
+      const score = calculateGroupCompatibilityScore(combination, pairScores)
       let adjustedScore = score
       if (hasConversationCompatibility) adjustedScore += 3 // Bonus for conversation compatibility
       
@@ -1323,7 +1342,7 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
         console.log(`✅ Fallback: Better group found [${combination.join(', ')}] - Score: ${Math.round(adjustedScore)}%, Gender: ${maleCount}M/${femaleCount}F`)
       }
     } else {
-      const score = calculateGroupMBTIScore(combination, pairScores)
+      const score = calculateGroupCompatibilityScore(combination, pairScores)
       if (score > bestScore) {
         bestScore = score
         bestGroup = combination
@@ -1398,12 +1417,12 @@ function calculateParticipantGroupCompatibility(participant, group, pairScores) 
   return pairCount > 0 ? totalScore / pairCount : 0
 }
 
-// Helper function to calculate group MBTI compatibility score
-function calculateGroupMBTIScore(group, pairScores) {
+// Helper function to calculate group compatibility score (0-75% without AI vibe)
+function calculateGroupCompatibilityScore(group, pairScores) {
   let totalScore = 0
   let pairCount = 0
   
-  // Sum up all pairwise MBTI scores within the group
+  // Sum up all pairwise compatibility scores within the group
   for (let i = 0; i < group.length; i++) {
     for (let j = i + 1; j < group.length; j++) {
       const pair = pairScores.find(p => 
@@ -1417,10 +1436,9 @@ function calculateGroupMBTIScore(group, pairScores) {
     }
   }
   
-  // Scale from 0-5 range to 0-100 range for display
-  // MBTI scores are 0-5%, so multiply by 20 to get 0-100%
+  // Return average compatibility score (0-75% without AI vibe)
   const averageScore = pairCount > 0 ? totalScore / pairCount : 0
-  return averageScore * 20
+  return averageScore
 }
 
 // Helper function to generate combinations

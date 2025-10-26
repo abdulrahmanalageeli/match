@@ -1485,36 +1485,13 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
         continue
       }
       
-      // 1. CHECK AGE SIMILARITY (±10 years fallback constraint)
-      const ages = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.age || participant?.survey_data?.age
-      }).filter(Boolean)
+      // FALLBACK MODE: Age constraints removed - participants must join groups regardless of age
+      // Age similarity is preferred in primary algorithm, but not enforced in fallback
+      console.log(`ℹ️ Fallback: Age constraints REMOVED for group [${combination.join(', ')}]`)
       
-      if (ages.length === combination.length) {
-        const ageRange = Math.max(...ages) - Math.min(...ages)
-        
-        // Hard constraint: Skip if age range > 10 years (even in fallback)
-        if (ageRange > 10) {
-          console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years)`)
-          continue
-        }
-      }
-      
-      // 2. CHECK INTROVERT/EXTROVERT BALANCE
-      const mbtiTypes = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
-      }).filter(Boolean)
-      
-      const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
-      const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
-      
-      // Skip all-introvert or all-extrovert groups (even in fallback)
-      if (mbtiTypes.length === combination.length && (introvertCount === 0 || extrovertCount === 0)) {
-        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no I/E balance (${introvertCount}I, ${extrovertCount}E)`)
-        continue
-      }
+      // FALLBACK MODE: Introvert/Extrovert balance removed - any personality mix allowed
+      // I/E balance is preferred in primary algorithm, but not enforced in fallback
+      console.log(`ℹ️ Fallback: I/E balance REMOVED for group [${combination.join(', ')}]`)
       
       // Check conversation depth preference compatibility
       const conversationPrefs = combination.map(participantNum => {
@@ -1529,24 +1506,15 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       const score = calculateGroupCompatibilityScore(combination, pairScores)
       let adjustedScore = score
       
-      // Apply same bonuses as primary function
-      if (ages.length === combination.length) {
-        const ageRange = Math.max(...ages) - Math.min(...ages)
-        if (ageRange <= 5) adjustedScore += 5
-      }
-      
-      if (mbtiTypes.length === combination.length) {
-        const ieDiff = Math.abs(introvertCount - extrovertCount)
-        if (ieDiff <= 1) adjustedScore += 3
-      }
-      
+      // Prefer groups of 4 over other sizes
       if (targetSize === 4) {
         adjustedScore += 5
       } else if (targetSize === 5) {
         adjustedScore -= 5
       }
       
-      if (hasConversationCompatibility) adjustedScore += 3 // Bonus for conversation compatibility
+      // Bonus for conversation depth compatibility (only constraint kept in fallback)
+      if (hasConversationCompatibility) adjustedScore += 3
       
       if (adjustedScore > bestScore) {
         bestScore = adjustedScore

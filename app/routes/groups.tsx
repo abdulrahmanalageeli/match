@@ -996,16 +996,9 @@ export default function GroupsPage() {
           <div 
             className="fixed z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', zIndex: 9999 }}
+            dir="rtl"
           >
             <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-700 relative overflow-hidden p-6 animate-in zoom-in-95 duration-300">
-              {/* Close button */}
-              <button
-                onClick={() => setShowGroupGuide(false)}
-                className="absolute -top-3 -right-3 w-8 h-8 rounded-full border-2 bg-slate-700 border-slate-500 hover:bg-slate-600 shadow-lg transition-all hover:scale-110 flex items-center justify-center text-white"
-              >
-                ✕
-              </button>
-
               {/* Header */}
               <div className="text-center mb-6">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">

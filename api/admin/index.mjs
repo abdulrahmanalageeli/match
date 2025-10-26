@@ -2477,6 +2477,110 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 DEBUG GROUP ELIGIBILITY - Show why paid participants are/aren't eligible for groups
+    if (action === "debug-group-eligibility") {
+      try {
+        const { eventId } = req.body
+        
+        console.log(`🐛 Debugging group eligibility for event ${eventId}`)
+        
+        // Get all paid participants
+        const { data: paidParticipants, error: paidError } = await supabase
+          .from("participants")
+          .select("assigned_number, survey_data, name, gender, age")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("PAID_DONE", true)
+          .neq("assigned_number", 9999)
+        
+        if (paidError) {
+          console.error("Error fetching paid participants:", paidError)
+          return res.status(500).json({ error: "Failed to fetch paid participants" })
+        }
+        
+        // Get all individual matches for this event
+        const { data: existingMatches, error: matchError } = await supabase
+          .from("match_results")
+          .select("participant_a_number, participant_b_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", eventId)
+          .neq("round", 0) // Exclude group matches
+        
+        if (matchError) {
+          console.error("Error fetching matches:", matchError)
+          return res.status(500).json({ error: "Failed to fetch matches" })
+        }
+        
+        const eligible = []
+        const not_eligible = []
+        
+        for (const p of paidParticipants) {
+          // Check if matched with organizer
+          const matchedWithOrganizer = existingMatches && existingMatches.some(match => 
+            (match.participant_a_number === p.assigned_number && match.participant_b_number === 9999) ||
+            (match.participant_b_number === p.assigned_number && match.participant_a_number === 9999)
+          )
+          
+          if (matchedWithOrganizer) {
+            not_eligible.push({
+              participant_number: p.assigned_number,
+              name: p.name || p.survey_data?.name || 'No name',
+              gender: p.gender || p.survey_data?.gender || 'Unknown',
+              age: p.age || p.survey_data?.age || 'Unknown',
+              reason: 'Matched with organizer (#9999)'
+            })
+            continue
+          }
+          
+          // Check if has individual match
+          const hasIndividualMatch = existingMatches && existingMatches.some(match => 
+            (match.participant_a_number === p.assigned_number || match.participant_b_number === p.assigned_number) &&
+            match.participant_a_number !== 9999 && match.participant_b_number !== 9999
+          )
+          
+          if (!hasIndividualMatch) {
+            not_eligible.push({
+              participant_number: p.assigned_number,
+              name: p.name || p.survey_data?.name || 'No name',
+              gender: p.gender || p.survey_data?.gender || 'Unknown',
+              age: p.age || p.survey_data?.age || 'Unknown',
+              reason: 'No individual match found'
+            })
+            continue
+          }
+          
+          // Find who they're matched with
+          const match = existingMatches.find(m => 
+            m.participant_a_number === p.assigned_number || m.participant_b_number === p.assigned_number
+          )
+          const matched_with = match 
+            ? (match.participant_a_number === p.assigned_number ? match.participant_b_number : match.participant_a_number)
+            : 'Unknown'
+          
+          // Eligible!
+          eligible.push({
+            participant_number: p.assigned_number,
+            name: p.name || p.survey_data?.name || 'No name',
+            gender: p.gender || p.survey_data?.gender || 'Unknown',
+            age: p.age || p.survey_data?.age || 'Unknown',
+            matched_with
+          })
+        }
+        
+        console.log(`✅ Debug complete: ${eligible.length} eligible, ${not_eligible.length} not eligible out of ${paidParticipants.length} paid`)
+        
+        return res.status(200).json({
+          success: true,
+          total_paid: paidParticipants.length,
+          eligible,
+          not_eligible
+        })
+        
+      } catch (error) {
+        console.error("Error in debug-group-eligibility:", error)
+        return res.status(500).json({ error: "Failed to debug group eligibility" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

@@ -1036,23 +1036,6 @@ export default function GroupsPage() {
                   </div>
                 </div>
               </div>
-
-              {/* Group Members - Separate compact section */}
-              {groupMembers.length > 0 && (
-                <div className="mt-3 bg-slate-800/30 backdrop-blur-sm border border-slate-600/40 rounded-xl p-3">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <Users className="w-4 h-4 text-slate-400" />
-                    <span className="text-slate-300 text-xs font-medium">أعضاء مجموعتك</span>
-                  </div>
-                  <div className="flex flex-wrap justify-center gap-1.5">
-                    {groupMembers.map((member, index) => (
-                      <span key={index} className="bg-slate-700/50 text-slate-200 px-2 py-1 rounded-lg text-xs font-medium border border-slate-600/30">
-                        {member}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

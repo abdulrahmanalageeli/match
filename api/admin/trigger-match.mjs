@@ -961,10 +961,18 @@ async function generateGroupMatches(participants, match_id, eventId) {
   }
 
   // Filter out participants who are matched with organizer (#9999), have no matches, or haven't paid
+  // Track exclusion reasons for debugging
+  const exclusionReasons = {
+    unpaid: [],
+    organizer_match: [],
+    no_individual_match: []
+  }
+  
   const eligibleParticipants = participants.filter(p => {
     // Check payment status first
     if (!p.PAID_DONE) {
       console.log(`🚫 Excluding participant #${p.assigned_number} from groups - payment not completed (PAID_DONE = false)`)
+      exclusionReasons.unpaid.push(p.assigned_number)
       return false
     }
 
@@ -976,6 +984,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
     
     if (matchedWithOrganizer) {
       console.log(`🚫 Excluding participant #${p.assigned_number} from groups - matched with organizer`)
+      exclusionReasons.organizer_match.push(p.assigned_number)
       return false
     }
 
@@ -987,36 +996,58 @@ async function generateGroupMatches(participants, match_id, eventId) {
     
     if (!hasIndividualMatch) {
       console.log(`🚫 Excluding participant #${p.assigned_number} from groups - no individual match found`)
+      exclusionReasons.no_individual_match.push(p.assigned_number)
       return false
     }
     
     return true
   })
 
-  console.log(`👥 ${eligibleParticipants.length} participants eligible for groups (excluded ${participants.length - eligibleParticipants.length} due to: payment not completed, no individual matches, or matched with organizer)`)
+  console.log(`\n📊 GROUP ELIGIBILITY SUMMARY:`)
+  console.log(`   Total participants: ${participants.length}`)
+  console.log(`   Eligible for groups: ${eligibleParticipants.length}`)
+  console.log(`   Excluded: ${participants.length - eligibleParticipants.length}`)
+  console.log(`\n📋 EXCLUSION BREAKDOWN:`)
+  console.log(`   💰 Unpaid (${exclusionReasons.unpaid.length}): [${exclusionReasons.unpaid.join(', ')}]`)
+  console.log(`   🚫 Matched with organizer (${exclusionReasons.organizer_match.length}): [${exclusionReasons.organizer_match.join(', ')}]`)
+  console.log(`   💔 No individual match (${exclusionReasons.no_individual_match.length}): [${exclusionReasons.no_individual_match.join(', ')}]`)
+  console.log(`\n👥 Eligible participants: [${eligibleParticipants.map(p => p.assigned_number).join(', ')}]\n`)
   
   if (eligibleParticipants.length < 3) {
     throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
   }
 
   // Calculate FULL compatibility scores for all pairs (WITHOUT AI vibe - groups only)
+  // Track constraint violations for debugging
+  const constraintViolations = {
+    gender: [],
+    age: [],
+    total_pairs_checked: 0,
+    compatible_pairs: 0
+  }
+  
   const pairScores = []
   for (let i = 0; i < eligibleParticipants.length; i++) {
     for (let j = i + 1; j < eligibleParticipants.length; j++) {
       const a = eligibleParticipants[i]
       const b = eligibleParticipants[j]
+      constraintViolations.total_pairs_checked++
       
       // Check gender compatibility first
       if (!checkGenderCompatibility(a, b)) {
         console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - gender incompatible`)
+        constraintViolations.gender.push(`${a.assigned_number}×${b.assigned_number}`)
         continue
       }
       
       // Check age compatibility
       if (!checkAgeCompatibility(a, b)) {
         console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
+        constraintViolations.age.push(`${a.assigned_number}×${b.assigned_number}`)
         continue
       }
+      
+      constraintViolations.compatible_pairs++
       
       // Calculate ALL compatibility scores (except AI vibe)
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
@@ -1054,7 +1085,27 @@ async function generateGroupMatches(participants, match_id, eventId) {
   // Sort pairs by total compatibility (descending)
   pairScores.sort((a, b) => b.score - a.score)
   
-  console.log("📊 Top compatibility pairs for groups (0-75% without AI):")
+  console.log(`\n📊 PAIR COMPATIBILITY ANALYSIS:`)
+  console.log(`   Total pairs checked: ${constraintViolations.total_pairs_checked}`)
+  console.log(`   Compatible pairs: ${constraintViolations.compatible_pairs}`)
+  console.log(`   Gender violations: ${constraintViolations.gender.length}`)
+  console.log(`   Age violations: ${constraintViolations.age.length}`)
+  
+  if (constraintViolations.gender.length > 0) {
+    console.log(`\n   🚫 Gender incompatible pairs (${constraintViolations.gender.length}):`, constraintViolations.gender.slice(0, 20).join(', '))
+    if (constraintViolations.gender.length > 20) {
+      console.log(`      ... and ${constraintViolations.gender.length - 20} more`)
+    }
+  }
+  
+  if (constraintViolations.age.length > 0) {
+    console.log(`\n   🚫 Age incompatible pairs (${constraintViolations.age.length}):`, constraintViolations.age.slice(0, 20).join(', '))
+    if (constraintViolations.age.length > 20) {
+      console.log(`      ... and ${constraintViolations.age.length - 20} more`)
+    }
+  }
+  
+  console.log(`\n📊 Top compatibility pairs for groups (0-75% without AI):`)
   pairScores.slice(0, 10).forEach(pair => {
     console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (MBTI: ${pair.mbtiScore}%, Attach: ${pair.attachmentScore}%, Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${pair.coreValuesScore}%)`)
   })
@@ -1160,7 +1211,23 @@ async function generateGroupMatches(participants, match_id, eventId) {
     }
   }
 
-  console.log(`🎯 Final groups (${groups.length} total):`);
+  // Calculate final statistics
+  const participantsInGroups = new Set(groups.flat())
+  const participantsNotInGroups = eligibleParticipants
+    .map(p => p.assigned_number)
+    .filter(num => !participantsInGroups.has(num))
+  
+  console.log(`\n🎯 FINAL GROUP FORMATION RESULTS:`)
+  console.log(`   Total groups created: ${groups.length}`)
+  console.log(`   Participants in groups: ${participantsInGroups.size}/${eligibleParticipants.length}`)
+  console.log(`   Participants NOT in groups: ${participantsNotInGroups.length}`)
+  
+  if (participantsNotInGroups.length > 0) {
+    console.log(`\n   ⚠️ PARTICIPANTS EXCLUDED FROM GROUPS: [${participantsNotInGroups.join(', ')}]`)
+    console.log(`   ⚠️ This means ${participantsNotInGroups.length} eligible participants couldn't be placed in groups!`)
+  }
+  
+  console.log(`\n📋 Group Details:`)
   groups.forEach((group, index) => {
     console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} people)`);
   });

@@ -1431,6 +1431,49 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET GROUP MATCHES (for participant view)
+    if (action === "get-group-matches") {
+      try {
+        const { event_id = 1 } = req.body
+
+        // Get group matches from group_matches table
+        const { data: groupMatches, error: groupError } = await supabase
+          .from("group_matches")
+          .select("*")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .order("group_number", { ascending: true })
+
+        if (groupError) {
+          console.error("Error fetching group matches:", groupError)
+          return res.status(500).json({ error: groupError.message })
+        }
+
+        // Format for participant view
+        const groups = groupMatches.map(match => ({
+          group_id: match.group_id,
+          group_number: match.group_number,
+          table_number: match.table_number,
+          participant_numbers: match.participant_numbers || [],
+          participant_names: match.participant_names || [],
+          compatibility_score: match.compatibility_score,
+          conversation_status: match.conversation_status,
+          conversation_start_time: match.conversation_start_time,
+          conversation_duration: match.conversation_duration
+        }))
+
+        console.log(`✅ Fetched ${groups.length} group matches for participant view`)
+        return res.status(200).json({ 
+          success: true,
+          groups: groups
+        })
+
+      } catch (error) {
+        console.error("Error in get-group-matches:", error)
+        return res.status(500).json({ error: "Failed to fetch group matches" })
+      }
+    }
+
     // 🔹 GET EXCLUDED PARTICIPANTS (using excluded_pairs with -1)
     if (action === "get-excluded-participants") {
       try {

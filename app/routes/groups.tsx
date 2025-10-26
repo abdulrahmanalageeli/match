@@ -415,7 +415,7 @@ export default function GroupsPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 action: "get-group-matches",
-                match_id: "00000000-0000-0000-0000-000000000000"
+                event_id: participantData.event_id || 1
               }),
             });
 
@@ -430,6 +430,9 @@ export default function GroupsPage() {
               if (userGroup) {
                 setTableNumber(userGroup.table_number);
                 setGroupMembers(userGroup.participant_names || []);
+                console.log(`✅ Found group assignment - Table #${userGroup.table_number}`);
+              } else {
+                console.log('⚠️ No group assignment found for this participant');
               }
             }
           } catch (groupError) {

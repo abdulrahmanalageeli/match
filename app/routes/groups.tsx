@@ -371,6 +371,11 @@ export default function GroupsPage() {
     };
   }, [gameStarted]); // Add gameStarted as dependency
 
+  // Debug: Log tableNumber changes
+  useEffect(() => {
+    console.log('🔍 tableNumber state changed:', tableNumber);
+  }, [tableNumber]);
+
   // Load participant data and group assignment on component mount
   useEffect(() => {
     const loadParticipantData = async () => {
@@ -446,14 +451,18 @@ export default function GroupsPage() {
               });
 
               if (userGroup) {
+                console.log(`✅ Found group assignment:`, userGroup);
+                console.log(`Setting table number to: ${userGroup.table_number}`);
                 setTableNumber(userGroup.table_number);
                 setGroupMembers(userGroup.participant_names || []);
-                console.log(`✅ Found group assignment - Table #${userGroup.table_number} (Event ${currentEventId})`);
+                console.log(`✅ Table number set - Table #${userGroup.table_number} (Event ${currentEventId})`);
               } else {
                 console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
+                console.log('Participant assigned_number type:', typeof participantData.assigned_number, participantData.assigned_number);
                 console.log('Available groups:', groupData.groups?.map((g: any) => ({ 
                   table: g.table_number, 
-                  participants: g.participant_numbers 
+                  participants: g.participant_numbers,
+                  participantTypes: g.participant_numbers?.map((p: any) => typeof p)
                 })));
               }
             }
@@ -1010,7 +1019,7 @@ export default function GroupsPage() {
                     </div>
 
                     {/* Table Number */}
-                    {tableNumber && (
+                    {(tableNumber !== null && tableNumber !== undefined) && (
                       <>
                         <div className="w-px h-4 bg-slate-600"></div>
                         <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-green-300 flex items-center gap-1.5">

@@ -1356,9 +1356,9 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
     const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
     
-    // Skip all-introvert or all-extrovert groups
-    if (mbtiTypes.length === combination.length && (introvertCount === 0 || extrovertCount === 0)) {
-      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no I/E balance (${introvertCount}I, ${extrovertCount}E)`)
+    // Require at least 1 extrovert per group (all-introvert groups not allowed, but all-extrovert is OK)
+    if (mbtiTypes.length === combination.length && extrovertCount === 0) {
+      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no extroverts (${introvertCount}I, ${extrovertCount}E) - need at least 1E`)
       continue
     }
     
@@ -1489,9 +1489,20 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       // Age similarity is preferred in primary algorithm, but not enforced in fallback
       console.log(`ℹ️ Fallback: Age constraints REMOVED for group [${combination.join(', ')}]`)
       
-      // FALLBACK MODE: Introvert/Extrovert balance removed - any personality mix allowed
-      // I/E balance is preferred in primary algorithm, but not enforced in fallback
-      console.log(`ℹ️ Fallback: I/E balance REMOVED for group [${combination.join(', ')}]`)
+      // CHECK INTROVERT/EXTROVERT BALANCE
+      const mbtiTypes = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
+      }).filter(Boolean)
+      
+      const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
+      const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
+      
+      // Require at least 1 extrovert per group (all-introvert groups not allowed, but all-extrovert is OK)
+      if (mbtiTypes.length === combination.length && extrovertCount === 0) {
+        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no extroverts (${introvertCount}I, ${extrovertCount}E) - need at least 1E`)
+        continue
+      }
       
       // Check conversation depth preference compatibility
       const conversationPrefs = combination.map(participantNum => {
@@ -1506,6 +1517,12 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       const score = calculateGroupCompatibilityScore(combination, pairScores)
       let adjustedScore = score
       
+      // Bonus for balanced I/E distribution
+      if (mbtiTypes.length === combination.length) {
+        const ieDiff = Math.abs(introvertCount - extrovertCount)
+        if (ieDiff <= 1) adjustedScore += 3
+      }
+      
       // Prefer groups of 4 over other sizes
       if (targetSize === 4) {
         adjustedScore += 5
@@ -1513,7 +1530,7 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
         adjustedScore -= 5
       }
       
-      // Bonus for conversation depth compatibility (only constraint kept in fallback)
+      // Bonus for conversation depth compatibility
       if (hasConversationCompatibility) adjustedScore += 3
       
       if (adjustedScore > bestScore) {

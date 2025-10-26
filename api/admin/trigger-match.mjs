@@ -1257,6 +1257,37 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       // Don't skip, but reduce score to deprioritize this combination
     }
     
+    // 1. CHECK AGE SIMILARITY (±5 years preferred, ±10 years fallback)
+    const ages = combination.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return participant?.age || participant?.survey_data?.age
+    }).filter(Boolean)
+    
+    if (ages.length === combination.length) {
+      const ageRange = Math.max(...ages) - Math.min(...ages)
+      
+      // Hard constraint: Skip if age range > 10 years
+      if (ageRange > 10) {
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years)`)
+        continue
+      }
+    }
+    
+    // 2. CHECK INTROVERT/EXTROVERT BALANCE
+    const mbtiTypes = combination.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
+    }).filter(Boolean)
+    
+    const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
+    const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
+    
+    // Skip all-introvert or all-extrovert groups
+    if (mbtiTypes.length === combination.length && (introvertCount === 0 || extrovertCount === 0)) {
+      console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no I/E balance (${introvertCount}I, ${extrovertCount}E)`)
+      continue
+    }
+    
     // Check conversation depth preference (vibe_4) compatibility
     const conversationPrefs = combination.map(participantNum => {
       const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
@@ -1276,6 +1307,56 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     
     let score = calculateGroupCompatibilityScore(combination, pairScores)
     
+    // BONUSES AND PENALTIES
+    
+    // 1. Age similarity bonus (prefer ±5 years)
+    if (ages.length === combination.length) {
+      const ageRange = Math.max(...ages) - Math.min(...ages)
+      if (ageRange <= 5) {
+        score += 5
+        console.log(`   ✨ Age similarity bonus: +5% (range: ${ageRange} years)`)
+      }
+    }
+    
+    // 2. I/E balance bonus (prefer balanced mix)
+    if (mbtiTypes.length === combination.length) {
+      const ieDiff = Math.abs(introvertCount - extrovertCount)
+      if (ieDiff <= 1) {
+        score += 3
+        console.log(`   ✨ I/E balance bonus: +3% (${introvertCount}I, ${extrovertCount}E)`)
+      }
+    }
+    
+    // 5. Humor style compatibility
+    const humorStyles = combination.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return participant?.survey_data?.humorStyle
+    }).filter(Boolean)
+    
+    if (humorStyles.length >= 2) {
+      // Penalty for clashing humor (dark + wholesome)
+      if (humorStyles.includes('dark') && humorStyles.includes('wholesome')) {
+        score -= 5
+        console.log(`   ⚠️ Humor clash penalty: -5% (dark + wholesome)`)
+      }
+      
+      // Bonus for similar humor (2 or fewer unique styles)
+      const uniqueHumor = new Set(humorStyles).size
+      if (uniqueHumor <= 2) {
+        score += 3
+        console.log(`   ✨ Humor compatibility bonus: +3% (${uniqueHumor} styles)`)
+      }
+    }
+    
+    // 6. Group size preference (strongly prefer 4)
+    if (targetSize === 4) {
+      score += 5
+      console.log(`   ✨ Optimal size bonus: +5% (group of 4)`)
+    } else if (targetSize === 5) {
+      score -= 5
+      console.log(`   ⚠️ Large group penalty: -5% (group of 5)`)
+    }
+    
     // Apply penalty for single female in group of 4 to prioritize 2+ females
     if (hasSingleFemale) {
       score = score * 0.7 // 30% penalty to deprioritize single female groups
@@ -1287,7 +1368,9 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       bestGroup = combination
       const convType = yesCount > 0 ? 'deep' : noCount > 0 ? 'light' : 'flexible'
       const femaleStatus = hasSingleFemale ? ' (⚠️ single F)' : femaleCount >= 2 ? ' (✅ 2+ F)' : ''
-      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${Math.round(score)}%, Gender: ${maleCount}M/${femaleCount}F${femaleStatus}, Conv: ${convType}`)
+      const ageInfo = ages.length === combination.length ? `, Age range: ${Math.max(...ages) - Math.min(...ages)}y` : ''
+      const ieInfo = mbtiTypes.length === combination.length ? `, I/E: ${introvertCount}I/${extrovertCount}E` : ''
+      console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${Math.round(score)}%, Gender: ${maleCount}M/${femaleCount}F${femaleStatus}, Conv: ${convType}${ageInfo}${ieInfo}`)
     }
   }
   
@@ -1322,6 +1405,37 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
         continue
       }
       
+      // 1. CHECK AGE SIMILARITY (±10 years fallback constraint)
+      const ages = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.age || participant?.survey_data?.age
+      }).filter(Boolean)
+      
+      if (ages.length === combination.length) {
+        const ageRange = Math.max(...ages) - Math.min(...ages)
+        
+        // Hard constraint: Skip if age range > 10 years (even in fallback)
+        if (ageRange > 10) {
+          console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years)`)
+          continue
+        }
+      }
+      
+      // 2. CHECK INTROVERT/EXTROVERT BALANCE
+      const mbtiTypes = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
+      }).filter(Boolean)
+      
+      const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
+      const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
+      
+      // Skip all-introvert or all-extrovert groups (even in fallback)
+      if (mbtiTypes.length === combination.length && (introvertCount === 0 || extrovertCount === 0)) {
+        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no I/E balance (${introvertCount}I, ${extrovertCount}E)`)
+        continue
+      }
+      
       // Check conversation depth preference compatibility
       const conversationPrefs = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
@@ -1334,6 +1448,24 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       
       const score = calculateGroupCompatibilityScore(combination, pairScores)
       let adjustedScore = score
+      
+      // Apply same bonuses as primary function
+      if (ages.length === combination.length) {
+        const ageRange = Math.max(...ages) - Math.min(...ages)
+        if (ageRange <= 5) adjustedScore += 5
+      }
+      
+      if (mbtiTypes.length === combination.length) {
+        const ieDiff = Math.abs(introvertCount - extrovertCount)
+        if (ieDiff <= 1) adjustedScore += 3
+      }
+      
+      if (targetSize === 4) {
+        adjustedScore += 5
+      } else if (targetSize === 5) {
+        adjustedScore -= 5
+      }
+      
       if (hasConversationCompatibility) adjustedScore += 3 // Bonus for conversation compatibility
       
       if (adjustedScore > bestScore) {

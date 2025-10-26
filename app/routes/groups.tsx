@@ -410,12 +410,26 @@ export default function GroupsPage() {
 
           // Try to fetch group assignment (fallback gracefully if fails)
           try {
+            // First, get the current active event
+            const eventStateRes = await fetch("/api/event-state", {
+              method: "GET",
+              headers: { "Content-Type": "application/json" }
+            });
+
+            let currentEventId = 1; // Default fallback
+            if (eventStateRes.ok) {
+              const eventState = await eventStateRes.json();
+              currentEventId = eventState.current_event_id || 1;
+              console.log(`📅 Current active event: ${currentEventId}`);
+            }
+
+            // Fetch group matches for the current active event
             const groupRes = await fetch("/api/admin", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 action: "get-group-matches",
-                event_id: participantData.event_id || 1
+                event_id: currentEventId
               }),
             });
 
@@ -430,9 +444,9 @@ export default function GroupsPage() {
               if (userGroup) {
                 setTableNumber(userGroup.table_number);
                 setGroupMembers(userGroup.participant_names || []);
-                console.log(`✅ Found group assignment - Table #${userGroup.table_number}`);
+                console.log(`✅ Found group assignment - Table #${userGroup.table_number} (Event ${currentEventId})`);
               } else {
-                console.log('⚠️ No group assignment found for this participant');
+                console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
               }
             }
           } catch (groupError) {

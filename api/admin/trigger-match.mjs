@@ -1040,12 +1040,12 @@ async function generateGroupMatches(participants, match_id, eventId) {
         continue
       }
       
-      // Check age compatibility
-      if (!checkAgeCompatibility(a, b)) {
-        console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
-        constraintViolations.age.push(`${a.assigned_number}×${b.assigned_number}`)
-        continue
-      }
+      // Check age compatibility - DISABLED FOR GROUPS (participants already matched individually)
+      // if (!checkAgeCompatibility(a, b)) {
+      //   console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - age constraint violation`)
+      //   constraintViolations.age.push(`${a.assigned_number}×${b.assigned_number}`)
+      //   continue
+      // }
       
       constraintViolations.compatible_pairs++
       

@@ -1218,16 +1218,6 @@ export default function GroupsPage() {
               ابدأ الجلسة الآن
             </Button>
             
-            {/* Discussion Questions Button - Available before starting games */}
-            <Button 
-              onClick={() => setShowPromptTopicsModal(true)}
-              variant="outline"
-              className="w-full bg-gradient-to-r from-purple-600/20 to-pink-600/20 border-purple-500/50 text-purple-200 hover:bg-purple-600/30 hover:border-purple-400/70 py-3 rounded-xl transition-all duration-300 hover:scale-[1.02]"
-            >
-              <Sparkles className="w-5 h-5 ml-2" />
-              اختر أسئلة للنقاش
-            </Button>
-            
             <Button 
               onClick={() => window.location.href = "/welcome"}
               variant="outline"
@@ -1245,6 +1235,12 @@ export default function GroupsPage() {
 
   return (
     <>
+      {/* Prompt Topics Modal - Available in both pre-game and during-game */}
+      <PromptTopicsModal
+        open={showPromptTopicsModal}
+        onClose={() => setShowPromptTopicsModal(false)}
+      />
+
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
         {/* Mobile-Optimized Header */}

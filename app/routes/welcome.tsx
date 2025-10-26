@@ -1691,12 +1691,12 @@ export default function WelcomePage() {
             {assignedNumber && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
-                <div className="flex items-center gap-1.5">
-                  <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-xs sm:text-sm">
                     #{assignedNumber}
                   </div>
                   {participantName && (
-                    <span className="text-white/90 text-sm font-medium whitespace-nowrap">
+                    <span className="text-white/90 text-xs sm:text-sm font-medium whitespace-nowrap max-w-[80px] sm:max-w-none truncate">
                       {participantName}
                     </span>
                   )}
@@ -1731,10 +1731,10 @@ export default function WelcomePage() {
                       console.error("Error enabling auto-signup:", err);
                     }
                   }}
-                  className="bg-gradient-to-r from-emerald-500/30 to-green-500/30 border-2 border-emerald-400/50 rounded-full px-3 py-1.5 text-xs font-bold text-emerald-200 hover:from-emerald-500/40 hover:to-green-500/40 hover:border-emerald-300/70 hover:scale-105 transition-all duration-300 flex items-center gap-1.5 group shadow-lg shadow-emerald-500/20"
+                  className="bg-gradient-to-r from-emerald-500/30 to-green-500/30 border-2 border-emerald-400/50 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-bold text-emerald-200 hover:from-emerald-500/40 hover:to-green-500/40 hover:border-emerald-300/70 hover:scale-105 transition-all duration-300 flex items-center gap-1 sm:gap-1.5 group shadow-lg shadow-emerald-500/20"
                   title="فعّل التسجيل التلقائي لجميع الأحداث القادمة"
                 >
-                  <Sparkles className="w-3.5 h-3.5 group-hover:animate-pulse text-emerald-300" />
+                  <Sparkles className="w-3 h-3 sm:w-3.5 sm:h-3.5 group-hover:animate-pulse text-emerald-300" />
                   <span className="hidden md:inline">تسجيل تلقائي للفعاليات القادمة</span>
                   <span className="md:hidden">تسجيل تلقائي</span>
                 </button>
@@ -1745,9 +1745,9 @@ export default function WelcomePage() {
             {isTokenAndRoundPhase && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
-                <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-blue-300 flex items-center gap-1.5">
+                <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-blue-300 flex items-center gap-1 sm:gap-1.5">
                   <Clock className="w-3 h-3" />
-                  <span className="font-mono">
+                  <span className="font-mono text-xs">
                     {!conversationStarted 
                       ? "انتظار" 
                       : conversationTimer <= 0 
@@ -1765,10 +1765,10 @@ export default function WelcomePage() {
                 <div className="w-px h-4 bg-slate-600"></div>
                 <button
                   onClick={() => setShowContactForm(true)}
-                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
+                  className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-full px-2 sm:px-3 py-1 sm:py-1.5 text-xs font-medium text-cyan-300 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all duration-300 flex items-center gap-1"
                 >
                   <MessageCircle className="w-3 h-3" />
-                  <span>تواصل</span>
+                  <span className="hidden xs:inline sm:inline">تواصل</span>
                 </button>
               </>
             )}

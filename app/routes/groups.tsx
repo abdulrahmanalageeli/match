@@ -324,6 +324,9 @@ export default function GroupsPage() {
   const [timerActive, setTimerActive] = useState(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState(false);
   const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(false);
+  
+  // Group guide popup state
+  const [showGroupGuide, setShowGroupGuide] = useState(false);
 
   const currentGame = games[currentGameIndex];
 
@@ -375,6 +378,15 @@ export default function GroupsPage() {
   useEffect(() => {
     console.log('🔍 tableNumber state changed:', tableNumber);
   }, [tableNumber]);
+
+  // Show group guide on first load
+  useEffect(() => {
+    const hasSeenGroupGuide = localStorage.getItem('blindmatch_group_guide_seen');
+    if (!hasSeenGroupGuide) {
+      setShowGroupGuide(true);
+      localStorage.setItem('blindmatch_group_guide_seen', 'true');
+    }
+  }, []);
 
   // Load participant data and group assignment on component mount
   useEffect(() => {
@@ -1274,13 +1286,104 @@ export default function GroupsPage() {
           </div>
         </div>
       )}
-    </div>
 
-    {/* Prompts/Questions Modal - Placed outside main container for proper backdrop blur */}
-    <PromptTopicsModal 
-      open={showPromptTopicsModal} 
-      onClose={() => setShowPromptTopicsModal(false)} 
-    />
-    </>
+      {/* Group Guide Popup */}
+      {showGroupGuide && (
+        <div 
+          className="fixed z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh' }}
+        >
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-700 relative overflow-hidden p-6 animate-in zoom-in-95 duration-300">
+            {/* Close button */}
+            <button
+              onClick={() => setShowGroupGuide(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full border-2 bg-slate-700 border-slate-500 hover:bg-slate-600 shadow-lg transition-all hover:scale-110 flex items-center justify-center text-white"
+            >
+              ✕
+            </button>
+
+            {/* Header */}
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <Users className="w-8 h-8 text-white" />
+              </div>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                مرحباً بك في الأنشطة الجماعية! 🎉
+              </h2>
+              <p className="text-slate-300 text-sm">
+                استعد لتجربة ممتعة مع مجموعتك
+              </p>
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-4 mb-6">
+              <div className="flex items-start gap-3 p-4 bg-purple-500/10 border border-purple-400/30 rounded-xl">
+                <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-purple-300 font-bold">1</span>
+                </div>
+                <div>
+                  <p className="text-purple-100 font-semibold mb-1">
+                    اذهب إلى طاولتك
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    {tableNumber ? `طاولة رقم ${tableNumber}` : 'ستظهر لك طاولتك عند تخصيص المجموعات'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-400/30 rounded-xl">
+                <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-300 font-bold">2</span>
+                </div>
+                <div>
+                  <p className="text-blue-100 font-semibold mb-1">
+                    تعرف على مجموعتك
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    ستكون مع 3-5 أشخاص آخرين - رحب بهم وابدأ بالتعارف
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-green-500/10 border border-green-400/30 rounded-xl">
+                <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-green-300 font-bold">3</span>
+                </div>
+                <div>
+                  <p className="text-green-100 font-semibold mb-1">
+                    اختر نشاطاً وابدأ
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    اختاروا من الأنشطة المتاحة واستمتعوا بوقتكم معاً
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-4 bg-orange-500/10 border border-orange-400/30 rounded-xl">
+                <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-orange-300" />
+                </div>
+                <div>
+                  <p className="text-orange-100 font-semibold mb-1">
+                    استمتع وكن منفتحاً
+                  </p>
+                  <p className="text-slate-300 text-sm">
+                    هذه فرصة رائعة لتكوين صداقات جديدة وتبادل الأفكار
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Action button */}
+            <button
+              onClick={() => setShowGroupGuide(false)}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+            >
+              فهمت، لنبدأ! 🚀
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

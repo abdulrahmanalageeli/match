@@ -416,9 +416,12 @@ export default function GroupsPage() {
           // Try to fetch group assignment (fallback gracefully if fails)
           try {
             // First, get the current active event
-            const eventStateRes = await fetch("/api/event-state", {
-              method: "GET",
-              headers: { "Content-Type": "application/json" }
+            const eventStateRes = await fetch("/api/admin", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                action: "get-current-event-id"
+              })
             });
 
             let currentEventId = 1; // Default fallback
@@ -426,6 +429,8 @@ export default function GroupsPage() {
               const eventState = await eventStateRes.json();
               currentEventId = eventState.current_event_id || 1;
               console.log(`📅 Current active event: ${currentEventId}`);
+            } else {
+              console.log('⚠️ Could not fetch current event ID, using default: 1');
             }
 
             // Fetch group matches for the current active event

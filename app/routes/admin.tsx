@@ -1269,16 +1269,16 @@ const fetchParticipants = async () => {
         detailedMessage += `📊 Total Score: ${data.compatibility_score}%\n\n`
         
         if (result) {
-          detailedMessage += `🧠 MBTI: ${result.mbti_compatibility_score}% (10% max)\n`
-          detailedMessage += `💝 Attachment: ${result.attachment_compatibility_score}% (15% max)\n`
-          detailedMessage += `💬 Communication: ${result.communication_compatibility_score}% (15% max)\n`
-          detailedMessage += `🏠 Lifestyle: ${result.lifestyle_compatibility_score}% (15% max)\n`
+          detailedMessage += `🧠 MBTI: ${result.mbti_compatibility_score}% (5% max)\n`
+          detailedMessage += `💝 Attachment: ${result.attachment_compatibility_score}% (5% max)\n`
+          detailedMessage += `💬 Communication: ${result.communication_compatibility_score}% (10% max)\n`
+          detailedMessage += `🏠 Lifestyle: ${result.lifestyle_compatibility_score}% (25% max)\n`
           detailedMessage += `⭐ Core Values: ${result.core_values_compatibility_score}% (20% max)\n`
-          detailedMessage += `✨ Vibe Analysis: ${result.vibe_compatibility_score}% (25% max)\n`
+          detailedMessage += `✨ Vibe Analysis: ${result.vibe_compatibility_score}% (35% max)\n`
           
           // Add humor bonus if applicable
           if (result.humor_bonus && result.humor_bonus > 0) {
-            detailedMessage += `😄 Humor Bonus: +${result.humor_bonus}% (2% max)`
+            detailedMessage += `😄 Humor Bonus: +${result.humor_bonus}% (3% max)`
           } else {
             detailedMessage += `😄 Humor Bonus: +0% (different styles)`
           }

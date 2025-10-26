@@ -169,10 +169,10 @@ function calculateAttachmentCompatibility(style1, style2) {
   }
 }
 
-// Function to calculate communication style compatibility score (up to 25% of total - UNCHANGED)
+// Function to calculate communication style compatibility score (up to 10% of total)
 function calculateCommunicationCompatibility(style1, style2) {
   if (!style1 || !style2) {
-    return 10; // Default 10% if no communication data
+    return 4; // Default 4% if no communication data
   }
 
   // Aggressive with Passive-Aggressive gets 0%
@@ -183,7 +183,7 @@ function calculateCommunicationCompatibility(style1, style2) {
 
   // Assertive + Passive is a full-score match
   if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) {
-    return 25;
+    return 10;
   }
   
   // Communication style compatibility based on the image
@@ -196,19 +196,19 @@ function calculateCommunicationCompatibility(style1, style2) {
   
   const compatibility = compatibilityMatrix[style1];
   if (!compatibility) {
-    return 10; // Default if style not found
+    return 4; // Default if style not found
   }
   
   if (compatibility.top1 === style2) {
-    return 25; // Top 1 match gets 25%
+    return 10; // Top 1 match gets 10%
   } else if (compatibility.top2 === style2) {
-    return 20; // Top 2 match gets 20%
+    return 8; // Top 2 match gets 8%
   } else {
-    return 10; // Neither match gets 10%
+    return 4; // Neither match gets 4%
   }
 }
 
-// Function to calculate lifestyle compatibility score (up to 20% of total)
+// Function to calculate lifestyle compatibility score (up to 25% of total)
 function calculateLifestyleCompatibility(preferences1, preferences2) {
   if (!preferences1 || !preferences2) {
     return 0 // Default 0% if no lifestyle data
@@ -222,15 +222,15 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     return 0 // Invalid format
   }
   
-  // Define weights for each lifestyle question (relative to total 20%)
+  // Define weights for each lifestyle question (relative to total 25%)
   const weights = [
-    0.5,  // lifestyle_1: Lower weight (2% of total)
-    0.5,  // lifestyle_2: Lower weight (2% of total)
-    0.5,  // lifestyle_3: Lower weight (2% of total)
-    1.0,  // lifestyle_4: Normal weight (4% of total)
-    2.5   // lifestyle_5: Highest weight (10% of total)
+    0.625,  // lifestyle_1: Lower weight (2.5% of total)
+    0.625,  // lifestyle_2: Lower weight (2.5% of total)
+    0.625,  // lifestyle_3: Lower weight (2.5% of total)
+    1.25,   // lifestyle_4: Normal weight (5% of total)
+    3.125   // lifestyle_5: Highest weight (12.5% of total)
   ]
-  // Total weight sum: 5.0, which scales to 20% total
+  // Total weight sum: 6.25, which scales to 25% total
   
   // Calculate weighted similarity with partial credit for adjacent choices
   let totalScore = 0
@@ -260,11 +260,11 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     maxPossibleScore += 4 * weight
   }
   
-  // Scale to 20% total (maxPossibleScore should be 20)
-  return (totalScore / maxPossibleScore) * 20
+  // Scale to 25% total (maxPossibleScore should be 25)
+  return (totalScore / maxPossibleScore) * 25
 }
 
-// Function to calculate core values compatibility score (up to 10% of total)
+// Function to calculate core values compatibility score (up to 20% of total)
 function calculateCoreValuesCompatibility(values1, values2) {
   if (!values1 || !values2) {
     return 0 // Default 0% if no core values data
@@ -286,21 +286,21 @@ function calculateCoreValuesCompatibility(values1, values2) {
     const val2 = vals2[i]
     
     if (val1 === val2) {
-      // Identical answer = full value match (2 points)
-      totalScore += 2
+      // Identical answer = full value match (4 points)
+      totalScore += 4
     } else if (
       (val1 === 'ب' && (val2 === 'أ' || val2 === 'ج')) ||
       (val2 === 'ب' && (val1 === 'أ' || val1 === 'ج'))
     ) {
-      // Adjacent answer (middle vs. one side) = partial match (1 point)
-      totalScore += 1
+      // Adjacent answer (middle vs. one side) = partial match (2 points)
+      totalScore += 2
     } else {
       // Opposite answers = value clash (0 points)
       totalScore += 0
     }
   }
   
-  // Max score is 5 * 2 = 10 points, which directly translates to 10%
+  // Max score is 5 * 4 = 20 points, which directly translates to 20%
   return totalScore
 }
 

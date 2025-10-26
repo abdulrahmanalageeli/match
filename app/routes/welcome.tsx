@@ -1687,7 +1687,7 @@ export default function WelcomePage() {
               />
             </div>
 
-            {/* Participant Info */}
+            {/* Participant Infoo */}
             {assignedNumber && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>

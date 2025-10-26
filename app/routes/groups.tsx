@@ -437,9 +437,13 @@ export default function GroupsPage() {
               const groupData = await groupRes.json();
               
               // Find the group that contains this participant
-              const userGroup = groupData.groups?.find((group: any) => 
-                group.participant_numbers?.includes(participantData.assigned_number)
-              );
+              // Note: participant_numbers can be stored as strings or numbers, so check both
+              const userGroup = groupData.groups?.find((group: any) => {
+                const participantNumbers = group.participant_numbers || [];
+                return participantNumbers.includes(participantData.assigned_number) || 
+                       participantNumbers.includes(String(participantData.assigned_number)) ||
+                       participantNumbers.map(String).includes(String(participantData.assigned_number));
+              });
 
               if (userGroup) {
                 setTableNumber(userGroup.table_number);
@@ -447,6 +451,10 @@ export default function GroupsPage() {
                 console.log(`✅ Found group assignment - Table #${userGroup.table_number} (Event ${currentEventId})`);
               } else {
                 console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
+                console.log('Available groups:', groupData.groups?.map((g: any) => ({ 
+                  table: g.table_number, 
+                  participants: g.participant_numbers 
+                })));
               }
             }
           } catch (groupError) {

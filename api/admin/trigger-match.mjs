@@ -99,7 +99,7 @@ function isParticipantComplete(participant) {
   return true
 }
 
-// Function to calculate MBTI compatibility score (up to 10% of total - REWEIGHTED)
+// Function to calculate MBTI compatibility score (up to 5% of total)
 function calculateMBTICompatibility(type1, type2) {
   if (!type1 || !type2 || !MBTI_COMPATIBILITY[type1]) {
     return 0 // Default 0% if no MBTI data
@@ -107,17 +107,15 @@ function calculateMBTICompatibility(type1, type2) {
   
   const compatibility = MBTI_COMPATIBILITY[type1]
   
-  // Updated scores: top1 & top2 = full score, top3 = half score, bonus = quarter score
+  // Halved scores for new 5% weight
   if (compatibility.top1 === type2) {
-    return 10 // Top 1 (Keirseyan) gets full score 10%
+    return 5 // Top 1 match gets 5%
   } else if (compatibility.top2 === type2) {
-    return 10 // Top 2 (Socionics) gets full score 10%
-  } else if (compatibility.top3 === type2) {
-    return 5 // Top 3 (Cognitive Shadow) gets half score 5%
-  } else if (compatibility.bonus.includes(type2)) {
-    return 5 // Bonus matches get 5% (increased from 2.5%)
+    return 3.75 // Top 2 match gets 3.75%
+  } else if (compatibility.top3 === type2 || compatibility.bonus.includes(type2)) {
+    return 2.5 // Top 3 or bonus match gets 2.5%
   } else {
-    // If not in top matches, compare individual letters for fallback scoring
+    // If not in top matches, compare individual letters
     let sharedLetters = 0
     for (let i = 0; i < 4; i++) {
       if (type1[i] === type2[i]) {
@@ -125,33 +123,28 @@ function calculateMBTICompatibility(type1, type2) {
       }
     }
     
-    // Enhanced scoring system for shared letters
+    // Score based on shared letters (halved)
     if (sharedLetters === 3) {
-      // Check if the difference is introvert/extrovert (first letter)
-      if (type1[0] !== type2[0]) {
-        return 8 // 3 letters shared with I/E difference gets 8%
-      } else {
-        return 7 // 3 letters shared with other difference gets 7%
-      }
-    } else if (sharedLetters === 4) {
-      return 6 // 4 letters shared (identical types) gets 6%
+      return 5 // 3 letters shared gets 5%
     } else if (sharedLetters === 2) {
-      return 5 // 2 letters shared gets 5%
+      return 2.5 // 2 letters shared gets 2.5%
+    } else if (sharedLetters === 1) {
+      return 1.25 // 1 letter shared gets 1.25%
     } else {
-      return 0 // Less than 2 letters shared gets 0%
+      return 0 // No letters shared gets 0%
     }
   }
 }
 
-// Function to calculate attachment style compatibility score (up to 15% of total - REWEIGHTED)
+// Function to calculate attachment style compatibility score (up to 5% of total)
 function calculateAttachmentCompatibility(style1, style2) {
   if (!style1 || !style2) {
-    return 7.5; // Default 7.5% if no attachment data (50% of max)
+    return 2.5; // Default 2.5% if no attachment data
   }
 
   // If either person is Secure, it's a full-score match.
   if (style1 === 'Secure' || style2 === 'Secure') {
-    return 15; // Full score for any match involving a Secure person.
+    return 5; // Full score for any match involving a Secure person.
   }
   
   // Original logic for non-Secure pairings remains for other cases.
@@ -170,16 +163,16 @@ function calculateAttachmentCompatibility(style1, style2) {
   // Check if it's a best match according to the remaining rules
   const matches = bestMatches[style1] || [];
   if (matches.includes(style2)) {
-    return 15; // This will now primarily catch cases where Secure is the target
+    return 5; // This will now primarily catch cases where Secure is the target
   } else {
-    return 7.5; // Non-best match gets 7.5%
+    return 2.5; // Non-best match gets 2.5%
   }
 }
 
-// Function to calculate communication style compatibility score (up to 15% of total - REWEIGHTED)
+// Function to calculate communication style compatibility score (up to 25% of total - UNCHANGED)
 function calculateCommunicationCompatibility(style1, style2) {
   if (!style1 || !style2) {
-    return 6; // Default 6% if no communication data (40% of max)
+    return 10; // Default 10% if no communication data
   }
 
   // Aggressive with Passive-Aggressive gets 0%
@@ -190,7 +183,7 @@ function calculateCommunicationCompatibility(style1, style2) {
 
   // Assertive + Passive is a full-score match
   if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) {
-    return 15;
+    return 25;
   }
   
   // Communication style compatibility based on the image
@@ -203,19 +196,19 @@ function calculateCommunicationCompatibility(style1, style2) {
   
   const compatibility = compatibilityMatrix[style1];
   if (!compatibility) {
-    return 6; // Default if style not found
+    return 10; // Default if style not found
   }
   
   if (compatibility.top1 === style2) {
-    return 15; // Top 1 match gets 15%
+    return 25; // Top 1 match gets 25%
   } else if (compatibility.top2 === style2) {
-    return 12; // Top 2 match gets 12%
+    return 20; // Top 2 match gets 20%
   } else {
-    return 6; // Neither match gets 6%
+    return 10; // Neither match gets 10%
   }
 }
 
-// Function to calculate lifestyle compatibility score (up to 15% of total - REWEIGHTED)
+// Function to calculate lifestyle compatibility score (up to 20% of total)
 function calculateLifestyleCompatibility(preferences1, preferences2) {
   if (!preferences1 || !preferences2) {
     return 0 // Default 0% if no lifestyle data
@@ -229,15 +222,15 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     return 0 // Invalid format
   }
   
-  // Define weights for each lifestyle question (relative to total 15%)
+  // Define weights for each lifestyle question (relative to total 20%)
   const weights = [
-    0.375,  // lifestyle_1: Lower weight (1.5% of total)
-    0.375,  // lifestyle_2: Lower weight (1.5% of total)
-    0.375,  // lifestyle_3: Lower weight (1.5% of total)
-    0.75,   // lifestyle_4: Normal weight (3% of total)
-    1.875   // lifestyle_5: Highest weight (7.5% of total)
+    0.5,  // lifestyle_1: Lower weight (2% of total)
+    0.5,  // lifestyle_2: Lower weight (2% of total)
+    0.5,  // lifestyle_3: Lower weight (2% of total)
+    1.0,  // lifestyle_4: Normal weight (4% of total)
+    2.5   // lifestyle_5: Highest weight (10% of total)
   ]
-  // Total weight sum: 3.75, which scales to 15% total
+  // Total weight sum: 5.0, which scales to 20% total
   
   // Calculate weighted similarity with partial credit for adjacent choices
   let totalScore = 0
@@ -267,11 +260,11 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     maxPossibleScore += 4 * weight
   }
   
-  // Scale to 15% total (maxPossibleScore should be 15)
-  return (totalScore / maxPossibleScore) * 15
+  // Scale to 20% total (maxPossibleScore should be 20)
+  return (totalScore / maxPossibleScore) * 20
 }
 
-// Function to calculate core values compatibility score (up to 20% of total - REWEIGHTED
+// Function to calculate core values compatibility score (up to 10% of total)
 function calculateCoreValuesCompatibility(values1, values2) {
   if (!values1 || !values2) {
     return 0 // Default 0% if no core values data
@@ -293,21 +286,21 @@ function calculateCoreValuesCompatibility(values1, values2) {
     const val2 = vals2[i]
     
     if (val1 === val2) {
-      // Identical answer = full value match (4 points for 20% total)
-      totalScore += 4
+      // Identical answer = full value match (2 points)
+      totalScore += 2
     } else if (
       (val1 === 'ب' && (val2 === 'أ' || val2 === 'ج')) ||
       (val2 === 'ب' && (val1 === 'أ' || val1 === 'ج'))
     ) {
-      // Adjacent answer (middle vs. one side) = partial match (2 points)
-      totalScore += 2
+      // Adjacent answer (middle vs. one side) = partial match (1 point)
+      totalScore += 1
     } else {
       // Opposite answers = value clash (0 points)
       totalScore += 0
     }
   }
   
-  // Max score is 5 * 4 = 20 points, which directly translates to 20%
+  // Max score is 5 * 2 = 10 points, which directly translates to 10%
   return totalScore
 }
 
@@ -711,7 +704,7 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
   }
 }
 
-// Function to calculate humor compatibility bonus (+2% if same humor style - REWEIGHTED)
+// Function to calculate humor compatibility bonus (+3% if same humor style)
 function calculateHumorCompatibilityBonus(participantA, participantB) {
   // Extract humor/banter style from different possible locations
   const humorA = participantA.humor_banter_style || 
@@ -722,10 +715,10 @@ function calculateHumorCompatibilityBonus(participantA, participantB) {
                  participantB.survey_data?.humor_banter_style ||
                  participantB.survey_data?.answers?.humor_banter_style;
 
-  // If both participants have the same humor style, give +2% bonus
+  // If both participants have the same humor style, give +3% bonus
   if (humorA && humorB && humorA === humorB) {
-    console.log(`✅ Humor compatibility bonus: Both participants have style "${humorA}" (+2%)`);
-    return 2; // 2% bonus
+    console.log(`✅ Humor compatibility bonus: Both participants have style "${humorA}" (+3%)`);
+    return 3; // 3% bonus
   }
   
   return 0; // No bonus
@@ -780,9 +773,9 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
   const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
   const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-  const vibeScore = skipAI ? 15 : await calculateVibeCompatibility(participantA, participantB)
+  const vibeScore = skipAI ? 20 : await calculateVibeCompatibility(participantA, participantB)
   
-  // Calculate humor compatibility bonus (+2% if same humor style - REWEIGHTED)
+  // Calculate humor compatibility bonus (+3% if same humor style)
   const humorBonus = calculateHumorCompatibilityBonus(participantA, participantB)
   
   const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore + humorBonus
@@ -807,7 +800,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   return result
 }
 
-// Function to calculate vibe compatibility using AI (up to 25% of total - REWEIGHTED)
+// Function to calculate vibe compatibility using AI (up to 35% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
     // Get combined vibe descriptions from all 6 questions
@@ -816,13 +809,13 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
     if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default score")
-      return 12.5 // Default score (50% of max 25%)
+      return 20 // Default high score to be lenient
     }
 
     // Calculate mutual compatibility between the two combined profiles
     const vibeScore = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
     
-    console.log(`🎯 Vibe compatibility: AI score = ${vibeScore}/25`)
+    console.log(`🎯 Vibe compatibility: AI score = ${vibeScore}/35`)
     console.log(`📝 Profile A preview: "${aVibeDescription.substring(0, 100)}..."`)
     console.log(`📝 Profile B preview: "${bVibeDescription.substring(0, 100)}..."`)
     
@@ -830,58 +823,66 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
-    return 12.5 // Default score (50% of max 25%)
+    return 20 // Default high score to be lenient
   }
 }
 
 // Helper function to calculate combined vibe compatibility using AI
 async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
-    const systemMessage = `You are an expert human matchmaker. Your task is to score the "vibe compatibility" between two people on a scale of 0 to 25. Output a single integer only.
+    const systemMessage = `You are a personal compatibility rater. Output a single integer from 0 to 35 only, no extra text.
 
-**Core Philosophy: Your judgment is crucial. Prioritize genuine connection over a simple checklist. Reward both SHARED interests and powerful COMPLEMENTARY dynamics (e.g., an energetic person balanced by a calm listener). Do not penalize differences that create synergy.**
+Goal: score fast romantic "clickability" for Arabic-speaking users. Answers are short (~50 characters), so give more credit for small overlaps.
 
-Score based on three dimensions. TOTAL = Social Synergy (0-10) + Personal Resonance (0-10) + Spark Factor (0-5) = 25.
+TOTAL = Core (max 31) + Spark Bonus (max +4) = 35
 
----
-**1. Social Synergy (0-10 points): How well do their social energies align?**
-*Look at weekend plans, hobbies, and social energy (introvert vs. extrovert).*
+CORE AXES (31 points):
 
-  - **10 (Perfect Synergy):** They have a very strong overlap in how they spend their free time and approach social situations.
-  - **8 (Strong Synergy):** They have a clear complementary dynamic. (e.g., one is an adventurous extrovert, the other a calm homebody, but the extrovert's friends describe them as a "good listener" - this is a strong signal they appreciate balance).
-  - **5 (Compatible):** They have different styles but no direct conflicts. They seem open to each other's worlds.
-  - **2 (Potential Conflict):** Their social styles seem quite different, and there's no clear evidence of complementarity.
-  - **0 (Clear Conflict):** Their lifestyles and social needs are in direct opposition.
+1) Lifestyle & Weekend Habits (0-7)
+• 7: Clear match (both home/social/balanced)
+• 4-5: Near-match or one flexible
+• 2-3: Different but not clashing
+• 0: Direct conflict
 
----
-**2. Personal Resonance (0-10 points): Do they connect on a deeper level?**
-*Look at conversation depth preference ("vibe_4"), how friends describe them, and what they value in others.*
+2) Interests & Hobbies (0-7)
+Because answers are short, give credit for *any* overlap.
+• 6-7: At least one strong shared interest (niche or unique) and or more than two shared interests
+• 4-5: One mainstream overlap (e.g. travel, reading, gym)
+• 2-3: General vibe is compatible (both social/active/creative)
+• 0-1: No overlap or opposite vibes
 
-  - **10 (High Resonance):** A clear match in conversational depth AND their described traits are highly complementary (e.g., one is "funny," the other is a "good listener"; one is "ambitious," the other "supportive").
-  - **8 (Strong Resonance):** A match in conversational depth and at least one shared or complementary trait.
-  - **5 (Compatible):** Their conversational depths don't clash (e.g., one is "deep," the other is "sometimes"), and their personal values seem generally positive and aligned.
-  - **2 (Low Resonance):** A mismatch in conversational depth or their described personalities seem to have little in common.
-  - **0 (Clear Dissonance):** A direct clash in conversation style (deep vs. light only) AND their core personality traits seem incompatible.
+3) Music/Arts Taste (0-4)
+• 4: Same genre/cultural family OR similar mood
+• 2-3: Different but not clashing
+• 0-1: Mismatch or aversion
 
----
-**3. Spark Factor (0-5 points): Is there a special "spark"?**
-*This is a bonus for unique elements that predict chemistry.*
+4) Conversation Style (0-5)
+• 5: Same (deep×deep or light×light)
+• 3: Slight difference or one flexible
+• 0: Opposites with no flexibility
 
-  - **+2 points:** A strong, unique shared passion is mentioned (e.g., both love philosophy, anime, a niche sport, or a specific artist).
-  - **+2 points:** A powerful complementary dynamic is explicitly stated or strongly implied (e.g., one describes themselves as "creative and chaotic" while the other values "planning and stability"). **This is a high-value signal.**
-  - **+1 point:** A shared romantic, loyal, or deeply affectionate tone is present in their descriptions.
+5) Traits & Values (0-8)
+Use "friends describe me" + "I describe friends."
+• 6-8: Multiple keywords overlap (kind, funny, loyal, ambitious)
+• 3-5: One overlap or generally positive with no conflict
+• 0-2: Clear clash (e.g. loud vs quiet if valued opposite)
 
-*Cap the total Spark Factor at 5 points.*
+SPARK BONUS (0-4)
++1 to +2: Unique shared passion (poetry, anime, niche sport)
++1: Shared romantic/affectionate tone
++1 to +2: Complement explicitly appreciated (cook × eater, listener × talker)
+Cap at +4.
 
----
-Return a single integer from 0 to 25. No other text.
+Aggregation: Core (0-31) + Bonus (0-4) = 0-35.
+
+أرجِع رقمًا واحدًا فقط من 0 إلى 35 دون أي نص إضافي.
 `
 
     const userMessage = `الملف الشخصي للشخص الأول: "${profileA}"
 
 الملف الشخصي للشخص الثاني: "${profileB}"
 
-قيّم التوافق الشخصي بينهما من 0 إلى 25:`
+قيّم التوافق الشخصي بينهما من 0 إلى 35:`
 
     console.log(`🤖 Calling OpenAI API (model: gpt-4o-mini)...`)
     const apiStartTime = Date.now()
@@ -905,9 +906,9 @@ Return a single integer from 0 to 25. No other text.
     console.log(`🤖 AI raw response: "${rawResponse}" → Parsed score: ${score}`)
     
     // Validate score is within range
-    if (isNaN(score) || score < 0 || score > 25) {
+    if (isNaN(score) || score < 0 || score > 35) {
       console.warn("❌ Invalid AI score, using default:", rawResponse)
-      return 12.5 // Default score (50% of max 25%)
+      return 20 // Default higher score to be more lenient
     }
 
     return score
@@ -920,7 +921,7 @@ Return a single integer from 0 to 25. No other text.
       console.error("   API response status:", error.response.status)
       console.error("   API response data:", error.response.data)
     }
-    return 12.5 // Default score (50% of max 25%)
+    return 20 // Default higher score to be more lenient
   }
 }
 

@@ -264,8 +264,8 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
       (val1 === 'أ' && val2 === 'ب') || (val1 === 'ب' && val2 === 'أ') ||
       (val1 === 'ب' && val2 === 'ج') || (val1 === 'ج' && val2 === 'ب')
     ) {
-      // Adjacent choices = partial points (2 points)
-      questionScore = 2
+      // Adjacent choices = 75% credit (3 points)
+      questionScore = 3
     } else {
       // Opposite choices (أ vs ج) = no points
       questionScore = 0

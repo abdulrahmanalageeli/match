@@ -101,39 +101,50 @@ function isParticipantComplete(participant) {
 
 // Function to calculate MBTI compatibility score (up to 5% of total)
 function calculateMBTICompatibility(type1, type2) {
-  if (!type1 || !type2 || !MBTI_COMPATIBILITY[type1]) {
+  if (!type1 || !type2) {
     return 0 // Default 0% if no MBTI data
   }
   
-  const compatibility = MBTI_COMPATIBILITY[type1]
+  let score = 0
   
-  // Halved scores for new 5% weight
-  if (compatibility.top1 === type2) {
-    return 5 // Top 1 match gets 5%
-  } else if (compatibility.top2 === type2) {
-    return 3.75 // Top 2 match gets 3.75%
-  } else if (compatibility.top3 === type2 || compatibility.bonus.includes(type2)) {
-    return 2.5 // Top 3 or bonus match gets 2.5%
+  // First letter (I/E) scoring:
+  // I + E or E + I = 2.5% (preferred - different)
+  // E + E = 2.5% (perfect - both extroverts)
+  // I + I = 0% (not compatible - both introverts)
+  
+  const firstLetter1 = type1[0]
+  const firstLetter2 = type2[0]
+  
+  if (firstLetter1 === 'I' && firstLetter2 === 'I') {
+    // Both introverts - 0 points
+    score += 0
+    console.log(`❌ MBTI I/E: Both introverts (${type1} + ${type2}) = 0%`)
+  } else if (firstLetter1 === 'E' && firstLetter2 === 'E') {
+    // Both extroverts - perfect 2.5%
+    score += 2.5
+    console.log(`✅ MBTI I/E: Both extroverts (${type1} + ${type2}) = 2.5%`)
   } else {
-    // If not in top matches, compare individual letters
-    let sharedLetters = 0
-    for (let i = 0; i < 4; i++) {
-      if (type1[i] === type2[i]) {
-        sharedLetters++
-      }
-    }
-    
-    // Score based on shared letters (halved)
-    if (sharedLetters === 3) {
-      return 5 // 3 letters shared gets 5%
-    } else if (sharedLetters === 2) {
-      return 2.5 // 2 letters shared gets 2.5%
-    } else if (sharedLetters === 1) {
-      return 1.25 // 1 letter shared gets 1.25%
-    } else {
-      return 0 // No letters shared gets 0%
-    }
+    // One introvert, one extrovert - good 2.5%
+    score += 2.5
+    console.log(`✅ MBTI I/E: Mixed I/E (${type1} + ${type2}) = 2.5%`)
   }
+  
+  // Last 3 letters (N/S, T/F, J/P) scoring:
+  // All 3 must match to get the other 2.5%
+  const last3Match = type1[1] === type2[1] && 
+                     type1[2] === type2[2] && 
+                     type1[3] === type2[3]
+  
+  if (last3Match) {
+    score += 2.5
+    console.log(`✅ MBTI Last 3: All match (${type1.slice(1)} = ${type2.slice(1)}) = +2.5%`)
+  } else {
+    console.log(`❌ MBTI Last 3: Don't all match (${type1.slice(1)} ≠ ${type2.slice(1)}) = 0%`)
+  }
+  
+  console.log(`🎯 MBTI Total: ${type1} + ${type2} = ${score}%`)
+  
+  return score
 }
 
 // Function to calculate attachment style compatibility score (up to 5% of total)

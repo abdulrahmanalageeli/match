@@ -1276,11 +1276,11 @@ const fetchParticipants = async () => {
           detailedMessage += `⭐ Core Values: ${result.core_values_compatibility_score}% (20% max)\n`
           detailedMessage += `✨ Vibe Analysis: ${result.vibe_compatibility_score}% (35% max)\n`
           
-          // Add humor bonus if applicable
-          if (result.humor_bonus && result.humor_bonus > 0) {
-            detailedMessage += `😄 Humor Bonus: +${result.humor_bonus}% (3% max)`
+          // Add humor multiplier if applicable
+          if (result.humor_multiplier && result.humor_multiplier > 1.0) {
+            detailedMessage += `😄 Humor Multiplier: ×${result.humor_multiplier} (matching styles)`
           } else {
-            detailedMessage += `😄 Humor Bonus: +0% (different styles)`
+            detailedMessage += `😄 Humor Multiplier: ×1.0 (different styles)`
           }
         }
         

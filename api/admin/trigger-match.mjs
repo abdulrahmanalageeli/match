@@ -666,7 +666,7 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     const cacheKey = generateCacheKey(participantA, participantB)
     
     console.log(`💾 Attempting to store cache for #${smaller}-#${larger}...`)
-    console.log(`   Scores: total=${scores.totalScore}, vibe=${scores.vibeScore}, humor=${scores.humorBonus}`)
+    console.log(`   Scores: total=${scores.totalScore}, vibe=${scores.vibeScore}, humorMultiplier=${scores.humorMultiplier}`)
     
     const { data, error } = await supabase
       .from('compatibility_cache')
@@ -704,8 +704,8 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
   }
 }
 
-// Function to calculate humor compatibility bonus (+3% if same humor style)
-function calculateHumorCompatibilityBonus(participantA, participantB) {
+// Function to check if humor styles match (for 1.15x multiplier)
+function checkHumorMatch(participantA, participantB) {
   // Extract humor/banter style from different possible locations
   const humorA = participantA.humor_banter_style || 
                  participantA.survey_data?.humor_banter_style ||
@@ -715,13 +715,13 @@ function calculateHumorCompatibilityBonus(participantA, participantB) {
                  participantB.survey_data?.humor_banter_style ||
                  participantB.survey_data?.answers?.humor_banter_style;
 
-  // If both participants have the same humor style, give +3% bonus
+  // Return true if both participants have the same humor style
   if (humorA && humorB && humorA === humorB) {
-    console.log(`✅ Humor compatibility bonus: Both participants have style "${humorA}" (+3%)`);
-    return 3; // 3% bonus
+    console.log(`✅ Humor match detected: Both participants have style "${humorA}" (1.15x multiplier will be applied)`);
+    return true;
   }
   
-  return 0; // No bonus
+  return false;
 }
 
 // Function to calculate full compatibility with caching
@@ -775,10 +775,25 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
   const vibeScore = skipAI ? 20 : await calculateVibeCompatibility(participantA, participantB)
   
-  // Calculate humor compatibility bonus (+3% if same humor style)
-  const humorBonus = calculateHumorCompatibilityBonus(participantA, participantB)
+  // Calculate base total score (before humor multiplier)
+  let totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
   
-  const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore + humorBonus
+  // Check if humor styles match for 1.15x multiplier
+  const humorMatch = checkHumorMatch(participantA, participantB)
+  const humorMultiplier = humorMatch ? 1.15 : 1.0
+  
+  // Apply humor multiplier
+  if (humorMatch) {
+    const scoreBeforeMultiplier = totalScore
+    totalScore = totalScore * humorMultiplier
+    console.log(`🎭 Humor multiplier applied: ${scoreBeforeMultiplier.toFixed(2)} × 1.15 = ${totalScore.toFixed(2)}`)
+  }
+  
+  // Cap at 100% to ensure compatibility never exceeds maximum
+  if (totalScore > 100) {
+    console.log(`⚠️ Score capped: ${totalScore.toFixed(2)} → 100.00 (max compatibility)`)
+    totalScore = 100
+  }
   
   const result = {
     mbtiScore,
@@ -787,7 +802,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     lifestyleScore,
     coreValuesScore,
     vibeScore,
-    humorBonus,
+    humorMultiplier,
     totalScore,
     cached: false
   }
@@ -1908,7 +1923,7 @@ export default async function handler(req, res) {
         
         try {
           const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
-          console.log(`   ✅ Successfully cached! Total: ${result.totalScore.toFixed(2)}% (vibe: ${result.vibeScore}, humor: ${result.humorBonus})`)
+          console.log(`   ✅ Successfully cached! Total: ${result.totalScore.toFixed(2)}% (vibe: ${result.vibeScore}, humorMultiplier: ${result.humorMultiplier})`)
           cachedCount++
         } catch (error) {
           console.error(`   ❌ ERROR caching pair #${p1.assigned_number} × #${p2.assigned_number}:`, error.message)
@@ -2208,7 +2223,7 @@ export default async function handler(req, res) {
       const lifestyleScore = compatibilityResult.lifestyleScore
       const coreValuesScore = compatibilityResult.coreValuesScore
       const vibeScore = compatibilityResult.vibeScore
-      const humorBonus = compatibilityResult.humorBonus
+      const humorMultiplier = compatibilityResult.humorMultiplier
       const totalCompatibility = Math.round(compatibilityResult.totalScore)
       
       if (compatibilityResult.cached && !manualMatch.testModeOnly) {
@@ -2282,7 +2297,7 @@ export default async function handler(req, res) {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
-          humor_bonus: humorBonus
+          humor_multiplier: humorMultiplier
         }],
         sessionId: null // Manual matches don't create new sessions, they modify existing data
       })
@@ -2467,7 +2482,7 @@ export default async function handler(req, res) {
         const lifestyleScore = compatibilityResult.lifestyleScore
         const coreValuesScore = compatibilityResult.coreValuesScore
         const vibeScore = compatibilityResult.vibeScore
-        const humorBonus = compatibilityResult.humorBonus
+        const humorMultiplier = compatibilityResult.humorMultiplier
         const totalScore = compatibilityResult.totalScore
         
         // Extract data for reason string and storage
@@ -2496,9 +2511,9 @@ export default async function handler(req, res) {
         
         let reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
         
-        // Add humor bonus to reason if applicable
-        if (humorBonus > 0) {
-          reason += ` + مكافأة الدعابة المتشابهة: (+${humorBonus}%)`
+        // Add humor multiplier to reason if applicable
+        if (humorMultiplier > 1.0) {
+          reason += ` × مضاعف الدعابة المتشابهة: (×${humorMultiplier})`
         }
         
         compatibilityScores.push({
@@ -2512,7 +2527,7 @@ export default async function handler(req, res) {
           lifestyleScore: lifestyleScore,
           coreValuesScore: coreValuesScore,
           vibeScore: vibeScore,
-          humorBonus: humorBonus,
+          humorMultiplier: humorMultiplier,
           // Store personality data for later use
           aMBTI: aMBTI,
           bMBTI: bMBTI,

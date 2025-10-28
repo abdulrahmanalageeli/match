@@ -237,13 +237,13 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     return 0 // Invalid format
   }
   
-  // Define weights for each lifestyle question (relative to total 25%)
+  // Equal weights for all questions (5% each = 25% total)
   const weights = [
-    0.625,  // lifestyle_1: Lower weight (2.5% of total)
-    0.625,  // lifestyle_2: Lower weight (2.5% of total)
-    0.625,  // lifestyle_3: Lower weight (2.5% of total)
-    1.25,   // lifestyle_4: Normal weight (5% of total)
-    3.125   // lifestyle_5: Highest weight (12.5% of total)
+    1.25,  // lifestyle_1: 5% of total
+    1.25,  // lifestyle_2: 5% of total
+    1.25,  // lifestyle_3: 5% of total
+    1.25,  // lifestyle_4: 5% of total
+    1.25   // lifestyle_5: 5% of total
   ]
   // Total weight sum: 6.25, which scales to 25% total
   
@@ -276,7 +276,18 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
   }
   
   // Scale to 25% total (maxPossibleScore should be 25)
-  return (totalScore / maxPossibleScore) * 25
+  let finalScore = (totalScore / maxPossibleScore) * 25
+  
+  // Q18 (lifestyle_5) penalty: -5% if one person is A and the other is C
+  const q18_val1 = prefs1[4] // lifestyle_5 is index 4
+  const q18_val2 = prefs2[4]
+  
+  if ((q18_val1 === 'أ' && q18_val2 === 'ج') || (q18_val1 === 'ج' && q18_val2 === 'أ')) {
+    finalScore -= 5
+    console.log(`⚠️ Q18 Penalty: One person is A (social) and other is C (alone) = -5%`)
+  }
+  
+  return Math.max(0, finalScore) // Ensure score doesn't go negative
 }
 
 // Function to calculate core values compatibility score (up to 20% of total)

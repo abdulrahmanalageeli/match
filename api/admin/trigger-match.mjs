@@ -730,7 +730,7 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
   }
 }
 
-// Function to check if humor styles match (for 1.15x multiplier)
+// Function to check if BOTH humor and openness styles match (for 1.15x multiplier)
 function checkHumorMatch(participantA, participantB) {
   // Extract humor/banter style from different possible locations
   const humorA = participantA.humor_banter_style || 
@@ -741,13 +741,38 @@ function checkHumorMatch(participantA, participantB) {
                  participantB.survey_data?.humor_banter_style ||
                  participantB.survey_data?.answers?.humor_banter_style;
 
-  // Return true if both participants have the same humor style
-  if (humorA && humorB && humorA === humorB) {
-    console.log(`✅ Humor match detected: Both participants have style "${humorA}" (1.15x multiplier will be applied)`);
-    return true;
+  // Extract early openness comfort from different possible locations
+  const opennessA = participantA.early_openness_comfort !== undefined ? 
+                    participantA.early_openness_comfort : 
+                    participantA.survey_data?.answers?.early_openness_comfort;
+                    
+  const opennessB = participantB.early_openness_comfort !== undefined ? 
+                    participantB.early_openness_comfort : 
+                    participantB.survey_data?.answers?.early_openness_comfort;
+
+  // Check if humor styles match
+  const humorMatches = humorA && humorB && humorA === humorB;
+  
+  // Check if openness levels match
+  const opennessMatches = opennessA !== undefined && 
+                          opennessB !== undefined && 
+                          parseInt(opennessA) === parseInt(opennessB);
+
+  // Return multiplier based on matches
+  if (humorMatches && opennessMatches) {
+    console.log(`✅ Full interaction match: Humor="${humorA}" AND Openness="${opennessA}" (1.15x multiplier)`);
+    return 1.15;
+  } else if (humorMatches || opennessMatches) {
+    // Partial match - only one matches
+    if (humorMatches) {
+      console.log(`⚠️ Partial match: Humor matches ("${humorA}") but openness differs (${opennessA} vs ${opennessB}) - 1.05x multiplier`);
+    } else {
+      console.log(`⚠️ Partial match: Openness matches (${opennessA}) but humor differs (${humorA} vs ${humorB}) - 1.05x multiplier`);
+    }
+    return 1.05;
   }
   
-  return false;
+  return 1.0; // No matches - no multiplier
 }
 
 // Function to calculate full compatibility with caching
@@ -801,18 +826,17 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
   const vibeScore = skipAI ? 20 : await calculateVibeCompatibility(participantA, participantB)
   
-  // Calculate base total score (before humor multiplier)
+  // Calculate base total score (before interaction multiplier)
   let totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
   
-  // Check if humor styles match for 1.15x multiplier
-  const humorMatch = checkHumorMatch(participantA, participantB)
-  const humorMultiplier = humorMatch ? 1.15 : 1.0
+  // Get interaction style multiplier (1.0, 1.05, or 1.15)
+  const humorMultiplier = checkHumorMatch(participantA, participantB)
   
-  // Apply humor multiplier
-  if (humorMatch) {
+  // Apply interaction multiplier
+  if (humorMultiplier > 1.0) {
     const scoreBeforeMultiplier = totalScore
     totalScore = totalScore * humorMultiplier
-    console.log(`🎭 Humor multiplier applied: ${scoreBeforeMultiplier.toFixed(2)} × 1.15 = ${totalScore.toFixed(2)}`)
+    console.log(`🎭 Interaction multiplier applied: ${scoreBeforeMultiplier.toFixed(2)} × ${humorMultiplier} = ${totalScore.toFixed(2)}`)
   }
   
   // Cap at 100% to ensure compatibility never exceeds maximum

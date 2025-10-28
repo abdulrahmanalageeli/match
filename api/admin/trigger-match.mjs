@@ -130,16 +130,20 @@ function calculateMBTICompatibility(type1, type2) {
   }
   
   // Last 3 letters (N/S, T/F, J/P) scoring:
-  // All 3 must match to get the other 2.5%
-  const last3Match = type1[1] === type2[1] && 
-                     type1[2] === type2[2] && 
-                     type1[3] === type2[3]
+  // All 3 match OR only 1 different = 2.5%
+  // 2 or 3 different = 0%
+  let matchingLetters = 0
+  if (type1[1] === type2[1]) matchingLetters++
+  if (type1[2] === type2[2]) matchingLetters++
+  if (type1[3] === type2[3]) matchingLetters++
   
-  if (last3Match) {
+  if (matchingLetters >= 2) {
+    // 2 or 3 matching (0 or 1 different) = full score
     score += 2.5
-    console.log(`✅ MBTI Last 3: All match (${type1.slice(1)} = ${type2.slice(1)}) = +2.5%`)
+    console.log(`✅ MBTI Last 3: ${matchingLetters}/3 match (${type1.slice(1)} vs ${type2.slice(1)}) = +2.5%`)
   } else {
-    console.log(`❌ MBTI Last 3: Don't all match (${type1.slice(1)} ≠ ${type2.slice(1)}) = 0%`)
+    // 0 or 1 matching (2 or 3 different) = no score
+    console.log(`❌ MBTI Last 3: Only ${matchingLetters}/3 match (${type1.slice(1)} vs ${type2.slice(1)}) = 0%`)
   }
   
   console.log(`🎯 MBTI Total: ${type1} + ${type2} = ${score}%`)

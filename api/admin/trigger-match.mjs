@@ -257,7 +257,11 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
     const weight = weights[i]
     
     let questionScore = 0
-    if (val1 === val2) {
+    
+    // Q14 (lifestyle_1 - morning/night person) always gets full score
+    if (i === 0) {
+      questionScore = 4 // Always full points regardless of match
+    } else if (val1 === val2) {
       // Exact match = full points (4 points)
       questionScore = 4
     } else if (

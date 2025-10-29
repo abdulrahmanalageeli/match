@@ -1683,7 +1683,7 @@ export default function WelcomePage() {
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-contain" 
+                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain" 
               />
             </div>
 

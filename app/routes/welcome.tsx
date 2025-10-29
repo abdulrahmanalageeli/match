@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react"
 import type { MouseEvent, FormEvent, CSSProperties } from "react"
-import { useSearchParams } from "react-router-dom"
+import { useSearchParams } from "react-router"
 import { X } from "lucide-react"
 import toast, { Toaster } from 'react-hot-toast'
 import logoPng from "../welcome/blindmatch.png"

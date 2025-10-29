@@ -1,7 +1,7 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "pnpm run build",
   "outputDirectory": "build/client",
-  "installCommand": "npm install",
+  "installCommand": "pnpm install",
   "functions": {
     "api/**/*.mjs": {
       "runtime": "@vercel/node@5.3.3"

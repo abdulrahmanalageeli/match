@@ -1810,19 +1810,19 @@ export default function WelcomePage() {
         >
           <div className="relative">
             {/* Glow effect background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg sm:rounded-xl md:rounded-lg blur-sm sm:blur-md md:blur-sm lg:blur-sm opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
             
             {/* Main logo container */}
-            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl md:rounded-lg p-2 sm:p-2.5 md:p-2 lg:p-1 xl:p-1 shadow-lg sm:shadow-xl md:shadow-lg group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
+            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-10 h-10 xs:w-11 xs:h-11 sm:w-12 sm:h-12 md:w-12 md:h-12 lg:w-6 lg:h-6 xl:w-5 xl:h-5 object-contain drop-shadow-sm" 
+                className="w-8 h-8 object-contain drop-shadow-sm" 
               />
             </div>
             
             {/* Subtle animated border */}
-            <div className="absolute inset-0 rounded-lg sm:rounded-xl md:rounded-lg bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
+            <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-purple-500/30 via-blue-500/30 to-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
           </div>
         </div>
 

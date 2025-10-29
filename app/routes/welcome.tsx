@@ -1673,17 +1673,17 @@ export default function WelcomePage() {
     
     return (
       <div className={positionClass}>
-        <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
-          <div className="flex items-center gap-3">
+        <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-2 sm:px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
+          <div className="flex items-center gap-2 sm:gap-3">
             {/* Logo - Center */}
             <div 
               onClick={handleLogoClick}
-              className="cursor-pointer transition-all duration-200 hover:opacity-80"
+              className="cursor-pointer transition-all duration-200 hover:opacity-80 flex-shrink-0"
             >
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 object-contain" 
+                className="w-16 h-16 min-w-[4rem] min-h-[4rem] sm:w-20 sm:h-20 md:w-24 md:h-24 object-contain" 
               />
             </div>
 

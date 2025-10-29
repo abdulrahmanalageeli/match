@@ -1,20 +1,11 @@
 {
   "buildCommand": "pnpm run build",
-  "outputDirectory": "build/client",
   "installCommand": "pnpm install",
   "functions": {
     "api/**/*.mjs": {
       "runtime": "@vercel/node@5.3.3"
-    },
-    "build/server/index.js": {
-      "runtime": "@vercel/node@5.3.3",
-      "includeFiles": "build/server/**"
     }
   },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/build/server/index.js" }
-  ],
   "headers": [
     {
       "source": "/(.*)",

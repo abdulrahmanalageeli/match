@@ -217,6 +217,17 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
                 <MessageSquare className="w-4 h-4 mx-auto mb-1" />
                 تذكير الدفع
               </button>
+              <button
+                onClick={() => setTemplateType('partner-info')}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'partner-info' 
+                    ? 'bg-pink-600 text-white' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <HelpCircle className="w-4 h-4 mx-auto mb-1" />
+                معلومات الشريك
+              </button>
             </div>
           </div>
 

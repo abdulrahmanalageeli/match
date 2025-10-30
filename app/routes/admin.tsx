@@ -30,14 +30,12 @@ import {
   X,
   MessageSquare,
   Ban,
-  FileText,
-  Brain
+  FileText
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
-import MatrixFactorizationPanel from "~/components/MatrixFactorizationPanel"
 import { Bug } from "lucide-react"
 
 export default function AdminPage() {
@@ -126,9 +124,6 @@ export default function AdminPage() {
   const [preCaching, setPreCaching] = useState(false);
   const [preCacheDirection, setPreCacheDirection] = useState<'forward' | 'reverse'>('forward');
   const [preCacheAll, setPreCacheAll] = useState(false);
-  
-  // Matrix Factorization state
-  const [showMatrixFactorization, setShowMatrixFactorization] = useState(false);
   
   // Group debug state
   const [showGroupDebugModal, setShowGroupDebugModal] = useState(false);
@@ -2392,15 +2387,6 @@ Proceed?`
                   Results History ({availableSessions.length})
                 </button>
               )}
-              
-              {/* Matrix Factorization Button */}
-              <button
-                onClick={() => setShowMatrixFactorization(!showMatrixFactorization)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${showMatrixFactorization ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white'}`}
-              >
-                <Brain className="w-4 h-4" />
-                {showMatrixFactorization ? 'Hide Matrix Factorization' : 'Matrix Factorization'}
-              </button>
             </div>
           </div>
 
@@ -2479,31 +2465,6 @@ Proceed?`
                   </div>
                 ))}
               </div>
-            </div>
-          )}
-
-          {/* Matrix Factorization Panel */}
-          {showMatrixFactorization && (
-            <div className="mt-6 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-500/20 rounded-lg">
-                    <Brain className="w-5 h-5 text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-blue-300">Matrix Factorization</h3>
-                    <p className="text-slate-400 text-sm">Test alternative matching algorithm for Event {currentEventId}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowMatrixFactorization(false)}
-                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4 text-slate-400" />
-                </button>
-              </div>
-              
-              <MatrixFactorizationPanel currentEventId={currentEventId} />
             </div>
           )}
 
@@ -3639,8 +3600,6 @@ Proceed?`
           </div>
         </div>
       )}
-      
-      {/* Matrix Factorization Panel moved to main content area */}
 
       {/* React Hot Toast Container */}
       <Toaster

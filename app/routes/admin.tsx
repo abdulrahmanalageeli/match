@@ -2482,6 +2482,31 @@ Proceed?`
             </div>
           )}
 
+          {/* Matrix Factorization Panel */}
+          {showMatrixFactorization && (
+            <div className="mt-6 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/20 rounded-lg">
+                    <Brain className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-blue-300">Matrix Factorization</h3>
+                    <p className="text-slate-400 text-sm">Test alternative matching algorithm for Event {currentEventId}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMatrixFactorization(false)}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
+              
+              <MatrixFactorizationPanel currentEventId={currentEventId} />
+            </div>
+          )}
+
         </div>
 
         {/* Excluded Pairs Management */}
@@ -3615,12 +3640,7 @@ Proceed?`
         </div>
       )}
       
-      {/* Matrix Factorization Panel */}
-      {showMatrixFactorization && (
-        <div className="mb-6">
-          <MatrixFactorizationPanel currentEventId={currentEventId} />
-        </div>
-      )}
+      {/* Matrix Factorization Panel moved to main content area */}
 
       {/* React Hot Toast Container */}
       <Toaster

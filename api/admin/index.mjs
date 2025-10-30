@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import munkres from "munkres-js"
+import { trainMatrixFactorizationModel, predictCompatibility, getModelPerformance, generateCompatibilityMatrix, generateMatches } from "./matrix-factorization.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -86,6 +87,101 @@ export default async function handler(req, res) {
           .eq("match_id", STATIC_MATCH_ID)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Deleted successfully" })
+      }
+      
+      // Matrix Factorization API endpoints
+      if (action === "train-matrix-factorization") {
+        try {
+          const { event_id } = req.body
+          const currentEventId = event_id || 1
+          
+          console.log(`🧠 Training matrix factorization model for event ${currentEventId}...`)
+          const result = await trainMatrixFactorizationModel(currentEventId)
+          
+          return res.status(200).json({
+            success: true,
+            ...result
+          })
+        } catch (error) {
+          console.error("Error training matrix factorization model:", error)
+          return res.status(500).json({ error: error.message })
+        }
+      }
+      
+      if (action === "predict-compatibility") {
+        try {
+          const { event_id, participant1, participant2 } = req.body
+          const currentEventId = event_id || 1
+          
+          if (!participant1 || !participant2) {
+            return res.status(400).json({ error: "Both participant numbers are required" })
+          }
+          
+          console.log(`🔮 Predicting compatibility between participants ${participant1} and ${participant2}...`)
+          const result = await predictCompatibility(currentEventId, parseInt(participant1), parseInt(participant2))
+          
+          return res.status(200).json({
+            success: true,
+            ...result
+          })
+        } catch (error) {
+          console.error("Error predicting compatibility:", error)
+          return res.status(500).json({ error: error.message })
+        }
+      }
+      
+      if (action === "get-model-performance") {
+        try {
+          const { event_id } = req.body
+          const currentEventId = event_id || 1
+          
+          console.log(`📊 Getting model performance for event ${currentEventId}...`)
+          const result = await getModelPerformance(currentEventId)
+          
+          return res.status(200).json({
+            success: true,
+            performance: result
+          })
+        } catch (error) {
+          console.error("Error getting model performance:", error)
+          return res.status(500).json({ error: error.message })
+        }
+      }
+      
+      if (action === "generate-compatibility-matrix") {
+        try {
+          const { event_id } = req.body
+          const currentEventId = event_id || 1
+          
+          console.log(`🔢 Generating compatibility matrix for event ${currentEventId}...`)
+          const result = await generateCompatibilityMatrix(currentEventId)
+          
+          return res.status(200).json({
+            success: true,
+            ...result
+          })
+        } catch (error) {
+          console.error("Error generating compatibility matrix:", error)
+          return res.status(500).json({ error: error.message })
+        }
+      }
+      
+      if (action === "generate-mf-matches") {
+        try {
+          const { event_id } = req.body
+          const currentEventId = event_id || 1
+          
+          console.log(`👥 Generating matches using matrix factorization for event ${currentEventId}...`)
+          const result = await generateMatches(currentEventId)
+          
+          return res.status(200).json({
+            success: true,
+            ...result
+          })
+        } catch (error) {
+          console.error("Error generating matches with matrix factorization:", error)
+          return res.status(500).json({ error: error.message })
+        }
       }
 
       if (action === "set-phase") {

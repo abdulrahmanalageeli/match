@@ -30,12 +30,14 @@ import {
   X,
   MessageSquare,
   Ban,
-  FileText
+  FileText,
+  Brain
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
+import MatrixFactorizationPanel from "~/components/MatrixFactorizationPanel"
 import { Bug } from "lucide-react"
 
 export default function AdminPage() {
@@ -124,6 +126,9 @@ export default function AdminPage() {
   const [preCaching, setPreCaching] = useState(false);
   const [preCacheDirection, setPreCacheDirection] = useState<'forward' | 'reverse'>('forward');
   const [preCacheAll, setPreCacheAll] = useState(false);
+  
+  // Matrix Factorization state
+  const [showMatrixFactorization, setShowMatrixFactorization] = useState(false);
   
   // Group debug state
   const [showGroupDebugModal, setShowGroupDebugModal] = useState(false);
@@ -2387,6 +2392,15 @@ Proceed?`
                   Results History ({availableSessions.length})
                 </button>
               )}
+              
+              {/* Matrix Factorization Button */}
+              <button
+                onClick={() => setShowMatrixFactorization(!showMatrixFactorization)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${showMatrixFactorization ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white' : 'bg-gradient-to-r from-slate-600 to-slate-700 text-white'}`}
+              >
+                <Brain className="w-4 h-4" />
+                {showMatrixFactorization ? 'Hide Matrix Factorization' : 'Matrix Factorization'}
+              </button>
             </div>
           </div>
 
@@ -3598,6 +3612,13 @@ Proceed?`
               </button>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Matrix Factorization Panel */}
+      {showMatrixFactorization && (
+        <div className="mb-6">
+          <MatrixFactorizationPanel currentEventId={currentEventId} />
         </div>
       )}
 

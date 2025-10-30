@@ -12,18 +12,29 @@ const NUM_FACTORS = 20 // Number of latent factors to use
 
 /**
  * Trains a matrix factorization model using participant feedback and match data
- * @param {number} eventId - The event ID to train the model for
+ * @param {number} eventId - The event ID to train the model for (use 0 for all events)
  * @returns {Promise<Object>} - Training results and statistics
  */
 export async function trainMatrixFactorizationModel(eventId) {
-  console.log(`🧠 Training matrix factorization model for event ${eventId}...`)
+  const useAllEvents = eventId === 0
+  console.log(`🧠 Training matrix factorization model for ${useAllEvents ? 'ALL events' : 'event ' + eventId}...`)
   
   try {
     // Step 1: Collect training data from match_feedback table
-    const { data: feedbackData, error: feedbackError } = await supabase
+    // First, let's get a count of all unique feedback entries
+    const { count: totalFeedbackCount, error: countError } = await supabase
+      .from("match_feedback")
+      .select('participant_number', { count: 'exact', head: true })
+    
+    if (countError) throw countError
+    console.log(`📊 Total feedback entries in database: ${totalFeedbackCount}`)
+    
+    // Now get the actual feedback data for the specified event or all events
+    let feedbackQuery = supabase
       .from("match_feedback")
       .select(`
         participant_number,
+        event_id,
         round,
         compatibility_rate,
         conversation_quality,
@@ -34,26 +45,62 @@ export async function trainMatrixFactorizationModel(eventId) {
         overall_experience,
         would_meet_again
       `)
-      .eq("event_id", eventId)
+    
+    // Only filter by event_id if not using all events
+    if (!useAllEvents) {
+      feedbackQuery = feedbackQuery.eq("event_id", eventId)
+    }
+    
+    const { data: feedbackData, error: feedbackError } = await feedbackQuery
     
     if (feedbackError) throw feedbackError
     
+    // Count unique participants in feedback
+    const uniqueFeedbackParticipants = new Set(feedbackData.map(f => f.participant_number))
+    console.log(`📊 Found ${feedbackData.length} feedback entries ${useAllEvents ? 'across all events' : 'for event ' + eventId}`)
+    console.log(`📊 Found ${uniqueFeedbackParticipants.size} unique participants with feedback ${useAllEvents ? 'across all events' : 'for event ' + eventId}`)
+    
     // Step 2: Get match results data
-    const { data: matchResults, error: matchError } = await supabase
+    // First, count all match results
+    const { count: totalMatchCount, error: matchCountError } = await supabase
+      .from("match_results")
+      .select('id', { count: 'exact', head: true })
+      .is("participant_c_number", null) // Exclude group matches
+    
+    if (matchCountError) throw matchCountError
+    console.log(`📊 Total match results in database (excluding groups): ${totalMatchCount}`)
+    
+    // Now get match results for this event or all events
+    let matchQuery = supabase
       .from("match_results")
       .select(`
         participant_a_number, 
         participant_b_number, 
+        event_id,
         compatibility_score,
         mutual_match,
         participant_a_wants_match,
         participant_b_wants_match,
         round
       `)
-      .eq("event_id", eventId)
       .is("participant_c_number", null) // Exclude group matches
     
+    // Only filter by event_id if not using all events
+    if (!useAllEvents) {
+      matchQuery = matchQuery.eq("event_id", eventId)
+    }
+    
+    const { data: matchResults, error: matchError } = await matchQuery
+    
     if (matchError) throw matchError
+    
+    // Count unique participants in match results
+    const uniqueMatchParticipantsA = new Set(matchResults.map(m => m.participant_a_number))
+    const uniqueMatchParticipantsB = new Set(matchResults.map(m => m.participant_b_number))
+    const allMatchParticipants = new Set([...uniqueMatchParticipantsA, ...uniqueMatchParticipantsB])
+    
+    console.log(`📊 Found ${matchResults.length} match results ${useAllEvents ? 'across all events' : 'for event ' + eventId}`)
+    console.log(`📊 Found ${allMatchParticipants.size} unique participants in matches ${useAllEvents ? 'across all events' : 'for event ' + eventId}`)
     
     // Step 3: Build participant map and collect all participants
     const participantMap = new Map()

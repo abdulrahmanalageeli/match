@@ -92,10 +92,12 @@ export default async function handler(req, res) {
       // Matrix Factorization API endpoints
       if (action === "train-matrix-factorization") {
         try {
-          const { event_id } = req.body
-          const currentEventId = event_id || 1
+          const { event_id, use_all_events } = req.body
+          // If use_all_events is true, use 0 as event_id to indicate all events
+          // Otherwise use the provided event_id or default to 1
+          const currentEventId = use_all_events ? 0 : (event_id || 1)
           
-          console.log(`🧠 Training matrix factorization model for event ${currentEventId}...`)
+          console.log(`🧠 Training matrix factorization model for ${currentEventId === 0 ? 'ALL events' : 'event ' + currentEventId}...`)
           const result = await trainMatrixFactorizationModel(currentEventId)
           
           return res.status(200).json({

@@ -10,6 +10,7 @@ export default function MatrixFactorizationPanel({ currentEventId }: MatrixFacto
   const [modelStats, setModelStats] = useState<any>(null)
   const [modelPerformance, setModelPerformance] = useState<any>(null)
   const [isLoadingPerformance, setIsLoadingPerformance] = useState(false)
+  const [useAllEvents, setUseAllEvents] = useState(false)
   const [isGeneratingMatrix, setIsGeneratingMatrix] = useState(false)
   const [compatibilityMatrix, setCompatibilityMatrix] = useState<any>(null)
   const [isGeneratingMatches, setIsGeneratingMatches] = useState(false)
@@ -31,7 +32,8 @@ export default function MatrixFactorizationPanel({ currentEventId }: MatrixFacto
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'train-matrix-factorization',
-          event_id: currentEventId
+          event_id: currentEventId,
+          use_all_events: useAllEvents
         })
       })
       
@@ -211,6 +213,18 @@ export default function MatrixFactorizationPanel({ currentEventId }: MatrixFacto
             <p className="text-slate-300 text-sm mb-2">
               Train the recommendation model using participant feedback and compatibility data
             </p>
+            <div className="flex items-center gap-2 mt-2">
+              <input
+                type="checkbox"
+                id="useAllEvents"
+                checked={useAllEvents}
+                onChange={(e) => setUseAllEvents(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-white/10 border-white/20 rounded focus:ring-blue-500 focus:ring-2"
+              />
+              <label htmlFor="useAllEvents" className="text-blue-300 text-sm font-medium cursor-pointer">
+                Use data from all events (recommended for more data)
+              </label>
+            </div>
           </div>
           
           <div className="flex gap-2">

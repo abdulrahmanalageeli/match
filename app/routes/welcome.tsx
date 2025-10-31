@@ -756,6 +756,13 @@ export default function WelcomePage() {
   // Select the active question set based on state
   const currentQuestions = activeQuestionSet === 'event' ? eventQuestions : round1Questions;
 
+  // Safety check: Reset question index if out of bounds when switching question sets
+  useEffect(() => {
+    if (currentQuestionIndex >= currentQuestions.length) {
+      setCurrentQuestionIndex(0);
+    }
+  }, [activeQuestionSet, currentQuestions.length, currentQuestionIndex]);
+
   // Add these refs near the top of your component
   const lastRoundRef = useRef<number | null>(null);
   const lastPhaseRef = useRef<string | null>(null);
@@ -1785,7 +1792,7 @@ export default function WelcomePage() {
       // Show nudge if:
       // 1. Spending more than 5 minutes on one question (300 seconds)
       // 2. Still have 10+ questions remaining
-      const remainingQuestions = round1Questions.length - currentQuestionIndex - 1
+      const remainingQuestions = currentQuestions.length - currentQuestionIndex - 1
       if (elapsed >= 300 && remainingQuestions > 10 && !showPaceNudge) {
         setShowPaceNudge(true)
       }
@@ -6893,12 +6900,12 @@ export default function WelcomePage() {
                           <button
                             onClick={() => {
                               setQuestionTransition('next')
-                              setCurrentQuestionIndex(prev => Math.min(round1Questions.length - 1, prev + 1))
+                              setCurrentQuestionIndex(prev => Math.min(currentQuestions.length - 1, prev + 1))
                               setTimeout(() => setQuestionTransition('none'), 400)
                             }}
-                            disabled={currentQuestionIndex === round1Questions.length - 1}
+                            disabled={currentQuestionIndex === currentQuestions.length - 1}
                             className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
-                              currentQuestionIndex === round1Questions.length - 1
+                              currentQuestionIndex === currentQuestions.length - 1
                                 ? dark
                                   ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
                                   : "bg-gray-100 text-gray-400 cursor-not-allowed"
@@ -7168,14 +7175,14 @@ export default function WelcomePage() {
                           </button>
 
                           <div className={`text-sm font-medium ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                            {currentQuestionIndex + 1} من {round1Questions.length}
+                            {currentQuestionIndex + 1} من {currentQuestions.length}
                           </div>
 
                           <button
-                            onClick={() => setCurrentQuestionIndex(Math.min(round1Questions.length - 1, currentQuestionIndex + 1))}
-                            disabled={currentQuestionIndex === round1Questions.length - 1}
+                            onClick={() => setCurrentQuestionIndex(Math.min(currentQuestions.length - 1, currentQuestionIndex + 1))}
+                            disabled={currentQuestionIndex === currentQuestions.length - 1}
                             className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                              currentQuestionIndex === round1Questions.length - 1
+                              currentQuestionIndex === currentQuestions.length - 1
                                 ? dark ? "bg-slate-600/50 text-slate-400 cursor-not-allowed" : "bg-gray-200/50 text-gray-400 cursor-not-allowed"
                                 : dark ? "bg-slate-600 text-slate-200 hover:bg-slate-500" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}

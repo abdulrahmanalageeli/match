@@ -20,7 +20,10 @@ import {
   Trash2,
   BookOpen,
   Lightbulb,
-  Home
+  Home,
+  Timer,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -44,6 +47,16 @@ interface Game {
 }
 
 const games: Game[] = [
+  {
+    id: "5-second-rule",
+    name: "5-Second Rule",
+    nameAr: "قاعدة الخمس ثواني",
+    description: "Name 3 things in 5 seconds",
+    descriptionAr: "سمّ 3 أشياء في 5 ثواني",
+    duration: 10,
+    icon: <Timer className="w-6 h-6" />,
+    color: "from-orange-500 to-red-500"
+  },
   {
     id: "discussion-questions",
     name: "Discussion Questions",
@@ -292,6 +305,83 @@ const charadesTopics = {
 // Flatten all topics for random selection
 const allCharadesWords = Object.values(charadesTopics).flat();
 
+// 5-Second Rule Categories (150+ categories)
+const fiveSecondRuleCategories = [
+  // Food & Drinks
+  "أنواع من القهوة", "أنواع من الشاي", "أنواع من العصير", "حلويات سعودية", "مطاعم سريعة",
+  "فواكه استوائية", "أنواع من الأجبان", "توابل تستخدم في الطبخ", "أنواع من الأرز", "مشروبات ساخنة",
+  "حلويات عربية", "أنواع من المعجنات", "أطعمة تبدأ بحرف الميم", "صلصات شائعة", "أطعمة إيطالية",
+  
+  // Places & Cities
+  "مدن سعودية", "عواصم عربية", "دول أوروبية", "مدن في أمريكا", "جزر سياحية",
+  "معالم في الرياض", "مدن ساحلية", "دول آسيوية", "أماكن تاريخية", "مدن صحراوية",
+  "دول أفريقية", "مدن في جدة", "دول تطل على البحر المتوسط", "جبال مشهورة", "أنهار معروفة",
+  
+  // Professions & Careers  
+  "وظائف طبية", "وظائف هندسية", "وظائف تقنية", "وظائف فنية", "وظائف تعليمية",
+  "مهن يدوية", "وظائف حكومية", "مهن إبداعية", "وظائف في المطارات", "وظائف في المستشفيات",
+  
+  // Animals & Nature
+  "حيوانات أليفة", "حيوانات بحرية", "طيور", "حيوانات الصحراء", "حشرات",
+  "حيوانات مفترسة", "حيوانات المزرعة", "زواحف", "حيوانات القطب الشمالي", "حيوانات الغابة",
+  "أسماك", "حيوانات نادرة", "حيوانات تطير", "حيوانات ليلية", "حيوانات عاشبة",
+  
+  // Sports & Activities
+  "رياضات جماعية", "رياضات فردية", "رياضات مائية", "رياضات شتوية", "رياضات قتالية",
+  "رياضات أولمبية", "رياضات شعبية في السعودية", "تمارين رياضية", "رياضات خطرة", "رياضات ذهنية",
+  
+  // Entertainment & Media
+  "أنواع من الأفلام", "مسلسلات سعودية", "مسلسلات تركية", "قنوات تلفزيونية", "برامج واقع",
+  "ألعاب فيديو مشهورة", "منصات ترفيه", "أنواع من الموسيقى", "آلات موسيقية", "مواقع تواصل اجتماعي",
+  "برامج طبخ", "أفلام كرتون", "مسلسلات كورية", "برامج مسابقات", "بودكاستات عربية",
+  
+  // Technology & Brands
+  "شركات تقنية", "تطبيقات على الهاتف", "منصات تسوق إلكتروني", "شركات سيارات", "ماركات ملابس فاخرة",
+  "شركات طيران", "أنواع من الهواتف", "ماركات ساعات", "شركات برمجيات", "ماركات رياضية",
+  "منصات توصيل", "شركات شحن", "ماركات عطور", "أجهزة إلكترونية", "ماركات أحذية",
+  
+  // Education & Knowledge
+  "تخصصات جامعية", "مواد دراسية", "لغات عالمية", "جامعات سعودية", "كتب مشهورة",
+  "علماء مسلمين", "اختراعات حديثة", "نظريات علمية", "عجائب الدنيا", "كواكب المجموعة الشمسية",
+  
+  // Colors & Shapes
+  "ألوان", "درجات من اللون الأزرق", "أشكال هندسية", "ألوان طيف قوس قزح", "ألوان دافئة",
+  
+  // Body & Health
+  "أعضاء في الجسم", "عظام في الجسم", "حواس الإنسان", "فيتامينات", "تمارين إطالة",
+  "أنواع من الأطباء", "أمراض شائعة", "أدوية منزلية", "أجهزة طبية", "طرق لتخفيف التوتر",
+  
+  // Fashion & Beauty
+  "أنواع من القبعات", "إكسسوارات نسائية", "أنواع من الأحذية", "أنماط الموضة", "ماركات تجميل",
+  "قصات شعر", "أنواع من الحقائب", "نظارات", "أنواع من الساعات", "ألوان مكياج",
+  
+  // Transportation
+  "أنواع من السيارات", "وسائل نقل عام", "أنواع من الطائرات", "أنواع من الدراجات", "وسائل نقل قديمة",
+  "قطارات", "سفن", "مركبات عسكرية", "سيارات رياضية", "حافلات",
+  
+  // Home & Furniture
+  "أثاث المنزل", "غرف في المنزل", "أدوات مطبخ", "أجهزة كهربائية", "أنواع من الإضاءة",
+  "ديكورات منزلية", "أدوات تنظيف", "أنواع من السجاد", "أدوات الحمام", "نباتات منزلية",
+  
+  // Weather & Seasons
+  "فصول السنة", "ظواهر جوية", "أنواع من السحب", "كوارث طبيعية", "مصطلحات جوية",
+  
+  // Emotions & Feelings
+  "مشاعر إيجابية", "مشاعر سلبية", "تعبيرات الوجه", "لغة الجسد", "طرق للتعبير عن السعادة",
+  
+  // Hobbies & Interests
+  "هوايات داخلية", "هوايات خارجية", "حرف يدوية", "فنون", "مجموعات يمكن جمعها",
+  "أنواع من الرسم", "أنواع من الرقص", "ألعاب ورقية", "ألعاب لوحية", "هوايات إبداعية",
+  
+  // Saudi Culture
+  "أطباق سعودية", "أماكن سياحية في السعودية", "مناسبات سعودية", "ملابس تقليدية", "شعراء سعوديين",
+  "مدن تراثية", "صحاري سعودية", "أسواق شعبية", "قهوة عربية وإضافات", "أكلات شعبية",
+  
+  // Random & Fun
+  "أشياء حمراء", "أشياء دائرية", "أشياء لا يمكن العيش بدونها", "أشياء في الحقيبة", "أشياء في الثلاجة",
+  "أسماء بنات", "أسماء أولاد", "ألقاب مشهورة", "كلمات تبدأ بحرف السين", "أشياء باردة",
+  "أشياء ساخنة", "أشياء ثقيلة", "أشياء خفيفة", "أشياء شفافة", "أشياء يمكن أكلها نيئة"
+];
 
 export default function GroupsPage() {
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -311,6 +401,14 @@ export default function GroupsPage() {
   const [charadesTimer, setCharadesTimer] = useState(90); // 90 seconds (1:30) per word
   const [charadesTimerActive, setCharadesTimerActive] = useState(false);
   const [charadesScore, setCharadesScore] = useState({ correct: 0, total: 0 });
+  
+  // 5-Second Rule game state
+  const [currentCategory, setCurrentCategory] = useState<string>("");
+  const [fiveSecondTimer, setFiveSecondTimer] = useState(5);
+  const [fiveSecondTimerActive, setFiveSecondTimerActive] = useState(false);
+  const [fiveSecondScore, setFiveSecondScore] = useState({ success: 0, total: 0 });
+  const [shuffledCategories, setShuffledCategories] = useState<string[]>([]);
+  const [categoryIndex, setCategoryIndex] = useState(0);
   
   // Participant data state
   const [participantName, setParticipantName] = useState<string>("");
@@ -542,6 +640,27 @@ export default function GroupsPage() {
     };
   }, [charadesTimerActive, charadesTimer]);
 
+  // 5-Second Rule timer useEffect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (fiveSecondTimerActive && fiveSecondTimer > 0) {
+      interval = setInterval(() => {
+        setFiveSecondTimer(prev => {
+          if (prev <= 1) {
+            setFiveSecondTimerActive(false);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [fiveSecondTimerActive, fiveSecondTimer]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -564,6 +683,9 @@ export default function GroupsPage() {
       setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
     } else if (gameId === "would-you-rather") {
       setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions));
+    } else if (gameId === "5-second-rule") {
+      setShuffledCategories(shuffleArray(fiveSecondRuleCategories));
+      setCategoryIndex(0);
     }
   };
 
@@ -607,6 +729,26 @@ export default function GroupsPage() {
     setCharadesScore(prev => ({ correct: prev.correct, total: prev.total + 1 }));
     setCharadesTimerActive(false);
     getRandomCharadesWord();
+  };
+
+  // 5-Second Rule helper functions
+  const startFiveSecondRound = () => {
+    const category = shuffledCategories[categoryIndex] || fiveSecondRuleCategories[0];
+    setCurrentCategory(category);
+    setFiveSecondTimer(5);
+    setFiveSecondTimerActive(true);
+  };
+
+  const fiveSecondSuccess = () => {
+    setFiveSecondScore(prev => ({ success: prev.success + 1, total: prev.total + 1 }));
+    setFiveSecondTimerActive(false);
+    setCategoryIndex(prev => (prev + 1) % shuffledCategories.length);
+  };
+
+  const fiveSecondFail = () => {
+    setFiveSecondScore(prev => ({ success: prev.success, total: prev.total + 1 }));
+    setFiveSecondTimerActive(false);
+    setCategoryIndex(prev => (prev + 1) % shuffledCategories.length);
   };
 
   const nextPrompt = () => {
@@ -800,6 +942,126 @@ export default function GroupsPage() {
                 </ul>
                 <p className="text-sm">على الآخرين تخمين أي عبارة كاذبة!</p>
               </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentGame.id === "5-second-rule" && (
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-white mb-4">قاعدة الخمس ثواني</h3>
+                <p className="text-slate-400">سمّ 3 أشياء قبل انتهاء الوقت!</p>
+              </div>
+
+              {/* Game Instructions */}
+              <div className="bg-gradient-to-r from-orange-700/40 to-red-700/40 rounded-xl p-6 mb-8 border border-orange-600/50">
+                <h4 className="text-white font-bold text-lg mb-4 flex items-center">
+                  <Lightbulb className="w-5 h-5 ml-3 text-orange-400" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                  <li className="flex items-start">
+                    <span className="font-medium">شخص واحد يضغط "ابدأ" ويقرأ الفئة بصوت عالٍ</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">عليه تسمية 3 أشياء من الفئة خلال 5 ثوان فقط!</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">إذا نجح: اضغطوا "نجح ✓" - إذا فشل: اضغطوا "فشل ✗"</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">تناوبوا بين أعضاء المجموعة - الجميع يلعب</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">لا يمكن تكرار نفس الإجابة مرتين!</span>
+                  </li>
+                </ol>
+              </div>
+
+              {/* Score Display */}
+              <div className="flex justify-center mb-6">
+                <div className="bg-gradient-to-r from-orange-700/50 to-red-700/50 rounded-xl px-6 py-3 border border-orange-500/30">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-orange-300">
+                      {fiveSecondScore.success}/{fiveSecondScore.total}
+                    </div>
+                    <div className="text-orange-200 text-sm font-medium">نجاحات</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Category Display */}
+              {currentCategory && (
+                <div className="mb-8">
+                  <div className="bg-gradient-to-r from-orange-500/20 to-red-500/20 border-2 border-orange-500/40 rounded-2xl p-8 text-center shadow-2xl">
+                    {/* Category Title */}
+                    <div className="mb-6">
+                      <div className="inline-block bg-orange-500/30 px-4 py-2 rounded-full mb-3">
+                        <span className="text-orange-300 text-sm font-bold">الفئة</span>
+                      </div>
+                      <h4 className="text-4xl font-bold text-white mb-2">
+                        {currentCategory}
+                      </h4>
+                      <p className="text-orange-200 text-lg">سمّ 3 أشياء!</p>
+                    </div>
+                    
+                    {/* Timer Display */}
+                    <div className="mb-6">
+                      <div className={`text-8xl font-black transition-all duration-300 ${
+                        fiveSecondTimer <= 2 ? 'text-red-400 animate-pulse scale-110' : 
+                        fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
+                      }`}>
+                        {fiveSecondTimer}
+                      </div>
+                      <Progress 
+                        value={(fiveSecondTimer / 5) * 100} 
+                        className="w-full mt-4 h-3"
+                      />
+                    </div>
+
+                    {/* Action Buttons - Only show when timer is stopped */}
+                    {!fiveSecondTimerActive && fiveSecondTimer === 0 && (
+                      <div className="flex justify-center gap-4 mt-6">
+                        <Button 
+                          onClick={fiveSecondSuccess}
+                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <CheckCircle className="w-6 h-6 mr-2" />
+                          نجح ✓
+                        </Button>
+                        <Button 
+                          onClick={fiveSecondFail}
+                          className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-8 py-4 text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <XCircle className="w-6 h-6 mr-2" />
+                          فشل ✗
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Start Round Button */}
+              {!currentCategory || (!fiveSecondTimerActive && fiveSecondTimer === 0) ? (
+                <div className="text-center">
+                  <Button 
+                    onClick={startFiveSecondRound}
+                    className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-10 py-5 text-2xl font-black rounded-2xl shadow-2xl hover:shadow-orange-500/25 transition-all duration-300 transform hover:scale-110 animate-pulse"
+                  >
+                    <Timer className="w-8 h-8 mr-3" />
+                    {currentCategory ? 'الفئة التالية' : 'ابدأ اللعبة!'}
+                  </Button>
+                  
+                  {/* Category Progress */}
+                  {shuffledCategories.length > 0 && (
+                    <div className="mt-4 text-slate-400 text-sm">
+                      الفئة {categoryIndex + 1} من {shuffledCategories.length}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         )}

@@ -6659,15 +6659,19 @@ export default function WelcomePage() {
 
                   {/* Question Set Toggle Button */}
                   {currentRound === 1 && (
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-center mb-6">
                       <button
                         onClick={() => {
                           setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
                           setCurrentQuestionIndex(0); // Reset to first question when switching sets
                         }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${dark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
+                          dark 
+                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-cyan-500/20' 
+                            : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-cyan-500/30'
+                        }`}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
                           <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
                           <path d="M21 3v5h-5"/>
                           <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
@@ -6934,7 +6938,7 @@ export default function WelcomePage() {
                                         ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                         : "bg-gradient-to-r from-green-500 to-teal-600"
                               }`}
-                              style={{ width: `${((currentQuestionIndex + 1) / round1Questions.length) * 100}%` }}
+                              style={{ width: `${((currentQuestionIndex + 1) / currentQuestions.length) * 100}%` }}
                             />
                           </div>
                           <div className="flex justify-between text-xs mt-1">
@@ -6942,7 +6946,7 @@ export default function WelcomePage() {
                               السؤال {currentQuestionIndex + 1}
                             </span>
                             <span className={dark ? "text-slate-400" : "text-gray-500"}>
-                              من {round1Questions.length}
+                              من {currentQuestions.length}
                             </span>
                           </div>
                         </div>
@@ -7036,15 +7040,19 @@ export default function WelcomePage() {
 
                   {/* Question Set Toggle Button */}
                   {currentRound === 1 && (
-                    <div className="flex justify-end mb-4">
+                    <div className="flex justify-center mb-6">
                       <button
                         onClick={() => {
                           setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
                           setCurrentQuestionIndex(0); // Reset to first question when switching sets
                         }}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${dark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
+                          dark 
+                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-cyan-500/20' 
+                            : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-cyan-500/30'
+                        }`}
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
                           <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
                           <path d="M21 3v5h-5"/>
                           <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
@@ -7207,7 +7215,7 @@ export default function WelcomePage() {
                                         ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                         : "bg-gradient-to-r from-green-500 to-teal-600"
                               }`}
-                              style={{ width: `${((currentQuestionIndex + 1) / round1Questions.length) * 100}%` }}
+                              style={{ width: `${((currentQuestionIndex + 1) / currentQuestions.length) * 100}%` }}
                             />
                           </div>
                           <div className="flex justify-between mt-2 text-xs">
@@ -7215,7 +7223,7 @@ export default function WelcomePage() {
                               السؤال {currentQuestionIndex + 1}
                             </span>
                             <span className={dark ? "text-slate-400" : "text-gray-500"}>
-                              من {round1Questions.length}
+                              من {currentQuestions.length}
                             </span>
                           </div>
                         </div>

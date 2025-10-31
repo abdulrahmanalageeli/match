@@ -2298,17 +2298,18 @@ export default async function handler(req, res) {
         console.log(`🧪 TEST MODE: Fresh calculation for #${p1.assigned_number}-#${p2.assigned_number} (cache ignored)`)
       }
       
+      // Determine bonus type for manual match
+      let manualBonusType = 'none'
+      if (humorMultiplier === 1.15) {
+        manualBonusType = 'full'
+      } else if (humorMultiplier === 1.05) {
+        manualBonusType = 'partial'
+      }
+      
       let insertData = null
       
       // Create and insert match record (skip in test mode)
       if (!manualMatch.testModeOnly) {
-        // Determine bonus type for manual match
-        let manualBonusType = 'none'
-        if (humorMultiplier === 1.15) {
-          manualBonusType = 'full'
-        } else if (humorMultiplier === 1.05) {
-          manualBonusType = 'partial'
-        }
         
         const matchRecord = {
           match_id,

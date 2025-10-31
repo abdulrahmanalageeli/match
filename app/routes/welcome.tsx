@@ -579,7 +579,182 @@ export default function WelcomePage() {
       levelIcon: "Handshake"
     }
   ];
+
+  // Event Questions - Alternative question set that can be selected
+  const eventQuestions = [
+    // Level 0: Quick Connect - Smart Icebreakers ⚡
+    {
+      title: "نوافذ العقل",
+      question: "لو كان عقلك متصفح إنترنت، كم نافذة (tab) مفتوحة فيه الآن، وعن إيش أغلبها؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "إسعافات مزاجية",
+      question: "وش هي 'عدة الإسعافات الأولية' لمزاجك؟ (أغنية، فيلم، نشاط) اللي تلجأ لها عشان تعدّل يومك؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "نقاش بسيط",
+      question: "وش هو النقاش اليومي البسيط اللي عندك فيه رأي قوي ما تتنازل عنه؟ (مثلاً: الأناناس ع البيتزا، الاتصال أفضل من الرسايل)",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "طاقة المكان",
+      question: "هل تفضل طاقة مقهى مزدحم وحيوي، أو هدوء ورواقان مكتبة؟ ولماذا؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "بصمة رقمية",
+      question: "بثلاث كلمات، كيف ممكن يوصفون أصدقاؤك أسلوبك في المحادثات النصية (واتساب)؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "مهارة جانبية",
+      question: "وش هي المهارة الصغيرة والممتعة اللي دايمًا ودك تتعلمها بس ما لقيت لها وقت؟ (مثلاً: التصفير بالأصابع، خفة يد، لغة الإشارة)",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "مقياس المتعة",
+      question: "وش هو الشيء اللي تعتبره مضيعة للوقت تماماً، بينما أغلب الناس تشوفه ممتع؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    // Level 1: The Spark - Breaking the Ice 🧊
+    {
+      title: "رحلة لا تُنسى",
+      question: "سولف لنا عن رحلة أو مغامرة غيرت فيك شيء، حتى لو كانت بسيطة. إيش اللي تعلمته منها عن نفسك أو عن العالم؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    {
+      title: "شخصية مؤثرة",
+      question: "مين الشخصية (حقيقية أو خيالية) اللي ألهمتك مؤخراً؟ وإيش الصفة اللي فيها جذبتك؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    {
+      title: "لحظة امتنان",
+      question: "ايش هو آخر شيء حسيت بامتنان حقيقي تجاهه؟ سواء كان شخص، موقف، أو حتى شيء بسيط صار في يومك.",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    {
+      title: "قرار جريء",
+      question: "وش آخر قرار أخذته وحسيت إنه كان جريء أو خارج منطقة راحتك؟ وكيف كانت النتيجة؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    // Level 2: The Core - Understanding Values 🧭
+    {
+      title: "بوصلة القرارات",
+      question: "لما تواجه قرار صعب، إيش هو الشيء اللي ترجع له عشان يوجهك؟ هل هو حدسك، قيمك، نصيحة شخص تثق فيه، أو تحليل منطقي؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "تعريف النجاح",
+      question: "كيف تعرّف النجاح في حياتك الشخصية؟ هل هو منصب، راحة بال، علاقات قوية، أو شيء ثاني تمامًا؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "ما لا يُشترى بالمال",
+      question: "إيش هو أثمن شيء تملكه في حياتك ولا يمكن شراؤه بالمال؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "صفة لا تتسامح معها",
+      question: "وش هي الصفة اللي إذا لاحظتها في شخص، يصير من الصعب عليك تثق فيه أو تبني علاقة معه؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    // Level 3: Sharing Experiences - مشاركة التجارب 💫
+    {
+      title: "موقف غير متوقع",
+      question: "احكِ لنا عن مرة حكمت فيها على شخص أو موقف بشكل متسرع، وبعدين اكتشفت إنك كنت غلطان تمامًا.",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "أفضل نصيحة",
+      question: "إيش أفضل نصيحة سمعتها في حياتك وفعلاً طبقتها وغيرت فيك شيء؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "لحظة شجاعة",
+      question: "متى كانت آخر مرة حسيت فيها إنك كنت شجاع، حتى لو كان الموقف بسيط وما أحد لاحظه غيرك؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "سر السعادة",
+      question: "وش هو الشيء اللي دايمًا يرجع لك شعور السعادة أو الراحة، مهما كان يومك صعب؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    // Level 4: "What If?" - Exploring Scenarios 🤝
+    {
+      title: "صديق أم حقيقة؟",
+      question: "لو صديقك المقرب سأل رأيك في شيء هو متحمس له جدًا (مشروع، فكرة، أو حتى لبس)، بس أنت تشوفه سيء. هل تجامله عشان مشاعره، أو تكون صريح تمامًا؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    },
+    {
+      title: "فرصة ثانية",
+      question: "لو شخص خذلك في الماضي ورجع يعتذر ويطلب فرصة ثانية، هل سهولة المسامحة عندك تعتمد على نوع الخطأ أو على مكانة الشخص؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    },
+    {
+      title: "الغوص في الأعماق",
+      question: "هل تعتقد أن الشخص يتغير مع الوقت، أو يكتشف نفسه الحقيقية أكثر؟ وليش؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    },
+    {
+      title: "انطباع الذكاء الاصطناعي",
+      question: "بناءً على حوارنا، إيش الصفة اللي تتوقع إن الذكاء الاصطناعي ركز عليها لما قرر يجمعكم؟ وهل تتفقون مع هذا التوقع؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    }
+  ];
+  
   const [promptIndex, setPromptIndex] = useState(0);
+  const [activeQuestionSet, setActiveQuestionSet] = useState<'round1' | 'event'>('round1');
+  
+  // Select the active question set based on state
+  const currentQuestions = activeQuestionSet === 'event' ? eventQuestions : round1Questions;
 
   // Add these refs near the top of your component
   const lastRoundRef = useRef<number | null>(null);
@@ -5676,24 +5851,24 @@ export default function WelcomePage() {
         className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden transition-colors duration-1000 ${
           dark
             ? step === 4 && currentRound === 1
-              ? round1Questions[currentQuestionIndex].level === 0
+              ? currentQuestions[currentQuestionIndex].level === 0
                 ? "bg-gradient-to-br from-emerald-900/20 via-slate-800 to-green-900/20 text-white"
-                : round1Questions[currentQuestionIndex].level === 1
+                : currentQuestions[currentQuestionIndex].level === 1
                   ? "bg-gradient-to-br from-cyan-900/20 via-slate-800 to-blue-900/20 text-white"
-                  : round1Questions[currentQuestionIndex].level === 2
+                  : currentQuestions[currentQuestionIndex].level === 2
                     ? "bg-gradient-to-br from-amber-900/20 via-slate-800 to-orange-900/20 text-white"
-                    : round1Questions[currentQuestionIndex].level === 3
+                    : currentQuestions[currentQuestionIndex].level === 3
                       ? "bg-gradient-to-br from-purple-900/20 via-slate-800 to-pink-900/20 text-white"
                       : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
               : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
             : step === 4 && currentRound === 1
-              ? round1Questions[currentQuestionIndex].level === 0
+              ? currentQuestions[currentQuestionIndex].level === 0
                 ? "bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 text-gray-900"
-                : round1Questions[currentQuestionIndex].level === 1
+                : currentQuestions[currentQuestionIndex].level === 1
                   ? "bg-gradient-to-br from-cyan-50 via-blue-50 to-cyan-100 text-gray-900"
-                  : round1Questions[currentQuestionIndex].level === 2
+                  : currentQuestions[currentQuestionIndex].level === 2
                     ? "bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 text-gray-900"
-                    : round1Questions[currentQuestionIndex].level === 3
+                    : currentQuestions[currentQuestionIndex].level === 3
                       ? "bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 text-gray-900"
                       : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
               : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
@@ -6475,22 +6650,43 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  {/* Round 1 Questions Slideshow - Always show for Round 1 */}
+                  {/* Question Set Toggle Button */}
+                  {currentRound === 1 && (
+                    <div className="flex justify-end mb-4">
+                      <button
+                        onClick={() => {
+                          setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
+                          setCurrentQuestionIndex(0); // Reset to first question when switching sets
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${dark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                          <path d="M21 3v5h-5"/>
+                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                          <path d="M3 21v-5h5"/>
+                        </svg>
+                        {activeQuestionSet === 'round1' ? 'تبديل لأسئلة بديلة' : 'العودة للأسئلة الأساسية'}
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (
                     <div className={`mb-6 p-6 rounded-2xl border ${
-                      round1Questions[currentQuestionIndex].level === 0
+                      currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
                           : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
-                        : round1Questions[currentQuestionIndex].level === 1
+                        : currentQuestions[currentQuestionIndex].level === 1
                           ? dark 
                             ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
                             : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
-                          : round1Questions[currentQuestionIndex].level === 2
+                          : currentQuestions[currentQuestionIndex].level === 2
                             ? dark
                               ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
                               : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
-                            : round1Questions[currentQuestionIndex].level === 3
+                            : currentQuestions[currentQuestionIndex].level === 3
                               ? dark
                                 ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
                                 : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
@@ -6501,50 +6697,50 @@ export default function WelcomePage() {
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            round1Questions[currentQuestionIndex].level === 0
+                            currentQuestions[currentQuestionIndex].level === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                              : round1Questions[currentQuestionIndex].level === 1
+                              : currentQuestions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                : round1Questions[currentQuestionIndex].level === 2
+                                : currentQuestions[currentQuestionIndex].level === 2
                                   ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                  : round1Questions[currentQuestionIndex].level === 3
+                                  : currentQuestions[currentQuestionIndex].level === 3
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
-                            {renderLevelIcon(round1Questions[currentQuestionIndex].levelIcon)}
+                            {renderLevelIcon(currentQuestions[currentQuestionIndex].levelIcon)}
                           </div>
                           <h4 className={`text-lg font-bold ${
-                            round1Questions[currentQuestionIndex].level === 0
+                            currentQuestions[currentQuestionIndex].level === 0
                               ? dark ? "text-emerald-200" : "text-emerald-800"
-                              : round1Questions[currentQuestionIndex].level === 1
+                              : currentQuestions[currentQuestionIndex].level === 1
                                 ? dark ? "text-cyan-200" : "text-cyan-800"
-                                : round1Questions[currentQuestionIndex].level === 2
+                                : currentQuestions[currentQuestionIndex].level === 2
                                   ? dark ? "text-amber-200" : "text-amber-800"
-                                  : round1Questions[currentQuestionIndex].level === 3
+                                  : currentQuestions[currentQuestionIndex].level === 3
                                     ? dark ? "text-purple-200" : "text-purple-800"
                                     : dark ? "text-green-200" : "text-green-800"
                           }`}>
-                            {round1Questions[currentQuestionIndex].levelTitle}
+                            {currentQuestions[currentQuestionIndex].levelTitle}
                           </h4>
                         </div>
                         <p className={`text-sm ${
-                          round1Questions[currentQuestionIndex].level === 0
+                          currentQuestions[currentQuestionIndex].level === 0
                             ? dark ? "text-emerald-300" : "text-emerald-700"
-                            : round1Questions[currentQuestionIndex].level === 1
+                            : currentQuestions[currentQuestionIndex].level === 1
                               ? dark ? "text-cyan-300" : "text-cyan-700"
-                              : round1Questions[currentQuestionIndex].level === 2
+                              : currentQuestions[currentQuestionIndex].level === 2
                                 ? dark ? "text-amber-300" : "text-amber-700"
-                                : round1Questions[currentQuestionIndex].level === 3
+                                : currentQuestions[currentQuestionIndex].level === 3
                                   ? dark ? "text-purple-300" : "text-purple-700"
                                   : dark ? "text-green-300" : "text-green-700"
                         }`}>
-                          {round1Questions[currentQuestionIndex].level === 0
+                          {currentQuestions[currentQuestionIndex].level === 0
                             ? "هذا المستوى يركز على إيجاد نقاط التواصل السريع والاهتمامات المشتركة"
-                            : round1Questions[currentQuestionIndex].level === 1
+                            : currentQuestions[currentQuestionIndex].level === 1
                               ? "هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة"
-                              : round1Questions[currentQuestionIndex].level === 2
+                              : currentQuestions[currentQuestionIndex].level === 2
                                 ? "هذا المستوى يركز على القيم الأساسية والمبادئ الشخصية العميقة"
-                                : round1Questions[currentQuestionIndex].level === 3
+                                : currentQuestions[currentQuestionIndex].level === 3
                                   ? "هذا المستوى يركز على مشاركة التجارب الشخصية والذكريات المؤثرة"
                                   : "هذا المستوى يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة"
                           }
@@ -6564,13 +6760,13 @@ export default function WelcomePage() {
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                            round1Questions[currentQuestionIndex].level === 0
+                            currentQuestions[currentQuestionIndex].level === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                              : round1Questions[currentQuestionIndex].level === 1
+                              : currentQuestions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                : round1Questions[currentQuestionIndex].level === 2
+                                : currentQuestions[currentQuestionIndex].level === 2
                                   ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                  : round1Questions[currentQuestionIndex].level === 3
+                                  : currentQuestions[currentQuestionIndex].level === 3
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
@@ -6580,12 +6776,12 @@ export default function WelcomePage() {
 
                         {/* Question Title */}
                         <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                          {round1Questions[currentQuestionIndex].title}
+                          {currentQuestions[currentQuestionIndex].title}
                         </h5>
 
                         {/* Question Text */}
                         <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                          {round1Questions[currentQuestionIndex].question}
+                          {currentQuestions[currentQuestionIndex].question}
                         </p>
 
                         {/* 5-Minute Warning Notification */}
@@ -6721,13 +6917,13 @@ export default function WelcomePage() {
                           <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
                             <div 
                               className={`h-full rounded-full transition-all duration-500 ${
-                                round1Questions[currentQuestionIndex].level === 0
+                                currentQuestions[currentQuestionIndex].level === 0
                                   ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                                  : round1Questions[currentQuestionIndex].level === 1
+                                  : currentQuestions[currentQuestionIndex].level === 1
                                     ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                    : round1Questions[currentQuestionIndex].level === 2
+                                    : currentQuestions[currentQuestionIndex].level === 2
                                       ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                      : round1Questions[currentQuestionIndex].level === 3
+                                      : currentQuestions[currentQuestionIndex].level === 3
                                         ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                         : "bg-gradient-to-r from-green-500 to-teal-600"
                               }`}
@@ -6831,22 +7027,43 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
+                  {/* Question Set Toggle Button */}
+                  {currentRound === 1 && (
+                    <div className="flex justify-end mb-4">
+                      <button
+                        onClick={() => {
+                          setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
+                          setCurrentQuestionIndex(0); // Reset to first question when switching sets
+                        }}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-300 ${dark ? 'bg-slate-700 hover:bg-slate-600 text-slate-200' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
+                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
+                          <path d="M21 3v5h-5"/>
+                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
+                          <path d="M3 21v-5h5"/>
+                        </svg>
+                        {activeQuestionSet === 'round1' ? 'تبديل لأسئلة بديلة' : 'العودة للأسئلة الأساسية'}
+                      </button>
+                    </div>
+                  )}
+
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 && (
                     <div className={`mb-6 p-6 rounded-2xl border ${
-                      round1Questions[currentQuestionIndex].level === 0
+                      currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
                           : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
-                        : round1Questions[currentQuestionIndex].level === 1
+                        : currentQuestions[currentQuestionIndex].level === 1
                           ? dark 
                             ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
                             : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
-                          : round1Questions[currentQuestionIndex].level === 2
+                          : currentQuestions[currentQuestionIndex].level === 2
                             ? dark
                               ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
                               : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
-                            : round1Questions[currentQuestionIndex].level === 3
+                            : currentQuestions[currentQuestionIndex].level === 3
                               ? dark
                                 ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
                                 : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
@@ -6857,50 +7074,50 @@ export default function WelcomePage() {
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            round1Questions[currentQuestionIndex].level === 0
+                            currentQuestions[currentQuestionIndex].level === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                              : round1Questions[currentQuestionIndex].level === 1
+                              : currentQuestions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                : round1Questions[currentQuestionIndex].level === 2
+                                : currentQuestions[currentQuestionIndex].level === 2
                                   ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                  : round1Questions[currentQuestionIndex].level === 3
+                                  : currentQuestions[currentQuestionIndex].level === 3
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
-                            {renderLevelIcon(round1Questions[currentQuestionIndex].levelIcon)}
+                            {renderLevelIcon(currentQuestions[currentQuestionIndex].levelIcon)}
                           </div>
                           <h4 className={`text-lg font-bold ${
-                            round1Questions[currentQuestionIndex].level === 0
+                            currentQuestions[currentQuestionIndex].level === 0
                               ? dark ? "text-emerald-200" : "text-emerald-800"
-                              : round1Questions[currentQuestionIndex].level === 1
+                              : currentQuestions[currentQuestionIndex].level === 1
                                 ? dark ? "text-cyan-200" : "text-cyan-800"
-                                : round1Questions[currentQuestionIndex].level === 2
+                                : currentQuestions[currentQuestionIndex].level === 2
                                   ? dark ? "text-amber-200" : "text-amber-800"
-                                  : round1Questions[currentQuestionIndex].level === 3
+                                  : currentQuestions[currentQuestionIndex].level === 3
                                     ? dark ? "text-purple-200" : "text-purple-800"
                                     : dark ? "text-green-200" : "text-green-800"
                           }`}>
-                            {round1Questions[currentQuestionIndex].levelTitle}
+                            {currentQuestions[currentQuestionIndex].levelTitle}
                           </h4>
                         </div>
                         <p className={`text-sm ${
-                          round1Questions[currentQuestionIndex].level === 0
+                          currentQuestions[currentQuestionIndex].level === 0
                             ? dark ? "text-emerald-300" : "text-emerald-700"
-                            : round1Questions[currentQuestionIndex].level === 1
+                            : currentQuestions[currentQuestionIndex].level === 1
                               ? dark ? "text-cyan-300" : "text-cyan-700"
-                              : round1Questions[currentQuestionIndex].level === 2
+                              : currentQuestions[currentQuestionIndex].level === 2
                                 ? dark ? "text-amber-300" : "text-amber-700"
-                                : round1Questions[currentQuestionIndex].level === 3
+                                : currentQuestions[currentQuestionIndex].level === 3
                                   ? dark ? "text-purple-300" : "text-purple-700"
                                   : dark ? "text-green-300" : "text-green-700"
                         }`}>
-                          {round1Questions[currentQuestionIndex].level === 0
+                          {currentQuestions[currentQuestionIndex].level === 0
                             ? "هذا المستوى يركز على إيجاد نقاط التواصل السريع والاهتمامات المشتركة"
-                            : round1Questions[currentQuestionIndex].level === 1
+                            : currentQuestions[currentQuestionIndex].level === 1
                               ? "هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة"
-                              : round1Questions[currentQuestionIndex].level === 2
+                              : currentQuestions[currentQuestionIndex].level === 2
                                 ? "هذا المستوى يركز على القيم الأساسية والمبادئ الشخصية العميقة"
-                                : round1Questions[currentQuestionIndex].level === 3
+                                : currentQuestions[currentQuestionIndex].level === 3
                                   ? "هذا المستوى يركز على مشاركة التجارب الشخصية والذكريات المؤثرة"
                                   : "هذا المستوى يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة"
                           }
@@ -6911,13 +7128,13 @@ export default function WelcomePage() {
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                            round1Questions[currentQuestionIndex].level === 0
+                            currentQuestions[currentQuestionIndex].level === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                              : round1Questions[currentQuestionIndex].level === 1
+                              : currentQuestions[currentQuestionIndex].level === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                : round1Questions[currentQuestionIndex].level === 2
+                                : currentQuestions[currentQuestionIndex].level === 2
                                   ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                  : round1Questions[currentQuestionIndex].level === 3
+                                  : currentQuestions[currentQuestionIndex].level === 3
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
@@ -6927,12 +7144,12 @@ export default function WelcomePage() {
 
                         {/* Question Title */}
                         <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                          {round1Questions[currentQuestionIndex].title}
+                          {currentQuestions[currentQuestionIndex].title}
                         </h5>
 
                         {/* Question Text */}
                         <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                          {round1Questions[currentQuestionIndex].question}
+                          {currentQuestions[currentQuestionIndex].question}
                         </p>
 
                         {/* Navigation */}
@@ -6973,13 +7190,13 @@ export default function WelcomePage() {
                           <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                             <div 
                               className={`h-2 rounded-full transition-all duration-300 ${
-                                round1Questions[currentQuestionIndex].level === 0
+                                currentQuestions[currentQuestionIndex].level === 0
                                   ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                                  : round1Questions[currentQuestionIndex].level === 1
+                                  : currentQuestions[currentQuestionIndex].level === 1
                                     ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                    : round1Questions[currentQuestionIndex].level === 2
+                                    : currentQuestions[currentQuestionIndex].level === 2
                                       ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                      : round1Questions[currentQuestionIndex].level === 3
+                                      : currentQuestions[currentQuestionIndex].level === 3
                                         ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                         : "bg-gradient-to-r from-green-500 to-teal-600"
                               }`}
@@ -8999,3 +9216,4 @@ export default function WelcomePage() {
     </>
   )
 }
+

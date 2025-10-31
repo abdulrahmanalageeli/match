@@ -678,6 +678,8 @@ async function getCachedCompatibility(participantA, participantB) {
         coreValuesScore: parseFloat(data.core_values_score),
         vibeScore: parseFloat(data.ai_vibe_score),
         totalScore: parseFloat(data.total_compatibility_score),
+        humorMultiplier: parseFloat(data.humor_multiplier || 1.0),
+        bonusType: data.humor_early_openness_bonus || 'none',
         cached: true
       }
     }
@@ -698,6 +700,14 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     console.log(`💾 Attempting to store cache for #${smaller}-#${larger}...`)
     console.log(`   Scores: total=${scores.totalScore}, vibe=${scores.vibeScore}, humorMultiplier=${scores.humorMultiplier}`)
     
+    // Determine bonus type based on humor multiplier
+    let bonusType = 'none'
+    if (scores.humorMultiplier === 1.15) {
+      bonusType = 'full'
+    } else if (scores.humorMultiplier === 1.05) {
+      bonusType = 'partial'
+    }
+    
     const { data, error } = await supabase
       .from('compatibility_cache')
       .upsert({
@@ -717,6 +727,8 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
         lifestyle_score: scores.lifestyleScore,
         core_values_score: scores.coreValuesScore,
         total_compatibility_score: scores.totalScore,
+        humor_multiplier: scores.humorMultiplier,
+        humor_early_openness_bonus: bonusType,
         use_count: 1
       })
       .select()

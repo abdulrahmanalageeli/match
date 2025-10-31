@@ -409,6 +409,7 @@ export default function GroupsPage() {
   const [fiveSecondScore, setFiveSecondScore] = useState({ success: 0, total: 0 });
   const [shuffledCategories, setShuffledCategories] = useState<string[]>([]);
   const [categoryIndex, setCategoryIndex] = useState(0);
+  const [roundCompleted, setRoundCompleted] = useState(false);
   
   // Participant data state
   const [participantName, setParticipantName] = useState<string>("");
@@ -737,18 +738,21 @@ export default function GroupsPage() {
     setCurrentCategory(category);
     setFiveSecondTimer(5);
     setFiveSecondTimerActive(true);
+    setRoundCompleted(false);
   };
 
   const fiveSecondSuccess = () => {
     setFiveSecondScore(prev => ({ success: prev.success + 1, total: prev.total + 1 }));
     setFiveSecondTimerActive(false);
     setCategoryIndex(prev => (prev + 1) % shuffledCategories.length);
+    setRoundCompleted(true);
   };
 
   const fiveSecondFail = () => {
     setFiveSecondScore(prev => ({ success: prev.success, total: prev.total + 1 }));
     setFiveSecondTimerActive(false);
     setCategoryIndex(prev => (prev + 1) % shuffledCategories.length);
+    setRoundCompleted(true);
   };
 
   const nextPrompt = () => {
@@ -1022,20 +1026,20 @@ export default function GroupsPage() {
 
                     {/* Action Buttons - Only show when timer is stopped */}
                     {!fiveSecondTimerActive && fiveSecondTimer === 0 && (
-                      <div className="flex justify-center gap-4 mt-6">
+                      <div className="flex justify-center gap-3 mt-6">
                         <Button 
                           onClick={fiveSecondSuccess}
-                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-4 text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-2 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                         >
-                          <CheckCircle className="w-6 h-6 mr-2" />
-                          نجح ✓
+                          <CheckCircle className="w-4 h-4 mr-1.5" />
+                          نجح
                         </Button>
                         <Button 
                           onClick={fiveSecondFail}
-                          className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-8 py-4 text-xl font-bold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                          className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-4 py-2 text-base font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                         >
-                          <XCircle className="w-6 h-6 mr-2" />
-                          فشل ✗
+                          <XCircle className="w-4 h-4 mr-1.5" />
+                          فشل
                         </Button>
                       </div>
                     )}
@@ -1044,7 +1048,7 @@ export default function GroupsPage() {
               )}
 
               {/* Start Round Button */}
-              {!currentCategory || (!fiveSecondTimerActive && fiveSecondTimer === 0) ? (
+              {!currentCategory || (!fiveSecondTimerActive && fiveSecondTimer === 0 && roundCompleted) ? (
                 <div className="text-center">
                   <Button 
                     onClick={startFiveSecondRound}

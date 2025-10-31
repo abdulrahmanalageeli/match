@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
@@ -20,6 +20,7 @@ interface ParticipantResult {
   incompatibility_reason?: string
   paid_done?: boolean
   partner_paid_done?: boolean
+  humor_early_openness_bonus?: 'full' | 'partial' | 'none'
 }
 
 interface ParticipantResultsModalProps {
@@ -821,10 +822,56 @@ export default function ParticipantResultsModal({
                             )}
                           </td>
                           <td className="p-4 text-center">
-                            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)}`}>
-                              <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
-                                {participant.compatibility_score}%
-                              </span>
+                            <div className="flex items-center justify-center gap-2">
+                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)}`}>
+                                <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
+                                  {participant.compatibility_score}%
+                                </span>
+                              </div>
+                              {/* Humor/Early Openness Bonus Indicator */}
+                              {participant.humor_early_openness_bonus && participant.humor_early_openness_bonus !== 'none' && (
+                                <Tooltip.Provider delayDuration={300}>
+                                  <Tooltip.Root>
+                                    <Tooltip.Trigger asChild>
+                                      <div className={`flex items-center justify-center w-6 h-6 rounded-full cursor-help ${
+                                        participant.humor_early_openness_bonus === 'full' 
+                                          ? 'bg-gradient-to-r from-purple-500 to-pink-500' 
+                                          : 'bg-gradient-to-r from-orange-500 to-yellow-500'
+                                      }`}>
+                                        {participant.humor_early_openness_bonus === 'full' ? (
+                                          <Flame className="w-3.5 h-3.5 text-white" />
+                                        ) : (
+                                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                                        )}
+                                      </div>
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Portal>
+                                      <Tooltip.Content
+                                        className="z-[100] max-w-xs p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-purple-400/30 rounded-xl shadow-2xl"
+                                        sideOffset={5}
+                                      >
+                                        <div className="space-y-2">
+                                          <div className={`font-bold ${
+                                            participant.humor_early_openness_bonus === 'full' 
+                                              ? 'text-purple-300' 
+                                              : 'text-orange-300'
+                                          }`}>
+                                            {participant.humor_early_openness_bonus === 'full' 
+                                              ? '🔥 مكافأة كاملة (×1.15)' 
+                                              : '✨ مكافأة جزئية (×1.05)'}
+                                          </div>
+                                          <div className="text-slate-300 text-sm">
+                                            {participant.humor_early_openness_bonus === 'full' 
+                                              ? 'تطابق كامل في أسلوب الدعابة والانفتاح المبكر' 
+                                              : 'تطابق في أسلوب الدعابة أو الانفتاح المبكر'}
+                                          </div>
+                                        </div>
+                                        <Tooltip.Arrow className="fill-purple-400/30" />
+                                      </Tooltip.Content>
+                                    </Tooltip.Portal>
+                                  </Tooltip.Root>
+                                </Tooltip.Provider>
+                              )}
                             </div>
                           </td>
                           {matchType !== "group" && (

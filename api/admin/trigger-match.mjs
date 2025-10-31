@@ -2290,6 +2290,14 @@ export default async function handler(req, res) {
       
       // Create and insert match record (skip in test mode)
       if (!manualMatch.testModeOnly) {
+        // Determine bonus type for manual match
+        let manualBonusType = 'none'
+        if (humorMultiplier === 1.15) {
+          manualBonusType = 'full'
+        } else if (humorMultiplier === 1.05) {
+          manualBonusType = 'partial'
+        }
+        
         const matchRecord = {
           match_id,
           event_id: eventId,
@@ -2302,6 +2310,7 @@ export default async function handler(req, res) {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
+          humor_early_openness_bonus: manualBonusType,
           round: 1,
           ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
           created_at: new Date().toISOString()
@@ -2351,7 +2360,8 @@ export default async function handler(req, res) {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
-          humor_multiplier: humorMultiplier
+          humor_multiplier: humorMultiplier,
+          humor_bonus: manualBonusType
         }],
         sessionId: null // Manual matches don't create new sessions, they modify existing data
       })
@@ -2565,6 +2575,14 @@ export default async function handler(req, res) {
         
         let reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
         
+        // Determine bonus type based on humor multiplier
+        let bonusType = 'none'
+        if (humorMultiplier === 1.15) {
+          bonusType = 'full' // Both humor and early openness match
+        } else if (humorMultiplier === 1.05) {
+          bonusType = 'partial' // Only one matches (humor OR openness)
+        }
+        
         // Add humor multiplier to reason if applicable
         if (humorMultiplier > 1.0) {
           reason += ` × مضاعف الدعابة المتشابهة: (×${humorMultiplier})`
@@ -2582,6 +2600,7 @@ export default async function handler(req, res) {
           coreValuesScore: coreValuesScore,
           vibeScore: vibeScore,
           humorMultiplier: humorMultiplier,
+          bonusType: bonusType,
           // Store personality data for later use
           aMBTI: aMBTI,
           bMBTI: bMBTI,
@@ -2739,7 +2758,9 @@ export default async function handler(req, res) {
             communication_compatibility_score: compatibilityData?.communicationScore || 15,
             lifestyle_compatibility_score: compatibilityData?.lifestyleScore || 15,
             core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
-            vibe_compatibility_score: compatibilityData?.vibeScore || 10
+            vibe_compatibility_score: compatibilityData?.vibeScore || 10,
+            // Add humor/early openness bonus tracking
+            humor_early_openness_bonus: compatibilityData?.bonusType || 'none'
           })
           
           console.log(`   🔒 Locked match assigned: #${participant1} ↔ #${participant2} (Table ${tableCounter})`)
@@ -2795,7 +2816,9 @@ export default async function handler(req, res) {
             communication_compatibility_score: pair.communicationScore,
             lifestyle_compatibility_score: pair.lifestyleScore,
             core_values_compatibility_score: pair.coreValuesScore,
-            vibe_compatibility_score: pair.vibeScore
+            vibe_compatibility_score: pair.vibeScore,
+            // Add humor/early openness bonus tracking
+            humor_early_openness_bonus: pair.bonusType
           })
           
           tableCounter++ // Increment for next pair

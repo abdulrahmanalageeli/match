@@ -1588,7 +1588,8 @@ const fetchParticipants = async () => {
               is_organizer_match: match.participant_b_number === 9999,
               incompatibility_reason: incompatibilityReason,
               paid_done: participantInfo?.paid_done || false,
-              partner_paid_done: participantInfoMap.get(match.participant_b_number)?.paid_done || false
+              partner_paid_done: participantInfoMap.get(match.participant_b_number)?.paid_done || false,
+              humor_early_openness_bonus: match.humor_early_openness_bonus || 'none'
             })
           }
         }
@@ -1620,7 +1621,8 @@ const fetchParticipants = async () => {
               is_organizer_match: match.participant_a_number === 9999,
               incompatibility_reason: incompatibilityReason,
               paid_done: participantInfo?.paid_done || false,
-              partner_paid_done: participantInfoMap.get(match.participant_a_number)?.paid_done || false
+              partner_paid_done: participantInfoMap.get(match.participant_a_number)?.paid_done || false,
+              humor_early_openness_bonus: match.humor_early_openness_bonus || 'none'
             })
           }
         }

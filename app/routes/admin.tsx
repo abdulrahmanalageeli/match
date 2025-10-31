@@ -3442,20 +3442,6 @@ Proceed?`
         totalMatches={totalMatches}
         calculatedPairs={calculatedPairs}
         isFromCache={isFromCache}
-        onSelectParticipant={(participantNumber) => {
-          // Find the participant and add them to selection
-          const participant = participants.find(p => p.assigned_number === participantNumber);
-          if (participant) {
-            setSelectedParticipants(prev => new Set([...prev, participantNumber]));
-            // Scroll to the participant in the main list for visual confirmation
-            setTimeout(() => {
-              const element = document.querySelector(`[data-participant="${participantNumber}"]`);
-              if (element) {
-                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }
-            }, 100);
-          }
-        }}
       />
 
       {/* Group Assignments Modal */}

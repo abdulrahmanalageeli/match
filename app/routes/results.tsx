@@ -41,6 +41,7 @@ interface MatchResult {
   ai_personality_analysis?: string | null
   event_id?: number
   partner_message?: string | null
+  humor_early_openness_bonus?: 'full' | 'partial' | 'none'
 }
 
 interface ResultsData {
@@ -60,6 +61,15 @@ export default function ResultsPage() {
   const [showAiAnalysis, setShowAiAnalysis] = useState<{[key: number]: boolean}>({})
   const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
+  
+  // Helper function to calculate original score (before bonus)
+  const getOriginalScore = (match: MatchResult): number => {
+    if (!match.humor_early_openness_bonus || match.humor_early_openness_bonus === 'none') {
+      return match.score
+    }
+    const multiplier = match.humor_early_openness_bonus === 'full' ? 1.15 : 1.05
+    return Math.round(match.score / multiplier)
+  }
 
   // Function to convert technical compatibility reason to natural Arabic description
   const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
@@ -415,16 +425,16 @@ export default function ResultsPage() {
                               
                               <div className="flex items-center gap-1">
                                 <Award className={`w-3 h-3 ${
-                                  match.score >= 70 ? 'text-green-500' :
-                                  match.score >= 50 ? 'text-yellow-500' :
+                                  getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                  getOriginalScore(match) >= 50 ? 'text-yellow-500' :
                                   'text-red-500'
                                 }`} />
                                 <span className={`text-xs font-bold ${
-                                  match.score >= 70 ? 'text-green-500' :
-                                  match.score >= 50 ? 'text-yellow-500' :
+                                  getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                  getOriginalScore(match) >= 50 ? 'text-yellow-500' :
                                   'text-red-500'
                                 }`}>
-                                  {match.score}%
+                                  {getOriginalScore(match)}%
                                 </span>
                               </div>
                             </div>
@@ -455,23 +465,23 @@ export default function ResultsPage() {
                                 درجة التوافق الإجمالية
                               </span>
                               <span className={`font-bold text-lg ${
-                                match.score >= 70 ? 'text-green-500' :
-                                match.score >= 50 ? 'text-yellow-500' :
-                                match.score >= 30 ? 'text-orange-500' :
+                                getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                getOriginalScore(match) >= 30 ? 'text-orange-500' :
                                 'text-red-500'
                               }`}>
-                                {match.score}%
+                                {getOriginalScore(match)}%
                               </span>
                             </div>
                             <div className={`w-full h-3 rounded-full ${dark ? 'bg-slate-600' : 'bg-gray-200'}`}>
                               <div 
                                 className={`h-full rounded-full transition-all duration-500 ${
-                                  match.score >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                                  match.score >= 50 ? 'bg-gradient-to-r from-yellow-500 to-amber-500' :
-                                  match.score >= 30 ? 'bg-gradient-to-r from-orange-500 to-red-500' :
+                                  getOriginalScore(match) >= 70 ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                                  getOriginalScore(match) >= 50 ? 'bg-gradient-to-r from-yellow-500 to-amber-500' :
+                                  getOriginalScore(match) >= 30 ? 'bg-gradient-to-r from-orange-500 to-red-500' :
                                   'bg-gradient-to-r from-red-500 to-pink-500'
                                 }`}
-                                style={{ width: `${match.score}%` }}
+                                style={{ width: `${getOriginalScore(match)}%` }}
                               ></div>
                             </div>
                           </div>

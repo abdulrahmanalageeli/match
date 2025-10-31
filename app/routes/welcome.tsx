@@ -120,7 +120,15 @@ export default function WelcomePage() {
   const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | /* "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
+  const [humorBonus, setHumorBonus] = useState<'full' | 'partial' | 'none'>('none')
   const [isScoreRevealed, setIsScoreRevealed] = useState(false)
+  
+  // Helper function to calculate original score (before bonus)
+  const getOriginalScore = (): number => {
+    if (!compatibilityScore || humorBonus === 'none') return compatibilityScore || 0
+    const multiplier = humorBonus === 'full' ? 1.15 : 1.05
+    return Math.round(compatibilityScore / multiplier)
+  }
   const [conversationStarted, setConversationStarted] = useState(false)
   const [conversationTimer, setConversationTimer] = useState(1800) // 30 minutes
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
@@ -3053,6 +3061,7 @@ export default function WelcomePage() {
     score: number
     is_repeat_match?: boolean
     mutual_match?: boolean
+    humor_early_openness_bonus?: 'full' | 'partial' | 'none'
   }
 
   type GroupMatchEntry = {
@@ -3097,6 +3106,7 @@ export default function WelcomePage() {
         setMatchResult(currentRoundMatch.with)
         setMatchReason(currentRoundMatch.reason)
         setCompatibilityScore(currentRoundMatch.score)
+        setHumorBonus(currentRoundMatch.humor_early_openness_bonus || 'none')
         setTableNumber(currentRoundMatch.table_number)
         setIsRepeatMatch(currentRoundMatch.is_repeat_match || false)
         
@@ -8389,7 +8399,7 @@ export default function WelcomePage() {
                 <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
                       <div className="flex justify-center my-4">
                         <CircularProgressBar
-                          progress={compatibilityScore !== null ? Math.round(compatibilityScore) : 0}
+                          progress={getOriginalScore()}
                           size={180}
                           strokeWidth={20}
                           dark={dark}

@@ -824,11 +824,45 @@ export default function ParticipantResultsModal({
                           </td>
                           <td className="p-4 text-center">
                             <div className="flex items-center justify-center gap-2">
-                              <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)}`}>
-                                <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
-                                  {participant.compatibility_score}%
-                                </span>
-                              </div>
+                              {/* Compatibility Score with Tooltip */}
+                              {participant.humor_early_openness_bonus && participant.humor_early_openness_bonus !== 'none' ? (
+                                <Tooltip.Provider delayDuration={300}>
+                                  <Tooltip.Root>
+                                    <Tooltip.Trigger asChild>
+                                      <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)} cursor-help`}>
+                                        <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
+                                          {participant.compatibility_score}%
+                                        </span>
+                                      </div>
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Portal>
+                                      <Tooltip.Content
+                                        className="z-[100] max-w-xs p-3 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                        sideOffset={5}
+                                      >
+                                        <div className="space-y-2">
+                                          <div className="text-cyan-300 font-bold text-sm">
+                                            النتيجة الأصلية (قبل المكافأة):
+                                          </div>
+                                          <div className="text-white text-lg font-bold">
+                                            {Math.round(participant.compatibility_score / (participant.humor_early_openness_bonus === 'full' ? 1.15 : 1.05))}%
+                                          </div>
+                                          <div className="text-slate-400 text-xs border-t border-slate-700 pt-2">
+                                            النتيجة بعد المكافأة: {participant.compatibility_score}%
+                                          </div>
+                                        </div>
+                                        <Tooltip.Arrow className="fill-cyan-400/30" />
+                                      </Tooltip.Content>
+                                    </Tooltip.Portal>
+                                  </Tooltip.Root>
+                                </Tooltip.Provider>
+                              ) : (
+                                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${getScoreBg(participant.compatibility_score)}`}>
+                                  <span className={`font-bold ${getScoreColor(participant.compatibility_score)}`}>
+                                    {participant.compatibility_score}%
+                                  </span>
+                                </div>
+                              )}
                               {/* Humor/Early Openness Bonus Indicator */}
                               {participant.humor_early_openness_bonus && participant.humor_early_openness_bonus !== 'none' && (
                                 <Tooltip.Provider delayDuration={300}>

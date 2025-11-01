@@ -416,13 +416,23 @@ export default function ResultsPage() {
                             </div>
                             
                             <div className="flex items-center gap-2 flex-wrap">
-                              {/* Status Badge */}
-                              <span className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium ${
-                                dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
-                              }`}>
-                                <StatusIcon className="w-3.5 h-3.5" />
-                                {status.text}
-                              </span>
+                              {/* Status Badge - Enhanced for Mutual Match */}
+                              {match.mutual_match ? (
+                                <div className="relative">
+                                  <span className="absolute -inset-1 bg-gradient-to-r from-pink-500 to-red-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
+                                  <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold text-sm shadow-lg">
+                                    <Heart className="w-4 h-4 animate-pulse" />
+                                    مطابقة متبادلة!
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium ${
+                                  dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
+                                }`}>
+                                  <StatusIcon className="w-3.5 h-3.5" />
+                                  {status.text}
+                                </span>
+                              )}
                               
                               {/* Score Badge */}
                               <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${

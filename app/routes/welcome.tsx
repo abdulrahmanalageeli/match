@@ -171,6 +171,8 @@ export default function WelcomePage() {
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
   const [isGeneratingAnalysis, setIsGeneratingAnalysis] = useState(false)
   const [showAiAnalysis, setShowAiAnalysis] = useState(false)
+  const [displayedAnalysis, setDisplayedAnalysis] = useState<string>("")
+  const [isAnalysisTyping, setIsAnalysisTyping] = useState(false)
   const [totalRounds, setTotalRounds] = useState(4)
   const [announcement, setAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
@@ -3205,6 +3207,31 @@ export default function WelcomePage() {
 
     return () => clearInterval(timer)
   }, [announcement?.message])
+
+  // Typewriter effect for AI analysis
+  useEffect(() => {
+    if (aiAnalysis && showAiAnalysis) {
+      setDisplayedAnalysis("")
+      setIsAnalysisTyping(true)
+      
+      let currentIndex = 0
+      const intervalId = setInterval(() => {
+        if (currentIndex < aiAnalysis.length) {
+          setDisplayedAnalysis(aiAnalysis.substring(0, currentIndex + 1))
+          currentIndex++
+        } else {
+          setIsAnalysisTyping(false)
+          clearInterval(intervalId)
+        }
+      }, 20) // 20ms per character for smooth typing
+      
+      return () => clearInterval(intervalId)
+    } else if (!showAiAnalysis) {
+      // Reset when closing
+      setDisplayedAnalysis("")
+      setIsAnalysisTyping(false)
+    }
+  }, [aiAnalysis, showAiAnalysis])
 
   // Generate AI Vibe Analysis
   const generateVibeAnalysis = async () => {
@@ -8532,7 +8559,10 @@ export default function WelcomePage() {
                                   </div>
                                   <div className="p-6">
                                     <div className={`text-sm leading-relaxed whitespace-pre-wrap ${dark ? 'text-slate-300' : 'text-gray-800'}`}>
-                                      {aiAnalysis}
+                                      {displayedAnalysis}
+                                      {isAnalysisTyping && (
+                                        <span className="inline-block w-0.5 h-4 bg-current ml-1 animate-pulse"></span>
+                                      )}
                                     </div>
                                   </div>
                                 </div>
@@ -8567,7 +8597,7 @@ export default function WelcomePage() {
                                 <div className="flex items-start gap-3">
                                   <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${dark ? 'text-blue-400' : 'text-blue-600'}`} />
                                   <p className={`text-sm leading-relaxed ${dark ? 'text-slate-300' : 'text-gray-700'}`}>
-                                    تحقق من رقم التوكن الخاص بك في الصفحة الرئيسية بعد نصف ساعة إلى ساعة لمعرفة ما إذا كان هناك توافق متبادل
+                                    تحقق في الصفحة الرئيسية بعد نصف ساعة إلى ساعة لمعرفة ما إذا كان هناك توافق متبادل
                                   </p>
                                 </div>
                               </div>

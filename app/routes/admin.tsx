@@ -30,13 +30,13 @@ import {
   X,
   MessageSquare,
   Ban,
-  FileText
+  FileText,
+  Bug
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
-import { Bug } from "lucide-react"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -1816,6 +1816,70 @@ Proceed?`
     }
   }
 
+  // Reset Groups Function - Remove all group matches for current event
+  const resetGroups = async () => {
+    const confirmMessage = `⚠️ RESET GROUPS\n\nThis will permanently:\n• Delete ALL group matches for Event ${currentEventId}\n\nThis will NOT affect individual matches.\n\nAre you sure?`
+    
+    if (!confirm(confirmMessage)) return
+    
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "reset-groups",
+          event_id: currentEventId
+        }),
+      })
+      
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Groups reset completed! Removed ${data.groupsRemoved || 0} group(s) for Event ${currentEventId}.`, { duration: 4000 })
+        fetchParticipants()
+      } else {
+        toast.error(`Reset groups failed: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error resetting groups:", error)
+      toast.error("Error resetting groups")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Clear Temporary Exclusions Function - Remove all non-permanent exclusions
+  const clearTempExclusions = async () => {
+    const confirmMessage = `⚠️ CLEAR TEMPORARY EXCLUSIONS\n\nThis will permanently:\n• Remove ALL temporary exclusions (-1)\n• Keep ALL permanent bans (-10)\n\nThis allows temporarily excluded participants to be matched again.\n\nAre you sure?`
+    
+    if (!confirm(confirmMessage)) return
+    
+    setLoading(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "clear-temp-exclusions"
+        }),
+      })
+      
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(`Temporary exclusions cleared! Removed ${data.exclusionsRemoved || 0} temporary exclusion(s). Permanent bans remain in effect.`, { duration: 4000 })
+        fetchExcludedPairs() // Refresh excluded participants list
+        fetchParticipants()
+      } else {
+        toast.error(`Clear exclusions failed: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error clearing temporary exclusions:", error)
+      toast.error("Error clearing temporary exclusions")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (!authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
@@ -2313,6 +2377,32 @@ Proceed?`
                       <Trash2 className="w-3.5 h-3.5" />
                     )}
                     Clean Slate
+                  </button>
+
+                  <button
+                    onClick={resetGroups}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-600 to-orange-700 hover:from-orange-700 hover:to-orange-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Users className="w-3.5 h-3.5" />
+                    )}
+                    Reset Groups
+                  </button>
+
+                  <button
+                    onClick={clearTempExclusions}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Shield className="w-3.5 h-3.5" />
+                    )}
+                    Clear Temp Exclusions
                   </button>
 
                   <button

@@ -2364,6 +2364,104 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 RESET GROUPS - Remove all group matches for current event
+    if (action === "reset-groups") {
+      try {
+        const { event_id } = req.body
+        console.log(`🔄 Resetting all groups for event_id: ${event_id}`)
+        
+        // Get count of groups before deletion
+        const { data: groupsToDelete, error: fetchError } = await supabase
+          .from("group_matches")
+          .select("id")
+          .eq("event_id", event_id)
+        
+        if (fetchError) {
+          console.error("Error fetching groups to delete:", fetchError)
+          return res.status(500).json({ error: "Failed to fetch groups to delete" })
+        }
+        
+        const groupCount = groupsToDelete ? groupsToDelete.length : 0
+        
+        if (groupCount > 0) {
+          // Delete all group matches for the current event
+          const { error: deleteError } = await supabase
+            .from("group_matches")
+            .delete()
+            .eq("event_id", event_id)
+          
+          if (deleteError) {
+            console.error("Error deleting groups:", deleteError)
+            return res.status(500).json({ error: "Failed to delete groups" })
+          }
+          
+          console.log(`✅ Removed ${groupCount} group(s) for event ${event_id}`)
+        } else {
+          console.log(`ℹ️ No groups found for event ${event_id}`)
+        }
+        
+        return res.status(200).json({ 
+          success: true,
+          message: "Groups reset successfully",
+          groupsRemoved: groupCount,
+          event_id
+        })
+        
+      } catch (error) {
+        console.error("Error during reset groups operation:", error)
+        return res.status(500).json({ error: "Failed to reset groups" })
+      }
+    }
+
+    // 🔹 CLEAR NON-PERMANENT EXCLUSIONS - Remove all temporary exclusions (keep permanent bans)
+    if (action === "clear-temp-exclusions") {
+      try {
+        console.log(`🧹 Clearing all temporary exclusions (keeping permanent bans with -10)`)
+        
+        // Delete all excluded_pairs where participant2_number = -1 (temporary exclusions)
+        // Keep entries with participant2_number = -10 (permanent bans)
+        const { data: exclusionsToDelete, error: fetchError } = await supabase
+          .from("excluded_pairs")
+          .select("id, participant1_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("participant2_number", -1)
+        
+        if (fetchError) {
+          console.error("Error fetching exclusions to delete:", fetchError)
+          return res.status(500).json({ error: "Failed to fetch exclusions to delete" })
+        }
+        
+        const exclusionCount = exclusionsToDelete ? exclusionsToDelete.length : 0
+        
+        if (exclusionCount > 0) {
+          const { error: deleteError } = await supabase
+            .from("excluded_pairs")
+            .delete()
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("participant2_number", -1)
+          
+          if (deleteError) {
+            console.error("Error deleting temporary exclusions:", deleteError)
+            return res.status(500).json({ error: "Failed to delete temporary exclusions" })
+          }
+          
+          console.log(`✅ Removed ${exclusionCount} temporary exclusion(s), kept permanent bans (-10)`)
+        } else {
+          console.log(`ℹ️ No temporary exclusions found to remove`)
+        }
+        
+        return res.status(200).json({ 
+          success: true,
+          message: "Temporary exclusions cleared successfully",
+          exclusionsRemoved: exclusionCount
+        })
+        
+      } catch (error) {
+        console.error("Error during clear temp exclusions operation:", error)
+        return res.status(500).json({ error: "Failed to clear temporary exclusions" })
+      }
+    }
+
     // 🔹 MARK MESSAGES SENT - Update PAID status for selected participants
     if (action === "mark-messages-sent") {
       try {

@@ -419,9 +419,9 @@ export default function ResultsPage() {
                               {/* Status Badge - Enhanced for Mutual Match */}
                               {match.mutual_match ? (
                                 <div className="relative">
-                                  <span className="absolute -inset-1 bg-gradient-to-r from-pink-500 to-red-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
-                                  <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-white font-bold text-sm shadow-lg">
-                                    <Heart className="w-4 h-4 animate-pulse" />
+                                  <span className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
+                                  <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-lg">
+                                    <Handshake className="w-4 h-4 animate-pulse" />
                                     مطابقة متبادلة!
                                   </span>
                                 </div>
@@ -459,7 +459,7 @@ export default function ResultsPage() {
                         
                         <div className="flex items-center gap-2 flex-shrink-0">
                           {match.mutual_match && (
-                            <Heart className="w-4 h-4 text-red-500 animate-pulse" />
+                            <Handshake className="w-5 h-5 text-emerald-500 animate-pulse" />
                           )}
                           {isExpanded ? (
                             <ChevronUp className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />

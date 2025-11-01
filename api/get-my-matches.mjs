@@ -196,6 +196,7 @@ export default async function handler(req, res) {
                 round: match.round ?? 1,
                 table_number: match.table_number || null,
                 is_repeat_match: match.is_repeat_match || false,
+                humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
               }
             }
           }
@@ -211,6 +212,7 @@ export default async function handler(req, res) {
             round: match.round ?? 1,
             table_number: match.table_number || null,
             is_repeat_match: match.is_repeat_match || false,
+            humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
           }
         })
 

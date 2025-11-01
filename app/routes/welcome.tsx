@@ -8387,47 +8387,81 @@ export default function WelcomePage() {
               </>
             ) : (
               <>
-                <h3 className={`text-xl font-bold text-center mb-6 ${dark ? "text-slate-200" : "text-gray-800"}`}>شكراً لك!</h3>
-                <div className={`text-center mb-4 p-4 rounded-xl border-2 ${dark ? "bg-blue-900/20 border-blue-400/40" : "bg-blue-50 border-blue-300/60"}`}>
-                  <p className={`text-sm font-semibold ${dark ? "text-blue-200" : "text-blue-700"}`}>
-                    💡 هذه هي النتيجة الحقيقية التي حصلتما عليها من خوارزمية التوافق عند التوفيق بينكما
-                  </p>
-                  <p className={`text-xs mt-1 ${dark ? "text-blue-300/80" : "text-blue-600/80"}`}>
-                    (وليست التقييمات التي أعطيتماها لبعضكما)
+                {/* Modern Header */}
+                <div className="text-center mb-8">
+                  <h3 className={`text-2xl font-bold mb-2 bg-gradient-to-r ${dark ? 'from-emerald-400 to-cyan-400' : 'from-emerald-600 to-cyan-600'} bg-clip-text text-transparent`}>
+                    شكراً لك!
+                  </h3>
+                  <p className={`text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
+                    إليك نتيجة التوافق الحقيقية من خوارزميتنا
                   </p>
                 </div>
-                <div className={`text-center mb-6 p-6 rounded-xl border ${dark ? "bg-gradient-to-r from-slate-500/20 to-slate-600/20 border-slate-400/30" : "bg-gradient-to-r from-gray-200/50 to-gray-300/50 border-gray-400/30"}`}>
-                      <div className="flex justify-center my-4">
-                        <CircularProgressBar
-                          progress={getOriginalScore()}
-                          size={180}
-                          strokeWidth={20}
-                          dark={dark}
-                        />
-                      </div>
+
+                {/* Score Display Card */}
+                <div className={`relative overflow-hidden rounded-2xl p-8 mb-6 ${dark ? 'bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-slate-700/50' : 'bg-gradient-to-br from-white to-gray-50 border border-gray-200/50'} shadow-xl backdrop-blur-sm`}>
+                  {/* Decorative Background Elements */}
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/10 to-transparent rounded-full blur-3xl"></div>
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-emerald-500/10 to-transparent rounded-full blur-3xl"></div>
+                  
+                  <div className="relative z-10">
+                    <div className="flex justify-center mb-4">
+                      <CircularProgressBar
+                        progress={getOriginalScore()}
+                        size={200}
+                        strokeWidth={22}
+                        dark={dark}
+                      />
+                    </div>
+                    
+                    <div className={`text-center py-3 px-4 rounded-xl ${dark ? 'bg-blue-500/10 border border-blue-400/20' : 'bg-blue-50/80 border border-blue-200/50'}`}>
+                      <p className={`text-xs font-medium ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
+                        💡 النتيجة الأساسية من خوارزمية التوافق (قبل أي مكافآت)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Compatibility breakdown section */}
+                <div>
                       {isScoreRevealed && (
-                        <div className="mt-4">
-                          {/* New formatted compatibility reason */}
+                        <div className="mt-6 space-y-4">
+                          {/* Compatibility Analysis Section */}
                           {(() => {
                             const formattedReason = formatCompatibilityReason(matchReason)
                             return (
-                              <div className="space-y-3">
-                                <h4 className={`text-lg font-bold ${dark ? "text-slate-200" : "text-gray-800"}`}>تحليل التوافق</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50' : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200/50'} shadow-lg`}>
+                                {/* Header */}
+                                <div className={`px-6 py-4 border-b ${dark ? 'bg-slate-800/80 border-slate-700/50' : 'bg-gradient-to-r from-gray-50 to-white border-gray-200/50'}`}>
+                                  <h4 className={`text-xl font-bold flex items-center gap-2 ${dark ? 'text-slate-100' : 'text-gray-900'}`}>
+                                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                    تحليل التوافق
+                                  </h4>
+                                  <p className={`text-sm mt-1 ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
+                                    تفصيل دقيق لمستويات التوافق بينكما
+                                  </p>
+                                </div>
+
+                                {/* Compatibility Cards */}
+                                <div className="p-6 space-y-3">
                                   {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, index: number) => (
                                     <div 
                                       key={index}
-                                      className={`p-3 rounded-lg border ${component.bgColor} ${component.borderColor} backdrop-blur-sm`}
+                                      className={`group relative overflow-hidden rounded-xl p-4 transition-all duration-300 hover:scale-[1.02] ${dark ? 'bg-slate-800/60 border border-slate-700/40 hover:border-slate-600/60' : 'bg-white border border-gray-200/60 hover:border-gray-300/80'} shadow-sm hover:shadow-md`}
                                     >
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-sm font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                      {/* Accent Bar */}
+                                      <div className={`absolute right-0 top-0 bottom-0 w-1 ${component.bgColor} opacity-60 group-hover:opacity-100 transition-opacity`}></div>
+                                      
+                                      <div className="flex items-start justify-between gap-3 mb-2">
+                                        <span className={`text-base font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>
                                           {component.name}
                                         </span>
-                                        <span className={`text-xs font-bold px-2 py-1 rounded-full ${component.color} ${component.bgColor}`}>
+                                        <span className={`flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full ${component.color} ${component.bgColor} shadow-sm border ${component.borderColor}`}>
                                           {component.strength}
                                         </span>
                                       </div>
-                                      <p className={`text-xs ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                                      <p className={`text-sm leading-relaxed ${dark ? 'text-slate-300' : 'text-gray-700'}`}>
                                         {component.description}
                                       </p>
                                     </div>

@@ -6436,7 +6436,10 @@ export default function WelcomePage() {
                   dark ? 'bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border-blue-400/30 text-blue-200' : 'bg-gradient-to-r from-blue-200/50 to-cyan-200/50 border-blue-400/30 text-blue-700'
                 }`}> 
                   <Clock className="w-6 h-6" />
-                  يرجى الانتظار حتى يراسلك المنظم عند وجود شريك
+                  <div className="flex flex-col gap-1">
+                    <div className="font-bold">سنتواصل معك عبر واتساب فور إيجاد شريك متوافق!</div>
+                    <div className="text-sm opacity-90">⚠️ يُرجى عدم الحضور للفعالية إلا بعد استلام رسالة التأكيد</div>
+                  </div>
                 </div>
               </div>
             </div>

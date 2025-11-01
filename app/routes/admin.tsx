@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import toast, { Toaster } from 'react-hot-toast'
+import { useDebounce } from "~/hooks/useDebounce"
 import {
   UserRound,
   QrCode,
@@ -48,6 +49,7 @@ export default function AdminPage() {
   const [manualNumber, setManualNumber] = useState<number | null>(null)
   const [currentPhase, setCurrentPhase] = useState("form")
   const [searchTerm, setSearchTerm] = useState("")
+  const debouncedSearch = useDebounce(searchTerm, 300) // Performance: debounce search by 300ms
   const [showEligibleOnly, setShowEligibleOnly] = useState(false)
   const [genderFilter, setGenderFilter] = useState("all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
@@ -1295,54 +1297,57 @@ const fetchParticipants = async () => {
     }
   }
 
-  const filteredParticipants = participants.filter(p => {
-    // Search term filter
-    const matchesSearch = searchTerm === "" || (
-      p.assigned_number.toString().includes(searchTerm) ||
-      (p.name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.survey_data?.answers?.gender?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(searchTerm.toLowerCase()))
-    )
-    
-    // Eligible participants filter (current event or signed up for next event)
-    const isEligible = !showEligibleOnly || (
-      p.event_id === currentEventId || // Current event participants
-      p.signup_for_next_event === true // Signed up for next event
-    )
-    
-    // Gender filter
-    const matchesGender = genderFilter === "all" || (
-      (genderFilter === "male" && (p.survey_data?.gender === "male" || p.survey_data?.answers?.gender === "male")) ||
-      (genderFilter === "female" && (p.survey_data?.gender === "female" || p.survey_data?.answers?.gender === "female"))
-    )
-    
-    // Payment filter - PAID = WhatsApp sent, PAID_DONE = actually paid
-    let matchesPayment = true
-    if (paymentFilter !== "all") {
-      if (paymentFilter === "paid") {
-        // Awaiting payment: WhatsApp sent (PAID = true) but not paid yet (PAID_DONE = false)
-        matchesPayment = (p.PAID === true && p.PAID_DONE !== true)
-      } else if (paymentFilter === "unpaid") {
-        // Not contacted: no WhatsApp sent yet (PAID = false)
-        matchesPayment = (!p.PAID || p.PAID === false)
-      } else if (paymentFilter === "done") {
-        // Actually paid (PAID_DONE = true)
-        matchesPayment = (p.PAID_DONE === true)
+  // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
+  const filteredParticipants = useMemo(() => {
+    return participants.filter(p => {
+      // Search term filter - using debounced search for better performance
+      const matchesSearch = debouncedSearch === "" || (
+        p.assigned_number.toString().includes(debouncedSearch) ||
+        (p.name?.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+        (p.survey_data?.answers?.gender?.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
+        (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()))
+      )
+      
+      // Eligible participants filter (current event or signed up for next event)
+      const isEligible = !showEligibleOnly || (
+        p.event_id === currentEventId || // Current event participants
+        p.signup_for_next_event === true // Signed up for next event
+      )
+      
+      // Gender filter
+      const matchesGender = genderFilter === "all" || (
+        (genderFilter === "male" && (p.survey_data?.gender === "male" || p.survey_data?.answers?.gender === "male")) ||
+        (genderFilter === "female" && (p.survey_data?.gender === "female" || p.survey_data?.answers?.gender === "female"))
+      )
+      
+      // Payment filter - PAID = WhatsApp sent, PAID_DONE = actually paid
+      let matchesPayment = true
+      if (paymentFilter !== "all") {
+        if (paymentFilter === "paid") {
+          // Awaiting payment: WhatsApp sent (PAID = true) but not paid yet (PAID_DONE = false)
+          matchesPayment = (p.PAID === true && p.PAID_DONE !== true)
+        } else if (paymentFilter === "unpaid") {
+          // Not contacted: no WhatsApp sent yet (PAID = false)
+          matchesPayment = (!p.PAID || p.PAID === false)
+        } else if (paymentFilter === "done") {
+          // Actually paid (PAID_DONE = true)
+          matchesPayment = (p.PAID_DONE === true)
+        }
       }
-    }
-    
-    // WhatsApp filter - using PAID as WhatsApp sent indicator
-    let matchesWhatsapp = true
-    if (whatsappFilter !== "all") {
-      if (whatsappFilter === "sent") {
-        matchesWhatsapp = (p.PAID === true)
-      } else if (whatsappFilter === "not_sent") {
-        matchesWhatsapp = (!p.PAID || p.PAID === false)
+      
+      // WhatsApp filter - using PAID as WhatsApp sent indicator
+      let matchesWhatsapp = true
+      if (whatsappFilter !== "all") {
+        if (whatsappFilter === "sent") {
+          matchesWhatsapp = (p.PAID === true)
+        } else if (whatsappFilter === "not_sent") {
+          matchesWhatsapp = (!p.PAID || p.PAID === false)
+        }
       }
-    }
-    
-    return matchesSearch && isEligible && matchesGender && matchesPayment && matchesWhatsapp
-  })
+      
+      return matchesSearch && isEligible && matchesGender && matchesPayment && matchesWhatsapp
+    })
+  }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, currentEventId])
 
   const phaseConfig = {
     registration: { label: "Registration", color: "text-blue-400", bg: "bg-blue-400/10", icon: UserRound },

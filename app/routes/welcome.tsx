@@ -5481,44 +5481,88 @@ export default function WelcomePage() {
                               <span className="text-xs font-medium">انقر للتسجيل</span>
                               <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                             </div>
-                          ) : autoSignupEnabled && (
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                const confirmed = window.confirm(
-                                  "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إيقاف التسجيل التلقائي فقط (ستبقى مسجلاً للفعالية القادمة)."
-                                );
-                                if (!confirmed) return;
-                                
-                                setNextEventSignupLoading(true);
-                                try {
-                                  const token = resultToken || returningPlayerToken;
-                                  const response = await fetch("/api/participant", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ 
-                                      action: "disable-auto-signup",
-                                      secure_token: token
-                                    }),
-                                  });
+                          ) : (
+                            <div className="flex flex-col gap-2 mt-3">
+                              {/* Unregister from Next Event Button */}
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  const confirmed = window.confirm(
+                                    "هل أنت متأكد من إلغاء تسجيلك في الفعالية القادمة؟\n\nيمكنك التسجيل مرة أخرى لاحقاً."
+                                  );
+                                  if (!confirmed) return;
                                   
-                                  const data = await response.json();
-                                  if (response.ok) {
-                                    setAutoSignupEnabled(false);
-                                    toast.success("تم إيقاف التسجيل التلقائي بنجاح");
-                                  } else {
-                                    toast.error(`فشل إيقاف التسجيل: ${data.error}`);
+                                  setNextEventSignupLoading(true);
+                                  try {
+                                    const token = resultToken || returningPlayerToken;
+                                    const response = await fetch("/api/participant", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({ 
+                                        action: "unregister-next-event",
+                                        secure_token: token
+                                      }),
+                                    });
+                                    
+                                    const data = await response.json();
+                                    if (response.ok) {
+                                      setShowNextEventSignup(false);
+                                      toast.success("تم إلغاء تسجيلك في الفعالية القادمة بنجاح");
+                                    } else {
+                                      toast.error(`فشل إلغاء التسجيل: ${data.error}`);
+                                    }
+                                  } catch (error) {
+                                    toast.error(`خطأ في الشبكة: ${error}`);
                                   }
-                                } catch (error) {
-                                  toast.error(`خطأ في الشبكة: ${error}`);
-                                }
-                                setNextEventSignupLoading(false);
-                              }}
-                              disabled={nextEventSignupLoading}
-                              className="mt-3 px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
-                            >
-                              إيقاف التسجيل التلقائي
-                            </button>
+                                  setNextEventSignupLoading(false);
+                                }}
+                                disabled={nextEventSignupLoading}
+                                className="px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-orange-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                              >
+                                {nextEventSignupLoading ? "جاري الإلغاء..." : "إلغاء التسجيل"}
+                              </button>
+                              
+                              {/* Disable Auto-Signup Button (if enabled) */}
+                              {autoSignupEnabled && (
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const confirmed = window.confirm(
+                                      "هل أنت متأكد من إيقاف التسجيل التلقائي للفعاليات القادمة؟\n\nسيتم إيقاف التسجيل التلقائي فقط (ستبقى مسجلاً للفعالية القادمة)."
+                                    );
+                                    if (!confirmed) return;
+                                    
+                                    setNextEventSignupLoading(true);
+                                    try {
+                                      const token = resultToken || returningPlayerToken;
+                                      const response = await fetch("/api/participant", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ 
+                                          action: "disable-auto-signup",
+                                          secure_token: token
+                                        }),
+                                      });
+                                      
+                                      const data = await response.json();
+                                      if (response.ok) {
+                                        setAutoSignupEnabled(false);
+                                        toast.success("تم إيقاف التسجيل التلقائي بنجاح");
+                                      } else {
+                                        toast.error(`فشل إيقاف التسجيل: ${data.error}`);
+                                      }
+                                    } catch (error) {
+                                      toast.error(`خطأ في الشبكة: ${error}`);
+                                    }
+                                    setNextEventSignupLoading(false);
+                                  }}
+                                  disabled={nextEventSignupLoading}
+                                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                                >
+                                  إيقاف التسجيل التلقائي
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
 

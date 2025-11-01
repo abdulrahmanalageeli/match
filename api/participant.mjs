@@ -1299,6 +1299,56 @@ export default async function handler(req, res) {
     }
   }
 
+  // UNREGISTER FROM NEXT EVENT ACTION
+  if (action === "unregister-next-event") {
+    try {
+      const { secure_token } = req.body
+      
+      if (!secure_token) {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+      // Find participant by secure_token
+      const { data: participant, error: findError } = await supabase
+        .from("participants")
+        .select("assigned_number")
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (findError || !participant) {
+        console.error("Participant not found:", findError)
+        return res.status(404).json({ error: "المشارك غير موجود" })
+      }
+
+      // Update participant to unregister from next event
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({
+          signup_for_next_event: false
+        })
+        .eq("secure_token", secure_token)
+
+      if (updateError) {
+        console.error("Error unregistering from next event:", updateError)
+        return res.status(500).json({ error: "فشل إلغاء التسجيل في الفعالية القادمة" })
+      }
+
+      console.log(`✅ Participant #${participant.assigned_number} unregistered from next event`)
+
+      return res.status(200).json({
+        success: true,
+        message: "تم إلغاء تسجيلك في الفعالية القادمة بنجاح",
+        participant_number: participant.assigned_number
+      })
+
+    } catch (error) {
+      console.error("Error in unregister-next-event:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء إلغاء التسجيل" })
+    }
+  }
+
   // GENERATE AI VIBE ANALYSIS ACTION
   if (action === "generate-vibe-analysis") {
     try {

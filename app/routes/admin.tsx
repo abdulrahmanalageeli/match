@@ -1848,15 +1848,16 @@ Proceed?`
     }
   }
 
-  // Clear Temporary Exclusions Function - Remove all non-permanent exclusions
+  // Clear Temporary Exclusions Function - Remove all non-permanent exclusions AND excluded pairs
   const clearTempExclusions = async () => {
-    const confirmMessage = `⚠️ CLEAR TEMPORARY EXCLUSIONS\n\nThis will permanently:\n• Remove ALL temporary exclusions (-1)\n• Keep ALL permanent bans (-10)\n\nThis allows temporarily excluded participants to be matched again.\n\nAre you sure?`
+    const confirmMessage = `⚠️ CLEAR TEMPORARY EXCLUSIONS & EXCLUDED PAIRS\n\nThis will permanently:\n• Remove ALL temporary exclusions (-1)\n• Remove ALL excluded pairs\n• Keep ALL permanent bans (-10)\n\nThis allows temporarily excluded participants to be matched again.\n\nAre you sure?`
     
     if (!confirm(confirmMessage)) return
     
     setLoading(true)
     try {
-      const res = await fetch("/api/admin", {
+      // Clear temporary exclusions
+      const res1 = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -1864,17 +1865,35 @@ Proceed?`
         }),
       })
       
-      const data = await res.json()
-      if (res.ok) {
-        toast.success(`Temporary exclusions cleared! Removed ${data.exclusionsRemoved || 0} temporary exclusion(s). Permanent bans remain in effect.`, { duration: 4000 })
-        fetchExcludedPairs() // Refresh excluded participants list
+      const data1 = await res1.json()
+      
+      // Clear excluded pairs
+      const res2 = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "clear-excluded-pairs"
+        }),
+      })
+      
+      const data2 = await res2.json()
+      
+      if (res1.ok && res2.ok) {
+        const exclusionsRemoved = data1.exclusionsRemoved || 0
+        const pairsRemoved = data2.pairsRemoved || 0
+        toast.success(`Cleared ${exclusionsRemoved} temporary exclusion(s) and ${pairsRemoved} excluded pair(s). Permanent bans remain in effect.`, { duration: 4000 })
+        fetchExcludedPairs() // Refresh excluded pairs list
+        fetchExcludedParticipants() // Refresh excluded participants list
         fetchParticipants()
       } else {
-        toast.error(`Clear exclusions failed: ${data.error || 'Unknown error'}`)
+        const errors = []
+        if (!res1.ok) errors.push(`Exclusions: ${data1.error}`)
+        if (!res2.ok) errors.push(`Pairs: ${data2.error}`)
+        toast.error(`Clear failed: ${errors.join(', ')}`)
       }
     } catch (error) {
-      console.error("Error clearing temporary exclusions:", error)
-      toast.error("Error clearing temporary exclusions")
+      console.error("Error clearing temporary exclusions and pairs:", error)
+      toast.error("Error clearing temporary exclusions and pairs")
     } finally {
       setLoading(false)
     }

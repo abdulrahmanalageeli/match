@@ -8414,9 +8414,12 @@ export default function WelcomePage() {
                     </div>
                     
                     <div className={`text-center py-3 px-4 rounded-xl ${dark ? 'bg-blue-500/10 border border-blue-400/20' : 'bg-blue-50/80 border border-blue-200/50'}`}>
-                      <p className={`text-xs font-medium ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
-                        💡 النتيجة الأساسية من خوارزمية التوافق (قبل أي مكافآت)
-                      </p>
+                      <div className="flex items-center justify-center gap-2">
+                        <Info className={`w-4 h-4 ${dark ? 'text-blue-300' : 'text-blue-600'}`} />
+                        <p className={`text-xs font-medium ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
+                          النتيجة من خوارزمية التوافق (وليست التقييمات التي أعطيتماها لبعضكما)
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -8473,52 +8476,64 @@ export default function WelcomePage() {
                           
                           {/* AI Vibe Analysis Button and Display */}
                           {matchResult && matchResult !== 'المنظم' && (
-                            <div className="mt-6">
+                            <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50' : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200/50'} shadow-lg`}>
                               {!showAiAnalysis ? (
-                                <div className="text-center">
+                                <div className="p-8 text-center">
+                                  <div className="flex justify-center mb-4">
+                                    <div className={`p-4 rounded-2xl ${dark ? 'bg-purple-500/20' : 'bg-purple-100/80'}`}>
+                                      <Sparkles className={`w-10 h-10 ${dark ? 'text-purple-400' : 'text-purple-600'}`} />
+                                    </div>
+                                  </div>
+                                  <h4 className={`text-xl font-bold mb-2 ${dark ? 'text-slate-100' : 'text-gray-900'}`}>
+                                    اكتشف سبب توافقكما الرائع!
+                                  </h4>
+                                  <p className={`text-sm mb-6 ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
+                                    تحليل ذكي لاهتماماتكما المشتركة وأسلوبكما في الحياة
+                                  </p>
                                   <Button
                                     onClick={generateVibeAnalysis}
                                     disabled={isGeneratingAnalysis}
-                                    className={`bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-500 transform hover:scale-105 ${
+                                    className={`bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 ${
                                       isGeneratingAnalysis ? 'opacity-75 cursor-not-allowed' : ''
                                     }`}
                                   >
                                     {isGeneratingAnalysis ? (
                                       <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin ml-2"></div>
                                         جاري التحليل...
                                       </>
                                     ) : (
                                       <>
-                                        <Sparkles className="w-4 h-4 mr-2" />
-                                        اكتشف سبب توافقكما الرائع!
+                                        <Sparkles className="w-4 h-4 ml-2" />
+                                        عرض التحليل الذكي
                                       </>
                                     )}
                                   </Button>
-                                  <p className={`text-xs mt-2 opacity-70 ${dark ? 'text-slate-400' : 'text-gray-500'}`}>
-                                    تحليل ذكي لاهتماماتكما المشتركة وأسلوبكما في الحياة
-                                  </p>
                                 </div>
                               ) : (
-                                <div className={`p-4 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-400/40' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300/40'}`}>
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <Sparkles className={`w-5 h-5 ${dark ? 'text-purple-300' : 'text-purple-600'}`} />
-                                    <h4 className={`text-lg font-bold ${dark ? 'text-purple-200' : 'text-purple-700'}`}>
-                                      لماذا تتوافقان بشكل رائع؟
-                                    </h4>
+                                <div>
+                                  <div className={`px-6 py-4 border-b ${dark ? 'bg-slate-800/80 border-slate-700/50' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-gray-200/50'}`}>
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <Sparkles className={`w-6 h-6 ${dark ? 'text-purple-400' : 'text-purple-600'}`} />
+                                        <h4 className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>
+                                          لماذا تتوافقان بشكل رائع؟
+                                        </h4>
+                                      </div>
+                                      <Button
+                                        onClick={() => setShowAiAnalysis(false)}
+                                        variant="ghost"
+                                        size="sm"
+                                        className={`${dark ? 'text-slate-400 hover:text-slate-200' : 'text-gray-600 hover:text-gray-900'}`}
+                                      >
+                                        <X className="w-5 h-5" />
+                                      </Button>
+                                    </div>
                                   </div>
-                                  <div className={`text-sm leading-relaxed whitespace-pre-wrap ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                    {aiAnalysis}
-                                  </div>
-                                  <div className="flex justify-center mt-4">
-                                    <Button
-                                      onClick={() => setShowAiAnalysis(false)}
-                                      variant="outline"
-                                      size="sm"
-                                      className={`${dark ? 'border-purple-400/50 text-purple-300 hover:bg-purple-500/10' : 'border-purple-300 text-purple-600 hover:bg-purple-50'}`}
-                                    >
-                                      إخفاء التحليل
-                                    </Button>
+                                  <div className="p-6">
+                                    <div className={`text-sm leading-relaxed whitespace-pre-wrap ${dark ? 'text-slate-300' : 'text-gray-800'}`}>
+                                      {aiAnalysis}
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -8537,17 +8552,25 @@ export default function WelcomePage() {
                           </div>
                         )}
                         {currentRound === 1 && (
-                          <div className="flex flex-col items-center justify-center py-8">
-                            <div className="relative w-28 h-28 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/30 to-blue-600/30 shadow-xl border-4 border-cyan-400/40 backdrop-blur-md animate-pulse">
-                              <Clock className="w-16 h-16 text-cyan-500 drop-shadow-lg animate-spin-slow" />
-                              <div className="absolute inset-0 rounded-full border-4 border-cyan-300/30 animate-pulse"></div>
-                            </div>
-                            <h2 className="mt-6 text-2xl font-extrabold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent drop-shadow">انتهت الجولة</h2>
-                            <p className="mt-2 text-lg font-medium text-cyan-700 animate-fade-in">تحقق من رقم التوكن الخاص بك في الصفحة الرئيسية بعد نصف ساعة إلى ساعة لمعرفة ما إذا كان هناك توافق متبادل</p>
-                            <div className="flex gap-2 mt-6">
-                              <span className="w-3 h-3 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                              <span className="w-3 h-3 bg-cyan-300 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
-                              <span className="w-3 h-3 bg-cyan-200 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                          <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border border-cyan-700/50' : 'bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200/50'} shadow-lg`}>
+                            <div className="p-8 text-center">
+                              <div className="flex justify-center mb-6">
+                                <div className={`relative p-6 rounded-2xl ${dark ? 'bg-cyan-500/20' : 'bg-cyan-100/80'} shadow-xl`}>
+                                  <Clock className={`w-16 h-16 ${dark ? 'text-cyan-400' : 'text-cyan-600'} animate-spin-slow`} />
+                                  <div className={`absolute inset-0 rounded-2xl ${dark ? 'border-2 border-cyan-400/30' : 'border-2 border-cyan-300/40'} animate-pulse`}></div>
+                                </div>
+                              </div>
+                              <h2 className={`text-3xl font-bold mb-4 bg-gradient-to-r ${dark ? 'from-cyan-400 to-blue-400' : 'from-cyan-600 to-blue-600'} bg-clip-text text-transparent`}>
+                                انتهت الجولة
+                              </h2>
+                              <div className={`max-w-md mx-auto p-4 rounded-xl ${dark ? 'bg-blue-500/10 border border-blue-400/20' : 'bg-blue-50/80 border border-blue-200/50'}`}>
+                                <div className="flex items-start gap-3">
+                                  <Info className={`w-5 h-5 flex-shrink-0 mt-0.5 ${dark ? 'text-blue-400' : 'text-blue-600'}`} />
+                                  <p className={`text-sm leading-relaxed ${dark ? 'text-slate-300' : 'text-gray-700'}`}>
+                                    تحقق من رقم التوكن الخاص بك في الصفحة الرئيسية بعد نصف ساعة إلى ساعة لمعرفة ما إذا كان هناك توافق متبادل
+                                  </p>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react"
 import type { MouseEvent, FormEvent, CSSProperties } from "react"
 import { useSearchParams } from "react-router"
 import { X } from "lucide-react"
@@ -72,10 +72,12 @@ import { Switch } from "../../components/ui/switch"
 import { Avatar as AvatarComponent } from "../../components/ui/avatar"
 import "../../app/app.css"
 import MatchResult from "./MatchResult"
-import AIQuestionsGenerator from "../components/AIQuestionsGenerator"
-import SurveyComponent from "../components/SurveyComponent"
-import PromptTopicsModal from "../components/PromptTopicsModal"
 import CircularProgressBar from "../components/CircularProgressBar"
+
+// Performance: Lazy load heavy components to improve initial page load
+const AIQuestionsGenerator = lazy(() => import("../components/AIQuestionsGenerator"))
+const SurveyComponent = lazy(() => import("../components/SurveyComponent"))
+const PromptTopicsModal = lazy(() => import("../components/PromptTopicsModal"))
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -6327,15 +6329,24 @@ export default function WelcomePage() {
               ) : (
                 <>
                   {console.log("🎯 SurveyComponent is being rendered")}
-                                  <SurveyComponent
-                  onSubmit={handleSurveySubmit}
-                  surveyData={surveyData}
-                  setSurveyData={setSurveyData}
-                  setIsEditingSurvey={setIsEditingSurvey}
-                  loading={loading}
-                  assignedNumber={assignedNumber || undefined}
-                  secureToken={secureToken || undefined}
-                />
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center py-12">
+                      <div className="text-center">
+                        <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p className={`text-lg ${dark ? 'text-slate-200' : 'text-gray-800'}`}>جاري تحميل الاستبيان...</p>
+                      </div>
+                    </div>
+                  }>
+                    <SurveyComponent
+                      onSubmit={handleSurveySubmit}
+                      surveyData={surveyData}
+                      setSurveyData={setSurveyData}
+                      setIsEditingSurvey={setIsEditingSurvey}
+                      loading={loading}
+                      assignedNumber={assignedNumber || undefined}
+                      secureToken={secureToken || undefined}
+                    />
+                  </Suspense>
                 </>
               )}
             </div>
@@ -7471,11 +7482,13 @@ export default function WelcomePage() {
               {/* AI Questions Generator */}
               {secureToken && (
                 <div className="mt-6">
-                  <AIQuestionsGenerator 
-                    secureToken={secureToken}
-                    dark={dark}
-                    currentRound={currentRound}
-                  />
+                  <Suspense fallback={<div className="text-center py-4"><div className="w-8 h-8 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto"></div></div>}>
+                    <AIQuestionsGenerator 
+                      secureToken={secureToken}
+                      dark={dark}
+                      currentRound={currentRound}
+                    />
+                  </Suspense>
                 </div>
               )}
             </div>
@@ -9048,7 +9061,11 @@ export default function WelcomePage() {
       )}
 
       {/* Prompts/Questions Modal */}
-      <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
+      {showPromptTopicsModal && (
+        <Suspense fallback={null}>
+          <PromptTopicsModal open={showPromptTopicsModal} onClose={() => setShowPromptTopicsModal(false)} />
+        </Suspense>
+      )}
 
       {/* Returning Participant Signup Popup */}
       <Dialog open={showReturningSignupPopup} onOpenChange={setShowReturningSignupPopup}>

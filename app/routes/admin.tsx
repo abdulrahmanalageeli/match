@@ -1274,8 +1274,27 @@ const fetchParticipants = async () => {
         console.log("✅ View all matches response:", data)
         
         if (data.success && data.calculatedPairs) {
-          // Show results in modal like when clicking "عرض" on a participant
-          setParticipantResults(data.calculatedPairs)
+          // Transform calculatedPairs to match ParticipantResult interface
+          const transformedResults = data.calculatedPairs.map((pair: any) => ({
+            id: `${pair.participant_a}-${pair.participant_b}`,
+            assigned_number: pair.participant_a, // The target participant
+            name: `المشارك #${pair.participant_a}`,
+            partner_assigned_number: pair.participant_b,
+            partner_name: `المشارك #${pair.participant_b}`,
+            compatibility_score: pair.compatibility_score,
+            mbti_compatibility_score: pair.mbti_compatibility_score,
+            attachment_compatibility_score: pair.attachment_compatibility_score,
+            communication_compatibility_score: pair.communication_compatibility_score,
+            lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
+            core_values_compatibility_score: pair.core_values_compatibility_score,
+            vibe_compatibility_score: pair.vibe_compatibility_score,
+            humor_early_openness_bonus: pair.bonusType || 'none',
+            is_organizer_match: false
+          }))
+          
+          // Show results in modal
+          setParticipantResults(transformedResults)
+          setCalculatedPairs(data.calculatedPairs) // Keep original for detail view
           setMatchType("ai")
           setTotalMatches(data.calculatedPairs.length)
           setShowResultsModal(true)

@@ -104,6 +104,7 @@ export default function AdminPage() {
   const [bypassEligibility, setBypassEligibility] = useState(false)
   const [testModeOnly, setTestModeOnly] = useState(false)
   const [showAllMatches, setShowAllMatches] = useState(false)
+  const [viewAllMatchesLoading, setViewAllMatchesLoading] = useState(false)
   
   // Group assignments modal state
   const [showGroupAssignmentsModal, setShowGroupAssignmentsModal] = useState(false)
@@ -1241,6 +1242,9 @@ const fetchParticipants = async () => {
         return
       }
       
+      setViewAllMatchesLoading(true)
+      console.log(`👁️ Fetching all matches for participant #${participant1}...`)
+      
       try {
         const res = await fetch("/api/admin/trigger-match", {
           method: "POST",
@@ -1253,22 +1257,38 @@ const fetchParticipants = async () => {
             }
           }),
         })
-        const data = await res.json()
         
-        if (res.ok) {
+        if (!res.ok) {
+          const errorText = await res.text()
+          console.error("API Error Response:", errorText)
+          let errorData
+          try {
+            errorData = JSON.parse(errorText)
+          } catch {
+            throw new Error(`Server error (${res.status}): ${errorText}`)
+          }
+          throw new Error(errorData.error || `Server returned ${res.status}`)
+        }
+        
+        const data = await res.json()
+        console.log("✅ View all matches response:", data)
+        
+        if (data.success && data.calculatedPairs) {
           // Show results in modal like when clicking "عرض" on a participant
-          setParticipantResults(data.calculatedPairs || [])
+          setParticipantResults(data.calculatedPairs)
           setMatchType("ai")
-          setTotalMatches(data.calculatedPairs?.length || 0)
+          setTotalMatches(data.calculatedPairs.length)
           setShowResultsModal(true)
           setNewManualMatch({participant1: '', participant2: ''})
-          toast.success(`Found ${data.calculatedPairs?.length || 0} possible matches for participant #${participant1}`)
+          toast.success(`Found ${data.calculatedPairs.length} gender-compatible matches for participant #${participant1}`)
         } else {
-          toast.error(data.error || "Failed to calculate matches")
+          throw new Error(data.error || "No calculated pairs returned from server")
         }
-      } catch (error) {
-        console.error("Error viewing all matches:", error)
-        toast.error("Failed to view all matches")
+      } catch (error: any) {
+        console.error("❌ Error viewing all matches:", error)
+        toast.error(error.message || "Failed to view all matches. Please check console for details.")
+      } finally {
+        setViewAllMatchesLoading(false)
       }
       return
     }
@@ -2842,8 +2862,8 @@ Proceed?`
               />
               <button
                 onClick={addManualMatch}
-                disabled={!newManualMatch.participant1 || (!showAllMatches && !newManualMatch.participant2)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 transition-all duration-300 ${
+                disabled={!newManualMatch.participant1 || (!showAllMatches && !newManualMatch.participant2) || viewAllMatchesLoading}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ${
                   showAllMatches
                     ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
                     : testModeOnly 
@@ -2851,7 +2871,12 @@ Proceed?`
                     : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
                 }`}
               >
-                {showAllMatches ? (
+                {viewAllMatchesLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : showAllMatches ? (
                   <>
                     <Eye className="w-4 h-4" />
                     View All Matches
@@ -2924,7 +2949,8 @@ Proceed?`
               {showAllMatches ? (
                 <>
                   <p>• View all possible matches for a single participant</p>
-                  <p>• Shows compatibility scores with ALL eligible participants</p>
+                  <p>• Shows compatibility scores with gender-compatible participants only</p>
+                  <p>• Respects gender preferences (opposite/same/any gender)</p>
                   <p>• Results sorted by compatibility (just like clicking عرض in results modal)</p>
                   <p>• Respects eligibility bypass setting if enabled</p>
                 </>

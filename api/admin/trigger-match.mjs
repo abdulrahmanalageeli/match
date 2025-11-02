@@ -2171,12 +2171,25 @@ export default async function handler(req, res) {
         })
       }
       
-      console.log(`🎯 Calculating compatibility for #${participantNumber} with ${potentialMatches.length} potential matches...`)
+      // Filter potential matches by gender compatibility
+      const genderCompatibleMatches = potentialMatches.filter(potentialMatch => {
+        return checkGenderCompatibility(targetParticipant, potentialMatch)
+      })
       
-      // Calculate compatibility with all potential matches
+      console.log(`🎯 Gender filtering: ${potentialMatches.length} total → ${genderCompatibleMatches.length} gender-compatible matches`)
+      
+      if (genderCompatibleMatches.length === 0) {
+        return res.status(400).json({ 
+          error: `No gender-compatible matches found for participant #${participantNumber}.\n\nAll other participants don't match their gender preferences (opposite/same/any gender).`
+        })
+      }
+      
+      console.log(`🎯 Calculating compatibility for #${participantNumber} with ${genderCompatibleMatches.length} gender-compatible matches...`)
+      
+      // Calculate compatibility with all gender-compatible potential matches
       const calculatedPairs = []
       
-      for (const potentialMatch of potentialMatches) {
+      for (const potentialMatch of genderCompatibleMatches) {
         try {
           const compatibilityResult = await calculateFullCompatibilityWithCache(
             targetParticipant, 
@@ -2211,11 +2224,12 @@ export default async function handler(req, res) {
       calculatedPairs.sort((a, b) => b.compatibility_score - a.compatibility_score)
       
       console.log(`✅ Calculated ${calculatedPairs.length} compatibility scores for participant #${participantNumber}`)
+      console.log(`   - Filtered by gender preferences: ${genderCompatibleMatches.length} matches`)
       console.log(`   - Top 3 matches: ${calculatedPairs.slice(0, 3).map(p => `#${p.participant_b} (${p.compatibility_score}%)`).join(', ')}`)
       
       return res.status(200).json({
         success: true,
-        message: `Found ${calculatedPairs.length} possible matches for participant #${participantNumber}`,
+        message: `Found ${calculatedPairs.length} gender-compatible matches for participant #${participantNumber}`,
         participantNumber: participantNumber,
         calculatedPairs: calculatedPairs,
         count: calculatedPairs.length

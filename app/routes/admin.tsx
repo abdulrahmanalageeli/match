@@ -103,6 +103,7 @@ export default function AdminPage() {
   const [newManualMatch, setNewManualMatch] = useState({participant1: '', participant2: ''})
   const [bypassEligibility, setBypassEligibility] = useState(false)
   const [testModeOnly, setTestModeOnly] = useState(false)
+  const [showAllMatches, setShowAllMatches] = useState(false)
   
   // Group assignments modal state
   const [showGroupAssignmentsModal, setShowGroupAssignmentsModal] = useState(false)
@@ -1227,6 +1228,52 @@ const fetchParticipants = async () => {
 
   const addManualMatch = async () => {
     const participant1 = parseInt(newManualMatch.participant1)
+    
+    // Show All Matches Mode: View all possible matches for participant1
+    if (showAllMatches) {
+      if (!participant1 || participant1 <= 0) {
+        toast.error("Please enter a valid participant number")
+        return
+      }
+      
+      if (participant1 === 9999) {
+        toast.error("Cannot view matches for the organizer participant")
+        return
+      }
+      
+      try {
+        const res = await fetch("/api/admin/trigger-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            eventId: currentEventId,
+            viewAllMatches: {
+              participantNumber: participant1,
+              bypassEligibility: bypassEligibility
+            }
+          }),
+        })
+        const data = await res.json()
+        
+        if (res.ok) {
+          // Show results in modal like when clicking "عرض" on a participant
+          setParticipantResults(data.calculatedPairs || [])
+          setMatchType("ai")
+          setTotalMatches(data.calculatedPairs?.length || 0)
+          setShowResultsModal(true)
+          setNewManualMatch({participant1: '', participant2: ''})
+          toast.success(`Found ${data.calculatedPairs?.length || 0} possible matches for participant #${participant1}`)
+        } else {
+          toast.error(data.error || "Failed to calculate matches")
+        }
+      } catch (error) {
+        console.error("Error viewing all matches:", error)
+        toast.error("Failed to view all matches")
+      }
+      return
+    }
+    
+    // Normal Manual Match Mode
     const participant2 = parseInt(newManualMatch.participant2)
     
     if (!participant1 || !participant2 || participant1 <= 0 || participant2 <= 0) {
@@ -2795,14 +2842,21 @@ Proceed?`
               />
               <button
                 onClick={addManualMatch}
-                disabled={!newManualMatch.participant1 || !newManualMatch.participant2}
+                disabled={!newManualMatch.participant1 || (!showAllMatches && !newManualMatch.participant2)}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 transition-all duration-300 ${
-                  testModeOnly 
+                  showAllMatches
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
+                    : testModeOnly 
                     ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
                     : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
                 }`}
               >
-                {testModeOnly ? (
+                {showAllMatches ? (
+                  <>
+                    <Eye className="w-4 h-4" />
+                    View All Matches
+                  </>
+                ) : testModeOnly ? (
                   <>
                     <Users className="w-4 h-4" />
                     Test Compatibility
@@ -2849,8 +2903,32 @@ Proceed?`
                 </span>
               </label>
             </div>
+            
+            {/* Show All Matches Checkbox */}
+            <div className="flex items-center gap-3 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showAllMatches}
+                  onChange={(e) => setShowAllMatches(e.target.checked)}
+                  className="w-4 h-4 text-purple-500 bg-white/10 border-white/20 rounded focus:ring-purple-400/50 focus:ring-2"
+                />
+                <span className={`text-sm font-medium transition-colors ${
+                  showAllMatches ? 'text-purple-300' : 'text-slate-400'
+                }`}>
+                  👁️ Show All Possible Matches
+                </span>
+              </label>
+            </div>
             <div className="text-slate-400 text-xs space-y-1">
-              {testModeOnly ? (
+              {showAllMatches ? (
+                <>
+                  <p>• View all possible matches for a single participant</p>
+                  <p>• Shows compatibility scores with ALL eligible participants</p>
+                  <p>• Results sorted by compatibility (just like clicking عرض in results modal)</p>
+                  <p>• Respects eligibility bypass setting if enabled</p>
+                </>
+              ) : testModeOnly ? (
                 <>
                   <p>• Calculates compatibility scores without saving to database</p>
                   <p>• Ignores compatibility cache for fresh calculations</p>
@@ -2865,10 +2943,13 @@ Proceed?`
                 </>
               )}
               <p>• Uses Event ID: <span className="text-blue-300 font-mono">{currentEventId}</span></p>
-              {bypassEligibility && (
-                <p className="text-orange-300 font-medium">⚠️ Eligibility bypass enabled - will match ANY participants regardless of survey completion, exclusions, or payment status</p>
+              {showAllMatches && (
+                <p className="text-purple-300 font-medium">👁️ View mode enabled - will display ALL possible matches without creating any matches</p>
               )}
-              {testModeOnly && (
+              {bypassEligibility && (
+                <p className="text-orange-300 font-medium">⚠️ Eligibility bypass enabled - will {showAllMatches ? 'search' : 'match'} ANY participants regardless of survey completion, exclusions, or payment status</p>
+              )}
+              {testModeOnly && !showAllMatches && (
                 <p className="text-cyan-300 font-medium">🧪 Test mode enabled - will calculate compatibility but NOT save to database or affect existing matches</p>
               )}
             </div>

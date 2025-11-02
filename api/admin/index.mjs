@@ -2422,9 +2422,10 @@ export default async function handler(req, res) {
         // Keep entries with participant2_number = -10 (permanent bans)
         const { data: exclusionsToDelete, error: fetchError } = await supabase
           .from("excluded_pairs")
-          .select("id, participant1_number")
+          .select("id, participant1_number, participant2_number")
           .eq("match_id", STATIC_MATCH_ID)
           .eq("participant2_number", -1)
+          .neq("participant2_number", -10) // Extra safety: explicitly exclude permanent bans
         
         if (fetchError) {
           console.error("Error fetching exclusions to delete:", fetchError)
@@ -2433,27 +2434,36 @@ export default async function handler(req, res) {
         
         const exclusionCount = exclusionsToDelete ? exclusionsToDelete.length : 0
         
-        if (exclusionCount > 0) {
-          const { error: deleteError } = await supabase
-            .from("excluded_pairs")
-            .delete()
-            .eq("match_id", STATIC_MATCH_ID)
-            .eq("participant2_number", -1)
-          
-          if (deleteError) {
-            console.error("Error deleting temporary exclusions:", deleteError)
-            return res.status(500).json({ error: "Failed to delete temporary exclusions" })
-          }
-          
-          console.log(`✅ Removed ${exclusionCount} temporary exclusion(s), kept permanent bans (-10)`)
-        } else {
-          console.log(`ℹ️ No temporary exclusions found to remove`)
+        // Extra validation: ensure we're only deleting -1 entries
+        const idsToDelete = (exclusionsToDelete || [])
+          .filter(item => item.participant2_number === -1) // Double-check it's not -10
+          .map(item => item.id)
+        
+        if (idsToDelete.length === 0) {
+          console.log(`ℹ️ No temporary exclusions (-1) found to remove`)
+          return res.status(200).json({ 
+            success: true,
+            exclusionsRemoved: 0, 
+            message: "No temporary exclusions found" 
+          })
         }
+        
+        const { error: deleteError } = await supabase
+          .from("excluded_pairs")
+          .delete()
+          .in("id", idsToDelete) // Delete only specific IDs that we've verified are -1
+        
+        if (deleteError) {
+          console.error("Error deleting temporary exclusions:", deleteError)
+          return res.status(500).json({ error: "Failed to delete temporary exclusions" })
+        }
+        
+        console.log(`✅ Removed ${idsToDelete.length} temporary exclusion(s), kept permanent bans (-10)`)
         
         return res.status(200).json({ 
           success: true,
           message: "Temporary exclusions cleared successfully",
-          exclusionsRemoved: exclusionCount
+          exclusionsRemoved: idsToDelete.length
         })
         
       } catch (error) {

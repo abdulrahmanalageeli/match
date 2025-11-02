@@ -1887,7 +1887,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, action = null, count = 50, direction = 'forward', cacheAll = false } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false } = req.body || {}
   
   // Handle pre-cache action
   if (action === "pre-cache") {
@@ -2119,6 +2119,107 @@ export default async function handler(req, res) {
       if (excludedCount > 0) {
         console.log(`✅ Filtered out ${excludedCount} excluded participants (${eligibleParticipants.length} remaining eligible)`)
       }
+    }
+
+    // Handle view all matches for a single participant
+    if (viewAllMatches) {
+      const participantNumber = parseInt(viewAllMatches.participantNumber)
+      const bypassEligibility = viewAllMatches.bypassEligibility || false
+      
+      console.log(`👁️ View all matches requested for participant #${participantNumber}`)
+      console.log(`   - Bypass eligibility: ${bypassEligibility}`)
+      
+      let targetParticipant
+      let potentialMatches
+      
+      if (bypassEligibility) {
+        console.log(`⚠️ Eligibility bypass enabled - searching ALL participants in database`)
+        
+        // Fetch ALL participants from database
+        const { data: allDatabaseParticipants, error: bypassError } = await supabase
+          .from("participants")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event")
+          .eq("match_id", match_id)
+          .neq("assigned_number", 9999)  // Only exclude organizer
+        
+        if (bypassError) {
+          console.error("Error fetching all participants for bypass:", bypassError)
+          return res.status(500).json({ error: "Failed to fetch participants for bypass mode" })
+        }
+        
+        targetParticipant = allDatabaseParticipants?.find(p => p.assigned_number === participantNumber)
+        potentialMatches = allDatabaseParticipants?.filter(p => p.assigned_number !== participantNumber) || []
+        
+        console.log(`🔍 BYPASS: Found ${allDatabaseParticipants?.length || 0} total participants (target + ${potentialMatches.length} potential matches)`)
+      } else {
+        // Use only eligible participants
+        targetParticipant = eligibleParticipants.find(p => p.assigned_number === participantNumber)
+        potentialMatches = eligibleParticipants.filter(p => p.assigned_number !== participantNumber)
+        
+        console.log(`🔍 STANDARD: Found ${eligibleParticipants.length} eligible participants (target + ${potentialMatches.length} potential matches)`)
+      }
+      
+      if (!targetParticipant) {
+        return res.status(400).json({ 
+          error: `Participant #${participantNumber} not found${bypassEligibility ? ' in database' : ' or not eligible'}.\n\nPlease verify the participant number is correct.${bypassEligibility ? '' : '\n\n💡 Enable "Bypass Eligibility Checks" to search all participants in the database.'}`
+        })
+      }
+      
+      if (potentialMatches.length === 0) {
+        return res.status(400).json({ 
+          error: `No potential matches found for participant #${participantNumber}.\n\nAll other participants are either ineligible or don't exist.`
+        })
+      }
+      
+      console.log(`🎯 Calculating compatibility for #${participantNumber} with ${potentialMatches.length} potential matches...`)
+      
+      // Calculate compatibility with all potential matches
+      const calculatedPairs = []
+      
+      for (const potentialMatch of potentialMatches) {
+        try {
+          const compatibilityResult = await calculateFullCompatibilityWithCache(
+            targetParticipant, 
+            potentialMatch, 
+            skipAI,
+            false // Don't skip cache for view all matches
+          )
+          
+          const totalCompatibility = Math.round(compatibilityResult.totalScore)
+          
+          calculatedPairs.push({
+            participant_a: targetParticipant.assigned_number,
+            participant_b: potentialMatch.assigned_number,
+            compatibility_score: totalCompatibility,
+            mbti_compatibility_score: compatibilityResult.mbtiScore,
+            attachment_compatibility_score: compatibilityResult.attachmentScore,
+            communication_compatibility_score: compatibilityResult.communicationScore,
+            lifestyle_compatibility_score: compatibilityResult.lifestyleScore,
+            core_values_compatibility_score: compatibilityResult.coreValuesScore,
+            vibe_compatibility_score: compatibilityResult.vibeScore,
+            humor_multiplier: compatibilityResult.humorMultiplier,
+            reason: `MBTI: ${compatibilityResult.mbtiScore}% + Attachment: ${compatibilityResult.attachmentScore}% + Communication: ${compatibilityResult.communicationScore}% + Lifestyle: ${compatibilityResult.lifestyleScore}% + Core Values: ${compatibilityResult.coreValuesScore}% + Vibe: ${compatibilityResult.vibeScore}%`,
+            is_actual_match: false // These are potential matches, not actual matches
+          })
+        } catch (error) {
+          console.error(`Error calculating compatibility with #${potentialMatch.assigned_number}:`, error)
+          // Continue with other matches even if one fails
+        }
+      }
+      
+      // Sort by compatibility score (descending)
+      calculatedPairs.sort((a, b) => b.compatibility_score - a.compatibility_score)
+      
+      console.log(`✅ Calculated ${calculatedPairs.length} compatibility scores for participant #${participantNumber}`)
+      console.log(`   - Top 3 matches: ${calculatedPairs.slice(0, 3).map(p => `#${p.participant_b} (${p.compatibility_score}%)`).join(', ')}`)
+      
+      return res.status(200).json({
+        success: true,
+        message: `Found ${calculatedPairs.length} possible matches for participant #${participantNumber}`,
+        participantNumber: participantNumber,
+        calculatedPairs: calculatedPairs,
+        count: calculatedPairs.length
+      })
     }
 
     // Handle manual match creation

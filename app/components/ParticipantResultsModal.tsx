@@ -330,11 +330,21 @@ export default function ParticipantResultsModal({
     // Convert to the format expected by ParticipantDetailModal
     const matches = participantPairs.map(pair => {
       const otherParticipantNumber = pair.participant_a === participantNumber ? pair.participant_b : pair.participant_a
-      const otherParticipant = results.find(r => r.assigned_number === otherParticipantNumber)
+      
+      // Try to find name from multiple sources
+      const otherParticipantFromResults = results.find(r => r.assigned_number === otherParticipantNumber)
+      const otherParticipantFromData = participantData.get(otherParticipantNumber)
+      
+      // Get name from available sources
+      const otherParticipantName = otherParticipantFromResults?.name || 
+                                   otherParticipantFromData?.name ||
+                                   otherParticipantFromData?.survey_data?.name ||
+                                   otherParticipantFromData?.survey_data?.answers?.name ||
+                                   `المشارك #${otherParticipantNumber}`
       
       return {
         participant_number: otherParticipantNumber,
-        participant_name: otherParticipant?.name || `المشارك #${otherParticipantNumber}`,
+        participant_name: otherParticipantName,
         compatibility_score: pair.compatibility_score,
         mbti_compatibility_score: pair.mbti_compatibility_score,
         attachment_compatibility_score: pair.attachment_compatibility_score,

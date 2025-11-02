@@ -1275,22 +1275,39 @@ const fetchParticipants = async () => {
         
         if (data.success && data.calculatedPairs) {
           // Transform calculatedPairs to match ParticipantResult interface
-          const transformedResults = data.calculatedPairs.map((pair: any) => ({
-            id: `${pair.participant_a}-${pair.participant_b}`,
-            assigned_number: pair.participant_a, // The target participant
-            name: `المشارك #${pair.participant_a}`,
-            partner_assigned_number: pair.participant_b,
-            partner_name: `المشارك #${pair.participant_b}`,
-            compatibility_score: pair.compatibility_score,
-            mbti_compatibility_score: pair.mbti_compatibility_score,
-            attachment_compatibility_score: pair.attachment_compatibility_score,
-            communication_compatibility_score: pair.communication_compatibility_score,
-            lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
-            core_values_compatibility_score: pair.core_values_compatibility_score,
-            vibe_compatibility_score: pair.vibe_compatibility_score,
-            humor_early_openness_bonus: pair.bonusType || 'none',
-            is_organizer_match: false
-          }))
+          // Fetch participant names from current participants list
+          const transformedResults = data.calculatedPairs.map((pair: any) => {
+            const targetParticipant = participants.find(p => p.assigned_number === pair.participant_a)
+            const partnerParticipant = participants.find(p => p.assigned_number === pair.participant_b)
+            
+            const targetName = targetParticipant?.name || 
+                              targetParticipant?.survey_data?.name || 
+                              targetParticipant?.survey_data?.answers?.name ||
+                              `المشارك #${pair.participant_a}`
+            
+            const partnerName = partnerParticipant?.name || 
+                               partnerParticipant?.survey_data?.name || 
+                               partnerParticipant?.survey_data?.answers?.name ||
+                               `المشارك #${pair.participant_b}`
+            
+            return {
+              id: `${pair.participant_a}-${pair.participant_b}`,
+              assigned_number: pair.participant_a, // The target participant
+              name: targetName,
+              partner_assigned_number: pair.participant_b,
+              partner_name: partnerName,
+              compatibility_score: pair.compatibility_score,
+              mbti_compatibility_score: pair.mbti_compatibility_score,
+              attachment_compatibility_score: pair.attachment_compatibility_score,
+              communication_compatibility_score: pair.communication_compatibility_score,
+              lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
+              core_values_compatibility_score: pair.core_values_compatibility_score,
+              vibe_compatibility_score: pair.vibe_compatibility_score,
+              humor_early_openness_bonus: pair.bonusType || 'none',
+              is_organizer_match: false,
+              paid_done: partnerParticipant?.PAID_DONE || false
+            }
+          })
           
           // Show results in modal
           setParticipantResults(transformedResults)

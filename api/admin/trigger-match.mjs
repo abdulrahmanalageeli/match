@@ -2618,6 +2618,34 @@ export default async function handler(req, res) {
       console.log(`✅ No previous matches found (first event for these participants)`)
     }
 
+    // PERFORMANCE OPTIMIZATION: Bulk fetch ALL cached compatibility scores
+    // This replaces hundreds of individual cache queries with ONE bulk query
+    console.log(`💾 Bulk fetching cached compatibility scores for all potential pairs...`)
+    const cacheStartTime = Date.now()
+    
+    const { data: allCachedScores, error: cacheError } = await supabase
+      .from("compatibility_cache")
+      .select("*")
+      .in("participant_a_number", numbers)
+      .in("participant_b_number", numbers)
+    
+    if (cacheError) {
+      console.error("⚠️ Error fetching cached scores:", cacheError)
+      console.log("⚠️ Continuing without cache optimization...")
+    }
+    
+    // Build a Map of cached scores for O(1) lookup by pair and content hash
+    const cachedScoresMap = new Map()
+    if (allCachedScores && allCachedScores.length > 0) {
+      allCachedScores.forEach(cache => {
+        const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
+        cachedScoresMap.set(pairKey, cache)
+      })
+      console.log(`✅ Loaded ${cachedScoresMap.size} cached scores into memory in ${Date.now() - cacheStartTime}ms`)
+    } else {
+      console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
+    }
+
     // Calculate MBTI-based compatibility for all pairs
     const compatibilityScores = []
     console.log(`🔄 Starting compatibility calculation for ${pairs.length} pairs...`)
@@ -2684,17 +2712,52 @@ export default async function handler(req, res) {
           continue
         }
         
-        // Use caching system for all compatibility calculations
-        const compatibilityResult = await calculateFullCompatibilityWithCache(a, b, skipAI)
+        // Check in-memory cache first (bulk-fetched, O(1) lookup)
+        const [smaller, larger] = [a.assigned_number, b.assigned_number].sort((x, y) => x - y)
+        const cacheKey = generateCacheKey(a, b)
+        const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
+        const cachedData = cachedScoresMap.get(cacheLookupKey)
         
-        // Track cache performance
-        if (compatibilityResult.cached) {
+        let compatibilityResult
+        
+        if (cachedData) {
+          // Cache HIT - use pre-loaded data
           cacheHits++
-        } else {
-          cacheMisses++
-          if (!skipAI) {
-            aiCalls++
+          compatibilityResult = {
+            mbtiScore: parseFloat(cachedData.mbti_score),
+            attachmentScore: parseFloat(cachedData.attachment_score),
+            communicationScore: parseFloat(cachedData.communication_score),
+            lifestyleScore: parseFloat(cachedData.lifestyle_score),
+            coreValuesScore: parseFloat(cachedData.core_values_score),
+            vibeScore: parseFloat(cachedData.ai_vibe_score),
+            totalScore: parseFloat(cachedData.total_compatibility_score),
+            humorMultiplier: parseFloat(cachedData.humor_multiplier || 1.0),
+            bonusType: cachedData.humor_early_openness_bonus || 'none',
+            cached: true
           }
+          
+          // Update cache usage statistics in background (don't await)
+          supabase
+            .from('compatibility_cache')
+            .update({ 
+              last_used: new Date().toISOString(),
+              use_count: cachedData.use_count + 1 
+            })
+            .eq('id', cachedData.id)
+            .then(() => {})
+            .catch(err => console.error('Cache update error:', err))
+        } else {
+          // Cache MISS - calculate fresh
+          cacheMisses++
+          if (!skipAI) aiCalls++
+          
+          // Calculate all scores
+          compatibilityResult = await calculateFullCompatibilityWithCache(a, b, skipAI, true) // ignoreCache=true since we already checked
+          
+          // Store in database for future runs (don't await - do in background)
+          storeCachedCompatibility(a, b, compatibilityResult)
+            .then(() => {})
+            .catch(err => console.error('Cache store error:', err))
         }
         
         const mbtiScore = compatibilityResult.mbtiScore

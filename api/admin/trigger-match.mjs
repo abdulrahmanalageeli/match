@@ -2589,6 +2589,35 @@ export default async function handler(req, res) {
       }
     }
 
+    // PERFORMANCE OPTIMIZATION: Bulk fetch ALL previous matches for current participants
+    // This replaces hundreds of individual database queries with ONE bulk query
+    console.log(`🔍 Bulk fetching previous matches for ${eligibleParticipants.length} participants from previous events...`)
+    const previousMatchesStartTime = Date.now()
+    
+    const { data: allPreviousMatches, error: previousMatchError } = await supabase
+      .from("match_results")
+      .select("participant_a_number, participant_b_number, event_id")
+      .lt("event_id", eventId) // Only previous events
+      .in("participant_a_number", numbers)
+      .in("participant_b_number", numbers)
+    
+    if (previousMatchError) {
+      console.error("⚠️ Error fetching previous matches:", previousMatchError)
+      console.log("⚠️ Continuing without previous match filtering...")
+    }
+    
+    // Build a Set of previously matched pairs for O(1) lookup
+    const previousMatchPairs = new Set()
+    if (allPreviousMatches && allPreviousMatches.length > 0) {
+      allPreviousMatches.forEach(match => {
+        const pair = [match.participant_a_number, match.participant_b_number].sort().join('-')
+        previousMatchPairs.add(pair)
+      })
+      console.log(`✅ Found ${previousMatchPairs.size} unique previous match pairs (from ${allPreviousMatches.length} match records) in ${Date.now() - previousMatchesStartTime}ms`)
+    } else {
+      console.log(`✅ No previous matches found (first event for these participants)`)
+    }
+
     // Calculate MBTI-based compatibility for all pairs
     const compatibilityScores = []
     console.log(`🔄 Starting compatibility calculation for ${pairs.length} pairs...`)
@@ -2648,9 +2677,9 @@ export default async function handler(req, res) {
           continue
         }
         
-        // Check if this pair has been matched in previous events
-        const hasPreviousMatch = await havePreviousMatch(a.assigned_number, b.assigned_number, eventId)
-        if (hasPreviousMatch) {
+        // Check if this pair has been matched in previous events (O(1) Set lookup)
+        const pairKey = [a.assigned_number, b.assigned_number].sort().join('-')
+        if (previousMatchPairs.has(pairKey)) {
           skippedPrevious++
           continue
         }

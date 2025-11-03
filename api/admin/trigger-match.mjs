@@ -2186,11 +2186,39 @@ export default async function handler(req, res) {
       
       console.log(`🎯 Calculating compatibility for #${participantNumber} with ${genderCompatibleMatches.length} gender-compatible matches...`)
       
+      // Fetch previous matches for the target participant
+      console.log(`🔍 Fetching previous matches for participant #${participantNumber}...`)
+      const { data: previousMatches, error: previousError } = await supabase
+        .from("match_results")
+        .select("participant_a_number, participant_b_number, event_id")
+        .lt("event_id", eventId) // Only previous events
+        .or(`participant_a_number.eq.${participantNumber},participant_b_number.eq.${participantNumber}`)
+      
+      if (previousError) {
+        console.error("⚠️ Error fetching previous matches:", previousError)
+      }
+      
+      // Build Set of previous match partner numbers
+      const previousPartners = new Set()
+      if (previousMatches && previousMatches.length > 0) {
+        previousMatches.forEach(match => {
+          const partnerNumber = match.participant_a_number === participantNumber 
+            ? match.participant_b_number 
+            : match.participant_a_number
+          previousPartners.add(partnerNumber)
+        })
+        console.log(`   Found ${previousPartners.size} previous partners: [${Array.from(previousPartners).join(', ')}]`)
+      } else {
+        console.log(`   No previous matches found for participant #${participantNumber}`)
+      }
+      
       // Calculate compatibility with all gender-compatible potential matches
       const calculatedPairs = []
       
       for (const potentialMatch of genderCompatibleMatches) {
         try {
+          const isRepeatedMatch = previousPartners.has(potentialMatch.assigned_number)
+          
           const compatibilityResult = await calculateFullCompatibilityWithCache(
             targetParticipant, 
             potentialMatch, 
@@ -2212,7 +2240,8 @@ export default async function handler(req, res) {
             vibe_compatibility_score: compatibilityResult.vibeScore,
             humor_multiplier: compatibilityResult.humorMultiplier,
             reason: `MBTI: ${compatibilityResult.mbtiScore}% + Attachment: ${compatibilityResult.attachmentScore}% + Communication: ${compatibilityResult.communicationScore}% + Lifestyle: ${compatibilityResult.lifestyleScore}% + Core Values: ${compatibilityResult.coreValuesScore}% + Vibe: ${compatibilityResult.vibeScore}%`,
-            is_actual_match: false // These are potential matches, not actual matches
+            is_actual_match: false, // These are potential matches, not actual matches
+            is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
           })
         } catch (error) {
           console.error(`Error calculating compatibility with #${potentialMatch.assigned_number}:`, error)

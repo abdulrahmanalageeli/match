@@ -1,5 +1,5 @@
 import React from "react"
-import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight } from "lucide-react"
+import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw } from "lucide-react"
 
 interface ParticipantMatch {
   participant_number: number
@@ -12,6 +12,7 @@ interface ParticipantMatch {
   core_values_compatibility_score?: number
   vibe_compatibility_score?: number
   is_actual_match: boolean
+  is_repeated_match?: boolean
 }
 
 interface ParticipantDetailModalProps {
@@ -132,11 +133,11 @@ export default function ParticipantDetailModal({
 
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <Zap className="w-4 h-4 text-green-400" />
-                    <span className="text-sm text-slate-300">المطابقات الفعلية</span>
+                    <RotateCcw className="w-4 h-4 text-orange-400" />
+                    <span className="text-sm text-slate-300">مطابقات سابقة</span>
                   </div>
                   <div className="text-2xl font-bold text-white">
-                    {matches.filter(m => m.is_actual_match).length}
+                    {matches.filter(m => m.is_repeated_match).length}
                   </div>
                 </div>
               </div>
@@ -230,15 +231,31 @@ export default function ParticipantDetailModal({
                             </div>
                           </td>
                           <td className="p-4">
-                            <span className="text-white font-medium">
-                              {match.participant_name || "غير محدد"}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-white font-medium">
+                                {match.participant_name || "غير محدد"}
+                              </span>
+                              {match.is_repeated_match && (
+                                <div 
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-400/30 text-orange-300 text-xs"
+                                  title="تم المطابقة معه سابقاً في حدث سابق - غير مؤهل للمطابقة مرة أخرى"
+                                >
+                                  <RotateCcw className="w-3 h-3" />
+                                  <span>سابق</span>
+                                </div>
+                              )}
+                            </div>
                           </td>
                           <td className="p-4 text-center">
                             {match.is_actual_match ? (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-green-500/20 border border-green-400/30 text-green-300 text-xs">
                                 <Heart className="w-3 h-3" />
                                 مطابقة فعلية
+                              </span>
+                            ) : match.is_repeated_match ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 text-orange-300 text-xs">
+                                <RotateCcw className="w-3 h-3" />
+                                مطابقة متكررة
                               </span>
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs">

@@ -3496,6 +3496,45 @@ Proceed?`
               </div>
             )}
 
+            {/* Select All Visible Button */}
+            {filteredParticipants.length > 0 && (
+              <button
+                onClick={() => {
+                  const allVisibleNumbers = new Set(filteredParticipants.map(p => p.assigned_number))
+                  const areAllSelected = filteredParticipants.every(p => selectedParticipants.has(p.assigned_number))
+                  
+                  if (areAllSelected) {
+                    // Deselect all visible
+                    const newSelected = new Set(selectedParticipants)
+                    filteredParticipants.forEach(p => newSelected.delete(p.assigned_number))
+                    setSelectedParticipants(newSelected)
+                  } else {
+                    // Select all visible
+                    const newSelected = new Set(selectedParticipants)
+                    filteredParticipants.forEach(p => newSelected.add(p.assigned_number))
+                    setSelectedParticipants(newSelected)
+                  }
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                  filteredParticipants.every(p => selectedParticipants.has(p.assigned_number))
+                    ? 'bg-purple-500/20 border-purple-400/50 text-purple-300 hover:bg-purple-500/30'
+                    : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'
+                }`}
+              >
+                {filteredParticipants.every(p => selectedParticipants.has(p.assigned_number)) ? (
+                  <>
+                    <CheckSquare className="w-4 h-4" />
+                    <span className="text-sm font-medium">Deselect All ({filteredParticipants.length})</span>
+                  </>
+                ) : (
+                  <>
+                    <Square className="w-4 h-4" />
+                    <span className="text-sm font-medium">Select All Visible ({filteredParticipants.length})</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Export Template Selection */}
             {selectedParticipants.size > 0 && (
               <>

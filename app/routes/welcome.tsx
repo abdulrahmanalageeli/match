@@ -5904,8 +5904,7 @@ export default function WelcomePage() {
   )
 }
   
-  return (<>
-    <>
+  return (
       {/* Unified Navigation Bar - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <NavigationBar />}
       {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}

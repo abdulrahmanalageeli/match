@@ -2212,19 +2212,97 @@ export default async function handler(req, res) {
         console.log(`   No previous matches found for participant #${participantNumber}`)
       }
       
+      // PERFORMANCE OPTIMIZATION: Bulk fetch ALL cached compatibility scores for potential pairs
+      // This replaces individual cache queries with ONE bulk query
+      console.log(`💾 Bulk fetching cached compatibility scores for all potential pairs...`)
+      const viewAllCacheStartTime = Date.now()
+      
+      const allNumbers = [participantNumber, ...genderCompatibleMatches.map(p => p.assigned_number)]
+      const { data: allCachedScores, error: cacheError } = await supabase
+        .from("compatibility_cache")
+        .select("*")
+        .in("participant_a_number", allNumbers)
+        .in("participant_b_number", allNumbers)
+      
+      if (cacheError) {
+        console.error("⚠️ Error fetching cached scores:", cacheError)
+        console.log("⚠️ Continuing without cache optimization...")
+      }
+      
+      // Build a Map of cached scores for O(1) lookup by pair and content hash
+      const cachedScoresMap = new Map()
+      if (allCachedScores && allCachedScores.length > 0) {
+        allCachedScores.forEach(cache => {
+          const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
+          cachedScoresMap.set(pairKey, cache)
+        })
+        console.log(`✅ Loaded ${cachedScoresMap.size} cached scores into memory in ${Date.now() - viewAllCacheStartTime}ms`)
+      } else {
+        console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
+      }
+      
       // Calculate compatibility with all gender-compatible potential matches
       const calculatedPairs = []
+      let cacheHits = 0
+      let cacheMisses = 0
+      let aiCalls = 0
       
       for (const potentialMatch of genderCompatibleMatches) {
         try {
           const isRepeatedMatch = previousPartners.has(potentialMatch.assigned_number)
           
-          const compatibilityResult = await calculateFullCompatibilityWithCache(
-            targetParticipant, 
-            potentialMatch, 
-            skipAI,
-            false // Don't skip cache for view all matches
-          )
+          // Check in-memory cache first (bulk-fetched, O(1) lookup)
+          const [smaller, larger] = [targetParticipant.assigned_number, potentialMatch.assigned_number].sort((x, y) => x - y)
+          const cacheKey = generateCacheKey(targetParticipant, potentialMatch)
+          const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
+          const cachedData = cachedScoresMap.get(cacheLookupKey)
+          
+          let compatibilityResult
+          
+          if (cachedData) {
+            // Cache HIT - use pre-loaded data
+            cacheHits++
+            compatibilityResult = {
+              mbtiScore: parseFloat(cachedData.mbti_score),
+              attachmentScore: parseFloat(cachedData.attachment_score),
+              communicationScore: parseFloat(cachedData.communication_score),
+              lifestyleScore: parseFloat(cachedData.lifestyle_score),
+              coreValuesScore: parseFloat(cachedData.core_values_score),
+              vibeScore: parseFloat(cachedData.ai_vibe_score),
+              totalScore: parseFloat(cachedData.total_compatibility_score),
+              humorMultiplier: parseFloat(cachedData.humor_multiplier || 1.0),
+              bonusType: cachedData.humor_early_openness_bonus || 'none',
+              cached: true
+            }
+            
+            // Update cache usage statistics in background (don't await)
+            supabase
+              .from('compatibility_cache')
+              .update({ 
+                last_used: new Date().toISOString(),
+                use_count: cachedData.use_count + 1 
+              })
+              .eq('id', cachedData.id)
+              .then(() => {})
+              .catch(err => console.error('Cache update error:', err))
+          } else {
+            // Cache MISS - calculate fresh
+            cacheMisses++
+            if (!skipAI) aiCalls++
+            
+            // Calculate all scores
+            compatibilityResult = await calculateFullCompatibilityWithCache(
+              targetParticipant, 
+              potentialMatch, 
+              skipAI,
+              true // ignoreCache=true since we already checked bulk cache
+            )
+            
+            // Store in database for future runs (don't await - do in background)
+            storeCachedCompatibility(targetParticipant, potentialMatch, compatibilityResult)
+              .then(() => {})
+              .catch(err => console.error('Cache store error:', err))
+          }
           
           const totalCompatibility = Math.round(compatibilityResult.totalScore)
           
@@ -2254,6 +2332,8 @@ export default async function handler(req, res) {
       
       console.log(`✅ Calculated ${calculatedPairs.length} compatibility scores for participant #${participantNumber}`)
       console.log(`   - Filtered by gender preferences: ${genderCompatibleMatches.length} matches`)
+      console.log(`   - Cache performance: ${cacheHits} hits, ${cacheMisses} misses (${cacheHits > 0 ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 100) : 0}% hit rate)`)
+      console.log(`   - AI calls: ${aiCalls}${skipAI ? ' (AI skipped)' : ''}`)
       console.log(`   - Top 3 matches: ${calculatedPairs.slice(0, 3).map(p => `#${p.participant_b} (${p.compatibility_score}%)`).join(', ')}`)
       
       return res.status(200).json({
@@ -2261,7 +2341,13 @@ export default async function handler(req, res) {
         message: `Found ${calculatedPairs.length} gender-compatible matches for participant #${participantNumber}`,
         participantNumber: participantNumber,
         calculatedPairs: calculatedPairs,
-        count: calculatedPairs.length
+        count: calculatedPairs.length,
+        cacheStats: {
+          hits: cacheHits,
+          misses: cacheMisses,
+          hitRate: cacheHits > 0 ? Math.round((cacheHits / (cacheHits + cacheMisses)) * 100) : 0,
+          aiCalls: aiCalls
+        }
       })
     }
 

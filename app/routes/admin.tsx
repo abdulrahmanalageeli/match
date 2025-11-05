@@ -55,6 +55,7 @@ export default function AdminPage() {
   const [genderFilter, setGenderFilter] = useState("all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
   const [whatsappFilter, setWhatsappFilter] = useState("all") // "all", "sent", "not_sent"
+  const [sortBy, setSortBy] = useState("number") // "number", "name", "updated"
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -1550,7 +1551,7 @@ const fetchParticipants = async () => {
 
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
-    return participants.filter(p => {
+    const filtered = participants.filter(p => {
       // Search term filter - using debounced search for better performance
       const matchesSearch = debouncedSearch === "" || (
         p.assigned_number.toString().includes(debouncedSearch) ||
@@ -1598,7 +1599,24 @@ const fetchParticipants = async () => {
       
       return matchesSearch && isEligible && matchesGender && matchesPayment && matchesWhatsapp
     })
-  }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, currentEventId])
+
+    // Sort the filtered results
+    return filtered.sort((a, b) => {
+      if (sortBy === "number") {
+        return a.assigned_number - b.assigned_number
+      } else if (sortBy === "name") {
+        const nameA = a.name || ""
+        const nameB = b.name || ""
+        return nameA.localeCompare(nameB)
+      } else if (sortBy === "updated") {
+        // Sort by updated_at (most recent first)
+        const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0
+        const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0
+        return dateB - dateA // Descending order (newest first)
+      }
+      return 0
+    })
+  }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId])
 
   const phaseConfig = {
     registration: { label: "Registration", color: "text-blue-400", bg: "bg-blue-400/10", icon: UserRound },
@@ -3671,6 +3689,20 @@ Proceed?`
                 <option value="not_sent" className="bg-slate-800 text-white">Not Contacted</option>
               </select>
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
+
+            {/* Sort By Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="appearance-none bg-blue-500/10 backdrop-blur-sm border border-blue-400/30 rounded-xl px-4 py-2 pr-8 text-blue-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
+              >
+                <option value="number" className="bg-slate-800 text-white">Sort by Number</option>
+                <option value="name" className="bg-slate-800 text-white">Sort by Name</option>
+                <option value="updated" className="bg-slate-800 text-white">Sort by Last Update</option>
+              </select>
+              <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
 
             {/* Filter Results Count */}

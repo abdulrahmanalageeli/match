@@ -44,7 +44,6 @@ interface ParticipantResultsModalProps {
   currentEventId?: number
   isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
   matchHistory?: Record<number, any[]>
-  matchHistoryLoaded?: boolean
 }
 
 export default function ParticipantResultsModal({ 
@@ -60,8 +59,7 @@ export default function ParticipantResultsModal({
   sessionInfo = null,
   currentEventId = 1,
   isFreshData = false,
-  matchHistory = {},
-  matchHistoryLoaded = false
+  matchHistory = {}
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -72,10 +70,47 @@ export default function ParticipantResultsModal({
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null)
   const [showWhatsappModal, setShowWhatsappModal] = useState(false)
+  const [localMatchHistory, setLocalMatchHistory] = useState<Record<number, any[]>>(matchHistory)
+  const [loadingModalHistory, setLoadingModalHistory] = useState(false)
+
+  // Fetch match history for all participants in modal
+  const fetchAllMatchHistoryForModal = async () => {
+    if (Object.keys(localMatchHistory).length > 0) return // Already loaded
+    
+    setLoadingModalHistory(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "get-all-match-history",
+          match_id: "00000000-0000-0000-0000-000000000000"
+        }),
+      })
+      const data = await res.json()
+      
+      if (data.success && data.matchHistory) {
+        setLocalMatchHistory(data.matchHistory)
+      }
+    } catch (error) {
+      console.error("Error fetching match history for modal:", error)
+    } finally {
+      setLoadingModalHistory(false)
+    }
+  }
+
+  // Update local match history when prop changes
+  useEffect(() => {
+    if (Object.keys(matchHistory).length > 0) {
+      setLocalMatchHistory(matchHistory)
+    }
+  }, [matchHistory])
 
   // Fetch locked matches and participant data when modal opens
   useEffect(() => {
     if (isOpen) {
+      // Fetch match history for tooltips
+      fetchAllMatchHistoryForModal()
       fetchLockedMatches()
       fetchParticipantData()
     }
@@ -584,7 +619,7 @@ export default function ParticipantResultsModal({
                                   </Tooltip.Trigger>
                                   <Tooltip.Portal>
                                     <Tooltip.Content
-                                      className="z-[100] max-w-md p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                      className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
                                       sideOffset={5}
                                     >
                                       {(() => {
@@ -593,96 +628,120 @@ export default function ParticipantResultsModal({
                                         const answers = surveyData.answers || {}
                                         
                                         return (
-                                          <div className="space-y-3">
+                                          <div className="space-y-2">
                                             {/* Header */}
-                                            <div className="border-b border-cyan-400/20 pb-2">
-                                              <div className="text-cyan-300 font-bold text-lg">{participant.name || "غير محدد"}</div>
-                                              <div className="text-slate-400 text-sm">#{participant.assigned_number}</div>
+                                            <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between">
+                                              <div className="flex items-center gap-3">
+                                                <div>
+                                                  <span className="text-cyan-300 font-bold text-lg">{participant.name || "غير محدد"}</span>
+                                                  <span className="text-slate-400 text-sm ml-2">#{participant.assigned_number}</span>
+                                                </div>
+                                                {pData?.updated_at && (
+                                                  <span className="text-xs text-slate-500">
+                                                    🕐 {(() => {
+                                                      const utcDate = new Date(pData.updated_at);
+                                                      const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                                                      const now = new Date();
+                                                      const diffMs = now.getTime() - gmt3Date.getTime();
+                                                      const diffMins = Math.floor(diffMs / 60000);
+                                                      const diffHours = Math.floor(diffMs / 3600000);
+                                                      const diffDays = Math.floor(diffMs / 86400000);
+                                                      
+                                                      if (diffMins < 1) return 'Just now';
+                                                      if (diffMins < 60) return `${diffMins}m ago`;
+                                                      if (diffHours < 24) return `${diffHours}h ago`;
+                                                      if (diffDays === 1) return '1d ago';
+                                                      if (diffDays < 30) return `${diffDays}d ago`;
+                                                      
+                                                      return gmt3Date.toLocaleDateString('en-GB', { 
+                                                        day: '2-digit', 
+                                                        month: 'short',
+                                                        year: 'numeric'
+                                                      });
+                                                    })()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex gap-3 text-xs">
+                                                <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
+                                                <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
+                                              </div>
                                             </div>
                                             
-                                            {/* Basic Info */}
-                                            <div className="grid grid-cols-2 gap-2 text-sm">
-                                              <div>
-                                                <div className="text-slate-400">العمر:</div>
-                                                <div className="text-white font-medium">{answers.age || surveyData.age || "غير محدد"}</div>
+                                            {/* Main Content - 2 Column Layout */}
+                                            <div className="grid grid-cols-3 gap-4">
+                                              {/* Left Column - Vibe Info */}
+                                              <div className="col-span-2 space-y-1.5">
+                                                <div className="text-cyan-300 font-semibold text-xs mb-1">الطاقة والشخصية:</div>
+                                                
+                                                {answers.vibe_1 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الويكند المثالي:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_1}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_2 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الهوايات:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_2}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_3 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الفنان المفضل:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_3}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_4 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">السوالف العميقة:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_4}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_5 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">كيف يصفك أصدقاؤك:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_5}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_6 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">كيف تصف أصدقاءك:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_6}</span>
+                                                  </div>
+                                                )}
                                               </div>
-                                              <div>
-                                                <div className="text-slate-400">MBTI:</div>
-                                                <div className="text-white font-medium">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</div>
-                                              </div>
-                                            </div>
-                                            
-                                            {/* Vibe Section */}
-                                            <div className="space-y-2 pt-2 border-t border-cyan-400/20">
-                                              <div className="text-cyan-300 font-semibold text-sm">الطاقة والشخصية:</div>
-                                              
-                                              {answers.vibe_1 && (
-                                                <div>
-                                                  <div className="text-slate-400 text-xs">الويكند المثالي:</div>
-                                                  <div className="text-white text-sm">{answers.vibe_1}</div>
-                                                </div>
-                                              )}
-                                              
-                                              {answers.vibe_2 && (
-                                                <div>
-                                                  <div className="text-slate-400 text-xs">الهوايات:</div>
-                                                  <div className="text-white text-sm">{answers.vibe_2}</div>
-                                                </div>
-                                              )}
-                                              
-                                              {answers.vibe_3 && (
-                                                <div>
-                                                  <div className="text-slate-400 text-xs">الفنان المفضل:</div>
-                                                  <div className="text-white text-sm">{answers.vibe_3}</div>
-                                                </div>
-                                              )}
-                                              
-                                              {answers.vibe_4 && (
-                                                <div>
-                                                  <div className="text-slate-400 text-xs">السوالف العميقة:</div>
-                                                  <div className="text-white text-sm">{answers.vibe_4}</div>
-                                                </div>
-                                              )}
-                                              
-                                              {answers.vibe_5 && (
-                                                <div>
-                                                  <div className="text-slate-400 text-xs">كيف يصفك أصدقاؤك:</div>
-                                                  <div className="text-white text-sm">{answers.vibe_5}</div>
-                                                </div>
-                                              )}
-                                              
-                                              {answers.vibe_6 && (
-                                                <div>
-                                                  <div className="text-slate-400 text-xs">كيف تصف أصدقاءك:</div>
-                                                  <div className="text-white text-sm">{answers.vibe_6}</div>
-                                                </div>
-                                              )}
-                                            </div>
 
-                                            {/* Previous Match History */}
-                                            {matchHistoryLoaded && matchHistory[participant.assigned_number] && matchHistory[participant.assigned_number].length > 0 && (
-                                              <div className="mt-3 pt-3 border-t border-cyan-400/20">
-                                                <div className="text-cyan-300 font-semibold text-sm mb-2">Previous Matches:</div>
-                                                <div className="space-y-1">
-                                                  {matchHistory[participant.assigned_number].slice(0, 5).map((match: any, idx: number) => (
-                                                    <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-2 py-1">
-                                                      <div className="flex items-center gap-1">
-                                                        <span className="text-cyan-400">#{match.partner_number}</span>
-                                                        <span className="text-slate-400">{match.partner_name}</span>
+                                              {/* Right Column - Previous Matches */}
+                                              {localMatchHistory[participant.assigned_number] && localMatchHistory[participant.assigned_number].length > 0 && (
+                                                <div className="border-l border-cyan-400/20 pl-4">
+                                                  <div className="text-cyan-300 font-semibold text-xs mb-1">Previous Matches:</div>
+                                                  <div className="space-y-0.5">
+                                                    {localMatchHistory[participant.assigned_number].slice(0, 5).map((match: any, idx: number) => (
+                                                      <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-1.5 py-0.5">
+                                                        <div className="flex items-center gap-1">
+                                                          <span className="text-cyan-400">#{match.partner_number}</span>
+                                                          <span className="text-slate-400 truncate max-w-[100px]">{match.partner_name}</span>
+                                                        </div>
+                                                        {match.event_id && match.event_id !== currentEventId && (
+                                                          <span className="text-xs text-purple-400">E{match.event_id}</span>
+                                                        )}
                                                       </div>
-                                                      {match.event_id && match.event_id !== currentEventId && (
-                                                        <span className="text-xs text-purple-400">E{match.event_id}</span>
-                                                      )}
-                                                    </div>
-                                                  ))}
-                                                  {matchHistory[participant.assigned_number].length > 5 && (
-                                                    <div className="text-xs text-slate-500 text-center">
-                                                      +{matchHistory[participant.assigned_number].length - 5} more
-                                                    </div>
-                                                  )}
+                                                    ))}
+                                                    {localMatchHistory[participant.assigned_number].length > 5 && (
+                                                      <div className="text-xs text-slate-500 text-center">
+                                                        +{localMatchHistory[participant.assigned_number].length - 5} more
+                                                      </div>
+                                                    )}
+                                                  </div>
                                                 </div>
-                                              </div>
-                                            )}
+                                              )}
+                                            </div>
                                           </div>
                                         )
                                       })()}
@@ -760,7 +819,7 @@ export default function ParticipantResultsModal({
                                             </Tooltip.Trigger>
                                             <Tooltip.Portal>
                                               <Tooltip.Content
-                                                className="z-[100] max-w-md p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                                className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
                                                 sideOffset={5}
                                               >
                                                 {(() => {
@@ -769,96 +828,120 @@ export default function ParticipantResultsModal({
                                                   const answers = surveyData.answers || {}
                                                   
                                                   return (
-                                                    <div className="space-y-3">
+                                                    <div className="space-y-2">
                                                       {/* Header */}
-                                                      <div className="border-b border-cyan-400/20 pb-2">
-                                                        <div className="text-cyan-300 font-bold text-lg">{participant.partner_name}</div>
-                                                        <div className="text-slate-400 text-sm">#{participant.partner_assigned_number}</div>
+                                                      <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                          <div>
+                                                            <span className="text-cyan-300 font-bold text-lg">{participant.partner_name}</span>
+                                                            <span className="text-slate-400 text-sm ml-2">#{participant.partner_assigned_number}</span>
+                                                          </div>
+                                                          {pData?.updated_at && (
+                                                            <span className="text-xs text-slate-500">
+                                                              🕐 {(() => {
+                                                                const utcDate = new Date(pData.updated_at);
+                                                                const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                                                                const now = new Date();
+                                                                const diffMs = now.getTime() - gmt3Date.getTime();
+                                                                const diffMins = Math.floor(diffMs / 60000);
+                                                                const diffHours = Math.floor(diffMs / 3600000);
+                                                                const diffDays = Math.floor(diffMs / 86400000);
+                                                                
+                                                                if (diffMins < 1) return 'Just now';
+                                                                if (diffMins < 60) return `${diffMins}m ago`;
+                                                                if (diffHours < 24) return `${diffHours}h ago`;
+                                                                if (diffDays === 1) return '1d ago';
+                                                                if (diffDays < 30) return `${diffDays}d ago`;
+                                                                
+                                                                return gmt3Date.toLocaleDateString('en-GB', { 
+                                                                  day: '2-digit', 
+                                                                  month: 'short',
+                                                                  year: 'numeric'
+                                                                });
+                                                              })()}
+                                                            </span>
+                                                          )}
+                                                        </div>
+                                                        <div className="flex gap-3 text-xs">
+                                                          <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
+                                                          <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
+                                                        </div>
                                                       </div>
                                                       
-                                                      {/* Basic Info */}
-                                                      <div className="grid grid-cols-2 gap-2 text-sm">
-                                                        <div>
-                                                          <div className="text-slate-400">العمر:</div>
-                                                          <div className="text-white font-medium">{answers.age || surveyData.age || "غير محدد"}</div>
+                                                      {/* Main Content - 2 Column Layout */}
+                                                      <div className="grid grid-cols-3 gap-4">
+                                                        {/* Left Column - Vibe Info */}
+                                                        <div className="col-span-2 space-y-1.5">
+                                                          <div className="text-cyan-300 font-semibold text-xs mb-1">الطاقة والشخصية:</div>
+                                                          
+                                                          {answers.vibe_1 && (
+                                                            <div className="text-xs">
+                                                              <span className="text-slate-400">الويكند المثالي:</span>
+                                                              <span className="text-white ml-1">{answers.vibe_1}</span>
+                                                            </div>
+                                                          )}
+                                                          
+                                                          {answers.vibe_2 && (
+                                                            <div className="text-xs">
+                                                              <span className="text-slate-400">الهوايات:</span>
+                                                              <span className="text-white ml-1">{answers.vibe_2}</span>
+                                                            </div>
+                                                          )}
+                                                          
+                                                          {answers.vibe_3 && (
+                                                            <div className="text-xs">
+                                                              <span className="text-slate-400">الفنان المفضل:</span>
+                                                              <span className="text-white ml-1">{answers.vibe_3}</span>
+                                                            </div>
+                                                          )}
+                                                          
+                                                          {answers.vibe_4 && (
+                                                            <div className="text-xs">
+                                                              <span className="text-slate-400">السوالف العميقة:</span>
+                                                              <span className="text-white ml-1">{answers.vibe_4}</span>
+                                                            </div>
+                                                          )}
+                                                          
+                                                          {answers.vibe_5 && (
+                                                            <div className="text-xs">
+                                                              <span className="text-slate-400">كيف يصفك أصدقاؤك:</span>
+                                                              <span className="text-white ml-1">{answers.vibe_5}</span>
+                                                            </div>
+                                                          )}
+                                                          
+                                                          {answers.vibe_6 && (
+                                                            <div className="text-xs">
+                                                              <span className="text-slate-400">كيف تصف أصدقاءك:</span>
+                                                              <span className="text-white ml-1">{answers.vibe_6}</span>
+                                                            </div>
+                                                          )}
                                                         </div>
-                                                        <div>
-                                                          <div className="text-slate-400">MBTI:</div>
-                                                          <div className="text-white font-medium">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</div>
-                                                        </div>
-                                                      </div>
-                                                      
-                                                      {/* Vibe Section */}
-                                                      <div className="space-y-2 pt-2 border-t border-cyan-400/20">
-                                                        <div className="text-cyan-300 font-semibold text-sm">الطاقة والشخصية:</div>
-                                                        
-                                                        {answers.vibe_1 && (
-                                                          <div>
-                                                            <div className="text-slate-400 text-xs">الويكند المثالي:</div>
-                                                            <div className="text-white text-sm">{answers.vibe_1}</div>
-                                                          </div>
-                                                        )}
-                                                        
-                                                        {answers.vibe_2 && (
-                                                          <div>
-                                                            <div className="text-slate-400 text-xs">الهوايات:</div>
-                                                            <div className="text-white text-sm">{answers.vibe_2}</div>
-                                                          </div>
-                                                        )}
-                                                        
-                                                        {answers.vibe_3 && (
-                                                          <div>
-                                                            <div className="text-slate-400 text-xs">الفنان المفضل:</div>
-                                                            <div className="text-white text-sm">{answers.vibe_3}</div>
-                                                          </div>
-                                                        )}
-                                                        
-                                                        {answers.vibe_4 && (
-                                                          <div>
-                                                            <div className="text-slate-400 text-xs">السوالف العميقة:</div>
-                                                            <div className="text-white text-sm">{answers.vibe_4}</div>
-                                                          </div>
-                                                        )}
-                                                        
-                                                        {answers.vibe_5 && (
-                                                          <div>
-                                                            <div className="text-slate-400 text-xs">كيف يصفك أصدقاؤك:</div>
-                                                            <div className="text-white text-sm">{answers.vibe_5}</div>
-                                                          </div>
-                                                        )}
-                                                        
-                                                        {answers.vibe_6 && (
-                                                          <div>
-                                                            <div className="text-slate-400 text-xs">كيف تصف أصدقاءك:</div>
-                                                            <div className="text-white text-sm">{answers.vibe_6}</div>
-                                                          </div>
-                                                        )}
-                                                      </div>
 
-                                                      {/* Previous Match History for Partner */}
-                                                      {matchHistoryLoaded && matchHistory[participant.partner_assigned_number || 0] && matchHistory[participant.partner_assigned_number || 0].length > 0 && (
-                                                        <div className="mt-3 pt-3 border-t border-cyan-400/20">
-                                                          <div className="text-cyan-300 font-semibold text-sm mb-2">Previous Matches:</div>
-                                                          <div className="space-y-1">
-                                                            {matchHistory[participant.partner_assigned_number || 0].slice(0, 5).map((match: any, idx: number) => (
-                                                              <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-2 py-1">
-                                                                <div className="flex items-center gap-1">
-                                                                  <span className="text-cyan-400">#{match.partner_number}</span>
-                                                                  <span className="text-slate-400">{match.partner_name}</span>
+                                                        {/* Right Column - Previous Matches */}
+                                                        {localMatchHistory[participant.partner_assigned_number || 0] && localMatchHistory[participant.partner_assigned_number || 0].length > 0 && (
+                                                          <div className="border-l border-cyan-400/20 pl-4">
+                                                            <div className="text-cyan-300 font-semibold text-xs mb-1">Previous Matches:</div>
+                                                            <div className="space-y-0.5">
+                                                              {localMatchHistory[participant.partner_assigned_number || 0].slice(0, 5).map((match: any, idx: number) => (
+                                                                <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-1.5 py-0.5">
+                                                                  <div className="flex items-center gap-1">
+                                                                    <span className="text-cyan-400">#{match.partner_number}</span>
+                                                                    <span className="text-slate-400 truncate max-w-[100px]">{match.partner_name}</span>
+                                                                  </div>
+                                                                  {match.event_id && match.event_id !== currentEventId && (
+                                                                    <span className="text-xs text-purple-400">E{match.event_id}</span>
+                                                                  )}
                                                                 </div>
-                                                                {match.event_id && match.event_id !== currentEventId && (
-                                                                  <span className="text-xs text-purple-400">E{match.event_id}</span>
-                                                                )}
-                                                              </div>
-                                                            ))}
-                                                            {matchHistory[participant.partner_assigned_number || 0].length > 5 && (
-                                                              <div className="text-xs text-slate-500 text-center">
-                                                                +{matchHistory[participant.partner_assigned_number || 0].length - 5} more
-                                                              </div>
-                                                            )}
+                                                              ))}
+                                                              {localMatchHistory[participant.partner_assigned_number || 0].length > 5 && (
+                                                                <div className="text-xs text-slate-500 text-center">
+                                                                  +{localMatchHistory[participant.partner_assigned_number || 0].length - 5} more
+                                                                </div>
+                                                              )}
+                                                            </div>
                                                           </div>
-                                                        </div>
-                                                      )}
+                                                        )}
+                                                      </div>
                                                     </div>
                                                   )
                                                 })()}

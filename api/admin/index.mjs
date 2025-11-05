@@ -837,6 +837,11 @@ export default async function handler(req, res) {
           const participantA = match.participant_a_number
           const participantB = match.participant_b_number
           
+          // Skip matches with organizer (#9999)
+          if (participantA === 9999 || participantB === 9999) {
+            return
+          }
+          
           // Add to participant A's history
           if (!matchHistory[participantA]) matchHistory[participantA] = []
           matchHistory[participantA].push({

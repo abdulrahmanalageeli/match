@@ -147,8 +147,7 @@ export default function AdminPage() {
 
   // Track participant match history
   const [participantMatchHistory, setParticipantMatchHistory] = useState<Record<number, any[]>>({});
-  const [matchHistoryLoaded, setMatchHistoryLoaded] = useState(false);
-  const [loadingMatchHistory, setLoadingMatchHistory] = useState(false);
+  const [loadingMatchHistory, setLoadingMatchHistory] = useState<Record<number, boolean>>({});
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -578,8 +577,8 @@ const loadSessionResults = async (session: any) => {
   }
 }
 
-const fetchAllMatchHistory = async () => {
-  setLoadingMatchHistory(true)
+const fetchParticipantMatchHistory = async (participantNumber: number) => {
+  setLoadingMatchHistory(prev => ({ ...prev, [participantNumber]: true }))
   try {
     const res = await fetch("/api/admin", {
       method: "POST",
@@ -592,15 +591,16 @@ const fetchAllMatchHistory = async () => {
     const data = await res.json()
     
     if (data.success && data.matchHistory) {
-      setParticipantMatchHistory(data.matchHistory)
-      setMatchHistoryLoaded(true)
-      toast.success(`Loaded match history for ${Object.keys(data.matchHistory).length} participants`)
+      setParticipantMatchHistory(prev => ({
+        ...prev,
+        [participantNumber]: data.matchHistory[participantNumber] || []
+      }))
     }
   } catch (error) {
     console.error("Error fetching match history:", error)
     toast.error("Failed to load match history")
   } finally {
-    setLoadingMatchHistory(false)
+    setLoadingMatchHistory(prev => ({ ...prev, [participantNumber]: false }))
   }
 }
 
@@ -3398,42 +3398,13 @@ Proceed?`
                 </div>
               </div>
               
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setManualNumber(null)}
                   className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg transition-all duration-300 text-sm"
                 >
                   <RefreshCcw className="w-4 h-4" />
                   Refresh
-                </button>
-
-                <button
-                  onClick={fetchAllMatchHistory}
-                  disabled={loadingMatchHistory || matchHistoryLoaded}
-                  className={`flex items-center gap-2 px-3 py-2 text-white rounded-lg transition-all duration-300 text-sm ${
-                    matchHistoryLoaded 
-                      ? 'bg-green-600/50 cursor-not-allowed' 
-                      : loadingMatchHistory
-                        ? 'bg-blue-600/50 cursor-wait'
-                        : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800'
-                  }`}
-                >
-                  {loadingMatchHistory ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : matchHistoryLoaded ? (
-                    <>
-                      <CheckCircle className="w-4 h-4" />
-                      History Loaded
-                    </>
-                  ) : (
-                    <>
-                      <Clock className="w-4 h-4" />
-                      Load History
-                    </>
-                  )}
                 </button>
 
                 <button
@@ -3955,8 +3926,34 @@ Proceed?`
                       </button>
                     </div>
 
+                    {/* Load Match History Button */}
+                    {!participantMatchHistory[p.assigned_number] && !loadingMatchHistory[p.assigned_number] && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            fetchParticipantMatchHistory(p.assigned_number);
+                          }}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 text-xs"
+                        >
+                          <Clock className="w-3 h-3" />
+                          Load Match History
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Loading State */}
+                    {loadingMatchHistory[p.assigned_number] && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <div className="flex items-center justify-center gap-2 text-blue-400 text-xs">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Loading history...
+                        </div>
+                      </div>
+                    )}
+
                     {/* Previous Match History */}
-                    {matchHistoryLoaded && participantMatchHistory[p.assigned_number] && participantMatchHistory[p.assigned_number].length > 0 && (
+                    {participantMatchHistory[p.assigned_number] && participantMatchHistory[p.assigned_number].length > 0 && (
                       <div className="mt-3 pt-3 border-t border-white/10">
                         <div className="text-xs text-slate-400 mb-2 font-semibold">Previous Matches:</div>
                         <div className="space-y-1">
@@ -4007,7 +4004,6 @@ Proceed?`
         calculatedPairs={calculatedPairs}
         isFromCache={isFromCache}
         matchHistory={participantMatchHistory}
-        matchHistoryLoaded={matchHistoryLoaded}
         currentEventId={currentEventId}
       />
 

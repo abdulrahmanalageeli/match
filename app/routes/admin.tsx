@@ -3821,33 +3821,41 @@ Proceed?`
                     )}
                     
                     {/* Last Update Time (Relative) */}
-                    {p.updated_at && (
-                      <div className="text-xs text-slate-500 mb-2 flex items-center justify-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {(() => {
-                          const utcDate = new Date(p.updated_at);
-                          const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                          const now = new Date();
-                          const diffMs = now.getTime() - gmt3Date.getTime();
-                          const diffMins = Math.floor(diffMs / 60000);
-                          const diffHours = Math.floor(diffMs / 3600000);
-                          const diffDays = Math.floor(diffMs / 86400000);
-                          
-                          if (diffMins < 1) return 'Just now';
-                          if (diffMins < 60) return `${diffMins}m ago`;
-                          if (diffHours < 24) return `${diffHours}h ago`;
-                          if (diffDays === 1) return '1d ago';
-                          if (diffDays < 30) return `${diffDays}d ago`;
-                          
-                          // For older than 30 days, show date
-                          return gmt3Date.toLocaleDateString('en-GB', { 
-                            day: '2-digit', 
-                            month: 'short',
-                            year: 'numeric'
-                          });
-                        })()}
-                      </div>
-                    )}
+                    {p.updated_at && (() => {
+                      const utcDate = new Date(p.updated_at);
+                      const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                      const now = new Date();
+                      const diffMs = now.getTime() - gmt3Date.getTime();
+                      const diffMins = Math.floor(diffMs / 60000);
+                      const diffHours = Math.floor(diffMs / 3600000);
+                      const diffDays = Math.floor(diffMs / 86400000);
+                      
+                      // Determine if updated within 24 hours
+                      const isRecent = diffHours < 24;
+                      const colorClass = isRecent ? 'text-green-400' : 'text-slate-500';
+                      const iconColorClass = isRecent ? 'text-green-400' : '';
+                      
+                      let timeText = '';
+                      if (diffMins < 1) timeText = 'Just now';
+                      else if (diffMins < 60) timeText = `${diffMins}m ago`;
+                      else if (diffHours < 24) timeText = `${diffHours}h ago`;
+                      else if (diffDays === 1) timeText = '1d ago';
+                      else if (diffDays < 30) timeText = `${diffDays}d ago`;
+                      else {
+                        timeText = gmt3Date.toLocaleDateString('en-GB', { 
+                          day: '2-digit', 
+                          month: 'short',
+                          year: 'numeric'
+                        });
+                      }
+                      
+                      return (
+                        <div className={`text-xs ${colorClass} mb-2 flex items-center justify-center gap-1 font-medium`}>
+                          <Clock className={`w-3 h-3 ${iconColorClass}`} />
+                          {timeText}
+                        </div>
+                      );
+                    })()}
                     
                     <div className="flex items-center justify-center gap-1 text-slate-400 text-sm mb-2">
                       <Table2 className="w-4 h-4" />

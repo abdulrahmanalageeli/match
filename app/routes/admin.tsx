@@ -2547,6 +2547,24 @@ Proceed?`
                     const data = await res.json()
                     if (res.ok) {
                       toast.success(`Phase advanced to ${data.new_phase}. All players instantly transition to new phase!`)
+                      
+                      // Show timer reminder if advancing to round phase
+                      if (data.new_phase === "round") {
+                        setTimeout(() => {
+                          const shouldStartTimer = confirm(
+                            "⏰ REMINDER: Start Timer?\n\n" +
+                            "You've advanced to Round phase.\n\n" +
+                            "Don't forget to start the timer for participants!\n\n" +
+                            "Click OK to start Round 1 timer now, or Cancel to start it manually later."
+                          )
+                          
+                          if (shouldStartTimer) {
+                            // Trigger the start timer function for Round 1
+                            startGlobalTimer(1)
+                          }
+                        }, 1000)
+                      }
+                      
                       fetchParticipants()
                     } else {
                       toast.error("Failed to advance phase")

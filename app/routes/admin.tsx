@@ -134,6 +134,11 @@ export default function AdminPage() {
   const [groupDebugData, setGroupDebugData] = useState<any>(null);
   const [loadingGroupDebug, setLoadingGroupDebug] = useState(false);
 
+  // Brute-force protection for admin login
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
+  const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
+
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
@@ -898,13 +903,92 @@ const fetchParticipants = async () => {
     window.open("/matrix", "_blank", "width=1000,height=800")
   }
 
+  // Check if admin login is locked out
+  const checkLoginLockout = () => {
+    if (!lockoutUntil) return { locked: false, remaining: 0 };
+    
+    const now = Date.now();
+    const remaining = Math.ceil((lockoutUntil - now) / 1000);
+    
+    if (remaining <= 0) {
+      setLockoutUntil(null);
+      setLoginAttempts(0);
+      return { locked: false, remaining: 0 };
+    }
+    
+    return { locked: true, remaining };
+  };
+
+  // Get security status message for login
+  const getLoginSecurityStatus = () => {
+    const lockout = checkLoginLockout();
+    
+    if (lockout.locked) {
+      return {
+        type: 'error' as const,
+        message: `محظور لمدة ${lockout.remaining} ثانية - محاولات فاشلة كثيرة`
+      };
+    }
+    
+    if (loginAttempts === 2) {
+      return {
+        type: 'warning' as const,
+        message: 'تحذير: محاولة واحدة متبقية قبل الحظر'
+      };
+    }
+    
+    if (loginAttempts === 1) {
+      return {
+        type: 'info' as const,
+        message: 'محاولتان متبقيتان'
+      };
+    }
+    
+    return null;
+  };
+
   const login = () => {
+    // Check if locked out
+    const lockout = checkLoginLockout();
+    if (lockout.locked) {
+      toast.error(`محظور لمدة ${lockout.remaining} ثانية`);
+      return;
+    }
+
     if (password === STATIC_PASSWORD) {
+      // Successful login - reset attempts
       localStorage.setItem("admin", "authenticated")
       setAuthenticated(true)
+      setLoginAttempts(0)
+      setLockoutUntil(null)
+      setLastAttemptTime(null)
       fetchParticipants()
     } else {
-      toast.error("Wrong password.")
+      // Failed login - increment attempts
+      const newAttempts = loginAttempts + 1;
+      setLoginAttempts(newAttempts);
+      setLastAttemptTime(Date.now());
+      
+      // Progressive lockout durations
+      const lockoutDurations = [
+        0,      // 1st attempt: no lockout
+        0,      // 2nd attempt: no lockout
+        30,     // 3rd attempt: 30 seconds
+        120,    // 4th attempt: 2 minutes
+        300,    // 5th attempt: 5 minutes
+        900,    // 6th attempt: 15 minutes
+        1800,   // 7th attempt: 30 minutes
+        3600    // 8th+ attempts: 1 hour
+      ];
+      
+      const lockoutSeconds = lockoutDurations[Math.min(newAttempts, lockoutDurations.length - 1)];
+      
+      if (lockoutSeconds > 0) {
+        setLockoutUntil(Date.now() + lockoutSeconds * 1000);
+        toast.error(`كلمة مرور خاطئة. محظور لمدة ${lockoutSeconds} ثانية`);
+      } else {
+        toast.error(`كلمة مرور خاطئة. ${3 - newAttempts} محاولات متبقية`);
+      }
     }
   }
 
@@ -955,6 +1039,19 @@ const fetchParticipants = async () => {
       }
     }
   }, [globalTimerActive, globalTimerRemaining]) // Add globalTimerRemaining back to dependencies
+
+  // Auto-reset login attempts after 5 minutes of inactivity
+  useEffect(() => {
+    const resetInterval = setInterval(() => {
+      if (lastAttemptTime && Date.now() - lastAttemptTime > 300000) { // 5 minutes
+        setLoginAttempts(0);
+        setLockoutUntil(null);
+        setLastAttemptTime(null);
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(resetInterval);
+  }, [lastAttemptTime]);
 
   const updatePhase = async (phase: string) => {
     console.log(`🔄 Admin: Updating phase to ${phase}`);
@@ -2030,15 +2127,46 @@ Proceed?`
                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 focus:border-slate-400 transition-all duration-300"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && login()}
+                onKeyPress={(e) => e.key === 'Enter' && !checkLoginLockout().locked && login()}
+                disabled={checkLoginLockout().locked}
               />
             </div>
+
+            {/* Security Status Feedback */}
+            {(() => {
+              const status = getLoginSecurityStatus();
+              if (!status) return null;
+              
+              const bgColors = {
+                error: 'bg-red-500/20 border-red-500/30 text-red-300',
+                warning: 'bg-yellow-500/20 border-yellow-500/30 text-yellow-300',
+                info: 'bg-blue-500/20 border-blue-500/30 text-blue-300'
+              };
+              
+              const icons = {
+                error: <AlertCircle className="w-4 h-4" />,
+                warning: <AlertCircle className="w-4 h-4" />,
+                info: <Shield className="w-4 h-4" />
+              };
+              
+              return (
+                <div className={`flex items-center gap-2 p-3 rounded-lg border ${bgColors[status.type]} text-sm`}>
+                  {icons[status.type]}
+                  <span>{status.message}</span>
+                </div>
+              );
+            })()}
             
             <button
-              className="w-full bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg"
+              className={`w-full py-3 rounded-xl font-medium transition-all duration-300 shadow-lg ${
+                checkLoginLockout().locked
+                  ? 'bg-slate-700/50 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white transform hover:scale-105'
+              }`}
               onClick={login}
+              disabled={checkLoginLockout().locked}
             >
-              Access Dashboard
+              {checkLoginLockout().locked ? `Locked (${checkLoginLockout().remaining}s)` : 'Access Dashboard'}
             </button>
           </div>
         </div>

@@ -621,7 +621,9 @@ const fetchParticipants = async () => {
     // STEP 2: Calculate current values
     const currentTotal = fetchedParticipants.length
     const currentEligible = fetchedParticipants.filter((p: any) => 
-      p.event_id === currentEventId || p.signup_for_next_event === true
+      p.event_id === currentEventId || 
+      p.signup_for_next_event === true ||
+      p.auto_signup_next_event === true
     ).length
     
     // STEP 3: Compare and detect changes (this must happen before localStorage update)
@@ -1598,10 +1600,11 @@ const fetchParticipants = async () => {
         (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()))
       )
       
-      // Eligible participants filter (current event or signed up for next event)
+      // Eligible participants filter (current event or signed up for next event or auto-signup)
       const isEligible = !showEligibleOnly || (
         p.event_id === currentEventId || // Current event participants
-        p.signup_for_next_event === true // Signed up for next event
+        p.signup_for_next_event === true || // Manually signed up for next event
+        p.auto_signup_next_event === true // Auto-signup for next event
       )
       
       // Gender filter
@@ -1656,10 +1659,12 @@ const fetchParticipants = async () => {
     })
   }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId])
 
-  // Calculate eligible participants count (current event or signed up for next event)
+  // Calculate eligible participants count (current event or signed up for next event or auto-signup)
   const eligibleCount = useMemo(() => {
     return participants.filter(p => 
-      p.event_id === currentEventId || p.signup_for_next_event === true
+      p.event_id === currentEventId || 
+      p.signup_for_next_event === true ||
+      p.auto_signup_next_event === true
     ).length
   }, [participants, currentEventId])
 

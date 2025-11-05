@@ -60,10 +60,11 @@ export default function ParticipantDetailModal({
         participantNumbers.add(m.participant_number)
       })
 
-      // Fetch all participants data
+      // Fetch all participants data using POST with action
       const response = await fetch("/api/admin", {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "participants" })
       })
       const data = await response.json()
       

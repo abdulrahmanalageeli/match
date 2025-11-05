@@ -145,6 +145,9 @@ export default function AdminPage() {
   const [newJoinedCount, setNewJoinedCount] = useState<number>(0);
   const [showNewJoinedNotification, setShowNewJoinedNotification] = useState(false);
 
+  // Track participant match history
+  const [participantMatchHistory, setParticipantMatchHistory] = useState<Record<number, any[]>>({});
+
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
@@ -573,6 +576,26 @@ const loadSessionResults = async (session: any) => {
   }
 }
 
+const fetchAllMatchHistory = async (participants: any[]) => {
+  try {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        action: "get-all-match-history",
+        match_id: "00000000-0000-0000-0000-000000000000"
+      }),
+    })
+    const data = await res.json()
+    
+    if (data.success && data.matchHistory) {
+      setParticipantMatchHistory(data.matchHistory)
+    }
+  } catch (error) {
+    console.error("Error fetching match history:", error)
+  }
+}
+
 const fetchParticipants = async () => {
   setLoading(true)
   try {
@@ -597,6 +620,11 @@ const fetchParticipants = async () => {
     setPreviousTotal(currentTotal)
     
     setParticipants(data.participants || [])
+    
+    // Fetch match history for all participants
+    if (data.participants && data.participants.length > 0) {
+      fetchAllMatchHistory(data.participants)
+    }
       
       // Also fetch current event state
       const stateRes = await fetch("/api/admin", {
@@ -3789,21 +3817,31 @@ Proceed?`
                       </div>
                     )}
                     
-                    {/* Last Update Time (UTC to GMT+3) */}
+                    {/* Last Update Time (Relative) */}
                     {p.updated_at && (
                       <div className="text-xs text-slate-500 mb-2 flex items-center justify-center gap-1">
                         <Clock className="w-3 h-3" />
-                        Last update: {(() => {
+                        {(() => {
                           const utcDate = new Date(p.updated_at);
                           const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                          return gmt3Date.toLocaleString('en-GB', { 
+                          const now = new Date();
+                          const diffMs = now.getTime() - gmt3Date.getTime();
+                          const diffMins = Math.floor(diffMs / 60000);
+                          const diffHours = Math.floor(diffMs / 3600000);
+                          const diffDays = Math.floor(diffMs / 86400000);
+                          
+                          if (diffMins < 1) return 'Just now';
+                          if (diffMins < 60) return `${diffMins}m ago`;
+                          if (diffHours < 24) return `${diffHours}h ago`;
+                          if (diffDays === 1) return '1d ago';
+                          if (diffDays < 30) return `${diffDays}d ago`;
+                          
+                          // For older than 30 days, show date
+                          return gmt3Date.toLocaleDateString('en-GB', { 
                             day: '2-digit', 
-                            month: '2-digit', 
-                            year: 'numeric',
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: false 
-                          }).replace(',', '');
+                            month: 'short',
+                            year: 'numeric'
+                          });
                         })()}
                       </div>
                     )}
@@ -3884,6 +3922,31 @@ Proceed?`
                         )}
                       </button>
                     </div>
+
+                    {/* Previous Match History */}
+                    {participantMatchHistory[p.assigned_number] && participantMatchHistory[p.assigned_number].length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        <div className="text-xs text-slate-400 mb-2 font-semibold">Previous Matches:</div>
+                        <div className="space-y-1">
+                          {participantMatchHistory[p.assigned_number].slice(0, 5).map((match: any, idx: number) => (
+                            <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-2 py-1">
+                              <div className="flex items-center gap-1">
+                                <span className="text-cyan-400">#{match.partner_number}</span>
+                                <span className="text-slate-400">{match.partner_name}</span>
+                              </div>
+                              {match.event_id && match.event_id !== currentEventId && (
+                                <span className="text-xs text-purple-400">E{match.event_id}</span>
+                              )}
+                            </div>
+                          ))}
+                          {participantMatchHistory[p.assigned_number].length > 5 && (
+                            <div className="text-xs text-slate-500 text-center">
+                              +{participantMatchHistory[p.assigned_number].length - 5} more
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

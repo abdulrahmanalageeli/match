@@ -797,6 +797,75 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "get-all-match-history") {
+      try {
+        const { match_id } = req.body
+        console.log("Fetching all match history for match_id:", match_id)
+        
+        // Fetch all matches from match_results
+        const { data: matches, error: matchError } = await supabase
+          .from("match_results")
+          .select("participant_a_number, participant_b_number, round, event_id, created_at")
+          .eq("match_id", match_id || STATIC_MATCH_ID)
+          .order("created_at", { ascending: false })
+        
+        if (matchError) {
+          console.error("Error fetching matches:", matchError)
+          return res.status(500).json({ error: matchError.message })
+        }
+        
+        // Fetch all participants to get names
+        const { data: participants, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number, name, survey_data")
+          .eq("match_id", match_id || STATIC_MATCH_ID)
+        
+        if (participantError) {
+          console.error("Error fetching participants:", participantError)
+          return res.status(500).json({ error: participantError.message })
+        }
+        
+        // Create a map of participant numbers to names
+        const participantNameMap = {}
+        participants.forEach(p => {
+          participantNameMap[p.assigned_number] = p.name || p.survey_data?.name || `Participant #${p.assigned_number}`
+        })
+        
+        // Organize matches by participant
+        const matchHistory = {}
+        matches.forEach(match => {
+          const participantA = match.participant_a_number
+          const participantB = match.participant_b_number
+          
+          // Add to participant A's history
+          if (!matchHistory[participantA]) matchHistory[participantA] = []
+          matchHistory[participantA].push({
+            partner_number: participantB,
+            partner_name: participantNameMap[participantB],
+            round: match.round,
+            event_id: match.event_id,
+            created_at: match.created_at
+          })
+          
+          // Add to participant B's history
+          if (!matchHistory[participantB]) matchHistory[participantB] = []
+          matchHistory[participantB].push({
+            partner_number: participantA,
+            partner_name: participantNameMap[participantA],
+            round: match.round,
+            event_id: match.event_id,
+            created_at: match.created_at
+          })
+        })
+        
+        console.log(`Fetched match history for ${Object.keys(matchHistory).length} participants`)
+        return res.status(200).json({ success: true, matchHistory })
+      } catch (err) {
+        console.error("Error getting match history:", err)
+        return res.status(500).json({ error: "Failed to get match history" })
+      }
+    }
+
     if (action === "set-registration-enabled") {
       try {
         const { enabled } = req.body

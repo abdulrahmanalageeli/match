@@ -40,47 +40,47 @@ export default function ParticipantDetailModal({
 }: ParticipantDetailModalProps) {
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
 
+  // Fetch participant data for all potential matches
+  useEffect(() => {
+    const fetchParticipantData = async () => {
+      if (!isOpen || matches.length === 0) return
+      
+      try {
+        // Get unique participant numbers from matches
+        const participantNumbers = new Set<number>()
+        matches.forEach(m => {
+          participantNumbers.add(m.participant_number)
+        })
+
+        // Fetch all participants data using POST with action
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "participants" })
+        })
+        const data = await response.json()
+        
+        if (response.ok && data.participants) {
+          const dataMap = new Map()
+          data.participants.forEach((p: any) => {
+            if (participantNumbers.has(p.assigned_number)) {
+              dataMap.set(p.assigned_number, p)
+            }
+          })
+          setParticipantData(dataMap)
+        }
+      } catch (error) {
+        console.error("Error fetching participant data:", error)
+      }
+    }
+
+    fetchParticipantData()
+  }, [isOpen, matches])
+
   if (!isOpen || !participant) return null
 
   // Sort matches by compatibility score (descending)
   const sortedMatches = [...matches].sort((a, b) => b.compatibility_score - a.compatibility_score)
-
-  // Fetch participant data for all potential matches
-  useEffect(() => {
-    if (isOpen && matches.length > 0) {
-      fetchParticipantData()
-    }
-  }, [isOpen, matches])
-
-  const fetchParticipantData = async () => {
-    try {
-      // Get unique participant numbers from matches
-      const participantNumbers = new Set<number>()
-      matches.forEach(m => {
-        participantNumbers.add(m.participant_number)
-      })
-
-      // Fetch all participants data using POST with action
-      const response = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "participants" })
-      })
-      const data = await response.json()
-      
-      if (response.ok && data.participants) {
-        const dataMap = new Map()
-        data.participants.forEach((p: any) => {
-          if (participantNumbers.has(p.assigned_number)) {
-            dataMap.set(p.assigned_number, p)
-          }
-        })
-        setParticipantData(dataMap)
-      }
-    } catch (error) {
-      console.error("Error fetching participant data:", error)
-    }
-  }
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400"

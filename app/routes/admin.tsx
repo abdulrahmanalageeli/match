@@ -63,7 +63,6 @@ export default function AdminPage() {
   const [currentAnnouncement, setCurrentAnnouncement] = useState<any>(null)
   const [emergencyPaused, setEmergencyPaused] = useState(false)
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
-  const [waitingCount, setWaitingCount] = useState(0)
   const [totalParticipants, setTotalParticipants] = useState(0)
   const [participantStats, setParticipantStats] = useState<any>(null)
   const [currentRounds, setCurrentRounds] = useState(2)
@@ -141,10 +140,9 @@ export default function AdminPage() {
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
 
-  // Track new participants joining
-  const [previousTotal, setPreviousTotal] = useState<number>(0);
-  const [newJoinedCount, setNewJoinedCount] = useState<number>(0);
-  const [showNewJoinedNotification, setShowNewJoinedNotification] = useState(false);
+  // Track changes using refs to hold notification data (localStorage-based tracking)
+  const [totalChangeInfo, setTotalChangeInfo] = useState<{count: number, show: boolean} | null>(null);
+  const [eligibleChangeInfo, setEligibleChangeInfo] = useState<{count: number, show: boolean} | null>(null);
 
   // Track participant match history
   const [participantMatchHistory, setParticipantMatchHistory] = useState<Record<number, any[]>>({});
@@ -614,21 +612,58 @@ const fetchParticipants = async () => {
       body: JSON.stringify({ action: "participants" }),
     })
     const data = await res.json()
+    const fetchedParticipants = data.participants || []
     
-    // Track new participants
-    const currentTotal = data.participants?.length || 0
+    // STEP 1: Read previous values from localStorage (before any updates)
+    const previousTotal = parseInt(localStorage.getItem('admin_previous_total') || '0')
+    const previousEligible = parseInt(localStorage.getItem('admin_previous_eligible') || '0')
+    
+    // STEP 2: Calculate current values
+    const currentTotal = fetchedParticipants.length
+    const currentEligible = fetchedParticipants.filter((p: any) => 
+      p.event_id === currentEventId || p.signup_for_next_event === true
+    ).length
+    
+    // STEP 3: Compare and detect changes (this must happen before localStorage update)
+    let totalChange = null
+    let eligibleChange = null
+    
     if (previousTotal > 0 && currentTotal > previousTotal) {
       const newCount = currentTotal - previousTotal
-      setNewJoinedCount(newCount)
-      setShowNewJoinedNotification(true)
+      totalChange = { count: newCount, show: true }
       toast.success(`🎉 ${newCount} new participant${newCount > 1 ? 's' : ''} joined!`, { duration: 5000 })
-      
-      // Auto-hide notification after 15 seconds
-      setTimeout(() => setShowNewJoinedNotification(false), 15000)
+    } else if (previousTotal > 0 && currentTotal < previousTotal) {
+      const removedCount = previousTotal - currentTotal
+      totalChange = { count: -removedCount, show: true }
+      toast(`❌ ${removedCount} participant${removedCount > 1 ? 's' : ''} removed`, { duration: 5000 })
     }
-    setPreviousTotal(currentTotal)
     
-    setParticipants(data.participants || [])
+    if (previousEligible > 0 && currentEligible > previousEligible) {
+      const newCount = currentEligible - previousEligible
+      eligibleChange = { count: newCount, show: true }
+      toast.success(`✅ ${newCount} more eligible participant${newCount > 1 ? 's' : ''}!`, { duration: 5000 })
+    } else if (previousEligible > 0 && currentEligible < previousEligible) {
+      const removedCount = previousEligible - currentEligible
+      eligibleChange = { count: -removedCount, show: true }
+      toast(`⚠️ ${removedCount} fewer eligible participant${removedCount > 1 ? 's' : ''}`, { duration: 5000 })
+    }
+    
+    // STEP 4: Update state with change info
+    if (totalChange) {
+      setTotalChangeInfo(totalChange)
+      setTimeout(() => setTotalChangeInfo(null), 15000)
+    }
+    if (eligibleChange) {
+      setEligibleChangeInfo(eligibleChange)
+      setTimeout(() => setEligibleChangeInfo(null), 15000)
+    }
+    
+    // STEP 5: Update localStorage AFTER comparison is complete (no race condition)
+    localStorage.setItem('admin_previous_total', currentTotal.toString())
+    localStorage.setItem('admin_previous_eligible', currentEligible.toString())
+    
+    // STEP 6: Update React state
+    setParticipants(fetchedParticipants)
       
       // Also fetch current event state
       const stateRes = await fetch("/api/admin", {
@@ -666,7 +701,6 @@ const fetchParticipants = async () => {
       })
       const statsData = await statsRes.json()
       setParticipantStats(statsData)
-      setWaitingCount(statsData.waiting_count || 0)
       setTotalParticipants(statsData.total_participants || 0)
       
       // Calculate optimal rounds based on participant count
@@ -1051,6 +1085,10 @@ const fetchParticipants = async () => {
   }
 
   useEffect(() => {
+    // Clear tracking values on page refresh to start fresh
+    localStorage.removeItem('admin_previous_total')
+    localStorage.removeItem('admin_previous_eligible')
+    
     if (localStorage.getItem("admin") === "authenticated") {
       setAuthenticated(true)
       fetchParticipants()
@@ -1617,6 +1655,13 @@ const fetchParticipants = async () => {
       return 0
     })
   }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId])
+
+  // Calculate eligible participants count (current event or signed up for next event)
+  const eligibleCount = useMemo(() => {
+    return participants.filter(p => 
+      p.event_id === currentEventId || p.signup_for_next_event === true
+    ).length
+  }, [participants, currentEventId])
 
   const phaseConfig = {
     registration: { label: "Registration", color: "text-blue-400", bg: "bg-blue-400/10", icon: UserRound },
@@ -2359,16 +2404,34 @@ Proceed?`
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 relative">
               <span className="text-slate-300 text-sm">Total: </span>
               <span className="font-bold text-white">{participants.length}</span>
-              {showNewJoinedNotification && newJoinedCount > 0 && (
+              {totalChangeInfo?.show && totalChangeInfo.count > 0 && (
                 <span className="ml-2 inline-flex items-center gap-1 bg-green-500/20 border border-green-500/40 text-green-300 text-xs font-semibold px-2 py-0.5 rounded-full animate-pulse">
                   <UserPlus className="w-3 h-3" />
-                  +{newJoinedCount} new
+                  +{totalChangeInfo.count} new
+                </span>
+              )}
+              {totalChangeInfo?.show && totalChangeInfo.count < 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-red-500/20 border border-red-500/40 text-red-300 text-xs font-semibold px-2 py-0.5 rounded-full animate-pulse">
+                  <Minus className="w-3 h-3" />
+                  {Math.abs(totalChangeInfo.count)} removed
                 </span>
               )}
             </div>
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2">
-              <span className="text-slate-300 text-sm">Waiting: </span>
-              <span className="font-bold text-white">{waitingCount}</span>
+            <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-4 py-2 relative">
+              <span className="text-green-300 text-sm">Eligible: </span>
+              <span className="font-bold text-green-200">{eligibleCount}</span>
+              {eligibleChangeInfo?.show && eligibleChangeInfo.count > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-green-500/20 border border-green-500/40 text-green-300 text-xs font-semibold px-2 py-0.5 rounded-full animate-pulse">
+                  <Plus className="w-3 h-3" />
+                  +{Math.abs(eligibleChangeInfo.count)}
+                </span>
+              )}
+              {eligibleChangeInfo?.show && eligibleChangeInfo.count < 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-semibold px-2 py-0.5 rounded-full animate-pulse">
+                  <Minus className="w-3 h-3" />
+                  {Math.abs(eligibleChangeInfo.count)}
+                </span>
+              )}
             </div>
           </div>
         </div>

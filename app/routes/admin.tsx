@@ -32,7 +32,8 @@ import {
   MessageSquare,
   Ban,
   FileText,
-  Bug
+  Bug,
+  UserPlus
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -138,6 +139,11 @@ export default function AdminPage() {
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
   const [lastAttemptTime, setLastAttemptTime] = useState<number | null>(null);
+
+  // Track new participants joining
+  const [previousTotal, setPreviousTotal] = useState<number>(0);
+  const [newJoinedCount, setNewJoinedCount] = useState<number>(0);
+  const [showNewJoinedNotification, setShowNewJoinedNotification] = useState(false);
 
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
@@ -576,6 +582,20 @@ const fetchParticipants = async () => {
       body: JSON.stringify({ action: "participants" }),
     })
     const data = await res.json()
+    
+    // Track new participants
+    const currentTotal = data.participants?.length || 0
+    if (previousTotal > 0 && currentTotal > previousTotal) {
+      const newCount = currentTotal - previousTotal
+      setNewJoinedCount(newCount)
+      setShowNewJoinedNotification(true)
+      toast.success(`🎉 ${newCount} new participant${newCount > 1 ? 's' : ''} joined!`, { duration: 5000 })
+      
+      // Auto-hide notification after 15 seconds
+      setTimeout(() => setShowNewJoinedNotification(false), 15000)
+    }
+    setPreviousTotal(currentTotal)
+    
     setParticipants(data.participants || [])
       
       // Also fetch current event state
@@ -2287,9 +2307,15 @@ Proceed?`
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 relative">
               <span className="text-slate-300 text-sm">Total: </span>
               <span className="font-bold text-white">{participants.length}</span>
+              {showNewJoinedNotification && newJoinedCount > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-green-500/20 border border-green-500/40 text-green-300 text-xs font-semibold px-2 py-0.5 rounded-full animate-pulse">
+                  <UserPlus className="w-3 h-3" />
+                  +{newJoinedCount} new
+                </span>
+              )}
             </div>
             <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2">
               <span className="text-slate-300 text-sm">Waiting: </span>

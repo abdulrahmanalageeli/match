@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, updated_at")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, updated_at")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -187,6 +187,27 @@ export default async function handler(req, res) {
           .eq("match_id", STATIC_MATCH_ID)
         if (error) return res.status(500).json({ error: error.message })
         return res.status(200).json({ message: "Table updated" })
+      }
+
+      if (action === "toggle-auto-signup") {
+        const { assigned_number, auto_signup } = req.body
+        console.log(`Toggling auto signup for participant ${assigned_number} to ${auto_signup}`)
+        
+        const { error } = await supabase
+          .from("participants")
+          .update({ auto_signup_next_event: auto_signup })
+          .eq("assigned_number", assigned_number)
+          .eq("match_id", STATIC_MATCH_ID)
+        
+        if (error) {
+          console.error("toggle-auto-signup error:", error)
+          return res.status(500).json({ success: false, error: error.message })
+        }
+        
+        return res.status(200).json({ 
+          success: true, 
+          message: `Auto signup ${auto_signup ? 'enabled' : 'disabled'}` 
+        })
       }
 
       if (action === "event-phase") {

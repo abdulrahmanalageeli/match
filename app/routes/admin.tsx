@@ -3979,6 +3979,40 @@ Proceed?`
                           Next Event
                         </span>
                       )}
+                      {p.auto_signup_next_event && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            if (confirm('Remove auto signup for next event?')) {
+                              try {
+                                const res = await fetch('/api/admin', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    action: 'toggle-auto-signup',
+                                    assigned_number: p.assigned_number,
+                                    auto_signup: false
+                                  })
+                                });
+                                const data = await res.json();
+                                if (data.success) {
+                                  toast.success('Auto signup removed');
+                                  fetchParticipants();
+                                } else {
+                                  toast.error(data.error || 'Failed to update');
+                                }
+                              } catch (error) {
+                                console.error('Error updating auto signup:', error);
+                                toast.error('Failed to update auto signup');
+                              }
+                            }
+                          }}
+                          className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-400/30 hover:bg-cyan-500/30 transition-all duration-200 hover:scale-105 active:scale-95"
+                          title="Click to remove auto signup"
+                        >
+                          🤖 Auto Signup
+                        </button>
+                      )}
                     </div>
 
                     {/* Payment and WhatsApp Status Badges */}

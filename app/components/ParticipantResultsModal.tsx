@@ -43,6 +43,8 @@ interface ParticipantResultsModalProps {
   } | null
   currentEventId?: number
   isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
+  matchHistory?: Record<number, any[]>
+  matchHistoryLoaded?: boolean
 }
 
 export default function ParticipantResultsModal({ 
@@ -57,7 +59,9 @@ export default function ParticipantResultsModal({
   sessionId = null,
   sessionInfo = null,
   currentEventId = 1,
-  isFreshData = false
+  isFreshData = false,
+  matchHistory = {},
+  matchHistoryLoaded = false
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -654,6 +658,31 @@ export default function ParticipantResultsModal({
                                                 </div>
                                               )}
                                             </div>
+
+                                            {/* Previous Match History */}
+                                            {matchHistoryLoaded && matchHistory[participant.assigned_number] && matchHistory[participant.assigned_number].length > 0 && (
+                                              <div className="mt-3 pt-3 border-t border-cyan-400/20">
+                                                <div className="text-cyan-300 font-semibold text-sm mb-2">Previous Matches:</div>
+                                                <div className="space-y-1">
+                                                  {matchHistory[participant.assigned_number].slice(0, 5).map((match: any, idx: number) => (
+                                                    <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-2 py-1">
+                                                      <div className="flex items-center gap-1">
+                                                        <span className="text-cyan-400">#{match.partner_number}</span>
+                                                        <span className="text-slate-400">{match.partner_name}</span>
+                                                      </div>
+                                                      {match.event_id && match.event_id !== currentEventId && (
+                                                        <span className="text-xs text-purple-400">E{match.event_id}</span>
+                                                      )}
+                                                    </div>
+                                                  ))}
+                                                  {matchHistory[participant.assigned_number].length > 5 && (
+                                                    <div className="text-xs text-slate-500 text-center">
+                                                      +{matchHistory[participant.assigned_number].length - 5} more
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
                                           </div>
                                         )
                                       })()}
@@ -805,6 +834,31 @@ export default function ParticipantResultsModal({
                                                           </div>
                                                         )}
                                                       </div>
+
+                                                      {/* Previous Match History for Partner */}
+                                                      {matchHistoryLoaded && matchHistory[participant.partner_assigned_number || 0] && matchHistory[participant.partner_assigned_number || 0].length > 0 && (
+                                                        <div className="mt-3 pt-3 border-t border-cyan-400/20">
+                                                          <div className="text-cyan-300 font-semibold text-sm mb-2">Previous Matches:</div>
+                                                          <div className="space-y-1">
+                                                            {matchHistory[participant.partner_assigned_number || 0].slice(0, 5).map((match: any, idx: number) => (
+                                                              <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-2 py-1">
+                                                                <div className="flex items-center gap-1">
+                                                                  <span className="text-cyan-400">#{match.partner_number}</span>
+                                                                  <span className="text-slate-400">{match.partner_name}</span>
+                                                                </div>
+                                                                {match.event_id && match.event_id !== currentEventId && (
+                                                                  <span className="text-xs text-purple-400">E{match.event_id}</span>
+                                                                )}
+                                                              </div>
+                                                            ))}
+                                                            {matchHistory[participant.partner_assigned_number || 0].length > 5 && (
+                                                              <div className="text-xs text-slate-500 text-center">
+                                                                +{matchHistory[participant.partner_assigned_number || 0].length - 5} more
+                                                              </div>
+                                                            )}
+                                                          </div>
+                                                        </div>
+                                                      )}
                                                     </div>
                                                   )
                                                 })()}

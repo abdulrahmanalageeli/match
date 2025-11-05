@@ -99,12 +99,20 @@ export default function ParticipantResultsModal({
     }
   }
 
-  // Update local match history when prop changes
+  // Update local match history when prop changes or when it's fetched
   useEffect(() => {
     if (Object.keys(matchHistory).length > 0) {
       setLocalMatchHistory(matchHistory)
     }
   }, [matchHistory])
+
+  // Ensure localMatchHistory updates after fetching
+  useEffect(() => {
+    if (!loadingModalHistory && Object.keys(localMatchHistory).length === 0 && isOpen) {
+      // Try fetching if modal is open and history is empty
+      fetchAllMatchHistoryForModal()
+    }
+  }, [isOpen])
 
   // Fetch locked matches and participant data when modal opens
   useEffect(() => {
@@ -630,11 +638,11 @@ export default function ParticipantResultsModal({
                                         return (
                                           <div className="space-y-2">
                                             {/* Header */}
-                                            <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between">
+                                            <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between" dir="rtl">
                                               <div className="flex items-center gap-3">
-                                                <div>
+                                                <div className="flex items-center gap-2">
                                                   <span className="text-cyan-300 font-bold text-lg">{participant.name || "غير محدد"}</span>
-                                                  <span className="text-slate-400 text-sm ml-2">#{participant.assigned_number}</span>
+                                                  <span className="text-slate-400 text-sm">#{participant.assigned_number}</span>
                                                 </div>
                                                 {pData?.updated_at && (
                                                   <span className="text-xs text-slate-500">
@@ -830,11 +838,11 @@ export default function ParticipantResultsModal({
                                                   return (
                                                     <div className="space-y-2">
                                                       {/* Header */}
-                                                      <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between">
+                                                      <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between" dir="rtl">
                                                         <div className="flex items-center gap-3">
-                                                          <div>
+                                                          <div className="flex items-center gap-2">
                                                             <span className="text-cyan-300 font-bold text-lg">{participant.partner_name}</span>
-                                                            <span className="text-slate-400 text-sm ml-2">#{participant.partner_assigned_number}</span>
+                                                            <span className="text-slate-400 text-sm">#{participant.partner_assigned_number}</span>
                                                           </div>
                                                           {pData?.updated_at && (
                                                             <span className="text-xs text-slate-500">

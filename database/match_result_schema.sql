@@ -46,6 +46,7 @@ create table public.match_results (
   event_id integer not null default 1,
   event_finished boolean not null default false,
   ai_personality_analysis text null,
+  humor_early_openness_bonus text null,
   constraint match_results_pkey primary key (id),
   constraint fk_match_results_participant_a foreign KEY (participant_a_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
   constraint fk_match_results_participant_b foreign KEY (participant_b_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
@@ -53,6 +54,12 @@ create table public.match_results (
   constraint fk_match_results_participant_f foreign KEY (participant_f_number) references participants (assigned_number) deferrable initially DEFERRED,
   constraint match_results_participant_a_id_fkey foreign KEY (participant_a_id) references participants (id) on delete CASCADE,
   constraint match_results_participant_b_id_fkey foreign KEY (participant_b_id) references participants (id) on delete CASCADE,
+  constraint check_participant_e_positive check (
+    (
+      (participant_e_number is null)
+      or (participant_e_number > 0)
+    )
+  ),
   constraint check_participant_f_positive check (
     (
       (participant_f_number is null)
@@ -104,6 +111,16 @@ create table public.match_results (
       )
     )
   ),
+  constraint check_humor_early_openness_bonus_valid check (
+    (
+      (humor_early_openness_bonus is null)
+      or (
+        humor_early_openness_bonus = any (
+          array['full'::text, 'partial'::text, 'none'::text]
+        )
+      )
+    )
+  ),
   constraint check_mutual_match_boolean check (
     (
       (mutual_match is null)
@@ -123,12 +140,6 @@ create table public.match_results (
       (participant_b_wants_match is null)
       or (participant_b_wants_match = true)
       or (participant_b_wants_match = false)
-    )
-  ),
-  constraint check_participant_e_positive check (
-    (
-      (participant_e_number is null)
-      or (participant_e_number > 0)
     )
   )
 ) TABLESPACE pg_default;
@@ -199,6 +210,10 @@ create index IF not exists idx_match_results_participants_and_match on public.ma
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_match_results_event_id on public.match_results using btree (event_id) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_humor_early_openness_bonus on public.match_results using btree (humor_early_openness_bonus) TABLESPACE pg_default
+where
+  (humor_early_openness_bonus is not null);
 
 create index IF not exists idx_match_results_event_finished on public.match_results using btree (event_finished) TABLESPACE pg_default;
 

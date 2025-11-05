@@ -96,7 +96,7 @@ export default function AdminPage() {
   const [newExcludedPair, setNewExcludedPair] = useState({participant1: '', participant2: ''})
   
   // Excluded participants management
-  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, created_at: string, reason: string, is_banned?: boolean}>>([])
+  const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, participant_name?: string, created_at: string, reason: string, is_banned?: boolean}>>([])
   const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
   const [banPermanently, setBanPermanently] = useState(false)
   
@@ -1405,8 +1405,15 @@ const fetchParticipants = async () => {
       const data = await res.json()
       
       if (res.ok) {
-        await fetchExcludedParticipants() // Refresh the list
-        toast.success(data.message)
+        await fetchExcludedParticipants() // Refresh the excluded participants list
+        await fetchExcludedPairs() // Refresh the excluded pairs list since we deleted associated pairs
+        
+        // Show success message with details about removed pairs
+        if (data.pairsRemoved > 0) {
+          toast.success(`${data.message}`, { duration: 4000 })
+        } else {
+          toast.success(data.message)
+        }
       } else {
         toast.error(data.error)
       }
@@ -3115,9 +3122,14 @@ Proceed?`
                             </span>
                           </div>
                         )}
-                        <span className={`text-sm ${participant.is_banned ? "text-red-200" : "text-white"}`}>
-                          #{participant.participant_number} - {participant.is_banned ? "PERMANENTLY BANNED" : "Excluded from ALL matching"}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={`text-sm font-medium ${participant.is_banned ? "text-red-200" : "text-white"}`}>
+                            #{participant.participant_number} - {participant.participant_name || `المشارك #${participant.participant_number}`}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {participant.is_banned ? "PERMANENTLY BANNED from all matching" : "Excluded from ALL matching"}
+                          </span>
+                        </div>
                       </div>
                       <button
                         onClick={() => removeExcludedParticipant(participant.id)}
@@ -3126,6 +3138,7 @@ Proceed?`
                             ? "text-red-400 hover:text-red-300" 
                             : "text-orange-400 hover:text-orange-300"
                         }`}
+                        title="Remove exclusion and all associated excluded pairs"
                       >
                         <X className="w-4 h-4" />
                       </button>

@@ -1,5 +1,6 @@
-import React from "react"
+import React, { useState, useEffect } from "react"
 import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw } from "lucide-react"
+import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantMatch {
   participant_number: number
@@ -37,10 +38,48 @@ export default function ParticipantDetailModal({
   swapMode = false,
   onSwapSelect
 }: ParticipantDetailModalProps) {
+  const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
+
   if (!isOpen || !participant) return null
 
   // Sort matches by compatibility score (descending)
   const sortedMatches = [...matches].sort((a, b) => b.compatibility_score - a.compatibility_score)
+
+  // Fetch participant data for all potential matches
+  useEffect(() => {
+    if (isOpen && matches.length > 0) {
+      fetchParticipantData()
+    }
+  }, [isOpen, matches])
+
+  const fetchParticipantData = async () => {
+    try {
+      // Get unique participant numbers from matches
+      const participantNumbers = new Set<number>()
+      matches.forEach(m => {
+        participantNumbers.add(m.participant_number)
+      })
+
+      // Fetch all participants data
+      const response = await fetch("/api/admin", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      })
+      const data = await response.json()
+      
+      if (response.ok && data.participants) {
+        const dataMap = new Map()
+        data.participants.forEach((p: any) => {
+          if (participantNumbers.has(p.assigned_number)) {
+            dataMap.set(p.assigned_number, p)
+          }
+        })
+        setParticipantData(dataMap)
+      }
+    } catch (error) {
+      console.error("Error fetching participant data:", error)
+    }
+  }
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400"
@@ -232,9 +271,128 @@ export default function ParticipantDetailModal({
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-white font-medium">
-                                {match.participant_name || "غير محدد"}
-                              </span>
+                              <Tooltip.Provider delayDuration={300}>
+                                <Tooltip.Root>
+                                  <Tooltip.Trigger asChild>
+                                    <span className="text-white font-medium cursor-help hover:text-cyan-300 transition-colors">
+                                      {match.participant_name || "غير محدد"}
+                                    </span>
+                                  </Tooltip.Trigger>
+                                  <Tooltip.Portal>
+                                    <Tooltip.Content
+                                      className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                      sideOffset={5}
+                                    >
+                                      {(() => {
+                                        const pData = participantData.get(match.participant_number)
+                                        const surveyData = pData?.survey_data || {}
+                                        const answers = surveyData.answers || {}
+                                        
+                                        return (
+                                          <div className="space-y-2">
+                                            {/* Header */}
+                                            <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between" dir="rtl">
+                                              <div className="flex items-center gap-3">
+                                                <div className="flex items-center gap-2">
+                                                  <span className="text-cyan-300 font-bold text-lg">{match.participant_name || "غير محدد"}</span>
+                                                  <span className="text-slate-400 text-sm">#{match.participant_number}</span>
+                                                </div>
+                                                {pData?.updated_at && (
+                                                  <span className="text-xs text-slate-500">
+                                                    🕐 {(() => {
+                                                      const utcDate = new Date(pData.updated_at);
+                                                      const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                                                      const now = new Date();
+                                                      const diffMs = now.getTime() - gmt3Date.getTime();
+                                                      const diffMins = Math.floor(diffMs / 60000);
+                                                      const diffHours = Math.floor(diffMs / 3600000);
+                                                      const diffDays = Math.floor(diffMs / 86400000);
+                                                      
+                                                      if (diffMins < 1) return 'Just now';
+                                                      if (diffMins < 60) return `${diffMins}m ago`;
+                                                      if (diffHours < 24) return `${diffHours}h ago`;
+                                                      if (diffDays === 1) return '1d ago';
+                                                      if (diffDays < 30) return `${diffDays}d ago`;
+                                                      
+                                                      return gmt3Date.toLocaleDateString('en-GB', { 
+                                                        day: '2-digit', 
+                                                        month: 'short',
+                                                        year: 'numeric'
+                                                      });
+                                                    })()}
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <div className="flex gap-3 text-xs">
+                                                <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
+                                                <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
+                                              </div>
+                                            </div>
+                                            
+                                            {/* Main Content - 2 Column Layout */}
+                                            <div className="grid grid-cols-3 gap-4">
+                                              {/* Left Column - Vibe Info */}
+                                              <div className="col-span-2 space-y-1.5">
+                                                <div className="text-cyan-300 font-semibold text-xs mb-1">الطاقة والشخصية:</div>
+                                                
+                                                {answers.vibe_1 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الويكند المثالي:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_1}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_2 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الهوايات:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_2}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_3 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الموسيقى:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_3}</span>
+                                                  </div>
+                                                )}
+                                                
+                                                {answers.vibe_4 && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">عمق المحادثة:</span>
+                                                    <span className="text-white ml-1">{answers.vibe_4}</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                              
+                                              {/* Right Column - Quick Stats */}
+                                              <div className="space-y-1.5">
+                                                <div className="text-cyan-300 font-semibold text-xs mb-1">التوافق:</div>
+                                                <div className="text-xs">
+                                                  <span className="text-slate-400">إجمالي:</span>
+                                                  <span className="text-green-400 ml-1 font-bold">{match.compatibility_score}%</span>
+                                                </div>
+                                                {match.mbti_compatibility_score && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">MBTI:</span>
+                                                    <span className="text-white ml-1">{match.mbti_compatibility_score.toFixed(1)}%</span>
+                                                  </div>
+                                                )}
+                                                {match.vibe_compatibility_score && (
+                                                  <div className="text-xs">
+                                                    <span className="text-slate-400">الطاقة:</span>
+                                                    <span className="text-white ml-1">{match.vibe_compatibility_score.toFixed(1)}%</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )
+                                      })()}
+                                      <Tooltip.Arrow className="fill-cyan-400/30" />
+                                    </Tooltip.Content>
+                                  </Tooltip.Portal>
+                                </Tooltip.Root>
+                              </Tooltip.Provider>
                               {match.is_repeated_match && (
                                 <div 
                                   className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-400/30 text-orange-300 text-xs"

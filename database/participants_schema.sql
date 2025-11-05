@@ -26,10 +26,13 @@ create table public.participants (
   any_gender_preference boolean not null default false,
   humor_banter_style character varying(1) null,
   early_openness_comfort integer null,
+  updated_at timestamp with time zone null default now(),
+  auto_signup_next_event boolean not null default false,
   constraint participants_pkey primary key (id),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),
   constraint unique_secure_token unique (secure_token),
   constraint participants_assigned_number_key unique (assigned_number),
+  constraint check_auto_signup_not_null check ((auto_signup_next_event is not null)),
   constraint check_core_values_format check (
     (
       ((survey_data -> 'coreValues'::text) is null)
@@ -203,6 +206,10 @@ create index IF not exists idx_participants_personality_types on public.particip
 
 create index IF not exists idx_participants_core_values on public.participants using gin (((survey_data -> 'coreValues'::text))) TABLESPACE pg_default;
 
+create index IF not exists idx_participants_auto_signup on public.participants using btree (auto_signup_next_event) TABLESPACE pg_default
+where
+  (auto_signup_next_event = true);
+
 create index IF not exists idx_participants_name on public.participants using btree (name) TABLESPACE pg_default;
 
 create index IF not exists idx_participants_gender on public.participants using btree (gender) TABLESPACE pg_default;
@@ -268,6 +275,15 @@ where
 create index IF not exists idx_participants_humor_banter_style on public.participants using btree (humor_banter_style) TABLESPACE pg_default
 where
   (humor_banter_style is not null);
+
+create trigger set_updated_at BEFORE
+update on participants for EACH row
+execute FUNCTION update_updated_at_column ();
+
+create trigger trigger_sync_autosignup_to_next_event BEFORE INSERT
+or
+update on participants for EACH row
+execute FUNCTION sync_autosignup_to_next_event ();
 
 create trigger trigger_sync_communication_style BEFORE INSERT
 or

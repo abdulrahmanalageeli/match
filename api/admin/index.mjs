@@ -1584,10 +1584,32 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
 
-        // Map to expected format with is_banned flag
+        // Fetch participant names
+        const participantNumbers = (data || []).map(item => item.participant1_number)
+        const { data: participantData, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number, name, survey_data")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", participantNumbers)
+
+        if (participantError) {
+          console.error("Error fetching participant names:", participantError)
+        }
+
+        // Create a map of participant numbers to names
+        const participantNameMap = new Map()
+        if (participantData) {
+          participantData.forEach(p => {
+            const name = p.name || p.survey_data?.name || p.survey_data?.answers?.name || `المشارك #${p.assigned_number}`
+            participantNameMap.set(p.assigned_number, name)
+          })
+        }
+
+        // Map to expected format with is_banned flag and participant name
         const excludedParticipants = (data || []).map(item => ({
           id: item.id,
           participant_number: item.participant1_number,
+          participant_name: participantNameMap.get(item.participant1_number) || `المشارك #${item.participant1_number}`,
           created_at: item.created_at,
           reason: item.reason,
           is_banned: item.participant2_number === -10 // -10 means banned, -1 means excluded
@@ -1668,7 +1690,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 REMOVE EXCLUDED PARTICIPANT (from excluded_pairs with -1)
+    // 🔹 REMOVE EXCLUDED PARTICIPANT (from excluded_pairs with -1 or -10)
     if (action === "remove-excluded-participant") {
       try {
         const { id } = req.body
@@ -1677,22 +1699,56 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Excluded participant ID is required" })
         }
 
-        const { error } = await supabase
+        // First, get the participant number from the exclusion record
+        const { data: exclusionRecord, error: fetchError } = await supabase
+          .from("excluded_pairs")
+          .select("participant1_number")
+          .eq("id", id)
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("participant2_number", [-1, -10])
+          .single()
+
+        if (fetchError || !exclusionRecord) {
+          console.error("Error fetching exclusion record:", fetchError)
+          return res.status(404).json({ error: "Exclusion record not found" })
+        }
+
+        const participantNumber = exclusionRecord.participant1_number
+
+        // Delete the exclusion record (participant2_number = -1 or -10)
+        const { error: deleteExclusionError } = await supabase
           .from("excluded_pairs")
           .delete()
           .eq("id", id)
           .eq("match_id", STATIC_MATCH_ID)
-          .eq("participant2_number", -1)
 
-        if (error) {
-          console.error("Error removing excluded participant:", error)
-          return res.status(500).json({ error: error.message })
+        if (deleteExclusionError) {
+          console.error("Error removing excluded participant:", deleteExclusionError)
+          return res.status(500).json({ error: deleteExclusionError.message })
         }
 
-        console.log(`✅ Removed excluded participant with ID: ${id}`)
+        // Also remove all excluded pairs containing this participant
+        const { data: deletedPairs, error: deletePairsError } = await supabase
+          .from("excluded_pairs")
+          .delete()
+          .eq("match_id", STATIC_MATCH_ID)
+          .or(`participant1_number.eq.${participantNumber},participant2_number.eq.${participantNumber}`)
+          .select()
+
+        if (deletePairsError) {
+          console.error("Error removing excluded pairs:", deletePairsError)
+          // Don't fail the whole operation, just log it
+        }
+
+        const pairsRemoved = deletedPairs?.length || 0
+        console.log(`✅ Removed excluded participant #${participantNumber} and ${pairsRemoved} associated pair(s)`)
+        
         return res.status(200).json({ 
           success: true,
-          message: "Excluded participant removed successfully" 
+          pairsRemoved,
+          message: pairsRemoved > 0 
+            ? `Excluded participant removed and ${pairsRemoved} excluded pair(s) deleted`
+            : "Excluded participant removed successfully"
         })
 
       } catch (error) {

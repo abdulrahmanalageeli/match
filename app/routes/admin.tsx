@@ -3789,6 +3789,25 @@ Proceed?`
                       </div>
                     )}
                     
+                    {/* Last Update Time (UTC to GMT+3) */}
+                    {p.updated_at && (
+                      <div className="text-xs text-slate-500 mb-2 flex items-center justify-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Last update: {(() => {
+                          const utcDate = new Date(p.updated_at);
+                          const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                          return gmt3Date.toLocaleString('en-GB', { 
+                            day: '2-digit', 
+                            month: '2-digit', 
+                            year: 'numeric',
+                            hour: '2-digit', 
+                            minute: '2-digit',
+                            hour12: false 
+                          }).replace(',', '');
+                        })()}
+                      </div>
+                    )}
+                    
                     <div className="flex items-center justify-center gap-1 text-slate-400 text-sm mb-2">
                       <Table2 className="w-4 h-4" />
                       {p.table_number ?? "Unassigned"}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain, Copy, Shuffle, Filter, Search } from "lucide-react";
+import { X, ChevronRight, ChevronLeft, Sparkles, MessageSquare, ArrowLeftCircle, CheckCircle, Star, Flame, HelpCircle, Heart, Gem, Users, Rocket, Brain, Copy, Shuffle, Filter, Search, BookOpen } from "lucide-react";
 // Removed Dialog imports - using custom modal implementation
 import { Button } from "../../components/ui/button";
 
@@ -408,12 +408,18 @@ const depthColors = {
 const depthOrder: Array<keyof typeof depthLabels> = ["shallow", "medium", "deep"];
 
 export default function PromptTopicsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [viewMode, setViewMode] = useState<"topics" | "random">("topics");
   const [selectedTopic, setSelectedTopic] = useState<null | typeof promptTopics[0]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDepth, setSelectedDepth] = useState<keyof typeof depthLabels | "all">("all");
   const [randomQuestion, setRandomQuestion] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Random mode states
+  const [randomCategory, setRandomCategory] = useState<typeof promptTopics[0] | null>(null);
+  const [randomHistory, setRandomHistory] = useState<string[]>([]);
+  const [randomCurrentIndex, setRandomCurrentIndex] = useState(-1);
 
   // Filter questions based on search and depth
   const filteredQuestions = selectedTopic ? 
@@ -435,6 +441,38 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }, 300);
   };
 
+  // Random mode functions
+  const getRandomQuestionFromCategory = () => {
+    if (!randomCategory || randomCategory.questions.length === 0) return;
+    
+    setIsAnimating(true);
+    const randomIndex = Math.floor(Math.random() * randomCategory.questions.length);
+    const question = randomCategory.questions[randomIndex];
+    
+    setTimeout(() => {
+      // Add to history if it's a new question
+      const newHistory = randomHistory.slice(0, randomCurrentIndex + 1);
+      newHistory.push(question);
+      setRandomHistory(newHistory);
+      setRandomCurrentIndex(newHistory.length - 1);
+      setIsAnimating(false);
+    }, 300);
+  };
+
+  const goToPreviousQuestion = () => {
+    if (randomCurrentIndex > 0) {
+      setRandomCurrentIndex(randomCurrentIndex - 1);
+    }
+  };
+
+  const goToNextQuestion = () => {
+    if (randomCurrentIndex < randomHistory.length - 1) {
+      setRandomCurrentIndex(randomCurrentIndex + 1);
+    } else {
+      getRandomQuestionFromCategory();
+    }
+  };
+
   // Reset states when modal opens/closes
   useEffect(() => {
     if (!open) {
@@ -442,6 +480,10 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       setSearchQuery("");
       setSelectedDepth("all");
       setRandomQuestion(null);
+      setViewMode("topics");
+      setRandomCategory(null);
+      setRandomHistory([]);
+      setRandomCurrentIndex(-1);
     }
   }, [open]);
 
@@ -480,7 +522,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
 
         {/* Modern Header - Mobile Optimized */}
         <div className="relative z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 bg-gradient-to-r from-slate-800/80 to-slate-700/80 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg sm:text-2xl font-bold flex items-center gap-2 sm:gap-3">
               <div className="relative">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center shadow-lg">
@@ -503,10 +545,43 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
               <X className="w-4 h-4 sm:w-5 sm:h-5 text-slate-300 hover:text-white" />
             </Button>
           </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode("topics")}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm font-medium ${
+                viewMode === "topics"
+                  ? "bg-gradient-to-r from-cyan-500 to-purple-500 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span className="hidden sm:inline">تصفح المواضيع</span>
+              <span className="sm:hidden">مواضيع</span>
+            </button>
+            <button
+              onClick={() => {
+                setViewMode("random");
+                if (!randomCategory) {
+                  setRandomCategory(promptTopics[0]);
+                }
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm font-medium ${
+                viewMode === "random"
+                  ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              <Shuffle className="w-4 h-4" />
+              <span className="hidden sm:inline">أسئلة عشوائية</span>
+              <span className="sm:hidden">عشوائي</span>
+            </button>
+          </div>
           
           {/* Subtitle - Hidden on small screens */}
-          <p className="text-slate-300 text-xs sm:text-sm mt-1 sm:mt-2 opacity-80 hidden sm:block">
-            اختر موضوعاً واستكشف أسئلة متنوعة لإثراء المحادثة
+          <p className="text-slate-300 text-xs sm:text-sm mt-2 opacity-80 hidden sm:block">
+            {viewMode === "topics" ? "اختر موضوعاً واستكشف أسئلة متنوعة" : "اختر فئة واحصل على أسئلة عشوائية"}
           </p>
         </div>
 
@@ -579,7 +654,149 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
           data-scroll-container
         >
           <div className="p-4 sm:p-6">
-            {!selectedTopic ? (
+            {viewMode === "random" ? (
+              // Random Questions View
+              <div className="space-y-6">
+                {/* Category Selector */}
+                <div className="space-y-3">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Filter className="w-5 h-5 text-purple-400" />
+                    اختر الفئة
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                    {promptTopics.map((topic) => (
+                      <button
+                        key={topic.id}
+                        onClick={() => {
+                          setRandomCategory(topic);
+                          setRandomHistory([]);
+                          setRandomCurrentIndex(-1);
+                        }}
+                        className={`group p-3 rounded-xl border transition-all duration-300 ${
+                          randomCategory?.id === topic.id
+                            ? "border-purple-400 bg-purple-500/20 shadow-lg"
+                            : "border-slate-700 bg-slate-800/50 hover:border-purple-400/50 hover:bg-slate-800/70"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            topic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
+                            topic.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                            'bg-gradient-to-r from-purple-500 to-pink-500'
+                          } shadow-md`}>
+                            {React.cloneElement(topic.icon, { className: "w-4 h-4 text-white" })}
+                          </div>
+                        </div>
+                        <h4 className="text-xs sm:text-sm font-bold text-white text-right leading-tight">
+                          {topic.title}
+                        </h4>
+                        <p className="text-xs text-slate-400 text-right mt-1">
+                          {topic.questions.length} سؤال
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Question Display */}
+                {randomCategory && (
+                  <div className="space-y-4">
+                    {randomHistory.length > 0 && randomCurrentIndex >= 0 ? (
+                      <div className={`relative p-6 sm:p-8 rounded-2xl border-2 shadow-2xl ${
+                        randomCategory.depth === "shallow" ? 'bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border-cyan-400/50' :
+                        randomCategory.depth === "medium" ? 'bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-400/50' :
+                        'bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-400/50'
+                      } ${isAnimating ? 'animate-pulse' : ''}`}>
+                        {/* Question Number */}
+                        <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-600/50">
+                          <span className="text-xs font-bold text-slate-300">
+                            {randomCurrentIndex + 1} / {randomHistory.length}
+                          </span>
+                        </div>
+
+                        {/* Category Badge */}
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                            randomCategory.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
+                            randomCategory.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                            'bg-gradient-to-r from-purple-500 to-pink-500'
+                          } shadow-lg`}>
+                            {React.cloneElement(randomCategory.icon, { className: "w-5 h-5 text-white" })}
+                          </div>
+                          <div>
+                            <h4 className="text-sm font-bold text-white">{randomCategory.title}</h4>
+                            <p className={`text-xs ${
+                              randomCategory.depth === "shallow" ? 'text-cyan-300' :
+                              randomCategory.depth === "medium" ? 'text-green-300' :
+                              'text-purple-300'
+                            }`}>
+                              {depthLabels[randomCategory.depth as keyof typeof depthLabels]}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Question Text */}
+                        <p className="text-white text-xl sm:text-2xl font-medium leading-relaxed mb-6">
+                          {randomHistory[randomCurrentIndex]}
+                        </p>
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-3">
+                          <Button
+                            onClick={goToPreviousQuestion}
+                            disabled={randomCurrentIndex === 0}
+                            className="flex-1 bg-slate-700/50 hover:bg-slate-700 text-white rounded-xl py-3 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-300"
+                          >
+                            <ChevronRight className="w-5 h-5 ml-2" />
+                            السابق
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              navigator.clipboard.writeText(randomHistory[randomCurrentIndex]);
+                              setCopiedIndex(-2);
+                              setTimeout(() => setCopiedIndex(null), 1200);
+                            }}
+                            className={`px-4 py-3 rounded-xl transition-all duration-300 ${
+                              randomCategory.depth === "shallow" ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300' :
+                              randomCategory.depth === "medium" ? 'bg-green-500/20 hover:bg-green-500/30 text-green-300' :
+                              'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300'
+                            }`}
+                          >
+                            <Copy className="w-5 h-5" />
+                            {copiedIndex === -2 && (
+                              <span className="absolute -top-8 text-green-400 text-xs">✓</span>
+                            )}
+                          </Button>
+                          <Button
+                            onClick={goToNextQuestion}
+                            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl py-3 shadow-lg transition-all duration-300"
+                          >
+                            {randomCurrentIndex < randomHistory.length - 1 ? "التالي" : "سؤال جديد"}
+                            <ChevronLeft className="w-5 h-5 mr-2" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      // Initial State - No Question Yet
+                      <div className="text-center py-12">
+                        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center">
+                          <Shuffle className="w-10 h-10 text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">جاهز للبدء؟</h3>
+                        <p className="text-slate-400 mb-6">اضغط الزر للحصول على سؤال عشوائي</p>
+                        <Button
+                          onClick={getRandomQuestionFromCategory}
+                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <Shuffle className="w-6 h-6 ml-3" />
+                          احصل على سؤال عشوائي
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : !selectedTopic ? (
               <>
                 {/* Modern Topic Selection - Mobile Optimized */}
                 <div className="space-y-6 sm:space-y-8">

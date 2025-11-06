@@ -578,6 +578,8 @@ export default function GroupsPage() {
   const [shuffledCategories, setShuffledCategories] = useState<string[]>([]);
   const [categoryIndex, setCategoryIndex] = useState(0);
   const [roundCompleted, setRoundCompleted] = useState(false);
+  const [isReadingPhase, setIsReadingPhase] = useState(false);
+  const [readingTimer, setReadingTimer] = useState(3); // 3 seconds reading time
   
   // Participant data state
   const [participantName, setParticipantName] = useState<string>("");
@@ -809,6 +811,29 @@ export default function GroupsPage() {
     };
   }, [charadesTimerActive, charadesTimer]);
 
+  // Reading phase timer useEffect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (isReadingPhase && readingTimer > 0) {
+      interval = setInterval(() => {
+        setReadingTimer(prev => {
+          if (prev <= 1) {
+            // Reading phase done, start game timer
+            setIsReadingPhase(false);
+            setFiveSecondTimerActive(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isReadingPhase, readingTimer]);
+
   // 5-Second Rule timer useEffect
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -904,8 +929,10 @@ export default function GroupsPage() {
   const startFiveSecondRound = () => {
     const category = shuffledCategories[categoryIndex] || fiveSecondRuleCategories[0];
     setCurrentCategory(category);
-    setFiveSecondTimer(5);
-    setFiveSecondTimerActive(true);
+    setReadingTimer(3); // Reset reading timer
+    setIsReadingPhase(true); // Start reading phase first
+    setFiveSecondTimer(5); // Prepare game timer
+    setFiveSecondTimerActive(false); // Don't start game timer yet
     setRoundCompleted(false);
   };
 
@@ -1170,26 +1197,43 @@ export default function GroupsPage() {
                     {/* Category Title */}
                     <div className="mb-6">
                       <div className="inline-block bg-orange-500/30 px-4 py-2 rounded-full mb-3">
-                        <span className="text-orange-300 text-sm font-bold">الفئة</span>
+                        <span className="text-orange-300 text-sm font-bold">{isReadingPhase ? 'اقرأ الفئة' : 'الفئة'}</span>
                       </div>
                       <h4 className="text-4xl font-bold text-white mb-2">
                         {currentCategory}
                       </h4>
-                      <p className="text-orange-200 text-lg">سمّ 3 أشياء!</p>
+                      <p className="text-orange-200 text-lg">{isReadingPhase ? 'استعد... سمّ 3 أشياء!' : 'سمّ 3 أشياء!'}</p>
                     </div>
                     
                     {/* Timer Display */}
                     <div className="mb-6">
-                      <div className={`text-8xl font-black transition-all duration-300 ${
-                        fiveSecondTimer <= 2 ? 'text-red-400 animate-pulse scale-110' : 
-                        fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
-                      }`}>
-                        {fiveSecondTimer}
-                      </div>
-                      <Progress 
-                        value={(fiveSecondTimer / 5) * 100} 
-                        className="w-full mt-4 h-3"
-                      />
+                      {isReadingPhase ? (
+                        // Reading phase timer
+                        <>
+                          <div className="text-6xl font-black text-blue-400 mb-2">
+                            {readingTimer}
+                          </div>
+                          <p className="text-blue-300 text-sm mb-2">ثانية للقراءة</p>
+                          <Progress 
+                            value={(readingTimer / 3) * 100} 
+                            className="w-full mt-4 h-3"
+                          />
+                        </>
+                      ) : (
+                        // Game timer
+                        <>
+                          <div className={`text-8xl font-black transition-all duration-300 ${
+                            fiveSecondTimer <= 2 ? 'text-red-400 animate-pulse scale-110' : 
+                            fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
+                          }`}>
+                            {fiveSecondTimer}
+                          </div>
+                          <Progress 
+                            value={(fiveSecondTimer / 5) * 100} 
+                            className="w-full mt-4 h-3"
+                          />
+                        </>
+                      )}
                     </div>
 
                     {/* Action Buttons - Only show when timer is stopped */}
@@ -1630,7 +1674,11 @@ export default function GroupsPage() {
               </div>
               <div className="p-4 grid grid-cols-2 gap-3">
                 {games.map((game, index) => (
-                  <div key={game.id} className="bg-slate-700/40 rounded-xl p-3 text-center">
+                  <div 
+                    key={game.id} 
+                    onClick={startSession}
+                    className="bg-slate-700/40 rounded-xl p-3 text-center cursor-pointer transition-all duration-300 hover:bg-slate-700/60 hover:scale-105 active:scale-95 hover:shadow-lg"
+                  >
                     <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg`}>
                       {game.icon}
                     </div>

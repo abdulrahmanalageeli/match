@@ -503,12 +503,37 @@ function checkAgeCompatibility(participantA, participantB) {
   
   if (hasFemale) {
     const ageDifference = Math.abs(ageA - ageB)
+    
+    // Special case: Woman aged 40+ can match with men up to 15 years older
+    if (genderA === 'female' && ageA >= 40 && genderB === 'male') {
+      const isCompatible = ageB - ageA <= 15 && ageB >= ageA
+      
+      if (!isCompatible) {
+        console.log(`🚫 Age mismatch (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - woman 40+ can match with men up to 15 years older`)
+      } else {
+        console.log(`✅ Age compatible (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - woman 40+ matched with man ${ageB - ageA} years older`)
+      }
+      
+      return isCompatible
+    } else if (genderB === 'female' && ageB >= 40 && genderA === 'male') {
+      const isCompatible = ageA - ageB <= 15 && ageA >= ageB
+      
+      if (!isCompatible) {
+        console.log(`🚫 Age mismatch (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - woman 40+ can match with men up to 15 years older`)
+      } else {
+        console.log(`✅ Age compatible (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - woman 40+ matched with man ${ageA - ageB} years older`)
+      }
+      
+      return isCompatible
+    }
+    
+    // Standard female age constraint (6 years max)
     const isCompatible = ageDifference <= 6
     
     if (!isCompatible) {
-      console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
+      console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 6)`)
     } else {
-      console.log(`✅ Age compatible: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart`)
+      console.log(`✅ Age compatible: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 6)`)
     }
     
     return isCompatible

@@ -504,24 +504,28 @@ function checkAgeCompatibility(participantA, participantB) {
   if (hasFemale) {
     const ageDifference = Math.abs(ageA - ageB)
     
-    // Special case: Woman aged 40+ can match with men up to 15 years older
+    // Special case: Woman aged 40+ can match with men 6 years younger to 15 years older
     if (genderA === 'female' && ageA >= 40 && genderB === 'male') {
-      const isCompatible = ageB - ageA <= 15 && ageB >= ageA
+      const isCompatible = ageB >= ageA - 6 && ageB <= ageA + 15
       
       if (!isCompatible) {
-        console.log(`🚫 Age mismatch (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - woman 40+ can match with men up to 15 years older`)
+        console.log(`🚫 Age mismatch (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - woman 40+ can match with men 6 years younger to 15 years older`)
       } else {
-        console.log(`✅ Age compatible (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - woman 40+ matched with man ${ageB - ageA} years older`)
+        const ageDiff = ageB - ageA
+        const direction = ageDiff >= 0 ? `${ageDiff} years older` : `${Math.abs(ageDiff)} years younger`
+        console.log(`✅ Age compatible (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - man is ${direction}`)
       }
       
       return isCompatible
     } else if (genderB === 'female' && ageB >= 40 && genderA === 'male') {
-      const isCompatible = ageA - ageB <= 15 && ageA >= ageB
+      const isCompatible = ageA >= ageB - 6 && ageA <= ageB + 15
       
       if (!isCompatible) {
-        console.log(`🚫 Age mismatch (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - woman 40+ can match with men up to 15 years older`)
+        console.log(`🚫 Age mismatch (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - woman 40+ can match with men 6 years younger to 15 years older`)
       } else {
-        console.log(`✅ Age compatible (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - woman 40+ matched with man ${ageA - ageB} years older`)
+        const ageDiff = ageA - ageB
+        const direction = ageDiff >= 0 ? `${ageDiff} years older` : `${Math.abs(ageDiff)} years younger`
+        console.log(`✅ Age compatible (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - man is ${direction}`)
       }
       
       return isCompatible

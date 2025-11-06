@@ -42,7 +42,25 @@ const promptTopics = [
       "ما هو أكثر موسم تحبه في السنة؟",
       "ما هو أكثر شيء تحب تناوله في الإفطار؟",
       "ما هي أفضل ذكرى لديك من المدرسة؟",
-      "ما هو أكثر شيء تحب فعله في المساء؟"
+      "ما هو أكثر شيء تحب فعله في المساء؟",
+      "ما هو أكثر تطبيق تستخدمه على هاتفك؟",
+      "ما هي آخر مرة جربت فيها طعاماً جديداً؟",
+      "ما هو أكثر مشروب تحبه؟",
+      "هل تفضل البحر أم الجبال؟",
+      "ما هو أكثر حيوان أليف تحبه؟",
+      "ما هو أفضل هدية تلقيتها؟",
+      "ما هي أول كلمة تتبادر لذهنك عندما تستيقظ؟",
+      "ما هو أكثر شيء تتطلع إليه في نهاية الأسبوع؟",
+      "هل تفضل القهوة أم الشاي؟",
+      "ما هي أكثر عطلة أو رحلة استمتعت بها؟",
+      "ما هو نوع الموسيقى الذي تستمع إليه عندما تكون سعيداً؟",
+      "ما هو آخر شيء ضحكت عليه بشدة؟",
+      "هل تحب الطبخ أم الأكل في الخارج؟",
+      "ما هو أكثر شيء تحب فعله مع عائلتك؟",
+      "ما هو أفضل وقت في اليوم بالنسبة لك؟",
+      "ما هي آخر مرة فعلت فيها شيئاً للمرة الأولى؟",
+      "ما هو أكثر مكان تحب الجلوس فيه في منزلك؟",
+      "هل تفضل الأفلام الكوميدية أم الدرامية؟"
     ],
   },
   {
@@ -81,7 +99,27 @@ const promptTopics = [
       "ما هو أكثر نشاط تحب ممارسته في الصباح؟",
       "ما هو أكثر شيء تحب تجربته في السفر؟",
       "ما هو أكثر شيء يلهمك للإبداع؟",
-      "ما هو أكثر نشاط تحب مشاركته مع العائلة؟"
+      "ما هو أكثر نشاط تحب مشاركته مع العائلة؟",
+      "ما هي المهارة التي تتمنى تعلمها هذا العام؟",
+      "هل تفضل التعلم من الكتب أم من التجربة؟",
+      "ما هو أكثر نشاط يجعلك تفقد الإحساس بالزمن؟",
+      "ما هي الهواية التي بدأتها مؤخراً؟",
+      "هل تفضل الرياضات الفردية أم الجماعية؟",
+      "ما هو أكثر كتاب أثر في تفكيرك؟",
+      "ما هو أكثر فيلم شاهدته أكثر من مرة؟",
+      "هل تفضل الفن التقليدي أم الرقمي؟",
+      "ما هي آخر مهارة تعلمتها بنفسك؟",
+      "ما هو أكثر شيء تحب جمعه؟",
+      "هل تفضل الألعاب الذهنية أم الحركية؟",
+      "ما هي الهواية التي تمارسها منذ الطفولة؟",
+      "ما هو أكثر نوع من الموسيقى يلهمك؟",
+      "هل تفضل التصوير الفوتوغرافي أم الرسم؟",
+      "ما هو أكثر مكان تحب الذهاب إليه للاسترخاء؟",
+      "ما هي الرياضة التي تتمنى احترافها؟",
+      "هل تفضل الطبيعة أم المدينة للأنشطة؟",
+      "ما هو أكثر نشاط تحب ممارسته في العطلات؟",
+      "ما هي أكثر قناة أو محتوى تتابعه على الإنترنت؟",
+      "هل تفضل الأنشطة الهادئة أم النشطة؟"
     ],
   },
   {
@@ -120,7 +158,26 @@ const promptTopics = [
       "ما هو أكثر موقف تعلمت فيه درساً قيماً؟",
       "ما هو أكثر شيء تتمسك به في الأوقات الصعبة؟",
       "ما هو أكثر شيء يجعلك تشعر بالصدق مع نفسك؟",
-      "ما هو أكثر قيمة تتمنى أن يتعلمها أطفالك؟"
+      "ما هو أكثر قيمة تتمنى أن يتعلمها أطفالك؟",
+      "ما هو أكثر موقف أظهرت فيه الشجاعة؟",
+      "كيف تعرّف النجاح في حياتك؟",
+      "ما هو الشيء الذي تعتقد أنه يجعلك إنساناً أفضل؟",
+      "ما هي القيمة التي تغيرت فيك مع مرور السنين؟",
+      "هل تؤمن بأن الصدق هو دائماً الخيار الأفضل؟",
+      "ما هو أكثر شيء تقدره في الإنسان؟",
+      "كيف تتعامل مع الظلم؟",
+      "ما هي اللحظة التي شعرت فيها بالفخر بمبادئك؟",
+      "ما هو أكثر شيء يجعلك تحترم شخصاً ما؟",
+      "هل تعتقد أن القيم تورّث أم تُكتسب؟",
+      "ما هو المبدأ الذي تحاول أن تعيش به يومياً؟",
+      "كيف تتعامل مع من ينتهك قيمك؟",
+      "ما هي التضحية الأكبر التي قمت بها من أجل مبدأ؟",
+      "ما هو أكثر موقف اختبرت فيه وفاءك؟",
+      "هل تؤمن بأن الغاية تبرر الوسيلة؟",
+      "ما هو الشيء الذي يجعلك تشعر بالنزاهة؟",
+      "كيف توازن بين مبادئك وواقع الحياة؟",
+      "ما هي القيمة التي تتمنى أن تنشرها في مجتمعك؟",
+      "ما هو أكثر موقف شعرت فيه بأنك قدوة؟"
     ],
   },
   {
@@ -159,7 +216,28 @@ const promptTopics = [
       "ما هو أكثر شيء يجعلك تبني الثقة مع شخص؟",
       "ما هو أكثر شيء تحب فعله مع أصدقائك المقربين؟",
       "ما هو أكثر شيء يجعلك تشعر بالدعم من الآخرين؟",
-      "ما هو أكثر شيء تتمنى أن يفهمه الناس عنك في العلاقات؟"
+      "ما هو أكثر شيء تتمنى أن يفهمه الناس عنك في العلاقات؟",
+      "كيف تعبر عن الحب والاهتمام؟",
+      "ما هي أكثر صفة تبحث عنها في العلاقات؟",
+      "كيف تتعامل مع خيبة الأمل من شخص قريب؟",
+      "ما هو دور التواصل في نجاح العلاقة؟",
+      "هل تفضل العلاقات العميقة القليلة أم الكثيرة السطحية؟",
+      "ما هو أكثر شيء يقوي رابطتك مع الآخرين؟",
+      "كيف تعرف أن علاقة ما تستحق الاستثمار فيها؟",
+      "ما هي الحدود التي تضعها في علاقاتك؟",
+      "كيف تتعامل مع الغيرة في العلاقات؟",
+      "ما هو أكثر شيء تحتاجه من الآخرين؟",
+      "كيف تبني الثقة مع شخص جديد؟",
+      "ما هي أكثر لحظة شعرت فيها بالتواصل العميق؟",
+      "كيف تعرف متى يجب أن تبتعد عن علاقة؟",
+      "ما هو دور الاحترام المتبادل في علاقاتك؟",
+      "كيف تتعامل مع الاختلافات مع من تحب؟",
+      "ما هي أكثر طريقة فعالة للتعبير عن الامتنان؟",
+      "كيف توازن بين احتياجاتك واحتياجات الآخرين؟",
+      "ما هو أكثر درس تعلمته عن العلاقات الإنسانية؟",
+      "كيف تحافظ على العلاقات المهمة لك؟",
+      "ما هي أهمية الاستماع في التواصل؟",
+      "كيف تعرف أن شخصاً ما يهتم بك حقاً؟"
     ],
   },
   {
@@ -198,7 +276,27 @@ const promptTopics = [
       "ما هو أكثر هدف يجعلك تشعر بالحماس؟",
       "ما هو أكثر شيء تتمنى أن تغيره في نفسك؟",
       "ما هو أكثر حلم يجعلك تشعر بالسعادة عند التفكير فيه؟",
-      "ما هو أكثر شيء تتمنى أن يعرفه الناس عن أحلامك؟"
+      "ما هو أكثر شيء تتمنى أن يعرفه الناس عن أحلامك؟",
+      "ما هي الخطوة التالية نحو تحقيق حلمك الأكبر؟",
+      "كيف تحافظ على حماسك عندما تواجه العقبات؟",
+      "ما هو الإنجاز الذي سيجعلك تشعر بالرضا التام؟",
+      "كيف توازن بين الواقعية والطموح؟",
+      "ما هي أكبر مخاطرة مستعد لاتخاذها لتحقيق حلمك؟",
+      "ما الذي يمنعك من البدء في تحقيق أحلامك الآن؟",
+      "كيف تتعامل مع من لا يؤمن بأحلامك؟",
+      "ما هو الطموح الذي تخفيه عن الآخرين؟",
+      "كيف تقيس التقدم نحو أهدافك؟",
+      "ما هي أكثر لحظة شعرت فيها بأنك قريب من حلمك؟",
+      "كيف تتعامل مع تأجيل الأحلام؟",
+      "ما هو الحلم الذي تخليت عنه وتندم على ذلك؟",
+      "كيف تختار بين حلمين متعارضين؟",
+      "ما هي التضحية التي أنت مستعد لتقديمها لحلمك؟",
+      "كيف تبقى ملتزماً بأهدافك طويلة المدى؟",
+      "ما هو الطموح الذي يخيفك ويثيرك في نفس الوقت؟",
+      "كيف تعرف أن حلماً ما يستحق السعي ورائه؟",
+      "ما هي النصيحة التي تقدمها لنفسك في رحلة تحقيق الأحلام؟",
+      "كيف تحتفل بالإنجازات الصغيرة في طريقك؟",
+      "ما هو الحلم الذي حققته وتجاوز توقعاتك؟"
     ],
   },
   {
@@ -237,7 +335,27 @@ const promptTopics = [
       "ما هو أكثر شيء يجعلك تشعر بالروحانية؟",
       "ما هو أكثر شيء تعتقد أنه يجمع البشرية؟",
       "ما هو أكثر شيء يجعلك تشعر بالسكينة؟",
-      "ما هو أكثر شيء تعتقد أنه يبقى بعد الموت؟"
+      "ما هو أكثر شيء تعتقد أنه يبقى بعد الموت؟",
+      "هل تعتقد أن للحياة هدف محدد أم أننا نخلق الهدف؟",
+      "ما هي العلاقة بين الألم والفهم العميق للحياة؟",
+      "هل الوعي بالذات نعمة أم عبء؟",
+      "ما هو دور الصمت في فهم الحياة؟",
+      "هل يمكن أن نعرف الحقيقة المطلقة؟",
+      "ما هي طبيعة الزمن في نظرك؟",
+      "هل العقل أهم من القلب في اتخاذ القرارات؟",
+      "ما هو دور المعاناة في بناء الشخصية؟",
+      "هل الإنسان خير بطبعه أم شرير؟",
+      "ما هي حدود المعرفة الإنسانية؟",
+      "هل الحرية الحقيقية ممكنة؟",
+      "ما هو دور الفن في فهم الوجود؟",
+      "هل الوحدة ضرورية للنمو الروحي؟",
+      "ما هي العلاقة بين الهوية والذاكرة؟",
+      "هل يمكن للإنسان أن يكون موضوعياً تماماً؟",
+      "ما هو دور الشك في البحث عن الحقيقة؟",
+      "هل السعي للكمال هدف نبيل أم وهم؟",
+      "ما هي حدود التسامح الأخلاقي؟",
+      "هل الماضي يحدد المستقبل؟",
+      "ما هو دور الخيال في بناء الواقع؟"
     ],
   },
   {
@@ -268,7 +386,28 @@ const promptTopics = [
       "هل عملك مجرد وسيلة للعيش أم جزء من معنى حياتك؟",
       "هل يمكن أن تكون حياة بلا عمل لكنها مليئة بالمعنى؟",
       "هل يجب أن يكون لعملك أثر أم أنها رفاهية غير عملية؟",
-      "لو استبعدنا الجانب المالي ونظرة الآخرين، ما المهنة التي ستحقق لك معنى مختلف لو عملتها؟"
+      "لو استبعدنا الجانب المالي ونظرة الآخرين، ما المهنة التي ستحقق لك معنى مختلف لو عملتها؟",
+      "هل الروتين اليومي يطمس المعنى أم يخلقه؟",
+      "ما هي اللحظات التي تشعر فيها بأن حياتك لها قيمة؟",
+      "هل المعنى يأتي من الداخل أم من الخارج؟",
+      "كيف تجد المعنى في الأوقات المظلمة؟",
+      "هل الشعور بالانتماء ضروري للمعنى؟",
+      "ما هو دور المسؤولية في خلق المعنى؟",
+      "هل يمكن أن يكون العبث جزءاً من المعنى؟",
+      "كيف يؤثر الموت على فهمك للمعنى؟",
+      "هل الأهداف المادية توفر معنى حقيقياً؟",
+      "ما هي العلاقة بين الحرية والمعنى؟",
+      "هل المعاناة تعطي الحياة عمقاً أكبر؟",
+      "كيف تعرف أن حياتك لها تأثير؟",
+      "هل الإيمان ضروري لإيجاد المعنى؟",
+      "ما هو دور الإبداع في خلق المعنى؟",
+      "هل السؤال عن المعنى أهم من الإجابة؟",
+      "كيف توازن بين البحث عن المعنى وعيش اللحظة؟",
+      "هل المعنى ثابت أم متغير؟",
+      "ما هي العلاقة بين الأصالة والمعنى؟",
+      "هل يمكن أن تكون الحياة بلا معنى وذلك مقبول؟",
+      "كيف يساهم الآخرون في معنى حياتك؟",
+      "هل الإنجاز الشخصي يكفي لخلق المعنى؟"
     ],
   },
   {
@@ -318,7 +457,29 @@ const promptTopics = [
       "ما اللحظة الصغيرة التي شعرت فيها أن السعادة أهم من أي إنجاز كبير؟",
       "هل ترى أن السعادة مؤشر على حياة ذات معنى؟",
       "هل يمكن أن يكون إنسان سعيدًا دون إنجازات؟",
-      "هل يمكن أن يعيش إنسان بسعادة من دون أن يفكر في سؤال المعنى أصلًا؟"
+      "هل يمكن أن يعيش إنسان بسعادة من دون أن يفكر في سؤال المعنى أصلًا؟",
+      "كيف تحافظ على الصداقات القديمة؟",
+      "ما هو تعريفك للحب الحقيقي؟",
+      "كيف تعرف أن علاقة ما صحية؟",
+      "ما هو دور التضحية في العلاقات؟",
+      "هل الحب يكفي لاستمرار العلاقة؟",
+      "كيف تتعامل مع نهاية علاقة مهمة؟",
+      "ما هي أهمية المساحة الشخصية في العلاقات؟",
+      "كيف توازن بين الاستقلالية والترابط؟",
+      "ما هو دور الصبر في بناء العلاقات؟",
+      "هل السعادة الفردية أهم من سعادة العلاقة؟",
+      "كيف تعبر عن الحاجة دون أن تبدو ضعيفاً؟",
+      "ما هي أكثر صفة تجذبك للآخرين؟",
+      "كيف تتعامل مع الشعور بالوحدة داخل العلاقة؟",
+      "ما هو دور الضحك والمرح في العلاقات؟",
+      "هل يمكن أن تكون السعادة معدية في العلاقات؟",
+      "كيف تعرف أن شخصاً ما يستحق ثقتك؟",
+      "ما هي أهمية القبول غير المشروط؟",
+      "كيف تتعامل مع خيانة الثقة؟",
+      "ما هو الفرق بين الحب والتعلق؟",
+      "كيف تعرف أنك تعطي أكثر مما تأخذ؟",
+      "ما هي أهمية النمو المشترك في العلاقات؟",
+      "كيف تحافظ على الشغف في علاقة طويلة المدى؟"
     ],
   },
   {
@@ -350,7 +511,29 @@ const promptTopics = [
       "هل يهمك ما سيقوله الناس عنك بعد موتك؟ وهل يعطي ذلك معنى لحياتك؟",
       "هل حقيقة أن كل من يعيش سيموت تجعل همومنا سخيفة؟",
       "لو بقي لك يوم واحد فقط، كيف ستقضيه ليكون ذا معنى؟",
-      "ما الأشياء الجيدة في الحياة التي يضيفها إدراك حقيقة الموت؟"
+      "ما الأشياء الجيدة في الحياة التي يضيفها إدراك حقيقة الموت؟",
+      "كيف تتعامل مع الفشل المتكرر؟",
+      "ما هو أكثر شيء تعلمته من الخسارة؟",
+      "هل الأمل يساعد دائماً أم يضر أحياناً؟",
+      "كيف تجد القوة في أضعف لحظاتك؟",
+      "ما هي التجربة الصعبة التي صنعت منك من أنت؟",
+      "هل الصمود الصامت أفضل أم طلب المساعدة؟",
+      "كيف تتعافى من الصدمات العاطفية؟",
+      "ما هو دور الإيمان في مواجهة التحديات؟",
+      "هل الضعف علامة قوة أم ضعف؟",
+      "كيف تحول المعاناة إلى حكمة؟",
+      "ما هي أكثر لحظة شعرت فيها باليأس؟",
+      "كيف تساعد الآخرين في أوقاتهم الصعبة؟",
+      "هل الألم ضروري للنضج؟",
+      "ما هو أكبر خوف تغلبت عليه؟",
+      "كيف تحافظ على الأمل في الظروف المستحيلة؟",
+      "ما هي أهمية البكاء والتعبير عن الألم؟",
+      "هل التفاؤل موهبة أم اختيار؟",
+      "كيف توازن بين الواقعية والأمل؟",
+      "ما هو الشيء الذي يمنحك القوة للاستمرار؟",
+      "كيف تتعامل مع خسارة شخص عزيز؟",
+      "هل الندم مفيد أم مدمر؟",
+      "كيف تجد النور في أحلك الأوقات؟"
     ],
   },
   {
@@ -388,7 +571,27 @@ const promptTopics = [
       "لو كان بإمكانك تغيير حدث واحد في التاريخ، ماذا ستغير؟",
       "لو كان عليك أن تختار بين الثروة أو الصحة، ماذا ستختار؟",
       "لو كان بإمكانك امتلاك أي موهبة، ماذا ستختار؟",
-      "لو كان عليك أن تعيش في عالم خيالي، أي عالم ستختار؟"
+      "لو كان عليك أن تعيش في عالم خيالي، أي عالم ستختار؟",
+      "لو كان بإمكانك تغيير شيء في ماضيك، ماذا ستغير؟",
+      "لو كان عليك اختيار طريقة واحدة لترك أثر، ماذا ستختار؟",
+      "لو كان بإمكانك قراءة أفكار الآخرين، هل ستفعل؟",
+      "لو كان عليك العيش بدون حاسة واحدة، أيها ستختار؟",
+      "لو كان بإمكانك رؤية المستقبل، هل تريد ذلك؟",
+      "لو كان عليك كتابة كتاب عن حياتك، ما العنوان؟",
+      "لو كان بإمكانك التحدث مع نفسك الأصغر، ماذا ستقول؟",
+      "لو كان عليك اختيار مكان للعيش مدى الحياة، أين؟",
+      "لو كان بإمكانك إتقان أي علم، أي علم ستختار؟",
+      "لو كان عليك التخلي عن التكنولوجيا، هل تستطيع؟",
+      "لو كان بإمكانك البقاء بعمر معين للأبد، أي عمر؟",
+      "لو كان عليك اختيار شخص واحد للبقاء معه، من ستختار؟",
+      "لو كان بإمكانك حل مشكلة عالمية واحدة، ماذا ستختار؟",
+      "لو كان عليك العيش في أي قرن، أي قرن ستختار؟",
+      "لو كان بإمكانك تبديل حياتك بشخص آخر ليوم، من ستختار؟",
+      "لو كان عليك نسيان ذكرى واحدة، أيها ستختار؟",
+      "لو كان بإمكانك العيش تحت الماء أو الطيران، ماذا تختار؟",
+      "لو كان عليك تعليم مهارة واحدة للجميع، ماذا ستختار؟",
+      "لو كان بإمكانك إعادة عيش سنة واحدة، أي سنة؟",
+      "لو كان عليك اختيار شعار لحياتك، ماذا سيكون؟"
     ],
   },
 ];
@@ -416,8 +619,8 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
   const [randomQuestion, setRandomQuestion] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   
-  // Random mode states
-  const [randomCategory, setRandomCategory] = useState<typeof promptTopics[0] | null>(null);
+  // Random mode states - Support multiple categories
+  const [selectedCategories, setSelectedCategories] = useState<typeof promptTopics>([]);
   const [randomHistory, setRandomHistory] = useState<string[]>([]);
   const [randomCurrentIndex, setRandomCurrentIndex] = useState(-1);
 
@@ -441,13 +644,24 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }, 300);
   };
 
-  // Random mode functions
+  // Random mode functions - Get combined questions from all selected categories
+  const getCombinedQuestions = () => {
+    const allQuestions: string[] = [];
+    selectedCategories.forEach(cat => {
+      allQuestions.push(...cat.questions);
+    });
+    return allQuestions;
+  };
+
   const getRandomQuestionFromCategory = () => {
-    if (!randomCategory || randomCategory.questions.length === 0) return;
+    if (selectedCategories.length === 0) return;
+    
+    const allQuestions = getCombinedQuestions();
+    if (allQuestions.length === 0) return;
     
     setIsAnimating(true);
-    const randomIndex = Math.floor(Math.random() * randomCategory.questions.length);
-    const question = randomCategory.questions[randomIndex];
+    const randomIndex = Math.floor(Math.random() * allQuestions.length);
+    const question = allQuestions[randomIndex];
     
     setTimeout(() => {
       // Add to history if it's a new question
@@ -457,6 +671,19 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       setRandomCurrentIndex(newHistory.length - 1);
       setIsAnimating(false);
     }, 300);
+  };
+
+  // Toggle category selection
+  const toggleCategory = (topic: typeof promptTopics[0]) => {
+    const isSelected = selectedCategories.some(cat => cat.id === topic.id);
+    if (isSelected) {
+      setSelectedCategories(selectedCategories.filter(cat => cat.id !== topic.id));
+    } else {
+      setSelectedCategories([...selectedCategories, topic]);
+    }
+    // Reset history when categories change
+    setRandomHistory([]);
+    setRandomCurrentIndex(-1);
   };
 
   const goToPreviousQuestion = () => {
@@ -481,7 +708,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       setSelectedDepth("all");
       setRandomQuestion(null);
       setViewMode("topics");
-      setRandomCategory(null);
+      setSelectedCategories([]);
       setRandomHistory([]);
       setRandomCurrentIndex(-1);
     }
@@ -563,8 +790,8 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
             <button
               onClick={() => {
                 setViewMode("random");
-                if (!randomCategory) {
-                  setRandomCategory(promptTopics[0]);
+                if (selectedCategories.length === 0) {
+                  setSelectedCategories([promptTopics[0]]);
                 }
               }}
               className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg transition-all duration-300 text-sm font-medium ${
@@ -657,27 +884,31 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
             {viewMode === "random" ? (
               // Random Questions View
               <div className="space-y-6">
-                {/* Category Selector */}
+                {/* Category Selector - Multi-select */}
                 <div className="space-y-3">
                   <h3 className="text-lg font-bold text-white flex items-center gap-2">
                     <Filter className="w-5 h-5 text-purple-400" />
-                    اختر الفئة
+                    اختر الفئات ({selectedCategories.length})
                   </h3>
+                  <p className="text-slate-400 text-sm">يمكنك اختيار فئات متعددة للحصول على أسئلة متنوعة</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
-                    {promptTopics.map((topic) => (
+                    {promptTopics.map((topic) => {
+                      const isSelected = selectedCategories.some(cat => cat.id === topic.id);
+                      return (
                       <button
                         key={topic.id}
-                        onClick={() => {
-                          setRandomCategory(topic);
-                          setRandomHistory([]);
-                          setRandomCurrentIndex(-1);
-                        }}
-                        className={`group p-3 rounded-xl border transition-all duration-300 ${
-                          randomCategory?.id === topic.id
-                            ? "border-purple-400 bg-purple-500/20 shadow-lg"
+                        onClick={() => toggleCategory(topic)}
+                        className={`group p-3 rounded-xl border transition-all duration-300 relative ${
+                          isSelected
+                            ? "border-purple-400 bg-purple-500/20 shadow-lg ring-2 ring-purple-400/30"
                             : "border-slate-700 bg-slate-800/50 hover:border-purple-400/50 hover:bg-slate-800/70"
                         }`}
                       >
+                        {isSelected && (
+                          <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+                            <CheckCircle className="w-4 h-4 text-white" />
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 mb-1">
                           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                             topic.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
@@ -694,19 +925,15 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                           {topic.questions.length} سؤال
                         </p>
                       </button>
-                    ))}
+                    )})}
                   </div>
                 </div>
 
                 {/* Question Display */}
-                {randomCategory && (
+                {selectedCategories.length > 0 && (
                   <div className="space-y-4">
                     {randomHistory.length > 0 && randomCurrentIndex >= 0 ? (
-                      <div className={`relative p-6 sm:p-8 rounded-2xl border-2 shadow-2xl ${
-                        randomCategory.depth === "shallow" ? 'bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border-cyan-400/50' :
-                        randomCategory.depth === "medium" ? 'bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-400/50' :
-                        'bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-400/50'
-                      } ${isAnimating ? 'animate-pulse' : ''}`}>
+                      <div className="relative p-6 sm:p-8 rounded-2xl border-2 shadow-2xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border-purple-400/50">
                         {/* Question Number */}
                         <div className="absolute top-4 left-4 px-3 py-1 rounded-full bg-slate-800/80 border border-slate-600/50">
                           <span className="text-xs font-bold text-slate-300">
@@ -714,25 +941,24 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                           </span>
                         </div>
 
-                        {/* Category Badge */}
-                        <div className="flex items-center gap-2 mb-4">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                            randomCategory.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
-                            randomCategory.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
-                            'bg-gradient-to-r from-purple-500 to-pink-500'
-                          } shadow-lg`}>
-                            {React.cloneElement(randomCategory.icon, { className: "w-5 h-5 text-white" })}
-                          </div>
-                          <div>
-                            <h4 className="text-sm font-bold text-white">{randomCategory.title}</h4>
-                            <p className={`text-xs ${
-                              randomCategory.depth === "shallow" ? 'text-cyan-300' :
-                              randomCategory.depth === "medium" ? 'text-green-300' :
-                              'text-purple-300'
-                            }`}>
-                              {depthLabels[randomCategory.depth as keyof typeof depthLabels]}
-                            </p>
-                          </div>
+                        {/* Selected Categories Badge */}
+                        <div className="flex items-center gap-2 mb-4 flex-wrap">
+                          <span className="text-xs text-slate-400">من:</span>
+                          {selectedCategories.slice(0, 3).map((cat, idx) => (
+                            <div key={cat.id} className="flex items-center gap-1">
+                              <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                                cat.depth === "shallow" ? 'bg-gradient-to-r from-cyan-500 to-blue-500' :
+                                cat.depth === "medium" ? 'bg-gradient-to-r from-green-500 to-emerald-500' :
+                                'bg-gradient-to-r from-purple-500 to-pink-500'
+                              } shadow-md`}>
+                                {React.cloneElement(cat.icon, { className: "w-3 h-3 text-white" })}
+                              </div>
+                              <span className="text-xs text-white">{cat.title.split(' ')[0]}</span>
+                            </div>
+                          ))}
+                          {selectedCategories.length > 3 && (
+                            <span className="text-xs text-slate-400">+{selectedCategories.length - 3}</span>
+                          )}
                         </div>
 
                         {/* Question Text */}
@@ -756,11 +982,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                               setCopiedIndex(-2);
                               setTimeout(() => setCopiedIndex(null), 1200);
                             }}
-                            className={`px-4 py-3 rounded-xl transition-all duration-300 ${
-                              randomCategory.depth === "shallow" ? 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300' :
-                              randomCategory.depth === "medium" ? 'bg-green-500/20 hover:bg-green-500/30 text-green-300' :
-                              'bg-purple-500/20 hover:bg-purple-500/30 text-purple-300'
-                            }`}
+                            className="px-4 py-3 rounded-xl transition-all duration-300 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300"
                           >
                             <Copy className="w-5 h-5" />
                             {copiedIndex === -2 && (

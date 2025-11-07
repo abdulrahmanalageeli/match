@@ -356,14 +356,6 @@ export default function WelcomePage() {
   
   // Question transition animation
   const [questionTransition, setQuestionTransition] = useState<'none' | 'next' | 'prev'>('none');
-  
-  // Track visited questions for engagement metrics
-  const [visitedQuestions, setVisitedQuestions] = useState<Set<number>>(new Set([0]));
-  
-  // Swipe gesture state
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
-  const [swipeOffset, setSwipeOffset] = useState(0);
 
   // Token validation states
   const [isTokenValid, setIsTokenValid] = useState<boolean | null>(null);
@@ -775,11 +767,6 @@ export default function WelcomePage() {
   
   // Select the active question set based on state
   const currentQuestions = activeQuestionSet === 'event' ? eventQuestions : round1Questions;
-  
-  // Track max level reached for engagement metrics
-  const maxLevelReached = useMemo(() => {
-    return Math.max(...Array.from(visitedQuestions).map(idx => currentQuestions[idx]?.level || 0));
-  }, [visitedQuestions, currentQuestions]);
 
   // Safety check: Reset question index if out of bounds when switching question sets
   useEffect(() => {
@@ -787,67 +774,6 @@ export default function WelcomePage() {
       setCurrentQuestionIndex(0);
     }
   }, [activeQuestionSet, currentQuestions.length, currentQuestionIndex]);
-  
-  // Track visited questions when index changes
-  useEffect(() => {
-    setVisitedQuestions(prev => new Set([...prev, currentQuestionIndex]));
-  }, [currentQuestionIndex]);
-  
-  // Reset visited questions when switching question sets
-  useEffect(() => {
-    setVisitedQuestions(new Set([0]));
-  }, [activeQuestionSet]);
-  
-  // Swipe gesture handlers
-  const minSwipeDistance = 50;
-  
-  const handleTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
-  };
-  
-  const handleTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
-    if (touchStart !== null) {
-      const distance = e.targetTouches[0].clientX - touchStart;
-      setSwipeOffset(Math.max(-100, Math.min(100, distance * 0.3)));
-    }
-  };
-  
-  const handleTouchEnd = () => {
-    if (!touchStart || !touchEnd) {
-      setSwipeOffset(0);
-      return;
-    }
-    
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-    
-    if (isLeftSwipe && currentQuestionIndex < currentQuestions.length - 1) {
-      // Swipe left = next question
-      setQuestionTransition('next');
-      setCurrentQuestionIndex(prev => prev + 1);
-      setTimeout(() => setQuestionTransition('none'), 400);
-    } else if (isRightSwipe && currentQuestionIndex > 0) {
-      // Swipe right = previous question
-      setQuestionTransition('prev');
-      setCurrentQuestionIndex(prev => prev - 1);
-      setTimeout(() => setQuestionTransition('none'), 400);
-    }
-    
-    setSwipeOffset(0);
-    setTouchStart(null);
-    setTouchEnd(null);
-  };
-  
-  // Helper function for question navigation
-  const navigateToQuestion = (index: number) => {
-    if (index === currentQuestionIndex) return;
-    setQuestionTransition(index > currentQuestionIndex ? 'next' : 'prev');
-    setCurrentQuestionIndex(index);
-    setTimeout(() => setQuestionTransition('none'), 400);
-  };
 
   // Add these refs near the top of your component
   const lastRoundRef = useRef<number | null>(null);
@@ -6745,123 +6671,82 @@ export default function WelcomePage() {
                     </div>
                   )}
                   
-                  {/* Hero Timer Card */}
-                  <div className="sticky top-0 z-40 mb-6">
-                    <div className={`backdrop-blur-2xl rounded-2xl p-4 sm:p-6 shadow-2xl border-2 ${
-                      conversationTimer <= 300 
-                        ? dark
-                          ? "bg-red-500/10 border-red-400 animate-pulse"
-                          : "bg-red-50/90 border-red-400 animate-pulse"
-                        : conversationTimer <= 600
-                          ? dark
-                            ? "bg-orange-500/10 border-orange-400"
-                            : "bg-orange-50/90 border-orange-400"
-                          : dark
-                            ? "bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-400/30"
-                            : "bg-gradient-to-r from-cyan-50/90 to-blue-50/90 border-cyan-400/30"
-                    }`}>
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                        {/* Left: Partner + Table (horizontal on mobile, side by side) */}
-                        <div className="flex items-center gap-3 sm:gap-4">
-                          <div className="text-center">
-                            <Users className={`w-4 h-4 mx-auto mb-1 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
-                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>شريكك</p>
-                            <p className={`text-base sm:text-lg font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                              {matchResult === "المنظم" ? "المنظم" : `#${matchResult}`}
-                            </p>
-                          </div>
-                          <div className={`w-px h-12 ${dark ? "bg-slate-600" : "bg-gray-300"}`} />
-                          <div className="text-center">
-                            {tableNumber ? (
-                              <>
-                                <Target className={`w-4 h-4 mx-auto mb-1 ${dark ? "text-purple-400" : "text-purple-600"}`} />
-                                <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>الطاولة</p>
-                                <p className={`text-base sm:text-lg font-bold ${dark ? "text-purple-300" : "text-purple-700"}`}>
-                                  #{tableNumber}
-                                </p>
-                              </>
-                            ) : (
-                              <>
-                                <Clock className={`w-4 h-4 mx-auto mb-1 ${dark ? "text-amber-400" : "text-amber-600"}`} />
-                                <p className={`text-xs ${dark ? "text-amber-300" : "text-amber-700"}`}>قريباً</p>
-                              </>
-                            )}
-                          </div>
+                  {/* Match Info Card - Compact */}
+                  <div className={`mb-6 p-4 rounded-xl border shadow-md ${
+                    dark 
+                      ? "bg-slate-800/50 border-slate-600/50"
+                      : "bg-white/80 border-gray-200"
+                  }`}>
+                    {/* Partner & Table Info - Single Row */}
+                    <div className="flex items-center justify-between gap-4">
+                      {/* Partner Info */}
+                      <div className="flex flex-col items-center gap-2 flex-1">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          dark 
+                            ? "bg-cyan-600/30 border border-cyan-500/50"
+                            : "bg-cyan-100 border border-cyan-300"
+                        }`}>
+                          <Users className={`w-4 h-4 ${
+                            dark ? "text-cyan-400" : "text-cyan-600"
+                          }`} />
                         </div>
-
-                        {/* Center: Giant Timer */}
-                        <div className="flex-1 text-center">
-                          <div className={`text-4xl sm:text-5xl font-mono font-bold tabular-nums ${
-                            conversationTimer <= 300 
-                              ? dark ? "text-red-300" : "text-red-600"
-                              : conversationTimer <= 600
-                                ? dark ? "text-orange-300" : "text-orange-600"
-                                : dark ? "text-cyan-300" : "text-cyan-700"
+                        <div className="text-center">
+                          <p className={`text-sm ${
+                            dark ? "text-slate-400" : "text-gray-500"
                           }`}>
-                            {Math.floor(conversationTimer / 60)}:{(conversationTimer % 60).toString().padStart(2, '0')}
-                          </div>
-                          <p className={`text-xs sm:text-sm mt-1 ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                            {conversationTimer <= 300 ? "🔥 الوقت ينفد!" : conversationTimer <= 600 ? "⏰ قريب من الانتهاء" : "متبقي"}
+                            شريكك
+                          </p>
+                          <p className={`text-xl font-bold ${
+                            dark ? "text-cyan-300" : "text-cyan-700"
+                          }`}>
+                            {matchResult === "المنظم" ? "المنظم" : `#${matchResult}`}
                           </p>
                         </div>
-
-                        {/* Right: Engagement Stats (hide on mobile) */}
-                        <div className="hidden sm:flex items-center gap-3">
-                          <div className="text-center">
-                            <div className={`w-8 h-8 rounded-full mx-auto mb-1 flex items-center justify-center ${
-                              dark ? "bg-cyan-500/20" : "bg-cyan-100"
-                            }`}>
-                              <MessageSquare className={`w-4 h-4 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
-                            </div>
-                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>أسئلة</p>
-                            <p className={`text-sm font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                              {visitedQuestions.size}/{currentQuestions.length}
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <div className={`w-8 h-8 rounded-full mx-auto mb-1 flex items-center justify-center ${
-                              dark ? "bg-amber-500/20" : "bg-amber-100"
-                            }`}>
-                              <Layers className={`w-4 h-4 ${dark ? "text-amber-400" : "text-amber-600"}`} />
-                            </div>
-                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>مستوى</p>
-                            <p className={`text-sm font-bold ${dark ? "text-amber-300" : "text-amber-700"}`}>
-                              {maxLevelReached + 1}/5
-                            </p>
-                          </div>
-                        </div>
                       </div>
-                      
-                      {/* Mobile Engagement Stats (show only on mobile) */}
-                      <div className={`flex sm:hidden items-center justify-center gap-6 mt-4 pt-4 border-t ${
-                        dark ? "border-slate-600" : "border-gray-300"
-                      }`}>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            dark ? "bg-cyan-500/20" : "bg-cyan-100"
-                          }`}>
-                            <MessageSquare className={`w-4 h-4 ${dark ? "text-cyan-400" : "text-cyan-600"}`} />
-                          </div>
-                          <div>
-                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>أسئلة مستكشفة</p>
-                            <p className={`text-sm font-bold ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
-                              {visitedQuestions.size}/{currentQuestions.length}
+
+                      {/* Divider */}
+                      <div className={`w-px h-16 ${
+                        dark ? "bg-slate-600" : "bg-gray-300"
+                      }`}></div>
+
+                      {/* Table Info */}
+                      <div className="flex flex-col items-center gap-2 flex-1">
+                        {tableNumber ? (
+                          <>
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                              dark 
+                                ? "bg-purple-600/30 border border-purple-500/50"
+                                : "bg-purple-100 border border-purple-300"
+                            }`}>
+                              <Target className={`w-4 h-4 ${
+                                dark ? "text-purple-400" : "text-purple-600"
+                              }`} />
+                            </div>
+                            <div className="text-center">
+                              <p className={`text-sm ${
+                                dark ? "text-slate-400" : "text-gray-500"
+                              }`}>
+                                الطاولة
+                              </p>
+                              <p className={`text-xl font-bold ${
+                                dark ? "text-purple-300" : "text-purple-700"
+                              }`}>
+                                #{tableNumber}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <Clock className={`w-5 h-5 ${
+                              dark ? "text-amber-400" : "text-amber-600"
+                            }`} />
+                            <p className={`text-sm ${
+                              dark ? "text-amber-300" : "text-amber-700"
+                            }`}>
+                              قريباً
                             </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            dark ? "bg-amber-500/20" : "bg-amber-100"
-                          }`}>
-                            <Layers className={`w-4 h-4 ${dark ? "text-amber-400" : "text-amber-600"}`} />
-                          </div>
-                          <div>
-                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-500"}`}>مستوى العمق</p>
-                            <p className={`text-sm font-bold ${dark ? "text-amber-300" : "text-amber-700"}`}>
-                              {maxLevelReached + 1}/5
-                            </p>
-                          </div>
-                        </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -6967,32 +6852,16 @@ export default function WelcomePage() {
                         </p>
                       </div>
 
-                      {/* Question Card with Swipe Gestures */}
+                      {/* Question Card */}
                       <div 
-                        onTouchStart={handleTouchStart}
-                        onTouchMove={handleTouchMove}
-                        onTouchEnd={handleTouchEnd}
                         className={`relative p-6 rounded-xl border ${
                           dark 
                             ? "bg-slate-800/50 border-slate-600/50" 
                             : "bg-white/80 border-gray-200"
-                        } shadow-lg backdrop-blur-sm touch-pan-y transition-transform duration-200 ${
+                        } shadow-lg backdrop-blur-sm ${
                           questionTransition === 'next' ? 'animate-slide-in-right' : 
                           questionTransition === 'prev' ? 'animate-slide-in-left' : ''
-                        }`}
-                        style={{ transform: `translateX(${swipeOffset}px)` }}>
-                        
-                        {/* Swipe Indicators */}
-                        {currentQuestionIndex > 0 && (
-                          <div className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-cyan-500/20 to-transparent pointer-events-none rounded-r-xl flex items-center justify-end pr-2">
-                            <ChevronRight className={`w-5 h-5 ${dark ? "text-cyan-400" : "text-cyan-600"} opacity-50`} />
-                          </div>
-                        )}
-                        {currentQuestionIndex < currentQuestions.length - 1 && (
-                          <div className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-cyan-500/20 to-transparent pointer-events-none rounded-l-xl flex items-center justify-start pl-2">
-                            <ChevronLeft className={`w-5 h-5 ${dark ? "text-cyan-400" : "text-cyan-600"} opacity-50`} />
-                          </div>
-                        )}
+                        }`}>
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
@@ -7148,49 +7017,31 @@ export default function WelcomePage() {
                           </button>
                         </div>
 
-                        {/* Quick Jump Grid */}
-                        <div className="mt-6">
-                          <div className="flex justify-between items-center mb-3">
-                            <span className={`text-xs font-medium ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                              السؤال {currentQuestionIndex + 1} من {currentQuestions.length}
-                            </span>
-                            <span className={`text-xs ${dark ? "text-slate-500" : "text-gray-400"}`}>
-                              اضغط للانتقال
-                            </span>
+                        {/* Progress Bar */}
+                        <div className="mt-4">
+                          <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
+                            <div 
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                currentQuestions[currentQuestionIndex].level === 0
+                                  ? "bg-gradient-to-r from-emerald-500 to-green-500"
+                                  : currentQuestions[currentQuestionIndex].level === 1
+                                    ? "bg-gradient-to-r from-cyan-500 to-blue-600"
+                                    : currentQuestions[currentQuestionIndex].level === 2
+                                      ? "bg-gradient-to-r from-amber-500 to-orange-600"
+                                      : currentQuestions[currentQuestionIndex].level === 3
+                                        ? "bg-gradient-to-r from-purple-500 to-pink-600"
+                                        : "bg-gradient-to-r from-green-500 to-teal-600"
+                              }`}
+                              style={{ width: `${((currentQuestionIndex + 1) / currentQuestions.length) * 100}%` }}
+                            />
                           </div>
-                          <div className="grid grid-cols-10 gap-2">
-                            {currentQuestions.map((q, idx) => {
-                              const isVisited = visitedQuestions.has(idx);
-                              const isCurrent = idx === currentQuestionIndex;
-                              
-                              // Determine color classes based on level
-                              let bgClass = "";
-                              if (isCurrent) {
-                                bgClass = q.level === 0 ? "bg-emerald-400 ring-2 ring-emerald-400/50 scale-125" :
-                                         q.level === 1 ? "bg-cyan-400 ring-2 ring-cyan-400/50 scale-125" :
-                                         q.level === 2 ? "bg-amber-400 ring-2 ring-amber-400/50 scale-125" :
-                                         q.level === 3 ? "bg-purple-400 ring-2 ring-purple-400/50 scale-125" :
-                                         "bg-green-400 ring-2 ring-green-400/50 scale-125";
-                              } else if (isVisited) {
-                                bgClass = q.level === 0 ? "bg-emerald-600/50 hover:bg-emerald-500/70" :
-                                         q.level === 1 ? "bg-cyan-600/50 hover:bg-cyan-500/70" :
-                                         q.level === 2 ? "bg-amber-600/50 hover:bg-amber-500/70" :
-                                         q.level === 3 ? "bg-purple-600/50 hover:bg-purple-500/70" :
-                                         "bg-green-600/50 hover:bg-green-500/70";
-                              } else {
-                                bgClass = dark ? "bg-slate-700 hover:bg-slate-600" : "bg-gray-300 hover:bg-gray-400";
-                              }
-                              
-                              return (
-                                <button
-                                  key={idx}
-                                  onClick={() => navigateToQuestion(idx)}
-                                  className={`h-2 rounded-full transition-all duration-300 ${bgClass}`}
-                                  aria-label={`السؤال ${idx + 1}`}
-                                  title={q.title}
-                                />
-                              );
-                            })}
+                          <div className="flex justify-between text-xs mt-1">
+                            <span className={dark ? "text-slate-400" : "text-gray-500"}>
+                              السؤال {currentQuestionIndex + 1}
+                            </span>
+                            <span className={dark ? "text-slate-400" : "text-gray-500"}>
+                              من {currentQuestions.length}
+                            </span>
                           </div>
                         </div>
                       </div>

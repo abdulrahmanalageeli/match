@@ -1749,7 +1749,7 @@ export default function GroupsPage() {
               ألعاب جماعية
             </h1>
             <p className="text-slate-300 text-lg animate-in slide-in-from-top duration-500" style={{animationDelay: '400ms'}}>
-              30 دقيقة من المرح والتفاعل
+              45 دقيقة من المرح والتفاعل
             </p>
             <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-500/30 animate-in zoom-in duration-500" style={{animationDelay: '500ms'}}>
               <Clock className="w-4 h-4 text-cyan-400" />
@@ -1840,7 +1840,7 @@ export default function GroupsPage() {
                       <Clock className="w-5 h-5 text-cyan-300" />
                     </div>
                     <div className="text-center">
-                      <p className="text-cyan-100 font-bold text-base">30 دقيقة للأنشطة</p>
+                      <p className="text-cyan-100 font-bold text-base">45 دقيقة للأنشطة</p>
                       <p className="text-cyan-300/80 text-xs">ثم تبدأ الجولات الفردية</p>
                     </div>
                   </div>

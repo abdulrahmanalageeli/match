@@ -892,6 +892,44 @@ export default async function handler(req, res) {
       }
     }
 
+    if (action === "get-match-results-for-export") {
+      try {
+        const { event_id } = req.body
+        console.log(`Fetching match results for export - event_id: ${event_id}`)
+        
+        // Fetch all individual matches from match_results table
+        const { data: matches, error: matchError } = await supabase
+          .from("match_results")
+          .select(`
+            participant_a_number,
+            participant_b_number,
+            compatibility_score,
+            round,
+            table_number,
+            match_type,
+            event_id,
+            created_at
+          `)
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id || 1)
+          .not("round", "is", null)
+          .gt("round", 0)
+          .order("round", { ascending: true })
+          .order("table_number", { ascending: true })
+        
+        if (matchError) {
+          console.error("Error fetching match results:", matchError)
+          return res.status(500).json({ error: matchError.message })
+        }
+        
+        console.log(`✅ Fetched ${matches.length} individual match results`)
+        return res.status(200).json({ matches })
+      } catch (err) {
+        console.error("Error getting match results for export:", err)
+        return res.status(500).json({ error: "Failed to get match results" })
+      }
+    }
+
     if (action === "set-registration-enabled") {
       try {
         const { enabled } = req.body

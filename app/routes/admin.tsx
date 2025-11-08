@@ -997,13 +997,13 @@ const fetchParticipants = async () => {
     try {
       setLoading(true)
       
-      // Fetch all match history which includes all match results
+      // Fetch match results directly from match_results table
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          action: "get-all-match-history",
-          match_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479" // STATIC_MATCH_ID
+          action: "get-match-results-for-export",
+          event_id: currentEventId
         }),
       })
       
@@ -1013,14 +1013,9 @@ const fetchParticipants = async () => {
       }
       
       const data = await res.json()
-      const allMatches = data.matches || []
+      const matches = data.matches || []
       
-      // Filter for individual matches (round > 0) and current event
-      const individualMatches = allMatches.filter((m: any) => 
-        m.round && m.round > 0 && m.event_id === currentEventId
-      )
-      
-      if (individualMatches.length === 0) {
+      if (matches.length === 0) {
         toast.error("No individual matches found for current event")
         return
       }
@@ -1045,7 +1040,7 @@ const fetchParticipants = async () => {
       let csvContent = "\uFEFF" // UTF-8 BOM
       csvContent += "Participant A Number,Participant A Name,Participant B Number,Participant B Name,Compatibility Score,Round,Table Number,Match Type\n"
       
-      individualMatches.forEach((match: any) => {
+      matches.forEach((match: any) => {
         const nameA = nameMap.get(match.participant_a_number) || `المشارك #${match.participant_a_number}`
         const nameB = nameMap.get(match.participant_b_number) || `المشارك #${match.participant_b_number}`
         const score = match.compatibility_score || 0
@@ -1067,7 +1062,7 @@ const fetchParticipants = async () => {
       link.click()
       document.body.removeChild(link)
       
-      toast.success(`Exported ${individualMatches.length} individual matches to CSV`)
+      toast.success(`Exported ${matches.length} individual matches to CSV`)
     } catch (error) {
       console.error("Error exporting individual matches:", error)
       toast.error("Failed to export matches")

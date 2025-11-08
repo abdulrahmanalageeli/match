@@ -48,16 +48,6 @@ interface Game {
 
 const games: Game[] = [
   {
-    id: "5-second-rule",
-    name: "5-Second Rule",
-    nameAr: "قاعدة الخمس ثواني",
-    description: "Name 3 things in 5 seconds",
-    descriptionAr: "سمّ 3 أشياء في 5 ثواني",
-    duration: 10,
-    icon: <Timer className="w-6 h-6" />,
-    color: "from-orange-500 to-red-500"
-  },
-  {
     id: "discussion-questions",
     name: "Discussion Questions",
     nameAr: "أسئلة للنقاش",
@@ -66,6 +56,16 @@ const games: Game[] = [
     duration: 10,
     icon: <Sparkles className="w-6 h-6" />,
     color: "from-purple-500 to-pink-500"
+  },
+  {
+    id: "5-second-rule",
+    name: "5-Second Rule",
+    nameAr: "قاعدة الخمس ثواني",
+    description: "Name 3 things in 5 seconds",
+    descriptionAr: "سمّ 3 أشياء في 5 ثواني",
+    duration: 10,
+    icon: <Timer className="w-6 h-6" />,
+    color: "from-orange-500 to-red-500"
   },
   {
     id: "charades",
@@ -993,8 +993,9 @@ export default function GroupsPage() {
                 {/* Recommended badge for first game */}
                 {index === 0 && (
                   <div className="absolute -top-2 -right-2 z-10">
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white/20 animate-pulse">
-                      ⭐ موصى به
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white/20 animate-pulse flex items-center gap-1">
+                      <span className="text-[10px]">⭐</span>
+                      <span>موصى به</span>
                     </div>
                   </div>
                 )}
@@ -1756,7 +1757,12 @@ export default function GroupsPage() {
                 {games.map((game, index) => (
                   <div 
                     key={game.id} 
-                    onClick={startSession}
+                    onClick={() => {
+                      // Start session and directly select this game
+                      setGameStarted(true);
+                      setTimerActive(true);
+                      startGame(game.id);
+                    }}
                     className="group relative bg-gradient-to-br from-slate-700/60 to-slate-800/60 rounded-2xl p-4 text-center cursor-pointer transition-all duration-300 hover:from-slate-700 hover:to-slate-800 hover:scale-105 active:scale-95 shadow-lg hover:shadow-2xl border border-slate-600/30 hover:border-cyan-500/50 overflow-hidden"
                   >
                     {/* Hover glow effect */}

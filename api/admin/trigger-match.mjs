@@ -1964,16 +1964,27 @@ export default async function handler(req, res) {
       
       // Calculate all valid pair compatibilities
       console.log(`🔢 Calculating compatibility for all valid pairs...`)
+      const totalPossiblePairs = participants.length * participants.length
+      console.log(`📊 Total calculations needed: ${totalPossiblePairs} (${participants.length} participants)`)
+      
       const compatibilityScores = []
       const compatibilityMatrix = []
       const participantMapping = []
       let cacheHits = 0
       let cacheMisses = 0
       let aiCalls = 0
+      let calculationsCompleted = 0
       
       for (let i = 0; i < participants.length; i++) {
         compatibilityMatrix[i] = []
+        
+        // Progress logging every 10 participants
+        if (i > 0 && i % 10 === 0) {
+          console.log(`⏳ Progress: ${i}/${participants.length} participants processed (${calculationsCompleted}/${totalPossiblePairs} calculations)`)
+        }
+        
         for (let j = 0; j < participants.length; j++) {
+          calculationsCompleted++
           if (i === j) {
             // Cannot match with self - assign very low score
             compatibilityMatrix[i][j] = 0
@@ -2046,11 +2057,18 @@ export default async function handler(req, res) {
         row.map(score => maxScore - score)
       )
       
-      console.log(`🧮 Running Hungarian algorithm...`)
-      const munkres = new Munkres()
-      const hungarianResults = munkres.compute(costMatrix)
+      console.log(`🧮 Running Hungarian algorithm on ${participants.length}x${participants.length} matrix...`)
+      console.log(`📏 Matrix dimensions: ${costMatrix.length}x${costMatrix[0]?.length}`)
       
-      console.log(`✅ Hungarian algorithm complete!`)
+      let hungarianResults
+      try {
+        const munkres = new Munkres()
+        hungarianResults = munkres.compute(costMatrix)
+        console.log(`✅ Hungarian algorithm complete! Found ${hungarianResults.length} assignments`)
+      } catch (munkresError) {
+        console.error(`❌ Munkres algorithm failed:`, munkresError)
+        throw new Error(`Hungarian algorithm failed: ${munkresError.message}`)
+      }
       
       // Extract matches from Hungarian results
       const hungarianMatches = []

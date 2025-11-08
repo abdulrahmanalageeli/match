@@ -33,7 +33,8 @@ import {
   Ban,
   FileText,
   Bug,
-  UserPlus
+  UserPlus,
+  Download
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -989,6 +990,156 @@ const fetchParticipants = async () => {
 
   const openMatrix = () => {
     window.open("/matrix", "_blank", "width=1000,height=800")
+  }
+
+  // Export Individual Matches to CSV
+  const exportIndividualMatchesCSV = async () => {
+    try {
+      setLoading(true)
+      
+      // Fetch all match history which includes all match results
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "get-all-match-history",
+          match_id: "f47ac10b-58cc-4372-a567-0e02b2c3d479" // STATIC_MATCH_ID
+        }),
+      })
+      
+      if (!res.ok) {
+        toast.error("Failed to fetch match results")
+        return
+      }
+      
+      const data = await res.json()
+      const allMatches = data.matches || []
+      
+      // Filter for individual matches (round > 0) and current event
+      const individualMatches = allMatches.filter((m: any) => 
+        m.round && m.round > 0 && m.event_id === currentEventId
+      )
+      
+      if (individualMatches.length === 0) {
+        toast.error("No individual matches found for current event")
+        return
+      }
+      
+      // Fetch participant names
+      const participantsRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "participants" }),
+      })
+      const participantsData = await participantsRes.json()
+      const allParticipants = participantsData.participants || []
+      
+      // Create name lookup map
+      const nameMap = new Map()
+      allParticipants.forEach((p: any) => {
+        const name = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`
+        nameMap.set(p.assigned_number, name)
+      })
+      
+      // Create CSV content with UTF-8 BOM for Excel compatibility
+      let csvContent = "\uFEFF" // UTF-8 BOM
+      csvContent += "Participant A Number,Participant A Name,Participant B Number,Participant B Name,Compatibility Score,Round,Table Number,Match Type\n"
+      
+      individualMatches.forEach((match: any) => {
+        const nameA = nameMap.get(match.participant_a_number) || `المشارك #${match.participant_a_number}`
+        const nameB = nameMap.get(match.participant_b_number) || `المشارك #${match.participant_b_number}`
+        const score = match.compatibility_score || 0
+        const round = match.round || ''
+        const table = match.table_number || ''
+        const matchType = match.match_type || ''
+        
+        csvContent += `${match.participant_a_number},"${nameA}",${match.participant_b_number},"${nameB}",${score},${round},${table},"${matchType}"\n`
+      })
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `individual_matches_event${currentEventId}_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success(`Exported ${individualMatches.length} individual matches to CSV`)
+    } catch (error) {
+      console.error("Error exporting individual matches:", error)
+      toast.error("Failed to export matches")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Export Group Tables to CSV
+  const exportGroupTablesCSV = async () => {
+    try {
+      setLoading(true)
+      
+      // Fetch group assignments
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "get-group-assignments",
+          event_id: currentEventId 
+        }),
+      })
+      
+      if (!res.ok) {
+        toast.error("Failed to fetch group assignments")
+        return
+      }
+      
+      const data = await res.json()
+      const groups = data.groupAssignments || []
+      
+      if (groups.length === 0) {
+        toast.error("No group assignments found for current event")
+        return
+      }
+      
+      // Create CSV content with UTF-8 BOM for Excel compatibility
+      let csvContent = "\uFEFF" // UTF-8 BOM
+      csvContent += "Group Number,Table Number,Participant Count,Participants,Compatibility Score\n"
+      
+      groups.forEach((group: any) => {
+        const groupNum = group.group_number || ''
+        const tableNum = group.table_number || ''
+        const participantCount = group.participant_count || 0
+        const score = group.compatibility_score || ''
+        
+        // Format participants as "Name1 (#1), Name2 (#2), ..."
+        const participantsList = group.participants
+          .map((p: any) => `${p.name} (#${p.number})`)
+          .join(', ')
+        
+        csvContent += `${groupNum},${tableNum},${participantCount},"${participantsList}",${score}\n`
+      })
+      
+      // Create and download file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const link = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      link.setAttribute('href', url)
+      link.setAttribute('download', `group_tables_event${currentEventId}_${new Date().toISOString().split('T')[0]}.csv`)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      toast.success(`Exported ${groups.length} groups to CSV`)
+    } catch (error) {
+      console.error("Error exporting groups:", error)
+      toast.error("Failed to export groups")
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Check if admin login is locked out
@@ -3613,6 +3764,32 @@ Proceed?`
                     <LogOut className="w-4 h-4" />
                   )}
                   Ready for Next Event
+                </button>
+
+                <button
+                  onClick={exportIndividualMatchesCSV}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Export Matches CSV
+                </button>
+
+                <button
+                  onClick={exportGroupTablesCSV}
+                  disabled={loading}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Export Groups CSV
                 </button>
               </div>
             </div>

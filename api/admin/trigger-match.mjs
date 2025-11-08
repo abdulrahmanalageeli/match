@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
+import Munkres from "munkres-js"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -1917,6 +1918,257 @@ export default async function handler(req, res) {
   }
 
   const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false } = req.body || {}
+  
+  // Handle Hungarian algorithm test (no database writes)
+  if (action === "test-hungarian") {
+    if (!eventId) {
+      return res.status(400).json({ error: "eventId is required" })
+    }
+    
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const startTime = Date.now()
+    
+    console.log(`🧪 HUNGARIAN ALGORITHM TEST START for event ${eventId}`)
+    
+    try {
+      // Fetch ALL participants (same as normal matching)
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+      
+      if (error) throw error
+      
+      // Filter for eligible participants (same as normal matching)
+      const eligibleParticipants = allParticipants.filter(p => isParticipantComplete(p))
+      
+      // Fetch excluded participants
+      const { data: excludedParticipantsData } = await supabase
+        .from("excluded_pairs")
+        .select("participant1_number")
+        .eq("match_id", match_id)
+        .in("participant2_number", [-1, -10])
+      
+      const excludedParticipantNumbers = (excludedParticipantsData || []).map(p => p.participant1_number)
+      
+      // Filter out excluded participants
+      const participants = eligibleParticipants.filter(p => !excludedParticipantNumbers.includes(p.assigned_number))
+      
+      console.log(`📊 Found ${participants.length} eligible participants for Hungarian test`)
+      
+      if (participants.length < 2) {
+        return res.status(400).json({ error: `Need at least 2 participants. Found ${participants.length} eligible out of ${allParticipants.length} total` })
+      }
+      
+      // Calculate all valid pair compatibilities
+      console.log(`🔢 Calculating compatibility for all valid pairs...`)
+      const compatibilityScores = []
+      const compatibilityMatrix = []
+      const participantMapping = []
+      let cacheHits = 0
+      let cacheMisses = 0
+      let aiCalls = 0
+      
+      for (let i = 0; i < participants.length; i++) {
+        compatibilityMatrix[i] = []
+        for (let j = 0; j < participants.length; j++) {
+          if (i === j) {
+            // Cannot match with self - assign very low score
+            compatibilityMatrix[i][j] = 0
+          } else {
+            const p1 = participants[i]
+            const p2 = participants[j]
+            
+            // Check constraints (gender, age, excluded pairs)
+            if (!checkGenderCompatibility(p1, p2) || 
+                !checkAgeCompatibility(p1, p2) ||
+                !checkInteractionStyleCompatibility(p1, p2) ||
+                isPairExcluded(p1.assigned_number, p2.assigned_number, excludedPairs)) {
+              compatibilityMatrix[i][j] = 0
+            } else {
+              // Calculate actual compatibility
+              const compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+              
+              // Track cache performance
+              if (compatibility.cached) {
+                cacheHits++
+              } else {
+                cacheMisses++
+                if (!skipAI && compatibility.vibeScore > 0) {
+                  aiCalls++
+                }
+              }
+              
+              const totalScore = compatibility.totalScore
+              compatibilityMatrix[i][j] = totalScore
+              
+              // Store for later analysis (only once per pair)
+              if (i < j) {
+                compatibilityScores.push({
+                  a: p1.assigned_number,
+                  b: p2.assigned_number,
+                  score: totalScore,
+                  mbtiScore: compatibility.mbtiScore,
+                  attachmentScore: compatibility.attachmentScore,
+                  communicationScore: compatibility.communicationScore,
+                  lifestyleScore: compatibility.lifestyleScore,
+                  coreValuesScore: compatibility.coreValuesScore,
+                  vibeScore: compatibility.vibeScore,
+                  humorMultiplier: compatibility.humorMultiplier,
+                  bonusType: compatibility.bonusType,
+                  reason: `MBTI: ${compatibility.mbtiScore}% + Attachment: ${compatibility.attachmentScore}% + Communication: ${compatibility.communicationScore}% + Lifestyle: ${compatibility.lifestyleScore}% + Core Values: ${compatibility.coreValuesScore}% + Vibe: ${compatibility.vibeScore}% (Humor: ${compatibility.humorMultiplier}x)`,
+                  aMBTI: p1.mbti_personality_type || p1.survey_data?.mbtiType,
+                  bMBTI: p2.mbti_personality_type || p2.survey_data?.mbtiType,
+                  aAttachment: p1.attachment_style || p1.survey_data?.attachmentStyle,
+                  bAttachment: p2.attachment_style || p2.survey_data?.attachmentStyle,
+                  aCommunication: p1.communication_style || p1.survey_data?.communicationStyle,
+                  bCommunication: p2.communication_style || p2.survey_data?.communicationStyle,
+                  aVibeDescription: p1.survey_data?.vibeDescription || '',
+                  bVibeDescription: p2.survey_data?.vibeDescription || '',
+                  aIdealPersonDescription: p1.survey_data?.idealPersonDescription || '',
+                  bIdealPersonDescription: p2.survey_data?.idealPersonDescription || ''
+                })
+              }
+            }
+          }
+        }
+        participantMapping[i] = participants[i].assigned_number
+      }
+      
+      console.log(`✅ Compatibility matrix calculated: ${participants.length}x${participants.length}`)
+      console.log(`📊 Cache performance: ${cacheHits} hits, ${cacheMisses} misses, ${aiCalls} AI calls`)
+      
+      // Convert to cost matrix (Hungarian algorithm minimizes cost, so we invert scores)
+      const maxScore = 100
+      const costMatrix = compatibilityMatrix.map(row => 
+        row.map(score => maxScore - score)
+      )
+      
+      console.log(`🧮 Running Hungarian algorithm...`)
+      const munkres = new Munkres()
+      const hungarianResults = munkres.compute(costMatrix)
+      
+      console.log(`✅ Hungarian algorithm complete!`)
+      
+      // Extract matches from Hungarian results
+      const hungarianMatches = []
+      const used = new Set()
+      
+      for (const [i, j] of hungarianResults) {
+        const p1Num = participantMapping[i]
+        const p2Num = participantMapping[j]
+        
+        // Skip self-matches and already-used participants
+        if (i !== j && !used.has(p1Num) && !used.has(p2Num) && compatibilityMatrix[i][j] > 0) {
+          used.add(p1Num)
+          used.add(p2Num)
+          
+          const pairScore = compatibilityScores.find(s => 
+            (s.a === p1Num && s.b === p2Num) || (s.a === p2Num && s.b === p1Num)
+          )
+          
+          hungarianMatches.push({
+            participant_a_number: p1Num,
+            participant_b_number: p2Num,
+            compatibility_score: Math.round(compatibilityMatrix[i][j]),
+            reason: pairScore?.reason || 'Compatibility calculated',
+            mbti_compatibility_score: pairScore?.mbtiScore || 0,
+            attachment_compatibility_score: pairScore?.attachmentScore || 0,
+            communication_compatibility_score: pairScore?.communicationScore || 0,
+            lifestyle_compatibility_score: pairScore?.lifestyleScore || 0,
+            core_values_compatibility_score: pairScore?.coreValuesScore || 0,
+            vibe_compatibility_score: pairScore?.vibeScore || 0,
+            humor_early_openness_bonus: pairScore?.bonusType || 'none'
+          })
+        }
+      }
+      
+      const totalTime = Date.now() - startTime
+      const totalCalculations = cacheHits + cacheMisses
+      const cacheHitRate = totalCalculations > 0 ? ((cacheHits / totalCalculations) * 100).toFixed(1) : '0.0'
+      
+      // Calculate comparison with greedy algorithm
+      const greedyMatches = []
+      const greedyUsed = new Set()
+      const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
+      
+      for (const pair of sortedPairs) {
+        if (!greedyUsed.has(pair.a) && !greedyUsed.has(pair.b)) {
+          greedyUsed.add(pair.a)
+          greedyUsed.add(pair.b)
+          greedyMatches.push(pair)
+        }
+      }
+      
+      const hungarianTotalScore = hungarianMatches.reduce((sum, m) => sum + m.compatibility_score, 0)
+      const greedyTotalScore = greedyMatches.reduce((sum, m) => sum + m.score, 0)
+      const hungarianAvg = hungarianMatches.length > 0 ? (hungarianTotalScore / hungarianMatches.length).toFixed(1) : 0
+      const greedyAvg = greedyMatches.length > 0 ? (greedyTotalScore / greedyMatches.length).toFixed(1) : 0
+      
+      console.log(`📊 COMPARISON:`)
+      console.log(`   Hungarian: ${hungarianMatches.length} matches, avg ${hungarianAvg}%, total ${hungarianTotalScore}%`)
+      console.log(`   Greedy: ${greedyMatches.length} matches, avg ${greedyAvg}%, total ${greedyTotalScore}%`)
+      console.log(`   Difference: ${(hungarianTotalScore - greedyTotalScore).toFixed(1)}% total, ${(hungarianAvg - greedyAvg).toFixed(1)}% avg`)
+      
+      const performance = {
+        totalTime: totalTime,
+        totalTimeSeconds: (totalTime / 1000).toFixed(1),
+        cacheHits: cacheHits,
+        cacheMisses: cacheMisses,
+        cacheHitRate: parseFloat(cacheHitRate),
+        aiCalls: aiCalls,
+        totalCalculations: totalCalculations,
+        avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0
+      }
+      
+      const calculatedPairs = compatibilityScores.map(pair => ({
+        participant_a: pair.a,
+        participant_b: pair.b,
+        compatibility_score: Math.round(pair.score),
+        mbti_compatibility_score: pair.mbtiScore,
+        attachment_compatibility_score: pair.attachmentScore,
+        communication_compatibility_score: pair.communicationScore,
+        lifestyle_compatibility_score: pair.lifestyleScore,
+        core_values_compatibility_score: pair.coreValuesScore,
+        vibe_compatibility_score: pair.vibeScore,
+        reason: pair.reason,
+        is_actual_match: hungarianMatches.some(match => 
+          (match.participant_a_number === pair.a && match.participant_b_number === pair.b) ||
+          (match.participant_a_number === pair.b && match.participant_b_number === pair.a)
+        )
+      }))
+      
+      return res.status(200).json({
+        message: `🧪 Hungarian Algorithm Test Complete (NO DATABASE WRITES)`,
+        algorithm: 'Hungarian (Optimal Assignment)',
+        count: hungarianMatches.length,
+        results: hungarianMatches,
+        performance: performance,
+        calculatedPairs: calculatedPairs,
+        comparison: {
+          hungarian: {
+            matches: hungarianMatches.length,
+            totalScore: hungarianTotalScore,
+            avgScore: parseFloat(hungarianAvg)
+          },
+          greedy: {
+            matches: greedyMatches.length,
+            totalScore: greedyTotalScore,
+            avgScore: parseFloat(greedyAvg)
+          },
+          difference: {
+            totalScore: hungarianTotalScore - greedyTotalScore,
+            avgScore: parseFloat((hungarianAvg - greedyAvg).toFixed(1))
+          }
+        }
+      })
+    } catch (error) {
+      console.error("❌ Hungarian test error:", error)
+      return res.status(500).json({ error: error.message })
+    }
+  }
   
   // Handle pre-cache action
   if (action === "pre-cache") {

@@ -2719,6 +2719,62 @@ Proceed?`
                   </button>
                   
                   <button
+                    onClick={async () => {
+                      if (!confirm(`🧪 Test Hungarian Algorithm?\n\nThis will:\n• Calculate all compatibility scores\n• Run Hungarian optimization algorithm\n• Compare with greedy algorithm\n• Show results in modal\n\n⚠️ NO DATABASE WRITES - Testing only!\n\nContinue?`)) return
+                      setLoading(true)
+                      const res = await fetch("/api/admin/trigger-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          action: "test-hungarian",
+                          eventId: currentEventId
+                        }),
+                      })
+                      const data = await res.json()
+                      setLoading(false)
+                      
+                      if (res.ok) {
+                        const comparison = data.comparison
+                        let successMessage = `🧪 ${data.message}\n\n`
+                        successMessage += `📊 HUNGARIAN (Optimal):\n`
+                        successMessage += `   Matches: ${comparison.hungarian.matches}\n`
+                        successMessage += `   Average: ${comparison.hungarian.avgScore}%\n`
+                        successMessage += `   Total: ${comparison.hungarian.totalScore}%\n\n`
+                        successMessage += `🔄 GREEDY (Current):\n`
+                        successMessage += `   Matches: ${comparison.greedy.matches}\n`
+                        successMessage += `   Average: ${comparison.greedy.avgScore}%\n`
+                        successMessage += `   Total: ${comparison.greedy.totalScore}%\n\n`
+                        successMessage += `📈 DIFFERENCE:\n`
+                        successMessage += `   Total: ${comparison.difference.totalScore > 0 ? '+' : ''}${comparison.difference.totalScore.toFixed(1)}%\n`
+                        successMessage += `   Avg: ${comparison.difference.avgScore > 0 ? '+' : ''}${comparison.difference.avgScore}%\n`
+                        
+                        if (data.performance) {
+                          successMessage += `\n⚡ Performance:\n`
+                          successMessage += `   Time: ${data.performance.totalTimeSeconds}s\n`
+                          successMessage += `   Cache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)\n`
+                          successMessage += `   AI calls: ${data.performance.aiCalls}\n`
+                        }
+                        
+                        alert(successMessage)
+                        
+                        // Show results in modal
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                      } else {
+                        alert(`❌ Hungarian test failed:\n\n${data.error || "Unknown error"}`)
+                      }
+                    }}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Activity className="w-3.5 h-3.5" />
+                    )}
+                    🧪 Test Hungarian
+                  </button>
+
+                  <button
                     onClick={debugGroupEligibility}
                     disabled={loadingGroupDebug}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"

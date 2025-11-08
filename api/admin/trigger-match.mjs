@@ -2089,28 +2089,14 @@ export default async function handler(req, res) {
       const totalCalculations = cacheHits + cacheMisses
       const cacheHitRate = totalCalculations > 0 ? ((cacheHits / totalCalculations) * 100).toFixed(1) : '0.0'
       
-      // Calculate comparison with greedy algorithm
-      const greedyMatches = []
-      const greedyUsed = new Set()
-      const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
-      
-      for (const pair of sortedPairs) {
-        if (!greedyUsed.has(pair.a) && !greedyUsed.has(pair.b)) {
-          greedyUsed.add(pair.a)
-          greedyUsed.add(pair.b)
-          greedyMatches.push(pair)
-        }
-      }
-      
+      // Calculate Hungarian statistics
       const hungarianTotalScore = hungarianMatches.reduce((sum, m) => sum + m.compatibility_score, 0)
-      const greedyTotalScore = greedyMatches.reduce((sum, m) => sum + m.score, 0)
       const hungarianAvg = hungarianMatches.length > 0 ? (hungarianTotalScore / hungarianMatches.length).toFixed(1) : 0
-      const greedyAvg = greedyMatches.length > 0 ? (greedyTotalScore / greedyMatches.length).toFixed(1) : 0
       
-      console.log(`📊 COMPARISON:`)
-      console.log(`   Hungarian: ${hungarianMatches.length} matches, avg ${hungarianAvg}%, total ${hungarianTotalScore}%`)
-      console.log(`   Greedy: ${greedyMatches.length} matches, avg ${greedyAvg}%, total ${greedyTotalScore}%`)
-      console.log(`   Difference: ${(hungarianTotalScore - greedyTotalScore).toFixed(1)}% total, ${(hungarianAvg - greedyAvg).toFixed(1)}% avg`)
+      console.log(`📊 HUNGARIAN RESULTS:`)
+      console.log(`   Matches: ${hungarianMatches.length}`)
+      console.log(`   Average: ${hungarianAvg}%`)
+      console.log(`   Total: ${hungarianTotalScore}%`)
       
       const performance = {
         totalTime: totalTime,
@@ -2144,25 +2130,11 @@ export default async function handler(req, res) {
         message: `🧪 Hungarian Algorithm Test Complete (NO DATABASE WRITES)`,
         algorithm: 'Hungarian (Optimal Assignment)',
         count: hungarianMatches.length,
+        totalScore: hungarianTotalScore,
+        avgScore: parseFloat(hungarianAvg),
         results: hungarianMatches,
         performance: performance,
-        calculatedPairs: calculatedPairs,
-        comparison: {
-          hungarian: {
-            matches: hungarianMatches.length,
-            totalScore: hungarianTotalScore,
-            avgScore: parseFloat(hungarianAvg)
-          },
-          greedy: {
-            matches: greedyMatches.length,
-            totalScore: greedyTotalScore,
-            avgScore: parseFloat(greedyAvg)
-          },
-          difference: {
-            totalScore: hungarianTotalScore - greedyTotalScore,
-            avgScore: parseFloat((hungarianAvg - greedyAvg).toFixed(1))
-          }
-        }
+        calculatedPairs: calculatedPairs
       })
     } catch (error) {
       console.error("❌ Hungarian test error:", error)

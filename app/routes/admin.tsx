@@ -2734,19 +2734,11 @@ Proceed?`
                       setLoading(false)
                       
                       if (res.ok) {
-                        const comparison = data.comparison
                         let successMessage = `🧪 ${data.message}\n\n`
-                        successMessage += `📊 HUNGARIAN (Optimal):\n`
-                        successMessage += `   Matches: ${comparison.hungarian.matches}\n`
-                        successMessage += `   Average: ${comparison.hungarian.avgScore}%\n`
-                        successMessage += `   Total: ${comparison.hungarian.totalScore}%\n\n`
-                        successMessage += `🔄 GREEDY (Current):\n`
-                        successMessage += `   Matches: ${comparison.greedy.matches}\n`
-                        successMessage += `   Average: ${comparison.greedy.avgScore}%\n`
-                        successMessage += `   Total: ${comparison.greedy.totalScore}%\n\n`
-                        successMessage += `📈 DIFFERENCE:\n`
-                        successMessage += `   Total: ${comparison.difference.totalScore > 0 ? '+' : ''}${comparison.difference.totalScore.toFixed(1)}%\n`
-                        successMessage += `   Avg: ${comparison.difference.avgScore > 0 ? '+' : ''}${comparison.difference.avgScore}%\n`
+                        successMessage += `📊 RESULTS:\n`
+                        successMessage += `   Matches: ${data.count}\n`
+                        successMessage += `   Average Score: ${data.avgScore}%\n`
+                        successMessage += `   Total Score: ${data.totalScore}%\n`
                         
                         if (data.performance) {
                           successMessage += `\n⚡ Performance:\n`

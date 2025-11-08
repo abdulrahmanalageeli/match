@@ -1956,7 +1956,8 @@ export default async function handler(req, res) {
       // Filter out excluded participants
       const participants = eligibleParticipants.filter(p => !excludedParticipantNumbers.includes(p.assigned_number))
       
-      console.log(`📊 Hungarian test: ${participants.length} participants, ${participants.length * participants.length} calculations needed`)
+      const uniquePairs = (participants.length * (participants.length - 1)) / 2
+      console.log(`📊 Hungarian test: ${participants.length} participants, ${uniquePairs} unique pairs`)
       
       if (participants.length < 2) {
         return res.status(400).json({ error: `Need at least 2 participants. Found ${participants.length} eligible out of ${allParticipants.length} total` })
@@ -1968,74 +1969,73 @@ export default async function handler(req, res) {
       let cacheHits = 0
       let cacheMisses = 0
       let aiCalls = 0
-      let calculationsCompleted = 0
       
+      // Initialize matrix with zeros
       for (let i = 0; i < participants.length; i++) {
-        compatibilityMatrix[i] = []
-        
-        for (let j = 0; j < participants.length; j++) {
-          calculationsCompleted++
-          if (i === j) {
-            // Cannot match with self - assign very low score
-            compatibilityMatrix[i][j] = 0
-          } else {
-            const p1 = participants[i]
-            const p2 = participants[j]
+        compatibilityMatrix[i] = new Array(participants.length).fill(0)
+        participantMapping[i] = participants[i].assigned_number
+      }
+      
+      // Calculate only unique pairs (i < j) for efficiency
+      for (let i = 0; i < participants.length; i++) {
+        for (let j = i + 1; j < participants.length; j++) {
+          const p1 = participants[i]
+          const p2 = participants[j]
+          
+          let totalScore = 0
+          
+          // Check constraints (gender, age, excluded pairs)
+          if (checkGenderCompatibility(p1, p2) && 
+              checkAgeCompatibility(p1, p2) &&
+              checkInteractionStyleCompatibility(p1, p2) &&
+              !isPairExcluded(p1.assigned_number, p2.assigned_number, excludedPairs)) {
             
-            // Check constraints (gender, age, excluded pairs)
-            if (!checkGenderCompatibility(p1, p2) || 
-                !checkAgeCompatibility(p1, p2) ||
-                !checkInteractionStyleCompatibility(p1, p2) ||
-                isPairExcluded(p1.assigned_number, p2.assigned_number, excludedPairs)) {
-              compatibilityMatrix[i][j] = 0
+            // Calculate actual compatibility (silent mode - no logging)
+            const compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, true)
+            
+            // Track cache performance
+            if (compatibility.cached) {
+              cacheHits++
             } else {
-              // Calculate actual compatibility (silent mode - no logging)
-              const compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, true)
-              
-              // Track cache performance
-              if (compatibility.cached) {
-                cacheHits++
-              } else {
-                cacheMisses++
-                if (!skipAI && compatibility.vibeScore > 0) {
-                  aiCalls++
-                }
-              }
-              
-              const totalScore = compatibility.totalScore
-              compatibilityMatrix[i][j] = totalScore
-              
-              // Store for later analysis (only once per pair)
-              if (i < j) {
-                compatibilityScores.push({
-                  a: p1.assigned_number,
-                  b: p2.assigned_number,
-                  score: totalScore,
-                  mbtiScore: compatibility.mbtiScore,
-                  attachmentScore: compatibility.attachmentScore,
-                  communicationScore: compatibility.communicationScore,
-                  lifestyleScore: compatibility.lifestyleScore,
-                  coreValuesScore: compatibility.coreValuesScore,
-                  vibeScore: compatibility.vibeScore,
-                  humorMultiplier: compatibility.humorMultiplier,
-                  bonusType: compatibility.bonusType,
-                  reason: `MBTI: ${compatibility.mbtiScore}% + Attachment: ${compatibility.attachmentScore}% + Communication: ${compatibility.communicationScore}% + Lifestyle: ${compatibility.lifestyleScore}% + Core Values: ${compatibility.coreValuesScore}% + Vibe: ${compatibility.vibeScore}% (Humor: ${compatibility.humorMultiplier}x)`,
-                  aMBTI: p1.mbti_personality_type || p1.survey_data?.mbtiType,
-                  bMBTI: p2.mbti_personality_type || p2.survey_data?.mbtiType,
-                  aAttachment: p1.attachment_style || p1.survey_data?.attachmentStyle,
-                  bAttachment: p2.attachment_style || p2.survey_data?.attachmentStyle,
-                  aCommunication: p1.communication_style || p1.survey_data?.communicationStyle,
-                  bCommunication: p2.communication_style || p2.survey_data?.communicationStyle,
-                  aVibeDescription: p1.survey_data?.vibeDescription || '',
-                  bVibeDescription: p2.survey_data?.vibeDescription || '',
-                  aIdealPersonDescription: p1.survey_data?.idealPersonDescription || '',
-                  bIdealPersonDescription: p2.survey_data?.idealPersonDescription || ''
-                })
+              cacheMisses++
+              if (!skipAI && compatibility.vibeScore > 0) {
+                aiCalls++
               }
             }
+            
+            totalScore = compatibility.totalScore
+            
+            // Store for later analysis
+            compatibilityScores.push({
+              a: p1.assigned_number,
+              b: p2.assigned_number,
+              score: totalScore,
+              mbtiScore: compatibility.mbtiScore,
+              attachmentScore: compatibility.attachmentScore,
+              communicationScore: compatibility.communicationScore,
+              lifestyleScore: compatibility.lifestyleScore,
+              coreValuesScore: compatibility.coreValuesScore,
+              vibeScore: compatibility.vibeScore,
+              humorMultiplier: compatibility.humorMultiplier,
+              bonusType: compatibility.bonusType,
+              reason: `MBTI: ${compatibility.mbtiScore}% + Attachment: ${compatibility.attachmentScore}% + Communication: ${compatibility.communicationScore}% + Lifestyle: ${compatibility.lifestyleScore}% + Core Values: ${compatibility.coreValuesScore}% + Vibe: ${compatibility.vibeScore}% (Humor: ${compatibility.humorMultiplier}x)`,
+              aMBTI: p1.mbti_personality_type || p1.survey_data?.mbtiType,
+              bMBTI: p2.mbti_personality_type || p2.survey_data?.mbtiType,
+              aAttachment: p1.attachment_style || p1.survey_data?.attachmentStyle,
+              bAttachment: p2.attachment_style || p2.survey_data?.attachmentStyle,
+              aCommunication: p1.communication_style || p1.survey_data?.communicationStyle,
+              bCommunication: p2.communication_style || p2.survey_data?.communicationStyle,
+              aVibeDescription: p1.survey_data?.vibeDescription || '',
+              bVibeDescription: p2.survey_data?.vibeDescription || '',
+              aIdealPersonDescription: p1.survey_data?.idealPersonDescription || '',
+              bIdealPersonDescription: p2.survey_data?.idealPersonDescription || ''
+            })
           }
+          
+          // Symmetric matrix - set both directions
+          compatibilityMatrix[i][j] = totalScore
+          compatibilityMatrix[j][i] = totalScore
         }
-        participantMapping[i] = participants[i].assigned_number
       }
       
       console.log(`✅ Matrix ready: ${participants.length}x${participants.length}, cache: ${cacheHits}/${cacheHits + cacheMisses}`)

@@ -956,29 +956,79 @@ export default function GroupsPage() {
 
   const renderGameSelection = () => {
     return (
-      <div className="text-center space-y-6">
-        <div className="space-y-2">
-          <h2 className="text-2xl font-bold text-white">اختر لعبة للبدء</h2>
-          <p className="text-slate-400 text-sm">انقر على اللعبة المفضلة لديك</p>
+      <div className="space-y-6 animate-in fade-in duration-500">
+        {/* Hero section with professional polish */}
+        <div className="text-center space-y-3 py-4">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 mb-2 animate-in zoom-in duration-300">
+            <Sparkles className="w-4 h-4 text-cyan-400" />
+            <span className="text-cyan-400 text-sm font-bold">5 ألعاب تفاعلية</span>
+          </div>
+          <h2 className="text-3xl font-bold text-white leading-tight animate-in slide-in-from-top duration-300">
+            اختر لعبتك المفضلة
+          </h2>
+          <p className="text-slate-400 text-sm max-w-sm mx-auto leading-relaxed animate-in slide-in-from-top duration-300" style={{animationDelay: '100ms'}}>
+            كل لعبة مصممة لمساعدتك على التعرف على مجموعتك بطريقة ممتعة وتفاعلية
+          </p>
         </div>
+
+        {/* Professional game cards with stagger animation */}
         <div className="grid grid-cols-1 gap-4">
-          {games.map((game) => (
+          {games.map((game, index) => (
             <div 
-              key={game.id} 
-              className="group bg-slate-700/40 backdrop-blur-sm rounded-2xl p-4 border border-slate-600/50 hover:border-cyan-400/60 hover:bg-slate-700/60 transition-all duration-300 cursor-pointer transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl" 
-              onClick={() => startGame(game.id)}
+              key={game.id}
+              className="animate-in slide-in-from-right duration-300"
+              style={{animationDelay: `${index * 100}ms`}}
             >
-              <div className="flex items-center gap-4">
-                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg group-hover:shadow-xl transition-all duration-300`}>
-                  {game.icon}
-                </div>
-                <div className="flex-1 text-right">
-                  <h3 className="text-lg font-bold text-white mb-1 group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
-                  <p className="text-slate-300 text-sm leading-relaxed mb-2">{game.descriptionAr}</p>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-400">{game.duration} دقائق</span>
-                    <div className="text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center gap-1">
-                      <span>ابدأ</span>
+              <div 
+                className="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] overflow-hidden" 
+                onClick={() => startGame(game.id)}
+              >
+                {/* Background gradient effect */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                
+                {/* Decorative circles */}
+                <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl"></div>
+                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-tr from-white/5 to-transparent rounded-full blur-2xl"></div>
+
+                {/* Recommended badge for first game */}
+                {index === 0 && (
+                  <div className="absolute -top-2 -right-2 z-10">
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white/20 animate-pulse">
+                      ⭐ موصى به
+                    </div>
+                  </div>
+                )}
+
+                <div className="relative z-10 flex items-start gap-4">
+                  {/* Enhanced icon with rotation on hover */}
+                  <div className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3`}>
+                    {game.icon}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-blue-400 transition-all duration-300">
+                      {game.nameAr}
+                    </h3>
+                    <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                      {game.descriptionAr}
+                    </p>
+
+                    {/* Meta information */}
+                    <div className="flex items-center gap-4 text-slate-400 text-xs mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>{game.duration} دقائق</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" />
+                        <span>3-6 أشخاص</span>
+                      </div>
+                    </div>
+
+                    {/* Play button hint with smooth animation */}
+                    <div className="flex items-center gap-2 text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                      <span>ابدأ اللعبة</span>
                       <ChevronLeft className="w-4 h-4" />
                     </div>
                   </div>
@@ -986,6 +1036,14 @@ export default function GroupsPage() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Bottom help text with fade-in animation */}
+        <div className="text-center pt-4 pb-2 animate-in fade-in duration-500" style={{animationDelay: '600ms'}}>
+          <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
+            <span className="text-lg">💡</span>
+            <span>نصيحة: يمكنك التبديل بين الألعاب في أي وقت</span>
+          </p>
         </div>
       </div>
     );
@@ -1568,18 +1626,28 @@ export default function GroupsPage() {
 
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         <div className="max-w-md mx-auto px-4 py-6">
-          {/* Mobile-First Header */}
-          <div className="text-center mb-6">
-            <div className="relative inline-block mb-4">
-              <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 flex items-center justify-center shadow-2xl">
-                <Users className="w-10 h-10 text-white" />
+          {/* Enhanced Mobile-First Header with Animations */}
+          <div className="text-center mb-6 animate-in fade-in duration-500">
+            <div className="relative inline-block mb-4 animate-in zoom-in duration-500" style={{animationDelay: '200ms'}}>
+              <div className="w-24 h-24 mx-auto rounded-3xl bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 flex items-center justify-center shadow-2xl animate-pulse">
+                <Users className="w-12 h-12 text-white" />
               </div>
-              <div className="absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-white" />
+              <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                <Sparkles className="w-4 h-4 text-white" />
               </div>
+              {/* Decorative rings */}
+              <div className="absolute inset-0 rounded-3xl border-2 border-cyan-400/30 animate-ping" style={{animationDuration: '2s'}}></div>
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2 leading-tight">ألعاب جماعية</h1>
-            <p className="text-slate-400 text-base">30 دقيقة من المرح والتفاعل</p>
+            <h1 className="text-4xl font-bold text-white mb-3 leading-tight animate-in slide-in-from-top duration-500" style={{animationDelay: '300ms'}}>
+              ألعاب جماعية
+            </h1>
+            <p className="text-slate-300 text-lg animate-in slide-in-from-top duration-500" style={{animationDelay: '400ms'}}>
+              30 دقيقة من المرح والتفاعل
+            </p>
+            <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-500/30 animate-in zoom-in duration-500" style={{animationDelay: '500ms'}}>
+              <Clock className="w-4 h-4 text-cyan-400" />
+              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 5 ألعاب</span>
+            </div>
           </div>
 
           {/* Navigation Bar - Similar to main page */}
@@ -1626,86 +1694,109 @@ export default function GroupsPage() {
             </div>
           )}
 
-          {/* Mobile-First Instructions */}
-          <div className="mb-6">
-            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl overflow-hidden shadow-xl">
-              <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 p-4 border-b border-slate-600/50">
-                <h2 className="text-lg font-bold text-white flex items-center justify-center">
-                  <BookOpen className="w-5 h-5 ml-2" />
+          {/* Enhanced Instructions Card with Professional Design */}
+          <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '600ms'}}>
+            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 p-5 border-b border-slate-600/50">
+                <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+                  <BookOpen className="w-6 h-6 text-cyan-400" />
                   كيف نلعب؟
                 </h2>
               </div>
-              <div className="p-4 space-y-3">
-                {/* Compact Steps */}
-                <div className="grid grid-cols-1 gap-3">
-                  <div className="flex items-center gap-3 bg-slate-700/30 rounded-xl p-3">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-xs">1</div>
-                    <div className="flex-1">
-                      <p className="text-white text-sm font-medium">اجلسوا في دائرة واختاروا من يبدأ</p>
+              <div className="p-5 space-y-4">
+                {/* Enhanced Steps with Icons */}
+                <div className="space-y-3">
+                  {[
+                    { icon: <Users className="w-4 h-4" />, text: "اجلسوا في دائرة واختاروا من يبدأ", color: "from-cyan-500 to-blue-500" },
+                    { icon: <Sparkles className="w-4 h-4" />, text: "اتبعوا قواعد كل لعبة واستمتعوا", color: "from-purple-500 to-pink-500" },
+                    { icon: <Trophy className="w-4 h-4" />, text: "احترموا بعضكم واستمعوا بإنصات", color: "from-emerald-500 to-teal-500" }
+                  ].map((step, index) => (
+                    <div 
+                      key={index}
+                      className="flex items-start gap-3 bg-slate-700/40 rounded-xl p-4 border border-slate-600/30 hover:border-cyan-500/50 transition-all duration-300 hover:scale-[1.02]"
+                    >
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${step.color} flex items-center justify-center text-white shadow-lg shrink-0`}>
+                        {step.icon}
+                      </div>
+                      <div className="flex-1 pt-1.5">
+                        <p className="text-white text-sm font-medium leading-relaxed">{step.text}</p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-3 bg-slate-700/30 rounded-xl p-3">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center text-white font-bold text-xs">2</div>
-                    <div className="flex-1">
-                      <p className="text-white text-sm font-medium">اتبعوا قواعد كل لعبة واستمتعوا</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Timer Info */}
-                <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-xl p-3 mt-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <Clock className="w-4 h-4 text-cyan-300" />
-                    <span className="text-cyan-200 font-medium text-sm">30 دقيقة → ثم الجولات الفردية</span>
+                {/* Enhanced Timer Info with Pulse Animation */}
+                <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-2 border-cyan-400/40 rounded-xl p-4 mt-5 overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 animate-pulse"></div>
+                  <div className="relative flex items-center justify-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-cyan-500/30 flex items-center justify-center animate-pulse">
+                      <Clock className="w-5 h-5 text-cyan-300" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-cyan-100 font-bold text-base">30 دقيقة للأنشطة</p>
+                      <p className="text-cyan-300/80 text-xs">ثم تبدأ الجولات الفردية</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Mobile Games Preview */}
-          <div className="mb-6">
-            <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl overflow-hidden shadow-xl">
-              <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 p-4 border-b border-slate-600/50">
-                <h2 className="text-lg font-bold text-white flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 ml-2" />
+          {/* Enhanced Games Preview with Professional Grid */}
+          <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '700ms'}}>
+            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+              <div className="bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-rose-500/20 p-5 border-b border-slate-600/50">
+                <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+                  <Sparkles className="w-6 h-6 text-purple-400" />
                   الألعاب المتاحة
                 </h2>
+                <p className="text-center text-slate-300 text-xs mt-2">5 ألعاب متنوعة ومبتكرة</p>
               </div>
-              <div className="p-4 grid grid-cols-2 gap-3">
+              <div className="p-5 grid grid-cols-2 gap-4">
                 {games.map((game, index) => (
                   <div 
                     key={game.id} 
                     onClick={startSession}
-                    className="bg-slate-700/40 rounded-xl p-3 text-center cursor-pointer transition-all duration-300 hover:bg-slate-700/60 hover:scale-105 active:scale-95 hover:shadow-lg"
+                    className="group relative bg-gradient-to-br from-slate-700/60 to-slate-800/60 rounded-2xl p-4 text-center cursor-pointer transition-all duration-300 hover:from-slate-700 hover:to-slate-800 hover:scale-105 active:scale-95 shadow-lg hover:shadow-2xl border border-slate-600/30 hover:border-cyan-500/50 overflow-hidden"
                   >
-                    <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-gradient-to-r ${game.color} flex items-center justify-center text-white shadow-lg`}>
-                      {game.icon}
+                    {/* Hover glow effect */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
+                    
+                    <div className="relative z-10">
+                      <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
+                        {game.icon}
+                      </div>
+                      <h3 className="text-white font-bold text-sm mb-2 leading-tight group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
+                      <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs">
+                        <Clock className="w-3 h-3" />
+                        <span>{game.duration} دقائق</span>
+                      </div>
                     </div>
-                    <h3 className="text-white font-medium text-sm mb-1">{game.nameAr}</h3>
-                    <p className="text-slate-400 text-xs">{game.duration} دقائق</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Mobile Action Buttons */}
-          <div className="space-y-3 mt-6">
+          {/* Enhanced Action Buttons with Professional Styling */}
+          <div className="space-y-4 mt-8 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '800ms'}}>
             <Button 
               onClick={startSession}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white py-4 text-lg font-bold rounded-2xl shadow-xl hover:shadow-cyan-500/25 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-600 hover:from-cyan-600 hover:via-blue-600 hover:to-purple-700 text-white py-6 text-xl font-bold rounded-2xl shadow-2xl hover:shadow-cyan-500/30 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group"
             >
-              <Play className="w-6 h-6 ml-2" />
-              ابدأ الجلسة الآن
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+              <span className="relative flex items-center justify-center gap-3">
+                <Play className="w-7 h-7" />
+                ابدأ الجلسة الآن
+              </span>
             </Button>
             
             <Button 
               onClick={() => window.location.href = "/welcome"}
               variant="outline"
-              className="w-full bg-slate-700/30 border-slate-500 text-white hover:bg-slate-600/50 hover:border-slate-400 py-3 rounded-xl transition-all duration-300"
+              className="w-full bg-slate-800/50 border-2 border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:border-cyan-500/50 hover:text-white py-4 rounded-xl transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] shadow-lg"
             >
-              <Home className="w-4 h-4 ml-2" />
+              <Home className="w-5 h-5 ml-2" />
               العودة للشاشة الرئيسية
             </Button>
           </div>
@@ -1725,55 +1816,98 @@ export default function GroupsPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
-        {/* Mobile-Optimized Header */}
-        <div className="bg-slate-800/60 backdrop-blur-xl rounded-2xl p-4 mb-4 border border-slate-600/50 shadow-2xl">
-          <div className="flex items-center justify-between mb-3">
-            {/* Logo */}
-            <div 
-              onClick={() => window.location.href = "/"}
-              className="cursor-pointer transition-all duration-200 hover:opacity-80"
+        {/* Professional Sticky Header with Glassmorphism */}
+        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-2xl mb-4 -mx-4 px-4 py-3 animate-in slide-in-from-top duration-300">
+          {/* Animated progress bar */}
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30">
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-linear relative overflow-hidden"
+              style={{ width: `${((1800 - timeRemaining) / 1800) * 100}%` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3 mb-3">
+            {/* Logo with hover effect */}
+            <button 
+              onClick={() => window.location.href = "/welcome"}
+              className="flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
             >
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain" 
+                className="w-10 h-10 object-contain drop-shadow-lg" 
               />
-            </div>
+            </button>
 
-            {/* Back Button */}
+            {/* Back Button with smooth transition */}
             {selectedGameId && (
               <button
                 onClick={() => {
                   setSelectedGameId(null);
                   setGamePhase('intro');
                 }}
-                className="flex items-center gap-1 px-3 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
               >
                 <ChevronLeft className="w-4 h-4" />
-                عودة
+                <span>عودة</span>
               </button>
             )}
           </div>
 
-          {/* Timer & Game Info - Stacked */}
+          {/* Enhanced Timer & Game Info */}
           <div className="space-y-2">
-            {/* Timer */}
-            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl p-3">
-              <Clock className={`w-5 h-5 ${timeRemaining <= 300 ? 'text-red-400' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`} />
-              <span className={`text-xl font-bold ${timeRemaining <= 300 ? 'text-red-400 animate-pulse' : timeRemaining <= 600 ? 'text-yellow-400' : 'text-green-400'}`}>
+            {/* Timer with color-coded status */}
+            <div className={`flex items-center justify-center gap-2 rounded-xl p-3 transition-all duration-300 ${
+              timeRemaining <= 300 ? 'bg-red-500/20 border border-red-500/50' : 
+              timeRemaining <= 600 ? 'bg-amber-500/20 border border-amber-500/50' : 
+              'bg-emerald-500/20 border border-emerald-500/50'
+            }`}>
+              <Clock className={`w-5 h-5 ${
+                timeRemaining <= 300 ? 'text-red-400 animate-pulse' : 
+                timeRemaining <= 600 ? 'text-amber-400' : 
+                'text-emerald-400'
+              }`} />
+              <span className={`text-2xl font-bold tabular-nums ${
+                timeRemaining <= 300 ? 'text-red-400 animate-pulse' : 
+                timeRemaining <= 600 ? 'text-amber-400' : 
+                'text-emerald-400'
+              }`}>
                 {formatTime(timeRemaining)}
               </span>
             </div>
 
-            {/* Current Game */}
-            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl p-2">
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span className="text-sm font-medium text-cyan-400">
-                {selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : 'اختر لعبة'}
-              </span>
+            {/* Current Game with icon */}
+            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl p-2.5">
+              {selectedGameId ? (
+                <>
+                  <div className={`w-6 h-6 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white text-xs`}>
+                    {games.find(g => g.id === selectedGameId)?.icon}
+                  </div>
+                  <span className="text-sm font-bold text-white">
+                    {games.find(g => g.id === selectedGameId)?.nameAr}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm font-medium text-cyan-400">اختر لعبة للبدء</span>
+                </>
+              )}
             </div>
           </div>
         </div>
+
+        <style>{`
+          @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+          }
+          .animate-shimmer {
+            animation: shimmer 2s infinite;
+          }
+        `}</style>
 
         {/* Mobile Game Content */}
         <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl">

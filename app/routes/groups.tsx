@@ -1874,18 +1874,18 @@ export default function GroupsPage() {
 
           {/* Enhanced Timer & Game Info */}
           <div className="space-y-2">
-            {/* Timer with color-coded status */}
-            <div className={`flex items-center justify-center gap-2 rounded-xl p-3 transition-all duration-300 ${
+            {/* Timer with color-coded status - More compact */}
+            <div className={`flex items-center justify-center gap-2 rounded-xl py-2 px-4 transition-all duration-300 ${
               timeRemaining <= 300 ? 'bg-red-500/20 border border-red-500/50' : 
               timeRemaining <= 600 ? 'bg-amber-500/20 border border-amber-500/50' : 
               'bg-emerald-500/20 border border-emerald-500/50'
             }`}>
-              <Clock className={`w-5 h-5 ${
+              <Clock className={`w-4 h-4 ${
                 timeRemaining <= 300 ? 'text-red-400 animate-pulse' : 
                 timeRemaining <= 600 ? 'text-amber-400' : 
                 'text-emerald-400'
               }`} />
-              <span className={`text-2xl font-bold tabular-nums ${
+              <span className={`text-xl font-bold tabular-nums ${
                 timeRemaining <= 300 ? 'text-red-400 animate-pulse' : 
                 timeRemaining <= 600 ? 'text-amber-400' : 
                 'text-emerald-400'
@@ -1895,10 +1895,10 @@ export default function GroupsPage() {
             </div>
 
             {/* Current Game with icon */}
-            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl p-2.5">
+            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl py-2 px-3">
               {selectedGameId ? (
                 <>
-                  <div className={`w-6 h-6 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white text-xs`}>
+                  <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white text-xs`}>
                     {games.find(g => g.id === selectedGameId)?.icon}
                   </div>
                   <span className="text-sm font-bold text-white">

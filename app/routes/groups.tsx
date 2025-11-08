@@ -948,18 +948,25 @@ export default function GroupsPage() {
 
   const startSession = () => {
     const SESSION_KEY = 'groups_session_data';
-    const startTime = Date.now();
-    const startDate = new Date().toISOString();
+    const existingSession = localStorage.getItem(SESSION_KEY);
 
-    // Save session start time
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ startTime, startDate }));
-      console.log('💾 Session started and saved:', new Date(startTime).toLocaleTimeString());
-    } catch (error) {
-      console.error('Failed to save session:', error);
+    if (!existingSession) {
+      const startTime = Date.now();
+      const startDate = new Date().toISOString();
+
+      // Save session start time only when starting fresh
+      try {
+        localStorage.setItem(SESSION_KEY, JSON.stringify({ startTime, startDate }));
+        console.log('💾 Session started and saved:', new Date(startTime).toLocaleTimeString());
+      } catch (error) {
+        console.error('Failed to save session:', error);
+      }
+
+      setTimeRemaining(SESSION_TOTAL_DURATION);
+    } else {
+      console.log('⏳ Resuming existing session without resetting.');
     }
 
-    setTimeRemaining(SESSION_TOTAL_DURATION);
     setGameStarted(true);
     setTimerActive(true);
   };

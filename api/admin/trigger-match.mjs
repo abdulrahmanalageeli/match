@@ -760,6 +760,9 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
         humor_multiplier: scores.humorMultiplier,
         humor_early_openness_bonus: bonusType,
         use_count: 1
+      }, {
+        onConflict: 'participant_a_number,participant_b_number,combined_content_hash',
+        ignoreDuplicates: false
       })
       .select()
       
@@ -2030,15 +2033,10 @@ export default async function handler(req, res) {
                 cached: true
               }
             } else {
-              // Cache MISS - calculate fresh
+              // Cache MISS - calculate fresh (no storage for test mode)
               cacheMisses++
               if (!skipAI) aiCalls++
               compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, true)
-              
-              // Store in background
-              storeCachedCompatibility(p1, p2, compatibility)
-                .then(() => {})
-                .catch(err => console.error('Cache store error:', err))
             }
             
             totalScore = compatibility.totalScore

@@ -994,8 +994,8 @@ export default function GroupsPage() {
 
                 {/* Recommended badge for first game */}
                 {index === 0 && (
-                  <div className="absolute -top-2 -right-2 z-10">
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
+                  <div className="absolute -top-1 -left-1 z-10">
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
                       <Star className="w-2.5 h-2.5 fill-current" />
                       <span>موصى به</span>
                     </div>
@@ -1833,11 +1833,11 @@ export default function GroupsPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism */}
-        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border-b border-slate-700/50 shadow-2xl mb-4 -mx-4 px-4 py-3 animate-in slide-in-from-top duration-300">
+        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl mb-4 p-3 animate-in slide-in-from-top duration-300">
           {/* Animated progress bar */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30">
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30 rounded-b-3xl overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-linear relative overflow-hidden"
+              className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-linear relative"
               style={{ width: `${((1800 - timeRemaining) / 1800) * 100}%` }}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>

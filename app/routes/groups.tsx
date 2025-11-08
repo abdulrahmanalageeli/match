@@ -994,7 +994,7 @@ export default function GroupsPage() {
 
                 {/* Recommended badge for first game */}
                 {index === 0 && (
-                  <div className="absolute -top-1 -left-1 z-10">
+                  <div className="absolute top-2 left-2 z-10">
                     <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
                       <Star className="w-2.5 h-2.5 fill-current" />
                       <span>موصى به</span>
@@ -1835,7 +1835,7 @@ export default function GroupsPage() {
         {/* Professional Sticky Header with Glassmorphism */}
         <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl mb-4 p-3 animate-in slide-in-from-top duration-300">
           {/* Animated progress bar */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30 rounded-b-3xl overflow-hidden">
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30 overflow-hidden" style={{ borderBottomLeftRadius: '1.5rem', borderBottomRightRadius: '1.5rem' }}>
             <div
               className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-linear relative"
               style={{ width: `${((1800 - timeRemaining) / 1800) * 100}%` }}
@@ -1926,7 +1926,7 @@ export default function GroupsPage() {
         `}</style>
 
         {/* Mobile Game Content */}
-        <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl">
+        <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl overflow-hidden">
           {renderGameContent()}
         </div>
 

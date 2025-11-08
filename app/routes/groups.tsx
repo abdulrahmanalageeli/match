@@ -23,7 +23,9 @@ import {
   Home,
   Timer,
   CheckCircle,
-  XCircle
+  XCircle,
+  Rocket,
+  PartyPopper
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -993,8 +995,8 @@ export default function GroupsPage() {
                 {/* Recommended badge for first game */}
                 {index === 0 && (
                   <div className="absolute -top-2 -right-2 z-10">
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg border-2 border-white/20 animate-pulse flex items-center gap-1">
-                      <span className="text-[10px]">⭐</span>
+                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
+                      <Star className="w-2.5 h-2.5 fill-current" />
                       <span>موصى به</span>
                     </div>
                   </div>
@@ -1042,7 +1044,7 @@ export default function GroupsPage() {
         {/* Bottom help text with fade-in animation */}
         <div className="text-center pt-4 pb-2 animate-in fade-in duration-500" style={{animationDelay: '600ms'}}>
           <p className="text-xs text-slate-500 flex items-center justify-center gap-2">
-            <span className="text-lg">💡</span>
+            <Lightbulb className="w-4 h-4" />
             <span>نصيحة: يمكنك التبديل بين الألعاب في أي وقت</span>
           </p>
         </div>
@@ -1078,7 +1080,11 @@ export default function GroupsPage() {
             </Button>
           ) : (
             <div className="space-y-4">
-              <h3 className="text-2xl font-bold text-white">🎉 انتهت جميع الألعاب! 🎉</h3>
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <PartyPopper className="w-8 h-8 text-yellow-400" />
+                <h3 className="text-2xl font-bold text-white">انتهت جميع الألعاب!</h3>
+                <PartyPopper className="w-8 h-8 text-yellow-400" />
+              </div>
               <p className="text-slate-300">شكراً لكم على المشاركة الرائعة!</p>
             </div>
           )}
@@ -1547,8 +1553,9 @@ export default function GroupsPage() {
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Users className="w-8 h-8 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  مرحباً بك في الأنشطة الجماعية! 🎉
+                <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-2">
+                  مرحباً بك في الأنشطة الجماعية!
+                  <PartyPopper className="w-6 h-6 text-yellow-400" />
                 </h2>
                 <p className="text-slate-300 text-sm">
                   استعد لتجربة ممتعة مع مجموعتك
@@ -1619,7 +1626,10 @@ export default function GroupsPage() {
                 onClick={() => setShowGroupGuide(false)}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
               >
-                فهمت، لنبدأ! 🚀
+                <span className="flex items-center justify-center gap-2">
+                  فهمت، لنبدأ!
+                  <Rocket className="w-5 h-5" />
+                </span>
               </button>
             </div>
           </div>
@@ -1834,8 +1844,8 @@ export default function GroupsPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between gap-3 mb-3">
-            {/* Logo with hover effect */}
+          <div className="relative flex items-center justify-center mb-3">
+            {/* Logo with hover effect - centered */}
             <button 
               onClick={() => window.location.href = "/welcome"}
               className="flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
@@ -1847,14 +1857,14 @@ export default function GroupsPage() {
               />
             </button>
 
-            {/* Back Button with smooth transition */}
+            {/* Back Button with smooth transition - positioned absolutely on left */}
             {selectedGameId && (
               <button
                 onClick={() => {
                   setSelectedGameId(null);
                   setGamePhase('intro');
                 }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
+                className="absolute left-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
               >
                 <ChevronLeft className="w-4 h-4" />
                 <span>عودة</span>

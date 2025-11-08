@@ -1963,6 +1963,22 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `Need at least 2 participants. Found ${participants.length} eligible out of ${allParticipants.length} total` })
       }
       
+      // BULK FETCH cache (same as normal matching for performance)
+      const cacheStartTime = Date.now()
+      const { data: allCachedScores } = await supabase
+        .from('compatibility_cache')
+        .select('*')
+        .eq('match_id', match_id)
+      
+      const cachedScoresMap = new Map()
+      if (allCachedScores && allCachedScores.length > 0) {
+        allCachedScores.forEach(cache => {
+          const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
+          cachedScoresMap.set(pairKey, cache)
+        })
+        console.log(`✅ Loaded ${cachedScoresMap.size} cached scores in ${Date.now() - cacheStartTime}ms`)
+      }
+      
       const compatibilityScores = []
       const compatibilityMatrix = []
       const participantMapping = []
@@ -1990,17 +2006,39 @@ export default async function handler(req, res) {
               checkInteractionStyleCompatibility(p1, p2) &&
               !isPairExcluded(p1.assigned_number, p2.assigned_number, excludedPairs)) {
             
-            // Calculate actual compatibility (silent mode - no logging)
-            const compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, true)
+            // Check bulk cache first (same as normal matching)
+            const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+            const cacheKey = generateCacheKey(p1, p2)
+            const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
+            const cachedData = cachedScoresMap.get(cacheLookupKey)
             
-            // Track cache performance
-            if (compatibility.cached) {
+            let compatibility
+            
+            if (cachedData) {
+              // Cache HIT - use bulk-loaded data
               cacheHits++
-            } else {
-              cacheMisses++
-              if (!skipAI && compatibility.vibeScore > 0) {
-                aiCalls++
+              compatibility = {
+                mbtiScore: parseFloat(cachedData.mbti_score),
+                attachmentScore: parseFloat(cachedData.attachment_score),
+                communicationScore: parseFloat(cachedData.communication_score),
+                lifestyleScore: parseFloat(cachedData.lifestyle_score),
+                coreValuesScore: parseFloat(cachedData.core_values_score),
+                vibeScore: parseFloat(cachedData.ai_vibe_score),
+                totalScore: parseFloat(cachedData.total_compatibility_score),
+                humorMultiplier: parseFloat(cachedData.humor_multiplier || 1.0),
+                bonusType: cachedData.humor_early_openness_bonus || 'none',
+                cached: true
               }
+            } else {
+              // Cache MISS - calculate fresh
+              cacheMisses++
+              if (!skipAI) aiCalls++
+              compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, true)
+              
+              // Store in background
+              storeCachedCompatibility(p1, p2, compatibility)
+                .then(() => {})
+                .catch(err => console.error('Cache store error:', err))
             }
             
             totalScore = compatibility.totalScore

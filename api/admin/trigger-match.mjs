@@ -1956,16 +1956,11 @@ export default async function handler(req, res) {
       // Filter out excluded participants
       const participants = eligibleParticipants.filter(p => !excludedParticipantNumbers.includes(p.assigned_number))
       
-      console.log(`📊 Found ${participants.length} eligible participants for Hungarian test`)
+      console.log(`📊 Hungarian test: ${participants.length} participants, ${participants.length * participants.length} calculations needed`)
       
       if (participants.length < 2) {
         return res.status(400).json({ error: `Need at least 2 participants. Found ${participants.length} eligible out of ${allParticipants.length} total` })
       }
-      
-      // Calculate all valid pair compatibilities
-      console.log(`🔢 Calculating compatibility for all valid pairs...`)
-      const totalPossiblePairs = participants.length * participants.length
-      console.log(`📊 Total calculations needed: ${totalPossiblePairs} (${participants.length} participants)`)
       
       const compatibilityScores = []
       const compatibilityMatrix = []
@@ -1977,11 +1972,6 @@ export default async function handler(req, res) {
       
       for (let i = 0; i < participants.length; i++) {
         compatibilityMatrix[i] = []
-        
-        // Progress logging every 10 participants
-        if (i > 0 && i % 10 === 0) {
-          console.log(`⏳ Progress: ${i}/${participants.length} participants processed (${calculationsCompleted}/${totalPossiblePairs} calculations)`)
-        }
         
         for (let j = 0; j < participants.length; j++) {
           calculationsCompleted++
@@ -1999,8 +1989,8 @@ export default async function handler(req, res) {
                 isPairExcluded(p1.assigned_number, p2.assigned_number, excludedPairs)) {
               compatibilityMatrix[i][j] = 0
             } else {
-              // Calculate actual compatibility
-              const compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+              // Calculate actual compatibility (silent mode - no logging)
+              const compatibility = await calculateFullCompatibilityWithCache(p1, p2, skipAI, true)
               
               // Track cache performance
               if (compatibility.cached) {
@@ -2048,8 +2038,7 @@ export default async function handler(req, res) {
         participantMapping[i] = participants[i].assigned_number
       }
       
-      console.log(`✅ Compatibility matrix calculated: ${participants.length}x${participants.length}`)
-      console.log(`📊 Cache performance: ${cacheHits} hits, ${cacheMisses} misses, ${aiCalls} AI calls`)
+      console.log(`✅ Matrix ready: ${participants.length}x${participants.length}, cache: ${cacheHits}/${cacheHits + cacheMisses}`)
       
       // Convert to cost matrix (Hungarian algorithm minimizes cost, so we invert scores)
       const maxScore = 100
@@ -2057,16 +2046,15 @@ export default async function handler(req, res) {
         row.map(score => maxScore - score)
       )
       
-      console.log(`🧮 Running Hungarian algorithm on ${participants.length}x${participants.length} matrix...`)
-      console.log(`📏 Matrix dimensions: ${costMatrix.length}x${costMatrix[0]?.length}`)
+      console.log(`🧮 Running Hungarian...`)
       
       let hungarianResults
       try {
         const munkres = new Munkres()
         hungarianResults = munkres.compute(costMatrix)
-        console.log(`✅ Hungarian algorithm complete! Found ${hungarianResults.length} assignments`)
+        console.log(`✅ Hungarian complete: ${hungarianResults.length} assignments`)
       } catch (munkresError) {
-        console.error(`❌ Munkres algorithm failed:`, munkresError)
+        console.error(`❌ Hungarian failed:`, munkresError.message)
         throw new Error(`Hungarian algorithm failed: ${munkresError.message}`)
       }
       
@@ -2111,10 +2099,7 @@ export default async function handler(req, res) {
       const hungarianTotalScore = hungarianMatches.reduce((sum, m) => sum + m.compatibility_score, 0)
       const hungarianAvg = hungarianMatches.length > 0 ? (hungarianTotalScore / hungarianMatches.length).toFixed(1) : 0
       
-      console.log(`📊 HUNGARIAN RESULTS:`)
-      console.log(`   Matches: ${hungarianMatches.length}`)
-      console.log(`   Average: ${hungarianAvg}%`)
-      console.log(`   Total: ${hungarianTotalScore}%`)
+      console.log(`📊 Results: ${hungarianMatches.length} matches, avg ${hungarianAvg}%, total ${hungarianTotalScore}%`)
       
       const performance = {
         totalTime: totalTime,

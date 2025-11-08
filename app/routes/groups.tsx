@@ -554,6 +554,7 @@ const fiveSecondRuleCategories = [
 ];
 
 export default function GroupsPage() {
+  const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -591,7 +592,7 @@ export default function GroupsPage() {
   const [dataLoaded, setDataLoaded] = useState(false);
   
   // Timer state
-  const [timeRemaining, setTimeRemaining] = useState(30 * 60); // 30 minutes in seconds
+  const [timeRemaining, setTimeRemaining] = useState(SESSION_TOTAL_DURATION);
   const [timerActive, setTimerActive] = useState(false);
   const [showTimeUpModal, setShowTimeUpModal] = useState(false);
   const [showIndividualRoundsModal, setShowIndividualRoundsModal] = useState(false);
@@ -769,21 +770,56 @@ export default function GroupsPage() {
     loadParticipantData();
   }, []);
 
-  // Timer useEffect
+  // Main timer useEffect with session sync
   useEffect(() => {
     let interval: NodeJS.Timeout;
+    const SESSION_KEY = 'groups_session_data';
+    const TOTAL_DURATION = SESSION_TOTAL_DURATION;
     
     if (timerActive && timeRemaining > 0) {
       interval = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev <= 1) {
-            setTimerActive(false);
-            setShowTimeUpModal(true);
-            setShowIndividualRoundsModal(true); // Show individual rounds modal when timer ends
-            return 0;
+        // Recalculate from saved start time for accuracy
+        try {
+          const savedSession = localStorage.getItem(SESSION_KEY);
+          if (savedSession) {
+            const { startTime } = JSON.parse(savedSession);
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - startTime) / 1000);
+            const calculatedRemaining = Math.max(0, TOTAL_DURATION - elapsedSeconds);
+            
+            setTimeRemaining(calculatedRemaining);
+            
+            if (calculatedRemaining <= 0) {
+              setTimerActive(false);
+              setShowTimeUpModal(true);
+              setShowIndividualRoundsModal(true);
+              localStorage.removeItem(SESSION_KEY);
+            }
+          } else {
+            // Fallback to decrement if no session
+            setTimeRemaining(prev => {
+              if (prev <= 1) {
+                setTimerActive(false);
+                setShowTimeUpModal(true);
+                setShowIndividualRoundsModal(true);
+                return 0;
+              }
+              return prev - 1;
+            });
           }
-          return prev - 1;
-        });
+        } catch (error) {
+          console.error('Timer sync error:', error);
+          // Fallback to simple decrement
+          setTimeRemaining(prev => {
+            if (prev <= 1) {
+              setTimerActive(false);
+              setShowTimeUpModal(true);
+              setShowIndividualRoundsModal(true);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
       }, 1000);
     }
     
@@ -863,7 +899,67 @@ export default function GroupsPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Session persistence with daily reset
+  useEffect(() => {
+    const SESSION_KEY = 'groups_session_data';
+    const TOTAL_DURATION = 30 * 60; // 30 minutes in seconds
+
+    // Load session on mount
+    const loadSession = () => {
+      try {
+        const savedSession = localStorage.getItem(SESSION_KEY);
+        if (savedSession) {
+          const { startTime, startDate } = JSON.parse(savedSession);
+          const savedDate = new Date(startDate).toDateString();
+          const currentDate = new Date().toDateString();
+
+          // Check if it's the same day
+          if (savedDate === currentDate) {
+            // Calculate elapsed time
+            const now = Date.now();
+            const elapsedSeconds = Math.floor((now - startTime) / 1000);
+            const remaining = Math.max(0, TOTAL_DURATION - elapsedSeconds);
+
+            if (remaining > 0) {
+              // Resume session
+              setTimeRemaining(remaining);
+              setGameStarted(true);
+              setTimerActive(true);
+              console.log(`📅 Resumed session: ${remaining}s remaining`);
+            } else {
+              // Session expired
+              localStorage.removeItem(SESSION_KEY);
+              console.log('⏰ Session expired, cleared');
+            }
+          } else {
+            // Different day, clear session
+            localStorage.removeItem(SESSION_KEY);
+            console.log('📅 New day, session cleared');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to load session:', error);
+        localStorage.removeItem(SESSION_KEY);
+      }
+    };
+
+    loadSession();
+  }, []);
+
   const startSession = () => {
+    const SESSION_KEY = 'groups_session_data';
+    const startTime = Date.now();
+    const startDate = new Date().toISOString();
+
+    // Save session start time
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ startTime, startDate }));
+      console.log('💾 Session started and saved:', new Date(startTime).toLocaleTimeString());
+    } catch (error) {
+      console.error('Failed to save session:', error);
+    }
+
+    setTimeRemaining(SESSION_TOTAL_DURATION);
     setGameStarted(true);
     setTimerActive(true);
   };
@@ -1833,18 +1929,8 @@ export default function GroupsPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism */}
-        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl mb-4 p-3 animate-in slide-in-from-top duration-300">
-          {/* Animated progress bar */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-700/30 overflow-hidden" style={{ borderBottomLeftRadius: '1.5rem', borderBottomRightRadius: '1.5rem' }}>
-            <div
-              className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 transition-all duration-1000 ease-linear relative"
-              style={{ width: `${((1800 - timeRemaining) / 1800) * 100}%` }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
-            </div>
-          </div>
-
-          <div className="relative flex items-center justify-center mb-3">
+        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl mb-4 p-4 animate-in slide-in-from-top duration-300">
+          <div className="relative flex items-center justify-center mb-4">
             {/* Logo with hover effect - centered */}
             <button 
               onClick={() => window.location.href = "/welcome"}
@@ -1872,58 +1958,54 @@ export default function GroupsPage() {
             )}
           </div>
 
-          {/* Enhanced Timer & Game Info */}
-          <div className="space-y-2">
-            {/* Timer with color-coded status - More compact */}
-            <div className={`flex items-center justify-center gap-2 rounded-xl py-2 px-4 transition-all duration-300 ${
-              timeRemaining <= 300 ? 'bg-red-500/20 border border-red-500/50' : 
-              timeRemaining <= 600 ? 'bg-amber-500/20 border border-amber-500/50' : 
-              'bg-emerald-500/20 border border-emerald-500/50'
-            }`}>
-              <Clock className={`w-4 h-4 ${
-                timeRemaining <= 300 ? 'text-red-400 animate-pulse' : 
-                timeRemaining <= 600 ? 'text-amber-400' : 
-                'text-emerald-400'
-              }`} />
-              <span className={`text-xl font-bold tabular-nums ${
-                timeRemaining <= 300 ? 'text-red-400 animate-pulse' : 
-                timeRemaining <= 600 ? 'text-amber-400' : 
-                'text-emerald-400'
+          {/* Beautiful Google-Quality Timer */}
+          <div className="space-y-3">
+            {/* Elegant Timer Display */}
+            <div className="relative">
+              <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-4 px-6 transition-all duration-500 ${
+                timeRemaining <= 300 ? 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent' : 
+                timeRemaining <= 600 ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 
+                'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent'
               }`}>
-                {formatTime(timeRemaining)}
-              </span>
+                <div className="flex items-baseline gap-1">
+                  <span className={`text-4xl font-light tabular-nums tracking-tight ${
+                    timeRemaining <= 300 ? 'text-red-400' : 
+                    timeRemaining <= 600 ? 'text-amber-400' : 
+                    'text-emerald-400'
+                  }`}>
+                    {formatTime(timeRemaining)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <Clock className={`w-3.5 h-3.5 ${
+                    timeRemaining <= 300 ? 'text-red-400/60' : 
+                    timeRemaining <= 600 ? 'text-amber-400/60' : 
+                    'text-emerald-400/60'
+                  }`} />
+                  <span className={`text-xs font-medium ${
+                    timeRemaining <= 300 ? 'text-red-400/80' : 
+                    timeRemaining <= 600 ? 'text-amber-400/80' : 
+                    'text-emerald-400/80'
+                  }`}>
+                    {timeRemaining <= 300 ? 'انتهى الوقت قريباً!' : timeRemaining <= 600 ? 'الوقت ينفد' : 'الوقت المتبقي'}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            {/* Current Game with icon */}
-            <div className="flex items-center justify-center gap-2 bg-slate-700/40 rounded-xl py-2 px-3">
-              {selectedGameId ? (
-                <>
-                  <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white text-xs`}>
-                    {games.find(g => g.id === selectedGameId)?.icon}
-                  </div>
-                  <span className="text-sm font-bold text-white">
-                    {games.find(g => g.id === selectedGameId)?.nameAr}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-cyan-400" />
-                  <span className="text-sm font-medium text-cyan-400">اختر لعبة للبدء</span>
-                </>
-              )}
-            </div>
+            {/* Current Game Badge - Sleek Design */}
+            {selectedGameId && (
+              <div className="flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border border-white/10">
+                <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg`}>
+                  {games.find(g => g.id === selectedGameId)?.icon}
+                </div>
+                <span className="text-sm font-medium text-white/90">
+                  {games.find(g => g.id === selectedGameId)?.nameAr}
+                </span>
+              </div>
+            )}
           </div>
         </div>
-
-        <style>{`
-          @keyframes shimmer {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-          }
-          .animate-shimmer {
-            animation: shimmer 2s infinite;
-          }
-        `}</style>
 
         {/* Mobile Game Content */}
         <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl overflow-hidden">

@@ -439,6 +439,12 @@ export default function ParticipantResultsModal({
               </h2>
               <p className="text-slate-400 text-sm">
                 إجمالي التوافقات: {totalMatches} | المشاركين: {sortedResults.length}
+                {matchType !== "group" && (() => {
+                  const paidNoMatch = sortedResults.filter(r => r.paid_done && r.is_organizer_match).length;
+                  return paidNoMatch > 0 ? (
+                    <span className="text-red-400"> | دفعوا بدون مطابقة: {paidNoMatch}</span>
+                  ) : null;
+                })()}
                 {matchType !== "group" && results.length !== sortedResults.length && (
                   <span className="text-yellow-400"> (تم إزالة {results.length - sortedResults.length} مكرر)</span>
                 )}

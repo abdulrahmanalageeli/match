@@ -8983,7 +8983,14 @@ export default function WelcomePage() {
                   </div>
                 )}
                 <div className={`text-4xl font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
-                  {selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? `${Math.round((selectedHistoryItem.score || 0) * 10)}%` : `${selectedHistoryItem.score || 0}%`}
+                  {(() => {
+                    // Calculate original score (remove bonus)
+                    const scoreWithBonus = selectedHistoryItem.score || 0
+                    const bonus = selectedHistoryItem.humor_early_openness_bonus
+                    const multiplier = bonus === 'full' ? 1.15 : bonus === 'partial' ? 1.05 : 1
+                    const originalScore = bonus && bonus !== 'none' ? Math.round(scoreWithBonus / multiplier) : scoreWithBonus
+                    return selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? `${Math.round(originalScore * 10)}%` : `${originalScore}%`
+                  })()}
                 </div>
                 <div className={`text-sm ${dark ? "text-slate-400" : "text-gray-600"}`}>درجة التوافق</div>
               </div>
@@ -9063,18 +9070,35 @@ export default function WelcomePage() {
                 <div className="flex justify-between items-center mb-2">
                   <h5 className={`font-semibold ${dark ? "text-slate-200" : "text-gray-800"}`}>مستوى التوافق</h5>
                   <span className={`font-bold ${dark ? "text-cyan-300" : "text-cyan-600"}`}>
-                    {selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? `${Math.round((selectedHistoryItem.score || 0) * 10)}%` : `${selectedHistoryItem.score || 0}%`}
+                    {(() => {
+                      // Calculate original score (remove bonus)
+                      const scoreWithBonus = selectedHistoryItem.score || 0
+                      const bonus = selectedHistoryItem.humor_early_openness_bonus
+                      const multiplier = bonus === 'full' ? 1.15 : bonus === 'partial' ? 1.05 : 1
+                      const originalScore = bonus && bonus !== 'none' ? Math.round(scoreWithBonus / multiplier) : scoreWithBonus
+                      return selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? `${Math.round(originalScore * 10)}%` : `${originalScore}%`
+                    })()}
                   </span>
                 </div>
                 <div className={`w-full h-3 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                   <div 
-                    className={`h-full rounded-full transition-all duration-500 ${
-                      (selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)) >= 70 ? "bg-green-500" :
-                      (selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)) >= 50 ? "bg-yellow-500" :
-                      (selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)) >= 30 ? "bg-orange-500" :
-                      "bg-red-500"
-                    }`}
-                    style={{ width: `${selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? (selectedHistoryItem.score || 0) * 10 : (selectedHistoryItem.score || 0)}%` }}
+                    className={`h-full rounded-full transition-all duration-500 ${(() => {
+                      // Calculate original score (remove bonus)
+                      const scoreWithBonus = selectedHistoryItem.score || 0
+                      const bonus = selectedHistoryItem.humor_early_openness_bonus
+                      const multiplier = bonus === 'full' ? 1.15 : bonus === 'partial' ? 1.05 : 1
+                      const originalScore = bonus && bonus !== 'none' ? Math.round(scoreWithBonus / multiplier) : scoreWithBonus
+                      const displayScore = selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? originalScore * 10 : originalScore
+                      return displayScore >= 70 ? "bg-green-500" : displayScore >= 50 ? "bg-yellow-500" : displayScore >= 30 ? "bg-orange-500" : "bg-red-500"
+                    })()}`}
+                    style={{ width: `${(() => {
+                      // Calculate original score (remove bonus)
+                      const scoreWithBonus = selectedHistoryItem.score || 0
+                      const bonus = selectedHistoryItem.humor_early_openness_bonus
+                      const multiplier = bonus === 'full' ? 1.15 : bonus === 'partial' ? 1.05 : 1
+                      const originalScore = bonus && bonus !== 'none' ? Math.round(scoreWithBonus / multiplier) : scoreWithBonus
+                      return selectedHistoryItem.with && typeof selectedHistoryItem.with === 'string' && selectedHistoryItem.with.includes("،") ? originalScore * 10 : originalScore
+                    })()}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between text-xs mt-1">

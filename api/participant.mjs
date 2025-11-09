@@ -765,7 +765,8 @@ export default async function handler(req, res) {
           created_at: match.created_at,
           ai_personality_analysis: match.ai_personality_analysis || null,
           event_id: match.event_id,
-          partner_message: partnerMessage
+          partner_message: partnerMessage,
+          humor_early_openness_bonus: match.humor_early_openness_bonus || 'none'
         }
       }));
 

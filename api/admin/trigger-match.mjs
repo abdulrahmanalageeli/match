@@ -1247,13 +1247,18 @@ async function generateGroupMatches(participants, match_id, eventId) {
     }
   }
   
-  // Phase 2: Handle remaining participants (1-3 people)
+  // Phase 2: Handle remaining participants
   const remainingParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
   console.log(`🔄 Phase 2: Handling ${remainingParticipants.length} remaining participants:`, remainingParticipants)
   
   if (remainingParticipants.length === 0) {
     // Perfect groups of 4
     console.log("✅ Perfect grouping achieved with groups of 4")
+  } else if (remainingParticipants.length >= 4) {
+    // 4+ extra people - create a new group with all of them
+    groups.push([...remainingParticipants])
+    remainingParticipants.forEach(p => usedParticipants.add(p))
+    console.log(`✅ Created new group with ${remainingParticipants.length} remaining participants: [${remainingParticipants.join(', ')}]`)
   } else if (remainingParticipants.length === 1) {
     // 1 extra person - add to most compatible group
     const extraParticipant = remainingParticipants[0]

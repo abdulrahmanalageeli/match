@@ -2597,9 +2597,9 @@ export default function WelcomePage() {
 
   // Check if user has incomplete survey data
   const checkIncompleteSurvey = async (savedToken: string) => {
-    // Don't show popup if URL has ?token parameter or other popups are showing
-    if (window.location.search.includes('?token') || showNewUserTypePopup) {
-      console.log('❌ URL has ?token parameter or other popup showing, skipping survey completion popup');
+    // Don't show popup if URL has ?token parameter, user is on survey step, or other popups are showing
+    if (window.location.search.includes('?token') || window.location.search.includes('token=') || step === 1 || showNewUserTypePopup) {
+      console.log('❌ URL has token parameter, on survey step, or other popup showing - skipping survey completion popup');
       return;
     }
     
@@ -2910,7 +2910,8 @@ export default function WelcomePage() {
         }, 2000); // Give page time to load
         
         // Also check if user has incomplete survey data (only on main page)
-        if (step === 0) {
+        // Don't check if URL has token parameter (user might be in the middle of survey)
+        if (step === 0 && !window.location.search.includes('token=')) {
           setTimeout(() => {
             checkIncompleteSurvey(tokenToUse);
           }, 1000); // Check survey completion status

@@ -40,6 +40,7 @@ import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
+import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 
 export default function AdminPage() {
   const [password, setPassword] = useState("")
@@ -127,6 +128,10 @@ export default function AdminPage() {
   
   // Gender preference update state
   const [updatingGenderPref, setUpdatingGenderPref] = useState<number | null>(null);
+  
+  // Full profile modal state
+  const [profileModalParticipant, setProfileModalParticipant] = useState<any | null>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
   
   // Pre-cache state
   const [preCacheCount, setPreCacheCount] = useState(50);
@@ -4092,6 +4097,40 @@ Proceed?`
               </div>
             )}
 
+            {/* Color Legend */}
+            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                <span className="text-xs text-slate-300 font-semibold">Card Border Colors:</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-green-500/50 rounded"></div>
+                  <span className="text-slate-300">Paid</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-yellow-500/50 rounded"></div>
+                  <span className="text-slate-300">Unpaid</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-orange-500/50 rounded"></div>
+                  <span className="text-slate-300">Current</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-blue-500/50 rounded"></div>
+                  <span className="text-slate-300">Next Event</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-purple-500/50 rounded"></div>
+                  <span className="text-slate-300">Past Event</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-4 h-4 border-2 border-red-500/50 rounded"></div>
+                  <span className="text-slate-300">Excluded</span>
+                </div>
+              </div>
+            </div>
+
             {/* Select All Visible Button */}
             {filteredParticipants.length > 0 && (
               <button
@@ -4175,15 +4214,49 @@ Proceed?`
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredParticipants.map((p) => (
-              <div
-                key={p.id}
-                data-participant={p.assigned_number}
-                className={`group bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${
-                  selectedParticipants.has(p.assigned_number) ? 'ring-2 ring-slate-400 bg-slate-400/10' : ''
-                }`}
-                onClick={() => setDetailParticipant(p)}
-              >
+            {filteredParticipants.map((p) => {
+              // Determine color-coded border based on status
+              const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
+              const isCurrentEvent = p.event_id === currentEventId;
+              const isPaid = p.PAID_DONE === true;
+              const isUnpaid = p.PAID === true && !isPaid;
+              const isNextEvent = p.signup_for_next_event === true || p.auto_signup_next_event === true;
+              
+              let borderColor = 'border-white/20'; // Default
+              let borderGlow = '';
+              
+              if (isExcluded) {
+                borderColor = 'border-red-500/50';
+                borderGlow = 'shadow-lg shadow-red-500/20';
+              } else if (isCurrentEvent && isPaid) {
+                borderColor = 'border-green-500/50';
+                borderGlow = 'shadow-lg shadow-green-500/20';
+              } else if (isCurrentEvent && isUnpaid) {
+                borderColor = 'border-yellow-500/50';
+                borderGlow = 'shadow-lg shadow-yellow-500/20';
+              } else if (isCurrentEvent) {
+                borderColor = 'border-orange-500/50';
+                borderGlow = 'shadow-lg shadow-orange-500/20';
+              } else if (isNextEvent) {
+                borderColor = 'border-blue-500/50';
+                borderGlow = 'shadow-lg shadow-blue-500/20';
+              } else if (p.event_id && p.event_id !== currentEventId) {
+                borderColor = 'border-purple-500/50';
+                borderGlow = 'shadow-lg shadow-purple-500/20';
+              }
+              
+              return (
+                <div
+                  key={p.id}
+                  data-participant={p.assigned_number}
+                  className={`group bg-white/5 backdrop-blur-xl border-2 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${borderColor} ${borderGlow} ${
+                    selectedParticipants.has(p.assigned_number) ? 'ring-2 ring-slate-400 bg-slate-400/10' : ''
+                  }`}
+                  onClick={() => {
+                    setProfileModalParticipant(p);
+                    setShowProfileModal(true);
+                  }}
+                >
                 <div className="flex items-start justify-between mb-4">
                   <div className="bg-gradient-to-r from-slate-600 to-slate-700 p-3 rounded-xl">
                     <UserRound className="w-6 h-6 text-white" />
@@ -4529,7 +4602,8 @@ Proceed?`
                   </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -4571,6 +4645,17 @@ Proceed?`
         isOpen={detailParticipant !== null}
         onClose={() => setDetailParticipant(null)}
         participant={detailParticipant}
+      />
+
+      {/* Full Profile Modal with Inline Editing */}
+      <ParticipantProfileModal
+        participant={profileModalParticipant}
+        isOpen={showProfileModal}
+        onClose={() => {
+          setShowProfileModal(false);
+          setProfileModalParticipant(null);
+        }}
+        onUpdate={fetchParticipants}
       />
 
       {/* Group Debug Modal */}

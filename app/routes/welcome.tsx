@@ -3197,7 +3197,7 @@ export default function WelcomePage() {
         saveUserToken(secureToken);
       }
       
-      // Clear the "just created" flag since user has now completed their survey
+      // Clear the "just createdd" flag since user has now completed their survey
       if (isJustCreatedUser) {
         console.log('✅ Survey completed, clearing isJustCreatedUser flag');
         setIsJustCreatedUser(false);

@@ -1377,11 +1377,29 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Participant not found" })
       }
 
-      // Update survey_data with new vibe answers
-      const updatedSurveyData = {
-        ...(participant.survey_data || {}),
-        ...vibe_answers
+      // Determine if survey_data uses nested structure (answers.vibe_1) or top-level (vibe_1)
+      const existingSurveyData = participant.survey_data || {}
+      const hasNestedStructure = existingSurveyData.answers && typeof existingSurveyData.answers === 'object'
+      
+      let updatedSurveyData
+      if (hasNestedStructure) {
+        // Update nested structure: survey_data.answers.vibe_1
+        updatedSurveyData = {
+          ...existingSurveyData,
+          answers: {
+            ...existingSurveyData.answers,
+            ...vibe_answers
+          }
+        }
+      } else {
+        // Update top-level structure: survey_data.vibe_1
+        updatedSurveyData = {
+          ...existingSurveyData,
+          ...vibe_answers
+        }
       }
+
+      console.log('📝 Updating structure:', hasNestedStructure ? 'nested (answers.vibe_1)' : 'top-level (vibe_1)')
 
       // Update participant in database
       const { error: updateError } = await supabase

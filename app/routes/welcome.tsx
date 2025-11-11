@@ -2333,7 +2333,11 @@ export default function WelcomePage() {
     try {
       const res = await fetch("/api/participant", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache"
+        },
         body: JSON.stringify({ 
           action: "resolve-token",
           secure_token: token

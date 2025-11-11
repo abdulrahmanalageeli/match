@@ -1,7 +1,48 @@
-import { createClient } from "@supabase/supabase-js"
-import OpenAI from "openai"
+import { createHash } from 'crypto'
+import { createClient } from '@supabase/supabase-js'
+import OpenAI from 'openai'
+import { rateLimit } from '../app/lib/rate-limit.mjs'
 
-// Add better error logging
+const sanitizeVibeAnswers = (answers = {}) => {
+  const sanitized = {}
+  for (const [key, value] of Object.entries(answers)) {
+    if (typeof value === 'string') {
+      sanitized[key] = value.trim()
+    } else {
+      sanitized[key] = value
+    }
+  }
+  return sanitized
+}
+
+const buildVibeDescription = (answers = {}) => {
+  const getValue = (key) => {
+    const value = answers[key]
+    if (typeof value === 'string') {
+      return value.trim()
+    }
+    return ''
+  }
+
+  const weekend = getValue('vibe_1')
+  const hobbies = getValue('vibe_2')
+  const music = getValue('vibe_3')
+  const deepTalk = getValue('vibe_4')
+  const friendsDescribe = getValue('vibe_5')
+  const describeFriends = getValue('vibe_6')
+
+  const sections = []
+
+  if (weekend) sections.push(`Weekend: ${weekend}`)
+  if (hobbies) sections.push(`Hobbies: ${hobbies}`)
+  if (music) sections.push(`Music: ${music}`)
+  if (deepTalk) sections.push(`Deep conversations: ${deepTalk}`)
+  if (friendsDescribe) sections.push(`Friends describe me as: ${friendsDescribe}`)
+  if (describeFriends) sections.push(`I describe my friends as: ${describeFriends}`)
+
+  return sections.join(' | ')
+}
+
 const logError = (context, error) => {
   console.error(`❌ ${context}:`, {
     message: error.message,
@@ -1364,6 +1405,9 @@ export default async function handler(req, res) {
 
       console.log('📝 Updating vibe questions for token:', secure_token)
 
+      const sanitizedVibeAnswers = sanitizeVibeAnswers(vibe_answers)
+      const vibeDescription = buildVibeDescription(sanitizedVibeAnswers)
+
       // Get participant by token
       const { data: participant, error: participantError } = await supabase
         .from("participants")
@@ -1388,14 +1432,16 @@ export default async function handler(req, res) {
           ...existingSurveyData,
           answers: {
             ...existingSurveyData.answers,
-            ...vibe_answers
-          }
+            ...sanitizedVibeAnswers
+          },
+          vibeDescription
         }
       } else {
         // Update top-level structure: survey_data.vibe_1
         updatedSurveyData = {
           ...existingSurveyData,
-          ...vibe_answers
+          ...sanitizedVibeAnswers,
+          vibeDescription
         }
       }
 

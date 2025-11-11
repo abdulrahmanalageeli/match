@@ -4030,6 +4030,129 @@ export default function WelcomePage() {
 
   // Contact Form Popup will be rendered within main page structure
 
+  // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
+  if (showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
+    return (
+      <>
+        <Toaster position="top-center" />
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
+            <div className="p-6 overflow-y-auto">
+              <div className="space-y-4">
+                {/* Icon */}
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-yellow-500/20" : "bg-yellow-100"}`}>
+                  <AlertTriangle className={`w-8 h-8 ${dark ? "text-yellow-400" : "text-yellow-600"}`} />
+                </div>
+                
+                <h3 className={`text-xl font-bold text-center ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  إكمال الأسئلة المطلوبة
+                </h3>
+                
+                <div className={`p-4 rounded-xl border ${dark ? "bg-yellow-500/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-yellow-300" : "text-yellow-700"}`}>
+                    ⚠️ لم تكمل الحد الأدنى المطلوب (75%) من الإجابات التالية
+                  </p>
+                  <p className={`text-xs mt-2 ${dark ? "text-yellow-200" : "text-yellow-600"}`}>
+                    يرجى إكمال الأسئلة أدناه لتكون مؤهلاً للحدث القادم
+                  </p>
+                </div>
+
+                {/* Incomplete Vibe Questions */}
+                {Object.entries(incompleteVibeQuestions).map(([key, info]) => {
+                  const currentLength = (vibeAnswers[key] || "").length
+                  const remaining = info.required - currentLength
+                  const isBelowMinimum = currentLength < info.required
+                  
+                  return (
+                    <div key={key} className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
+                      <p className={`text-sm font-medium mb-2 ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                        {info.label}
+                      </p>
+                      <textarea
+                        value={vibeAnswers[key] || ""}
+                        onChange={(e) => {
+                          const newValue = e.target.value
+                          if (newValue.length <= info.max) {
+                            setVibeAnswers(prev => ({ ...prev, [key]: newValue }))
+                          }
+                        }}
+                        placeholder="اكتب إجابتك هنا..."
+                        className={`w-full min-h-[80px] text-right border-2 rounded-lg px-3 py-2 text-sm resize-y ${
+                          isBelowMinimum
+                            ? dark 
+                              ? 'border-yellow-600 focus:border-yellow-500 bg-slate-700 text-slate-100' 
+                              : 'border-yellow-300 focus:border-yellow-500 bg-white text-gray-800'
+                            : dark
+                              ? 'border-green-600 focus:border-green-500 bg-slate-700 text-slate-100'
+                              : 'border-green-300 focus:border-green-500 bg-white text-gray-800'
+                        }`}
+                      />
+                      <div className="flex justify-between items-center mt-2 text-xs">
+                        <span className={`font-medium ${
+                          isBelowMinimum 
+                            ? dark ? 'text-yellow-400' : 'text-yellow-600'
+                            : dark ? 'text-green-400' : 'text-green-600'
+                        }`}>
+                          {currentLength}/{info.max} حرف (الحد الأدنى: {info.required})
+                        </span>
+                        {isBelowMinimum ? (
+                          <span className={`font-medium ${dark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                            يحتاج {remaining} حرف إضافي
+                          </span>
+                        ) : (
+                          <span className={`font-medium ${dark ? 'text-green-400' : 'text-green-600'}`}>
+                            ✓ مكتمل
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                
+                {/* Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowVibeCompletionPopup(false)
+                      setIncompleteVibeQuestions({})
+                      setVibeAnswers({})
+                    }}
+                    disabled={vibeLoading}
+                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                      dark 
+                        ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                        : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    إغلاق
+                  </button>
+                  
+                  <button
+                    onClick={handleVibeCompletionSubmit}
+                    disabled={vibeLoading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {vibeLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        حفظ التحديثات
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   // Survey Completion Popup - Top Level (before any conditional returns)
   if (showSurveyCompletionPopup && incompleteSurveyInfo) {
     return (
@@ -4961,124 +5084,6 @@ export default function WelcomePage() {
                     )}
                   </button>
                 </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Vibe Questions Completion Popup */}
-        {showVibeCompletionPopup && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
-              <div className="p-6 overflow-y-auto">
-                <div className="space-y-4">
-                  {/* Icon */}
-                  <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-yellow-500/20" : "bg-yellow-100"}`}>
-                    <AlertTriangle className={`w-8 h-8 ${dark ? "text-yellow-400" : "text-yellow-600"}`} />
-                  </div>
-                  
-                  <h3 className={`text-xl font-bold text-center ${dark ? "text-slate-100" : "text-gray-800"}`}>
-                    إكمال الأسئلة المطلوبة
-                  </h3>
-                  
-                  <div className={`p-4 rounded-xl border ${dark ? "bg-yellow-500/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-200"}`}>
-                    <p className={`text-sm font-medium ${dark ? "text-yellow-300" : "text-yellow-700"}`}>
-                      ⚠️ لم تكمل الحد الأدنى المطلوب (75%) من الإجابات التالية
-                    </p>
-                    <p className={`text-xs mt-2 ${dark ? "text-yellow-200" : "text-yellow-600"}`}>
-                      يرجى إكمال الأسئلة أدناه لتكون مؤهلاً للحدث القادم
-                    </p>
-                  </div>
-
-                  {/* Incomplete Vibe Questions */}
-                  {Object.entries(incompleteVibeQuestions).map(([key, info]) => {
-                    const currentLength = (vibeAnswers[key] || "").length
-                    const remaining = info.required - currentLength
-                    const isBelowMinimum = currentLength < info.required
-                    
-                    return (
-                      <div key={key} className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
-                        <p className={`text-sm font-medium mb-2 ${dark ? "text-purple-300" : "text-purple-700"}`}>
-                          {info.label}
-                        </p>
-                        <textarea
-                          value={vibeAnswers[key] || ""}
-                          onChange={(e) => {
-                            const newValue = e.target.value
-                            if (newValue.length <= info.max) {
-                              setVibeAnswers(prev => ({ ...prev, [key]: newValue }))
-                            }
-                          }}
-                          placeholder="اكتب إجابتك هنا..."
-                          className={`w-full min-h-[80px] text-right border-2 rounded-lg px-3 py-2 text-sm resize-y ${
-                            isBelowMinimum
-                              ? dark 
-                                ? 'border-yellow-600 focus:border-yellow-500 bg-slate-700 text-slate-100' 
-                                : 'border-yellow-300 focus:border-yellow-500 bg-white text-gray-800'
-                              : dark
-                                ? 'border-green-600 focus:border-green-500 bg-slate-700 text-slate-100'
-                                : 'border-green-300 focus:border-green-500 bg-white text-gray-800'
-                          }`}
-                        />
-                        <div className="flex justify-between items-center mt-2 text-xs">
-                          <span className={`font-medium ${
-                            isBelowMinimum 
-                              ? dark ? 'text-yellow-400' : 'text-yellow-600'
-                              : dark ? 'text-green-400' : 'text-green-600'
-                          }`}>
-                            {currentLength}/{info.max} حرف (الحد الأدنى: {info.required})
-                          </span>
-                          {isBelowMinimum ? (
-                            <span className={`font-medium ${dark ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                              يحتاج {remaining} حرف إضافي
-                            </span>
-                          ) : (
-                            <span className={`font-medium ${dark ? 'text-green-400' : 'text-green-600'}`}>
-                              ✓ مكتمل
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
-                  
-                  {/* Buttons */}
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={() => {
-                        setShowVibeCompletionPopup(false)
-                        setIncompleteVibeQuestions({})
-                        setVibeAnswers({})
-                      }}
-                      disabled={vibeLoading}
-                      className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
-                        dark 
-                          ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
-                          : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
-                      } disabled:opacity-50`}
-                    >
-                      إغلاق
-                    </button>
-                    
-                    <button
-                      onClick={handleVibeCompletionSubmit}
-                      disabled={vibeLoading}
-                      className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
-                    >
-                      {vibeLoading ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          جاري الحفظ...
-                        </>
-                      ) : (
-                        <>
-                          <CheckCircle className="w-4 h-4" />
-                          حفظ التحديثات
-                        </>
-                      )}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

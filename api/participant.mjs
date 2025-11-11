@@ -1382,6 +1382,8 @@ export default async function handler(req, res) {
       const hasNestedStructure = existingSurveyData.answers && typeof existingSurveyData.answers === 'object'
       
       let updatedSurveyData
+      let answersForVibeExtraction
+      
       if (hasNestedStructure) {
         // Update nested structure: survey_data.answers.vibe_1
         updatedSurveyData = {
@@ -1391,15 +1393,39 @@ export default async function handler(req, res) {
             ...vibe_answers
           }
         }
+        answersForVibeExtraction = updatedSurveyData.answers
       } else {
         // Update top-level structure: survey_data.vibe_1
         updatedSurveyData = {
           ...existingSurveyData,
           ...vibe_answers
         }
+        answersForVibeExtraction = updatedSurveyData
       }
 
+      // Recalculate vibeDescription from updated vibe answers
+      const weekend = (answersForVibeExtraction['vibe_1'] || '') 
+      const hobbies = (answersForVibeExtraction['vibe_2'] || '')
+      const music = (answersForVibeExtraction['vibe_3'] || '')
+      const deepTalk = (answersForVibeExtraction['vibe_4'] || '')
+      const friendsDescribe = (answersForVibeExtraction['vibe_5'] || '')
+      const describeFriends = (answersForVibeExtraction['vibe_6'] || '')
+      
+      // Create structured vibe description combining all answers
+      const vibeDescription = [
+        weekend ? `Weekend: ${weekend}` : '',
+        hobbies ? `Hobbies: ${hobbies}` : '',
+        music ? `Music: ${music}` : '',
+        deepTalk ? `Deep conversations: ${deepTalk}` : '',
+        friendsDescribe ? `Friends describe me as: ${friendsDescribe}` : '',
+        describeFriends ? `I describe my friends as: ${describeFriends}` : ''
+      ].filter(Boolean).join(' | ')
+      
+      // Update vibeDescription in survey_data
+      updatedSurveyData.vibeDescription = vibeDescription
+      
       console.log('📝 Updating structure:', hasNestedStructure ? 'nested (answers.vibe_1)' : 'top-level (vibe_1)')
+      console.log('✨ Recalculated vibeDescription:', vibeDescription.substring(0, 100) + '...')
 
       // Update participant in database
       const { error: updateError } = await supabase

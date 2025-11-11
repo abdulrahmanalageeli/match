@@ -114,6 +114,8 @@ export default function WelcomePage() {
   const [vibeAnswers, setVibeAnswers] = useState<{[key: string]: string}>({})
   const [vibeLoading, setVibeLoading] = useState(false)
   
+  // Track if user just created token (to prevent showing incomplete survey popup during registration)
+  const [isJustCreatedUser, setIsJustCreatedUser] = useState(false)
 
   const [freeTime, setFreeTime] = useState("")
   const [friendDesc, setFriendDesc] = useState("")
@@ -2597,9 +2599,15 @@ export default function WelcomePage() {
 
   // Check if user has incomplete survey data
   const checkIncompleteSurvey = async (savedToken: string) => {
-    // Don't show popup if URL has ?token parameter, user is on survey step, or other popups are showing
-    if (window.location.search.includes('?token') || window.location.search.includes('token=') || step === 1 || showNewUserTypePopup) {
-      console.log('❌ URL has token parameter, on survey step, or other popup showing - skipping survey completion popup');
+    // Don't show popup if URL has ?token parameter or other popups are showing
+    if (window.location.search.includes('?token') || showNewUserTypePopup) {
+      console.log('❌ URL has ?token parameter or other popup showing, skipping survey completion popup');
+      return;
+    }
+    
+    // Don't show popup if user just created their token (new user in middle of registration)
+    if (isJustCreatedUser) {
+      console.log('❌ User just created token, skipping survey completion popup');
       return;
     }
     
@@ -2884,6 +2892,18 @@ export default function WelcomePage() {
     console.log(`🔄 Step changed to: ${step} (phase: ${phase})`);
   }, [step, phase])
 
+  // Check if user just created token (to prevent showing incomplete survey popup)
+  useEffect(() => {
+    const justCreated = sessionStorage.getItem('justCreatedToken') === '1';
+    if (justCreated) {
+      console.log('🆕 Detected newly created user, setting isJustCreatedUser state');
+      setIsJustCreatedUser(true);
+      
+      // Clear the flag after survey is completed (when step changes away from 1)
+      // This will be handled in the step change effect
+    }
+  }, []); // Run once on mount
+
   // Local storage functionality for auto-filling tokens
 
   useEffect(() => {
@@ -2910,8 +2930,7 @@ export default function WelcomePage() {
         }, 2000); // Give page time to load
         
         // Also check if user has incomplete survey data (only on main page)
-        // Don't check if URL has token parameter (user might be in the middle of survey)
-        if (step === 0 && !window.location.search.includes('token=')) {
+        if (step === 0) {
           setTimeout(() => {
             checkIncompleteSurvey(tokenToUse);
           }, 1000); // Check survey completion status
@@ -3176,6 +3195,14 @@ export default function WelcomePage() {
       // Save token to localStorage since user completed survey successfully
       if (secureToken) {
         saveUserToken(secureToken);
+      }
+      
+      // Clear the "just created" flag since user has now completed their survey
+      if (isJustCreatedUser) {
+        console.log('✅ Survey completed, clearing isJustCreatedUser flag');
+        setIsJustCreatedUser(false);
+        sessionStorage.removeItem('justCreatedToken');
+        sessionStorage.removeItem('justCreatedTokenValue');
       }
     } catch (err) {
       console.error("Submit error:", err)

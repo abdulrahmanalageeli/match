@@ -1196,8 +1196,12 @@ export default function WelcomePage() {
                   setStep(3); // Show analysis/waiting
                 }
               } else {
-                // In form phase and already filled form, show prompt
-                setShowFormFilledPrompt(true);
+                // In form phase and already filled form, show prompt (unless user just created token)
+                if (!isJustCreatedUser) {
+                  setShowFormFilledPrompt(true);
+                } else {
+                  console.log("🚫 Not showing form filled prompt - user just created token");
+                }
               }
             } else {
               // User hasn't filled form yet, check current phase
@@ -1675,7 +1679,8 @@ export default function WelcomePage() {
           // This prevents the prompt from appearing repeatedly after user makes their choice
           // Also prevent showing if user just completed editing their survey
           // IMPORTANT: Only show popup after token validation is completed to ensure participant still exists
-          if (hasSubstantialSurveyData(surveyData.answers) && !formFilledChoiceMade && !justCompletedEditing && tokenValidationCompleted) {
+          // Don't show if user just created their token (new user in middle of registration)
+          if (hasSubstantialSurveyData(surveyData.answers) && !formFilledChoiceMade && !justCompletedEditing && !isJustCreatedUser && tokenValidationCompleted) {
             if (!showFormFilledPrompt && step === (2 as number)) {
               console.log("🔔 Showing form filled prompt - user has survey data but hasn't made choice")
               setShowFormFilledPrompt(true);
@@ -1683,6 +1688,8 @@ export default function WelcomePage() {
           } else {
             if (justCompletedEditing) {
               console.log("🚫 Not showing form filled prompt - user just completed editing")
+            } else if (isJustCreatedUser) {
+              console.log("🚫 Not showing form filled prompt - user just created token")
             } else if (!tokenValidationCompleted) {
               console.log("🚫 Not showing form filled prompt - token validation not completed yet")
             }
@@ -1749,7 +1756,7 @@ export default function WelcomePage() {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive, phase, currentEventId, announcement, emergencyPaused, timerRestored, globalTimerStartTime, globalTimerDuration, conversationStarted, modalStep, isScoreRevealed, isShowingFinishedEventFeedback, secureToken, formFilledChoiceMade, justCompletedEditing, tokenValidationCompleted, surveyData, showFormFilledPrompt])
+  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive, phase, currentEventId, announcement, emergencyPaused, timerRestored, globalTimerStartTime, globalTimerDuration, conversationStarted, modalStep, isScoreRevealed, isShowingFinishedEventFeedback, secureToken, formFilledChoiceMade, justCompletedEditing, tokenValidationCompleted, surveyData, showFormFilledPrompt, isJustCreatedUser])
 
   // Round 1 Local Timer - counts down from 45 minutes
   // Track if timer has ever started to keep it running even after global timer ends
@@ -3197,7 +3204,7 @@ export default function WelcomePage() {
         saveUserToken(secureToken);
       }
       
-      // Clear the "just createdd" flag since user has now completed their survey
+      // Clear the "just created" flag since user has now completed their survey
       if (isJustCreatedUser) {
         console.log('✅ Survey completed, clearing isJustCreatedUser flag');
         setIsJustCreatedUser(false);

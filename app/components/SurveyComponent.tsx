@@ -810,41 +810,38 @@ const SurveyComponent = memo(function SurveyComponent({
       
       let isValid = true
       
-      if (page === totalPages - 1) {
-        isValid = surveyData.termsAccepted && surveyData.dataConsent
-      } else {
-        const startIndex = page * questionsPerPage
-        const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+      // Validate questions on this page
+      const startIndex = page * questionsPerPage
+      const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+      
+      for (let i = startIndex; i < endIndex; i++) {
+        const question = surveyQuestions[i]
+        const value = surveyData.answers[question.id]
         
-        for (let i = startIndex; i < endIndex; i++) {
-          const question = surveyQuestions[i]
-          const value = surveyData.answers[question.id]
-          
-          if (question.required) {
-            if (Array.isArray(value)) {
-              if (!value || value.length === 0) {
+        if (question.required) {
+          if (Array.isArray(value)) {
+            if (!value || value.length === 0) {
+              isValid = false
+              break
+            }
+          } else {
+            if (!value || value === "" || value.trim() === "") {
+              isValid = false
+              break
+            }
+            
+            // Check character limit for text questions
+            if (question.type === "text" && question.maxLength) {
+              if (value.length > question.maxLength) {
                 isValid = false
                 break
               }
-            } else {
-              if (!value || value === "" || value.trim() === "") {
-                isValid = false
-                break
-              }
-              
-              // Check character limit for text questions
-              if (question.type === "text" && question.maxLength) {
-                if (value.length > question.maxLength) {
+              // Check 50% minimum requirement for text questions (except name and phone)
+              if (question.id !== 'name' && question.id !== 'phone_number') {
+                const minRequired = Math.ceil(question.maxLength * 0.5)
+                if (value.length < minRequired) {
                   isValid = false
                   break
-                }
-                // Check 50% minimum requirement for text questions (except name and phone)
-                if (question.id !== 'name' && question.id !== 'phone_number') {
-                  const minRequired = Math.ceil(question.maxLength * 0.5)
-                  if (value.length < minRequired) {
-                    isValid = false
-                    break
-                  }
                 }
               }
             }
@@ -1588,6 +1585,42 @@ const SurveyComponent = memo(function SurveyComponent({
               
               <Button
                 onClick={() => {
+                  // Validate last page questions before submitting
+                  const startIndex = currentPage * questionsPerPage
+                  const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+                  const incompleteQuestions: string[] = []
+                  
+                  for (let i = startIndex; i < endIndex; i++) {
+                    const question = surveyQuestions[i]
+                    const value = surveyData.answers[question.id]
+                    
+                    if (question.required) {
+                      if (Array.isArray(value)) {
+                        if (!value || value.length === 0) {
+                          incompleteQuestions.push(`${question.question}: مطلوب`)
+                        }
+                      } else {
+                        if (!value || value === "" || value.trim() === "") {
+                          incompleteQuestions.push(`${question.question}: مطلوب`)
+                        } else if (question.type === "text" && question.maxLength && 
+                                   question.id !== 'name' && question.id !== 'phone_number') {
+                          const minRequired = Math.ceil(question.maxLength * 0.5)
+                          const currentLength = (value as string).length
+                          
+                          if (currentLength < minRequired) {
+                            const remaining = minRequired - currentLength
+                            incompleteQuestions.push(`${question.question}: يحتاج ${remaining} حرف إضافي (الحد الأدنى: ${minRequired})`)
+                          }
+                        }
+                      }
+                    }
+                  }
+                  
+                  if (incompleteQuestions.length > 0) {
+                    alert(`⚠️ يرجى إكمال الأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}`)
+                    return
+                  }
+                  
                   // Auto-accept terms when submitting and call handleSubmit with updated data
                   const updatedData = { ...surveyData, termsAccepted: true, dataConsent: true };
                   setSurveyData(updatedData);
@@ -1595,7 +1628,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   // Call handleSubmit with the updated data directly to avoid race condition
                   handleSubmitWithData(updatedData);
                 }}
-                disabled={loading || !isPageValid(currentPage)}
+                disabled={loading}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
               >
                 {loading ? (

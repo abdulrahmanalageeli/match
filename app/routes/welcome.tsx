@@ -2325,11 +2325,8 @@ export default function WelcomePage() {
 
   // Check if participant has incomplete vibe questions (below 75% minimum)
   const checkVibeQuestionsCompletion = async (token: string) => {
-    console.log('🔍 Checking vibe questions completion for token:', token);
-    
     // Don't show vibe popup if other popups are already showing
     if (showSurveyCompletionPopup || showNewUserTypePopup || showNextEventPopup || showReturningSignupPopup) {
-      console.log('❌ Other popup is showing, skipping vibe completion popup');
       return;
     }
     
@@ -2346,30 +2343,15 @@ export default function WelcomePage() {
       if (res.ok) {
         const data = await res.json()
         
-        console.log('🔍 Full API Response:', {
-          success: data.success,
-          participant_exists: !!data.participant,
-          survey_data_exists: !!data.survey_data,
-          survey_data_keys: data.survey_data ? Object.keys(data.survey_data).slice(0, 10) : [],
-          participant_survey_data_exists: !!data.participant?.survey_data,
-        });
-        
         // Check both data.survey_data AND data.participant.survey_data
         const surveyData = data.survey_data || data.participant?.survey_data
         
         // Only check vibe questions if user HAS survey data (completed survey)
         if (data.success && surveyData && Object.keys(surveyData).length > 1) {
-          console.log('✅ User has survey data:', JSON.stringify(surveyData).substring(0, 300));
-          console.log('✅ Survey data keys:', Object.keys(surveyData));
-          console.log('✅ Checking vibe question completeness');
-          
           // Survey data structure: Can be direct (vibe_1) OR nested (answers.vibe_1)
           // Check if vibe_1 exists at top level or in answers
-          const hasTopLevelVibe = 'vibe_1' in surveyData
           const hasNestedVibe = surveyData.answers && 'vibe_1' in surveyData.answers
           const answers = hasNestedVibe ? surveyData.answers : surveyData
-          
-          console.log('📋 Structure check:', { hasTopLevelVibe, hasNestedVibe, usingAnswers: hasNestedVibe });
           
           // Define vibe questions with their limits
           const vibeQuestions = {
@@ -2388,35 +2370,25 @@ export default function WelcomePage() {
             const currentLength = answer.length
             const minRequired = Math.ceil(config.max * 0.75)
             
-            console.log(`🔍 Checking ${key}: current=${currentLength}, required=${minRequired}, answer="${answer.substring(0, 50)}..."`);
-            
+            // Always store current answers so users can edit them
             currentAnswers[key] = answer
             
             if (currentLength < minRequired) {
-              console.log(`❌ ${key} is incomplete: ${currentLength}/${minRequired}`);
               incomplete[key] = {
                 current: currentLength,
                 required: minRequired,
                 max: config.max,
                 label: config.label
               }
-            } else {
-              console.log(`✅ ${key} meets minimum: ${currentLength}/${minRequired}`);
             }
           }
           
           // If any questions are incomplete, show popup
           if (Object.keys(incomplete).length > 0) {
-            console.log('📝 Found incomplete vibe questions:', incomplete)
             setIncompleteVibeQuestions(incomplete)
             setVibeAnswers(currentAnswers)
             setShowVibeCompletionPopup(true)
-            console.log('✅ Vibe completion popup should now be visible')
-          } else {
-            console.log('✅ All vibe questions meet 75% minimum requirement')
           }
-        } else {
-          console.log('ℹ️ User does not have survey data, skipping vibe questions check')
         }
       }
     } catch (err) {
@@ -4058,10 +4030,29 @@ export default function WelcomePage() {
   // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
   if (showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
     return (
-      <>
-        <Toaster position="top-center" />
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        {/* Background Animation */}
+        <div className="absolute inset-0">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
+                i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 3) * 24}px`,
+                left: `${10 + i * 12}%`,
+                top: `${15 + (i % 4) * 20}%`,
+                animationDelay: `${i * 0.8}s`,
+                animationDuration: `${4 + (i % 3)}s`,
+              }}
+            />
+          ))}
+        </div>
+
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`} dir="rtl">
             <div className="p-6 overflow-y-auto">
               <div className="space-y-4">
                 {/* Icon */}
@@ -4174,7 +4165,7 @@ export default function WelcomePage() {
             </div>
           </div>
         </div>
-      </>
+      </div>
     );
   }
 

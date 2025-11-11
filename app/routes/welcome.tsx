@@ -2346,10 +2346,30 @@ export default function WelcomePage() {
       if (res.ok) {
         const data = await res.json()
         
+        console.log('🔍 Full API Response:', {
+          success: data.success,
+          participant_exists: !!data.participant,
+          survey_data_exists: !!data.survey_data,
+          survey_data_keys: data.survey_data ? Object.keys(data.survey_data).slice(0, 10) : [],
+          participant_survey_data_exists: !!data.participant?.survey_data,
+        });
+        
+        // Check both data.survey_data AND data.participant.survey_data
+        const surveyData = data.survey_data || data.participant?.survey_data
+        
         // Only check vibe questions if user HAS survey data (completed survey)
-        if (data.success && data.participant?.survey_data && Object.keys(data.participant.survey_data).length > 1) {
-          const surveyData = data.participant.survey_data
-          console.log('✅ User has survey data, checking vibe question completeness');
+        if (data.success && surveyData && Object.keys(surveyData).length > 1) {
+          console.log('✅ User has survey data:', JSON.stringify(surveyData).substring(0, 300));
+          console.log('✅ Survey data keys:', Object.keys(surveyData));
+          console.log('✅ Checking vibe question completeness');
+          
+          // Survey data structure: Can be direct (vibe_1) OR nested (answers.vibe_1)
+          // Check if vibe_1 exists at top level or in answers
+          const hasTopLevelVibe = 'vibe_1' in surveyData
+          const hasNestedVibe = surveyData.answers && 'vibe_1' in surveyData.answers
+          const answers = hasNestedVibe ? surveyData.answers : surveyData
+          
+          console.log('📋 Structure check:', { hasTopLevelVibe, hasNestedVibe, usingAnswers: hasNestedVibe });
           
           // Define vibe questions with their limits
           const vibeQuestions = {
@@ -2364,19 +2384,24 @@ export default function WelcomePage() {
           const currentAnswers: {[key: string]: string} = {}
           
           for (const [key, config] of Object.entries(vibeQuestions)) {
-            const answer = surveyData[key] || ""
+            const answer = answers[key] || ""
             const currentLength = answer.length
             const minRequired = Math.ceil(config.max * 0.75)
+            
+            console.log(`🔍 Checking ${key}: current=${currentLength}, required=${minRequired}, answer="${answer.substring(0, 50)}..."`);
             
             currentAnswers[key] = answer
             
             if (currentLength < minRequired) {
+              console.log(`❌ ${key} is incomplete: ${currentLength}/${minRequired}`);
               incomplete[key] = {
                 current: currentLength,
                 required: minRequired,
                 max: config.max,
                 label: config.label
               }
+            } else {
+              console.log(`✅ ${key} meets minimum: ${currentLength}/${minRequired}`);
             }
           }
           

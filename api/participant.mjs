@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -250,6 +250,7 @@ export default async function handler(req, res) {
     }
 
     console.log("[API] Successfully resolved token. Sending response.");
+    console.log("[API] survey_data structure:", JSON.stringify(data.survey_data).substring(0, 200));
     return res.status(200).json({
       success: true,
       assigned_number: data.assigned_number,
@@ -258,6 +259,9 @@ export default async function handler(req, res) {
       summary: data.summary,
       signup_for_next_event: data.signup_for_next_event,
       auto_signup_next_event: data.auto_signup_next_event,
+      humor_banter_style: data.humor_banter_style,
+      early_openness_comfort: data.early_openness_comfort,
+      participant: data,  // Return full participant data for debugging
       history: history
     })
   }

@@ -108,6 +108,12 @@ export default function WelcomePage() {
   const [participantHasHumorStyle, setParticipantHasHumorStyle] = useState(false)
   const [participantHasOpennessComfort, setParticipantHasOpennessComfort] = useState(false)
   
+  // Vibe questions completion popup states
+  const [showVibeCompletionPopup, setShowVibeCompletionPopup] = useState(false)
+  const [incompleteVibeQuestions, setIncompleteVibeQuestions] = useState<{[key: string]: {current: number, required: number, max: number}}>({})
+  const [vibeAnswers, setVibeAnswers] = useState<{[key: string]: string}>({})
+  const [vibeLoading, setVibeLoading] = useState(false)
+  
 
   const [freeTime, setFreeTime] = useState("")
   const [friendDesc, setFriendDesc] = useState("")
@@ -2317,6 +2323,114 @@ export default function WelcomePage() {
     }
   }
 
+  // Check if participant has incomplete vibe questions (below 75% minimum)
+  const checkVibeQuestionsCompletion = async (token: string) => {
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "resolve-token",
+          secure_token: token
+        }),
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.participant?.survey_data) {
+          const surveyData = data.participant.survey_data
+          
+          // Define vibe questions with their limits
+          const vibeQuestions = {
+            vibe_1: { max: 150, label: "السؤال 29: وصف الويكند المثالي" },
+            vibe_2: { max: 100, label: "السؤال 30: خمس هوايات" },
+            vibe_3: { max: 100, label: "السؤال 31: الفنان المفضل" },
+            vibe_5: { max: 150, label: "السؤال 33: كيف يوصفك أصدقائك" },
+            vibe_6: { max: 150, label: "السؤال 34: كيف تصف أصدقائك" }
+          }
+          
+          const incomplete: {[key: string]: {current: number, required: number, max: number, label: string}} = {}
+          const currentAnswers: {[key: string]: string} = {}
+          
+          for (const [key, config] of Object.entries(vibeQuestions)) {
+            const answer = surveyData[key] || ""
+            const currentLength = answer.length
+            const minRequired = Math.ceil(config.max * 0.75)
+            
+            currentAnswers[key] = answer
+            
+            if (currentLength < minRequired) {
+              incomplete[key] = {
+                current: currentLength,
+                required: minRequired,
+                max: config.max,
+                label: config.label
+              }
+            }
+          }
+          
+          // If any questions are incomplete, show popup
+          if (Object.keys(incomplete).length > 0) {
+            setIncompleteVibeQuestions(incomplete)
+            setVibeAnswers(currentAnswers)
+            setShowVibeCompletionPopup(true)
+            console.log('📝 Incomplete vibe questions:', incomplete)
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error checking vibe questions:", err)
+    }
+  }
+
+  // Handle vibe questions completion submission
+  const handleVibeCompletionSubmit = async () => {
+    // Validate that all incomplete questions now meet minimum requirement
+    const stillIncomplete: string[] = []
+    
+    for (const [key, info] of Object.entries(incompleteVibeQuestions)) {
+      const currentLength = (vibeAnswers[key] || "").length
+      if (currentLength < info.required) {
+        const remaining = info.required - currentLength
+        stillIncomplete.push(`${info.label}: يحتاج ${remaining} حرف إضافي`)
+      }
+    }
+    
+    if (stillIncomplete.length > 0) {
+      toast.error(`⚠️ يرجى إكمال الحد الأدنى المطلوب:\n${stillIncomplete.join('\n')}`)
+      return
+    }
+    
+    setVibeLoading(true)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "update-vibe-questions",
+          secure_token: secureToken,
+          vibe_answers: vibeAnswers
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        toast.success("✅ تم تحديث إجاباتك بنجاح! أنت الآن مؤهل للحدث القادم")
+        setShowVibeCompletionPopup(false)
+        setIncompleteVibeQuestions({})
+        setVibeAnswers({})
+      } else {
+        toast.error(data.error || "حدث خطأ أثناء التحديث")
+      }
+    } catch (err) {
+      console.error("Error updating vibe questions:", err)
+      toast.error("حدث خطأ أثناء التحديث")
+    } finally {
+      setVibeLoading(false)
+    }
+  }
+
   // Handle returning participant phone lookup - show popup first
   const handleReturningParticipant = async () => {
     if (!returningPhoneNumber.trim()) {
@@ -2783,6 +2897,11 @@ export default function WelcomePage() {
           setTimeout(() => {
             checkIncompleteSurvey(tokenToUse);
           }, 1000); // Check survey completion status
+          
+          // Check if user has incomplete vibe questions (below 75% minimum)
+          setTimeout(() => {
+            checkVibeQuestionsCompletion(tokenToUse);
+          }, 1500); // Check after survey check
         }
       } else {
         console.log('❌ Token in URL or on survey step, skipping next event check');
@@ -4826,6 +4945,124 @@ export default function WelcomePage() {
                     )}
                   </button>
                 </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Vibe Questions Completion Popup */}
+        {showVibeCompletionPopup && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
+              <div className="p-6 overflow-y-auto">
+                <div className="space-y-4">
+                  {/* Icon */}
+                  <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-yellow-500/20" : "bg-yellow-100"}`}>
+                    <AlertTriangle className={`w-8 h-8 ${dark ? "text-yellow-400" : "text-yellow-600"}`} />
+                  </div>
+                  
+                  <h3 className={`text-xl font-bold text-center ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                    إكمال الأسئلة المطلوبة
+                  </h3>
+                  
+                  <div className={`p-4 rounded-xl border ${dark ? "bg-yellow-500/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-200"}`}>
+                    <p className={`text-sm font-medium ${dark ? "text-yellow-300" : "text-yellow-700"}`}>
+                      ⚠️ لم تكمل الحد الأدنى المطلوب (75%) من الإجابات التالية
+                    </p>
+                    <p className={`text-xs mt-2 ${dark ? "text-yellow-200" : "text-yellow-600"}`}>
+                      يرجى إكمال الأسئلة أدناه لتكون مؤهلاً للحدث القادم
+                    </p>
+                  </div>
+
+                  {/* Incomplete Vibe Questions */}
+                  {Object.entries(incompleteVibeQuestions).map(([key, info]) => {
+                    const currentLength = (vibeAnswers[key] || "").length
+                    const remaining = info.required - currentLength
+                    const isBelowMinimum = currentLength < info.required
+                    
+                    return (
+                      <div key={key} className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
+                        <p className={`text-sm font-medium mb-2 ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                          {info.label}
+                        </p>
+                        <textarea
+                          value={vibeAnswers[key] || ""}
+                          onChange={(e) => {
+                            const newValue = e.target.value
+                            if (newValue.length <= info.max) {
+                              setVibeAnswers(prev => ({ ...prev, [key]: newValue }))
+                            }
+                          }}
+                          placeholder="اكتب إجابتك هنا..."
+                          className={`w-full min-h-[80px] text-right border-2 rounded-lg px-3 py-2 text-sm resize-y ${
+                            isBelowMinimum
+                              ? dark 
+                                ? 'border-yellow-600 focus:border-yellow-500 bg-slate-700 text-slate-100' 
+                                : 'border-yellow-300 focus:border-yellow-500 bg-white text-gray-800'
+                              : dark
+                                ? 'border-green-600 focus:border-green-500 bg-slate-700 text-slate-100'
+                                : 'border-green-300 focus:border-green-500 bg-white text-gray-800'
+                          }`}
+                        />
+                        <div className="flex justify-between items-center mt-2 text-xs">
+                          <span className={`font-medium ${
+                            isBelowMinimum 
+                              ? dark ? 'text-yellow-400' : 'text-yellow-600'
+                              : dark ? 'text-green-400' : 'text-green-600'
+                          }`}>
+                            {currentLength}/{info.max} حرف (الحد الأدنى: {info.required})
+                          </span>
+                          {isBelowMinimum ? (
+                            <span className={`font-medium ${dark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                              يحتاج {remaining} حرف إضافي
+                            </span>
+                          ) : (
+                            <span className={`font-medium ${dark ? 'text-green-400' : 'text-green-600'}`}>
+                              ✓ مكتمل
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  
+                  {/* Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => {
+                        setShowVibeCompletionPopup(false)
+                        setIncompleteVibeQuestions({})
+                        setVibeAnswers({})
+                      }}
+                      disabled={vibeLoading}
+                      className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                        dark 
+                          ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                          : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                      } disabled:opacity-50`}
+                    >
+                      إغلاق
+                    </button>
+                    
+                    <button
+                      onClick={handleVibeCompletionSubmit}
+                      disabled={vibeLoading}
+                      className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {vibeLoading ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                          جاري الحفظ...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="w-4 h-4" />
+                          حفظ التحديثات
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -1350,6 +1350,61 @@ export default async function handler(req, res) {
     }
   }
 
+  // UPDATE VIBE QUESTIONS ACTION
+  if (action === "update-vibe-questions") {
+    try {
+      const { secure_token, vibe_answers } = req.body
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      
+      if (!secure_token || !vibe_answers) {
+        return res.status(400).json({ error: "Missing secure_token or vibe_answers" })
+      }
+
+      console.log('📝 Updating vibe questions for token:', secure_token)
+
+      // Get participant by token
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data")
+        .eq("secure_token", secure_token)
+        .eq("match_id", match_id)
+        .single()
+
+      if (participantError || !participant) {
+        console.error('❌ Participant not found:', participantError)
+        return res.status(404).json({ error: "Participant not found" })
+      }
+
+      // Update survey_data with new vibe answers
+      const updatedSurveyData = {
+        ...(participant.survey_data || {}),
+        ...vibe_answers
+      }
+
+      // Update participant in database
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update({ survey_data: updatedSurveyData })
+        .eq("secure_token", secure_token)
+        .eq("match_id", match_id)
+
+      if (updateError) {
+        console.error('❌ Error updating vibe questions:', updateError)
+        return res.status(500).json({ error: "Failed to update vibe questions" })
+      }
+
+      console.log('✅ Vibe questions updated successfully for participant:', participant.assigned_number)
+      return res.status(200).json({ 
+        success: true,
+        message: "تم تحديث إجاباتك بنجاح"
+      })
+
+    } catch (err) {
+      console.error('❌ Error in update-vibe-questions:', err)
+      return res.status(500).json({ error: err.message })
+    }
+  }
+
   // GENERATE AI VIBE ANALYSIS ACTION
   if (action === "generate-vibe-analysis") {
     try {

@@ -833,9 +833,19 @@ const SurveyComponent = memo(function SurveyComponent({
               }
               
               // Check character limit for text questions
-              if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
-                isValid = false
-                break
+              if (question.type === "text" && question.maxLength) {
+                if (value.length > question.maxLength) {
+                  isValid = false
+                  break
+                }
+                // Check 75% minimum requirement for text questions (except name and phone)
+                if (question.id !== 'name' && question.id !== 'phone_number') {
+                  const minRequired = Math.ceil(question.maxLength * 0.75)
+                  if (value.length < minRequired) {
+                    isValid = false
+                    break
+                  }
+                }
               }
             }
           }
@@ -876,6 +886,33 @@ const SurveyComponent = memo(function SurveyComponent({
           // Continue to next page if API call fails
         }
       }
+    }
+    
+    // Check 75% minimum requirement for text questions before proceeding (except name and phone)
+    const startIndex = currentPage * questionsPerPage
+    const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+    const incompleteQuestions: string[] = []
+    
+    for (let i = startIndex; i < endIndex; i++) {
+      const question = surveyQuestions[i]
+      const value = surveyData.answers[question.id]
+      
+      // Skip 75% check for name and phone_number
+      if (question.required && question.type === "text" && question.maxLength && 
+          question.id !== 'name' && question.id !== 'phone_number') {
+        const minRequired = Math.ceil(question.maxLength * 0.75)
+        const currentLength = (value as string || "").length
+        
+        if (currentLength < minRequired) {
+          const remaining = minRequired - currentLength
+          incompleteQuestions.push(`${question.question}: يحتاج ${remaining} حرف إضافي (الحد الأدنى: ${minRequired} حرف من ${question.maxLength})`)
+        }
+      }
+    }
+    
+    if (incompleteQuestions.length > 0) {
+      alert(`⚠️ يرجى إكمال الحد الأدنى المطلوب (75%) للأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}\n\n💡 نصيحة: الإجابات المفصلة تساعد في إيجاد أفضل توافق لك!`)
+      return // Don't proceed to next page
     }
     
     if (currentPage < totalPages - 1) {
@@ -1190,6 +1227,7 @@ const SurveyComponent = memo(function SurveyComponent({
         const isPhoneNumber = question.id === 'phone_number'
         const isName = question.id === 'name'
         
+        // Name and phone don't have 75% minimum requirement
         if (isPhoneNumber || isName) {
           return (
             <div className="relative mt-4">
@@ -1204,7 +1242,7 @@ const SurveyComponent = memo(function SurveyComponent({
                 placeholder={question.placeholder}
                 className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
                   isOverLimit 
-                    ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' 
+                    ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400'
                     : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
                 } bg-white dark:bg-slate-700`}
               />
@@ -1224,6 +1262,11 @@ const SurveyComponent = memo(function SurveyComponent({
           )
         }
         
+        // Vibe questions have 75% minimum requirement
+        const minRequired = Math.ceil(maxLength * 0.75)
+        const isBelowMinimum = currentLength < minRequired
+        const remaining = minRequired - currentLength
+        
         return (
           <div className="relative mt-4">
             <Textarea
@@ -1237,19 +1280,33 @@ const SurveyComponent = memo(function SurveyComponent({
               placeholder={question.placeholder}
               className={`min-h-[40px] text-right border-2 rounded-lg px-3 py-1.5 text-sm resize-none ${
                 isOverLimit 
-                  ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' 
+                  ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400'
+                  : isBelowMinimum
+                  ? 'border-yellow-300 dark:border-yellow-600 focus:border-yellow-500 dark:focus:border-yellow-400'
                   : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
               } bg-white dark:bg-slate-700`}
             />
             
             {/* Character counter */}
             <div className="flex justify-between items-center mt-2 text-xs">
-              <span className={`font-medium ${isOverLimit ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                {currentLength}/{maxLength} حرف
+              <span className={`font-medium ${
+                isOverLimit ? 'text-red-500 dark:text-red-400' : 
+                isBelowMinimum ? 'text-yellow-600 dark:text-yellow-400' : 
+                'text-green-600 dark:text-green-400'
+              }`}>
+                {currentLength}/{maxLength} حرف (الحد الأدنى: {minRequired})
               </span>
-              {isOverLimit && (
+              {isOverLimit ? (
                 <span className="text-red-500 dark:text-red-400 font-medium">
                   تجاوزت الحد المسموح
+                </span>
+              ) : isBelowMinimum ? (
+                <span className="text-yellow-600 dark:text-yellow-400 font-medium">
+                  يحتاج {remaining} حرف إضافي
+                </span>
+              ) : (
+                <span className="text-green-600 dark:text-green-400 font-medium">
+                  ✓ مكتمل
                 </span>
               )}
             </div>

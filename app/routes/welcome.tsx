@@ -2323,7 +2323,7 @@ export default function WelcomePage() {
     }
   }
 
-  // Check if participant has incomplete vibe questions (below 75% minimum)
+  // Check if participant has incomplete vibe questions (below 50% minimum)
   const checkVibeQuestionsCompletion = async (token: string) => {
     // Don't show vibe popup if other popups are already showing
     if (showSurveyCompletionPopup || showNewUserTypePopup || showNextEventPopup || showReturningSignupPopup) {
@@ -2368,7 +2368,7 @@ export default function WelcomePage() {
           for (const [key, config] of Object.entries(vibeQuestions)) {
             const answer = answers[key] || ""
             const currentLength = answer.length
-            const minRequired = Math.ceil(config.max * 0.75)
+            const minRequired = Math.ceil(config.max * 0.5)
             
             // Always store current answers so users can edit them
             currentAnswers[key] = answer
@@ -2911,7 +2911,7 @@ export default function WelcomePage() {
             checkIncompleteSurvey(tokenToUse);
           }, 1000); // Check survey completion status
           
-          // Check if user has incomplete vibe questions (below 75% minimum)
+          // Check if user has incomplete vibe questions (below 50% minimum)
           setTimeout(() => {
             checkVibeQuestionsCompletion(tokenToUse);
           }, 2500); // Check after survey check and next event signup
@@ -4066,7 +4066,7 @@ export default function WelcomePage() {
                 
                 <div className={`p-4 rounded-xl border ${dark ? "bg-yellow-500/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-200"}`}>
                   <p className={`text-sm font-medium ${dark ? "text-yellow-300" : "text-yellow-700"}`}>
-                    ⚠️ لم تكمل الحد الأدنى المطلوب (75%) من الإجابات التالية
+                    ⚠️ لم تكمل الحد الأدنى المطلوب (50%) من الإجابات التالية
                   </p>
                   <p className={`text-xs mt-2 ${dark ? "text-yellow-200" : "text-yellow-600"}`}>
                     يرجى إكمال الأسئلة أدناه لتكون مؤهلاً للحدث القادم

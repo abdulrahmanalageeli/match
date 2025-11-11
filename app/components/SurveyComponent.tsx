@@ -838,9 +838,9 @@ const SurveyComponent = memo(function SurveyComponent({
                   isValid = false
                   break
                 }
-                // Check 75% minimum requirement for text questions (except name and phone)
+                // Check 50% minimum requirement for text questions (except name and phone)
                 if (question.id !== 'name' && question.id !== 'phone_number') {
-                  const minRequired = Math.ceil(question.maxLength * 0.75)
+                  const minRequired = Math.ceil(question.maxLength * 0.5)
                   if (value.length < minRequired) {
                     isValid = false
                     break
@@ -888,7 +888,7 @@ const SurveyComponent = memo(function SurveyComponent({
       }
     }
     
-    // Check 75% minimum requirement for text questions before proceeding (except name and phone)
+    // Check 50% minimum requirement for text questions before proceeding (except name and phone)
     const startIndex = currentPage * questionsPerPage
     const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
     const incompleteQuestions: string[] = []
@@ -897,10 +897,10 @@ const SurveyComponent = memo(function SurveyComponent({
       const question = surveyQuestions[i]
       const value = surveyData.answers[question.id]
       
-      // Skip 75% check for name and phone_number
+      // Skip 50% check for name and phone_number
       if (question.required && question.type === "text" && question.maxLength && 
           question.id !== 'name' && question.id !== 'phone_number') {
-        const minRequired = Math.ceil(question.maxLength * 0.75)
+        const minRequired = Math.ceil(question.maxLength * 0.5)
         const currentLength = (value as string || "").length
         
         if (currentLength < minRequired) {
@@ -911,7 +911,7 @@ const SurveyComponent = memo(function SurveyComponent({
     }
     
     if (incompleteQuestions.length > 0) {
-      alert(`⚠️ يرجى إكمال الحد الأدنى المطلوب (75%) للأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}\n\n💡 نصيحة: الإجابات المفصلة تساعد في إيجاد أفضل توافق لك!`)
+      alert(`⚠️ يرجى إكمال الحد الأدنى المطلوب (50%) للأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}\n\n💡 نصيحة: الإجابات المفصلة تساعد في إيجاد أفضل توافق لك!`)
       return // Don't proceed to next page
     }
     
@@ -1227,7 +1227,7 @@ const SurveyComponent = memo(function SurveyComponent({
         const isPhoneNumber = question.id === 'phone_number'
         const isName = question.id === 'name'
         
-        // Name and phone don't have 75% minimum requirement
+        // Name and phone don't have 50% minimum requirement
         if (isPhoneNumber || isName) {
           return (
             <div className="relative mt-4">
@@ -1262,8 +1262,8 @@ const SurveyComponent = memo(function SurveyComponent({
           )
         }
         
-        // Vibe questions have 75% minimum requirement
-        const minRequired = Math.ceil(maxLength * 0.75)
+        // Vibe questions have 50% minimum requirement
+        const minRequired = Math.ceil(maxLength * 0.5)
         const isBelowMinimum = currentLength < minRequired
         const remaining = minRequired - currentLength
         

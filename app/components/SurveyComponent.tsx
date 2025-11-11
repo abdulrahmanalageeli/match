@@ -1595,7 +1595,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   // Call handleSubmit with the updated data directly to avoid race condition
                   handleSubmitWithData(updatedData);
                 }}
-                disabled={loading}
+                disabled={loading || !isPageValid(currentPage)}
                 className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:transform-none text-sm"
               >
                 {loading ? (

@@ -71,6 +71,7 @@ match/
 - `unregister-next-event` - Remove from next event
 - `generate-vibe-analysis` - AI analysis of compatibility
 - `enable-auto-signup` - Enable auto-signup feature
+- `update-vibe-questions` - Update incomplete vibe questions (75% minimum enforcement)
 
 ### `/api/admin` (Admin Operations)
 
@@ -360,6 +361,14 @@ Participants must meet ALL criteria:
 - Normalizes all formats (removes +, spaces, etc.)
 - Excludes current participant when checking duplicates
 
+### 9. **Vibe Questions 75% Minimum Requirement**
+- All vibe questions (vibe_1, vibe_2, vibe_3, vibe_5, vibe_6) require 75% of maxLength
+- Excluded: name and phone_number (no minimum requirement)
+- Validation occurs on page change and final submission
+- Pre-existing users see popup to complete incomplete vibe questions
+- Popup shows on front page (step 0) 1.5 seconds after load
+- Updates survey_data via `update-vibe-questions` API action
+
 ---
 
 ## 📝 COMMON MODIFICATIONS
@@ -367,7 +376,9 @@ Participants must meet ALL criteria:
 ### Add New Survey Question
 1. Edit `app/components/SurveyComponent.tsx`
 2. Add to `questions` array with proper validation
-3. Update `participants.survey_data` JSONB extraction if needed
+3. For text questions: Set `maxLength` property (75% minimum enforced for vibe questions only)
+4. Exclude from 75% requirement by checking `question.id !== 'name' && question.id !== 'phone_number'`
+5. Update `participants.survey_data` JSONB extraction if needed
 
 ### Add New Compatibility Factor
 1. Edit `api/admin/trigger-match.mjs`
@@ -450,5 +461,6 @@ SELECT * FROM match_results WHERE event_id = 1 AND round > 0;
 
 ---
 
-**Last Updated**: 2025-11-06  
-**Version**: Active Development
+**Last Updated**: 2025-11-11  
+**Version**: Active Development  
+**Latest Feature**: Vibe Questions 75% Minimum Requirement + Pre-existing User Completion Popup

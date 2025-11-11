@@ -110,7 +110,7 @@ export default function WelcomePage() {
   
   // Vibe questions completion popup states
   const [showVibeCompletionPopup, setShowVibeCompletionPopup] = useState(false)
-  const [incompleteVibeQuestions, setIncompleteVibeQuestions] = useState<{[key: string]: {current: number, required: number, max: number}}>({})
+  const [incompleteVibeQuestions, setIncompleteVibeQuestions] = useState<{[key: string]: {current: number, required: number, max: number, label: string}}>({})
   const [vibeAnswers, setVibeAnswers] = useState<{[key: string]: string}>({})
   const [vibeLoading, setVibeLoading] = useState(false)
   
@@ -2325,6 +2325,14 @@ export default function WelcomePage() {
 
   // Check if participant has incomplete vibe questions (below 75% minimum)
   const checkVibeQuestionsCompletion = async (token: string) => {
+    console.log('🔍 Checking vibe questions completion for token:', token);
+    
+    // Don't show vibe popup if other popups are already showing
+    if (showSurveyCompletionPopup || showNewUserTypePopup || showNextEventPopup || showReturningSignupPopup) {
+      console.log('❌ Other popup is showing, skipping vibe completion popup');
+      return;
+    }
+    
     try {
       const res = await fetch("/api/participant", {
         method: "POST",
@@ -2337,8 +2345,11 @@ export default function WelcomePage() {
       
       if (res.ok) {
         const data = await res.json()
-        if (data.success && data.participant?.survey_data) {
+        
+        // Only check vibe questions if user HAS survey data (completed survey)
+        if (data.success && data.participant?.survey_data && Object.keys(data.participant.survey_data).length > 1) {
           const surveyData = data.participant.survey_data
+          console.log('✅ User has survey data, checking vibe question completeness');
           
           // Define vibe questions with their limits
           const vibeQuestions = {
@@ -2371,11 +2382,16 @@ export default function WelcomePage() {
           
           // If any questions are incomplete, show popup
           if (Object.keys(incomplete).length > 0) {
+            console.log('📝 Found incomplete vibe questions:', incomplete)
             setIncompleteVibeQuestions(incomplete)
             setVibeAnswers(currentAnswers)
             setShowVibeCompletionPopup(true)
-            console.log('📝 Incomplete vibe questions:', incomplete)
+            console.log('✅ Vibe completion popup should now be visible')
+          } else {
+            console.log('✅ All vibe questions meet 75% minimum requirement')
           }
+        } else {
+          console.log('ℹ️ User does not have survey data, skipping vibe questions check')
         }
       }
     } catch (err) {
@@ -2901,7 +2917,7 @@ export default function WelcomePage() {
           // Check if user has incomplete vibe questions (below 75% minimum)
           setTimeout(() => {
             checkVibeQuestionsCompletion(tokenToUse);
-          }, 1500); // Check after survey check
+          }, 2500); // Check after survey check and next event signup
         }
       } else {
         console.log('❌ Token in URL or on survey step, skipping next event check');

@@ -125,6 +125,9 @@ export default function AdminPage() {
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
   
+  // Gender preference update state
+  const [updatingGenderPref, setUpdatingGenderPref] = useState<number | null>(null);
+  
   // Pre-cache state
   const [preCacheCount, setPreCacheCount] = useState(50);
   const [preCaching, setPreCaching] = useState(false);
@@ -452,6 +455,100 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       toast.error('حدث خطأ في تحديث حالة الدفع');
     } finally {
       setUpdatingStatus(null);
+    }
+  }
+
+  // Function to update gender preference
+  const updateGenderPreference = async (participantNumber: number, genderPreference: 'opposite_gender' | 'same_gender' | 'any_gender') => {
+    setUpdatingGenderPref(participantNumber);
+    
+    try {
+      const response = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "update-gender-preference",
+          participantNumber: participantNumber,
+          genderPreference: genderPreference
+        })
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.success) {
+        toast.success(`Gender preference updated for #${participantNumber}`);
+        // Refresh participants list to show updated preference
+        fetchParticipants();
+      } else {
+        toast.error(`Error updating gender preference: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error updating gender preference:", error);
+      toast.error('Error updating gender preference');
+    } finally {
+      setUpdatingGenderPref(null);
+    }
+  }
+
+  // Function to toggle participant exclusion
+  const toggleParticipantExclusion = async (participantNumber: number, participantName: string) => {
+    const isCurrentlyExcluded = excludedParticipants.some(ep => ep.participant_number === participantNumber);
+    
+    if (isCurrentlyExcluded) {
+      // Remove from excluded participants
+      const excludedEntry = excludedParticipants.find(ep => ep.participant_number === participantNumber);
+      if (!excludedEntry) return;
+      
+      if (!confirm(`Remove participant #${participantNumber} (${participantName}) from exclusion list?`)) return;
+      
+      try {
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "remove-excluded-participant",
+            id: excludedEntry.id
+          })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+          await fetchExcludedParticipants();
+          await fetchExcludedPairs();
+          toast.success(data.message || `Participant #${participantNumber} removed from exclusion`);
+        } else {
+          toast.error(data.error || 'Failed to remove exclusion');
+        }
+      } catch (error) {
+        console.error("Error removing exclusion:", error);
+        toast.error('Error removing exclusion');
+      }
+    } else {
+      // Add to excluded participants
+      if (!confirm(`Exclude participant #${participantNumber} (${participantName}) from ALL matching?\n\nThis will prevent them from being matched with anyone.`)) return;
+      
+      try {
+        const response = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            action: "add-excluded-participant",
+            participantNumber: participantNumber,
+            reason: "Excluded from admin panel",
+            is_banned: false
+          })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+          await fetchExcludedParticipants();
+          toast.success(data.message || `Participant #${participantNumber} excluded from all matching`);
+        } else {
+          toast.error(data.error || 'Failed to add exclusion');
+        }
+      } catch (error) {
+        console.error("Error adding exclusion:", error);
+        toast.error('Error adding exclusion');
+      }
     }
   }
 
@@ -1756,11 +1853,17 @@ const fetchParticipants = async () => {
         (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()))
       )
       
+      // Check if participant is excluded from all matching
+      const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number)
+      
       // Eligible participants filter (current event or signed up for next event or auto-signup)
+      // When eligible filter is active, also exclude participants in the excluded list
       const isEligible = !showEligibleOnly || (
-        p.event_id === currentEventId || // Current event participants
-        p.signup_for_next_event === true || // Manually signed up for next event
-        p.auto_signup_next_event === true // Auto-signup for next event
+        !isExcluded && ( // Exclude participants who are in the excluded list
+          p.event_id === currentEventId || // Current event participants
+          p.signup_for_next_event === true || // Manually signed up for next event
+          p.auto_signup_next_event === true // Auto-signup for next event
+        )
       )
       
       // Gender filter
@@ -1813,16 +1916,18 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId])
+  }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId, excludedParticipants])
 
-  // Calculate eligible participants count (current event or signed up for next event or auto-signup)
+  // Calculate eligible participants count (current event or signed up for next event or auto-signup, excluding excluded participants)
   const eligibleCount = useMemo(() => {
-    return participants.filter(p => 
-      p.event_id === currentEventId || 
-      p.signup_for_next_event === true ||
-      p.auto_signup_next_event === true
-    ).length
-  }, [participants, currentEventId])
+    return participants.filter(p => {
+      const isEligible = p.event_id === currentEventId || 
+                        p.signup_for_next_event === true ||
+                        p.auto_signup_next_event === true;
+      const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
+      return isEligible && !isExcluded;
+    }).length
+  }, [participants, currentEventId, excludedParticipants])
 
   const phaseConfig = {
     registration: { label: "Registration", color: "text-blue-400", bg: "bg-blue-400/10", icon: UserRound },
@@ -4084,6 +4189,26 @@ Proceed?`
                     <UserRound className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex items-center gap-2">
+                    {(() => {
+                      const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
+                      return (
+                        <button
+                          onClick={(e) => { 
+                            e.stopPropagation();
+                            toggleParticipantExclusion(p.assigned_number, p.name || `#${p.assigned_number}`);
+                          }}
+                          className={`p-3 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation ${
+                            isExcluded 
+                              ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 hover:text-orange-300' 
+                              : 'bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300'
+                          }`}
+                          title={isExcluded ? 'Remove from exclusion list' : 'Exclude from all matching'}
+                          aria-label={isExcluded ? 'Unexclude participant' : 'Exclude participant'}
+                        >
+                          {isExcluded ? <Shield className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
+                        </button>
+                      );
+                    })()}
                     <button
                       onClick={(e) => { 
                         e.stopPropagation();
@@ -4170,6 +4295,11 @@ Proceed?`
                     
                     {/* Eligibility Badges */}
                     <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
+                      {excludedParticipants.some(ep => ep.participant_number === p.assigned_number) && (
+                        <span className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded-full border border-red-400/30 font-semibold animate-pulse">
+                          🚫 Excluded
+                        </span>
+                      )}
                       {p.event_id === currentEventId && (
                         <span className="px-2 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
                           Current Event
@@ -4272,6 +4402,78 @@ Proceed?`
                           p.PAID_DONE ? '💰 Paid' : (p.PAID ? '💰 Pending' : '💰 No Contact')
                         )}
                       </button>
+                    </div>
+
+                    {/* Gender Preference Selector */}
+                    <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className="text-xs text-slate-400 mb-2 font-semibold text-center">Gender Preference:</div>
+                      {updatingGenderPref === p.assigned_number ? (
+                        <div className="flex items-center justify-center gap-2 text-purple-400 text-xs">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Updating...
+                        </div>
+                      ) : (() => {
+                        // Get current gender preference
+                        const actualGenderPref = p.survey_data?.answers?.actual_gender_preference;
+                        const sameGenderPref = p.same_gender_preference || p.survey_data?.answers?.gender_preference === 'same_gender';
+                        const anyGenderPref = p.any_gender_preference || p.survey_data?.answers?.gender_preference === 'any_gender';
+                        
+                        let currentPref: 'opposite_gender' | 'same_gender' | 'any_gender' = 'opposite_gender';
+                        if (actualGenderPref) {
+                          currentPref = actualGenderPref;
+                        } else if (anyGenderPref) {
+                          currentPref = 'any_gender';
+                        } else if (sameGenderPref) {
+                          currentPref = 'same_gender';
+                        }
+                        
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateGenderPreference(p.assigned_number, 'opposite_gender');
+                              }}
+                              className={`px-2 py-1 text-xs rounded-lg border transition-all duration-200 hover:scale-105 active:scale-95 ${
+                                currentPref === 'opposite_gender'
+                                  ? 'bg-blue-500/30 text-blue-200 border-blue-400/50 font-semibold'
+                                  : 'bg-blue-500/10 text-blue-300 border-blue-400/20 hover:bg-blue-500/20'
+                              }`}
+                              title="Match with opposite gender only"
+                            >
+                              {currentPref === 'opposite_gender' ? '✓ ' : ''}↔️ Opposite Gender
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateGenderPreference(p.assigned_number, 'same_gender');
+                              }}
+                              className={`px-2 py-1 text-xs rounded-lg border transition-all duration-200 hover:scale-105 active:scale-95 ${
+                                currentPref === 'same_gender'
+                                  ? 'bg-pink-500/30 text-pink-200 border-pink-400/50 font-semibold'
+                                  : 'bg-pink-500/10 text-pink-300 border-pink-400/20 hover:bg-pink-500/20'
+                              }`}
+                              title="Match with same gender only"
+                            >
+                              {currentPref === 'same_gender' ? '✓ ' : ''}👥 Same Gender
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateGenderPreference(p.assigned_number, 'any_gender');
+                              }}
+                              className={`px-2 py-1 text-xs rounded-lg border transition-all duration-200 hover:scale-105 active:scale-95 ${
+                                currentPref === 'any_gender'
+                                  ? 'bg-purple-500/30 text-purple-200 border-purple-400/50 font-semibold'
+                                  : 'bg-purple-500/10 text-purple-300 border-purple-400/20 hover:bg-purple-500/20'
+                              }`}
+                              title="Match with any gender"
+                            >
+                              {currentPref === 'any_gender' ? '✓ ' : ''}🌈 Any Gender
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Load Match History Button */}

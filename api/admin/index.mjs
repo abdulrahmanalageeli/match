@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -2771,6 +2771,86 @@ export default async function handler(req, res) {
       } catch (error) {
         console.error("Error in toggle-payment-status:", error)
         return res.status(500).json({ error: "Failed to toggle payment status" })
+      }
+    }
+
+    // 🔹 UPDATE GENDER PREFERENCE - Update gender preference for individual participant
+    if (action === "update-gender-preference") {
+      try {
+        const { participantNumber, genderPreference } = req.body
+        
+        if (typeof participantNumber !== 'number') {
+          return res.status(400).json({ error: "Invalid participantNumber" })
+        }
+        
+        // Validate gender preference value
+        const validPreferences = ['opposite_gender', 'same_gender', 'any_gender']
+        if (!validPreferences.includes(genderPreference)) {
+          return res.status(400).json({ error: `Invalid genderPreference. Must be one of: ${validPreferences.join(', ')}` })
+        }
+        
+        console.log(`🔄 Updating gender preference for participant #${participantNumber} to ${genderPreference}`)
+        
+        // First, get the current participant data
+        const { data: currentData, error: fetchError } = await supabase
+          .from("participants")
+          .select("survey_data, gender, same_gender_preference, any_gender_preference")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("assigned_number", participantNumber)
+          .single()
+        
+        if (fetchError || !currentData) {
+          console.error("Error fetching participant:", fetchError)
+          return res.status(404).json({ error: "Participant not found" })
+        }
+        
+        // Prepare the updated survey_data
+        const updatedSurveyData = {
+          ...currentData.survey_data,
+          answers: {
+            ...currentData.survey_data?.answers,
+            actual_gender_preference: genderPreference === 'opposite_gender' ? undefined : genderPreference,
+            // Keep the selected gender (male/female) from existing data
+            gender_preference: currentData.survey_data?.answers?.gender_preference || currentData.gender || 'male'
+          }
+        }
+        
+        // Calculate the boolean flags based on preference
+        const same_gender_preference = genderPreference === 'same_gender'
+        const any_gender_preference = genderPreference === 'any_gender'
+        
+        // Update the participant with new gender preference
+        const { data, error } = await supabase
+          .from("participants")
+          .update({ 
+            same_gender_preference,
+            any_gender_preference,
+            survey_data: updatedSurveyData
+          })
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("assigned_number", participantNumber)
+        
+        if (error) {
+          console.error("Error updating gender preference:", error)
+          return res.status(500).json({ error: "Failed to update gender preference" })
+        }
+        
+        console.log(`✅ Successfully updated gender preference for participant #${participantNumber}`)
+        console.log(`   - same_gender_preference: ${same_gender_preference}`)
+        console.log(`   - any_gender_preference: ${any_gender_preference}`)
+        
+        return res.status(200).json({ 
+          success: true,
+          message: `Updated gender preference for participant #${participantNumber}`,
+          participantNumber,
+          genderPreference,
+          same_gender_preference,
+          any_gender_preference
+        })
+        
+      } catch (error) {
+        console.error("Error in update-gender-preference:", error)
+        return res.status(500).json({ error: "Failed to update gender preference" })
       }
     }
 

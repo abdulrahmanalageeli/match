@@ -34,7 +34,8 @@ import {
   FileText,
   Bug,
   UserPlus,
-  Download
+  Download,
+  Zap
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -138,6 +139,9 @@ export default function AdminPage() {
   const [preCaching, setPreCaching] = useState(false);
   const [preCacheDirection, setPreCacheDirection] = useState<'forward' | 'reverse'>('forward');
   const [preCacheAll, setPreCacheAll] = useState(false);
+  
+  // Delta pre-cache state
+  const [deltaCaching, setDeltaCaching] = useState(false);
   
   // Group debug state
   const [showGroupDebugModal, setShowGroupDebugModal] = useState(false);
@@ -2346,6 +2350,72 @@ Proceed?`
     }
   }
   
+  // Delta Pre-Cache Function - Smart incremental caching (only updated participants)
+  const deltaCacheMatches = async () => {
+    const confirmMessage = `🔄 Smart Delta Pre-Cache for Event ${currentEventId}?
+
+This will:
+• Detect participants who updated surveys since last cache
+• Only cache pairs involving updated participants
+• Reuse existing cache for unchanged participants
+• Save time and API costs!
+
+Proceed?`
+    
+    if (!confirm(confirmMessage)) return
+    
+    setDeltaCaching(true)
+    try {
+      const res = await fetch("/api/admin/trigger-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "delta-pre-cache",
+          eventId: currentEventId,
+          skipAI: false
+        }),
+      })
+      
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        let successMessage = `✅ Delta Cache Complete!`
+        
+        if (data.participants_needing_cache === 0) {
+          successMessage = `✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${data.total_eligible}\n• Last cache: ${new Date(data.last_cache_timestamp).toLocaleString()}`
+        } else {
+          successMessage += `\n\n📊 Smart Caching Results:`
+          successMessage += `\n• Updated participants: ${data.participants_needing_cache}`
+          successMessage += `\n• New pairs cached: ${data.cached_count}`
+          
+          if (data.already_cached > 0) {
+            successMessage += `\n• Reused cached: ${data.already_cached}`
+          }
+          
+          if (data.skipped > 0) {
+            successMessage += `\n• Skipped (incompatible): ${data.skipped}`
+          }
+          
+          successMessage += `\n• Pairs checked: ${data.pairs_checked}`
+          successMessage += `\n• AI calls made: ${data.ai_calls_made}`
+          successMessage += `\n\n⏱️ Time: ${data.duration_seconds}s`
+          
+          const efficiency = data.pairs_checked > 0 ? ((1 - (data.pairs_checked / (data.total_eligible * (data.total_eligible - 1) / 2))) * 100).toFixed(0) : 0
+          successMessage += `\n💰 Efficiency: ${efficiency}% reduction vs full cache`
+        }
+        
+        toast.success(successMessage, { duration: 8000 })
+      } else {
+        toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error delta caching:", error)
+      toast.error("Error running delta pre-cache")
+    } finally {
+      setDeltaCaching(false)
+    }
+  }
+  
   // Debug group eligibility function
   const debugGroupEligibility = async () => {
     setLoadingGroupDebug(true)
@@ -2949,9 +3019,26 @@ Proceed?`
                     )}
                     Pre-Cache
                   </button>
-                  <button
-                    onClick={async () => {
-                      let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
+                </div>
+
+                {/* Delta Pre-Cache Button (Smart Incremental) */}
+                <button
+                  onClick={deltaCacheMatches}
+                  disabled={deltaCaching || loading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
+                  title="Smart caching - only updates changed participants"
+                >
+                  {deltaCaching ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Zap className="w-3.5 h-3.5" />
+                  )}
+                  Delta Cache
+                </button>
+
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `Generate group matches for Event ${currentEventId}? This will create groups of 3-4 people based on MBTI compatibility.`
                       if (excludedParticipants.length > 0) {
                         confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
                       }

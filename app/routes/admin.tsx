@@ -2422,8 +2422,15 @@ Proceed?`
         }
         
         toast.success(successMessage, { duration: 8000 })
+        // Refresh delta cache count
+        fetchParticipants()
       } else {
-        toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+        // Check if error is about missing cache metadata
+        if (data.error && data.error.includes('No cache metadata')) {
+          toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
+        } else {
+          toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+        }
       }
     } catch (error) {
       console.error("Error delta caching:", error)
@@ -2796,7 +2803,12 @@ Proceed?`
                 </span>
               )}
             </div>
-            <div className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative" title="Participants needing delta cache (updated survey data)">
+            <div 
+              className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative" 
+              title={deltaCacheCount === 0 
+                ? "Delta cache only counts participants who UPDATED their survey after last cache. Use Pre-Cache for first-time caching." 
+                : "Participants who updated their survey data since last cache"}
+            >
               <span className="text-cyan-300 text-sm">Delta Cache: </span>
               <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
               {deltaCacheCount > 0 && (

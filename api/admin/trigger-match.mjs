@@ -2084,7 +2084,21 @@ export default async function handler(req, res) {
       }
       
       const lastCacheTimestamp = lastTimestamp || '1970-01-01T00:00:00Z'
+      const noCacheMetadata = !lastTimestamp || lastCacheTimestamp === '1970-01-01T00:00:00Z'
+      
       console.log(`📅 Last cache timestamp: ${lastCacheTimestamp}`)
+      
+      if (noCacheMetadata) {
+        console.log(`⚠️  NO CACHE METADATA FOUND - Delta cache requires at least one pre-cache session`)
+        console.log(`💡 Please run regular Pre-Cache first to establish baseline cache`)
+        
+        return res.status(400).json({
+          error: 'No cache metadata found. Please run Pre-Cache first before using Delta Cache.',
+          message: 'Delta cache requires a baseline cache. Use Pre-Cache for first-time caching.',
+          lastCacheTimestamp: null,
+          hint: 'Click the Pre-Cache button to cache all eligible pairs first'
+        })
+      }
       
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase

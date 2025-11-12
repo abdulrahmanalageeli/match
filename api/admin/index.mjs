@@ -1579,6 +1579,18 @@ export default async function handler(req, res) {
           .single()
         
         const lastCacheTimestamp = metaData?.cached_at || '1970-01-01T00:00:00Z'
+        const noCacheMetadata = !metaData?.cached_at
+        
+        // If no cache metadata exists, delta cache count should be 0
+        // (use regular pre-cache for first-time caching)
+        if (noCacheMetadata) {
+          return res.status(200).json({ 
+            count: 0,
+            totalEligible: 0,
+            lastCacheTimestamp: null,
+            message: 'No cache metadata - use Pre-Cache first'
+          })
+        }
         
         // Fetch eligible participants (same logic as delta-pre-cache)
         const { data: allParticipants } = await supabase

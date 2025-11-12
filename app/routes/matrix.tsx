@@ -748,7 +748,7 @@ export default function MatrixPage() {
                                 </summary>
                                 <div className="mt-3 space-y-3">
                                   {/* Participant A Feedback */}
-                                  {match.feedback.participant_a && (
+                                  {match.feedback?.participant_a && (
                                     <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30">
                                       <div className="flex items-center gap-2 mb-2">
                                         <UserRound className="w-4 h-4 text-blue-400" />

@@ -1774,7 +1774,7 @@ export default async function handler(req, res) {
         // Fetch all participants for name and details lookup
         const { data: participants, error: participantError } = await supabase
           .from("participants")
-          .select("assigned_number, name, gender, age, mbti_personality_type")
+          .select("assigned_number, name, gender, age, mbti_personality_type, survey_data")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)
 
@@ -1791,7 +1791,8 @@ export default async function handler(req, res) {
             name: p.name || `مشارك ${p.assigned_number}`,
             gender: p.gender || 'غير محدد',
             age: p.age || null,
-            mbti: p.mbti_personality_type || 'غير محدد'
+            mbti: p.mbti_personality_type || 'غير محدد',
+            survey_data: p.survey_data
           })
         })
 

@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react"
-import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown, BarChart, X } from "lucide-react"
+import FeedbackStatsModal from "~/components/FeedbackStatsModal"
 
 interface FeedbackData {
   participant_number: number
@@ -24,6 +25,7 @@ interface ParticipantMatch {
     gender: string
     age: number
     mbti: string
+    survey_data: any // Keeping it flexible for now
   }
   participant_b: {
     number: number
@@ -31,6 +33,7 @@ interface ParticipantMatch {
     gender: string  
     age: number
     mbti: string
+    survey_data: any // Keeping it flexible for now
   }
   compatibility_score: number
   detailed_scores: {
@@ -66,6 +69,7 @@ export default function MatrixPage() {
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deletingMatch, setDeletingMatch] = useState<string | null>(null)
+  const [showStatsModal, setShowStatsModal] = useState(false)
 
   useEffect(() => {
     fetchAllMatches()
@@ -434,6 +438,7 @@ export default function MatrixPage() {
 
   return (
     <div dir="rtl" className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-10 px-4 font-sans">
+      {showStatsModal && <FeedbackStatsModal matches={matches} onClose={() => setShowStatsModal(false)} />}
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -557,6 +562,14 @@ export default function MatrixPage() {
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               تحديث البيانات
+            </button>
+
+            <button
+              onClick={() => setShowStatsModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 rounded-lg transition"
+            >
+              <BarChart className="w-4 h-4" />
+              تحليل التقييمات
             </button>
           </div>
         </div>

@@ -3019,22 +3019,22 @@ Proceed?`
                     )}
                     Pre-Cache
                   </button>
+                  
+                  {/* Delta Pre-Cache Button (Smart Incremental) */}
+                  <button
+                    onClick={deltaCacheMatches}
+                    disabled={deltaCaching || loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
+                    title="Smart caching - only updates changed participants"
+                  >
+                    {deltaCaching ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    Delta Cache
+                  </button>
                 </div>
-
-                {/* Delta Pre-Cache Button (Smart Incremental) */}
-                <button
-                  onClick={deltaCacheMatches}
-                  disabled={deltaCaching || loading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
-                  title="Smart caching - only updates changed participants"
-                >
-                  {deltaCaching ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Zap className="w-3.5 h-3.5" />
-                  )}
-                  Delta Cache
-                </button>
 
                 <button
                   onClick={async () => {
@@ -3670,7 +3670,6 @@ Proceed?`
             </div>
           </div>
         </div>
-      </div>
 
       {/* Control Panel */}
       <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10">

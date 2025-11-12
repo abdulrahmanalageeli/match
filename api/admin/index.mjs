@@ -3555,6 +3555,74 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET PARTICIPANT BONUS DATA - Check humor and openness matching for specific participants
+    if (action === "get-participant-bonus-data") {
+      try {
+        const { participantA, participantB } = req.body
+        console.log(`Getting bonus data for participants #${participantA} and #${participantB}`)
+        
+        // Fetch both participants' survey data
+        const { data: participants, error: pError } = await supabase
+          .from("participants")
+          .select("assigned_number, survey_data, humor_banter_style, early_openness_comfort")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", [participantA, participantB])
+        
+        if (pError) {
+          console.error("Error fetching participants:", pError)
+          return res.status(500).json({ error: pError.message })
+        }
+        
+        if (!participants || participants.length !== 2) {
+          return res.status(400).json({ error: "Could not find both participants" })
+        }
+        
+        const pA = participants.find(p => p.assigned_number === participantA)
+        const pB = participants.find(p => p.assigned_number === participantB)
+        
+        // Extract humor/banter style from different possible locations
+        const humorA = pA.humor_banter_style || 
+                       pA.survey_data?.humor_banter_style ||
+                       pA.survey_data?.answers?.humor_banter_style
+                       
+        const humorB = pB.humor_banter_style || 
+                       pB.survey_data?.humor_banter_style ||
+                       pB.survey_data?.answers?.humor_banter_style
+
+        // Extract early openness comfort from different possible locations
+        const opennessA = pA.early_openness_comfort !== undefined ? 
+                          pA.early_openness_comfort : 
+                          pA.survey_data?.answers?.early_openness_comfort
+                          
+        const opennessB = pB.early_openness_comfort !== undefined ? 
+                          pB.early_openness_comfort : 
+                          pB.survey_data?.answers?.early_openness_comfort
+
+        // Check if humor styles match
+        const humorMatch = humorA && humorB && humorA === humorB
+        
+        // Check if openness levels match
+        const opennessMatch = opennessA !== undefined && 
+                              opennessB !== undefined && 
+                              parseInt(opennessA) === parseInt(opennessB)
+
+        console.log(`Bonus data for #${participantA} & #${participantB}: humor=${humorMatch}, openness=${opennessMatch}`)
+        
+        return res.status(200).json({
+          success: true,
+          participantA,
+          participantB,
+          humorMatch,
+          opennessMatch,
+          humorValues: { A: humorA, B: humorB },
+          opennessValues: { A: opennessA, B: opennessB }
+        })
+      } catch (error) {
+        console.error("Error in get-participant-bonus-data:", error)
+        return res.status(500).json({ error: "Failed to get participant bonus data" })
+      }
+    }
+
     return res.status(405).json({ error: "Unsupported method or action" })
   } catch (error) {
     console.error("Error processing request:", error)

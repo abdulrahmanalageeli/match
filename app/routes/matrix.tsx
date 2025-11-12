@@ -61,6 +61,8 @@ export default function MatrixPage() {
   const [search, setSearch] = useState("")
   const [eventFilter, setEventFilter] = useState<number | null>(null)
   const [mutualOnly, setMutualOnly] = useState(false)
+  const [feedbackSort, setFeedbackSort] = useState<'none' | 'asc' | 'desc'>('none')
+  const [feedbackFilter, setFeedbackFilter] = useState<'all' | 'with-feedback' | 'no-feedback'>('all')
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deletingMatch, setDeletingMatch] = useState<string | null>(null)
@@ -159,7 +161,7 @@ export default function MatrixPage() {
   }
 
   // Filter matches based on criteria
-  const filteredMatches = matches.filter(match => {
+  let filteredMatches = matches.filter(match => {
     // Score filter
     if (match.compatibility_score < scoreFilter) return false
     
@@ -168,6 +170,10 @@ export default function MatrixPage() {
     
     // Mutual match filter
     if (mutualOnly && !match.mutual_match) return false
+    
+    // Feedback filter
+    if (feedbackFilter === 'with-feedback' && !match.feedback?.has_feedback) return false
+    if (feedbackFilter === 'no-feedback' && match.feedback?.has_feedback) return false
     
     // Search filter
     if (search.trim() !== "") {
@@ -184,6 +190,20 @@ export default function MatrixPage() {
     
     return true
   })
+  
+  // Sort by feedback score if specified
+  if (feedbackSort !== 'none') {
+    filteredMatches = [...filteredMatches].sort((a, b) => {
+      const feedbackA = getFeedbackCompatibility(a) || 0
+      const feedbackB = getFeedbackCompatibility(b) || 0
+      
+      if (feedbackSort === 'asc') {
+        return feedbackA - feedbackB
+      } else {
+        return feedbackB - feedbackA
+      }
+    })
+  }
 
   // Group matches by round
   const grouped = filteredMatches.reduce((acc, match) => {
@@ -232,6 +252,178 @@ export default function MatrixPage() {
     }
     
     return null
+  }
+
+  const getSpecificBonusType = async (match: ParticipantMatch) => {
+    if (!match.bonus_type || match.bonus_type === 'none') return 'none'
+    if (match.bonus_type === 'full') return 'humor_and_openness'
+    
+    // For partial bonuses, we need to check which specific bonus it is
+    if (match.bonus_type === 'partial') {
+      try {
+        // Fetch participant data to check humor and openness answers
+        const response = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'get-participant-bonus-data',
+            participantA: match.participant_a.number,
+            participantB: match.participant_b.number
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success) {
+            const { humorMatch, opennessMatch } = data
+            if (humorMatch && !opennessMatch) return 'humor_only'
+            if (!humorMatch && opennessMatch) return 'openness_only'
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching bonus data:', error)
+      }
+    }
+    
+    return match.bonus_type // fallback to original
+  }
+
+  const getBonusDisplay = (bonusType: string) => {
+    switch(bonusType) {
+      case 'humor_and_openness': return { emoji: '🎯', text: 'دعابة + انفتاح', color: 'yellow' }
+      case 'humor_only': return { emoji: '😂', text: 'دعابة فقط', color: 'orange' }
+      case 'openness_only': return { emoji: '💕', text: 'انفتاح فقط', color: 'orange' }
+      case 'full': return { emoji: '🎯', text: 'مكافأة كاملة', color: 'yellow' }
+      case 'partial': return { emoji: '⭐', text: 'مكافأة جزئية', color: 'orange' }
+      default: return { emoji: '⭐', text: 'مكافأة', color: 'orange' }
+    }
+  }
+
+  // Component for bonus badge that handles API calls for partial bonuses
+  const BonusBadge = ({ match }: { match: ParticipantMatch }) => {
+    const [specificBonusType, setSpecificBonusType] = useState<string>(match.bonus_type)
+    const [isLoading, setIsLoading] = useState(false)
+
+    useEffect(() => {
+      if (match.bonus_type === 'partial') {
+        setIsLoading(true)
+        // Call API to determine specific bonus type
+        fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'get-participant-bonus-data',
+            participantA: match.participant_a.number,
+            participantB: match.participant_b.number
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const { humorMatch, opennessMatch } = data
+            if (humorMatch && !opennessMatch) {
+              setSpecificBonusType('humor_only')
+            } else if (!humorMatch && opennessMatch) {
+              setSpecificBonusType('openness_only')
+            } else {
+              setSpecificBonusType('partial') // fallback
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching bonus data:', error)
+          setSpecificBonusType('partial') // fallback
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+      }
+    }, [match.bonus_type, match.participant_a.number, match.participant_b.number])
+
+    if (!match.bonus_type || match.bonus_type === 'none') return null
+
+    const display = getBonusDisplay(specificBonusType)
+    
+    return (
+      <div className={`absolute top-2 left-2 rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1 ${
+        match.bonus_type === 'full' || specificBonusType === 'humor_and_openness'
+          ? 'bg-yellow-500 text-yellow-900' 
+          : 'bg-orange-500 text-orange-900'
+      }`}>
+        {isLoading ? (
+          <>
+            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+            <span>تحليل...</span>
+          </>
+        ) : (
+          <>
+            <Star className="w-3 h-3" /> 
+            {`${display.emoji} ${display.text}`}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // Component for bonus badge in bottom info section
+  const BonusBottomBadge = ({ match }: { match: ParticipantMatch }) => {
+    const [specificBonusType, setSpecificBonusType] = useState<string>(match.bonus_type)
+    const [isLoading, setIsLoading] = useState(false)
+
+    useEffect(() => {
+      if (match.bonus_type === 'partial') {
+        setIsLoading(true)
+        // Call API to determine specific bonus type
+        fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'get-participant-bonus-data',
+            participantA: match.participant_a.number,
+            participantB: match.participant_b.number
+          })
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            const { humorMatch, opennessMatch } = data
+            if (humorMatch && !opennessMatch) {
+              setSpecificBonusType('humor_only')
+            } else if (!humorMatch && opennessMatch) {
+              setSpecificBonusType('openness_only')
+            } else {
+              setSpecificBonusType('partial') // fallback
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching bonus data:', error)
+          setSpecificBonusType('partial') // fallback
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+      }
+    }, [match.bonus_type, match.participant_a.number, match.participant_b.number])
+
+    const display = getBonusDisplay(specificBonusType)
+    
+    return (
+      <span className={`px-2 py-1 rounded text-xs ${
+        match.bonus_type === 'full' || specificBonusType === 'humor_and_openness'
+          ? 'bg-yellow-500/20 text-yellow-400' 
+          : 'bg-orange-500/20 text-orange-400'
+      }`}>
+        {isLoading ? (
+          <>
+            <div className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-1" />
+            تحليل...
+          </>
+        ) : (
+          `${display.emoji} ${display.text}`
+        )}
+      </span>
+    )
   }
 
   return (
@@ -316,6 +508,39 @@ export default function MatrixPage() {
               </label>
             </div>
           </div>
+          
+          {/* Feedback Filters Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-slate-700/50">
+            {/* Feedback Filter */}
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-blue-400" />
+              <span className="text-cyan-200 text-sm whitespace-nowrap">التقييم:</span>
+              <select
+                value={feedbackFilter}
+                onChange={e => setFeedbackFilter(e.target.value as 'all' | 'with-feedback' | 'no-feedback')}
+                className="flex-1 rounded-lg px-3 py-2 bg-slate-900/60 text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              >
+                <option value="all">جميع المطابقات</option>
+                <option value="with-feedback">مع تقييم فقط</option>
+                <option value="no-feedback">بدون تقييم</option>
+              </select>
+            </div>
+            
+            {/* Feedback Sort */}
+            <div className="flex items-center gap-2">
+              <ThumbsUp className="w-5 h-5 text-purple-400" />
+              <span className="text-cyan-200 text-sm whitespace-nowrap">ترتيب التقييم:</span>
+              <select
+                value={feedbackSort}
+                onChange={e => setFeedbackSort(e.target.value as 'none' | 'asc' | 'desc')}
+                className="flex-1 rounded-lg px-3 py-2 bg-slate-900/60 text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+              >
+                <option value="none">بدون ترتيب</option>
+                <option value="desc">الأعلى أولاً</option>
+                <option value="asc">الأقل أولاً</option>
+              </select>
+            </div>
+          </div>
 
           {/* Refresh Button */}
           <div className="flex justify-center mt-4">
@@ -398,16 +623,7 @@ export default function MatrixPage() {
                           )}
                           
                           {/* Bonus Type Badge */}
-                          {match.bonus_type && match.bonus_type !== 'none' && (
-                            <div className={`absolute top-2 left-2 rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1 ${
-                              match.bonus_type === 'full' 
-                                ? 'bg-yellow-500 text-yellow-900' 
-                                : 'bg-orange-500 text-orange-900'
-                            }`}>
-                              <Star className="w-3 h-3" /> 
-                              {match.bonus_type === 'full' ? 'مكافأة كاملة' : 'مكافأة جزئية'}
-                            </div>
-                          )}
+                          <BonusBadge match={match} />
 
                           {/* Participants Info */}
                           <div className="space-y-4">
@@ -618,13 +834,7 @@ export default function MatrixPage() {
                                   <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">مكرر</span>
                                 )}
                                 {match.bonus_type && match.bonus_type !== 'none' && (
-                                  <span className={`px-2 py-1 rounded text-xs ${
-                                    match.bonus_type === 'full' 
-                                      ? 'bg-yellow-500/20 text-yellow-400' 
-                                      : 'bg-orange-500/20 text-orange-400'
-                                  }`}>
-                                    {match.bonus_type === 'full' ? '🎯 مكافأة كاملة' : '⭐ مكافأة جزئية'}
-                                  </span>
+                                  <BonusBottomBadge match={match} />
                                 )}
                                 <span>{match.match_type}</span>
                               </div>

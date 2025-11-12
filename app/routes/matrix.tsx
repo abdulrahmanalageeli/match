@@ -97,21 +97,44 @@ export default function MatrixPage() {
         return
       }
       
-      const participantA = match.participant_a.number
-      const participantB = match.participant_b.number
+      // Extract participant data with validation
+      const participantA = match.participant_a?.number
+      const participantB = match.participant_b?.number  
       const eventId = match.round // event_id is stored in round field
       
-      console.log("Deleting match:", participantA, "↔", participantB, "in event", eventId)
+      console.log("🔍 Delete match validation:")
+      console.log("  - Match ID:", matchId)
+      console.log("  - Participant A:", participantA)
+      console.log("  - Participant B:", participantB)
+      console.log("  - Event ID:", eventId)
+      console.log("  - Full match object:", match)
+      
+      // Validate required parameters
+      if (!participantA || !participantB || !eventId) {
+        const missingParams = []
+        if (!participantA) missingParams.push("Participant A")
+        if (!participantB) missingParams.push("Participant B") 
+        if (!eventId) missingParams.push("Event ID")
+        
+        alert(`خطأ في البيانات: ${missingParams.join(", ")} مفقود`)
+        return
+      }
+      
+      console.log("✅ All parameters valid, sending delete request...")
+      
+      const requestBody = { 
+        action: "delete-match", 
+        participantA,
+        participantB,
+        eventId
+      }
+      
+      console.log("📤 Sending request body:", JSON.stringify(requestBody, null, 2))
       
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          action: "delete-match", 
-          participantA,
-          participantB,
-          eventId
-        })
+        body: JSON.stringify(requestBody)
       })
       
       const data = await res.json()

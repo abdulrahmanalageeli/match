@@ -1973,7 +1973,14 @@ export default async function handler(req, res) {
     // 🔹 DELETE MATCH - Remove specific match using participant numbers and event_id
     if (action === "delete-match") {
       try {
+        console.log("🔍 Raw delete request body:", JSON.stringify(req.body, null, 2))
+        
         const { participantA, participantB, eventId } = req.body
+        
+        console.log("🔍 Extracted parameters:")
+        console.log("  - participantA:", participantA, typeof participantA)
+        console.log("  - participantB:", participantB, typeof participantB)  
+        console.log("  - eventId:", eventId, typeof eventId)
         
         if (!participantA || !participantB || !eventId) {
           console.error("Delete match request missing required parameters:", { participantA, participantB, eventId })

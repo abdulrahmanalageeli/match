@@ -461,90 +461,52 @@ function checkGenderCompatibility(participantA, participantB) {
 
 // Function to check age compatibility (females must be within 3 years of their match, unless both have any_gender_preference)
 function checkAgeCompatibility(participantA, participantB) {
-  const ageA = participantA.age || participantA.survey_data?.age
-  const ageB = participantB.age || participantB.survey_data?.age
-  const genderA = participantA.gender || participantA.survey_data?.gender
-  const genderB = participantB.gender || participantB.survey_data?.gender
-  
-  // If age information is missing, allow the match (fallback)
+  const ageA = participantA.age || participantA.survey_data?.age;
+  const ageB = participantB.age || participantB.survey_data?.age;
+
   if (!ageA || !ageB) {
-    console.warn(`⚠️ Missing age info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`)
-    return true
+    console.warn(`⚠️ Missing age info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`);
+    return true;
   }
-  
-  // Check any_gender_preference from both new and old structure
-  let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender')
-  let anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender')
-  
-  // Handle new radio button structure (string)
-  if (participantA.survey_data?.answers?.gender_preference === 'any_gender') {
-    anyGenderPrefA = true
-  }
-  if (participantB.survey_data?.answers?.gender_preference === 'any_gender') {
-    anyGenderPrefB = true
-  }
-  
-  // If both participants have any_gender_preference, allow up to 10 years age gap
+
+  let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender') || participantA.survey_data?.answers?.gender_preference === 'any_gender';
+  let anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender') || participantB.survey_data?.answers?.gender_preference === 'any_gender';
+
+  // Rule Set 2: "Any Gender" Preference Matching
   if (anyGenderPrefA && anyGenderPrefB) {
-    const ageDifference = Math.abs(ageA - ageB)
-    const isCompatible = ageDifference <= 10
-    
-    if (!isCompatible) {
-      console.log(`🚫 Age mismatch (any_gender): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 10 for any_gender)`)
+    const ageDifference = Math.abs(ageA - ageB);
+    let maxGap = 5;
+    if (ageA >= 40 || ageB >= 40) {
+      maxGap = 10;
+    }
+
+    const isCompatible = ageDifference <= maxGap;
+    if (isCompatible) {
+      console.log(`✅ Age compatible (any_gender): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
     } else {
-      console.log(`✅ Age compatible (any_gender): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 10 for any_gender)`)
+      console.log(`🚫 Age mismatch (any_gender): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
     }
-    
-    return isCompatible
+    return isCompatible;
   }
-  
-  // Apply age constraint if any participant is female (including same-gender female matches)
-  const hasFemale = genderA === 'female' || genderB === 'female'
-  
-  if (hasFemale) {
-    const ageDifference = Math.abs(ageA - ageB)
-    
-    // Special case: Woman aged 40+ can match with men 6 years younger to 15 years older
-    if (genderA === 'female' && ageA >= 40 && genderB === 'male') {
-      const isCompatible = ageB >= ageA - 6 && ageB <= ageA + 15
-      
-      if (!isCompatible) {
-        console.log(`🚫 Age mismatch (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - woman 40+ can match with men 6 years younger to 15 years older`)
-      } else {
-        const ageDiff = ageB - ageA
-        const direction = ageDiff >= 0 ? `${ageDiff} years older` : `${Math.abs(ageDiff)} years younger`
-        console.log(`✅ Age compatible (40+ woman): ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - man is ${direction}`)
-      }
-      
-      return isCompatible
-    } else if (genderB === 'female' && ageB >= 40 && genderA === 'male') {
-      const isCompatible = ageA >= ageB - 6 && ageA <= ageB + 15
-      
-      if (!isCompatible) {
-        console.log(`🚫 Age mismatch (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - woman 40+ can match with men 6 years younger to 15 years older`)
-      } else {
-        const ageDiff = ageA - ageB
-        const direction = ageDiff >= 0 ? `${ageDiff} years older` : `${Math.abs(ageDiff)} years younger`
-        console.log(`✅ Age compatible (40+ woman): ${participantB.assigned_number} (${ageB}, ${genderB}) vs ${participantA.assigned_number} (${ageA}, ${genderA}) - man is ${direction}`)
-      }
-      
-      return isCompatible
+
+  // Rule Set 1: Standard Matching (Default)
+  const isCompatible = (p1Age, p2Age) => {
+    if (p1Age < 40) {
+      return Math.abs(p1Age - p2Age) <= 3;
     }
-    
-    // Standard female age constraint (6 years max)
-    const isCompatible = ageDifference <= 6
-    
-    if (!isCompatible) {
-      console.log(`🚫 Age mismatch: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 6)`)
-    } else {
-      console.log(`✅ Age compatible: ${participantA.assigned_number} (${ageA}, ${genderA}) vs ${participantB.assigned_number} (${ageB}, ${genderB}) - ${ageDifference} years apart (max 6)`)
-    }
-    
-    return isCompatible
+    // p1Age >= 40
+    return p2Age >= p1Age - 5 && p2Age <= p1Age + 10;
+  };
+
+  const isReciprocal = isCompatible(ageA, ageB) && isCompatible(ageB, ageA);
+
+  if (isReciprocal) {
+    console.log(`✅ Age compatible (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB})`);
+  } else {
+    console.log(`🚫 Age mismatch (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB})`);
   }
-  
-  // If no female participant, no age constraint applies
-  return true
+
+  return isReciprocal;
 }
 
 // Function to check interaction style compatibility (matching determinants)

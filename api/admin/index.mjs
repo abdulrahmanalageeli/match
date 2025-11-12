@@ -1976,13 +1976,32 @@ export default async function handler(req, res) {
         const { matchId } = req.body
         
         if (!matchId) {
+          console.error("Delete match request missing matchId")
           return res.status(400).json({ error: "Match ID is required" })
         }
         
-        console.log(`Deleting match with ID: ${matchId}`)
+        console.log(`🗑️ Attempting to delete match with ID: ${matchId}`)
+        
+        // First check if the match exists
+        const { data: existingMatch, error: checkError } = await supabase
+          .from("match_results")
+          .select("id, participant_a_number, participant_b_number")
+          .eq("id", matchId)
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+        
+        if (checkError) {
+          console.error("Error checking match existence:", checkError)
+          if (checkError.code === 'PGRST116') {
+            return res.status(404).json({ error: "Match not found" })
+          }
+          return res.status(500).json({ error: "Failed to check match existence" })
+        }
+        
+        console.log(`📋 Found match: #${existingMatch.participant_a_number} ↔ #${existingMatch.participant_b_number}`)
         
         // Delete the match from match_results table
-        const { error } = await supabase
+        const { error, count } = await supabase
           .from("match_results")
           .delete()
           .eq("id", matchId)
@@ -1993,12 +2012,13 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
         
-        console.log(`✅ Successfully deleted match ${matchId}`)
+        console.log(`✅ Successfully deleted match ${matchId}, rows affected: ${count}`)
         
         return res.status(200).json({
           success: true,
           message: "Match deleted successfully",
-          deletedMatchId: matchId
+          deletedMatchId: matchId,
+          rowsAffected: count || 0
         })
         
       } catch (error) {

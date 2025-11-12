@@ -90,24 +90,33 @@ export default function MatrixPage() {
   const handleDeleteMatch = async (matchId: string) => {
     setDeletingMatch(matchId)
     try {
+      const originalMatchId = matchId.split('-')[0] // Extract original match ID
+      console.log("Deleting match:", matchId, "-> original ID:", originalMatchId)
+      
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "delete-match", 
-          matchId: matchId.split('-')[0] // Extract original match ID
+          matchId: originalMatchId
         })
       })
       
-      if (res.ok) {
-        // Remove match from state
-        setMatches(prev => prev.filter(m => m.id !== matchId))
+      const data = await res.json()
+      console.log("Delete response:", data)
+      
+      if (res.ok && data.success) {
+        // Remove ALL matches with the same original ID from state
+        setMatches(prev => prev.filter(m => !m.id.startsWith(originalMatchId)))
         setDeleteConfirm(null)
+        console.log("✅ Match deleted successfully")
       } else {
-        console.error("Failed to delete match")
+        console.error("Failed to delete match:", data.error || "Unknown error")
+        alert("فشل في حذف المطابقة: " + (data.error || "خطأ غير معروف"))
       }
     } catch (err) {
       console.error("Error deleting match:", err)
+      alert("حدث خطأ أثناء حذف المطابقة")
     } finally {
       setDeletingMatch(null)
     }
@@ -337,7 +346,7 @@ export default function MatrixPage() {
                           
                           {/* Feedback Badge */}
                           {match.feedback?.has_feedback && (
-                            <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1">
+                            <div className="absolute top-2 left-2 bg-blue-500 text-white rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1">
                               <MessageSquare className="w-3 h-3" /> تقييم
                             </div>
                           )}
@@ -454,7 +463,7 @@ export default function MatrixPage() {
                                       <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">التوافق:</span>
-                                          <span className="text-white font-bold">{match.feedback.participant_a.compatibility_rate}/5</span>
+                                          <span className="text-white font-bold">{Math.round(match.feedback.participant_a.compatibility_rate * 20)}%</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">جودة المحادثة:</span>
@@ -494,7 +503,7 @@ export default function MatrixPage() {
                                       <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">التوافق:</span>
-                                          <span className="text-white font-bold">{match.feedback.participant_b.compatibility_rate}/5</span>
+                                          <span className="text-white font-bold">{Math.round(match.feedback.participant_b.compatibility_rate * 20)}%</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">جودة المحادثة:</span>

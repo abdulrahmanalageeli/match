@@ -2106,19 +2106,42 @@ export default async function handler(req, res) {
       }
       
       // Step 3: Identify participants who need recaching
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`🔍 DELTA CACHE: Analyzing ${allEligibleParticipants.length} eligible participants`)
+      console.log(`📅 Last cache timestamp: ${lastCacheTimestamp}`)
+      console.log(`${'='.repeat(80)}\n`)
+      
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
         if (!p.survey_data_updated_at) {
           // Never cached
+          console.log(`🆕 #${p.assigned_number} - NEVER CACHED (survey_data_updated_at: NULL)`)
           return true
         }
         // Updated after last cache
-        return new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+        const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+        if (needsUpdate) {
+          console.log(`🔄 #${p.assigned_number} - UPDATED after cache (survey_data_updated_at: ${p.survey_data_updated_at})`)
+        } else {
+          console.log(`✅ #${p.assigned_number} - FRESH (survey_data_updated_at: ${p.survey_data_updated_at})`)
+        }
+        return needsUpdate
       })
       
-      console.log(`🆕 Participants needing cache: ${participantsNeedingCache.length}`)
-      participantsNeedingCache.forEach(p => {
-        console.log(`   #${p.assigned_number} - Last updated: ${p.survey_data_updated_at || 'NEVER'}`)
-      })
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`📊 DELTA CACHE SUMMARY:`)
+      console.log(`   Total eligible: ${allEligibleParticipants.length}`)
+      console.log(`   Need recaching: ${participantsNeedingCache.length}`)
+      console.log(`   Already fresh: ${allEligibleParticipants.length - participantsNeedingCache.length}`)
+      console.log(`${'='.repeat(80)}\n`)
+      
+      if (participantsNeedingCache.length > 0) {
+        console.log(`🎯 Updated participants needing delta cache:`)
+        participantsNeedingCache.forEach(p => {
+          const genderPref = p.same_gender_preference ? 'same-gender' : p.any_gender_preference ? 'any-gender' : 'opposite-gender'
+          console.log(`   • #${p.assigned_number} - ${p.gender}, ${genderPref}, age ${p.age} (updated: ${p.survey_data_updated_at})`)
+        })
+        console.log()
+      }
       
       if (participantsNeedingCache.length === 0) {
         console.log(`✅ Cache is fresh! No participants need recaching.`)
@@ -2140,6 +2163,10 @@ export default async function handler(req, res) {
       const pairsToCache = []
       const updatedNumbers = new Set(participantsNeedingCache.map(p => p.assigned_number))
       
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`🔗 GENERATING PAIRS involving updated participants...`)
+      console.log(`${'='.repeat(80)}\n`)
+      
       for (let i = 0; i < allEligibleParticipants.length; i++) {
         for (let j = i + 1; j < allEligibleParticipants.length; j++) {
           const p1 = allEligibleParticipants[i]
@@ -2147,12 +2174,21 @@ export default async function handler(req, res) {
           
           // Only cache if at least one participant was updated
           if (updatedNumbers.has(p1.assigned_number) || updatedNumbers.has(p2.assigned_number)) {
+            const whoUpdated = updatedNumbers.has(p1.assigned_number) && updatedNumbers.has(p2.assigned_number) 
+              ? 'BOTH updated' 
+              : updatedNumbers.has(p1.assigned_number) 
+              ? `#${p1.assigned_number} updated` 
+              : `#${p2.assigned_number} updated`
+            
+            console.log(`➕ Adding pair: #${p1.assigned_number} × #${p2.assigned_number} (${whoUpdated})`)
             pairsToCache.push({ p1, p2 })
           }
         }
       }
       
-      console.log(`🎯 Pairs to cache: ${pairsToCache.length} (involving updated participants)`)
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`📋 Pairs to cache: ${pairsToCache.length} (involving ${participantsNeedingCache.length} updated participant(s))`)
+      console.log(`${'='.repeat(80)}\n`)
       
       // Step 5: Cache the pairs
       let cachedCount = 0
@@ -2160,35 +2196,46 @@ export default async function handler(req, res) {
       let skipped = 0
       let aiCallsMade = 0
       
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`⚡ DELTA CACHING PROCESS STARTED`)
+      console.log(`${'='.repeat(80)}\n`)
+      
+      let pairIndex = 0
       for (const { p1, p2 } of pairsToCache) {
+        pairIndex++
+        console.log(`\n[$${pairIndex}/${pairsToCache.length}] Processing: #${p1.assigned_number} (${p1.gender}) × #${p2.assigned_number} (${p2.gender})`)
+        
         // Check gender compatibility
         if (!checkGenderCompatibility(p1, p2)) {
+          console.log(`   🚫 SKIPPED: Gender incompatible`)
           skipped++
           continue
         }
+        console.log(`   ✅ Gender compatible`)
         
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
+          console.log(`   🚫 SKIPPED: Age incompatible (${p1.age} vs ${p2.age})`)
           skipped++
           continue
         }
+        console.log(`   ✅ Age compatible (${p1.age} vs ${p2.age})`)
         
         // Check if already cached with current content
-        console.log(`🔍 Checking pair #${p1.assigned_number} × #${p2.assigned_number}...`)
         const cached = await getCachedCompatibility(p1, p2)
         
         if (cached) {
-          console.log(`   ⏭️  Already cached with current content`)
+          console.log(`   ⏭️  ALREADY CACHED with current content - Skipping`)
           alreadyCached++
           continue
         }
         
         // Calculate and cache
-        console.log(`💾 Delta caching pair ${cachedCount + 1}/${pairsToCache.length}: #${p1.assigned_number} × #${p2.assigned_number}`)
+        console.log(`   💾 CACHING NOW (pair ${cachedCount + 1})...`)
         
         try {
           const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
-          console.log(`   ✅ Cached! Score: ${result.totalScore.toFixed(2)}%`)
+          console.log(`   ✅ CACHED SUCCESSFULLY! Score: ${result.totalScore.toFixed(2)}% (MBTI: ${result.mbtiScore}, Vibe: ${result.vibeScore})`)
           cachedCount++
           if (!skipAI) aiCallsMade++
           
@@ -2233,7 +2280,22 @@ export default async function handler(req, res) {
         console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
       }
       
-      console.log(`✅ DELTA PRE-CACHE COMPLETE: ${cachedCount} new, ${alreadyCached} already cached, ${skipped} skipped, ${duration}s`)
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`✅ DELTA CACHE COMPLETE`)
+      console.log(`${'='.repeat(80)}`)
+      console.log(`⏱️  Duration: ${duration}s`)
+      console.log(`📊 Statistics:`)
+      console.log(`   • Updated participants: ${participantsNeedingCache.length}`)
+      console.log(`   • Pairs checked: ${pairsToCache.length}`)
+      console.log(`   • Newly cached: ${cachedCount}`)
+      console.log(`   • Already cached: ${alreadyCached}`)
+      console.log(`   • Skipped (incompatible): ${skipped}`)
+      console.log(`   • AI calls made: ${aiCallsMade}`)
+      if (pairsToCache.length > 0) {
+        const efficiency = ((1 - (pairsToCache.length / ((allEligibleParticipants.length * (allEligibleParticipants.length - 1)) / 2))) * 100).toFixed(1)
+        console.log(`   • Efficiency: ${efficiency}% reduction vs full cache`)
+      }
+      console.log(`${'='.repeat(80)}\n`)
       
       return res.status(200).json({
         success: true,

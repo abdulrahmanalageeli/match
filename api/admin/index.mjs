@@ -1751,6 +1751,7 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score,
             core_values_compatibility_score,
             vibe_compatibility_score,
+            humor_early_openness_bonus,
             round,
             table_number,
             match_type,
@@ -1841,6 +1842,7 @@ export default async function handler(req, res) {
                   core_values: match.core_values_compatibility_score || 0,
                   vibe: match.vibe_compatibility_score || 0
                 },
+                bonus_type: match.humor_early_openness_bonus || 'none',
                 round: match.event_id || 1, // Use event_id instead of round
                 table_number: match.table_number,
                 match_type: match.match_type || 'مقابلة فردية',
@@ -1884,6 +1886,7 @@ export default async function handler(req, res) {
                       core_values: match.core_values_compatibility_score || 0,
                       vibe: match.vibe_compatibility_score || 0
                     },
+                    bonus_type: match.humor_early_openness_bonus || 'none',
                     round: match.event_id || 1, // Use event_id instead of round
                     table_number: match.table_number,
                     match_type: match.match_type || 'مجموعة',

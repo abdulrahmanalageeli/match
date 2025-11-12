@@ -41,6 +41,7 @@ interface ParticipantMatch {
     core_values: number
     vibe: number
   }
+  bonus_type: 'none' | 'partial' | 'full'
   round: number
   table_number?: number
   match_type: string
@@ -216,6 +217,23 @@ export default function MatrixPage() {
     return "text-red-400"
   }
 
+  const getFeedbackCompatibility = (match: ParticipantMatch) => {
+    if (!match.feedback?.has_feedback) return null
+    
+    const feedbackA = match.feedback.participant_a?.compatibility_rate
+    const feedbackB = match.feedback.participant_b?.compatibility_rate
+    
+    if (feedbackA && feedbackB) {
+      return Math.round((feedbackA + feedbackB) / 2)
+    } else if (feedbackA) {
+      return feedbackA
+    } else if (feedbackB) {
+      return feedbackB
+    }
+    
+    return null
+  }
+
   return (
     <div dir="rtl" className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-10 px-4 font-sans">
       <div className="max-w-7xl mx-auto space-y-8">
@@ -379,10 +397,15 @@ export default function MatrixPage() {
                             </div>
                           )}
                           
-                          {/* Feedback Badge */}
-                          {match.feedback?.has_feedback && (
-                            <div className="absolute top-2 left-2 bg-blue-500 text-white rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1">
-                              <MessageSquare className="w-3 h-3" /> تقييم
+                          {/* Bonus Type Badge */}
+                          {match.bonus_type && match.bonus_type !== 'none' && (
+                            <div className={`absolute top-2 left-2 rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1 ${
+                              match.bonus_type === 'full' 
+                                ? 'bg-yellow-500 text-yellow-900' 
+                                : 'bg-orange-500 text-orange-900'
+                            }`}>
+                              <Star className="w-3 h-3" /> 
+                              {match.bonus_type === 'full' ? 'مكافأة كاملة' : 'مكافأة جزئية'}
                             </div>
                           )}
 
@@ -413,7 +436,23 @@ export default function MatrixPage() {
                                 <div className={`text-3xl font-extrabold ${getScoreColor(match.compatibility_score)}`}>
                                   {match.compatibility_score}%
                                 </div>
-                                <div className="text-xs text-slate-400 mt-1">توافق</div>
+                                <div className="text-xs text-slate-400 mt-1">توافق النظام</div>
+                                
+                                {/* Feedback Compatibility Score */}
+                                {(() => {
+                                  const feedbackScore = getFeedbackCompatibility(match)
+                                  if (feedbackScore !== null) {
+                                    return (
+                                      <div className="mt-2">
+                                        <div className={`text-lg font-bold ${getScoreColor(feedbackScore)}`}>
+                                          {feedbackScore}%
+                                        </div>
+                                        <div className="text-xs text-blue-400">تقييم المشاركين</div>
+                                      </div>
+                                    )
+                                  }
+                                  return null
+                                })()}
                               </div>
                               <div className="flex-1 h-px bg-gradient-to-l from-transparent to-slate-600"></div>
                             </div>
@@ -577,6 +616,15 @@ export default function MatrixPage() {
                                 )}
                                 {match.is_repeat && (
                                   <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">مكرر</span>
+                                )}
+                                {match.bonus_type && match.bonus_type !== 'none' && (
+                                  <span className={`px-2 py-1 rounded text-xs ${
+                                    match.bonus_type === 'full' 
+                                      ? 'bg-yellow-500/20 text-yellow-400' 
+                                      : 'bg-orange-500/20 text-orange-400'
+                                  }`}>
+                                    {match.bonus_type === 'full' ? '🎯 مكافأة كاملة' : '⭐ مكافأة جزئية'}
+                                  </span>
                                 )}
                                 <span>{match.match_type}</span>
                               </div>

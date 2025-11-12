@@ -1794,8 +1794,9 @@ export default async function handler(req, res) {
           })
         })
 
-        // Process match results into structured format
+        // Process match results into structured format - NO DUPLICATES
         const processedMatches = []
+        const seenPairs = new Set() // Track processed pairs to avoid duplicates
 
         matchResults.forEach(match => {
           const participantNumbers = [
@@ -1807,17 +1808,30 @@ export default async function handler(req, res) {
             match.participant_f_number
           ].filter(num => num && num !== 9999)
 
-          // Handle individual matches (2 participants)
+          // Handle individual matches (2 participants) - NO DUPLICATES
           if (participantNumbers.length === 2) {
             const [pA, pB] = participantNumbers
+            
+            // Create a unique pair identifier (always smaller number first)
+            const pairKey = pA < pB ? `${pA}-${pB}` : `${pB}-${pA}`
+            
+            // Skip if we've already processed this pair
+            if (seenPairs.has(pairKey)) {
+              return
+            }
+            seenPairs.add(pairKey)
+            
             const participantA = participantMap.get(pA)
             const participantB = participantMap.get(pB)
 
             if (participantA && participantB) {
+              // Always put smaller number as participant_a for consistency
+              const [firstParticipant, secondParticipant] = pA < pB ? [participantA, participantB] : [participantB, participantA]
+              
               processedMatches.push({
                 id: `${match.id}-individual`,
-                participant_a: participantA,
-                participant_b: participantB,
+                participant_a: firstParticipant,
+                participant_b: secondParticipant,
                 compatibility_score: match.compatibility_score || 0,
                 detailed_scores: {
                   mbti: match.mbti_compatibility_score || 0,
@@ -1827,7 +1841,7 @@ export default async function handler(req, res) {
                   core_values: match.core_values_compatibility_score || 0,
                   vibe: match.vibe_compatibility_score || 0
                 },
-                round: match.round || 1,
+                round: match.event_id || 1, // Use event_id instead of round
                 table_number: match.table_number,
                 match_type: match.match_type || 'مقابلة فردية',
                 mutual_match: match.mutual_match || false,
@@ -1835,19 +1849,32 @@ export default async function handler(req, res) {
               })
             }
           } else if (participantNumbers.length > 2) {
-            // Handle group matches (3+ participants)
+            // Handle group matches (3+ participants) - NO DUPLICATES
             for (let i = 0; i < participantNumbers.length; i++) {
               for (let j = i + 1; j < participantNumbers.length; j++) {
                 const pA = participantNumbers[i]
                 const pB = participantNumbers[j]
+                
+                // Create a unique pair identifier for group pairs too
+                const pairKey = `group-${pA < pB ? `${pA}-${pB}` : `${pB}-${pA}`}`
+                
+                // Skip if we've already processed this group pair
+                if (seenPairs.has(pairKey)) {
+                  continue
+                }
+                seenPairs.add(pairKey)
+                
                 const participantA = participantMap.get(pA)
                 const participantB = participantMap.get(pB)
 
                 if (participantA && participantB) {
+                  // Always put smaller number as participant_a for consistency
+                  const [firstParticipant, secondParticipant] = pA < pB ? [participantA, participantB] : [participantB, participantA]
+                  
                   processedMatches.push({
                     id: `${match.id}-group-${pA}-${pB}`,
-                    participant_a: participantA,
-                    participant_b: participantB,
+                    participant_a: firstParticipant,
+                    participant_b: secondParticipant,
                     compatibility_score: match.compatibility_score || 0,
                     detailed_scores: {
                       mbti: match.mbti_compatibility_score || 0,
@@ -1857,7 +1884,7 @@ export default async function handler(req, res) {
                       core_values: match.core_values_compatibility_score || 0,
                       vibe: match.vibe_compatibility_score || 0
                     },
-                    round: match.round || 0, // Groups are typically round 0
+                    round: match.event_id || 1, // Use event_id instead of round
                     table_number: match.table_number,
                     match_type: match.match_type || 'مجموعة',
                     mutual_match: false, // Group matches are not mutual

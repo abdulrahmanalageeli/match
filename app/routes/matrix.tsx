@@ -38,7 +38,7 @@ export default function MatrixPage() {
   const [loading, setLoading] = useState(false)
   const [scoreFilter, setScoreFilter] = useState(0)
   const [search, setSearch] = useState("")
-  const [roundFilter, setRoundFilter] = useState<number | null>(null)
+  const [eventFilter, setEventFilter] = useState<number | null>(null)
   const [mutualOnly, setMutualOnly] = useState(false)
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
 
@@ -70,8 +70,8 @@ export default function MatrixPage() {
     // Score filter
     if (match.compatibility_score < scoreFilter) return false
     
-    // Round filter
-    if (roundFilter !== null && match.round !== roundFilter) return false
+    // Event filter (round field now contains event_id from API)
+    if (eventFilter !== null && match.round !== eventFilter) return false
     
     // Mutual match filter
     if (mutualOnly && !match.mutual_match) return false
@@ -107,7 +107,7 @@ export default function MatrixPage() {
 
   const totalMatches = matches.length
   const filteredCount = filteredMatches.length
-  const uniqueRounds = [...new Set(matches.map(m => m.round))].sort()
+  const uniqueEvents = [...new Set(matches.map(m => m.round))].sort() // round field contains event_id
   const mutualMatchCount = matches.filter(m => m.mutual_match).length
 
 
@@ -177,17 +177,17 @@ export default function MatrixPage() {
               <span className="text-cyan-300 font-bold">{scoreFilter}%+</span>
             </div>
 
-            {/* Round Filter */}
+            {/* Event Filter */}
             <div className="flex items-center gap-2">
               <Users className="w-5 h-5 text-cyan-400" />
               <select
-                value={roundFilter || ""}
-                onChange={e => setRoundFilter(e.target.value ? Number(e.target.value) : null)}
+                value={eventFilter || ""}
+                onChange={e => setEventFilter(e.target.value ? Number(e.target.value) : null)}
                 className="flex-1 rounded-lg px-3 py-2 bg-slate-900/60 text-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-400"
               >
-                <option value="">جميع الجولات</option>
-                {uniqueRounds.map(round => (
-                  <option key={round} value={round}>الجولة {round}</option>
+                <option value="">جميع الأحداث</option>
+                {uniqueEvents.map((event: number) => (
+                  <option key={event} value={event}>حدث {event}</option>
                 ))}
               </select>
             </div>
@@ -251,7 +251,7 @@ export default function MatrixPage() {
                 >
                   <div className="flex items-center gap-3">
                     <Users className="w-6 h-6" />
-                    <span>الجولة {round > 0 ? round : "المجموعات"}</span>
+                    <span>حدث {round > 0 ? round : "المجموعات"}</span>
                     <span className="text-sm bg-cyan-500/20 px-2 py-1 rounded-full">
                       {roundMatches.length} مطابقة
                     </span>

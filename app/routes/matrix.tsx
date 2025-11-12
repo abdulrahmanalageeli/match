@@ -498,7 +498,7 @@ export default function MatrixPage() {
                                       <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">التوافق:</span>
-                                          <span className="text-white font-bold">{Math.round(match.feedback.participant_a.compatibility_rate * 20)}%</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_a.compatibility_rate}%</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">جودة المحادثة:</span>
@@ -538,7 +538,7 @@ export default function MatrixPage() {
                                       <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">التوافق:</span>
-                                          <span className="text-white font-bold">{Math.round(match.feedback.participant_b.compatibility_rate * 20)}%</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_b.compatibility_rate}%</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <span className="text-slate-400">جودة المحادثة:</span>

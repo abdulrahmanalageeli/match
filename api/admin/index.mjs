@@ -1970,54 +1970,44 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 DELETE MATCH - Remove specific match from database
+    // 🔹 DELETE MATCH - Remove specific match using participant numbers and event_id
     if (action === "delete-match") {
       try {
-        const { matchId } = req.body
+        const { participantA, participantB, eventId } = req.body
         
-        if (!matchId) {
-          console.error("Delete match request missing matchId")
-          return res.status(400).json({ error: "Match ID is required" })
+        if (!participantA || !participantB || !eventId) {
+          console.error("Delete match request missing required parameters:", { participantA, participantB, eventId })
+          return res.status(400).json({ error: "Participant A, Participant B, and Event ID are required" })
         }
         
-        console.log(`🗑️ Attempting to delete match with ID: ${matchId}`)
+        console.log(`🗑️ Attempting to delete match: #${participantA} ↔ #${participantB} in event ${eventId}`)
         
-        // First check if the match exists
-        const { data: existingMatch, error: checkError } = await supabase
-          .from("match_results")
-          .select("id, participant_a_number, participant_b_number")
-          .eq("id", matchId)
-          .eq("match_id", STATIC_MATCH_ID)
-          .single()
-        
-        if (checkError) {
-          console.error("Error checking match existence:", checkError)
-          if (checkError.code === 'PGRST116') {
-            return res.status(404).json({ error: "Match not found" })
-          }
-          return res.status(500).json({ error: "Failed to check match existence" })
-        }
-        
-        console.log(`📋 Found match: #${existingMatch.participant_a_number} ↔ #${existingMatch.participant_b_number}`)
-        
-        // Delete the match from match_results table
+        // Delete the match using participant numbers and event_id (bidirectional)
         const { error, count } = await supabase
           .from("match_results")
           .delete()
-          .eq("id", matchId)
           .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", eventId)
+          .or(`and(participant_a_number.eq.${participantA},participant_b_number.eq.${participantB}),and(participant_a_number.eq.${participantB},participant_b_number.eq.${participantA})`)
         
         if (error) {
           console.error("Error deleting match:", error)
           return res.status(500).json({ error: error.message })
         }
         
-        console.log(`✅ Successfully deleted match ${matchId}, rows affected: ${count}`)
+        if (count === 0) {
+          console.log(`⚠️ No matches found for #${participantA} ↔ #${participantB} in event ${eventId}`)
+          return res.status(404).json({ error: "Match not found" })
+        }
+        
+        console.log(`✅ Successfully deleted match #${participantA} ↔ #${participantB} in event ${eventId}, rows affected: ${count}`)
         
         return res.status(200).json({
           success: true,
           message: "Match deleted successfully",
-          deletedMatchId: matchId,
+          participantA,
+          participantB,
+          eventId,
           rowsAffected: count || 0
         })
         

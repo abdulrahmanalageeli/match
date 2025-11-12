@@ -90,15 +90,27 @@ export default function MatrixPage() {
   const handleDeleteMatch = async (matchId: string) => {
     setDeletingMatch(matchId)
     try {
-      const originalMatchId = matchId.split('-')[0] // Extract original match ID
-      console.log("Deleting match:", matchId, "-> original ID:", originalMatchId)
+      // Find the match in our current matches to get participant numbers and event_id
+      const match = matches.find(m => m.id === matchId)
+      if (!match) {
+        alert("لم يتم العثور على المطابقة")
+        return
+      }
+      
+      const participantA = match.participant_a.number
+      const participantB = match.participant_b.number
+      const eventId = match.round // event_id is stored in round field
+      
+      console.log("Deleting match:", participantA, "↔", participantB, "in event", eventId)
       
       const res = await fetch("/api/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           action: "delete-match", 
-          matchId: originalMatchId
+          participantA,
+          participantB,
+          eventId
         })
       })
       
@@ -106,8 +118,8 @@ export default function MatrixPage() {
       console.log("Delete response:", data)
       
       if (res.ok && data.success) {
-        // Remove ALL matches with the same original ID from state
-        setMatches(prev => prev.filter(m => !m.id.startsWith(originalMatchId)))
+        // Remove the match from state
+        setMatches(prev => prev.filter(m => m.id !== matchId))
         setDeleteConfirm(null)
         console.log("✅ Match deleted successfully")
       } else {

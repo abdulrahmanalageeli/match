@@ -2113,9 +2113,9 @@ export default async function handler(req, res) {
       
       const participantsNeedingCache = allEligibleParticipants.filter(p => {
         if (!p.survey_data_updated_at) {
-          // Never cached
-          console.log(`🆕 #${p.assigned_number} - NEVER CACHED (survey_data_updated_at: NULL)`)
-          return true
+          // Never cached - skip for delta cache (use regular pre-cache for first-time caching)
+          console.log(`⏭️  #${p.assigned_number} - NEVER CACHED (survey_data_updated_at: NULL) - Use pre-cache, not delta`)
+          return false
         }
         // Updated after last cache
         const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
@@ -2144,7 +2144,9 @@ export default async function handler(req, res) {
       }
       
       if (participantsNeedingCache.length === 0) {
-        console.log(`✅ Cache is fresh! No participants need recaching.`)
+        console.log(`✅ Cache is fresh! No participants have updated their surveys since last cache.`)
+        console.log(`💡 Note: Delta cache only updates participants who CHANGED their survey after last cache.`)
+        console.log(`💡 For first-time caching of new participants, use regular Pre-Cache instead.`)
         
         return res.status(200).json({
           success: true,
@@ -2155,7 +2157,7 @@ export default async function handler(req, res) {
           total_eligible: allEligibleParticipants.length,
           last_cache_timestamp: lastCacheTimestamp,
           duration_seconds: ((Date.now() - startTime) / 1000).toFixed(2),
-          message: 'Cache is fresh - no updates needed'
+          message: 'Cache is fresh - no participants updated their surveys. Use Pre-Cache for first-time caching.'
         })
       }
       

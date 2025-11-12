@@ -1597,11 +1597,14 @@ export default async function handler(req, res) {
           return p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
         })
         
-        // Count participants needing cache
+        // Count participants needing delta cache (only those who UPDATED after last cache)
+        // NOTE: Participants with NULL survey_data_updated_at are NOT counted here
+        // They should use regular pre-cache instead (first-time caching)
         const needsCacheCount = eligibleParticipants.filter(p => {
           if (!p.survey_data_updated_at) {
-            return true // Never cached
+            return false // Never cached - use pre-cache, not delta cache
           }
+          // Only count if they updated AFTER the last cache
           return new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
         }).length
         

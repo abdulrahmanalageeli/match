@@ -1728,6 +1728,163 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET ALL MATCHES - Comprehensive view for matrix page
+    if (action === "get-all-matches") {
+      try {
+        console.log("Fetching all matches for matrix view...")
+
+        // Fetch all match results excluding organizer matches (#9999)
+        const { data: matchResults, error: matchError } = await supabase
+          .from("match_results")
+          .select(`
+            id,
+            participant_a_number,
+            participant_b_number,
+            participant_c_number,
+            participant_d_number,
+            participant_e_number,
+            participant_f_number,
+            compatibility_score,
+            mbti_compatibility_score,
+            attachment_compatibility_score,
+            communication_compatibility_score,
+            lifestyle_compatibility_score,
+            core_values_compatibility_score,
+            vibe_compatibility_score,
+            round,
+            table_number,
+            match_type,
+            mutual_match,
+            is_repeat_match,
+            event_id,
+            created_at
+          `)
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("participant_a_number", 9999)
+          .neq("participant_b_number", 9999)
+          .order("round", { ascending: true })
+          .order("compatibility_score", { ascending: false })
+
+        if (matchError) {
+          console.error("Error fetching match results:", matchError)
+          return res.status(500).json({ error: matchError.message })
+        }
+
+        // Fetch all participants for name and details lookup
+        const { data: participants, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number, name, gender, age, mbti_personality_type")
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)
+
+        if (participantError) {
+          console.error("Error fetching participants:", participantError)
+          return res.status(500).json({ error: participantError.message })
+        }
+
+        // Create participant lookup map
+        const participantMap = new Map()
+        participants.forEach(p => {
+          participantMap.set(p.assigned_number, {
+            number: p.assigned_number,
+            name: p.name || `مشارك ${p.assigned_number}`,
+            gender: p.gender || 'غير محدد',
+            age: p.age || null,
+            mbti: p.mbti_personality_type || 'غير محدد'
+          })
+        })
+
+        // Process match results into structured format
+        const processedMatches = []
+
+        matchResults.forEach(match => {
+          const participantNumbers = [
+            match.participant_a_number,
+            match.participant_b_number,
+            match.participant_c_number,
+            match.participant_d_number,
+            match.participant_e_number,
+            match.participant_f_number
+          ].filter(num => num && num !== 9999)
+
+          // Handle individual matches (2 participants)
+          if (participantNumbers.length === 2) {
+            const [pA, pB] = participantNumbers
+            const participantA = participantMap.get(pA)
+            const participantB = participantMap.get(pB)
+
+            if (participantA && participantB) {
+              processedMatches.push({
+                id: `${match.id}-individual`,
+                participant_a: participantA,
+                participant_b: participantB,
+                compatibility_score: match.compatibility_score || 0,
+                detailed_scores: {
+                  mbti: match.mbti_compatibility_score || 0,
+                  attachment: match.attachment_compatibility_score || 0,
+                  communication: match.communication_compatibility_score || 0,
+                  lifestyle: match.lifestyle_compatibility_score || 0,
+                  core_values: match.core_values_compatibility_score || 0,
+                  vibe: match.vibe_compatibility_score || 0
+                },
+                round: match.round || 1,
+                table_number: match.table_number,
+                match_type: match.match_type || 'مقابلة فردية',
+                mutual_match: match.mutual_match || false,
+                is_repeat: match.is_repeat_match || false
+              })
+            }
+          } else if (participantNumbers.length > 2) {
+            // Handle group matches (3+ participants)
+            for (let i = 0; i < participantNumbers.length; i++) {
+              for (let j = i + 1; j < participantNumbers.length; j++) {
+                const pA = participantNumbers[i]
+                const pB = participantNumbers[j]
+                const participantA = participantMap.get(pA)
+                const participantB = participantMap.get(pB)
+
+                if (participantA && participantB) {
+                  processedMatches.push({
+                    id: `${match.id}-group-${pA}-${pB}`,
+                    participant_a: participantA,
+                    participant_b: participantB,
+                    compatibility_score: match.compatibility_score || 0,
+                    detailed_scores: {
+                      mbti: match.mbti_compatibility_score || 0,
+                      attachment: match.attachment_compatibility_score || 0,
+                      communication: match.communication_compatibility_score || 0,
+                      lifestyle: match.lifestyle_compatibility_score || 0,
+                      core_values: match.core_values_compatibility_score || 0,
+                      vibe: match.vibe_compatibility_score || 0
+                    },
+                    round: match.round || 0, // Groups are typically round 0
+                    table_number: match.table_number,
+                    match_type: match.match_type || 'مجموعة',
+                    mutual_match: false, // Group matches are not mutual
+                    is_repeat: match.is_repeat_match || false
+                  })
+                }
+              }
+            }
+          }
+        })
+
+        console.log(`Processed ${processedMatches.length} match pairs from ${matchResults.length} match records`)
+
+        return res.status(200).json({
+          success: true,
+          matches: processedMatches,
+          totalRecords: matchResults.length,
+          totalPairs: processedMatches.length,
+          participantCount: participants.length
+        })
+
+      } catch (error) {
+        console.error("Error in get-all-matches:", error)
+        return res.status(500).json({ error: "Failed to fetch all matches" })
+      }
+    }
+
     // 🔹 ADD EXCLUDED PARTICIPANT (using excluded_pairs with -1)
     if (action === "add-excluded-participant") {
       try {

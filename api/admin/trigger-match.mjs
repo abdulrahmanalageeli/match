@@ -2223,7 +2223,34 @@ export default async function handler(req, res) {
       console.log(`📋 Pairs to cache: ${pairsToCache.length} (involving ${participantsNeedingCache.length} updated participant(s))`)
       console.log(`${'='.repeat(80)}\n`)
       
-      // Step 5: Cache the pairs
+      // Step 5: Delete all existing cache entries for updated participants
+      console.log(`\n${'='.repeat(80)}`)
+      console.log(`🗑️  DELETING OLD CACHE ENTRIES for updated participants...`)
+      console.log(`${'='.repeat(80)}\n`)
+      
+      const updatedParticipantNumbers = participantsNeedingCache.map(p => p.assigned_number)
+      
+      try {
+        const { data: deletedEntries, error: deleteError } = await supabase
+          .from('compatibility_cache')
+          .delete()
+          .or(updatedParticipantNumbers.map(num => `participant_a_number.eq.${num},participant_b_number.eq.${num}`).join(','))
+          .select()
+        
+        if (deleteError) {
+          console.error(`⚠️ Error deleting old cache entries:`, deleteError)
+        } else {
+          console.log(`✅ Deleted ${deletedEntries?.length || 0} old cache entries for updated participants`)
+          updatedParticipantNumbers.forEach(num => {
+            const count = deletedEntries?.filter(e => e.participant_a_number === num || e.participant_b_number === num).length || 0
+            console.log(`   🗑️  Participant #${num}: ${count} entries deleted`)
+          })
+        }
+      } catch (deleteErr) {
+        console.error(`⚠️ Exception deleting old cache entries:`, deleteErr)
+      }
+      
+      // Step 6: Cache the pairs
       let cachedCount = 0
       let alreadyCached = 0
       let skipped = 0
@@ -2294,7 +2321,7 @@ export default async function handler(req, res) {
       const duration = ((Date.now() - startTime) / 1000).toFixed(2)
       const durationMs = Date.now() - startTime
       
-      // Step 6: Record cache session in metadata
+      // Step 7: Record cache session in metadata
       try {
         const cacheHitRate = pairsToCache.length > 0 ? ((alreadyCached / pairsToCache.length) * 100).toFixed(2) : 0
         

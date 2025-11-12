@@ -80,8 +80,9 @@ POST /api/admin/trigger-match
 **How It Works:**
 1. Gets last cache timestamp for the event
 2. Finds participants updated after that timestamp
-3. Caches only pairs involving updated participants
-4. Records session metadata for future delta runs
+3. **Deletes all existing cache entries** for updated participants (prevents orphaned entries)
+4. Caches only pairs involving updated participants
+5. Records session metadata for future delta runs
 
 ---
 

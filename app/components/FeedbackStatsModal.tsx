@@ -11,6 +11,7 @@ interface FeedbackData {
 }
 
 interface ParticipantMatch {
+  round: number;
   participant_a: { mbti: string; age: number; survey_data?: { answers?: Record<string, any> } };
   participant_b: { mbti: string; age: number; survey_data?: { answers?: Record<string, any> } };
   compatibility_score: number;
@@ -35,11 +36,27 @@ interface Props {
   onClose: () => void;
 }
 
-const HIGH_FEEDBACK_THRESHOLD = 80; // 80% and above is considered high feedback
+const HIGH_FEEDBACK_THRESHOLD = 80;
+const LOW_FEEDBACK_THRESHOLD = 50;
+
+const QUESTION_MAP: Record<string, string> = {
+  lifestyle_1: "في أي وقت من اليوم تكون عادة في أفضل حالتك؟",
+  lifestyle_2: "كم تفضل أن تتواصل مع صديقك المقرّب؟",
+  lifestyle_3: "كم تهمك المساحة الشخصية في علاقات الصداقة؟",
+  lifestyle_4: "كيف تفضل أن تدير وقتك عادة؟",
+  lifestyle_5: "كيف تحب تقضي نهاية الأسبوع غالبًا؟",
+  core_values_1: "الصدق أم الحفاظ على العلاقة؟",
+  core_values_2: "الطموح أم الاستقرار؟",
+  core_values_3: "التقبل أم التشابه؟",
+  core_values_4: "الاعتماد أم الاستقلال؟",
+  core_values_5: "الواجب الشخصي أم الحرية الفردية؟",
+};
 
 export default function FeedbackStatsModal({ matches, onClose }: Props) {
   const stats = useMemo(() => {
-    const highFeedbackMatches = matches.filter(m => {
+    const eventMatches = matches.filter(m => m.round === 6 || m.round === 7);
+
+    const highFeedbackMatches = eventMatches.filter(m => {
       if (!m.feedback?.has_feedback) return false;
       const feedbackA = m.feedback.participant_a?.compatibility_rate;
       const feedbackB = m.feedback.participant_b?.compatibility_rate;
@@ -130,6 +147,7 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
       bonusPercentage,
       topLifestyleAgreement,
       topCoreValuesAgreement,
+      // Add more detailed stats here in the future
     };
   }, [matches]);
 
@@ -153,12 +171,12 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
         
         <div className="flex items-center gap-3 mb-6">
           <BarChart className="w-8 h-8 text-cyan-300" />
-          <h2 className="text-3xl font-bold text-cyan-300">تحليل التقييمات العالية</h2>
+          <h2 className="text-3xl font-bold text-cyan-300">تحليل تقييمات الفعاليات (6 و 7)</h2>
         </div>
 
         {stats ? (
           <div className="space-y-4">
-            <p className="text-slate-300 text-center mb-6">تحليل قائم على {stats.count} مطابقة حصلت على تقييم {HIGH_FEEDBACK_THRESHOLD}% أو أعلى من المشاركين.</p>
+            <p className="text-slate-300 text-center mb-6">تحليل قائم على {stats.count} مطابقة حصلت على تقييم {HIGH_FEEDBACK_THRESHOLD}% أو أعلى من المشاركين في الفعاليات 6 و 7.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <StatCard 
                 icon={<TrendingUp className="text-green-400" />} 
@@ -211,15 +229,21 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
               </div>
               <p className="text-xs text-slate-400 mb-3">الأسئلة التي يتفق عليها المشاركون في أنجح المطابقات.</p>
               <h4 className="text-sm font-semibold text-cyan-200 mb-2">نمط الحياة</h4>
-              <ul className="space-y-1 mb-3">
+              <ul className="space-y-2 mb-3">
                 {stats.topLifestyleAgreement.map(([q, count]) => (
-                  <li key={q} className="text-xs text-slate-300">- سؤال {q.replace('lifestyle_', '')}: <span className="font-bold text-white">{((count / stats.count) * 100).toFixed(0)}%</span> اتفاق</li>
+                  <li key={q} className="text-xs text-slate-300 bg-slate-900/50 p-2 rounded-md">
+                    <span className="font-bold text-white">{QUESTION_MAP[q] || q}:</span>
+                    <span className="block mt-1">- <span className="font-bold text-cyan-300">{((count / stats.count) * 100).toFixed(0)}%</span> اتفاق</span>
+                  </li>
                 ))}
               </ul>
               <h4 className="text-sm font-semibold text-cyan-200 mb-2">القيم الأساسية</h4>
-              <ul className="space-y-1">
+              <ul className="space-y-2">
                  {stats.topCoreValuesAgreement.map(([q, count]) => (
-                  <li key={q} className="text-xs text-slate-300">- سؤال {q.replace('core_values_', '')}: <span className="font-bold text-white">{((count / stats.count) * 100).toFixed(0)}%</span> اتفاق</li>
+                  <li key={q} className="text-xs text-slate-300 bg-slate-900/50 p-2 rounded-md">
+                    <span className="font-bold text-white">{QUESTION_MAP[q] || q}:</span>
+                    <span className="block mt-1">- <span className="font-bold text-cyan-300">{((count / stats.count) * 100).toFixed(0)}%</span> اتفاق</span>
+                  </li>
                 ))}
               </ul>
             </div>

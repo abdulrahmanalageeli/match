@@ -57,7 +57,7 @@ export default function AdminPage() {
   const [genderFilter, setGenderFilter] = useState("all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
   const [whatsappFilter, setWhatsappFilter] = useState("all") // "all", "sent", "not_sent"
-  const [sortBy, setSortBy] = useState("number") // "number", "name", "updated"
+  const [sortBy, setSortBy] = useState("number") // "number", "name", "updated", "survey_updated"
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
   const [announcement, setAnnouncement] = useState("")
@@ -1917,6 +1917,11 @@ const fetchParticipants = async () => {
         // Sort by updated_at (most recent first)
         const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0
         const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0
+        return dateB - dateA // Descending order (newest first)
+      } else if (sortBy === "survey_updated") {
+        // Sort by survey_data_updated_at (most recent first)
+        const dateA = a.survey_data_updated_at ? new Date(a.survey_data_updated_at).getTime() : 0
+        const dateB = b.survey_data_updated_at ? new Date(b.survey_data_updated_at).getTime() : 0
         return dateB - dateA // Descending order (newest first)
       }
       return 0
@@ -4085,6 +4090,7 @@ Proceed?`
                 <option value="number" className="bg-slate-800 text-white">Sort by Number</option>
                 <option value="name" className="bg-slate-800 text-white">Sort by Name</option>
                 <option value="updated" className="bg-slate-800 text-white">Sort by Last Update</option>
+                <option value="survey_updated" className="bg-slate-800 text-white">Sort by Survey Update</option>
               </select>
               <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-blue-400 pointer-events-none" />
             </div>
@@ -4096,40 +4102,6 @@ Proceed?`
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
               </div>
             )}
-
-            {/* Color Legend */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                <span className="text-xs text-slate-300 font-semibold">Card Border Colors:</span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-green-500/50 rounded"></div>
-                  <span className="text-slate-300">Paid</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-yellow-500/50 rounded"></div>
-                  <span className="text-slate-300">Unpaid</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-orange-500/50 rounded"></div>
-                  <span className="text-slate-300">Current</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-blue-500/50 rounded"></div>
-                  <span className="text-slate-300">Next Event</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-purple-500/50 rounded"></div>
-                  <span className="text-slate-300">Past Event</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-red-500/50 rounded"></div>
-                  <span className="text-slate-300">Excluded</span>
-                </div>
-              </div>
-            </div>
 
             {/* Select All Visible Button */}
             {filteredParticipants.length > 0 && (
@@ -4215,32 +4187,39 @@ Proceed?`
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredParticipants.map((p) => {
-              // Determine color-coded border based on status
+              // Determine color-coded border based on status - PRIORITY SYSTEM
               const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
-              const isCurrentEvent = p.event_id === currentEventId;
               const isPaid = p.PAID_DONE === true;
               const isUnpaid = p.PAID === true && !isPaid;
+              const isCurrentEvent = p.event_id === currentEventId;
               const isNextEvent = p.signup_for_next_event === true || p.auto_signup_next_event === true;
               
               let borderColor = 'border-white/20'; // Default
               let borderGlow = '';
               
+              // Priority order: Excluded > Paid > Unpaid > Current Event > Next Event > Past Event
               if (isExcluded) {
+                // Highest priority: Excluded participants
                 borderColor = 'border-red-500/50';
                 borderGlow = 'shadow-lg shadow-red-500/20';
-              } else if (isCurrentEvent && isPaid) {
+              } else if (isPaid) {
+                // Payment completed (regardless of event)
                 borderColor = 'border-green-500/50';
                 borderGlow = 'shadow-lg shadow-green-500/20';
-              } else if (isCurrentEvent && isUnpaid) {
+              } else if (isUnpaid) {
+                // Awaiting payment (regardless of event)
                 borderColor = 'border-yellow-500/50';
                 borderGlow = 'shadow-lg shadow-yellow-500/20';
               } else if (isCurrentEvent) {
+                // Current event but not contacted
                 borderColor = 'border-orange-500/50';
                 borderGlow = 'shadow-lg shadow-orange-500/20';
               } else if (isNextEvent) {
+                // Signed up for next event
                 borderColor = 'border-blue-500/50';
                 borderGlow = 'shadow-lg shadow-blue-500/20';
               } else if (p.event_id && p.event_id !== currentEventId) {
+                // Past event participants
                 borderColor = 'border-purple-500/50';
                 borderGlow = 'shadow-lg shadow-purple-500/20';
               }
@@ -4285,11 +4264,24 @@ Proceed?`
                     <button
                       onClick={(e) => { 
                         e.stopPropagation();
+                        setQrParticipant(p);
+                        setDetailParticipant(p);
+                      }}
+                      className="p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 transition-all duration-200 active:scale-95 touch-manipulation"
+                      aria-label="Show QR Code"
+                      title="Show QR Code"
+                    >
+                      <QrCode className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={(e) => { 
+                        e.stopPropagation();
                         setWhatsappParticipant(p); 
                         setShowWhatsappModal(true); 
                       }}
                       className="p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-all duration-200 active:scale-95 touch-manipulation"
                       aria-label="Send WhatsApp message"
+                      title="Send WhatsApp message"
                     >
                       <MessageSquare className="w-5 h-5" />
                     </button>
@@ -4299,6 +4291,7 @@ Proceed?`
                         toggleParticipantSelection(p.assigned_number)
                       }}
                       className="text-slate-400 hover:text-white transition-colors"
+                      title="Select participant"
                     >
                       {selectedParticipants.has(p.assigned_number) ? (
                         <CheckSquare className="w-4 h-4" />

@@ -28,6 +28,7 @@ create table public.participants (
   early_openness_comfort integer null,
   updated_at timestamp with time zone null default now(),
   auto_signup_next_event boolean not null default false,
+  survey_data_updated_at timestamp with time zone null,
   constraint participants_pkey primary key (id),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),
   constraint unique_secure_token unique (secure_token),
@@ -279,6 +280,10 @@ where
 create trigger set_updated_at BEFORE
 update on participants for EACH row
 execute FUNCTION update_updated_at_column ();
+
+create trigger trigger_set_survey_data_updated_at BEFORE
+update on participants for EACH row
+execute FUNCTION update_survey_data_timestamp ();
 
 create trigger trigger_sync_autosignup_to_next_event BEFORE INSERT
 or

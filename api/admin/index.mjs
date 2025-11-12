@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     if (method === "GET") {
       const { data, error } = await supabase
         .from("participants")
-        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference")
+        .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at")
         .eq("match_id", STATIC_MATCH_ID)
         .neq("assigned_number", 9999)  // Exclude organizer participant
         .order("assigned_number", { ascending: true })
@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         const { event_id } = req.body
         let query = supabase
           .from("participants")
-          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference")
+          .select("id, assigned_number, table_number, survey_data, summary, secure_token, PAID, PAID_DONE, phone_number, event_id, name, signup_for_next_event, auto_signup_next_event, updated_at, same_gender_preference, any_gender_preference, survey_data_updated_at")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)  // Exclude organizer participant
           .order("assigned_number", { ascending: true })
@@ -2955,6 +2955,236 @@ export default async function handler(req, res) {
       } catch (error) {
         console.error("Error in debug-group-eligibility:", error)
         return res.status(500).json({ error: "Failed to debug group eligibility" })
+      }
+    }
+
+    // 🔹 DELTA CACHE: Get last cache timestamp for event
+    if (action === "get-last-cache-timestamp") {
+      try {
+        const { event_id } = req.body
+        console.log(`Getting last cache timestamp for event_id: ${event_id}`)
+        
+        const { data, error } = await supabase
+          .rpc('get_last_precache_timestamp', { p_event_id: event_id })
+        
+        if (error) {
+          console.error("Error getting last cache timestamp:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        return res.status(200).json({
+          success: true,
+          event_id,
+          last_cache_timestamp: data || '1970-01-01T00:00:00Z'
+        })
+      } catch (error) {
+        console.error("Error in get-last-cache-timestamp:", error)
+        return res.status(500).json({ error: "Failed to get last cache timestamp" })
+      }
+    }
+
+    // 🔹 DELTA CACHE: Get participants needing recache
+    if (action === "get-participants-needing-cache") {
+      try {
+        const { event_id, last_cache_timestamp } = req.body
+        console.log(`Getting participants needing cache for event_id: ${event_id}`)
+        
+        // Build query to find participants updated after last cache timestamp
+        let query = supabase
+          .from("participants")
+          .select("assigned_number, survey_data_updated_at, name, gender, age")
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)
+          .not("survey_data", "is", null)
+        
+        // Filter by event eligibility
+        query = query.or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
+        
+        // If last_cache_timestamp provided, filter for updates after that time
+        if (last_cache_timestamp && last_cache_timestamp !== '1970-01-01T00:00:00Z') {
+          query = query.or(`survey_data_updated_at.is.null,survey_data_updated_at.gt.${last_cache_timestamp}`)
+        }
+        
+        const { data, error } = await query.order('survey_data_updated_at', { ascending: false, nullsFirst: false })
+        
+        if (error) {
+          console.error("Error getting participants needing cache:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`Found ${data?.length || 0} participants needing cache`)
+        
+        return res.status(200).json({
+          success: true,
+          event_id,
+          last_cache_timestamp,
+          participants: data || [],
+          count: data?.length || 0
+        })
+      } catch (error) {
+        console.error("Error in get-participants-needing-cache:", error)
+        return res.status(500).json({ error: "Failed to get participants needing cache" })
+      }
+    }
+
+    // 🔹 DELTA CACHE: Record cache session
+    if (action === "record-cache-session") {
+      try {
+        const { 
+          event_id, 
+          participants_cached, 
+          pairs_cached, 
+          duration_ms, 
+          ai_calls, 
+          cache_hit_rate, 
+          notes 
+        } = req.body
+        
+        console.log(`Recording cache session for event_id: ${event_id}`)
+        
+        const { data, error } = await supabase
+          .rpc('record_cache_session', {
+            p_event_id: event_id,
+            p_participants_cached: participants_cached || 0,
+            p_pairs_cached: pairs_cached || 0,
+            p_duration_ms: duration_ms,
+            p_ai_calls: ai_calls || 0,
+            p_cache_hit_rate: cache_hit_rate,
+            p_notes: notes
+          })
+        
+        if (error) {
+          console.error("Error recording cache session:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`✅ Cache session recorded with ID: ${data}`)
+        
+        return res.status(200).json({
+          success: true,
+          session_id: data,
+          message: `Cache session recorded: ${participants_cached} participants, ${pairs_cached} pairs cached`
+        })
+      } catch (error) {
+        console.error("Error in record-cache-session:", error)
+        return res.status(500).json({ error: "Failed to record cache session" })
+      }
+    }
+
+    // 🔹 DELTA CACHE: Get cache freshness status
+    if (action === "get-cache-freshness") {
+      try {
+        const { event_id } = req.body
+        console.log(`Getting cache freshness for event_id: ${event_id}`)
+        
+        const { data, error } = await supabase
+          .from("v_cache_freshness")
+          .select("*")
+          .eq("event_id", event_id)
+          .single()
+        
+        if (error && error.code !== 'PGRST116') {
+          console.error("Error getting cache freshness:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        if (!data) {
+          // No cache metadata exists yet for this event
+          return res.status(200).json({
+            success: true,
+            event_id,
+            cache_status: 'NEVER_CACHED',
+            participants_needing_recache: null,
+            total_participants_in_event: null,
+            last_cache_time: null,
+            hours_since_cache: null
+          })
+        }
+        
+        return res.status(200).json({
+          success: true,
+          ...data
+        })
+      } catch (error) {
+        console.error("Error in get-cache-freshness:", error)
+        return res.status(500).json({ error: "Failed to get cache freshness" })
+      }
+    }
+
+    // 🔹 DELTA CACHE: Get cache history for event
+    if (action === "get-cache-history") {
+      try {
+        const { event_id, limit = 10 } = req.body
+        console.log(`Getting cache history for event_id: ${event_id}`)
+        
+        const { data, error } = await supabase
+          .from("cache_metadata")
+          .select("*")
+          .eq("event_id", event_id)
+          .order("last_precache_timestamp", { ascending: false })
+          .limit(limit)
+        
+        if (error) {
+          console.error("Error getting cache history:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        return res.status(200).json({
+          success: true,
+          event_id,
+          sessions: data || [],
+          count: data?.length || 0
+        })
+      } catch (error) {
+        console.error("Error in get-cache-history:", error)
+        return res.status(500).json({ error: "Failed to get cache history" })
+      }
+    }
+
+    // 🔹 DELTA CACHE: Invalidate stale cache entries
+    if (action === "invalidate-stale-cache") {
+      try {
+        const { participant_number } = req.body
+        console.log(`Invalidating stale cache for participant #${participant_number}`)
+        
+        // Get participant's current survey_data_updated_at
+        const { data: participant, error: pError } = await supabase
+          .from("participants")
+          .select("survey_data_updated_at")
+          .eq("assigned_number", participant_number)
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+        
+        if (pError) {
+          console.error("Error fetching participant:", pError)
+          return res.status(500).json({ error: pError.message })
+        }
+        
+        if (!participant?.survey_data_updated_at) {
+          return res.status(400).json({ error: "Participant has no survey_data_updated_at timestamp" })
+        }
+        
+        // Delete cache entries where this participant's cached timestamp is older than current
+        const { error: deleteError, count } = await supabase
+          .from("compatibility_cache")
+          .delete()
+          .or(`and(participant_a_number.eq.${participant_number},participant_a_cached_at.lt.${participant.survey_data_updated_at}),and(participant_b_number.eq.${participant_number},participant_b_cached_at.lt.${participant.survey_data_updated_at})`)
+        
+        if (deleteError) {
+          console.error("Error invalidating cache:", deleteError)
+          return res.status(500).json({ error: deleteError.message })
+        }
+        
+        console.log(`✅ Invalidated ${count || 0} stale cache entries for participant #${participant_number}`)
+        
+        return res.status(200).json({
+          success: true,
+          participant_number,
+          invalidated_entries: count || 0
+        })
+      } catch (error) {
+        console.error("Error in invalidate-stale-cache:", error)
+        return res.status(500).json({ error: "Failed to invalidate stale cache" })
       }
     }
 

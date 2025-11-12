@@ -2061,6 +2061,198 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: error.message })
     }
   }
+
+  // Handle delta-pre-cache action (smart incremental caching)
+  if (action === "delta-pre-cache") {
+    if (!eventId) {
+      return res.status(400).json({ error: "eventId is required" })
+    }
+    
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const startTime = Date.now()
+    
+    console.log(`🔄 DELTA PRE-CACHE START: Smart incremental caching for event ${eventId}`)
+    
+    try {
+      // Step 1: Get last cache timestamp
+      const { data: lastTimestamp, error: timestampError } = await supabase
+        .rpc('get_last_precache_timestamp', { p_event_id: eventId })
+      
+      if (timestampError) {
+        console.error("Error getting last cache timestamp:", timestampError)
+        // Continue with epoch time as fallback
+      }
+      
+      const lastCacheTimestamp = lastTimestamp || '1970-01-01T00:00:00Z'
+      console.log(`📅 Last cache timestamp: ${lastCacheTimestamp}`)
+      
+      // Step 2: Fetch all eligible participants
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+      
+      if (error) throw error
+      
+      // Filter for complete participants
+      const allEligibleParticipants = allParticipants.filter(p => isParticipantComplete(p))
+      
+      console.log(`📊 Found ${allEligibleParticipants.length} total eligible participants`)
+      
+      if (allEligibleParticipants.length < 2) {
+        return res.status(400).json({ error: `Need at least 2 participants. Found ${allEligibleParticipants.length}` })
+      }
+      
+      // Step 3: Identify participants who need recaching
+      const participantsNeedingCache = allEligibleParticipants.filter(p => {
+        if (!p.survey_data_updated_at) {
+          // Never cached
+          return true
+        }
+        // Updated after last cache
+        return new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+      })
+      
+      console.log(`🆕 Participants needing cache: ${participantsNeedingCache.length}`)
+      participantsNeedingCache.forEach(p => {
+        console.log(`   #${p.assigned_number} - Last updated: ${p.survey_data_updated_at || 'NEVER'}`)
+      })
+      
+      if (participantsNeedingCache.length === 0) {
+        console.log(`✅ Cache is fresh! No participants need recaching.`)
+        
+        return res.status(200).json({
+          success: true,
+          cached_count: 0,
+          already_cached: 0,
+          skipped: 0,
+          participants_needing_cache: 0,
+          total_eligible: allEligibleParticipants.length,
+          last_cache_timestamp: lastCacheTimestamp,
+          duration_seconds: ((Date.now() - startTime) / 1000).toFixed(2),
+          message: 'Cache is fresh - no updates needed'
+        })
+      }
+      
+      // Step 4: Generate pairs involving updated participants only
+      const pairsToCache = []
+      const updatedNumbers = new Set(participantsNeedingCache.map(p => p.assigned_number))
+      
+      for (let i = 0; i < allEligibleParticipants.length; i++) {
+        for (let j = i + 1; j < allEligibleParticipants.length; j++) {
+          const p1 = allEligibleParticipants[i]
+          const p2 = allEligibleParticipants[j]
+          
+          // Only cache if at least one participant was updated
+          if (updatedNumbers.has(p1.assigned_number) || updatedNumbers.has(p2.assigned_number)) {
+            pairsToCache.push({ p1, p2 })
+          }
+        }
+      }
+      
+      console.log(`🎯 Pairs to cache: ${pairsToCache.length} (involving updated participants)`)
+      
+      // Step 5: Cache the pairs
+      let cachedCount = 0
+      let alreadyCached = 0
+      let skipped = 0
+      let aiCallsMade = 0
+      
+      for (const { p1, p2 } of pairsToCache) {
+        // Check gender compatibility
+        if (!checkGenderCompatibility(p1, p2)) {
+          skipped++
+          continue
+        }
+        
+        // Check age compatibility
+        if (!checkAgeCompatibility(p1, p2)) {
+          skipped++
+          continue
+        }
+        
+        // Check if already cached with current content
+        console.log(`🔍 Checking pair #${p1.assigned_number} × #${p2.assigned_number}...`)
+        const cached = await getCachedCompatibility(p1, p2)
+        
+        if (cached) {
+          console.log(`   ⏭️  Already cached with current content`)
+          alreadyCached++
+          continue
+        }
+        
+        // Calculate and cache
+        console.log(`💾 Delta caching pair ${cachedCount + 1}/${pairsToCache.length}: #${p1.assigned_number} × #${p2.assigned_number}`)
+        
+        try {
+          const result = await calculateFullCompatibilityWithCache(p1, p2, skipAI, false)
+          console.log(`   ✅ Cached! Score: ${result.totalScore.toFixed(2)}%`)
+          cachedCount++
+          if (!skipAI) aiCallsMade++
+          
+          // Update the cache entry with participant timestamps
+          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((a, b) => a - b)
+          const cacheKey = generateCacheKey(p1, p2)
+          
+          await supabase
+            .from('compatibility_cache')
+            .update({
+              participant_a_cached_at: p1.survey_data_updated_at || new Date().toISOString(),
+              participant_b_cached_at: p2.survey_data_updated_at || new Date().toISOString()
+            })
+            .eq('participant_a_number', smaller)
+            .eq('participant_b_number', larger)
+            .eq('combined_content_hash', cacheKey.combinedHash)
+          
+        } catch (error) {
+          console.error(`   ❌ ERROR caching pair #${p1.assigned_number} × #${p2.assigned_number}:`, error.message)
+        }
+      }
+      
+      const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+      const durationMs = Date.now() - startTime
+      
+      // Step 6: Record cache session in metadata
+      try {
+        const cacheHitRate = pairsToCache.length > 0 ? ((alreadyCached / pairsToCache.length) * 100).toFixed(2) : 0
+        
+        await supabase.rpc('record_cache_session', {
+          p_event_id: eventId,
+          p_participants_cached: participantsNeedingCache.length,
+          p_pairs_cached: cachedCount,
+          p_duration_ms: durationMs,
+          p_ai_calls: aiCallsMade,
+          p_cache_hit_rate: parseFloat(cacheHitRate),
+          p_notes: `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`
+        })
+        
+        console.log(`✅ Cache session metadata recorded`)
+      } catch (metaError) {
+        console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
+      }
+      
+      console.log(`✅ DELTA PRE-CACHE COMPLETE: ${cachedCount} new, ${alreadyCached} already cached, ${skipped} skipped, ${duration}s`)
+      
+      return res.status(200).json({
+        success: true,
+        cached_count: cachedCount,
+        already_cached: alreadyCached,
+        skipped: skipped,
+        participants_needing_cache: participantsNeedingCache.length,
+        total_eligible: allEligibleParticipants.length,
+        pairs_checked: pairsToCache.length,
+        ai_calls_made: aiCallsMade,
+        last_cache_timestamp: lastCacheTimestamp,
+        duration_seconds: duration,
+        message: `Delta cached ${cachedCount} pairs for ${participantsNeedingCache.length} updated participants`
+      })
+    } catch (error) {
+      console.error("❌ Delta pre-cache error:", error)
+      return res.status(500).json({ error: error.message })
+    }
+  }
   
   if (!eventId) {
     return res.status(400).json({ error: "eventId is required" })

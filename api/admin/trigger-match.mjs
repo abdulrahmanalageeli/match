@@ -2044,6 +2044,23 @@ export default async function handler(req, res) {
         .select('*', { count: 'exact', head: true })
       
       const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+      const durationMs = Date.now() - startTime
+      
+      // Record cache session metadata
+      try {
+        await supabase.rpc('record_cache_session', {
+          p_event_id: eventId,
+          p_participants_cached: participants.length,
+          p_pairs_cached: cachedCount,
+          p_duration_ms: durationMs,
+          p_ai_calls: cachedCount, // Each new cache uses AI
+          p_cache_hit_rate: totalPairs > 0 ? parseFloat(((alreadyCached / totalPairs) * 100).toFixed(2)) : 0,
+          p_notes: `Pre-cache: ${cacheAll ? 'ALL' : count} pairs, ${direction} direction`
+        })
+        console.log(`✅ Cache session metadata recorded`)
+      } catch (metaError) {
+        console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
+      }
       
       console.log(`✅ PRE-CACHE COMPLETE: ${cachedCount} new, ${alreadyCached} already cached, ${skipped} skipped, ${duration}s`)
       

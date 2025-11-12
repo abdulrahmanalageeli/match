@@ -1571,15 +1571,15 @@ export default async function handler(req, res) {
         
         // Get last cache timestamp
         const { data: metaData } = await supabase
-          .from('delta_cache_metadata')
-          .select('cached_at')
+          .from('cache_metadata')
+          .select('last_precache_timestamp')
           .eq('event_id', event_id)
-          .order('cached_at', { ascending: false })
+          .order('last_precache_timestamp', { ascending: false })
           .limit(1)
           .single()
         
-        const lastCacheTimestamp = metaData?.cached_at || '1970-01-01T00:00:00Z'
-        const noCacheMetadata = !metaData?.cached_at
+        const lastCacheTimestamp = metaData?.last_precache_timestamp || '1970-01-01T00:00:00Z'
+        const noCacheMetadata = !metaData?.last_precache_timestamp
         
         // If no cache metadata exists, delta cache count should be 0
         // (use regular pre-cache for first-time caching)

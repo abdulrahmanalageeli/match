@@ -1564,6 +1564,59 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET DELTA CACHE COUNT
+    if (action === "get-delta-cache-count") {
+      try {
+        const { event_id = 1 } = req.body
+        
+        // Get last cache timestamp
+        const { data: metaData } = await supabase
+          .from('delta_cache_metadata')
+          .select('cached_at')
+          .eq('event_id', event_id)
+          .order('cached_at', { ascending: false })
+          .limit(1)
+          .single()
+        
+        const lastCacheTimestamp = metaData?.cached_at || '1970-01-01T00:00:00Z'
+        
+        // Fetch eligible participants (same logic as delta-pre-cache)
+        const { data: allParticipants } = await supabase
+          .from("participants")
+          .select("assigned_number, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event")
+          .eq("match_id", STATIC_MATCH_ID)
+          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
+          .neq("assigned_number", 9999)
+        
+        if (!allParticipants) {
+          return res.status(200).json({ count: 0, lastCacheTimestamp })
+        }
+        
+        // Filter for complete participants
+        const eligibleParticipants = allParticipants.filter(p => {
+          return p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
+        })
+        
+        // Count participants needing cache
+        const needsCacheCount = eligibleParticipants.filter(p => {
+          if (!p.survey_data_updated_at) {
+            return true // Never cached
+          }
+          return new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+        }).length
+        
+        return res.status(200).json({ 
+          count: needsCacheCount,
+          totalEligible: eligibleParticipants.length,
+          lastCacheTimestamp
+        })
+        
+      } catch (error) {
+        console.error("Error in get-delta-cache-count:", error)
+        return res.status(500).json({ error: "Failed to get delta cache count" })
+      }
+    }
+
     // 🔹 GET GROUP MATCHES (for participant view)
     if (action === "get-group-matches") {
       try {

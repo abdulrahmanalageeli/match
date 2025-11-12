@@ -103,6 +103,9 @@ export default function AdminPage() {
   const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
   const [banPermanently, setBanPermanently] = useState(false)
   
+  // Delta cache count
+  const [deltaCacheCount, setDeltaCacheCount] = useState(0)
+  
   // Manual match management
   const [newManualMatch, setNewManualMatch] = useState({participant1: '', participant2: ''})
   const [bypassEligibility, setBypassEligibility] = useState(false)
@@ -867,6 +870,20 @@ const fetchParticipants = async () => {
       })
       const eventFinishedData = await eventFinishedRes.json()
       setEventFinished(eventFinishedData.finished === true) // Default to false (ongoing) if not set
+      
+      // Fetch delta cache count
+      try {
+        const deltaCacheRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-delta-cache-count", event_id: fetchedEventId }),
+        })
+        const deltaCacheData = await deltaCacheRes.json()
+        setDeltaCacheCount(deltaCacheData.count || 0)
+      } catch (deltaCacheError) {
+        console.error("Error fetching delta cache count:", deltaCacheError)
+        setDeltaCacheCount(0)
+      }
       
       // Auto-load available sessions and latest results (only on initial load)
       if (availableSessions.length === 0) {
@@ -2776,6 +2793,16 @@ Proceed?`
                 <span className="ml-2 inline-flex items-center gap-1 bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-semibold px-2 py-0.5 rounded-full animate-pulse">
                   <Minus className="w-3 h-3" />
                   {Math.abs(eligibleChangeInfo.count)}
+                </span>
+              )}
+            </div>
+            <div className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative" title="Participants needing delta cache (updated survey data)">
+              <span className="text-cyan-300 text-sm">Delta Cache: </span>
+              <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
+              {deltaCacheCount > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-xs font-semibold px-2 py-0.5 rounded-full">
+                  <Zap className="w-3 h-3" />
+                  needs update
                 </span>
               )}
             </div>

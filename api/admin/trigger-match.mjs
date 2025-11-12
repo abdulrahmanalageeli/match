@@ -3589,6 +3589,23 @@ export default async function handler(req, res) {
       lockedPairs
     )
 
+    // Record cache session metadata (same as pre-cache)
+    try {
+      console.log(`💾 Recording cache session metadata for match generation...`)
+      await supabase.rpc('record_cache_session', {
+        p_event_id: eventId,
+        p_participants_cached: eligibleParticipants.length,
+        p_pairs_cached: cacheMisses, // Only count newly cached pairs
+        p_duration_ms: totalTime,
+        p_ai_calls: aiCalls,
+        p_cache_hit_rate: parseFloat(cacheHitRate),
+        p_notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`
+      })
+      console.log(`✅ Cache session metadata recorded`)
+    } catch (metaError) {
+      console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
+    }
+
     return res.status(200).json({
       message: `✅ Matching complete for ${rounds} rounds (MBTI + Attachment + Communication + Lifestyle + Core Values + Vibe${skipAI ? ' - AI skipped' : ''})`,
       count: finalMatches.length,

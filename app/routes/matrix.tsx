@@ -194,9 +194,15 @@ export default function MatrixPage() {
   // Sort by feedback score if specified
   if (feedbackSort !== 'none') {
     filteredMatches = [...filteredMatches].sort((a, b) => {
-      const feedbackA = getFeedbackCompatibility(a) || 0
-      const feedbackB = getFeedbackCompatibility(b) || 0
-      
+      const feedbackA = getFeedbackCompatibility(a)
+      const feedbackB = getFeedbackCompatibility(b)
+
+      // Handle cases where one or both matches have no feedback
+      if (feedbackA === null && feedbackB === null) return 0 // Keep original order if both have no feedback
+      if (feedbackA === null) return 1 // Push matches without feedback to the bottom
+      if (feedbackB === null) return -1 // Keep matches with feedback at the top
+
+      // Sort by feedback score
       if (feedbackSort === 'asc') {
         return feedbackA - feedbackB
       } else {

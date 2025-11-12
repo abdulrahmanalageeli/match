@@ -1896,19 +1896,114 @@ export default async function handler(req, res) {
           }
         })
 
-        console.log(`Processed ${processedMatches.length} match pairs from ${matchResults.length} match records`)
+        // Fetch feedback for all matches
+        console.log("Fetching feedback data for matches...")
+        const { data: feedbackData, error: feedbackError } = await supabase
+          .from("match_feedback")
+          .select(`
+            participant_number,
+            round,
+            event_id,
+            compatibility_rate,
+            conversation_quality,
+            personal_connection,
+            shared_interests,
+            comfort_level,
+            communication_style,
+            would_meet_again,
+            overall_experience,
+            recommendations,
+            participant_message,
+            submitted_at
+          `)
+          .eq("match_id", STATIC_MATCH_ID)
+
+        if (feedbackError) {
+          console.error("Error fetching feedback:", feedbackError)
+          // Continue without feedback rather than failing
+        }
+
+        // Create feedback lookup map: participant_number -> event_id -> feedback
+        const feedbackMap = new Map()
+        if (feedbackData) {
+          feedbackData.forEach(feedback => {
+            if (!feedbackMap.has(feedback.participant_number)) {
+              feedbackMap.set(feedback.participant_number, new Map())
+            }
+            feedbackMap.get(feedback.participant_number).set(feedback.event_id, feedback)
+          })
+        }
+
+        // Add feedback to processed matches
+        const matchesWithFeedback = processedMatches.map(match => {
+          const eventId = match.round // event_id is stored in round field
+          
+          // Get feedback from both participants for this event
+          const participantAFeedback = feedbackMap.get(match.participant_a.number)?.get(eventId)
+          const participantBFeedback = feedbackMap.get(match.participant_b.number)?.get(eventId)
+          
+          return {
+            ...match,
+            feedback: {
+              participant_a: participantAFeedback || null,
+              participant_b: participantBFeedback || null,
+              has_feedback: !!(participantAFeedback || participantBFeedback)
+            }
+          }
+        })
+
+        console.log(`Processed ${matchesWithFeedback.length} match pairs from ${matchResults.length} match records`)
+        console.log(`Found feedback for ${feedbackData?.length || 0} feedback entries`)
 
         return res.status(200).json({
           success: true,
-          matches: processedMatches,
+          matches: matchesWithFeedback,
           totalRecords: matchResults.length,
-          totalPairs: processedMatches.length,
-          participantCount: participants.length
+          totalPairs: matchesWithFeedback.length,
+          participantCount: participants.length,
+          feedbackCount: feedbackData?.length || 0
         })
 
       } catch (error) {
         console.error("Error in get-all-matches:", error)
         return res.status(500).json({ error: "Failed to fetch all matches" })
+      }
+    }
+
+    // 🔹 DELETE MATCH - Remove specific match from database
+    if (action === "delete-match") {
+      try {
+        const { matchId } = req.body
+        
+        if (!matchId) {
+          return res.status(400).json({ error: "Match ID is required" })
+        }
+        
+        console.log(`Deleting match with ID: ${matchId}`)
+        
+        // Delete the match from match_results table
+        const { error } = await supabase
+          .from("match_results")
+          .delete()
+          .eq("id", matchId)
+          .eq("match_id", STATIC_MATCH_ID)
+        
+        if (error) {
+          console.error("Error deleting match:", error)
+          return res.status(500).json({ error: error.message })
+        }
+        
+        console.log(`✅ Successfully deleted match ${matchId}`)
+        
+        return res.status(200).json({
+          success: true,
+          message: "Match deleted successfully",
+          deletedMatchId: matchId
+        })
+        
+      } catch (error) {
+        console.error("Error in delete-match:", error)
+        return res.status(500).json({ error: "Failed to delete match" })
       }
     }
 

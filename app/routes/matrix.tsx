@@ -1,5 +1,20 @@
 import { useState, useEffect } from "react"
-import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp } from "lucide-react"
+import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown } from "lucide-react"
+
+interface FeedbackData {
+  participant_number: number
+  compatibility_rate: number
+  conversation_quality: number
+  personal_connection: number
+  shared_interests: number
+  comfort_level: number
+  communication_style: number
+  would_meet_again: boolean
+  overall_experience: number
+  recommendations?: string
+  participant_message?: string
+  submitted_at: string
+}
 
 interface ParticipantMatch {
   id: string
@@ -31,6 +46,11 @@ interface ParticipantMatch {
   match_type: string
   mutual_match?: boolean
   is_repeat: boolean
+  feedback?: {
+    participant_a: FeedbackData | null
+    participant_b: FeedbackData | null
+    has_feedback: boolean
+  }
 }
 
 export default function MatrixPage() {
@@ -41,6 +61,8 @@ export default function MatrixPage() {
   const [eventFilter, setEventFilter] = useState<number | null>(null)
   const [mutualOnly, setMutualOnly] = useState(false)
   const [expandedRounds, setExpandedRounds] = useState<Record<number, boolean>>({})
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  const [deletingMatch, setDeletingMatch] = useState<string | null>(null)
 
   useEffect(() => {
     fetchAllMatches()
@@ -62,6 +84,32 @@ export default function MatrixPage() {
       console.error("Error fetching matches:", err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleDeleteMatch = async (matchId: string) => {
+    setDeletingMatch(matchId)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "delete-match", 
+          matchId: matchId.split('-')[0] // Extract original match ID
+        })
+      })
+      
+      if (res.ok) {
+        // Remove match from state
+        setMatches(prev => prev.filter(m => m.id !== matchId))
+        setDeleteConfirm(null)
+      } else {
+        console.error("Failed to delete match")
+      }
+    } catch (err) {
+      console.error("Error deleting match:", err)
+    } finally {
+      setDeletingMatch(null)
     }
   }
 
@@ -286,6 +334,13 @@ export default function MatrixPage() {
                               <Heart className="w-3 h-3" /> متبادل
                             </div>
                           )}
+                          
+                          {/* Feedback Badge */}
+                          {match.feedback?.has_feedback && (
+                            <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full px-2 py-1 text-xs font-bold shadow-lg flex items-center gap-1">
+                              <MessageSquare className="w-3 h-3" /> تقييم
+                            </div>
+                          )}
 
                           {/* Participants Info */}
                           <div className="space-y-4">
@@ -350,32 +405,171 @@ export default function MatrixPage() {
                                   { name: "نمط الحياة", score: match.detailed_scores.lifestyle, max: 15 },
                                   { name: "القيم", score: match.detailed_scores.core_values, max: 20 },
                                   { name: "الطاقة", score: match.detailed_scores.vibe, max: 15 }
-                                ].map(({ name, score, max }) => (
-                                  <div key={name} className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg">
-                                    <span className="text-xs font-semibold text-slate-300">{name}</span>
-                                    <div className="flex items-center gap-2">
-                                      <div className="w-16 h-2 bg-slate-700 rounded-full overflow-hidden">
-                                        <div
-                                          className={`h-full transition-all duration-300 ${getScoreColor((score / max) * 100).replace('text-', 'bg-')}`}
-                                          style={{ width: `${(score / max) * 100}%` }}
-                                        />
+                                ].map(({ name, score, max }) => {
+                                  const percentage = Math.round((score / max) * 100)
+                                  const barColor = percentage >= 80 ? 'bg-emerald-400' : 
+                                                 percentage >= 70 ? 'bg-green-400' : 
+                                                 percentage >= 60 ? 'bg-yellow-400' : 
+                                                 percentage >= 40 ? 'bg-orange-400' : 'bg-red-400'
+                                  
+                                  return (
+                                    <div key={name} className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg">
+                                      <span className="text-xs font-semibold text-slate-300">{name}</span>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-20 h-3 bg-slate-700 rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full transition-all duration-300 ${barColor}`}
+                                            style={{ width: `${percentage}%` }}
+                                          />
+                                        </div>
+                                        <span className="text-xs font-mono w-12 text-right text-white font-bold">
+                                          {score}/{max}
+                                        </span>
+                                        <span className="text-xs text-cyan-300 w-8">
+                                          {percentage}%
+                                        </span>
                                       </div>
-                                      <span className="text-xs font-mono w-8 text-right">{score}</span>
                                     </div>
-                                  </div>
-                                ))}
+                                  )
+                                })}
                               </div>
                             </details>
 
-                            {/* Additional Info */}
+                            {/* Feedback Section */}
+                            {match.feedback?.has_feedback && (
+                              <details className="group">
+                                <summary className="flex items-center gap-2 cursor-pointer text-blue-200 text-sm font-bold select-none hover:text-blue-100">
+                                  <MessageSquare className="w-4 h-4 text-blue-400" /> تقييمات المشاركين
+                                </summary>
+                                <div className="mt-3 space-y-3">
+                                  {/* Participant A Feedback */}
+                                  {match.feedback.participant_a && (
+                                    <div className="p-3 bg-blue-900/20 rounded-lg border border-blue-500/30">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <UserRound className="w-4 h-4 text-blue-400" />
+                                        <span className="text-sm font-semibold text-blue-300">
+                                          #{match.participant_a.number} - {match.participant_a.name}
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">التوافق:</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_a.compatibility_rate}/5</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">جودة المحادثة:</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_a.conversation_quality}/5</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">الاتصال الشخصي:</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_a.personal_connection}/5</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">لقاء مرة أخرى:</span>
+                                          {match.feedback.participant_a.would_meet_again ? (
+                                            <ThumbsUp className="w-3 h-3 text-green-400" />
+                                          ) : (
+                                            <ThumbsDown className="w-3 h-3 text-red-400" />
+                                          )}
+                                        </div>
+                                      </div>
+                                      {match.feedback.participant_a.participant_message && (
+                                        <div className="mt-2 p-2 bg-slate-800/50 rounded text-xs text-slate-200">
+                                          <span className="text-blue-400 font-semibold">رسالة: </span>
+                                          {match.feedback.participant_a.participant_message}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Participant B Feedback */}
+                                  {match.feedback.participant_b && (
+                                    <div className="p-3 bg-green-900/20 rounded-lg border border-green-500/30">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <UserRound className="w-4 h-4 text-green-400" />
+                                        <span className="text-sm font-semibold text-green-300">
+                                          #{match.participant_b.number} - {match.participant_b.name}
+                                        </span>
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">التوافق:</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_b.compatibility_rate}/5</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">جودة المحادثة:</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_b.conversation_quality}/5</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">الاتصال الشخصي:</span>
+                                          <span className="text-white font-bold">{match.feedback.participant_b.personal_connection}/5</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <span className="text-slate-400">لقاء مرة أخرى:</span>
+                                          {match.feedback.participant_b.would_meet_again ? (
+                                            <ThumbsUp className="w-3 h-3 text-green-400" />
+                                          ) : (
+                                            <ThumbsDown className="w-3 h-3 text-red-400" />
+                                          )}
+                                        </div>
+                                      </div>
+                                      {match.feedback.participant_b.participant_message && (
+                                        <div className="mt-2 p-2 bg-slate-800/50 rounded text-xs text-slate-200">
+                                          <span className="text-green-400 font-semibold">رسالة: </span>
+                                          {match.feedback.participant_b.participant_message}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </details>
+                            )}
+
+                            {/* Additional Info and Actions */}
                             <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-700">
-                              {match.table_number && (
-                                <span>طاولة: {match.table_number}</span>
-                              )}
-                              {match.is_repeat && (
-                                <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">مكرر</span>
-                              )}
-                              <span className="ml-auto">{match.match_type}</span>
+                              <div className="flex items-center gap-2">
+                                {match.table_number && (
+                                  <span>طاولة: {match.table_number}</span>
+                                )}
+                                {match.is_repeat && (
+                                  <span className="bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">مكرر</span>
+                                )}
+                                <span>{match.match_type}</span>
+                              </div>
+                              
+                              {/* Delete Button */}
+                              <div className="flex items-center gap-2">
+                                {deleteConfirm === match.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={() => handleDeleteMatch(match.id)}
+                                      disabled={deletingMatch === match.id}
+                                      className="flex items-center gap-1 px-2 py-1 bg-red-500 hover:bg-red-600 text-white text-xs rounded transition disabled:opacity-50"
+                                    >
+                                      {deletingMatch === match.id ? (
+                                        <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                                      ) : (
+                                        <AlertTriangle className="w-3 h-3" />
+                                      )}
+                                      تأكيد الحذف
+                                    </button>
+                                    <button
+                                      onClick={() => setDeleteConfirm(null)}
+                                      className="px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white text-xs rounded transition"
+                                    >
+                                      إلغاء
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => setDeleteConfirm(match.id)}
+                                    className="flex items-center gap-1 px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300 text-xs rounded transition"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    حذف
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>

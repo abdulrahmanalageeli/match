@@ -48,30 +48,52 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       { name: 'Others', value: totalFeedback - mutualMeetAgain },
     ];
 
-    const detailedScoresAnalysis = highFeedbackMatches.reduce((acc, m) => {
-      for (const [key, value] of Object.entries(m.detailed_scores)) {
-        acc[key] = (acc[key] || 0) + value;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    const SCORE_WEIGHTS: Record<string, number> = {
+      mbti: 5, attachment: 5, communication: 10, lifestyle: 25, core_values: 20, vibe: 35
+    };
 
-    const radarData = Object.entries(detailedScoresAnalysis).map(([subject, value]) => ({
+    const calculateNormalizedScores = (group: ParticipantMatch[]) => {
+      if (group.length === 0) return {};
+      const avgScores = Object.keys(SCORE_WEIGHTS).reduce((acc, key) => {
+        const total = group.reduce((sum, m) => sum + (m.detailed_scores[key as keyof typeof m.detailed_scores] || 0), 0);
+        const avg = total / group.length;
+        acc[key] = (avg / SCORE_WEIGHTS[key]) * 100; // Normalize to percentage of max weight
+        return acc;
+      }, {} as Record<string, number>);
+      return avgScores;
+    };
+
+    const highFeedbackNormalized = calculateNormalizedScores(highFeedbackMatches);
+    const lowFeedbackNormalized = calculateNormalizedScores(lowFeedbackMatches);
+
+    const radarData = Object.keys(SCORE_WEIGHTS).map(subject => ({
       subject: subject.replace('_', ' ').replace(/(?:^|\s)\S/g, a => a.toUpperCase()),
-      A: (value / highFeedbackMatches.length),
-      fullMark: 25, // Assuming max score for each category is 25 for normalization
+      'High Feedback': highFeedbackNormalized[subject] || 0,
+      'Low Feedback': lowFeedbackNormalized[subject] || 0,
+      fullMark: 100, // Now comparing percentages
     }));
 
-    const topFactor = radarData.length > 0 ? radarData.sort((a, b) => b.A - a.A)[0].subject : 'N/A';
+    const performanceGaps = Object.keys(SCORE_WEIGHTS).map(key => ({
+      factor: key,
+      gap: (highFeedbackNormalized[key] || 0) - (lowFeedbackNormalized[key] || 0),
+    })).sort((a, b) => b.gap - a.gap);
+
+    const topPredictor = performanceGaps[0];
+    const worstPredictor = performanceGaps[performanceGaps.length - 1];
 
     const recommendations = [];
     if (avgUserRating < avgSystemScore - 10) {
-      recommendations.push(`System score is significantly higher than user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%). Review scoring weights.`);
-    } else if (avgUserRating > avgSystemScore + 5) {
-        recommendations.push(`User ratings are higher than system scores (${avgUserRating.toFixed(1)}% vs ${avgSystemScore.toFixed(1)}%). The algorithm is performing well.`);
+      recommendations.push(`Algorithm Overconfidence: System score is much higher than user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%). Review scoring weights.`);
+    } else {
+      recommendations.push(`Algorithm Accuracy: System score is well-aligned with user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%).`);
     }
-    recommendations.push(`'${topFactor}' is the strongest predictor in successful matches. Consider increasing its weight or refining its questions.`);
-    if (meetAgainRate < 50) {
-      recommendations.push(`Mutual 'Meet Again' rate is low (${meetAgainRate.toFixed(1)}%). Focus on improving personal connection factors.`);
+
+    if (topPredictor && topPredictor.gap > 15) {
+        recommendations.push(`Strongest Predictor: '${topPredictor.factor}' shows the largest performance gap (+${topPredictor.gap.toFixed(1)}%) between good and bad matches. This is a key driver of success.`);
+    }
+
+    if (worstPredictor && worstPredictor.gap < 5) {
+        recommendations.push(`Weakest Differentiator: '${worstPredictor.factor}' performs similarly in both good and bad matches (gap of ${worstPredictor.gap.toFixed(1)}%). It may not be effectively separating compatible pairs.`);
     }
 
     return {
@@ -171,8 +193,10 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
                     <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                         <PolarGrid stroke="#374151" />
                         <PolarAngleAxis dataKey="subject" tick={{ fill: '#d1d5db', fontSize: 12 }} />
-                        <PolarRadiusAxis angle={30} domain={[0, 25]} tick={{ fill: 'none' }} axisLine={{ stroke: 'none' }} />
-                        <Radar name="Avg Score" dataKey="A" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.6} />
+                        <PolarRadiusAxis angle={30} domain={[0, 100]} tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                        <Radar name="High Feedback" dataKey="High Feedback" stroke="#22d3ee" fill="#22d3ee" fillOpacity={0.6} />
+                        <Radar name="Low Feedback" dataKey="Low Feedback" stroke="#f43f5e" fill="#f43f5e" fillOpacity={0.4} />
+                        <Legend wrapperStyle={{ color: '#d1d5db', paddingTop: '20px' }} />
                         <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}/>
                     </RadarChart>
                 </ResponsiveContainer>

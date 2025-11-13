@@ -200,18 +200,63 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
   }, [matches]);
 
   const handleRunAIAnalysis = async () => {
-    const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
-    if (feedbackMatches.length === 0) {
-      setAiAnalysis('Error: No feedback data available from events 4 and later.');
+    // Filter matches that have round >= 4 and both participants provided complete feedback
+    const feedbackMatches = matches.filter(m => {
+      return m.round >= 4 && 
+             m.feedback?.has_feedback && 
+             // Check participant A has provided complete feedback
+             m.feedback.participant_a?.compatibility_rate && 
+             m.feedback.participant_a?.conversation_quality && 
+             m.feedback.participant_a?.personal_connection && 
+             // Check participant B has provided complete feedback
+             m.feedback.participant_b?.compatibility_rate && 
+             m.feedback.participant_b?.conversation_quality && 
+             m.feedback.participant_b?.personal_connection;
+    });
+    
+    // Limit to 10 matches for testing
+    const limitedMatches = feedbackMatches.slice(0, 10);
+    
+    console.log(`AI Analysis: Found ${feedbackMatches.length} matches with feedback, using ${limitedMatches.length} for analysis`);
+    
+    // Count total matches with any feedback
+    const anyFeedbackCount = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback).length;
+    
+    if (limitedMatches.length === 0) {
+      setAiAnalysis(`Error: No matches with complete feedback data found.
+
+` +
+        `Debug Information:
+` +
+        `- Total matches: ${matches.length}
+` +
+        `- Matches with any feedback: ${anyFeedbackCount}
+` +
+        `- Matches with complete feedback from both participants: ${feedbackMatches.length}
+
+` +
+        `Possible issues:
+` +
+        `- No participants have completed the feedback form
+` +
+        `- Feedback data is incomplete (missing ratings)
+` +
+        `- No matches from round 4 or later
+
+` +
+        `Please ensure some participants have completed feedback forms with all required fields.`);
       return;
     }
 
     setIsLoadingAI(true);
     setAnalysisProgress(0);
-    setAiAnalysis('Starting AI analysis...');
+    setAiAnalysis(`Starting AI analysis...
+
+Analyzing ${limitedMatches.length} matches with complete feedback data (limited to 10 for testing).
+Total matches with feedback found: ${feedbackMatches.length}`);
 
     // Progress simulation
-    const totalMatches = feedbackMatches.length;
+    const totalMatches = limitedMatches.length;
     const progressInterval = setInterval(() => {
       setAnalysisProgress(prev => {
         if (prev >= 95) {
@@ -224,12 +269,14 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
 
     // Update analysis text with progress
     const updateProgressText = () => {
-      const currentPair = Math.floor((analysisProgress / 100) * totalMatches);
+      const currentPair = Math.min(Math.floor((analysisProgress / 100) * totalMatches), totalMatches);
       setAiAnalysis(`Analyzing feedback data...\n\n` +
-        `🔍 Processing pair ${currentPair}/${totalMatches}\n` +
+        `🔍 Processing pair ${currentPair}/${totalMatches} (limited to 10 for testing)\n` +
         `📊 Extracting compatibility patterns\n` +
         `🧠 Generating insights\n\n` +
-        `Progress: ${analysisProgress}% complete`);
+        `Progress: ${analysisProgress}% complete\n` +
+        `\n` +
+        `Note: Analysis is limited to 10 matches with complete feedback data for testing.`);
     };
 
     const progressTextInterval = setInterval(updateProgressText, 1000);
@@ -239,6 +286,23 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       const timestamp = new Date().getTime();
       updateProgressText(); // Initial progress update
       
+      // Log the API request for debugging
+      console.log('AI Analysis Request:', {
+        endpoint: '/api/generate-ai-analysis',
+        matchCount: limitedMatches.length,
+        timestamp
+      });
+      
+      // Log a sample match to help debug the API
+      if (limitedMatches.length > 0) {
+        console.log('Sample match data structure:', {
+          round: limitedMatches[0].round,
+          feedback_structure: limitedMatches[0].feedback ? Object.keys(limitedMatches[0].feedback) : 'No feedback',
+          has_participant_a: !!limitedMatches[0].feedback?.participant_a,
+          has_participant_b: !!limitedMatches[0].feedback?.participant_b
+        });  
+      }
+      
       const response = await fetch(`/api/generate-ai-analysis?t=${timestamp}`, {
         method: 'POST',
         headers: { 
@@ -246,7 +310,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
           'Cache-Control': 'no-cache'
         },
         body: JSON.stringify({ 
-          matches: feedbackMatches,
+          matches: limitedMatches,
           questions: QUESTION_MAP,
           weights: SCORE_WEIGHTS
         }),
@@ -260,21 +324,30 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API response error:', response.status, errorText);
-        setAiAnalysis(`Error: Failed to get AI analysis (${response.status})\n\n${errorText || 'Please try again.'}`);
+        setAiAnalysis(`❌ Error: Failed to get AI analysis (${response.status})\n\n${errorText || 'Please try again.'}`);
+        // Set a special error state that the UI can use to show a more prominent error
+        setAnalysisProgress(-1); // Using -1 to indicate error state
         return;
       }
 
       // Simple text response handling
       const text = await response.text();
+      console.log('AI Analysis API Response:', text ? `Received ${text.length} characters` : 'Empty response');
+      
       if (!text || text.trim() === '') {
-        setAiAnalysis('Error: Received empty response from the analysis service.');
+        console.error('AI Analysis Error: Empty response received from API');
+        setAiAnalysis('❌ Error: Received empty response from the analysis service.');
+        setAnalysisProgress(-1); // Using -1 to indicate error state
       } else {
+        // Log first 100 characters to help debug
+        console.log('AI Analysis Success - First 100 chars:', text.substring(0, 100));
         setAiAnalysis(text);
       }
     } catch (error) {
       console.error('Error in AI analysis:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setAiAnalysis(`Error: An unexpected error occurred.\n\n${errorMessage}`);
+      setAiAnalysis(`❌ Error: An unexpected error occurred.\n\n${errorMessage}\n\nPlease check your network connection and try again.`);
+      setAnalysisProgress(-1); // Using -1 to indicate error state
     } finally {
       clearInterval(progressInterval);
       clearInterval(progressTextInterval);

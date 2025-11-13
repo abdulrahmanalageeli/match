@@ -322,9 +322,33 @@ Total matches with feedback found: ${feedbackMatches.length}`);
       setAiAnalysis('Finalizing analysis results...');
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API response error:', response.status, errorText);
-        setAiAnalysis(`❌ Error: Failed to get AI analysis (${response.status})\n\n${errorText || 'Please try again.'}`);
+        let errorMessage = 'Please try again.';
+        try {
+          // Try to parse as JSON first
+          const errorJson = await response.json();
+          console.error('API response error:', response.status, errorJson);
+          
+          // Format the error details for display
+          if (errorJson.error) {
+            errorMessage = `${errorJson.error}\n`;
+            if (errorJson.message) errorMessage += `\nMessage: ${errorJson.message}`;
+            if (errorJson.details) {
+              errorMessage += '\n\nDetails:';
+              Object.entries(errorJson.details).forEach(([key, value]) => {
+                errorMessage += `\n- ${key}: ${value}`;
+              });
+            }
+          } else {
+            errorMessage = JSON.stringify(errorJson, null, 2);
+          }
+        } catch (e) {
+          // If not JSON, treat as text
+          const errorText = await response.text();
+          console.error('API response error (text):', response.status, errorText);
+          errorMessage = errorText || 'Please try again.';
+        }
+        
+        setAiAnalysis(`❌ Error: Failed to get AI analysis (${response.status})\n\n${errorMessage}`);
         // Set a special error state that the UI can use to show a more prominent error
         setAnalysisProgress(-1); // Using -1 to indicate error state
         return;

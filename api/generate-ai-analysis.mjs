@@ -150,31 +150,15 @@ export default async function handler(req) {
         }
       }
       
-      // If we still don't have participant numbers, generate unique IDs based on match ID
-      // This is a last resort to allow analysis even without proper participant numbers
+      // Skip matches without participant numbers
       if (!participantANumber || !participantBNumber) {
-        if (match.id) {
-          // Use the match ID to generate unique participant IDs
-          if (!participantANumber) {
-            participantANumber = `a_${match.id.substring(0, 8)}`;
-            console.log(`Generated fallback ID for participant A: ${participantANumber}`);
-          }
-          
-          if (!participantBNumber) {
-            participantBNumber = `b_${match.id.substring(0, 8)}`;
-            console.log(`Generated fallback ID for participant B: ${participantBNumber}`);
-          }
-        } else {
-          // If we can't even find a match ID, we have to skip this match
-          console.log('Missing participant numbers and no match ID available:', {
-            has_participant_a: !!match.participant_a,
-            has_participant_b: !!match.participant_b,
-            participant_a_keys: match.participant_a ? Object.keys(match.participant_a) : 'undefined',
-            participant_b_keys: match.participant_b ? Object.keys(match.participant_b) : 'undefined',
-            match_keys: Object.keys(match)
-          });
-          return;
-        }
+        console.log('Skipping match without participant numbers:', {
+          has_participant_a: !!match.participant_a,
+          has_participant_b: !!match.participant_b,
+          round: match.round,
+          table: match.table_number
+        });
+        return;
       }
       
       // Store the extracted participant numbers in the match object for consistent access

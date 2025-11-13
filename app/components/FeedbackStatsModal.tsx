@@ -35,7 +35,8 @@ const ANSWER_MAP: Record<string, Record<string, string>> = {
 
 const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
   return useMemo(() => {
-    const feedbackMatches = matches.filter(m => m.feedback?.has_feedback);
+    // Per user request, only analyze feedback from event 4 onwards.
+    const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
 
     if (feedbackMatches.length === 0) return null;
 
@@ -46,13 +47,13 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
     };
 
     const highFeedbackMatches = feedbackMatches.filter(m => getAvgFeedbackScore(m) >= 80);
-    const lowFeedbackMatches = feedbackMatches.filter(m => getAvgFeedbackScore(m) <= 50);
+    const lowFeedbackMatches = feedbackMatches.filter(m => getAvgFeedbackScore(m) < 50); // User specified < 50
 
     const totalFeedback = feedbackMatches.length;
     const avgSystemScore = feedbackMatches.reduce((acc, m) => acc + m.compatibility_score, 0) / totalFeedback;
     const avgUserRating = feedbackMatches.reduce((acc, m) => acc + getAvgFeedbackScore(m), 0) / totalFeedback;
 
-    const mutualMeetAgain = feedbackMatches.filter(m => 
+    const mutualMeetAgain = feedbackMatches.filter(m =>
       m.feedback?.participant_a?.would_meet_again && m.feedback?.participant_b?.would_meet_again
     ).length;
     const meetAgainRate = (mutualMeetAgain / totalFeedback) * 100;
@@ -65,10 +66,6 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       { name: 'Mutual Yes', value: mutualMeetAgain },
       { name: 'Others', value: totalFeedback - mutualMeetAgain },
     ];
-
-    const SCORE_WEIGHTS: Record<string, number> = {
-      mbti: 5, attachment: 5, communication: 10, lifestyle: 25, core_values: 20, vibe: 35
-    };
 
     const calculateNormalizedScores = (group: ParticipantMatch[]) => {
       if (group.length === 0) return {};
@@ -122,12 +119,12 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
         topAgreement: topAgreement ? { answer: ANSWER_MAP[q]?.[topAgreement[0]] || topAgreement[0], percent: (topAgreement[1] / highFeedbackMatches.length) * 100 } : null,
         topPairing: topPairing ? { pair: topPairing[0].split('-').map(a => ANSWER_MAP[q]?.[a] || a), percent: (topPairing[1] / highFeedbackMatches.length) * 100 } : null,
       };
-    }).filter(p => (p.topAgreement && p.topAgreement.percent > 40) || (p.topPairing && p.topPairing.percent > 20)); // Filter for significant patterns
+    }).filter(p => (p.topAgreement && p.topAgreement.percent > 40) || (p.topPairing && p.topPairing.percent > 20));
 
     const recommendations = {
-      observations: [],
-      suggestions: [],
-    } as { observations: string[]; suggestions: string[] };
+      observations: [] as string[],
+      suggestions: [] as string[],
+    };
 
     if (avgUserRating < avgSystemScore - 10) {
       recommendations.observations.push(`Algorithm Overconfidence: System score is significantly higher than user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%).`);
@@ -145,11 +142,46 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       recommendations.observations.push(`Weakest Differentiator: '${worstPredictor.factor}' fails to distinguish between good and bad matches (gap of only ${worstPredictor.gap.toFixed(1)}%).`);
       recommendations.suggestions.push(`Re-evaluate the questions and scoring logic for '${worstPredictor.factor}' to improve its impact.`);
     }
-
+    
     const topAgreementPattern = answerPatterns.sort((a, b) => (b.topAgreement?.percent || 0) - (a.topAgreement?.percent || 0))[0];
     if (topAgreementPattern && topAgreementPattern.topAgreement && topAgreementPattern.topAgreement.percent > 50) {
         recommendations.observations.push(`Key Agreement: Over ${topAgreementPattern.topAgreement.percent.toFixed(0)}% of successful pairs agree on '${topAgreementPattern.question}', specifically on being '${topAgreementPattern.topAgreement.answer}'.`);
         recommendations.suggestions.push(`Increase the compatibility bonus for agreeing on '${topAgreementPattern.topAgreement.answer}' for the question '${topAgreementPattern.question}'.`);
+    }
+
+    // --- New: Analysis of Worst Matches (<50%) ---
+    let failureAnalysis = null;
+    if (lowFeedbackMatches.length > 0) {
+      const avgSystemScoreInFailed = lowFeedbackMatches.reduce((acc, m) => acc + m.compatibility_score, 0) / lowFeedbackMatches.length;
+      const avgUserRatingInFailed = lowFeedbackMatches.reduce((acc, m) => acc + getAvgFeedbackScore(m), 0) / lowFeedbackMatches.length;
+
+      const overconfidenceGap = avgSystemScoreInFailed - avgUserRatingInFailed;
+
+      const clashPatterns = Object.keys(QUESTION_MAP).map(q => {
+        const counts: Record<string, number> = {};
+        lowFeedbackMatches.forEach(m => {
+          const ansA = m.participant_a.survey_data?.answers?.[q];
+          const ansB = m.participant_b.survey_data?.answers?.[q];
+          if (ansA) counts[ansA] = (counts[ansA] || 0) + 1;
+          if (ansB) counts[ansB] = (counts[ansB] || 0) + 1;
+        });
+        if (Object.keys(counts).length === 0) return null;
+        const topClash = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        return { question: QUESTION_MAP[q], answer: ANSWER_MAP[q]?.[topClash[0]] || topClash[0], count: topClash[1] };
+      }).filter((p): p is NonNullable<typeof p> => p !== null).sort((a, b) => b.count - a.count)[0];
+
+      const weakestFactor = Object.entries(lowFeedbackNormalized).sort((a, b) => a[1] - b[1])[0];
+
+      failureAnalysis = {
+        overconfidenceGap,
+        topClash: clashPatterns,
+        weakestFactor: { name: weakestFactor[0], score: weakestFactor[1] },
+      };
+
+      recommendations.observations.push(`In failed matches, the system predicted an average score of ${avgSystemScoreInFailed.toFixed(1)}%, but users only gave ${avgUserRatingInFailed.toFixed(1)}%.`);
+      if(failureAnalysis.weakestFactor) {
+        recommendations.suggestions.push(`Focus on reducing the '${failureAnalysis.weakestFactor.name}' score's contribution, as it performs worst in failed matches.`);
+      }
     }
 
     return {
@@ -158,10 +190,10 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       highFeedbackCount: highFeedbackMatches.length,
       lowFeedbackCount: lowFeedbackMatches.length,
       answerPatterns,
+      failureAnalysis,
     };
   }, [matches]);
 };
-
 // --- UI COMPONENTS ---
 const StatCard = ({ icon, title, value, colorClass }: { icon: React.ReactNode, title: string, value: string, colorClass: string }) => (
   <div className={`bg-slate-800/50 border-l-4 ${colorClass} p-4 rounded-lg shadow-md flex items-center`}>
@@ -180,6 +212,15 @@ const ChartContainer = ({ title, children, icon }: { title: string, children: Re
       <h3 className="text-lg font-bold text-cyan-200 mb-4 text-center">{title}</h3>
     </div>
     <div className="grow">{children}</div>
+  </div>
+);
+
+const FailureCard = ({ icon, title, value, subtitle }: { icon: React.ReactNode, title: string, value: string, subtitle: string }) => (
+  <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-lg text-center h-full flex flex-col justify-center">
+    <div className="flex justify-center mb-2">{icon}</div>
+    <p className="text-sm text-red-200">{title}</p>
+    <p className="text-3xl font-bold text-white">{value}</p>
+    <p className="text-xs text-slate-400">{subtitle}</p>
   </div>
 );
 
@@ -218,7 +259,7 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
     );
   }
 
-  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount, answerPatterns } = analysis;
+  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount, answerPatterns, failureAnalysis } = analysis;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-4 font-sans" onClick={onClose}>
@@ -237,7 +278,35 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
           <StatCard icon={<HeartHandshake size={32} className="text-green-400" />} title="توافق للقاء مجددًا" value={`${meetAgainRate.toFixed(1)}%`} colorClass="border-green-400" />
         </div>
 
-        {/* Charts */}
+        {failureAnalysis && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <ThumbsDown className="w-8 h-8 text-red-400" />
+              <h3 className="text-2xl font-bold text-red-300">Failure Analysis (Matches &lt;50%)</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <FailureCard 
+                icon={<TrendingUp size={32} className="text-red-400" />} 
+                title="Algorithm Overconfidence" 
+                value={`+${failureAnalysis.overconfidenceGap.toFixed(1)}%`}
+                subtitle="Avg. System Score vs. User Rating"
+              />
+              <FailureCard 
+                icon={<Users size={32} className="text-red-400" />} 
+                title="Top Clashing Answer"
+                value={failureAnalysis.topClash.answer}
+                subtitle={`Appeared most in failed matches for "${failureAnalysis.topClash.question}"`}
+              />
+              <FailureCard 
+                icon={<BarChart3 size={32} className="text-red-400" />} 
+                title="Biggest Weakness"
+                value={failureAnalysis.weakestFactor.name.toUpperCase()}
+                subtitle={`Performed worst with ${failureAnalysis.weakestFactor.score.toFixed(1)}% score`}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
             <ChartContainer title="مقارنة دقة الخوارزمية">

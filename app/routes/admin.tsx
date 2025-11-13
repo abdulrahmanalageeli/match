@@ -164,6 +164,11 @@ export default function AdminPage() {
   const [participantMatchHistory, setParticipantMatchHistory] = useState<Record<number, any[]>>({});
   const [loadingMatchHistory, setLoadingMatchHistory] = useState<Record<number, boolean>>({});
 
+  // Delta cache participants state
+  const [deltaCacheParticipants, setDeltaCacheParticipants] = useState<any[]>([]);
+  const [showDeltaCacheTooltip, setShowDeltaCacheTooltip] = useState(false);
+  const [loadingDeltaCacheParticipants, setLoadingDeltaCacheParticipants] = useState(false);
+
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
@@ -715,6 +720,37 @@ const fetchParticipantMatchHistory = async (participantNumber: number) => {
     setLoadingMatchHistory(prev => ({ ...prev, [participantNumber]: false }))
   }
 }
+
+// Function to fetch participants that need delta cache updating
+const fetchDeltaCacheParticipants = async () => {
+  if (loadingDeltaCacheParticipants) return;
+  
+  setLoadingDeltaCacheParticipants(true);
+  try {
+    const res = await fetch("/api/admin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        action: "get-delta-cache-participants",
+        event_id: currentEventId 
+      }),
+    });
+    const data = await res.json();
+    
+    if (res.ok && data.participants) {
+      setDeltaCacheParticipants(data.participants);
+      console.log(`📋 Loaded ${data.participants.length} participants needing delta cache update`);
+    } else {
+      console.error("Error fetching delta cache participants:", data.error);
+      setDeltaCacheParticipants([]);
+    }
+  } catch (error) {
+    console.error("Error fetching delta cache participants:", error);
+    setDeltaCacheParticipants([]);
+  } finally {
+    setLoadingDeltaCacheParticipants(false);
+  }
+};
 
 const fetchParticipants = async () => {
   setLoading(true)
@@ -2804,10 +2840,17 @@ Proceed?`
               )}
             </div>
             <div 
-              className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative" 
+              className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative cursor-pointer hover:bg-cyan-500/30 transition-colors" 
+              onMouseEnter={() => {
+                if (deltaCacheCount > 0) {
+                  setShowDeltaCacheTooltip(true);
+                  fetchDeltaCacheParticipants();
+                }
+              }}
+              onMouseLeave={() => setShowDeltaCacheTooltip(false)}
               title={deltaCacheCount === 0 
                 ? "Delta cache only counts participants who UPDATED their survey after last cache. Use Pre-Cache for first-time caching." 
-                : "Participants who updated their survey data since last cache"}
+                : "Hover to see participants who updated their survey data since last cache"}
             >
               <span className="text-cyan-300 text-sm">Delta Cache: </span>
               <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
@@ -2816,6 +2859,61 @@ Proceed?`
                   <Zap className="w-3 h-3" />
                   needs update
                 </span>
+              )}
+              
+              {/* Hover Tooltip */}
+              {showDeltaCacheTooltip && deltaCacheCount > 0 && (
+                <div className="absolute top-full left-0 mt-2 z-50 bg-gray-900/95 backdrop-blur-sm border border-cyan-400/30 rounded-xl p-4 shadow-xl min-w-80 max-w-md">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Zap className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-cyan-300 font-semibold text-sm">Participants Needing Delta Cache Update</h3>
+                  </div>
+                  
+                  {loadingDeltaCacheParticipants ? (
+                    <div className="flex items-center gap-2 text-cyan-300/70 text-xs">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Loading participants...
+                    </div>
+                  ) : deltaCacheParticipants.length > 0 ? (
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {deltaCacheParticipants.map((participant, index) => (
+                        <div key={participant.assigned_number || index} className="flex items-center justify-between p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+                          <div className="flex items-center gap-2">
+                            <UserRound className="w-3 h-3 text-cyan-400" />
+                            <span className="text-cyan-200 text-xs font-medium">
+                              #{participant.assigned_number}
+                            </span>
+                            <span className="text-cyan-300/80 text-xs">
+                              {participant.name}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-cyan-400/60 text-xs">
+                              {participant.eligibility_reason}
+                            </span>
+                            <span className="text-cyan-500/60 text-xs">
+                              {participant.survey_data_updated_at ? 
+                                new Date(participant.survey_data_updated_at).toLocaleDateString() : 
+                                'Recently'
+                              }
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-cyan-300/70 text-xs">
+                      No participants found needing updates.
+                    </div>
+                  )}
+                  
+                  <div className="mt-3 pt-2 border-t border-cyan-500/20">
+                    <p className="text-cyan-400/60 text-xs">
+                      These participants updated their survey data since the last cache. 
+                      Use "Delta Cache" to update only these participants.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           </div>

@@ -1409,7 +1409,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       // Don't skip, but reduce score to deprioritize this combination
     }
     
-    // 1. CHECK AGE SIMILARITY (±5 years preferred, ±10 years fallback)
+    // 1. CHECK AGE SIMILARITY (±3 years preferred, ±5 years hard limit)
     const ages = combination.map(participantNum => {
       const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
       return participant?.age || participant?.survey_data?.age
@@ -1418,9 +1418,9 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     if (ages.length === combination.length) {
       const ageRange = Math.max(...ages) - Math.min(...ages)
       
-      // Hard constraint: Skip if age range > 10 years
-      if (ageRange > 10) {
-        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years)`)
+      // Hard constraint: Skip if age range > 5 years
+      if (ageRange > 5) {
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years, max 5)`)
         continue
       }
     }
@@ -1461,12 +1461,12 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     
     // BONUSES AND PENALTIES
     
-    // 1. Age similarity bonus (prefer ±5 years)
+    // 1. Age similarity bonus (prefer ±3 years)
     if (ages.length === combination.length) {
       const ageRange = Math.max(...ages) - Math.min(...ages)
-      if (ageRange <= 5) {
+      if (ageRange <= 3) {
         score += 5
-        console.log(`   ✨ Age similarity bonus: +5% (range: ${ageRange} years)`)
+        console.log(`   ✨ Age similarity bonus: +5% (range: ${ageRange} years, ≤3 preferred)`)
       }
     }
     

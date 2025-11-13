@@ -1632,6 +1632,79 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET DELTA CACHE PARTICIPANTS LIST
+    if (action === "get-delta-cache-participants") {
+      try {
+        const { event_id = 1 } = req.body
+        
+        // Get last cache timestamp
+        const { data: metaData } = await supabase
+          .from('cache_metadata')
+          .select('last_precache_timestamp')
+          .eq('event_id', event_id)
+          .order('last_precache_timestamp', { ascending: false })
+          .limit(1)
+          .single()
+        
+        const lastCacheTimestamp = metaData?.last_precache_timestamp || '1970-01-01T00:00:00Z'
+        const noCacheMetadata = !metaData?.last_precache_timestamp
+        
+        // If no cache metadata exists, return empty list
+        if (noCacheMetadata) {
+          return res.status(200).json({ 
+            participants: [],
+            count: 0,
+            lastCacheTimestamp: null,
+            message: 'No cache metadata - use Pre-Cache first'
+          })
+        }
+        
+        // Fetch eligible participants with full details
+        const { data: allParticipants } = await supabase
+          .from("participants")
+          .select("assigned_number, name, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event, event_id")
+          .eq("match_id", STATIC_MATCH_ID)
+          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
+          .neq("assigned_number", 9999)
+        
+        if (!allParticipants) {
+          return res.status(200).json({ participants: [], count: 0, lastCacheTimestamp })
+        }
+        
+        // Filter for complete participants
+        const eligibleParticipants = allParticipants.filter(p => {
+          return p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
+        })
+        
+        // Get participants needing delta cache (only those who UPDATED after last cache)
+        const needsCacheParticipants = eligibleParticipants.filter(p => {
+          if (!p.survey_data_updated_at) {
+            return false // Never cached - use pre-cache, not delta cache
+          }
+          // Only include if they updated AFTER the last cache
+          return new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+        }).map(p => ({
+          assigned_number: p.assigned_number,
+          name: p.name || p.survey_data?.name || `#${p.assigned_number}`,
+          survey_data_updated_at: p.survey_data_updated_at,
+          eligibility_reason: p.event_id === event_id ? 'Current Event' : 
+                             p.signup_for_next_event ? 'Next Event Signup' : 
+                             p.auto_signup_next_event ? 'Auto Signup' : 'Unknown'
+        }))
+        
+        return res.status(200).json({ 
+          participants: needsCacheParticipants,
+          count: needsCacheParticipants.length,
+          lastCacheTimestamp,
+          totalEligible: eligibleParticipants.length
+        })
+        
+      } catch (error) {
+        console.error("Error in get-delta-cache-participants:", error)
+        return res.status(500).json({ error: "Failed to get delta cache participants" })
+      }
+    }
+
     // 🔹 GET GROUP MATCHES (for participant view)
     if (action === "get-group-matches") {
       try {

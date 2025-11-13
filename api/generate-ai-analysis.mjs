@@ -9,7 +9,39 @@ export default async function handler(req) {
   }
 
   try {
-    const { matches, questions, weights } = await req.json();
+    console.log('API Request received:', { 
+      method: req.method,
+      headers: req.headers,
+      bodyType: typeof req.body,
+      bodyLength: req.body ? (typeof req.body === 'string' ? req.body.length : 'object') : 'undefined'
+    });
+    
+    // Parse the request body for Vercel serverless functions
+    let body;
+    try {
+      body = req.body ? 
+        (typeof req.body === 'string' ? JSON.parse(req.body) : req.body) : 
+        {};
+      console.log('Request body parsed successfully');
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(JSON.stringify({ 
+        error: 'Invalid JSON in request body',
+        details: parseError.message,
+        receivedBody: typeof req.body === 'string' ? req.body.substring(0, 100) + '...' : 'Not a string'
+      }), { 
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    const { matches, questions, weights } = body;
+    console.log('Extracted from body:', { 
+      matchesType: matches ? (Array.isArray(matches) ? 'array' : typeof matches) : 'undefined',
+      matchesLength: matches && Array.isArray(matches) ? matches.length : 0,
+      hasQuestions: !!questions,
+      hasWeights: !!weights
+    });
     
     // Validate input
     if (!matches || !Array.isArray(matches) || matches.length === 0) {

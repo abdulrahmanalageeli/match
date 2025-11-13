@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target, Handshake } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target, Handshake, Sparkles, Loader } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
 // --- TYPE DEFINITIONS ---
@@ -34,6 +34,48 @@ const ANSWER_MAP: Record<string, Record<string, string>> = {
 };
 
 const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
+  const [aiAnalysis, setAiAnalysis] = useState('');
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+
+  const handleRunAIAnalysis = async () => {
+    setIsLoadingAI(true);
+    setAiAnalysis('');
+
+    const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
+
+    const response = await fetch('/api/generate-ai-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        matches: feedbackMatches,
+        questions: QUESTION_MAP,
+        weights: SCORE_WEIGHTS
+      }),
+    });
+
+    if (!response.body) return;
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    let done = false;
+    while (!done) {
+      const { value, done: doneReading } = await reader.read();
+      done = doneReading;
+      const chunk = decoder.decode(value);
+      try {
+        const json = JSON.parse(chunk.replace(/^data: /, ''));
+        if (json.choices && json.choices[0].delta.content) {
+            setAiAnalysis(prev => prev + json.choices[0].delta.content);
+        }
+      } catch (e) {
+        // Could be a non-JSON chunk or the end of the stream
+      }
+    }
+
+    setIsLoadingAI(false);
+  };
+
   return useMemo(() => {
     // Per user request, only analyze feedback from event 4 onwards.
     const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
@@ -191,6 +233,9 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       lowFeedbackCount: lowFeedbackMatches.length,
       answerPatterns,
       failureAnalysis,
+      aiAnalysis,
+      isLoadingAI,
+      handleRunAIAnalysis,
     };
   }, [matches]);
 };
@@ -259,15 +304,25 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
     );
   }
 
-  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount, answerPatterns, failureAnalysis } = analysis;
+  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount, answerPatterns, failureAnalysis, aiAnalysis, isLoadingAI, handleRunAIAnalysis } = analysis;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-4 font-sans" onClick={onClose}>
       <div dir="rtl" className="bg-slate-900 border border-cyan-500/20 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-y-auto p-6 scrollbar-hide" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 left-4 text-slate-400 hover:text-cyan-300 transition-colors z-10"><X size={28} /></button>
-        <div className="flex items-center gap-4 mb-6 border-b border-slate-700 pb-4">
-          <BarChart3 className="w-10 h-10 text-cyan-300" />
-          <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-linear-to-r from-cyan-300 to-purple-400">تحليل أداء الخوارزمية</h2>
+        <div className="flex justify-between items-center gap-4 mb-6 border-b border-slate-700 pb-4">
+          <div className="flex items-center gap-4">
+            <BarChart3 className="w-10 h-10 text-cyan-300" />
+            <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-linear-to-r from-cyan-300 to-purple-400">تحليل أداء الخوارزمية</h2>
+          </div>
+          <button 
+            onClick={handleRunAIAnalysis} 
+            disabled={isLoadingAI}
+            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoadingAI ? <Loader className="animate-spin" /> : <Sparkles />}
+            {isLoadingAI ? 'يتم التحليل...' : 'تحليل بواسطة الذكاء الاصطناعي'}
+          </button>
         </div>
 
         {/* Key Stats */}
@@ -393,6 +448,18 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
         )}
 
         {/* Recommendations */}
+        {aiAnalysis && (
+          <div className="bg-purple-900/20 border border-purple-500/30 p-6 rounded-lg mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Sparkles className="text-purple-300 w-8 h-8" />
+              <h3 className="text-2xl font-bold text-purple-200">AI-Powered Analysis</h3>
+            </div>
+            <div className="prose prose-invert max-w-none prose-p:text-slate-300 prose-headings:text-purple-300 prose-strong:text-white">
+              {aiAnalysis}
+            </div>
+          </div>
+        )}
+
         <div className="bg-slate-800/50 border border-cyan-400/20 p-4 rounded-lg">
           <div className="flex items-center gap-3 mb-4">
             <Lightbulb className="text-cyan-300 w-7 h-7" />

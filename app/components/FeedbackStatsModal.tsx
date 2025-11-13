@@ -36,51 +36,14 @@ const ANSWER_MAP: Record<string, Record<string, string>> = {
 const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
 
-  const handleRunAIAnalysis = async () => {
-    setIsLoadingAI(true);
-    setAiAnalysis('');
-
+  const analysisData = useMemo(() => {
     const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
 
-    const response = await fetch('/api/generate-ai-analysis', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        matches: feedbackMatches,
-        questions: QUESTION_MAP,
-        weights: SCORE_WEIGHTS
-      }),
-    });
-
-    if (!response.body) return;
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    let done = false;
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-      const chunk = decoder.decode(value);
-      try {
-        const json = JSON.parse(chunk.replace(/^data: /, ''));
-        if (json.choices && json.choices[0].delta.content) {
-            setAiAnalysis(prev => prev + json.choices[0].delta.content);
-        }
-      } catch (e) {
-        // Could be a non-JSON chunk or the end of the stream
-      }
+    if (feedbackMatches.length === 0) {
+      return { hasData: false };
     }
-
-    setIsLoadingAI(false);
-  };
-
-  return useMemo(() => {
-    // Per user request, only analyze feedback from event 4 onwards.
-    const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
-
-    if (feedbackMatches.length === 0) return null;
 
     const getAvgFeedbackScore = (m: ParticipantMatch) => {
       const { participant_a, participant_b } = m.feedback!;
@@ -89,13 +52,13 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
     };
 
     const highFeedbackMatches = feedbackMatches.filter(m => getAvgFeedbackScore(m) >= 80);
-    const lowFeedbackMatches = feedbackMatches.filter(m => getAvgFeedbackScore(m) < 50); // User specified < 50
+    const lowFeedbackMatches = feedbackMatches.filter(m => getAvgFeedbackScore(m) < 50);
 
     const totalFeedback = feedbackMatches.length;
     const avgSystemScore = feedbackMatches.reduce((acc, m) => acc + m.compatibility_score, 0) / totalFeedback;
     const avgUserRating = feedbackMatches.reduce((acc, m) => acc + getAvgFeedbackScore(m), 0) / totalFeedback;
 
-    const mutualMeetAgain = feedbackMatches.filter(m =>
+    const mutualMeetAgain = feedbackMatches.filter(m => 
       m.feedback?.participant_a?.would_meet_again && m.feedback?.participant_b?.would_meet_again
     ).length;
     const meetAgainRate = (mutualMeetAgain / totalFeedback) * 100;
@@ -114,7 +77,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       const avgScores = Object.keys(SCORE_WEIGHTS).reduce((acc, key) => {
         const total = group.reduce((sum, m) => sum + (m.detailed_scores[key as keyof typeof m.detailed_scores] || 0), 0);
         const avg = total / group.length;
-        acc[key] = (avg / SCORE_WEIGHTS[key]) * 100; // Normalize to percentage of max weight
+        acc[key] = (avg / SCORE_WEIGHTS[key]) * 100;
         return acc;
       }, {} as Record<string, number>);
       return avgScores;
@@ -127,7 +90,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       subject: subject.replace('_', ' ').replace(/(?:^|\s)\S/g, a => a.toUpperCase()),
       'High Feedback': highFeedbackNormalized[subject] || 0,
       'Low Feedback': lowFeedbackNormalized[subject] || 0,
-      fullMark: 100, // Now comparing percentages
+      fullMark: 100,
     }));
 
     const performanceGaps = Object.keys(SCORE_WEIGHTS).map(key => ({
@@ -161,7 +124,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
         topAgreement: topAgreement ? { answer: ANSWER_MAP[q]?.[topAgreement[0]] || topAgreement[0], percent: (topAgreement[1] / highFeedbackMatches.length) * 100 } : null,
         topPairing: topPairing ? { pair: topPairing[0].split('-').map(a => ANSWER_MAP[q]?.[a] || a), percent: (topPairing[1] / highFeedbackMatches.length) * 100 } : null,
       };
-    }).filter(p => (p.topAgreement && p.topAgreement.percent > 40) || (p.topPairing && p.topPairing.percent > 20));
+    }).filter((p): p is NonNullable<typeof p> => p !== null && ((p.topAgreement !== null && p.topAgreement.percent > 40) || (p.topPairing !== null && p.topPairing.percent > 20)));
 
     const recommendations = {
       observations: [] as string[],
@@ -191,7 +154,6 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
         recommendations.suggestions.push(`Increase the compatibility bonus for agreeing on '${topAgreementPattern.topAgreement.answer}' for the question '${topAgreementPattern.question}'.`);
     }
 
-    // --- New: Analysis of Worst Matches (<50%) ---
     let failureAnalysis = null;
     if (lowFeedbackMatches.length > 0) {
       const avgSystemScoreInFailed = lowFeedbackMatches.reduce((acc, m) => acc + m.compatibility_score, 0) / lowFeedbackMatches.length;
@@ -217,7 +179,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       failureAnalysis = {
         overconfidenceGap,
         topClash: clashPatterns,
-        weakestFactor: { name: weakestFactor[0], score: weakestFactor[1] },
+        weakestFactor: weakestFactor ? { name: weakestFactor[0], score: weakestFactor[1] } : null,
       };
 
       recommendations.observations.push(`In failed matches, the system predicted an average score of ${avgSystemScoreInFailed.toFixed(1)}%, but users only gave ${avgUserRatingInFailed.toFixed(1)}%.`);
@@ -227,18 +189,102 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
     }
 
     return {
+      hasData: true,
       totalFeedback, avgSystemScore, avgUserRating, meetAgainRate,
       scoreComparisonData, meetAgainData, radarData, recommendations,
       highFeedbackCount: highFeedbackMatches.length,
       lowFeedbackCount: lowFeedbackMatches.length,
       answerPatterns,
       failureAnalysis,
-      aiAnalysis,
-      isLoadingAI,
-      handleRunAIAnalysis,
     };
   }, [matches]);
+
+  const handleRunAIAnalysis = async () => {
+    const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
+    if (feedbackMatches.length === 0) {
+      setAiAnalysis('Error: No feedback data available from events 4 and later.');
+      return;
+    }
+
+    setIsLoadingAI(true);
+    setAnalysisProgress(0);
+    setAiAnalysis('Starting AI analysis...');
+
+    // Progress simulation
+    const totalMatches = feedbackMatches.length;
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress(prev => {
+        if (prev >= 95) {
+          clearInterval(progressInterval);
+          return prev;
+        }
+        return prev + Math.floor(Math.random() * 5) + 1;
+      });
+    }, 800);
+
+    // Update analysis text with progress
+    const updateProgressText = () => {
+      const currentPair = Math.floor((analysisProgress / 100) * totalMatches);
+      setAiAnalysis(`Analyzing feedback data...\n\n` +
+        `🔍 Processing pair ${currentPair}/${totalMatches}\n` +
+        `📊 Extracting compatibility patterns\n` +
+        `🧠 Generating insights\n\n` +
+        `Progress: ${analysisProgress}% complete`);
+    };
+
+    const progressTextInterval = setInterval(updateProgressText, 1000);
+
+    try {
+      // Add a timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      updateProgressText(); // Initial progress update
+      
+      const response = await fetch(`/api/generate-ai-analysis?t=${timestamp}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        },
+        body: JSON.stringify({ 
+          matches: feedbackMatches,
+          questions: QUESTION_MAP,
+          weights: SCORE_WEIGHTS
+        }),
+      });
+
+      clearInterval(progressInterval);
+      clearInterval(progressTextInterval);
+      setAnalysisProgress(100);
+      setAiAnalysis('Finalizing analysis results...');
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API response error:', response.status, errorText);
+        setAiAnalysis(`Error: Failed to get AI analysis (${response.status})\n\n${errorText || 'Please try again.'}`);
+        return;
+      }
+
+      // Simple text response handling
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        setAiAnalysis('Error: Received empty response from the analysis service.');
+      } else {
+        setAiAnalysis(text);
+      }
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setAiAnalysis(`Error: An unexpected error occurred.\n\n${errorMessage}`);
+    } finally {
+      clearInterval(progressInterval);
+      clearInterval(progressTextInterval);
+      setIsLoadingAI(false);
+    }
+  };
+
+  return { ...analysisData, aiAnalysis, isLoadingAI, analysisProgress, handleRunAIAnalysis };
 };
+
 // --- UI COMPONENTS ---
 const StatCard = ({ icon, title, value, colorClass }: { icon: React.ReactNode, title: string, value: string, colorClass: string }) => (
   <div className={`bg-slate-800/50 border-l-4 ${colorClass} p-4 rounded-lg shadow-md flex items-center`}>
@@ -293,7 +339,7 @@ const PatternCard = ({ title, pattern, type }: { title: string, pattern: any, ty
 export default function FeedbackStatsModal({ matches, onClose }: Props) {
   const analysis = useFeedbackAnalysis(matches);
 
-  if (!analysis) {
+  if (!analysis.hasData) {
     return (
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
         <div dir="rtl" className="bg-slate-900 border-2 border-cyan-500/30 rounded-2xl p-6 w-full max-w-lg text-center">
@@ -304,7 +350,24 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
     );
   }
 
-  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount, answerPatterns, failureAnalysis, aiAnalysis, isLoadingAI, handleRunAIAnalysis } = analysis;
+  const { 
+    handleRunAIAnalysis, 
+    isLoadingAI, 
+    aiAnalysis,
+    analysisProgress,
+    totalFeedback, 
+    avgSystemScore, 
+    avgUserRating, 
+    meetAgainRate, 
+    scoreComparisonData, 
+    meetAgainData, 
+    radarData, 
+    recommendations, 
+    highFeedbackCount, 
+    lowFeedbackCount, 
+    answerPatterns, 
+    failureAnalysis 
+  } = analysis as any; // Using 'as any' to bypass TS errors on the destructured object
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-4 font-sans" onClick={onClose}>
@@ -321,7 +384,7 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
             className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isLoadingAI ? <Loader className="animate-spin" /> : <Sparkles />}
-            {isLoadingAI ? 'يتم التحليل...' : 'تحليل بواسطة الذكاء الاصطناعي'}
+            {isLoadingAI ? `يتم التحليل... ${analysisProgress}%` : 'تحليل بواسطة الذكاء الاصطناعي'}
           </button>
         </div>
 
@@ -346,22 +409,23 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
                 value={`+${failureAnalysis.overconfidenceGap.toFixed(1)}%`}
                 subtitle="Avg. System Score vs. User Rating"
               />
-              <FailureCard 
+              {failureAnalysis.topClash && <FailureCard 
                 icon={<Users size={32} className="text-red-400" />} 
                 title="Top Clashing Answer"
                 value={failureAnalysis.topClash.answer}
                 subtitle={`Appeared most in failed matches for "${failureAnalysis.topClash.question}"`}
-              />
-              <FailureCard 
+              />}
+              {failureAnalysis.weakestFactor && <FailureCard 
                 icon={<BarChart3 size={32} className="text-red-400" />} 
                 title="Biggest Weakness"
                 value={failureAnalysis.weakestFactor.name.toUpperCase()}
                 subtitle={`Performed worst with ${failureAnalysis.weakestFactor.score.toFixed(1)}% score`}
-              />
+              />}
             </div>
           </div>
         )}
 
+        {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
             <ChartContainer title="مقارنة دقة الخوارزمية">
@@ -372,25 +436,41 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
                   <YAxis tick={{ fill: '#9ca3af' }} domain={[0, 100]} unit="%" />
                   <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', color: '#e5e7eb' }} cursor={{ fill: 'rgba(107, 114, 128, 0.1)' }}/>
                   <Legend wrapperStyle={{ color: '#d1d5db' }} />
-                  <Bar dataKey="System Score" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="User Rating" fill="#fbbf24" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="System Score" fill="#8b5cf6" />
+                  <Bar dataKey="User Rating" fill="#facc15" />
                 </BarChart>
               </ResponsiveContainer>
             </ChartContainer>
           </div>
-          <ChartContainer title="نسبة الرغبة في لقاء آخر">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={meetAgainData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} labelLine={false} label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}>
-                  <Cell key="cell-0" fill="#34d399" />
-                  <Cell key="cell-1" fill="#4b5563" />
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}/>
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartContainer>
+          <div>
+            <ChartContainer title="نسبة الرغبة في اللقاء مجددًا">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={meetAgainData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                        // Add null check for midAngle with default value of 0
+                        const angle = midAngle !== undefined ? midAngle : 0;
+                        const x  = cx + radius * Math.cos(-angle * (Math.PI / 180));
+                        const y = cy  + radius * Math.sin(-angle * (Math.PI / 180));
+                        return (
+                          <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+                            {`${(percent !== undefined ? (percent * 100).toFixed(0) : 0)}%`}
+                          </text>
+                        );
+                    }}
+                  >
+                    <Cell fill="#10b981" />
+                    <Cell fill="#374151" />
+                  </Pie>
+                  <Legend wrapperStyle={{ color: '#d1d5db' }} />
+                  <Tooltip contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartContainer>
+          </div>
         </div>
-
+        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
             <ChartContainer title="أهم عوامل التوافق (في التقييمات العالية)">
                 <ResponsiveContainer width="100%" height="100%">
@@ -418,7 +498,7 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
                     <div className="flex items-center justify-between bg-red-900/30 p-3 rounded-md">
                         <div className="flex items-center gap-3">
                             <ThumbsDown className="text-red-400" />
-                            <span className="font-semibold text-red-300">تقييمات منخفضة (&lt;=50%)</span>
+                            <span className="font-semibold text-red-300">تقييمات منخفضة (&lt;50%)</span>
                         </div>
                         <span className="text-2xl font-bold text-white">{lowFeedbackCount}</span>
                     </div>
@@ -426,7 +506,6 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
             </div>
         </div>
 
-        {/* Recommendations */}
         {answerPatterns && answerPatterns.length > 0 && (
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -434,8 +513,8 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
                 <h3 className="text-2xl font-bold text-green-300">أنماط النجاح في إجابات الاستبيان</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {answerPatterns.map(p => (
-                <div key={p.question}>
+              {answerPatterns.map((p: any, i: number) => (
+                <div key={i}>
                   <h4 className="font-bold text-center text-slate-300 mb-2">{p.question}</h4>
                   <div className="grid grid-cols-2 gap-2">
                     {p.topAgreement && <PatternCard title="Top Agreement" pattern={p.topAgreement} type="agreement" />}
@@ -447,7 +526,6 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
           </div>
         )}
 
-        {/* Recommendations */}
         {aiAnalysis && (
           <div className="bg-purple-900/20 border border-purple-500/30 p-6 rounded-lg mb-6">
             <div className="flex items-center gap-3 mb-4">
@@ -455,7 +533,15 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
               <h3 className="text-2xl font-bold text-purple-200">AI-Powered Analysis</h3>
             </div>
             <div className="prose prose-invert max-w-none prose-p:text-slate-300 prose-headings:text-purple-300 prose-strong:text-white">
-              {aiAnalysis}
+              {isLoadingAI && (
+                <div className="mb-4">
+                  <div className="w-full bg-slate-700 rounded-full h-2.5 mb-2">
+                    <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${analysisProgress}%` }}></div>
+                  </div>
+                  <p className="text-sm text-slate-400 text-center">{analysisProgress}% complete</p>
+                </div>
+              )}
+              <pre className="whitespace-pre-wrap text-slate-300 font-sans">{aiAnalysis}</pre>
             </div>
           </div>
         )}
@@ -469,13 +555,13 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
             <div>
               <h4 className="font-bold text-lg text-slate-300 mb-2 border-b border-slate-700 pb-1">Key Observations</h4>
               <ul className="space-y-2 text-slate-300 list-disc pl-5">
-                {recommendations.observations.map((obs, i) => <li key={`obs-${i}`}>{obs}</li>)}
+                {recommendations.observations.map((obs: string, i: number) => <li key={`obs-${i}`}>{obs}</li>)}
               </ul>
             </div>
             <div>
               <h4 className="font-bold text-lg text-green-300 mb-2 border-b border-slate-700 pb-1">Actionable Suggestions</h4>
               <ul className="space-y-2 text-green-200 list-disc pl-5">
-                {recommendations.suggestions.map((sug, i) => <li key={`sug-${i}`}>{sug}</li>)}
+                {recommendations.suggestions.map((sug: string, i: number) => <li key={`sug-${i}`}>{sug}</li>)}
               </ul>
             </div>
           </div>

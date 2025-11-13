@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target } from 'lucide-react';
+import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target, Handshake } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
 // --- TYPE DEFINITIONS ---
@@ -14,7 +14,25 @@ interface ParticipantMatch {
 }
 interface Props { matches: ParticipantMatch[]; onClose: () => void; }
 
-// --- HELPER & ANALYSIS LOGIC ---
+// --- CONSTANTS & HELPERS ---
+const SCORE_WEIGHTS: Record<string, number> = {
+  mbti: 5, attachment: 5, communication: 10, lifestyle: 25, core_values: 20, vibe: 35
+};
+const QUESTION_MAP: Record<string, string> = {
+  lifestyle_4: "تخطيط أم عفوية؟",
+  lifestyle_5: "نشاط نهاية الأسبوع",
+  core_values_1: "الصدق أم الولاء؟",
+  core_values_2: "الطموح أم الاستقرار؟",
+  core_values_3: "التقبل أم التشابه؟",
+};
+const ANSWER_MAP: Record<string, Record<string, string>> = {
+  lifestyle_4: { 'أ': 'Planner', 'ب': 'Balanced', 'ج': 'Spontaneous' },
+  lifestyle_5: { 'أ': 'Social', 'ب': 'Balanced', 'ج': 'Private' },
+  core_values_1: { 'أ': 'Honesty', 'ب': 'Balanced', 'ج': 'Loyalty' },
+  core_values_2: { 'أ': 'Ambitious', 'ب': 'Balanced', 'ج': 'Stable' },
+  core_values_3: { 'أ': 'Acceptance', 'ب': 'Balanced', 'ج': 'Similarity' },
+};
+
 const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
   return useMemo(() => {
     const feedbackMatches = matches.filter(m => m.feedback?.has_feedback);
@@ -81,19 +99,57 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
     const topPredictor = performanceGaps[0];
     const worstPredictor = performanceGaps[performanceGaps.length - 1];
 
-    const recommendations = [];
+    const answerPatterns = Object.keys(QUESTION_MAP).map(q => {
+      const agreements: Record<string, number> = {};
+      const pairings: Record<string, number> = {};
+      highFeedbackMatches.forEach(m => {
+        const ansA = m.participant_a.survey_data?.answers?.[q];
+        const ansB = m.participant_b.survey_data?.answers?.[q];
+        if (!ansA || !ansB) return;
+        if (ansA === ansB) {
+          agreements[ansA] = (agreements[ansA] || 0) + 1;
+        } else {
+          const pair = [ansA, ansB].sort().join('-');
+          pairings[pair] = (pairings[pair] || 0) + 1;
+        }
+      });
+
+      const topAgreement = Object.entries(agreements).sort((a, b) => b[1] - a[1])[0];
+      const topPairing = Object.entries(pairings).sort((a, b) => b[1] - a[1])[0];
+      
+      return {
+        question: QUESTION_MAP[q],
+        topAgreement: topAgreement ? { answer: ANSWER_MAP[q]?.[topAgreement[0]] || topAgreement[0], percent: (topAgreement[1] / highFeedbackMatches.length) * 100 } : null,
+        topPairing: topPairing ? { pair: topPairing[0].split('-').map(a => ANSWER_MAP[q]?.[a] || a), percent: (topPairing[1] / highFeedbackMatches.length) * 100 } : null,
+      };
+    }).filter(p => (p.topAgreement && p.topAgreement.percent > 40) || (p.topPairing && p.topPairing.percent > 20)); // Filter for significant patterns
+
+    const recommendations = {
+      observations: [],
+      suggestions: [],
+    } as { observations: string[]; suggestions: string[] };
+
     if (avgUserRating < avgSystemScore - 10) {
-      recommendations.push(`Algorithm Overconfidence: System score is much higher than user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%). Review scoring weights.`);
+      recommendations.observations.push(`Algorithm Overconfidence: System score is significantly higher than user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%).`);
+      recommendations.suggestions.push(`Review scoring weights to better align with user-perceived compatibility.`);
     } else {
-      recommendations.push(`Algorithm Accuracy: System score is well-aligned with user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%).`);
+      recommendations.observations.push(`Algorithm Accuracy: System score is well-aligned with user ratings (${avgSystemScore.toFixed(1)}% vs ${avgUserRating.toFixed(1)}%).`);
     }
 
     if (topPredictor && topPredictor.gap > 15) {
-        recommendations.push(`Strongest Predictor: '${topPredictor.factor}' shows the largest performance gap (+${topPredictor.gap.toFixed(1)}%) between good and bad matches. This is a key driver of success.`);
+      recommendations.observations.push(`Strongest Predictor: '${topPredictor.factor}' is the key driver of success, showing a +${topPredictor.gap.toFixed(1)}% performance gap between good and bad matches.`);
+      recommendations.suggestions.push(`Consider slightly increasing the weight of the '${topPredictor.factor}' component to further leverage its predictive power.`);
     }
 
     if (worstPredictor && worstPredictor.gap < 5) {
-        recommendations.push(`Weakest Differentiator: '${worstPredictor.factor}' performs similarly in both good and bad matches (gap of ${worstPredictor.gap.toFixed(1)}%). It may not be effectively separating compatible pairs.`);
+      recommendations.observations.push(`Weakest Differentiator: '${worstPredictor.factor}' fails to distinguish between good and bad matches (gap of only ${worstPredictor.gap.toFixed(1)}%).`);
+      recommendations.suggestions.push(`Re-evaluate the questions and scoring logic for '${worstPredictor.factor}' to improve its impact.`);
+    }
+
+    const topAgreementPattern = answerPatterns.sort((a, b) => (b.topAgreement?.percent || 0) - (a.topAgreement?.percent || 0))[0];
+    if (topAgreementPattern && topAgreementPattern.topAgreement && topAgreementPattern.topAgreement.percent > 50) {
+        recommendations.observations.push(`Key Agreement: Over ${topAgreementPattern.topAgreement.percent.toFixed(0)}% of successful pairs agree on '${topAgreementPattern.question}', specifically on being '${topAgreementPattern.topAgreement.answer}'.`);
+        recommendations.suggestions.push(`Increase the compatibility bonus for agreeing on '${topAgreementPattern.topAgreement.answer}' for the question '${topAgreementPattern.question}'.`);
     }
 
     return {
@@ -101,6 +157,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       scoreComparisonData, meetAgainData, radarData, recommendations,
       highFeedbackCount: highFeedbackMatches.length,
       lowFeedbackCount: lowFeedbackMatches.length,
+      answerPatterns,
     };
   }, [matches]);
 };
@@ -116,12 +173,35 @@ const StatCard = ({ icon, title, value, colorClass }: { icon: React.ReactNode, t
   </div>
 );
 
-const ChartContainer = ({ title, children }: { title: string, children: React.ReactNode }) => (
+const ChartContainer = ({ title, children, icon }: { title: string, children: React.ReactNode, icon?: React.ReactNode }) => (
   <div className="bg-slate-800/50 p-4 rounded-lg shadow-lg h-80 flex flex-col">
-    <h3 className="text-lg font-bold text-cyan-200 mb-4 text-center">{title}</h3>
+    <div className="flex items-center justify-center gap-2">
+      {icon}
+      <h3 className="text-lg font-bold text-cyan-200 mb-4 text-center">{title}</h3>
+    </div>
     <div className="grow">{children}</div>
   </div>
 );
+
+const PatternCard = ({ title, pattern, type }: { title: string, pattern: any, type: 'agreement' | 'pairing' }) => (
+  <div className="bg-slate-900/50 p-4 rounded-lg text-center flex flex-col justify-between h-full">
+    <div>
+      <p className="text-sm text-slate-400 mb-2">{title}</p>
+      {type === 'agreement' ? (
+        <div className="text-2xl font-bold text-cyan-300 bg-cyan-500/10 py-2 px-4 rounded-md">{pattern.answer}</div>
+      ) : (
+        <div className="flex items-center justify-center gap-2">
+          <div className="text-xl font-bold text-purple-300 bg-purple-500/10 py-2 px-3 rounded-md">{pattern.pair[0]}</div>
+          <span className="text-slate-400">+</span>
+          <div className="text-xl font-bold text-purple-300 bg-purple-500/10 py-2 px-3 rounded-md">{pattern.pair[1]}</div>
+        </div>
+      )}
+    </div>
+    <p className="text-3xl font-bold text-white mt-3">{pattern.percent.toFixed(0)}<span className="text-lg text-slate-400">%</span></p>
+    <p className="text-xs text-slate-500 mt-1">of successful matches</p>
+  </div>
+);
+
 
 // --- MAIN COMPONENT ---
 export default function FeedbackStatsModal({ matches, onClose }: Props) {
@@ -138,7 +218,7 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
     );
   }
 
-  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount } = analysis;
+  const { totalFeedback, avgSystemScore, avgUserRating, meetAgainRate, scoreComparisonData, meetAgainData, radarData, recommendations, highFeedbackCount, lowFeedbackCount, answerPatterns } = analysis;
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-4 font-sans" onClick={onClose}>
@@ -223,14 +303,46 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
         </div>
 
         {/* Recommendations */}
-        <div className="bg-slate-800/50 border border-cyan-400/20 p-4 rounded-lg">
-          <div className="flex items-center gap-3 mb-3">
-            <Lightbulb className="text-cyan-300" />
-            <h3 className="text-xl font-bold text-cyan-200">توصيات لتحسين الخوارزمية</h3>
+        {answerPatterns && answerPatterns.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+                <Handshake className="w-8 h-8 text-green-400" />
+                <h3 className="text-2xl font-bold text-green-300">أنماط النجاح في إجابات الاستبيان</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {answerPatterns.map(p => (
+                <div key={p.question}>
+                  <h4 className="font-bold text-center text-slate-300 mb-2">{p.question}</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {p.topAgreement && <PatternCard title="Top Agreement" pattern={p.topAgreement} type="agreement" />}
+                    {p.topPairing && <PatternCard title="Top Pairing" pattern={p.topPairing} type="pairing" />}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <ul className="space-y-2 text-slate-300 list-disc pr-5">
-            {recommendations.map((rec, i) => <li key={i}>{rec}</li>)}
-          </ul>
+        )}
+
+        {/* Recommendations */}
+        <div className="bg-slate-800/50 border border-cyan-400/20 p-4 rounded-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <Lightbulb className="text-cyan-300 w-7 h-7" />
+            <h3 className="text-2xl font-bold text-cyan-200">Insights & Recommendations</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-bold text-lg text-slate-300 mb-2 border-b border-slate-700 pb-1">Key Observations</h4>
+              <ul className="space-y-2 text-slate-300 list-disc pl-5">
+                {recommendations.observations.map((obs, i) => <li key={`obs-${i}`}>{obs}</li>)}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-lg text-green-300 mb-2 border-b border-slate-700 pb-1">Actionable Suggestions</h4>
+              <ul className="space-y-2 text-green-200 list-disc pl-5">
+                {recommendations.suggestions.map((sug, i) => <li key={`sug-${i}`}>{sug}</li>)}
+              </ul>
+            </div>
+          </div>
         </div>
 
       </div>

@@ -698,12 +698,11 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
         </div>
 
       </div>
-      {/* AI Analysis Modal */}
     <AIAnalysisModal 
       analysis={aiAnalysis || ''} 
       isOpen={showAIModal} 
       onClose={() => setShowAIModal(false)} 
     />
-      </div>
+    </div>
   );
 }

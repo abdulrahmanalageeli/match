@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import AIAnalysisModal from './AIAnalysisModal';
 import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target, Handshake, Sparkles, Loader } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
@@ -37,6 +38,7 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
   const [aiAnalysis, setAiAnalysis] = useState('');
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [showAIModal, setShowAIModal] = useState(false);
 
   const analysisData = useMemo(() => {
     const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
@@ -365,7 +367,11 @@ Total matches with feedback found: ${feedbackMatches.length}`);
       } else {
         // Log first 100 characters to help debug
         console.log('AI Analysis Success - First 100 chars:', text.substring(0, 100));
+        console.log('AI Analysis Content Length:', text.length);
+        
+        // Store the analysis and show the modal
         setAiAnalysis(text);
+        setShowAIModal(true);
       }
     } catch (error) {
       console.error('Error in AI analysis:', error);
@@ -379,7 +385,7 @@ Total matches with feedback found: ${feedbackMatches.length}`);
     }
   };
 
-  return { ...analysisData, aiAnalysis, isLoadingAI, analysisProgress, handleRunAIAnalysis };
+  return { ...analysisData, aiAnalysis, isLoadingAI, analysisProgress, showAIModal, setShowAIModal, handleRunAIAnalysis };
 };
 
 // --- UI COMPONENTS ---
@@ -435,6 +441,7 @@ const PatternCard = ({ title, pattern, type }: { title: string, pattern: any, ty
 // --- MAIN COMPONENT ---
 export default function FeedbackStatsModal({ matches, onClose }: Props) {
   const analysis = useFeedbackAnalysis(matches);
+  const { showAIModal, setShowAIModal, isLoadingAI, analysisProgress, aiAnalysis } = analysis;
 
   if (!analysis.hasData) {
     return (
@@ -449,9 +456,6 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
 
   const { 
     handleRunAIAnalysis, 
-    isLoadingAI, 
-    aiAnalysis,
-    analysisProgress,
     totalFeedback, 
     avgSystemScore, 
     avgUserRating, 
@@ -623,70 +627,54 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
           </div>
         )}
 
-        {aiAnalysis && (
-          <div className="bg-purple-900/20 border border-purple-500/30 p-6 rounded-lg mb-6">
-            <div className="flex items-center gap-3 mb-4">
+        {/* AI Analysis Section */}
+        <div className="bg-purple-900/20 border border-purple-500/30 p-6 rounded-lg mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
               <Sparkles className="text-purple-300 w-8 h-8" />
               <h3 className="text-2xl font-bold text-purple-200">AI-Powered Analysis</h3>
             </div>
-            <div className="prose prose-invert max-w-none prose-p:text-slate-300 prose-headings:text-purple-300 prose-strong:text-white">
-              {isLoadingAI && (
-                <div className="mb-4">
-                  <div className="w-full bg-slate-700 rounded-full h-2.5 mb-2">
-                    <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${analysisProgress}%` }}></div>
-                  </div>
-                  <p className="text-sm text-slate-400 text-center">{analysisProgress}% complete</p>
-                </div>
-              )}
-              {analysisProgress === -1 ? (
-                // Error state - show as pre
-                <pre className="whitespace-pre-wrap text-slate-300 font-sans">{aiAnalysis}</pre>
-              ) : (
-                // Success state - render as markdown
-                <div className="markdown-content">
-                  {aiAnalysis.split('\n').map((line: string, i: number) => {
-                    // Handle headers
-                    if (line.startsWith('# ')) {
-                      return <h1 key={i} className="text-2xl font-bold text-purple-200 mt-4 mb-2">{line.substring(2)}</h1>;
-                    } else if (line.startsWith('## ')) {
-                      return <h2 key={i} className="text-xl font-bold text-purple-300 mt-3 mb-2">{line.substring(3)}</h2>;
-                    } else if (line.startsWith('### ')) {
-                      return <h3 key={i} className="text-lg font-bold text-purple-400 mt-2 mb-1">{line.substring(4)}</h3>;
-                    } else if (line.startsWith('- ')) {
-                      // Handle bullet points with formatting
-                      const content = line.substring(2);
-                      const processedContent = content
-                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
-                        .replace(/\*([^*]+)\*/g, '<em>$1</em>'); // Italic
-                      
-                      return <div key={i} className="flex mb-1"><span className="mr-2">•</span><span dangerouslySetInnerHTML={{ __html: processedContent }} /></div>;
-                    } else if (line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ')) {
-                      // Handle numbered lists with formatting
-                      const num = line.substring(0, line.indexOf('.') + 1);
-                      const content = line.substring(line.indexOf('.') + 2);
-                      const processedContent = content
-                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
-                        .replace(/\*([^*]+)\*/g, '<em>$1</em>'); // Italic
-                      
-                      return <div key={i} className="flex mb-1"><span className="mr-2 font-bold">{num}</span><span dangerouslySetInnerHTML={{ __html: processedContent }} /></div>;
-                    } else if (line.trim() === '') {
-                      // Handle empty lines
-                      return <div key={i} className="h-2"></div>;
-                    } else {
-                      // Regular paragraph with bold and italic formatting
-                      // Process bold and italic text
-                      const processedLine = line
-                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
-                        .replace(/\*([^*]+)\*/g, '<em>$1</em>'); // Italic
-                      
-                      return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: processedLine }} />;
-                    }
-                  })}
-                </div>
-              )}
-            </div>
+            
+            {aiAnalysis && !isLoadingAI && (
+              <button
+                onClick={() => setShowAIModal(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all"
+              >
+                <span>View Analysis</span>
+              </button>
+            )}
           </div>
-        )}
+          
+          <div className="prose prose-invert max-w-none prose-p:text-slate-300">
+            {isLoadingAI ? (
+              <div className="mb-4">
+                <div className="w-full bg-slate-700 rounded-full h-2.5 mb-2">
+                  <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${analysisProgress}%` }}></div>
+                </div>
+                <p className="text-sm text-slate-400 text-center">{analysisProgress}% complete</p>
+              </div>
+            ) : aiAnalysis ? (
+              <p className="text-slate-300">
+                AI analysis of your matching algorithm is ready. Click the "View Analysis" button to see detailed insights and recommendations.
+              </p>
+            ) : (
+              <p className="text-slate-300">
+                Generate an AI-powered analysis of your matching algorithm to get insights into what's working well and what could be improved.
+              </p>
+            )}
+            
+            {!aiAnalysis && !isLoadingAI && (
+              <button
+                onClick={handleRunAIAnalysis}
+                disabled={isLoadingAI}
+                className="mt-4 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Sparkles size={20} />
+                <span>Generate AI Analysis</span>
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="bg-slate-800/50 border border-cyan-400/20 p-4 rounded-lg">
           <div className="flex items-center gap-3 mb-4">
@@ -710,6 +698,12 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
         </div>
 
       </div>
-    </div>
+      {/* AI Analysis Modal */}
+    <AIAnalysisModal 
+      analysis={aiAnalysis || ''} 
+      isOpen={showAIModal} 
+      onClose={() => setShowAIModal(false)} 
+    />
+      </div>
   );
 }

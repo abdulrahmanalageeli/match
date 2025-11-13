@@ -339,10 +339,13 @@ export default async function handler(req) {
       analysis = generateFallbackAnalysis(analysisData);
     }
     
+    // Log the first 500 characters of the analysis to see what's being returned
+    console.log(`Analysis content (first 500 chars): ${analysis.substring(0, 500)}...`);
+    console.log(`Analysis length: ${analysis.length} characters`);
+    
     return new Response(analysis, {
       headers: { 'Content-Type': 'text/plain' }
     });
-
   } catch (error) {
     console.error('Error in AI analysis:', error);
     console.error('Error name:', error.name);

@@ -638,7 +638,52 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
                   <p className="text-sm text-slate-400 text-center">{analysisProgress}% complete</p>
                 </div>
               )}
-              <pre className="whitespace-pre-wrap text-slate-300 font-sans">{aiAnalysis}</pre>
+              {analysisProgress === -1 ? (
+                // Error state - show as pre
+                <pre className="whitespace-pre-wrap text-slate-300 font-sans">{aiAnalysis}</pre>
+              ) : (
+                // Success state - render as markdown
+                <div className="markdown-content">
+                  {aiAnalysis.split('\n').map((line: string, i: number) => {
+                    // Handle headers
+                    if (line.startsWith('# ')) {
+                      return <h1 key={i} className="text-2xl font-bold text-purple-200 mt-4 mb-2">{line.substring(2)}</h1>;
+                    } else if (line.startsWith('## ')) {
+                      return <h2 key={i} className="text-xl font-bold text-purple-300 mt-3 mb-2">{line.substring(3)}</h2>;
+                    } else if (line.startsWith('### ')) {
+                      return <h3 key={i} className="text-lg font-bold text-purple-400 mt-2 mb-1">{line.substring(4)}</h3>;
+                    } else if (line.startsWith('- ')) {
+                      // Handle bullet points with formatting
+                      const content = line.substring(2);
+                      const processedContent = content
+                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
+                        .replace(/\*([^*]+)\*/g, '<em>$1</em>'); // Italic
+                      
+                      return <div key={i} className="flex mb-1"><span className="mr-2">•</span><span dangerouslySetInnerHTML={{ __html: processedContent }} /></div>;
+                    } else if (line.startsWith('1. ') || line.startsWith('2. ') || line.startsWith('3. ') || line.startsWith('4. ') || line.startsWith('5. ')) {
+                      // Handle numbered lists with formatting
+                      const num = line.substring(0, line.indexOf('.') + 1);
+                      const content = line.substring(line.indexOf('.') + 2);
+                      const processedContent = content
+                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
+                        .replace(/\*([^*]+)\*/g, '<em>$1</em>'); // Italic
+                      
+                      return <div key={i} className="flex mb-1"><span className="mr-2 font-bold">{num}</span><span dangerouslySetInnerHTML={{ __html: processedContent }} /></div>;
+                    } else if (line.trim() === '') {
+                      // Handle empty lines
+                      return <div key={i} className="h-2"></div>;
+                    } else {
+                      // Regular paragraph with bold and italic formatting
+                      // Process bold and italic text
+                      const processedLine = line
+                        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') // Bold
+                        .replace(/\*([^*]+)\*/g, '<em>$1</em>'); // Italic
+                      
+                      return <p key={i} className="mb-2" dangerouslySetInnerHTML={{ __html: processedLine }} />;
+                    }
+                  })}
+                </div>
+              )}
             </div>
           </div>
         )}

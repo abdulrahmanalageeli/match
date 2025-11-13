@@ -77,31 +77,110 @@ export default async function handler(req) {
       has_participant_b_number: !!sampleMatch?.participant_b_number,
       participant_a_number: sampleMatch?.participant_a_number,
       participant_b_number: sampleMatch?.participant_b_number,
-      match_keys: sampleMatch ? Object.keys(sampleMatch) : 'No matches found'
     });
     
     // Process all matches to gather participant statistics
     let matchesWithParticipantNumbers = 0;
     matches.forEach(match => {
-      // Extract participant numbers - they might be in different locations depending on the data structure
-      const participantANumber = match.participant_a_number || match.participant_a?.assigned_number || match.participant_a?.id;
-      const participantBNumber = match.participant_b_number || match.participant_b?.assigned_number || match.participant_b?.id;
-      
-      // Skip if participant numbers are still missing
-      if (!participantANumber || !participantBNumber) {
-        console.log('Missing participant numbers in match:', {
-          has_participant_a: !!match.participant_a,
-          has_participant_b: !!match.participant_b,
-          match_keys: Object.keys(match)
+      // Extract participant numbers from the participant objects
+      // First, let's log the participant structure to understand what's available
+      if (matchesWithParticipantNumbers === 0) {
+        console.log('Participant A structure:', {
+          keys: match.participant_a ? Object.keys(match.participant_a) : 'undefined',
+          number: match.participant_a?.number,
+          id: match.participant_a?.id
         });
-        return;
       }
       
-      matchesWithParticipantNumbers++;
+      // Check if feedback contains participant numbers
+      if (matchesWithParticipantNumbers === 0 && match.feedback) {
+        console.log('Feedback structure:', {
+          has_feedback: !!match.feedback,
+          participant_a_feedback: match.feedback?.participant_a ? Object.keys(match.feedback.participant_a) : 'null',
+          participant_b_feedback: match.feedback?.participant_b ? Object.keys(match.feedback.participant_b) : 'null',
+          feedback_keys: match.feedback ? Object.keys(match.feedback) : 'null'
+        });
+      }
+      
+      // Try all possible locations for participant numbers
+      let participantANumber = match.participant_a_number || 
+                           match.participant_a?.assigned_number || 
+                           match.participant_a?.number || 
+                           (typeof match.participant_a === 'object' ? match.participant_a.id : null);
+                           
+      let participantBNumber = match.participant_b_number || 
+                           match.participant_b?.assigned_number || 
+                           match.participant_b?.number || 
+                           (typeof match.participant_b === 'object' ? match.participant_b.id : null);
+      
+      // Try to extract from feedback if available
+      if (!participantANumber && match.feedback?.participant_a?.participant_number) {
+        participantANumber = match.feedback.participant_a.participant_number;
+      }
+      
+      if (!participantBNumber && match.feedback?.participant_b?.participant_number) {
+        participantBNumber = match.feedback.participant_b.participant_number;
+      }
+      
+      // Last resort: try to find assigned_number in the participant object directly
+      if (!participantANumber && match.participant_a) {
+        // Log the full participant_a object to see its structure
+        if (matchesWithParticipantNumbers === 0) {
+          console.log('Full participant_a object:', JSON.stringify(match.participant_a).substring(0, 200) + '...');
+        }
+        
+        // Try all possible field names for the assigned number
+        if (match.participant_a.assigned_number) {
+          participantANumber = match.participant_a.assigned_number;
+        } else if (match.participant_a.survey_data && match.participant_a.survey_data.assigned_number) {
+          participantANumber = match.participant_a.survey_data.assigned_number;
+        } else if (match.participant_a.assigned_number_field) {
+          participantANumber = match.participant_a.assigned_number_field;
+        }
+      }
+      
+      if (!participantBNumber && match.participant_b) {
+        // Try all possible field names for the assigned number
+        if (match.participant_b.assigned_number) {
+          participantBNumber = match.participant_b.assigned_number;
+        } else if (match.participant_b.survey_data && match.participant_b.survey_data.assigned_number) {
+          participantBNumber = match.participant_b.survey_data.assigned_number;
+        } else if (match.participant_b.assigned_number_field) {
+          participantBNumber = match.participant_b.assigned_number_field;
+        }
+      }
+      
+      // If we still don't have participant numbers, generate unique IDs based on match ID
+      // This is a last resort to allow analysis even without proper participant numbers
+      if (!participantANumber || !participantBNumber) {
+        if (match.id) {
+          // Use the match ID to generate unique participant IDs
+          if (!participantANumber) {
+            participantANumber = `a_${match.id.substring(0, 8)}`;
+            console.log(`Generated fallback ID for participant A: ${participantANumber}`);
+          }
+          
+          if (!participantBNumber) {
+            participantBNumber = `b_${match.id.substring(0, 8)}`;
+            console.log(`Generated fallback ID for participant B: ${participantBNumber}`);
+          }
+        } else {
+          // If we can't even find a match ID, we have to skip this match
+          console.log('Missing participant numbers and no match ID available:', {
+            has_participant_a: !!match.participant_a,
+            has_participant_b: !!match.participant_b,
+            participant_a_keys: match.participant_a ? Object.keys(match.participant_a) : 'undefined',
+            participant_b_keys: match.participant_b ? Object.keys(match.participant_b) : 'undefined',
+            match_keys: Object.keys(match)
+          });
+          return;
+        }
+      }
       
       // Store the extracted participant numbers in the match object for consistent access
       match.participant_a_number = participantANumber;
       match.participant_b_number = participantBNumber;
+      matchesWithParticipantNumbers++;
       
       // Process participant A
       if (!participantStats[match.participant_a_number]) {

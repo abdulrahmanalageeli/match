@@ -6,6 +6,7 @@ interface GroupAssignment {
   participants: Array<{
     number: number
     name: string
+    age?: number
   }>
   compatibility_score: number
   participant_count: number
@@ -104,10 +105,17 @@ export default function GroupAssignmentsModal({
                           key={participant.number}
                           className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border border-white/20 hover:border-cyan-400/40 transition-all"
                         >
-                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center flex-shrink-0">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
                             <span className="text-white text-xs font-bold">#{participant.number}</span>
                           </div>
-                          <span className="text-white text-xs sm:text-sm font-medium flex-1 truncate">{participant.name}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-white text-xs sm:text-sm font-medium truncate">{participant.name}</span>
+                              {participant.age && (
+                                <span className="text-slate-400 text-xs shrink-0">({participant.age})</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>

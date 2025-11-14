@@ -1529,15 +1529,42 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: groupError.message })
         }
 
+        // Fetch participant details including ages
+        const allParticipantNumbers = [...new Set(groupMatches.flatMap(match => match.participant_numbers || []))]
+        
+        let participantDetailsMap = new Map()
+        if (allParticipantNumbers.length > 0) {
+          const { data: participantDetails, error: participantError } = await supabase
+            .from("participants")
+            .select("assigned_number, name, age, survey_data")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", allParticipantNumbers)
+
+          if (participantError) {
+            console.error("Error fetching participant details:", participantError)
+          } else if (participantDetails) {
+            participantDetails.forEach(p => {
+              participantDetailsMap.set(p.assigned_number, {
+                name: p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`,
+                age: p.age || p.survey_data?.age
+              })
+            })
+          }
+        }
+
         // Format group assignments (participant_names are already stored in the table)
         const groupAssignments = groupMatches.map(match => {
           const participantNumbers = match.participant_numbers || []
           const participantNames = match.participant_names || []
 
-          const participants = participantNumbers.map((num, index) => ({
-            number: num,
-            name: participantNames[index] || `المشارك #${num}`
-          }))
+          const participants = participantNumbers.map((num, index) => {
+            const details = participantDetailsMap.get(num)
+            return {
+              number: num,
+              name: details?.name || participantNames[index] || `المشارك #${num}`,
+              age: details?.age
+            }
+          })
 
           return {
             group_id: match.group_id,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import AIAnalysisModal from './AIAnalysisModal';
-import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target, Handshake, Sparkles, Loader } from 'lucide-react';
+import { X, Lightbulb, BarChart3, Users, Star, HeartHandshake, TrendingUp, ThumbsUp, ThumbsDown, Target, Handshake, Sparkles, Loader, XCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 
 // --- TYPE DEFINITIONS ---
@@ -39,6 +39,10 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [showAIModal, setShowAIModal] = useState(false);
+  const [participant1Number, setParticipant1Number] = useState('');
+  const [participant2Number, setParticipant2Number] = useState('');
+  const [predictionResult, setPredictionResult] = useState<any>(null);
+  const [isLoadingPrediction, setIsLoadingPrediction] = useState(false);
 
   const analysisData = useMemo(() => {
     const feedbackMatches = matches.filter(m => m.round >= 4 && m.feedback?.has_feedback);
@@ -200,6 +204,48 @@ const useFeedbackAnalysis = (matches: ParticipantMatch[]) => {
       failureAnalysis,
     };
   }, [matches]);
+
+  const handlePredictMatchSuccess = async () => {
+    if (!participant1Number || !participant2Number) {
+      alert('Please enter both participant numbers');
+      return;
+    }
+
+    if (participant1Number === participant2Number) {
+      alert('Please enter different participant numbers');
+      return;
+    }
+
+    setIsLoadingPrediction(true);
+    setPredictionResult(null);
+
+    try {
+      const response = await fetch('/api/participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'predict-match-success',
+          participant1: parseInt(participant1Number),
+          participant2: parseInt(participant2Number)
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to predict match success');
+      }
+
+      setPredictionResult(data);
+    } catch (error) {
+      console.error('Error predicting match success:', error);
+      setPredictionResult({
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    } finally {
+      setIsLoadingPrediction(false);
+    }
+  };
 
   const handleRunAIAnalysis = async () => {
     // Filter matches that have round >= 4 and both participants provided complete feedback
@@ -385,7 +431,22 @@ Total matches with feedback found: ${feedbackMatches.length}`);
     }
   };
 
-  return { ...analysisData, aiAnalysis, isLoadingAI, analysisProgress, showAIModal, setShowAIModal, handleRunAIAnalysis };
+  return { 
+    ...analysisData, 
+    aiAnalysis, 
+    isLoadingAI, 
+    analysisProgress, 
+    showAIModal, 
+    setShowAIModal, 
+    handleRunAIAnalysis,
+    participant1Number,
+    setParticipant1Number,
+    participant2Number,
+    setParticipant2Number,
+    predictionResult,
+    isLoadingPrediction,
+    handlePredictMatchSuccess
+  };
 };
 
 // --- UI COMPONENTS ---
@@ -441,7 +502,20 @@ const PatternCard = ({ title, pattern, type }: { title: string, pattern: any, ty
 // --- MAIN COMPONENT ---
 export default function FeedbackStatsModal({ matches, onClose }: Props) {
   const analysis = useFeedbackAnalysis(matches);
-  const { showAIModal, setShowAIModal, isLoadingAI, analysisProgress, aiAnalysis } = analysis;
+  const { 
+    showAIModal, 
+    setShowAIModal, 
+    isLoadingAI, 
+    analysisProgress, 
+    aiAnalysis,
+    participant1Number,
+    setParticipant1Number,
+    participant2Number,
+    setParticipant2Number,
+    predictionResult,
+    isLoadingPrediction,
+    handlePredictMatchSuccess
+  } = analysis;
 
   if (!analysis.hasData) {
     return (
@@ -627,52 +701,120 @@ export default function FeedbackStatsModal({ matches, onClose }: Props) {
           </div>
         )}
 
-        {/* AI Analysis Section */}
-        <div className="bg-purple-900/20 border border-purple-500/30 p-6 rounded-lg mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <Sparkles className="text-purple-300 w-8 h-8" />
-              <h3 className="text-2xl font-bold text-purple-200">AI-Powered Analysis</h3>
-            </div>
-            
-            {aiAnalysis && !isLoadingAI && (
-              <button
-                onClick={() => setShowAIModal(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-all"
-              >
-                <span>View Analysis</span>
-              </button>
-            )}
+        {/* Match Success Prediction Section */}
+        <div className="bg-blue-900/20 border border-blue-500/30 p-6 rounded-lg mb-6">
+          <div className="flex items-center gap-3 mb-6">
+            <Target className="text-blue-300 w-8 h-8" />
+            <h3 className="text-2xl font-bold text-blue-200">AI Match Success Prediction</h3>
           </div>
           
-          <div className="prose prose-invert max-w-none prose-p:text-slate-300">
-            {isLoadingAI ? (
-              <div className="mb-4">
-                <div className="w-full bg-slate-700 rounded-full h-2.5 mb-2">
-                  <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${analysisProgress}%` }}></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Input Section */}
+            <div className="space-y-4">
+              <p className="text-slate-300 text-sm">
+                Enter two participant numbers to predict their match success based on survey data and previous feedback patterns.
+              </p>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Participant 1</label>
+                  <input
+                    type="number"
+                    value={participant1Number}
+                    onChange={(e) => setParticipant1Number(e.target.value)}
+                    placeholder="Enter number"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
-                <p className="text-sm text-slate-400 text-center">{analysisProgress}% complete</p>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Participant 2</label>
+                  <input
+                    type="number"
+                    value={participant2Number}
+                    onChange={(e) => setParticipant2Number(e.target.value)}
+                    placeholder="Enter number"
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-            ) : aiAnalysis ? (
-              <p className="text-slate-300">
-                AI analysis of your matching algorithm is ready. Click the "View Analysis" button to see detailed insights and recommendations.
-              </p>
-            ) : (
-              <p className="text-slate-300">
-                Generate an AI-powered analysis of your matching algorithm to get insights into what's working well and what could be improved.
-              </p>
-            )}
-            
-            {!aiAnalysis && !isLoadingAI && (
+              
               <button
-                onClick={handleRunAIAnalysis}
-                disabled={isLoadingAI}
-                className="mt-4 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 px-6 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handlePredictMatchSuccess}
+                disabled={isLoadingPrediction || !participant1Number || !participant2Number}
+                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-all"
               >
-                <Sparkles size={20} />
-                <span>Generate AI Analysis</span>
+                {isLoadingPrediction ? (
+                  <>
+                    <Loader className="animate-spin w-4 h-4" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Predict Match Success
+                  </>
+                )}
               </button>
-            )}
+            </div>
+            
+            {/* Results Section */}
+            <div className="bg-slate-800/50 rounded-lg p-4 min-h-[200px] flex items-center justify-center">
+              {isLoadingPrediction ? (
+                <div className="text-center">
+                  <Loader className="animate-spin w-8 h-8 text-blue-400 mx-auto mb-3" />
+                  <p className="text-slate-300">Analyzing compatibility...</p>
+                </div>
+              ) : predictionResult ? (
+                predictionResult.error ? (
+                  <div className="text-center text-red-400">
+                    <XCircle className="w-8 h-8 mx-auto mb-3" />
+                    <p className="font-semibold mb-2">Error</p>
+                    <p className="text-sm text-slate-400">{predictionResult.error}</p>
+                  </div>
+                ) : (
+                  <div className="w-full space-y-4">
+                    {/* Success Score */}
+                    <div className="text-center">
+                      <div className={`text-4xl font-bold mb-2 ${
+                        predictionResult.success_probability >= 70 ? 'text-green-400' :
+                        predictionResult.success_probability >= 40 ? 'text-yellow-400' : 'text-red-400'
+                      }`}>
+                        {predictionResult.success_probability}%
+                      </div>
+                      <p className="text-slate-300">Success Probability</p>
+                    </div>
+                    
+                    {/* Analysis Summary */}
+                    {predictionResult.analysis && (
+                      <div className="bg-slate-700/50 rounded-lg p-4">
+                        <h4 className="text-blue-300 font-semibold mb-2">AI Analysis</h4>
+                        <p className="text-slate-300 text-sm whitespace-pre-wrap">{predictionResult.analysis}</p>
+                      </div>
+                    )}
+                    
+                    {/* Compatibility Breakdown */}
+                    {predictionResult.compatibility_scores && (
+                      <div className="space-y-2">
+                        <h4 className="text-blue-300 font-semibold text-sm">Compatibility Breakdown</h4>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {Object.entries(predictionResult.compatibility_scores).map(([key, value]) => (
+                            <div key={key} className="flex justify-between bg-slate-700/30 px-2 py-1 rounded">
+                              <span className="text-slate-400 capitalize">{key.replace('_', ' ')}</span>
+                              <span className="text-white">{value as number}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              ) : (
+                <div className="text-center text-slate-400">
+                  <Target className="w-8 h-8 mx-auto mb-3 opacity-50" />
+                  <p>Enter participant numbers to get AI prediction</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

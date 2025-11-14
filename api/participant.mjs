@@ -1715,5 +1715,165 @@ export default async function handler(req, res) {
     }
   }
 
+  // 🔹 PREDICT MATCH SUCCESS
+  if (action === "predict-match-success") {
+    try {
+      const { participant1, participant2 } = req.body
+
+      if (!participant1 || !participant2) {
+        return res.status(400).json({ error: "Both participant numbers are required" })
+      }
+
+      if (participant1 === participant2) {
+        return res.status(400).json({ error: "Cannot predict match success for same participant" })
+      }
+
+      // Fetch both participants
+      const { data: participants, error: fetchError } = await supabase
+        .from("participants")
+        .select("assigned_number, name, survey_data, mbti_personality_type, attachment_style, communication_style, age, gender")
+        .eq("match_id", match_id)
+        .in("assigned_number", [participant1, participant2])
+
+      if (fetchError) {
+        console.error("Error fetching participants:", fetchError)
+        return res.status(500).json({ error: "Failed to fetch participant data" })
+      }
+
+      if (!participants || participants.length !== 2) {
+        return res.status(404).json({ error: "One or both participants not found" })
+      }
+
+      const p1 = participants.find(p => p.assigned_number === participant1)
+      const p2 = participants.find(p => p.assigned_number === participant2)
+
+      if (!p1 || !p2) {
+        return res.status(404).json({ error: "Participant data incomplete" })
+      }
+
+      // Check if participants have survey data
+      if (!p1.survey_data || !p2.survey_data) {
+        return res.status(400).json({ error: "Both participants must have completed survey data" })
+      }
+
+      // Fetch previous feedback patterns for similar matches
+      const { data: feedbackMatches, error: feedbackError } = await supabase
+        .from("match_results")
+        .select(`
+          compatibility_score,
+          mbti_compatibility_score,
+          attachment_compatibility_score,
+          communication_compatibility_score,
+          lifestyle_compatibility_score,
+          core_values_compatibility_score,
+          vibe_compatibility_score,
+          feedback(compatibility_rate, conversation_quality, personal_connection, would_meet_again)
+        `)
+        .eq("match_id", match_id)
+        .eq("event_id", event_id)
+        .gte("round", 4)
+        .not("feedback", "is", null)
+
+      // Create AI prompt for prediction
+      const prompt = `You are an expert relationship compatibility analyst. Analyze the following two participants and predict their match success probability based on their survey responses and historical feedback patterns.
+
+PARTICIPANT 1 (#${participant1}):
+- Name: ${p1.name || 'Not provided'}
+- Age: ${p1.age || p1.survey_data?.age || 'Not provided'}
+- Gender: ${p1.gender || p1.survey_data?.gender || 'Not provided'}
+- MBTI: ${p1.mbti_personality_type || p1.survey_data?.mbti || 'Not provided'}
+- Attachment Style: ${p1.attachment_style || 'Not provided'}
+- Communication Style: ${p1.communication_style || 'Not provided'}
+- Survey Answers: ${JSON.stringify(p1.survey_data?.answers || {}, null, 2)}
+
+PARTICIPANT 2 (#${participant2}):
+- Name: ${p2.name || 'Not provided'}
+- Age: ${p2.age || p2.survey_data?.age || 'Not provided'}
+- Gender: ${p2.gender || p2.survey_data?.gender || 'Not provided'}
+- MBTI: ${p2.mbti_personality_type || p2.survey_data?.mbti || 'Not provided'}
+- Attachment Style: ${p2.attachment_style || 'Not provided'}
+- Communication Style: ${p2.communication_style || 'Not provided'}
+- Survey Answers: ${JSON.stringify(p2.survey_data?.answers || {}, null, 2)}
+
+HISTORICAL FEEDBACK PATTERNS:
+${feedbackMatches ? `Based on ${feedbackMatches.length} previous matches with feedback data.` : 'No historical feedback data available.'}
+
+TASK:
+1. Calculate a success probability percentage (0-100%)
+2. Provide a detailed analysis explaining the prediction
+3. Focus on compatibility factors, potential challenges, and strengths
+4. Consider personality compatibility, lifestyle alignment, and communication styles
+5. Reference specific survey answers that support your prediction
+
+Please respond in JSON format:
+{
+  "success_probability": [number between 0-100],
+  "analysis": "[detailed analysis in Arabic, 200-300 words]",
+  "compatibility_scores": {
+    "personality": [0-100],
+    "lifestyle": [0-100], 
+    "communication": [0-100],
+    "values": [0-100],
+    "interests": [0-100]
+  },
+  "key_factors": {
+    "strengths": ["factor1", "factor2", "factor3"],
+    "challenges": ["challenge1", "challenge2"],
+    "recommendations": ["rec1", "rec2"]
+  }
+}`
+
+      // Generate prediction using OpenAI
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert relationship compatibility analyst. Provide accurate, culturally sensitive predictions based on survey data and psychological compatibility factors. Always respond in valid JSON format."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ],
+        temperature: 0.7,
+        max_tokens: 1500
+      })
+
+      const predictionText = completion.choices[0]?.message?.content
+      if (!predictionText) {
+        return res.status(500).json({ error: "Failed to generate prediction" })
+      }
+
+      try {
+        const prediction = JSON.parse(predictionText)
+        
+        console.log(`✅ Match success prediction generated for participants ${participant1} ↔ ${participant2}: ${prediction.success_probability}%`)
+        
+        return res.status(200).json({
+          success: true,
+          ...prediction,
+          participants: {
+            participant1: { number: participant1, name: p1.name },
+            participant2: { number: participant2, name: p2.name }
+          }
+        })
+      } catch (parseError) {
+        console.error("Error parsing AI response:", parseError)
+        return res.status(500).json({ 
+          error: "Failed to parse prediction response",
+          raw_response: predictionText 
+        })
+      }
+
+    } catch (error) {
+      console.error("Error in predict-match-success:", error)
+      return res.status(500).json({ 
+        error: "Failed to predict match success",
+        details: error.message 
+      })
+    }
+  }
+
   return res.status(400).json({ error: 'Invalid action' })
 }

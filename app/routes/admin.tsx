@@ -2870,7 +2870,7 @@ Proceed?`
               
               {/* Hover Tooltip */}
               {showDeltaCacheTooltip && deltaCacheCount > 0 && (
-                <div className="fixed top-20 left-4 z-[9999] bg-gray-900/95 backdrop-blur-sm border border-cyan-400/30 rounded-xl p-4 shadow-xl min-w-80 max-w-md">
+                <div className="fixed top-20 left-4 bg-gray-900/95 backdrop-blur-sm border border-cyan-400/30 rounded-xl p-4 shadow-xl min-w-80 max-w-md" style={{ zIndex: 99999 }}>
                   <div className="flex items-center gap-2 mb-3">
                     <Zap className="w-4 h-4 text-cyan-400" />
                     <h3 className="text-cyan-300 font-semibold text-sm">Participants Needing Delta Cache Update</h3>

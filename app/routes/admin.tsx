@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from "~/hooks/useDebounce"
 import {
@@ -148,6 +148,10 @@ export default function AdminPage() {
   
   // Group debug state
   const [showGroupDebugModal, setShowGroupDebugModal] = useState(false);
+  
+  // Virtual scrolling / pagination state
+  const [visibleCount, setVisibleCount] = useState(24); // Show 24 cards initially
+  const BATCH_SIZE = 24; // Load 24 more each time
   const [groupDebugData, setGroupDebugData] = useState<any>(null);
   const [loadingGroupDebug, setLoadingGroupDebug] = useState(false);
 
@@ -1913,6 +1917,9 @@ const fetchParticipants = async () => {
 
   // Performance: Use useMemo to cache filtered participants (only recalculate when dependencies change)
   const filteredParticipants = useMemo(() => {
+    // Reset visible count when filters change to show first batch
+    setVisibleCount(BATCH_SIZE);
+    
     const filtered = participants.filter(p => {
       // Search term filter - using debounced search for better performance
       const matchesSearch = debouncedSearch === "" || (
@@ -1991,6 +1998,25 @@ const fetchParticipants = async () => {
       return 0
     })
   }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId, excludedParticipants])
+  
+  // Virtualized participants - only show a subset for performance
+  const visibleParticipants = useMemo(() => {
+    return filteredParticipants.slice(0, visibleCount)
+  }, [filteredParticipants, visibleCount])
+  
+  // Check if there are more participants to load
+  const hasMore = visibleCount < filteredParticipants.length
+  const remainingCount = filteredParticipants.length - visibleCount
+  
+  // Load more participants
+  const loadMore = useCallback(() => {
+    setVisibleCount(prev => Math.min(prev + BATCH_SIZE, filteredParticipants.length))
+  }, [filteredParticipants.length, BATCH_SIZE])
+  
+  // Load all remaining participants
+  const loadAll = useCallback(() => {
+    setVisibleCount(filteredParticipants.length)
+  }, [filteredParticipants.length])
 
   // Calculate eligible participants count (current event or signed up for next event or auto-signup, excluding excluded participants)
   const eligibleCount = useMemo(() => {
@@ -4415,8 +4441,9 @@ Proceed?`
             </div>
           </div>
         ) : (
+          <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredParticipants.map((p) => {
+            {visibleParticipants.map((p) => {
               // Determine color-coded border based on status - PRIORITY SYSTEM
               const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
               const isPaid = p.PAID_DONE === true;
@@ -4828,6 +4855,46 @@ Proceed?`
               );
             })}
           </div>
+          
+          {/* Virtual Scrolling Load More Controls */}
+          {hasMore && (
+            <div className="mt-6 flex flex-col items-center gap-4 p-6 bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl">
+              <div className="text-center">
+                <p className="text-slate-300 text-sm mb-1">
+                  Showing <span className="font-bold text-white">{visibleCount}</span> of <span className="font-bold text-white">{filteredParticipants.length}</span> participants
+                </p>
+                <p className="text-slate-400 text-xs">
+                  <span className="font-semibold text-cyan-400">{remainingCount}</span> more participants hidden for performance
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={loadMore}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  <ChevronRight className="w-4 h-4 rotate-90" />
+                  Load Next {Math.min(BATCH_SIZE, remainingCount)}
+                </button>
+                
+                {remainingCount > BATCH_SIZE && (
+                  <button
+                    onClick={loadAll}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Load All ({remainingCount})
+                  </button>
+                )}
+              </div>
+              
+              <div className="flex items-center gap-2 text-xs text-slate-400">
+                <Zap className="w-3 h-3 text-yellow-400" />
+                <span>Virtual scrolling improves performance with large datasets</span>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
 

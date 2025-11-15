@@ -1011,6 +1011,10 @@ async function generateGroupMatches(participants, match_id, eventId) {
     no_individual_match: []
   }
   
+  // Skip individual-match prerequisite for group eligibility (only payment + organizer checks apply)
+  const requireIndividualMatch = false
+  console.log(`ℹ️ Individual-match prerequisite is SKIPPED for group eligibility (using only payment + organizer checks)`)
+  
   const eligibleParticipants = participants.filter(p => {
     // Check payment status first
     if (!p.PAID_DONE) {
@@ -1031,17 +1035,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
       return false
     }
 
-    // Also check if participant has any individual match at all
-    const hasIndividualMatch = existingMatches && existingMatches.some(match => 
-      (match.participant_a_number === p.assigned_number || match.participant_b_number === p.assigned_number) &&
-      match.participant_a_number !== 9999 && match.participant_b_number !== 9999
-    )
-    
-    if (!hasIndividualMatch) {
-      console.log(`🚫 Excluding participant #${p.assigned_number} from groups - no individual match found`)
-      exclusionReasons.no_individual_match.push(p.assigned_number)
-      return false
-    }
+    // No individual-match prerequisite enforced
     
     return true
   })

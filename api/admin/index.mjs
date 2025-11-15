@@ -818,6 +818,256 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 SWAP TWO PARTICIPANTS BETWEEN GROUPS (with validation and score recalculation)
+    if (action === "swap-group-participants") {
+      try {
+        const {
+          event_id = 1,
+          groupA_number,
+          participantA,
+          groupB_number,
+          participantB,
+          allowOverride = false
+        } = req.body
+
+        if (!groupA_number || !groupB_number || !participantA || !participantB) {
+          return res.status(400).json({ error: "Missing required fields: groupA_number, participantA, groupB_number, participantB" })
+        }
+
+        // Helper calculators (minimal replicas from trigger-match)
+        function calculateMBTICompatibility(type1, type2) {
+          if (!type1 || !type2) return 0
+          let score = 0
+          const i1 = type1[0], i2 = type2[0]
+          if (i1 === 'E' && i2 === 'E') score += 2.5; else if (i1 !== i2) score += 2.5
+          let match3 = 0
+          if (type1[1] === type2[1]) match3++
+          if (type1[2] === type2[2]) match3++
+          if (type1[3] === type2[3]) match3++
+          if (match3 >= 2) score += 2.5
+          return score
+        }
+        function calculateAttachmentCompatibility(a, b) {
+          if (!a || !b) return 2.5
+          if (a === 'Secure' || b === 'Secure') return 5
+          const best = { 'Anxious':['Secure'],'Avoidant':['Secure'],'Fearful':['Secure'],'Mixed (Secure-Anxious)':['Secure'],'Mixed (Secure-Avoidant)':['Secure'],'Mixed (Secure-Fearful)':['Secure'],'Mixed (Anxious-Avoidant)':['Secure'],'Mixed (Anxious-Fearful)':['Secure'],'Mixed (Avoidant-Fearful)':['Secure'] }
+          return (best[a]||[]).includes(b) ? 5 : 2.5
+        }
+        function calculateCommunicationCompatibility(a, b) {
+          if (!a || !b) return 4
+          if ((a === 'Aggressive' && b === 'Passive-Aggressive') || (b === 'Aggressive' && a === 'Passive-Aggressive')) return 0
+          if ((a === 'Assertive' && b === 'Passive') || (a === 'Passive' && b === 'Assertive')) return 10
+          const mat = { 'Assertive':{top1:'Assertive',top2:'Passive'}, 'Passive':{top1:'Assertive',top2:'Passive'}, 'Aggressive':{top1:'Assertive',top2:'Aggressive'}, 'Passive-Aggressive':{top1:'Assertive',top2:'Passive-Aggressive'} }
+          const c = mat[a]; if (!c) return 4
+          if (c.top1 === b) return 10; if (c.top2 === b) return 8; return 4
+        }
+        function calculateLifestyleCompatibility(p1, p2) {
+          if (!p1 || !p2) return 0
+          const a = p1.split(','), b = p2.split(','); if (a.length!==5 || b.length!==5) return 0
+          const w = [1.25,1.25,1.25,1.25,1.25]; let tot=0, max=0
+          for (let i=0;i<5;i++){ let q=0; if (i===0){ q=4 } else if (a[i]===b[i]){ q=4 } else if ((a[i]==='أ'&&b[i]==='ب')||(a[i]==='ب'&&b[i]==='أ')||(a[i]==='ب'&&b[i]==='ج')||(a[i]==='ج'&&b[i]==='ب')){ q=3 } else { q=0 }
+            tot += q*w[i]; max += 4*w[i]; }
+          let final = (tot/max)*25
+          const q5a=a[4], q5b=b[4]; if ((q5a==='أ'&&q5b==='ج')||(q5a==='ج'&&q5b==='أ')) final -= 5
+          return Math.max(0, final)
+        }
+        function calculateCoreValuesCompatibility(v1, v2) {
+          if (!v1 || !v2) return 0
+          const a=v1.split(','), b=v2.split(','); if (a.length!==5 || b.length!==5) return 0
+          let s=0; for (let i=0;i<5;i++){ if (a[i]===b[i]) s+=4; else if ((a[i]==='ب'&&(b[i]==='أ'||b[i]==='ج')) || (b[i]==='ب'&&(a[i]==='أ'||a[i]==='ج'))) s+=2; }
+          return s
+        }
+        function pairTotalScore(pa, pb){
+          const mbtiA = pa.mbti_personality_type || pa.survey_data?.mbtiType
+          const mbtiB = pb.mbti_personality_type || pb.survey_data?.mbtiType
+          const attA = pa.attachment_style || pa.survey_data?.attachmentStyle
+          const attB = pb.attachment_style || pb.survey_data?.attachmentStyle
+          const commA = pa.communication_style || pa.survey_data?.communicationStyle
+          const commB = pb.communication_style || pb.survey_data?.communicationStyle
+          const lifeA = pa.survey_data?.lifestylePreferences || (pa.survey_data?.answers ? [pa.survey_data.answers.lifestyle_1,pa.survey_data.answers.lifestyle_2,pa.survey_data.answers.lifestyle_3,pa.survey_data.answers.lifestyle_4,pa.survey_data.answers.lifestyle_5].join(',') : '')
+          const lifeB = pb.survey_data?.lifestylePreferences || (pb.survey_data?.answers ? [pb.survey_data.answers.lifestyle_1,pb.survey_data.answers.lifestyle_2,pb.survey_data.answers.lifestyle_3,pb.survey_data.answers.lifestyle_4,pb.survey_data.answers.lifestyle_5].join(',') : '')
+          const valsA = pa.survey_data?.coreValues || (pa.survey_data?.answers ? [pa.survey_data.answers.core_values_1,pa.survey_data.answers.core_values_2,pa.survey_data.answers.core_values_3,pa.survey_data.answers.core_values_4,pa.survey_data.answers.core_values_5].join(',') : '')
+          const valsB = pb.survey_data?.coreValues || (pb.survey_data?.answers ? [pb.survey_data.answers.core_values_1,pb.survey_data.answers.core_values_2,pb.survey_data.answers.core_values_3,pb.survey_data.answers.core_values_4,pb.survey_data.answers.core_values_5].join(',') : '')
+          return (
+            calculateMBTICompatibility(mbtiA, mbtiB) +
+            calculateAttachmentCompatibility(attA, attB) +
+            calculateCommunicationCompatibility(commA, commB) +
+            calculateLifestyleCompatibility(lifeA, lifeB) +
+            calculateCoreValuesCompatibility(valsA, valsB)
+          )
+        }
+        function calculateGroupScore(groupNums, pMap){
+          let total=0, pairs=0
+          for (let i=0;i<groupNums.length;i++){
+            for (let j=i+1;j<groupNums.length;j++){
+              const a=pMap.get(groupNums[i]); const b=pMap.get(groupNums[j]);
+              if (a && b){ total += pairTotalScore(a,b); pairs++ }
+            }
+          }
+          return pairs>0 ? Math.round((total/pairs)) : 0
+        }
+        async function buildWarnings(groupNums, pMap){
+          const warnings=[]
+          const participants = groupNums.map(n=>pMap.get(n)).filter(Boolean)
+          // Gender balance + female cap
+          const genders = participants.map(p=>p.gender || p.survey_data?.gender).filter(Boolean)
+          const male = genders.filter(g=>g==='male').length
+          const female = genders.filter(g=>g==='female').length
+          if (male===0 || female===0) warnings.push(`لا يوجد توازن بين الجنسين (${male}♂ / ${female}♀)`) 
+          if (female>2) warnings.push(`عدد الإناث يتجاوز الحد المسموح ( ${female} > 2 )`)
+          // Extrovert presence
+          const mbtis = participants.map(p=>p.mbti_personality_type || p.survey_data?.mbtiType).filter(Boolean)
+          const ext = mbtis.filter(t=>t && t[0]==='E').length
+          if (mbtis.length===participants.length && ext===0) warnings.push("لا يوجد أي منفتح (Extrovert) في المجموعة")
+          // Conversation depth mismatch
+          const conv = participants.map(p=>p.survey_data?.vibe_4).filter(Boolean)
+          const yes = conv.filter(v=>v==='نعم').length; const no = conv.filter(v=>v==='لا').length
+          if (yes>0 && no>0) warnings.push("تعارض في عمق المحادثة (لا يمكن مزج 'نعم' و'لا')")
+          // Payment status
+          const unpaid = participants.filter(p=>p.PAID_DONE===false).map(p=>p.assigned_number)
+          if (unpaid.length>0) warnings.push(`مشاركون غير مسددين: [${unpaid.join(', ')}]`)
+          // Wide age range (soft)
+          const ages = participants.map(p=>p.age || p.survey_data?.age).filter(a=>a!==undefined && a!==null)
+          if (ages.length===participants.length){ const rng=Math.max(...ages)-Math.min(...ages); if (rng>15) warnings.push(`فارق عمر كبير داخل المجموعة (${rng} سنة)`) }
+          // Previously matched pairs inside same group (current event)
+          if (groupNums.length>=2){
+            const setNums = groupNums
+            const { data: prev, error: prevErr } = await supabase
+              .from('match_results')
+              .select('participant_a_number, participant_b_number, round')
+              .eq('event_id', event_id)
+            if (!prevErr && prev){
+              for (const r of prev){
+                if (setNums.includes(r.participant_a_number) && setNums.includes(r.participant_b_number) && (r.round === null || r.round >= 0)){
+                  warnings.push(`الثنائي ${r.participant_a_number}×${r.participant_b_number} كانا متطابقين مسبقاً`)
+                }
+              }
+            }
+          }
+          return warnings
+        }
+
+        // 1) Load both groups
+        const { data: groupA, error: errA } = await supabase
+          .from('group_matches')
+          .select('*')
+          .eq('match_id', STATIC_MATCH_ID)
+          .eq('event_id', event_id)
+          .eq('group_number', groupA_number)
+          .single()
+        if (errA || !groupA) { return res.status(404).json({ error: 'Group A not found' }) }
+
+        const { data: groupB, error: errB } = await supabase
+          .from('group_matches')
+          .select('*')
+          .eq('match_id', STATIC_MATCH_ID)
+          .eq('event_id', event_id)
+          .eq('group_number', groupB_number)
+          .single()
+        if (errB || !groupB) { return res.status(404).json({ error: 'Group B not found' }) }
+
+        const arrA = [...(groupA.participant_numbers || [])]
+        const arrB = [...(groupB.participant_numbers || [])]
+        if (!arrA.includes(participantA)) { return res.status(400).json({ error: `Participant #${participantA} not in group ${groupA_number}` }) }
+        if (!arrB.includes(participantB)) { return res.status(400).json({ error: `Participant #${participantB} not in group ${groupB_number}` }) }
+
+        // 2) Build swapped arrays
+        const idxA = arrA.indexOf(participantA)
+        const idxB = arrB.indexOf(participantB)
+        const newA = [...arrA]; const newB = [...arrB]
+        if (groupA_number === groupB_number) {
+          // Swap positions inside the same group
+          newA[idxA] = participantB
+          newA[idxB] = participantA
+        } else {
+          newA[idxA] = participantB
+          newB[idxB] = participantA
+        }
+
+        // 3) Load participants data (for both groups)
+        const allNums = Array.from(new Set(groupA_number === groupB_number ? [...newA] : [...newA, ...newB]))
+        const { data: pData, error: pErr } = await supabase
+          .from('participants')
+          .select('assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, PAID_DONE, name')
+          .in('assigned_number', allNums)
+        if (pErr) { return res.status(500).json({ error: 'Failed fetching participants' }) }
+        const pMap = new Map(pData.map(p=>[p.assigned_number, p]))
+
+        // 4) Recompute scores
+        const scoreA = calculateGroupScore(newA, pMap)
+        const scoreB = groupA_number === groupB_number ? null : calculateGroupScore(newB, pMap)
+
+        // 5) Validate eligibility and build warnings
+        const warningsA = await buildWarnings(newA, pMap)
+        const warningsB = groupA_number === groupB_number ? [] : await buildWarnings(newB, pMap)
+        const hasWarnings = (warningsA.length + (warningsB?.length || 0)) > 0
+
+        // 6) If warnings and not override -> return for confirmation
+        if (hasWarnings && !allowOverride) {
+          return res.status(200).json({
+            success: false,
+            warnings: groupA_number === groupB_number
+              ? { [groupA_number]: warningsA }
+              : { [groupA_number]: warningsA, [groupB_number]: warningsB },
+            proposed: groupA_number === groupB_number
+              ? { [groupA_number]: { participant_numbers: newA, compatibility_score: scoreA } }
+              : { [groupA_number]: { participant_numbers: newA, compatibility_score: scoreA }, [groupB_number]: { participant_numbers: newB, compatibility_score: scoreB } }
+          })
+        }
+
+        // 7) Persist swap
+        function namesFor(groupNums){
+          return groupNums.map(n=>{
+            const p=pMap.get(n); return (p?.survey_data?.name) || p?.name || `المشارك #${n}`
+          })
+        }
+
+        if (groupA_number === groupB_number) {
+          const { error: upSame } = await supabase
+            .from('group_matches')
+            .update({ participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA })
+            .eq('match_id', STATIC_MATCH_ID)
+            .eq('event_id', event_id)
+            .eq('group_number', groupA_number)
+          if (upSame) { return res.status(500).json({ error: 'Failed updating group' }) }
+          return res.status(200).json({
+            success: true,
+            updated: { [groupA_number]: { participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA } },
+            warnings: { [groupA_number]: warningsA }
+          })
+        } else {
+          const { error: upA } = await supabase
+            .from('group_matches')
+            .update({ participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA })
+            .eq('match_id', STATIC_MATCH_ID)
+            .eq('event_id', event_id)
+            .eq('group_number', groupA_number)
+          if (upA) { return res.status(500).json({ error: 'Failed updating group A' }) }
+
+          const { error: upB } = await supabase
+            .from('group_matches')
+            .update({ participant_numbers: newB, participant_names: namesFor(newB), compatibility_score: scoreB })
+            .eq('match_id', STATIC_MATCH_ID)
+            .eq('event_id', event_id)
+            .eq('group_number', groupB_number)
+          if (upB) { return res.status(500).json({ error: 'Failed updating group B' }) }
+
+          return res.status(200).json({
+            success: true,
+            updated: {
+              [groupA_number]: { participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA },
+              [groupB_number]: { participant_numbers: newB, participant_names: namesFor(newB), compatibility_score: scoreB }
+            },
+            warnings: { [groupA_number]: warningsA, [groupB_number]: warningsB }
+          })
+        }
+
+      } catch (error) {
+        console.error('Error in swap-group-participants:', error)
+        return res.status(500).json({ error: 'Failed to swap group participants' })
+      }
+    }
+
     if (action === "get-all-match-history") {
       try {
         const { match_id } = req.body
@@ -2852,7 +3102,6 @@ export default async function handler(req, res) {
             results: groupMatches || [],
             calculatedPairs: [] // Groups don't have calculated pairs
           })
-          
         } else {
           // Fetch individual matches from match_results table
           const { data: matchResults, error: matchError } = await supabase
@@ -2867,7 +3116,7 @@ export default async function handler(req, res) {
             console.error("Error fetching fresh individual results:", matchError)
             return res.status(500).json({ error: matchError.message })
           }
-          
+
           // Get compatibility cache data for calculated pairs
           const { data: cacheData, error: cacheError } = await supabase
             .from("compatibility_cache")

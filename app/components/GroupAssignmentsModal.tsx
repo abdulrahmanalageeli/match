@@ -1,4 +1,5 @@
-import { X, Users, MapPin, Star } from "lucide-react"
+import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2 } from "lucide-react"
+import { useState } from "react"
 
 interface GroupAssignment {
   group_number: number
@@ -18,6 +19,8 @@ interface GroupAssignmentsModalProps {
   groupAssignments: GroupAssignment[]
   totalGroups: number
   totalParticipants: number
+  eventId?: number
+  onSwapApplied?: () => Promise<void> | void
 }
 
 export default function GroupAssignmentsModal({
@@ -25,9 +28,96 @@ export default function GroupAssignmentsModal({
   onClose,
   groupAssignments,
   totalGroups,
-  totalParticipants
+  totalParticipants,
+  eventId = 1,
+  onSwapApplied
 }: GroupAssignmentsModalProps) {
   if (!isOpen) return null
+
+  const [selected, setSelected] = useState<{ group: number; participant: number } | null>(null)
+  const [swapping, setSwapping] = useState(false)
+
+  async function attemptSwap(target: { group: number; participant: number }) {
+    if (!selected) {
+      setSelected(target)
+      return
+    }
+
+    // If clicking same participant, unselect
+    if (selected.group === target.group && selected.participant === target.participant) {
+      setSelected(null)
+      return
+    }
+
+    // Build swap payload so that A is the first selected, B is the second selected
+    const payload = {
+      action: "swap-group-participants",
+      event_id: eventId,
+      groupA_number: selected.group,
+      participantA: selected.participant,
+      groupB_number: target.group,
+      participantB: target.participant,
+      allowOverride: false
+    }
+
+    setSwapping(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data?.error || "فشل تبديل المشاركين")
+        setSelected(null)
+        return
+      }
+
+      // If there are warnings and not overridden, ask for confirmation
+      if (data && data.success === false && data.warnings) {
+        const wa = data.warnings[payload.groupA_number] || []
+        const wb = data.warnings[payload.groupB_number] || []
+        const proposedA = data.proposed?.[payload.groupA_number]?.compatibility_score
+        const proposedB = data.proposed?.[payload.groupB_number]?.compatibility_score
+        const msg = [
+          "⚠️ توجد تحذيرات أهلية للمجموعتين:",
+          wa.length ? `\nالمجموعة ${payload.groupA_number}:\n- ${wa.join("\n- ")}` : "",
+          wb.length ? `\nالمجموعة ${payload.groupB_number}:\n- ${wb.join("\n- ")}` : "",
+          (proposedA !== undefined && proposedB !== undefined)
+            ? `\nالدراجات المقترحة بعد التبديل → المجموعة ${payload.groupA_number}: ${proposedA}%، المجموعة ${payload.groupB_number}: ${proposedB}%`
+            : ""
+        ].filter(Boolean).join("\n")
+
+        const proceed = confirm(`${msg}\n\nهل تريد المتابعة على أي حال؟`)
+        if (!proceed) { setSelected(null); return }
+
+        // Re-send with override=true to persist
+        const res2 = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, allowOverride: true })
+        })
+        const data2 = await res2.json()
+        if (!res2.ok || !data2.success) {
+          alert(data2?.error || "لم يتم حفظ التبديل")
+          setSelected(null)
+          return
+        }
+      }
+
+      // Success path (no warnings or override applied)
+      if (onSwapApplied) await onSwapApplied()
+      setSelected(null)
+    } catch (err) {
+      console.error("swap error", err)
+      alert("حدث خطأ أثناء التبديل")
+      setSelected(null)
+    } finally {
+      setSwapping(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -55,6 +145,21 @@ export default function GroupAssignmentsModal({
 
         {/* Content */}
         <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          {/* Swap helper */}
+          <div className="mb-4 flex items-center gap-2 text-xs sm:text-sm text-slate-300">
+            <Shuffle className="w-4 h-4" />
+            <span>اضغط على مشارك ثم اضغط على مشارك آخر للتبديل بين المجموعتين.</span>
+            {selected && (
+              <span className="inline-flex items-center gap-1 text-yellow-300">
+                <AlertTriangle className="w-3 h-3" /> محدد: المجموعة {selected.group} • #{selected.participant}
+              </span>
+            )}
+            {swapping && (
+              <span className="inline-flex items-center gap-1 text-cyan-300">
+                <Loader2 className="w-3 h-3 animate-spin" /> جاري الحفظ...
+              </span>
+            )}
+          </div>
           {groupAssignments.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-slate-500 mx-auto mb-4" />
@@ -103,7 +208,12 @@ export default function GroupAssignmentsModal({
                       {group.participants.map((participant) => (
                         <div
                           key={participant.number}
-                          className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border border-white/20 hover:border-cyan-400/40 transition-all"
+                          onClick={() => !swapping && attemptSwap({ group: group.group_number, participant: participant.number })}
+                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border transition-all cursor-pointer ${
+                            selected && selected.group === group.group_number && selected.participant === participant.number
+                              ? 'border-cyan-300 ring-2 ring-cyan-400/40'
+                              : 'border-white/20 hover:border-cyan-400/40'
+                          }`}
                         >
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
                             <span className="text-white text-xs font-bold">#{participant.number}</span>

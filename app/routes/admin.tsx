@@ -5065,6 +5065,8 @@ Proceed?`
         groupAssignments={groupAssignments}
         totalGroups={totalGroups}
         totalParticipants={totalGroupParticipants}
+        eventId={currentEventId}
+        onSwapApplied={async () => { await fetchGroupAssignments() }}
       />
 
       {/* Participant QR Code Modal */}

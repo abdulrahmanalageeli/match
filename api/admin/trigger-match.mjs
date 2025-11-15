@@ -1187,16 +1187,58 @@ async function generateGroupMatches(participants, match_id, eventId) {
     // Perfect groups of 4
     console.log("✅ Perfect grouping achieved with groups of 4")
   } else if (remainingParticipants.length >= 4) {
-    // 4+ extra people - create a new group with all of them
-    groups.push([...remainingParticipants])
-    remainingParticipants.forEach(p => usedParticipants.add(p))
-    console.log(`✅ Created new group with ${remainingParticipants.length} remaining participants: [${remainingParticipants.join(', ')}]`)
+    // 4+ extra people - split into valid chunks (sizes 3..6). Prefer larger groups.
+    const rem = [...remainingParticipants]
+    const created = []
+    const sizes = []
+    let n = rem.length
+    while (n > 0) {
+      if (n >= 13) { sizes.push(6); n -= 6; }
+      else if (n >= 12) { sizes.push(6, 6); n = 0; }
+      else if (n === 11) { sizes.push(6, 5); n = 0; }
+      else if (n === 10) { sizes.push(6, 4); n = 0; }
+      else if (n === 9) { sizes.push(5, 4); n = 0; }
+      else if (n === 8) { sizes.push(4, 4); n = 0; }
+      else if (n === 7) { sizes.push(4, 3); n = 0; }
+      else if (n >= 3 && n <= 6) { sizes.push(n); n = 0; }
+      else {
+        // n is 1 or 2: adjust by moving one from the last size if possible
+        if (sizes.length > 0 && sizes[sizes.length - 1] > 3) {
+          sizes[sizes.length - 1] -= 1
+          sizes.push(n + 1)
+          n = 0
+        } else {
+          // Fallback: merge into last (should be rare)
+          if (sizes.length > 0) {
+            sizes[sizes.length - 1] += n
+          }
+          n = 0
+        }
+      }
+    }
+    for (const size of sizes) {
+      const chunk = rem.splice(0, size)
+      groups.push([...chunk])
+      chunk.forEach(p => usedParticipants.add(p))
+      created.push(chunk)
+    }
+    console.log(`✅ Created ${created.length} new group(s) from remaining participants (sizes: ${created.map(c => c.length).join(', ')})`)
   } else if (remainingParticipants.length === 1) {
-    // 1 extra person - add to most compatible group
+    // 1 extra person - add to most compatible group if space exists (max 6)
     const extraParticipant = remainingParticipants[0]
     const bestGroupIndex = findMostCompatibleGroupForParticipant(extraParticipant, groups, pairScores)
-    groups[bestGroupIndex].push(extraParticipant)
-    console.log(`✅ Added participant ${extraParticipant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+    if (groups[bestGroupIndex] && groups[bestGroupIndex].length < 6) {
+      groups[bestGroupIndex].push(extraParticipant)
+      console.log(`✅ Added participant ${extraParticipant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+    } else {
+      const altIdx = groups.findIndex(g => g.length < 6)
+      if (altIdx !== -1) {
+        groups[altIdx].push(extraParticipant)
+        console.log(`✅ Added participant ${extraParticipant} to alternative group ${altIdx + 1}: [${groups[altIdx].join(', ')}]`)
+      } else {
+        console.log(`⚠️ No space to place ${extraParticipant} without exceeding 6; leaving unplaced`)
+      }
+    }
   } else if (remainingParticipants.length === 2) {
     // 2 extra people - add both to most compatible group OR split between two groups
     const [extra1, extra2] = remainingParticipants
@@ -1208,15 +1250,22 @@ async function generateGroupMatches(participants, match_id, eventId) {
       // Add both to the same group
       groups[bestGroupForBoth].push(extra1, extra2)
       console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${bestGroupForBoth + 1}: [${groups[bestGroupForBoth].join(', ')}]`)
-          } else {
+    } else {
       // Split between two different groups
       const group1Index = findMostCompatibleGroupForParticipant(extra1, groups, pairScores)
-      groups[group1Index].push(extra1)
-      
+      if (groups[group1Index] && groups[group1Index].length < 6) {
+        groups[group1Index].push(extra1)
+      } else {
+        console.log(`⚠️ No space to place ${extra1} without exceeding 6; leaving unplaced`)
+      }
+
       const group2Index = findMostCompatibleGroupForParticipant(extra2, groups.map((g, i) => i === group1Index ? [...g] : g), pairScores)
-      groups[group2Index].push(extra2)
-      
-      console.log(`✅ Split participants: ${extra1} to group ${group1Index + 1}, ${extra2} to group ${group2Index + 1}`)
+      if (groups[group2Index] && groups[group2Index].length < 6) {
+        groups[group2Index].push(extra2)
+      } else {
+        console.log(`⚠️ No space to place ${extra2} without exceeding 6; leaving unplaced`)
+      }
+      console.log(`✅ Attempted split for two participants across groups (respecting max size 6)`)
     }
   } else if (remainingParticipants.length === 3) {
     // 3 extra people - create a new group OR distribute among existing groups
@@ -1231,30 +1280,35 @@ async function generateGroupMatches(participants, match_id, eventId) {
         groups.push([...remainingParticipants])
         console.log(`⚠️ Created new group of 3 (no gender balance possible): [${remainingParticipants.join(', ')}]`)
       }
-        } else {
-      // Distribute among existing groups (up to 2 per group to max 6)
+    } else {
+      // Distribute among existing groups (up to 2 per group to max 6). If no space for all, make a new group of 3.
       const sortedByCompatibility = remainingParticipants.map(p => ({
         participant: p,
         bestGroupIndex: findMostCompatibleGroupForParticipant(p, groups, pairScores),
         score: calculateParticipantGroupCompatibility(p, groups[findMostCompatibleGroupForParticipant(p, groups, pairScores)], pairScores)
       })).sort((a, b) => b.score - a.score)
-      
+
+      const unplaced = []
       for (const { participant, bestGroupIndex } of sortedByCompatibility) {
-        if (groups[bestGroupIndex].length < 6) {
+        if (groups[bestGroupIndex] && groups[bestGroupIndex].length < 6) {
           groups[bestGroupIndex].push(participant)
           console.log(`✅ Added participant ${participant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
-      } else {
-          // Find another group with space
+        } else {
           const alternativeGroupIndex = groups.findIndex(g => g.length < 6)
           if (alternativeGroupIndex !== -1) {
             groups[alternativeGroupIndex].push(participant)
             console.log(`✅ Added participant ${participant} to alternative group ${alternativeGroupIndex + 1}: [${groups[alternativeGroupIndex].join(', ')}]`)
-    } else {
-            // Create new group if no space (shouldn't happen with proper distribution)
-            groups.push([participant])
-            console.log(`⚠️ Created single-person group for ${participant}`)
+          } else {
+            unplaced.push(participant)
           }
         }
+      }
+
+      if (unplaced.length === 3) {
+        groups.push([...unplaced])
+        console.log(`✅ No space in existing groups; created new group of 3: [${unplaced.join(', ')}]`)
+      } else if (unplaced.length > 0) {
+        console.log(`⚠️ Could not place ${unplaced.length} participant(s) without exceeding size 6; they will be excluded from groups: [${unplaced.join(', ')}]`)
       }
     }
   }
@@ -1280,10 +1334,16 @@ async function generateGroupMatches(participants, match_id, eventId) {
     console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} people)`);
   });
 
-  // Convert groups to group_matches table format
+  // Convert groups to group_matches table format (only sizes 3..6)
+  const validGroups = groups.filter(g => g.length >= 3 && g.length <= 6)
+  const skippedGroups = groups.filter(g => g.length < 3 || g.length > 6)
+  if (skippedGroups.length > 0) {
+    console.log(`⚠️ Skipping ${skippedGroups.length} group(s) outside allowed size [3..6]: sizes = ${skippedGroups.map(g => g.length).join(', ')}`)
+  }
+
   const groupMatches = []
-  for (let i = 0; i < groups.length; i++) {
-    const group = groups[i]
+  for (let i = 0; i < validGroups.length; i++) {
+    const group = validGroups[i]
     const groupScore = calculateGroupCompatibilityScore(group, pairScores)
     
     // Assign table numbers: sequential numbering for groups

@@ -400,7 +400,8 @@ export default function ParticipantResultsModal({
         lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
         core_values_compatibility_score: pair.core_values_compatibility_score,
         vibe_compatibility_score: pair.vibe_compatibility_score,
-        is_actual_match: pair.is_actual_match
+        is_actual_match: pair.is_actual_match,
+        humor_early_openness_bonus: pair.humor_early_openness_bonus
       }
     })
     

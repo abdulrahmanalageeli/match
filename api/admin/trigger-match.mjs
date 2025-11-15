@@ -2618,6 +2618,7 @@ export default async function handler(req, res) {
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
             compatibility_score: totalCompatibility,
+            humor_early_openness_bonus: compatibilityResult.humor_early_openness_bonus,
             mbti_compatibility_score: compatibilityResult.mbtiScore,
             attachment_compatibility_score: compatibilityResult.attachmentScore,
             communication_compatibility_score: compatibilityResult.communicationScore,

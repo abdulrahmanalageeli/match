@@ -35,7 +35,9 @@ import {
   Bug,
   UserPlus,
   Download,
-  Zap
+  Zap,
+  Calendar,
+  CalendarCheck
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -125,7 +127,7 @@ export default function AdminPage() {
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
-  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder'>('match');
+  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder' | 'reminder'>('match');
   
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
@@ -177,7 +179,7 @@ export default function AdminPage() {
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
 
   // Function to generate WhatsApp message for a participant
-  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'early-match' | 'payment-reminder' = 'match') => {
+  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'early-match' | 'payment-reminder' | 'reminder' = 'match') => {
     const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
@@ -249,8 +251,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 ⏰ *مهم جداً:* يرجى إتمام التحويل في أقرب وقت ممكن لتأكيد حجزكم.
 
 💰 *رسوم المشاركة:*
-🔸 45 ريال (التأكيد قبل الجمعة 3:00 مساءً)
-🔸 65 ريال (التأكيد بعد الجمعة 3:00 مساءً)
+🔸 45 ريال (التسجيل قبل الجمعة 3:00 مساءً)
+🔸 65 ريال (التسجيل بعد الجمعة 3:00 مساءً)
 
 ⚠️ *تحذير:* في حالة عدم استلام التحويل قريباً، سيتم إعطاء الفرصة لمشارك آخر.
 
@@ -294,6 +296,36 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 🔥 لا تفوت هذه الفرصة!
 
 فريق التوافق الأعمى`;
+    } else if (templateType === 'reminder') {
+      return `*التوافق الأعمى* 🔔
+
+السلام عليكم *${name}*،
+
+⏰ *تذكير مهم بموعد الفعالية*
+
+🗓️ *غداً الأحد 16 نوفمبر 2025*
+🕰️ *الساعة 8:15 مساءً*
+📍 *كوفي بلانيت - الدور الثاني*
+
+✅ *تأكد من:*
+• وصولك قبل الموعد بـ 10 دقائق
+• إحضار هاتفك المحمول
+
+💙 *نتطلع لرؤيتكم!* نرحب بحضوركم بكل سرور حتى لو تأخرتم قليلاً. إن واجهتكم أي ظروف طارئة تمنعكم من الحضور، نرجو إبلاغنا فوراً لنتمكن من إعطاء الفرصة لمشارك على قائمة الانتظار.
+
+📱 *معلوماتك للفعالية:*
+رقم المشارك: *${assignedNumber}*
+الرمز الخاص: *${secureToken}*
+
+🗺️ *الموقع:*
+https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+
+🔗 *رابط حسابك:*
+https://match-omega.vercel.app/welcome?token=${secureToken}
+
+🎉 *نتطلع لرؤيتك غداً!*
+
+فريق التوافق الأعمى`;
     }
 
     return `*التوافق الأعمى* ✨
@@ -306,8 +338,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 إذا لم تتمكنوا من الحضور، يرجى إبلاغنا فوراً حتى نعطي الفرصة لمشارك آخر.
 
 💰 *رسوم المشاركة:*
-🔸 45 ريال (التأكيد قبل الجمعة 3:00 مساءً)
-🔸 65 ريال (التأكيد بعد الجمعة 3:00 مساءً)
+🔸 45 ريال (التسجيل قبل الجمعة 3:00 مساءً)
+🔸 65 ريال (التسجيل بعد الجمعة 3:00 مساءً)
 
 *طرق الدفع:*
 ✦ STC Pay: 0560899666
@@ -374,7 +406,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
       // Create and download file
       const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 
-                           exportTemplateType === 'early-match' ? 'early_match_notification' : 'match_notification';
+                           exportTemplateType === 'early-match' ? 'early_match_notification' : 
+                           exportTemplateType === 'reminder' ? 'event_reminder' : 'match_notification';
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for proper UTF-8
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -389,7 +422,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       await markParticipantsAsMessageSent(Array.from(selectedParticipants));
       
       const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 
-                            exportTemplateType === 'early-match' ? 'إشعار مبكر' : 'إشعار المطابقة';
+                            exportTemplateType === 'early-match' ? 'إشعار مبكر' : 
+                            exportTemplateType === 'reminder' ? 'تذكير الفعالية' : 'إشعار المطابقة';
       toast.success(`تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
       
       // Refresh participants list to show updated status
@@ -4404,12 +4438,13 @@ Proceed?`
                 <div className="relative">
                   <select
                     value={exportTemplateType}
-                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'early-match' | 'payment-reminder')}
+                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'early-match' | 'payment-reminder' | 'reminder')}
                     className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
                   >
                     <option value="match" className="bg-slate-800 text-white">Match Notification</option>
                     <option value="early-match" className="bg-slate-800 text-white">Early Match Notification</option>
                     <option value="payment-reminder" className="bg-slate-800 text-white">Payment Reminder</option>
+                    <option value="reminder" className="bg-slate-800 text-white">Event Reminder</option>
                   </select>
                   <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>
@@ -4573,6 +4608,67 @@ Proceed?`
                         </div>
                       </div>
                     )}
+                    
+                    {/* Registration Time (created_at) */}
+                    {p.created_at && (() => {
+                      const utcDate = new Date(p.created_at);
+                      const riyadhDate = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                      
+                      // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
+                      const isLate = riyadhDate > cutoffDate;
+                      
+                      const dateTimeStr = riyadhDate.toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      
+                      return (
+                        <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-400' : 'text-blue-400'}`}>
+                          <Calendar className="w-3 h-3" />
+                          <span>{dateTimeStr}</span>
+                          {isLate && (
+                            <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded text-[10px] font-bold border border-orange-400/30">
+                              LATE
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                    
+                    {/* Next Event Signup Time */}
+                    {p.next_event_signup_timestamp && (() => {
+                      const utcDate = new Date(p.next_event_signup_timestamp);
+                      const riyadhDate = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
+                      
+                      // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
+                      const isLate = riyadhDate > cutoffDate;
+                      
+                      const dateTimeStr = riyadhDate.toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      });
+                      
+                      return (
+                        <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-400' : 'text-green-400'}`}>
+                          <CalendarCheck className="w-3 h-3" />
+                          <span>Next: {dateTimeStr}</span>
+                          {isLate && (
+                            <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-300 rounded text-[10px] font-bold border border-orange-400/30">
+                              LATE
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     
                     {/* Last Update Time (Relative) */}
                     {p.updated_at && (() => {

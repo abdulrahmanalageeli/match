@@ -375,59 +375,25 @@ function checkGenderCompatibility(participantA, participantB) {
     return true
   }
   
-  // Priority 1: If either participant has any_gender_preference, they can match with anyone
-  // any_gender means: "I'm open to matching with both males and females"
-  if (anyGenderPrefA || anyGenderPrefB) {
-    // Participant A has any_gender preference
-    if (anyGenderPrefA) {
-      // A accepts any gender, so check what B wants
-      if (anyGenderPrefB) {
-        // Both accept any gender - always compatible
-        console.log(`✅ Any-gender match: ${participantA.assigned_number} (${genderA}, any) × ${participantB.assigned_number} (${genderB}, any) - both accept any gender`)
-        return true
-      } else if (sameGenderPrefB) {
-        // B wants same gender only - check if they're the same gender
-        if (genderA === genderB) {
-          console.log(`✅ Any-gender + same-gender match: ${participantA.assigned_number} (${genderA}, any) × ${participantB.assigned_number} (${genderB}, same) - same gender`)
-          return true
-        } else {
-          console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}, any) × ${participantB.assigned_number} (${genderB}, same) - B wants same gender but different genders`)
-          return false
-        }
-      } else {
-        // B wants opposite gender (default) - check if they're opposite gender
-        if (genderA !== genderB) {
-          console.log(`✅ Any-gender + opposite-gender match: ${participantA.assigned_number} (${genderA}, any) × ${participantB.assigned_number} (${genderB}, opposite) - opposite genders`)
-          return true
-        } else {
-          console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}, any) × ${participantB.assigned_number} (${genderB}, opposite) - B wants opposite gender but same genders`)
-          return false
-        }
-      }
+  // Rule Set 3: "Any Gender" Preference Matching
+  if (anyGenderPrefA && anyGenderPrefB) {
+    console.log(`✅ Gender compatible (any/any): #${participantA.assigned_number} (${genderA}) vs #${participantB.assigned_number} (${genderB})`)
+    return true
+  }
+
+  // Rule Set 2: Mixed Preference (Any + Same/Opposite)
+  if (anyGenderPrefA && !anyGenderPrefB) { // A is 'any', B is 'same' or 'opposite'
+    if (sameGenderPrefB) {
+      return genderA === genderB
+    } else { // B is 'opposite'
+      return genderA !== genderB
     }
-    
-    // Participant B has any_gender preference (and A doesn't)
-    if (anyGenderPrefB) {
-      // B accepts any gender, so check what A wants
-      if (sameGenderPrefA) {
-        // A wants same gender only - check if they're the same gender
-        if (genderA === genderB) {
-          console.log(`✅ Same-gender + any-gender match: ${participantA.assigned_number} (${genderA}, same) × ${participantB.assigned_number} (${genderB}, any) - same gender`)
-          return true
-        } else {
-          console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}, same) × ${participantB.assigned_number} (${genderB}, any) - A wants same gender but different genders`)
-          return false
-        }
-      } else {
-        // A wants opposite gender (default) - check if they're opposite gender
-        if (genderA !== genderB) {
-          console.log(`✅ Opposite-gender + any-gender match: ${participantA.assigned_number} (${genderA}, opposite) × ${participantB.assigned_number} (${genderB}, any) - opposite genders`)
-          return true
-        } else {
-          console.log(`🚫 Gender mismatch: ${participantA.assigned_number} (${genderA}, opposite) × ${participantB.assigned_number} (${genderB}, any) - A wants opposite gender but same genders`)
-          return false
-        }
-      }
+  }
+  if (anyGenderPrefB && !anyGenderPrefA) { // B is 'any', A is 'same' or 'opposite'
+    if (sameGenderPrefA) {
+      return genderA === genderB
+    } else { // A is 'opposite'
+      return genderA !== genderB
     }
   }
   

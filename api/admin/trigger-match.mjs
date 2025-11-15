@@ -465,8 +465,8 @@ function checkAgeCompatibility(participantA, participantB) {
   const ageB = participantB.age || participantB.survey_data?.age;
 
   if (!ageA || !ageB) {
-    console.warn(`⚠️ Missing age info for participants ${participantA.assigned_number} or ${participantB.assigned_number}`);
-    return true;
+    console.warn(`🚫 Age mismatch (missing info): #${participantA.assigned_number} or #${participantB.assigned_number}`);
+    return false;
   }
 
   let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender') || participantA.survey_data?.answers?.gender_preference === 'any_gender';
@@ -490,23 +490,21 @@ function checkAgeCompatibility(participantA, participantB) {
   }
 
   // Rule Set 1: Standard Matching (Default)
-  const isCompatible = (p1Age, p2Age) => {
-    if (p1Age < 40) {
-      return Math.abs(p1Age - p2Age) <= 3;
-    }
-    // p1Age >= 40
-    return p2Age >= p1Age - 5 && p2Age <= p1Age + 10;
-  };
-
-  const isReciprocal = isCompatible(ageA, ageB) && isCompatible(ageB, ageA);
-
-  if (isReciprocal) {
-    console.log(`✅ Age compatible (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB})`);
-  } else {
-    console.log(`🚫 Age mismatch (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB})`);
+  const ageDifference = Math.abs(ageA - ageB);
+  let maxGap = 3;
+  if (ageA >= 40 || ageB >= 40) {
+    maxGap = 5;
   }
 
-  return isReciprocal;
+  const isStandardCompatible = ageDifference <= maxGap;
+
+  if (isStandardCompatible) {
+    console.log(`✅ Age compatible (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
+  } else {
+    console.log(`🚫 Age mismatch (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
+  }
+
+  return isStandardCompatible;
 }
 
 // Function to check interaction style compatibility (matching determinants)

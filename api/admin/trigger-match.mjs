@@ -1057,7 +1057,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
   console.log(`\n👥 Eligible participants: [${eligibleParticipants.map(p => p.assigned_number).join(', ')}]\n`)
   
   if (eligibleParticipants.length < 3) {
-    throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
+    throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants. ${participants.name}`)
   }
 
   // Calculate FULL compatibility scores for all pairs (WITHOUT AI vibe - groups only)

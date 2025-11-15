@@ -8,6 +8,9 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// Preview guard to skip ALL DB writes in non-mutating flows
+let SKIP_DB_WRITES = false
+
 // Helper function to auto-save results to admin_results table
 async function autoSaveAdminResults(eventId, matchType, generationType, matchResults, calculatedPairs, participantResults, performance, skipAI, excludedPairs, excludedParticipants, lockedMatches) {
   try {
@@ -615,14 +618,16 @@ async function getCachedCompatibility(participantA, participantB) {
       .single()
       
     if (data && !error) {
-      // Update usage statistics
-      await supabase
-        .from('compatibility_cache')
-        .update({ 
-          last_used: new Date().toISOString(),
-          use_count: data.use_count + 1 
-        })
-        .eq('id', data.id)
+      // Update usage statistics (skip in preview mode)
+      if (!SKIP_DB_WRITES) {
+        await supabase
+          .from('compatibility_cache')
+          .update({ 
+            last_used: new Date().toISOString(),
+            use_count: data.use_count + 1 
+          })
+          .eq('id', data.id)
+      }
         
       console.log(`🎯 Cache HIT: #${smaller}-#${larger} (used ${data.use_count + 1} times)`)
       return {
@@ -649,6 +654,7 @@ async function getCachedCompatibility(participantA, participantB) {
 // Function to store compatibility result in cache
 async function storeCachedCompatibility(participantA, participantB, scores) {
   try {
+    if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip cache store'); return }
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
     
@@ -1847,7 +1853,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false } = req.body || {}
+  
+  // Preview mode: disable all DB writes (no inserts/updates/RPC)
+  SKIP_DB_WRITES = !!preview
   
   // Handle pre-cache action
   if (action === "pre-cache") {
@@ -2311,8 +2320,12 @@ export default async function handler(req, res) {
   console.log(`🎯 Request body eventId:`, req.body?.eventId)
 
   try {
-    // Ensure organizer participant exists for potential odd-participant matches
-    await ensureOrganizerParticipant(match_id);
+    // Ensure organizer participant exists for potential odd-participant matches (skip in preview mode)
+    if (!SKIP_DB_WRITES) {
+      await ensureOrganizerParticipant(match_id);
+    } else {
+      console.log('🧪 Preview mode: skipping ensureOrganizerParticipant (no DB writes)')
+    }
 
     // Check existing event_finished status for this event_id to preserve it
     let existingEventFinishedStatus = null
@@ -2393,6 +2406,13 @@ export default async function handler(req, res) {
       if (excludedCount > 0) {
         console.log(`✅ Filtered out ${excludedCount} excluded participants (${eligibleParticipants.length} remaining eligible)`)
       }
+    }
+
+    // Apply paid-only filter if requested
+    if (paidOnly) {
+      const before = eligibleParticipants.length
+      eligibleParticipants = eligibleParticipants.filter(p => p.PAID_DONE)
+      console.log(`💰 Paid-only filter: ${eligibleParticipants.length}/${before} participants (PAID_DONE=true)`)
     }
 
     // Handle view all matches for a single participant
@@ -2549,16 +2569,18 @@ export default async function handler(req, res) {
               cached: true
             }
             
-            // Update cache usage statistics in background (don't await)
-            supabase
-              .from('compatibility_cache')
-              .update({ 
-                last_used: new Date().toISOString(),
-                use_count: cachedData.use_count + 1 
-              })
-              .eq('id', cachedData.id)
-              .then(() => {})
-              .catch(err => console.error('Cache update error:', err))
+            // Update cache usage statistics in background (don't await) - skip in preview
+            if (!SKIP_DB_WRITES) {
+              supabase
+                .from('compatibility_cache')
+                .update({ 
+                  last_used: new Date().toISOString(),
+                  use_count: cachedData.use_count + 1 
+                })
+                .eq('id', cachedData.id)
+                .then(() => {})
+                .catch(err => console.error('Cache update error:', err))
+            }
           } else {
             // Cache MISS - calculate fresh
             cacheMisses++
@@ -2907,7 +2929,11 @@ export default async function handler(req, res) {
       // Continue without locked matches rather than failing
     }
 
-    const lockedPairs = lockedMatches || []
+    let lockedPairs = lockedMatches || []
+    if (ignoreLocked) {
+      console.log('🧪 Preview mode: ignoring locked matches')
+      lockedPairs = []
+    }
     console.log(`🔒 Found ${lockedPairs.length} locked matches`)
     if (lockedPairs.length > 0) {
       lockedPairs.forEach(lock => {
@@ -3127,15 +3153,17 @@ export default async function handler(req, res) {
           }
           
           // Update cache usage statistics in background (don't await)
-          supabase
-            .from('compatibility_cache')
-            .update({ 
-              last_used: new Date().toISOString(),
-              use_count: cachedData.use_count + 1 
-            })
-            .eq('id', cachedData.id)
-            .then(() => {})
-            .catch(err => console.error('Cache update error:', err))
+          if (!SKIP_DB_WRITES) {
+            supabase
+              .from('compatibility_cache')
+              .update({ 
+                last_used: new Date().toISOString(),
+                use_count: cachedData.use_count + 1 
+              })
+              .eq('id', cachedData.id)
+              .then(() => {})
+              .catch(err => console.error('Cache update error:', err))
+          }
         } else {
           // Cache MISS - calculate fresh
           cacheMisses++
@@ -3488,14 +3516,18 @@ export default async function handler(req, res) {
       finalMatches.push(...roundMatches)
     }
 
-    // Insert new matches
-    console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}`)
-    const { error: insertError } = await supabase
-      .from("match_results")
-      .insert(finalMatches)
-    if (insertError) {
-      console.error("🔥 Error inserting matches:", insertError)
-      throw insertError
+    // Insert new matches (skip in preview mode)
+    if (!SKIP_DB_WRITES) {
+      console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}`)
+      const { error: insertError } = await supabase
+        .from("match_results")
+        .insert(finalMatches)
+      if (insertError) {
+        console.error("🔥 Error inserting matches:", insertError)
+        throw insertError
+      }
+    } else {
+      console.log(`🧪 Preview mode: skipping DB insert of ${finalMatches.length} matches`)
     }
 
     // Prepare data for response and auto-save
@@ -3520,6 +3552,7 @@ export default async function handler(req, res) {
       lifestyle_compatibility_score: pair.lifestyleScore,
       core_values_compatibility_score: pair.coreValuesScore,
       vibe_compatibility_score: pair.vibeScore,
+      humor_early_openness_bonus: pair.bonusType,
       reason: pair.reason,
       is_actual_match: finalMatches.some(match => 
         (match.participant_a_number === pair.a && match.participant_b_number === pair.b) ||
@@ -3527,35 +3560,44 @@ export default async function handler(req, res) {
       )
     }))
 
-    // Auto-save results to admin_results table
+    // Auto-save results to admin_results table (skip in preview mode)
     const generationType = skipAI ? 'no-ai' : (cacheHits > 0 ? 'cached' : 'ai')
-    const sessionId = await autoSaveAdminResults(
-      eventId, 
-      'individual', 
-      generationType, 
-      finalMatches, 
-      calculatedPairs, 
-      [], // participantResults will be generated in admin panel
-      performance, 
-      skipAI, 
-      excludedPairs, 
-      excludedParticipants, 
-      lockedPairs
-    )
+    let sessionId = null
+    if (!SKIP_DB_WRITES) {
+      sessionId = await autoSaveAdminResults(
+        eventId, 
+        'individual', 
+        generationType, 
+        finalMatches, 
+        calculatedPairs, 
+        [], // participantResults will be generated in admin panel
+        performance, 
+        skipAI, 
+        excludedPairs, 
+        excludedParticipants, 
+        lockedPairs
+      )
+    } else {
+      console.log('🧪 Preview mode: skipping auto-save of admin results')
+    }
 
-    // Record cache session metadata (same as pre-cache)
+    // Record cache session metadata (same as pre-cache) - skip in preview mode
     try {
-      console.log(`💾 Recording cache session metadata for match generation...`)
-      await supabase.rpc('record_cache_session', {
-        p_event_id: eventId,
-        p_participants_cached: eligibleParticipants.length,
-        p_pairs_cached: cacheMisses, // Only count newly cached pairs
-        p_duration_ms: totalTime,
-        p_ai_calls: aiCalls,
-        p_cache_hit_rate: parseFloat(cacheHitRate),
-        p_notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`
-      })
-      console.log(`✅ Cache session metadata recorded`)
+      if (!SKIP_DB_WRITES) {
+        console.log(`💾 Recording cache session metadata for match generation...`)
+        await supabase.rpc('record_cache_session', {
+          p_event_id: eventId,
+          p_participants_cached: eligibleParticipants.length,
+          p_pairs_cached: cacheMisses, // Only count newly cached pairs
+          p_duration_ms: totalTime,
+          p_ai_calls: aiCalls,
+          p_cache_hit_rate: parseFloat(cacheHitRate),
+          p_notes: `Match generation: ${finalMatches.length} matches created, ${cacheMisses} new cache entries, ${cacheHits} cache hits`
+        })
+        console.log(`✅ Cache session metadata recorded`)
+      } else {
+        console.log('🧪 Preview mode: skipping cache session metadata RPC')
+      }
     } catch (metaError) {
       console.error("⚠️ Failed to record cache metadata (non-fatal):", metaError)
     }

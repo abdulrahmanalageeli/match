@@ -3177,6 +3177,47 @@ Proceed?`
                   Generate Matches
                 </button>
 
+                {/* Paid-Only Preview (No DB Writes, Ignore Locked) */}
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `🧪 Preview PAID-ONLY matches for Event ${currentEventId}?\n\nThis will:\n• Use only participants with PAID_DONE = true\n• Ignore ALL locked matches\n• NOT write anything to the database (no inserts, no autosave)`
+                    if (excludedPairs.length > 0) {
+                      confirmMessage += `\n\n⚠️ Excluded pairs WILL still be enforced (${excludedPairs.length}):\n${excludedPairs.map(p => `#${p.participant1_number} ↔ #${p.participant2_number}`).join('\n')}`
+                    }
+                    if (!confirm(confirmMessage)) return
+                    setLoading(true)
+                    try {
+                      const res = await fetch("/api/admin/trigger-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          eventId: currentEventId,
+                          preview: true,
+                          paidOnly: true,
+                          ignoreLocked: true,
+                          excludedPairs: excludedPairs
+                        }),
+                      })
+                      const data = await res.json()
+                      setLoading(false)
+                      if (res.ok) {
+                        toast.success(`🧪 Preview complete. Matches: ${data.count}`, { duration: 4000 })
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                      } else {
+                        toast.error("Failed to preview matches: " + (data.error || "Unknown error"))
+                      }
+                    } catch (e: any) {
+                      setLoading(false)
+                      toast.error("Failed to preview matches: " + (e?.message || "Unknown error"))
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  title="Preview matches for paying participants only (no DB writes, ignore locked)"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Preview Paid Matches
+                </button>
+
                 {/* Pre-Cache Button with Options */}
                 <div className="flex items-center gap-1.5 bg-slate-800 p-1.5 rounded-lg border border-slate-700">
                   <div className="flex items-center gap-1.5">

@@ -37,26 +37,29 @@ export default function GroupAssignmentsModal({
   const [selected, setSelected] = useState<{ group: number; participant: number } | null>(null)
   const [swapping, setSwapping] = useState(false)
 
-  async function attemptSwap(target: { group: number; participant: number }) {
+  async function attemptSwap(target: { group: number; participant: number | null }) {
+    const isEmptyTarget = !target.participant || target.participant === 0
     if (!selected) {
-      setSelected(target)
+      if (!isEmptyTarget) setSelected(target as { group: number; participant: number })
       return
     }
 
-    // If clicking same participant, unselect
-    if (selected.group === target.group && selected.participant === target.participant) {
+    if (!isEmptyTarget && selected.group === target.group && selected.participant === target.participant) {
       setSelected(null)
       return
     }
 
-    // Build swap payload so that A is the first selected, B is the second selected
+    if (isEmptyTarget && selected.group === target.group) {
+      return
+    }
+
     const payload = {
       action: "swap-group-participants",
       event_id: eventId,
       groupA_number: selected.group,
       participantA: selected.participant,
       groupB_number: target.group,
-      participantB: target.participant,
+      participantB: isEmptyTarget ? null : target.participant,
       allowOverride: false
     }
 
@@ -75,7 +78,6 @@ export default function GroupAssignmentsModal({
         return
       }
 
-      // If there are warnings and not overridden, ask for confirmation
       if (data && data.success === false && data.warnings) {
         const wa = data.warnings[payload.groupA_number] || []
         const wb = data.warnings[payload.groupB_number] || []
@@ -85,15 +87,14 @@ export default function GroupAssignmentsModal({
           "⚠️ توجد تحذيرات أهلية للمجموعتين:",
           wa.length ? `\nالمجموعة ${payload.groupA_number}:\n- ${wa.join("\n- ")}` : "",
           wb.length ? `\nالمجموعة ${payload.groupB_number}:\n- ${wb.join("\n- ")}` : "",
-          (proposedA !== undefined && proposedB !== undefined)
-            ? `\nالدراجات المقترحة بعد التبديل → المجموعة ${payload.groupA_number}: ${proposedA}%، المجموعة ${payload.groupB_number}: ${proposedB}%`
+          (proposedA !== undefined)
+            ? `\nالدرجات المقترحة بعد التعديل → المجموعة ${payload.groupA_number}: ${proposedA}%${(proposedB !== undefined ? `، المجموعة ${payload.groupB_number}: ${proposedB}%` : "")}`
             : ""
         ].filter(Boolean).join("\n")
 
         const proceed = confirm(`${msg}\n\nهل تريد المتابعة على أي حال؟`)
         if (!proceed) { setSelected(null); return }
 
-        // Re-send with override=true to persist
         const res2 = await fetch("/api/admin", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -107,7 +108,6 @@ export default function GroupAssignmentsModal({
         }
       }
 
-      // Success path (no warnings or override applied)
       if (onSwapApplied) await onSwapApplied()
       setSelected(null)
     } catch (err) {
@@ -129,10 +129,8 @@ export default function GroupAssignmentsModal({
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">توزيع المجموعات</h2>
-              <p className="text-sm text-slate-400">
-                {totalGroups} مجموعة • {totalParticipants} مشارك
-              </p>
+              <h3 className="text-white text-lg font-semibold">المجموعات</h3>
+              <p className="text-slate-400 text-xs">إجمالي: {totalGroups} مجموعة • {totalParticipants} مشارك</p>
             </div>
           </div>
           <button
@@ -148,7 +146,7 @@ export default function GroupAssignmentsModal({
           {/* Swap helper */}
           <div className="mb-4 flex items-center gap-2 text-xs sm:text-sm text-slate-300">
             <Shuffle className="w-4 h-4" />
-            <span>اضغط على مشارك ثم اضغط على مشارك آخر للتبديل بين المجموعتين.</span>
+            <span>اضغط على مشارك ثم اضغط على مشارك آخر للتبديل، أو اضغط على مقعد فارغ للنقل.</span>
             {selected && (
               <span className="inline-flex items-center gap-1 text-yellow-300">
                 <AlertTriangle className="w-3 h-3" /> محدد: المجموعة {selected.group} • #{selected.participant}
@@ -160,6 +158,7 @@ export default function GroupAssignmentsModal({
               </span>
             )}
           </div>
+
           {groupAssignments.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-slate-500 mx-auto mb-4" />
@@ -171,34 +170,25 @@ export default function GroupAssignmentsModal({
               {groupAssignments.map((group) => (
                 <div
                   key={group.group_number}
-                  className="bg-white/5 backdrop-blur-sm border-2 border-white/20 rounded-xl overflow-hidden hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-300"
+                  className="bg-white/5 rounded-xl border border-white/10 overflow-hidden"
                 >
-                  {/* PROMINENT TABLE NUMBER HEADER */}
-                  <div className="bg-gradient-to-r from-cyan-500 to-blue-500 p-3 sm:p-4 text-center">
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                      <span className="text-white/80 text-xs sm:text-sm font-medium">طاولة رقم</span>
+                  <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                        <MapPin className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <div className="text-white text-sm sm:text-base font-semibold">المجموعة {group.group_number}</div>
+                        <div className="text-slate-400 text-xs">الطاولة #{group.table_number || '—'}</div>
+                      </div>
                     </div>
-                    <div className="text-4xl sm:text-5xl md:text-6xl font-black text-white drop-shadow-lg">
-                      {group.table_number}
+                    <div className="flex items-center gap-2 text-yellow-300">
+                      <Star className="w-4 h-4 fill-yellow-300" />
+                      <span className="text-xs sm:text-sm font-semibold">{Math.round(group.compatibility_score || 0)}%</span>
                     </div>
                   </div>
 
-                  <div className="p-3 sm:p-5">
-                    {/* Group Info */}
-                    <div className="flex items-center justify-between mb-3 sm:mb-4 pb-2 sm:pb-3 border-b border-white/10">
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center">
-                          <span className="text-white font-bold text-xs sm:text-sm">{group.group_number}</span>
-                        </div>
-                        <span className="text-white font-semibold text-sm sm:text-base">المجموعة {group.group_number}</span>
-                      </div>
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/20 border border-yellow-400/30">
-                        <Star className="w-3 h-3 text-yellow-400" />
-                        <span className="text-yellow-300 text-xs font-bold">{group.compatibility_score}%</span>
-                      </div>
-                    </div>
-
+                  <div className="p-3 sm:p-4">
                     {/* Participants */}
                     <div className="space-y-2">
                       <div className="text-xs text-slate-400 font-semibold mb-2 sm:mb-3 flex items-center gap-2">
@@ -228,13 +218,34 @@ export default function GroupAssignmentsModal({
                           </div>
                         </div>
                       ))}
+
+                      {/* Empty slot placeholders up to capacity (6) */}
+                      {Array.from({ length: Math.max(0, 6 - group.participants.length) }).map((_, idx) => (
+                        <div
+                          key={`empty-${idx}`}
+                          onClick={() => !swapping && selected && selected.group !== group.group_number && attemptSwap({ group: group.group_number, participant: null })}
+                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border-2 border-dashed transition-all ${
+                            selected && selected.group !== group.group_number
+                              ? 'border-cyan-400/40 hover:border-cyan-300 cursor-pointer'
+                              : 'border-white/10 text-slate-500 cursor-default'
+                          }`}
+                          title={selected ? (selected.group !== group.group_number ? 'انقل المشارك المحدد إلى هذا المقعد' : 'لا يمكن التحريك داخل نفس المجموعة') : 'اختر مشاركاً أولاً ثم اضغط هنا للنقل'}
+                        >
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-slate-700/50 flex items-center justify-center shrink-0">
+                            <span className="text-slate-400 text-xs font-bold">—</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-slate-400 text-xs sm:text-sm">مقعد فارغ</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
 
                     {/* Group Size Indicator */}
                     <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-white/10">
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400 font-medium">حجم المجموعة:</span>
-                        <span className={`font-bold px-2 py-1 rounded-full text-xs ${
+                        <span className={`px-2 py-0.5 rounded-full ${
                           group.participant_count === 4 ? 'text-green-400 bg-green-500/20' :
                           group.participant_count === 3 ? 'text-yellow-400 bg-yellow-500/20' :
                           group.participant_count === 5 ? 'text-orange-400 bg-orange-500/20' :

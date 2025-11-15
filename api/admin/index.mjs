@@ -826,12 +826,12 @@ export default async function handler(req, res) {
           groupA_number,
           participantA,
           groupB_number,
-          participantB,
+          participantB, // when null/undefined => move (A -> B)
           allowOverride = false
         } = req.body
 
-        if (!groupA_number || !groupB_number || !participantA || !participantB) {
-          return res.status(400).json({ error: "Missing required fields: groupA_number, participantA, groupB_number, participantB" })
+        if (!groupA_number || !groupB_number || !participantA) {
+          return res.status(400).json({ error: "Missing required fields: groupA_number, participantA, groupB_number" })
         }
 
         // Helper calculators (minimal replicas from trigger-match)
@@ -969,17 +969,40 @@ export default async function handler(req, res) {
         const arrA = [...(groupA.participant_numbers || [])]
         const arrB = [...(groupB.participant_numbers || [])]
         if (!arrA.includes(participantA)) { return res.status(400).json({ error: `Participant #${participantA} not in group ${groupA_number}` }) }
-        if (!arrB.includes(participantB)) { return res.status(400).json({ error: `Participant #${participantB} not in group ${groupB_number}` }) }
+        const isMove = participantB === null || participantB === undefined || participantB === 0
+        if (!isMove) {
+          if (!arrB.includes(participantB)) { return res.status(400).json({ error: `Participant #${participantB} not in group ${groupB_number}` }) }
+        }
 
         // 2) Build swapped arrays
         const idxA = arrA.indexOf(participantA)
-        const idxB = arrB.indexOf(participantB)
+        const idxB = isMove ? -1 : arrB.indexOf(participantB)
         const newA = [...arrA]; const newB = [...arrB]
         if (groupA_number === groupB_number) {
-          // Swap positions inside the same group
-          newA[idxA] = participantB
-          newA[idxB] = participantA
+          // Reorder inside the same group
+          if (isMove) {
+            // Move within same group to an "empty" slot is a no-op (no empty slots exist if same group)
+            return res.status(400).json({ error: 'Cannot move to empty spot within the same group' })
+          } else {
+            newA[idxA] = participantB
+            newA[idxB] = participantA
+          }
+        } else if (isMove) {
+          // Move participantA from A to B (append at end)
+          const MAX_GROUP_SIZE = 6
+          const MIN_GROUP_SIZE = 3
+          const afterA = newA.length - 1
+          const afterB = newB.length + 1
+          if (afterA < MIN_GROUP_SIZE) {
+            return res.status(400).json({ error: `Move would violate minimum size (>=${MIN_GROUP_SIZE}) for group ${groupA_number}` })
+          }
+          if (afterB > MAX_GROUP_SIZE) {
+            return res.status(400).json({ error: `Move would exceed maximum size (${MAX_GROUP_SIZE}) for group ${groupB_number}` })
+          }
+          newA.splice(idxA, 1)
+          newB.push(participantA)
         } else {
+          // Cross-group swap
           newA[idxA] = participantB
           newB[idxB] = participantA
         }

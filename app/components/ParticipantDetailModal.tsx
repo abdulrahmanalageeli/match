@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw } from "lucide-react"
+import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles } from "lucide-react"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantMatch {
@@ -14,6 +14,7 @@ interface ParticipantMatch {
   vibe_compatibility_score?: number
   is_actual_match: boolean
   is_repeated_match?: boolean
+  humor_early_openness_bonus?: 'full' | 'partial' | 'none'
 }
 
 interface ParticipantDetailModalProps {
@@ -419,7 +420,7 @@ export default function ParticipantDetailModal({
                             ) : (
                               <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-300 text-xs">
                                 <User className="w-3 h-3" />
-                                مطابقة محتملة
+                                محتملة
                               </span>
                             )}
                           </td>
@@ -428,6 +429,21 @@ export default function ParticipantDetailModal({
                               <span className={`font-bold ${getScoreColor(match.compatibility_score)}`}>
                                 {match.compatibility_score}%
                               </span>
+                              {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
+                                <Tooltip.Provider delayDuration={200}>
+                                  <Tooltip.Root>
+                                    <Tooltip.Trigger>
+                                      <Sparkles className={`w-4 h-4 ${match.humor_early_openness_bonus === 'full' ? 'text-yellow-400' : 'text-yellow-600'}`} />
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Portal>
+                                      <Tooltip.Content sideOffset={5} className="z-[101] px-3 py-2 text-sm text-white bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                                        {match.humor_early_openness_bonus === 'full' ? 'Full Humor/Openness Bonus' : 'Partial Bonus'}
+                                        <Tooltip.Arrow className="fill-slate-800" />
+                                      </Tooltip.Content>
+                                    </Tooltip.Portal>
+                                  </Tooltip.Root>
+                                </Tooltip.Provider>
+                              )}
                             </div>
                           </td>
                           {swapMode && (

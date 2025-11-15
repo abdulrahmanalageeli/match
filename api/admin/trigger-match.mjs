@@ -1060,96 +1060,71 @@ async function generateGroupMatches(participants, match_id, eventId) {
     throw new Error(`Need at least 3 eligible participants for group matching. Found ${eligibleParticipants.length} eligible out of ${participants.length} total participants.`)
   }
 
-  // Helper: compute strict base allowed max age gap per pair for GROUPS (ignore any_gender preference)
-  const getBasePairGap = (pa, pb) => {
-    const ageA = pa.age || pa.survey_data?.age
-    const ageB = pb.age || pb.survey_data?.age
-    const either40 = (ageA >= 40) || (ageB >= 40)
-    // In groups we IGNORE any_gender preference; use standard base gaps only
-    return either40 ? 5 : 3
+  // Calculate FULL compatibility scores for all pairs (WITHOUT AI vibe - groups only)
+  // Track constraint violations for debugging
+  const constraintViolations = {
+    gender: [],
+    age: [],
+    total_pairs_checked: 0,
+    compatible_pairs: 0
   }
-
-  // Experimental window: evaluate allowed gaps base..base+2 (cap effective at 5)
-  const MAX_EXPERIMENTAL_EXTRA_YEARS = 2
-  let bestAttempt = null
-
-  for (let extraYears = 0; extraYears <= MAX_EXPERIMENTAL_EXTRA_YEARS; extraYears++) {
-    console.log(`\n🧪 Group attempt with age relaxation: +${extraYears} year(s)`)
-
-    // Calculate FULL compatibility scores for all pairs (WITHOUT AI vibe - groups only)
-    // Track constraint violations for debugging
-    const constraintViolations = {
-      gender: [],
-      age: [],
-      total_pairs_checked: 0,
-      compatible_pairs: 0
-    }
-    
-    const pairScores = []
-    for (let i = 0; i < eligibleParticipants.length; i++) {
-      for (let j = i + 1; j < eligibleParticipants.length; j++) {
-        const a = eligibleParticipants[i]
-        const b = eligibleParticipants[j]
-        constraintViolations.total_pairs_checked++
-        
-        // Check gender compatibility first
-        if (!checkGenderCompatibility(a, b)) {
-          console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - gender incompatible`)
-          constraintViolations.gender.push(`${a.assigned_number}×${b.assigned_number}`)
-          continue
-        }
-        
-        // Check age compatibility with progressive relaxation
-        const ageA = a.age || a.survey_data?.age
-        const ageB = b.age || b.survey_data?.age
-        if (!ageA || !ageB) {
-          console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - missing age info`)
-          constraintViolations.age.push(`${a.assigned_number}×${b.assigned_number}`)
-          continue
-        }
-        const baseGap = getBasePairGap(a, b)
-        const allowedGap = Math.min(5, baseGap + extraYears)
-        const diff = Math.abs(ageA - ageB)
-        if (diff > allowedGap) {
-          console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - age diff ${diff} > allowed ${allowedGap} (base ${baseGap} +${extraYears})`)
-          constraintViolations.age.push(`${a.assigned_number}×${b.assigned_number}`)
-          continue
-        }
-        
-        constraintViolations.compatible_pairs++
-        
-        // Calculate ALL compatibility scores (except AI vibe)
-        const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
-        const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
-        const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
-        const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
-        const aCommunication = a.communication_style || a.survey_data?.communicationStyle
-        const bCommunication = b.communication_style || b.survey_data?.communicationStyle
-        const aLifestyle = a.survey_data?.lifestylePreferences
-        const bLifestyle = b.survey_data?.lifestylePreferences
-        const aCoreValues = a.survey_data?.coreValues
-        const bCoreValues = b.survey_data?.coreValues
-        
-        const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
-        const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
-        const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
-        const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
-        const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-        
-        // Total compatibility (0-75% without AI vibe)
-        const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore
-        
-        pairScores.push({
-          participants: [a.assigned_number, b.assigned_number],
-          score: totalScore, // Use total score instead of just MBTI
-          mbtiScore,
-          attachmentScore,
-          communicationScore,
-          lifestyleScore,
-          coreValuesScore
-        })
+  
+  const pairScores = []
+  for (let i = 0; i < eligibleParticipants.length; i++) {
+    for (let j = i + 1; j < eligibleParticipants.length; j++) {
+      const a = eligibleParticipants[i]
+      const b = eligibleParticipants[j]
+      constraintViolations.total_pairs_checked++
+      
+      // Check gender compatibility first
+      if (!checkGenderCompatibility(a, b)) {
+        console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - gender incompatible`)
+        constraintViolations.gender.push(`${a.assigned_number}×${b.assigned_number}`)
+        continue
       }
+      
+      // Check age compatibility (for logging only). We no longer skip pair scoring here
+      // because group-level age limit will be relaxed incrementally.
+      if (!checkAgeCompatibility(a, b)) {
+        console.log(`⚠️ Age constraint violation for pair ${a.assigned_number} × ${b.assigned_number} (will still score for groups; enforced at group level)`) 
+        constraintViolations.age.push(`${a.assigned_number}×${b.assigned_number}`)
+        // Do NOT continue; allow scoring so groups can be evaluated under relaxed limits
+      }
+      
+      constraintViolations.compatible_pairs++
+      
+      // Calculate ALL compatibility scores (except AI vibe)
+      const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
+      const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
+      const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
+      const bAttachment = b.attachment_style || b.survey_data?.attachmentStyle
+      const aCommunication = a.communication_style || a.survey_data?.communicationStyle
+      const bCommunication = b.communication_style || b.survey_data?.communicationStyle
+      const aLifestyle = a.survey_data?.lifestylePreferences
+      const bLifestyle = b.survey_data?.lifestylePreferences
+      const aCoreValues = a.survey_data?.coreValues
+      const bCoreValues = b.survey_data?.coreValues
+      
+      const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
+      const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
+      const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
+      const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
+      const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
+      
+      // Total compatibility (0-75% without AI vibe)
+      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore
+      
+      pairScores.push({
+        participants: [a.assigned_number, b.assigned_number],
+        score: totalScore, // Use total score instead of just MBTI
+        mbtiScore,
+        attachmentScore,
+        communicationScore,
+        lifestyleScore,
+        coreValuesScore
+      })
     }
+  }
 
   // Sort pairs by total compatibility (descending)
   pairScores.sort((a, b) => b.score - a.score)
@@ -1179,115 +1154,149 @@ async function generateGroupMatches(participants, match_id, eventId) {
     console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (MBTI: ${pair.mbtiScore}%, Attach: ${pair.attachmentScore}%, Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${pair.coreValuesScore}%)`)
   })
 
-    // Enhanced group formation algorithm with fallback support
+  // Enhanced group formation algorithm with incremental age relaxation
+  const participantNumbers = eligibleParticipants.map(p => p.assigned_number)
+  const INITIAL_AGE_LIMIT = 3
+  const MAX_AGE_LIMIT = 15
+  let selectedGroups = []
+  let bestGroups = []
+  let bestPlacedCount = 0
+  let finalAgeLimitUsed = INITIAL_AGE_LIMIT
+
+  for (let currentAgeLimit = INITIAL_AGE_LIMIT; currentAgeLimit <= MAX_AGE_LIMIT; currentAgeLimit++) {
+    console.log(`\n🔁 Age relaxation attempt: max age range within group = ${currentAgeLimit} years`)
+    const allowFallback = currentAgeLimit === MAX_AGE_LIMIT
     const groups = []
     const usedParticipants = new Set()
-    const participantNumbers = eligibleParticipants.map(p => p.assigned_number)
-  
-    // Phase 1: Form core groups of 4 first (avoiding matched pairs and ensuring gender balance)
-    console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs, ensuring gender balance)")
+
+    // Phase 1: Form core groups of 4 (respecting currentAgeLimit)
+    console.log("🔄 Phase 1: Creating core groups of 4 (avoid matched pairs, gender balance, age limit=" + currentAgeLimit + ")")
     while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
       const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
-      // Group age-range limit is capped at 5 in the experimental window
-      const groupAgeRangeLimit = 5
-      let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants, groupAgeRangeLimit)
-    
-    // Fallback: if no group can be formed avoiding matches, try with matches allowed
-    if (!group && availableParticipants.length >= 4) {
-      console.log("⚠️ No groups of 4 possible without matched pairs/gender balance - using fallback")
-      group = findBestGroup(availableParticipants, pairScores, 4, eligibleParticipants)
-    }
-    
+      let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants, currentAgeLimit)
+
+      // Only allow fallback on final attempt
+      if (!group && availableParticipants.length >= 4) {
+        console.log(`⚠️ No compliant group-of-4 found at age limit ${currentAgeLimit}${allowFallback ? ' - using fallback' : ' - will retry with a higher age limit'}`)
+        if (allowFallback) {
+          group = findBestGroup(availableParticipants, pairScores, 4, eligibleParticipants)
+        } else {
+          break
+        }
+      }
+
       if (group) {
-        groups.push([...group]) // Create a copy to allow modification
+        groups.push([...group])
         group.forEach(p => usedParticipants.add(p))
-        console.log(`✅ Created core group of 4: [${group.join(', ')}] (age range limit: ${groupAgeRangeLimit})`)
+        console.log(`✅ Created core group of 4: [${group.join(', ')}]`)
       } else {
         break
       }
     }
-  
+
     // Phase 2: Handle remaining participants
     const remainingParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
     console.log(`🔄 Phase 2: Handling ${remainingParticipants.length} remaining participants:`, remainingParticipants)
-  
-  if (remainingParticipants.length === 0) {
-    // Perfect groups of 4
-    console.log("✅ Perfect grouping achieved with groups of 4")
-  } else if (remainingParticipants.length >= 4) {
-    // 4+ extra people - create a new group with all of them
-    groups.push([...remainingParticipants])
-    remainingParticipants.forEach(p => usedParticipants.add(p))
-    console.log(`✅ Created new group with ${remainingParticipants.length} remaining participants: [${remainingParticipants.join(', ')}]`)
-  } else if (remainingParticipants.length === 1) {
-    // 1 extra person - add to most compatible group
-    const extraParticipant = remainingParticipants[0]
-    const bestGroupIndex = findMostCompatibleGroupForParticipant(extraParticipant, groups, pairScores)
-    groups[bestGroupIndex].push(extraParticipant)
-    console.log(`✅ Added participant ${extraParticipant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
-  } else if (remainingParticipants.length === 2) {
-    // 2 extra people - add both to most compatible group OR split between two groups
-    const [extra1, extra2] = remainingParticipants
-    
-    // Check if we can add both to the same group (up to 6 people)
-    const bestGroupForBoth = findMostCompatibleGroupForParticipants([extra1, extra2], groups, pairScores)
-    
-    if (groups[bestGroupForBoth].length <= 4) {
-      // Add both to the same group
-      groups[bestGroupForBoth].push(extra1, extra2)
-      console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${bestGroupForBoth + 1}: [${groups[bestGroupForBoth].join(', ')}]`)
-          } else {
-      // Split between two different groups
-      const group1Index = findMostCompatibleGroupForParticipant(extra1, groups, pairScores)
-      groups[group1Index].push(extra1)
-      
-      const group2Index = findMostCompatibleGroupForParticipant(extra2, groups.map((g, i) => i === group1Index ? [...g] : g), pairScores)
-      groups[group2Index].push(extra2)
-      
-      console.log(`✅ Split participants: ${extra1} to group ${group1Index + 1}, ${extra2} to group ${group2Index + 1}`)
-    }
-  } else if (remainingParticipants.length === 3) {
-    // 3 extra people - create a new group OR distribute among existing groups
-    if (groups.length === 0) {
-      // No existing groups, try to create a gender-balanced group of 3 with 5y cap
-      const groupAgeRangeLimit = 5
-      const group3 = findBestGroupAvoidingMatches(remainingParticipants, pairScores, 3, areMatched, eligibleParticipants, groupAgeRangeLimit)
-      if (group3) {
-        groups.push([...group3])
-        console.log(`✅ Created new gender-balanced group of 3: [${group3.join(', ')}]`)
+
+    if (remainingParticipants.length === 0) {
+      console.log("✅ Perfect grouping achieved with groups of 4")
+    } else if (remainingParticipants.length >= 4) {
+      groups.push([...remainingParticipants])
+      remainingParticipants.forEach(p => usedParticipants.add(p))
+      console.log(`✅ Created new group with ${remainingParticipants.length} remaining participants: [${remainingParticipants.join(', ')}]`)
+    } else if (remainingParticipants.length === 1) {
+      const extraParticipant = remainingParticipants[0]
+      const bestGroupIndex = findMostCompatibleGroupForParticipant(extraParticipant, groups, pairScores)
+      groups[bestGroupIndex]?.push(extraParticipant)
+      console.log(`✅ Added participant ${extraParticipant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+    } else if (remainingParticipants.length === 2) {
+      const [extra1, extra2] = remainingParticipants
+      const bestGroupForBoth = findMostCompatibleGroupForParticipants([extra1, extra2], groups, pairScores)
+      if (groups[bestGroupForBoth] && groups[bestGroupForBoth].length <= 4) {
+        groups[bestGroupForBoth].push(extra1, extra2)
+        console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${bestGroupForBoth + 1}: [${groups[bestGroupForBoth].join(', ')}]`)
       } else {
-        // Fallback: create group without gender balance requirement
-        groups.push([...remainingParticipants])
-        console.log(`⚠️ Created new group of 3 (no gender balance possible): [${remainingParticipants.join(', ')}]`)
+        const group1Index = findMostCompatibleGroupForParticipant(extra1, groups, pairScores)
+        if (groups[group1Index]) groups[group1Index].push(extra1)
+        const group2Index = findMostCompatibleGroupForParticipant(extra2, groups.map((g, i) => i === group1Index ? [...g] : g), pairScores)
+        if (groups[group2Index]) groups[group2Index].push(extra2)
+        console.log(`✅ Split participants: ${extra1} to group ${group1Index + 1}, ${extra2} to group ${group2Index + 1}`)
       }
+    } else if (remainingParticipants.length === 3) {
+      if (groups.length === 0) {
+        const group3 = findBestGroupAvoidingMatches(remainingParticipants, pairScores, 3, areMatched, eligibleParticipants, currentAgeLimit)
+        if (group3) {
+          groups.push([...group3])
+          console.log(`✅ Created new gender-balanced group of 3: [${group3.join(', ')}]`)
         } else {
-      // Distribute among existing groups (up to 2 per group to max 6)
-      const sortedByCompatibility = remainingParticipants.map(p => ({
-        participant: p,
-        bestGroupIndex: findMostCompatibleGroupForParticipant(p, groups, pairScores),
-        score: calculateParticipantGroupCompatibility(p, groups[findMostCompatibleGroupForParticipant(p, groups, pairScores)], pairScores)
-      })).sort((a, b) => b.score - a.score)
-      
-      for (const { participant, bestGroupIndex } of sortedByCompatibility) {
-        if (groups[bestGroupIndex].length < 6) {
-          groups[bestGroupIndex].push(participant)
-          console.log(`✅ Added participant ${participant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+          if (allowFallback) {
+            groups.push([...remainingParticipants])
+            console.log(`⚠️ Created new group of 3 (fallback, no gender/age balance possible): [${remainingParticipants.join(', ')}]`)
+          } else {
+            console.log(`ℹ️ No compliant group-of-3 at age limit ${currentAgeLimit} - will retry with a higher age limit`)
+          }
+        }
       } else {
-          // Find another group with space
-          const alternativeGroupIndex = groups.findIndex(g => g.length < 6)
-          if (alternativeGroupIndex !== -1) {
-            groups[alternativeGroupIndex].push(participant)
-            console.log(`✅ Added participant ${participant} to alternative group ${alternativeGroupIndex + 1}: [${groups[alternativeGroupIndex].join(', ')}]`)
-    } else {
-            // Create new group if no space (shouldn't happen with proper distribution)
-            groups.push([participant])
-            console.log(`⚠️ Created single-person group for ${participant}`)
+        const sortedByCompatibility = remainingParticipants.map(p => ({
+          participant: p,
+          bestGroupIndex: findMostCompatibleGroupForParticipant(p, groups, pairScores),
+          score: calculateParticipantGroupCompatibility(p, groups[findMostCompatibleGroupForParticipant(p, groups, pairScores)], pairScores)
+        })).sort((a, b) => b.score - a.score)
+        for (const { participant, bestGroupIndex } of sortedByCompatibility) {
+          if (groups[bestGroupIndex] && groups[bestGroupIndex].length < 6) {
+            groups[bestGroupIndex].push(participant)
+            console.log(`✅ Added participant ${participant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+          } else {
+            const alternativeGroupIndex = groups.findIndex(g => g.length < 6)
+            if (alternativeGroupIndex !== -1) {
+              groups[alternativeGroupIndex].push(participant)
+              console.log(`✅ Added participant ${participant} to alternative group ${alternativeGroupIndex + 1}: [${groups[alternativeGroupIndex].join(', ')}]`)
+            } else if (allowFallback) {
+              groups.push([participant])
+              console.log(`⚠️ Created single-person group for ${participant}`)
+            } else {
+              console.log(`ℹ️ No room to place participant ${participant} at age limit ${currentAgeLimit}`)
+            }
           }
         }
       }
     }
+
+    // Stats for this attempt
+    const attemptParticipantsInGroups = new Set(groups.flat())
+    const attemptPlaced = attemptParticipantsInGroups.size
+    const attemptNotPlaced = eligibleParticipants
+      .map(p => p.assigned_number)
+      .filter(num => !attemptParticipantsInGroups.has(num))
+
+    console.log(`\n📈 Attempt result (age limit ${currentAgeLimit}): placed ${attemptPlaced}/${eligibleParticipants.length}, not placed: ${attemptNotPlaced.length}`)
+
+    // Track best attempt so far
+    if (attemptPlaced > bestPlacedCount) {
+      bestPlacedCount = attemptPlaced
+      bestGroups = groups.map(g => [...g])
+      finalAgeLimitUsed = currentAgeLimit
+    }
+
+    // Success criteria: everyone placed
+    if (attemptPlaced === eligibleParticipants.length) {
+      selectedGroups = groups
+      finalAgeLimitUsed = currentAgeLimit
+      break
+    }
+
+    // If not final attempt, continue to relax by +1 year
+    if (!allowFallback) {
+      continue
+    } else {
+      selectedGroups = groups.length ? groups : bestGroups
+    }
   }
 
+  const groups = selectedGroups.length ? selectedGroups : bestGroups
+
+  console.log(`\n🎛️ Final age limit used for grouping: ${finalAgeLimitUsed} years`)
+  
   // Calculate final statistics
   const participantsInGroups = new Set(groups.flat())
   const participantsNotInGroups = eligibleParticipants
@@ -1348,7 +1357,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
 }
 
 // Helper function to find the best group of specified size, avoiding matched pairs and ensuring gender balance
-function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched, eligibleParticipants, groupAgeRangeLimit = 5) {
+function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched, eligibleParticipants, ageRangeLimit = 5) {
   if (availableParticipants.length < targetSize) return null
   
   // For groups of 3 or 4, we want to maximize the sum of MBTI compatibility scores
@@ -1408,7 +1417,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       // Don't skip, but reduce score to deprioritize this combination
     }
     
-    // 1. CHECK AGE SIMILARITY (±3 years preferred, ±5 years hard limit)
+    // 1. CHECK AGE SIMILARITY (±3 years preferred, ±{ageRangeLimit} years hard limit)
     const ages = combination.map(participantNum => {
       const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
       return participant?.age || participant?.survey_data?.age
@@ -1417,9 +1426,9 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     if (ages.length === combination.length) {
       const ageRange = Math.max(...ages) - Math.min(...ages)
       
-      // Hard constraint: Skip if age range exceeds dynamic limit
-      if (ageRange > groupAgeRangeLimit) {
-        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years, max ${groupAgeRangeLimit})`)
+      // Hard constraint: Skip if age range > 5 years
+      if (ageRange > 5) {
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - age range too large (${ageRange} years, max 5)`)
         continue
       }
     }

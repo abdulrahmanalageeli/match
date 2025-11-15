@@ -3408,58 +3408,155 @@ export default async function handler(req, res) {
         }
       }
       
-      // STEP 2: Process remaining pairs by compatibility score
+      // STEP 2: Process remaining pairs using global optimization in preview, greedy otherwise
       const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
       console.log(`📊 Processing remaining ${sortedPairs.length} calculated pairs...`)
-      
-      for (const pair of sortedPairs) {
-        const key = `${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`
-        if (
-          !used.has(pair.a) &&
-          !used.has(pair.b) &&
-          !matchedPairs.has(key)
-        ) {
-          used.add(pair.a)
-          used.add(pair.b)
-          matchedPairs.add(key)
-          roundMatches.push({
-            participant_a_number: pair.a,
-            participant_b_number: pair.b,
-            compatibility_score: Math.round(pair.score),
-            reason: pair.reason,
-            match_id,
-            event_id: eventId,
-            round,
-            is_repeat_match: false,
-            ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
-            table_number: tableCounter, // Dynamic table assignment: 1 to N/2
-            // Add personality type data
-            participant_a_mbti_type: pair.aMBTI,
-            participant_b_mbti_type: pair.bMBTI,
-            participant_a_attachment_style: pair.aAttachment,
-            participant_b_attachment_style: pair.bAttachment,
-            participant_a_communication_style: pair.aCommunication,
-            participant_b_communication_style: pair.bCommunication,
-            participant_a_lifestyle_preferences: pair.aLifestyle,
-            participant_b_lifestyle_preferences: pair.bLifestyle,
-            participant_a_core_values: pair.aCoreValues,
-            participant_b_core_values: pair.bCoreValues,
-            participant_a_vibe_description: pair.aVibeDescription,
-            participant_b_vibe_description: pair.bVibeDescription,
-            participant_a_ideal_person_description: pair.aIdealPersonDescription,
-            participant_b_ideal_person_description: pair.bIdealPersonDescription,
-            // Add score breakdown
-            mbti_compatibility_score: pair.mbtiScore,
-            attachment_compatibility_score: pair.attachmentScore,
-            communication_compatibility_score: pair.communicationScore,
-            lifestyle_compatibility_score: pair.lifestyleScore,
-            core_values_compatibility_score: pair.coreValuesScore,
-            vibe_compatibility_score: pair.vibeScore,
-            // Add humor/early openness bonus tracking
-            humor_early_openness_bonus: pair.bonusType
-          })
-          
-          tableCounter++ // Increment for next pair
+
+      if (SKIP_DB_WRITES) {
+        // Global optimizer (preview): maximize total score
+        const keyOf = (x, y) => `${Math.min(x, y)}-${Math.max(x, y)}`
+        const available = new Set(numbers.filter(n => !used.has(n)))
+        // 1) Greedy seed
+        const chosen = []
+        for (const p of sortedPairs) {
+          if (available.has(p.a) && available.has(p.b)) {
+            chosen.push(p)
+            available.delete(p.a)
+            available.delete(p.b)
+          }
+        }
+        // 2) 2-opt improvement
+        let improved = true
+        let iterations = 0
+        while (improved && iterations < (chosen.length * chosen.length * 2)) {
+          improved = false
+          iterations++
+          for (let i = 0; i < chosen.length; i++) {
+            for (let j = i + 1; j < chosen.length; j++) {
+              const p1 = chosen[i]
+              const p2 = chosen[j]
+              const a = p1.a, b = p1.b, c = p2.a, d = p2.b
+              let bestDelta = 0
+              let bestSwap = null
+              // Option 1: (a,c)+(b,d)
+              const k1 = keyOf(a, c)
+              const k2 = keyOf(b, d)
+              const q1 = pairByKey.get(k1)
+              const q2 = pairByKey.get(k2)
+              if (q1 && q2) {
+                const delta = (q1.score + q2.score) - (p1.score + p2.score)
+                if (delta > bestDelta) { bestDelta = delta; bestSwap = [q1, q2] }
+              }
+              // Option 2: (a,d)+(b,c)
+              const k3 = keyOf(a, d)
+              const k4 = keyOf(b, c)
+              const r1 = pairByKey.get(k3)
+              const r2 = pairByKey.get(k4)
+              if (r1 && r2) {
+                const delta2 = (r1.score + r2.score) - (p1.score + p2.score)
+                if (delta2 > bestDelta) { bestDelta = delta2; bestSwap = [r1, r2] }
+              }
+              if (bestDelta > 0) {
+                chosen[i] = bestSwap[0]
+                chosen[j] = bestSwap[1]
+                improved = true
+              }
+            }
+          }
+        }
+        // 3) Emit chosen pairs
+        for (const pair of chosen) {
+          const key = keyOf(pair.a, pair.b)
+          if (!used.has(pair.a) && !used.has(pair.b) && !matchedPairs.has(key)) {
+            used.add(pair.a)
+            used.add(pair.b)
+            matchedPairs.add(key)
+            roundMatches.push({
+              participant_a_number: pair.a,
+              participant_b_number: pair.b,
+              compatibility_score: Math.round(pair.score),
+              reason: pair.reason,
+              match_id,
+              event_id: eventId,
+              round,
+              is_repeat_match: false,
+              ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
+              table_number: tableCounter,
+              participant_a_mbti_type: pair.aMBTI,
+              participant_b_mbti_type: pair.bMBTI,
+              participant_a_attachment_style: pair.aAttachment,
+              participant_b_attachment_style: pair.bAttachment,
+              participant_a_communication_style: pair.aCommunication,
+              participant_b_communication_style: pair.bCommunication,
+              participant_a_lifestyle_preferences: pair.aLifestyle,
+              participant_b_lifestyle_preferences: pair.bLifestyle,
+              participant_a_core_values: pair.aCoreValues,
+              participant_b_core_values: pair.bCoreValues,
+              participant_a_vibe_description: pair.aVibeDescription,
+              participant_b_vibe_description: pair.bVibeDescription,
+              participant_a_ideal_person_description: pair.aIdealPersonDescription,
+              participant_b_ideal_person_description: pair.bIdealPersonDescription,
+              mbti_compatibility_score: pair.mbtiScore,
+              attachment_compatibility_score: pair.attachmentScore,
+              communication_compatibility_score: pair.communicationScore,
+              lifestyle_compatibility_score: pair.lifestyleScore,
+              core_values_compatibility_score: pair.coreValuesScore,
+              vibe_compatibility_score: pair.vibeScore,
+              humor_early_openness_bonus: pair.bonusType
+            })
+            tableCounter++
+          }
+        }
+      } else {
+        for (const pair of sortedPairs) {
+          const key = `${Math.min(pair.a, pair.b)}-${Math.max(pair.a, pair.b)}`
+          if (
+            !used.has(pair.a) &&
+            !used.has(pair.b) &&
+            !matchedPairs.has(key)
+          ) {
+            used.add(pair.a)
+            used.add(pair.b)
+            matchedPairs.add(key)
+            roundMatches.push({
+              participant_a_number: pair.a,
+              participant_b_number: pair.b,
+              compatibility_score: Math.round(pair.score),
+              reason: pair.reason,
+              match_id,
+              event_id: eventId,
+              round,
+              is_repeat_match: false,
+              ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
+              table_number: tableCounter, // Dynamic table assignment: 1 to N/2
+              // Add personality type data
+              participant_a_mbti_type: pair.aMBTI,
+              participant_b_mbti_type: pair.bMBTI,
+              participant_a_attachment_style: pair.aAttachment,
+              participant_b_attachment_style: pair.bAttachment,
+              participant_a_communication_style: pair.aCommunication,
+              participant_b_communication_style: pair.bCommunication,
+              participant_a_lifestyle_preferences: pair.aLifestyle,
+              participant_b_lifestyle_preferences: pair.bLifestyle,
+              participant_a_core_values: pair.aCoreValues,
+              participant_b_core_values: pair.bCoreValues,
+              participant_a_vibe_description: pair.aVibeDescription,
+              participant_b_vibe_description: pair.bVibeDescription,
+              participant_a_ideal_person_description: pair.aIdealPersonDescription,
+              participant_b_ideal_person_description: pair.bIdealPersonDescription,
+              // Add score breakdown
+              mbti_compatibility_score: pair.mbtiScore,
+              attachment_compatibility_score: pair.attachmentScore,
+              communication_compatibility_score: pair.communicationScore,
+              lifestyle_compatibility_score: pair.lifestyleScore,
+              core_values_compatibility_score: pair.coreValuesScore,
+              vibe_compatibility_score: pair.vibeScore,
+              // Add humor/early openness bonus tracking
+              humor_early_openness_bonus: pair.bonusType
+            })
+            
+            tableCounter++ // Increment for next pair
+          }
         }
       }
 

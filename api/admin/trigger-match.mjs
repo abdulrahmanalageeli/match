@@ -3320,6 +3320,13 @@ export default async function handler(req, res) {
     console.log(`   AI calls: ${aiCalls}`)
     console.log(`   Avg time per pair: ${totalCalculations > 0 ? (totalTime / totalCalculations).toFixed(0) : '0'}ms`)
 
+    // Build quick lookup for pair data by unordered key (used by preview optimizer)
+    const pairByKey = new Map()
+    for (const p of compatibilityScores) {
+      const k = `${Math.min(p.a, p.b)}-${Math.max(p.a, p.b)}`
+      pairByKey.set(k, p)
+    }
+
     // --- ROUND-ROBIN GLOBAL COMPATIBILITY MATCHING (CONFIGURABLE ROUNDS) ---
     console.log("🔄 Starting round-robin matching for", numbers.length, "participants")
     const finalMatches = []
@@ -3416,6 +3423,11 @@ export default async function handler(req, res) {
         // Global optimizer (preview): maximize total score
         const keyOf = (x, y) => `${Math.min(x, y)}-${Math.max(x, y)}`
         const available = new Set(numbers.filter(n => !used.has(n)))
+        // Build a local pair map to avoid scope issues
+        const pairMap = new Map()
+        for (const p of compatibilityScores) {
+          pairMap.set(keyOf(p.a, p.b), p)
+        }
         // 1) Greedy seed
         const chosen = []
         for (const p of sortedPairs) {
@@ -3441,8 +3453,8 @@ export default async function handler(req, res) {
               // Option 1: (a,c)+(b,d)
               const k1 = keyOf(a, c)
               const k2 = keyOf(b, d)
-              const q1 = pairByKey.get(k1)
-              const q2 = pairByKey.get(k2)
+              const q1 = pairMap.get(k1)
+              const q2 = pairMap.get(k2)
               if (q1 && q2) {
                 const delta = (q1.score + q2.score) - (p1.score + p2.score)
                 if (delta > bestDelta) { bestDelta = delta; bestSwap = [q1, q2] }
@@ -3450,8 +3462,8 @@ export default async function handler(req, res) {
               // Option 2: (a,d)+(b,c)
               const k3 = keyOf(a, d)
               const k4 = keyOf(b, c)
-              const r1 = pairByKey.get(k3)
-              const r2 = pairByKey.get(k4)
+              const r1 = pairMap.get(k3)
+              const r2 = pairMap.get(k4)
               if (r1 && r2) {
                 const delta2 = (r1.score + r2.score) - (p1.score + p2.score)
                 if (delta2 > bestDelta) { bestDelta = delta2; bestSwap = [r1, r2] }

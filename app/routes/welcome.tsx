@@ -7066,7 +7066,7 @@ export default function WelcomePage() {
 
                   {/* Question Set Toggle Button */}
                   {currentRound === 1 && (
-                    <div className="flex justify-center mb-6">
+                    <div className="flex justify-center gap-3 mb-6">
                       <button
                         onClick={() => {
                           setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
@@ -7086,8 +7086,30 @@ export default function WelcomePage() {
                         </svg>
                         {activeQuestionSet === 'round1' ? 'تبديل لأسئلة بديلة' : 'العودة للأسئلة الأساسية'}
                       </button>
+
+                      <button
+                        onClick={() => setShowPromptTopicsModal(true)}
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
+                          dark 
+                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-pink-500/20' 
+                            : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-pink-500/30'
+                        }`}
+                        aria-label="فتح أسئلة النقاش"
+                        title="أسئلة النقاش"
+                      >
+                        <MessageSquare className="w-5 h-5" />
+                        أسئلة النقاش
+                      </button>
                     </div>
                   )}
+
+                  {/* Discussion Questions Modal */}
+                  <Suspense fallback={null}>
+                    <PromptTopicsModal
+                      open={showPromptTopicsModal}
+                      onClose={() => setShowPromptTopicsModal(false)}
+                    />
+                  </Suspense>
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (

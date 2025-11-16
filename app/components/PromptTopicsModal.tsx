@@ -611,7 +611,7 @@ const depthColors = {
 const depthOrder: Array<keyof typeof depthLabels> = ["shallow", "medium", "deep"];
 
 export default function PromptTopicsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [viewMode, setViewMode] = useState<"topics" | "random">("topics");
+  const [viewMode, setViewMode] = useState<"topics" | "random">("random");
   const [selectedTopic, setSelectedTopic] = useState<null | typeof promptTopics[0]>(null);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -708,12 +708,19 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
       setSearchQuery("");
       setSelectedDepth("all");
       setRandomQuestion(null);
-      setViewMode("topics");
+      setViewMode("random");
       setSelectedCategories([]);
       setRandomHistory([]);
       setRandomCurrentIndex(-1);
     }
   }, [open]);
+
+  // When opening in random mode, ensure at least one category is selected
+  useEffect(() => {
+    if (open && viewMode === "random" && selectedCategories.length === 0) {
+      setSelectedCategories([promptTopics[0]]);
+    }
+  }, [open, viewMode]);
 
   // Show guide once per browser session when modal opens
   useEffect(() => {

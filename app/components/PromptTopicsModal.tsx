@@ -1078,7 +1078,6 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                               } shadow-md`}>
                                 {React.cloneElement(cat.icon, { className: "w-3 h-3 text-white" })}
                               </div>
-                              <span className="text-xs text-white">{cat.title.split(' ')[0]}</span>
                             </div>
                           ))}
                           {selectedCategories.length > 3 && (

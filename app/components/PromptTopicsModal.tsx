@@ -618,6 +618,7 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
   const [selectedDepth, setSelectedDepth] = useState<keyof typeof depthLabels | "all">("all");
   const [randomQuestion, setRandomQuestion] = useState<string | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [showRandomGuide, setShowRandomGuide] = useState(false);
   
   // Random mode states - Support multiple categories
   const [selectedCategories, setSelectedCategories] = useState<typeof promptTopics>([]);
@@ -724,6 +725,17 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }
   }, [selectedTopic]);
 
+  // Auto-show guide when user switches to Random mode for the first time
+  useEffect(() => {
+    if (viewMode === "random") {
+      const seen = localStorage.getItem("discussion_random_guide_seen");
+      if (!seen) {
+        setShowRandomGuide(true);
+        localStorage.setItem("discussion_random_guide_seen", "true");
+      }
+    }
+  }, [viewMode]);
+
   if (!open) return null;
 
   return (
@@ -812,6 +824,19 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
           </p>
         </div>
 
+        {/* Help trigger for Random mode */}
+        {viewMode === "random" && (
+          <div className="mt-2">
+            <button
+              onClick={() => setShowRandomGuide(true)}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-700/40 hover:bg-slate-700/60 text-slate-300 hover:text-white border border-slate-600/50 transition-all text-xs sm:text-sm"
+            >
+              <HelpCircle className="w-4 h-4 text-purple-300" />
+              <span>شرح الأسئلة العشوائية</span>
+            </button>
+          </div>
+        )}
+
         {/* Modern Navigation Bar - Mobile Optimized */}
         {selectedTopic && (
           <div className="relative z-10 px-4 sm:px-6 py-3 sm:py-4 bg-slate-800/50 backdrop-blur-xl border-b border-slate-600/30 flex-shrink-0">
@@ -871,6 +896,88 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-slate-700/50 border border-slate-600/50 rounded-xl px-8 sm:px-10 py-2 sm:py-3 text-sm sm:text-base text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400/50 transition-all duration-300"
               />
+            </div>
+          </div>
+        )}
+
+        {/* Random Mode Guide Popup */}
+        {showRandomGuide && (
+          <div
+            className="fixed inset-0 z-[10000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowRandomGuide(false);
+            }}
+          >
+            <div className="relative w-full max-w-lg" dir="rtl">
+              {/* Close button */}
+              <button
+                onClick={() => setShowRandomGuide(false)}
+                className="absolute -top-2 -left-2 z-10 w-10 h-10 rounded-full bg-slate-800 border-2 border-slate-600 hover:border-slate-400 flex items-center justify-center text-slate-400 hover:text-white transition-all duration-200 hover:scale-110 active:scale-95"
+                aria-label="إغلاق الشرح"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="overflow-hidden rounded-3xl border border-slate-700/50 shadow-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                {/* Header */}
+                <div className="relative p-8 text-center bg-gradient-to-r from-purple-500 to-pink-600">
+                  <div className="absolute inset-0 bg-black/10" />
+                  <div className="relative z-10 flex flex-col items-center gap-4">
+                    <div className="w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <Shuffle className="w-10 h-10 text-white" />
+                    </div>
+                    <h3 className="text-2xl font-bold text-white">وضع الأسئلة العشوائية</h3>
+                    <p className="text-white/90 text-sm max-w-md">
+                      جرّبوا أسئلة منتقاة عشوائياً من أكثر من فئة مع سجل تنقّل ونسخ سريع للسؤال.
+                    </p>
+                  </div>
+                  <div className="absolute top-4 right-4 w-16 h-16 bg-white/10 rounded-full blur-xl" />
+                  <div className="absolute bottom-4 left-4 w-12 h-12 bg-white/10 rounded-full blur-lg" />
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-3">
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <div className="w-7 h-7 rounded-full bg-purple-600/30 text-purple-200 flex items-center justify-center">
+                      <Filter className="w-4 h-4" />
+                    </div>
+                    <p className="text-slate-200 text-sm">اختروا فئة واحدة أو أكثر من القائمة للحصول على تنوع أكبر.</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <div className="w-7 h-7 rounded-full bg-purple-600/30 text-purple-200 flex items-center justify-center">
+                      <Shuffle className="w-4 h-4" />
+                    </div>
+                    <p className="text-slate-200 text-sm">اضغطوا "احصل على سؤال عشوائي" لعرض سؤال جديد فوراً.</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <div className="w-7 h-7 rounded-full bg-purple-600/30 text-purple-200 flex items-center justify-center">
+                      <ChevronLeft className="w-4 h-4" />
+                    </div>
+                    <p className="text-slate-200 text-sm">استخدموا أزرار "السابق/التالي" للتنقّل في سجل الأسئلة التي ظهرت لكم.</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <div className="w-7 h-7 rounded-full bg-purple-600/30 text-purple-200 flex items-center justify-center">
+                      <Copy className="w-4 h-4" />
+                    </div>
+                    <p className="text-slate-200 text-sm">انسخوا السؤال بضغطة واحدة لمشاركته بسرعة مع مجموعتكم.</p>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/50 border border-slate-700/50">
+                    <div className="w-7 h-7 rounded-full bg-purple-600/30 text-purple-200 flex items-center justify-center">
+                      <HelpCircle className="w-4 h-4" />
+                    </div>
+                    <p className="text-slate-200 text-sm">تغيير الفئات يعيد ضبط السجل لبدء تجربة جديدة.</p>
+                  </div>
+
+                  <div className="pt-2">
+                    <Button
+                      onClick={() => setShowRandomGuide(false)}
+                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl py-3 shadow-lg"
+                    >
+                      تمام، فهمت
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

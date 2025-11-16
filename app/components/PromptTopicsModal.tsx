@@ -715,6 +715,17 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }
   }, [open]);
 
+  // Show guide once per browser session when modal opens
+  useEffect(() => {
+    if (open) {
+      const sessionSeen = sessionStorage.getItem("discussion_random_guide_seen_session");
+      if (!sessionSeen) {
+        setShowRandomGuide(true);
+        sessionStorage.setItem("discussion_random_guide_seen_session", "true");
+      }
+    }
+  }, [open]);
+
   // Scroll to top when selecting a new topic
   useEffect(() => {
     if (selectedTopic) {
@@ -725,13 +736,13 @@ export default function PromptTopicsModal({ open, onClose }: { open: boolean; on
     }
   }, [selectedTopic]);
 
-  // Auto-show guide when user switches to Random mode for the first time
+  // Auto-show guide when user switches to Random mode for the first time (fallback)
   useEffect(() => {
     if (viewMode === "random") {
-      const seen = localStorage.getItem("discussion_random_guide_seen");
-      if (!seen) {
+      const sessionSeen = sessionStorage.getItem("discussion_random_guide_seen_session");
+      if (!sessionSeen) {
         setShowRandomGuide(true);
-        localStorage.setItem("discussion_random_guide_seen", "true");
+        sessionStorage.setItem("discussion_random_guide_seen_session", "true");
       }
     }
   }, [viewMode]);

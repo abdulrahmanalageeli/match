@@ -2570,6 +2570,15 @@ export default function WelcomePage() {
         
         setParticipantHasHumorStyle(!!hasHumorStyle)
         setParticipantHasOpennessComfort(!!hasOpennessComfort)
+
+        // Set gender preference based on DB values for the popup
+        if (participant.any_gender_preference) {
+          setReturningGenderPreference("any_gender");
+        } else if (participant.same_gender_preference) {
+          setReturningGenderPreference("same_gender");
+        } else {
+          setReturningGenderPreference("opposite_gender");
+        }
         
         console.log('📊 Next event participant data check:', {
           hasHumorStyle: !!hasHumorStyle,
@@ -2660,7 +2669,7 @@ export default function WelcomePage() {
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           action: "auto-signup-next-event",
           secure_token: token,
           gender_preference: returningGenderPreference,
@@ -2671,14 +2680,18 @@ export default function WelcomePage() {
       })
       
       const data = await res.json()
-      
+
       if (res.ok) {
-        toast.success(`${data.message} - مرحباً ${data.participant_name} (#${data.participant_number})`)
+        toast.success(data.message || "تم تسجيلك بنجاح!")
         setShowNextEventSignup(true) // Mark as already signed up
         setShowNextEventPopup(false)
-        setReturningGenderPreference("") // Reset gender preference
-        setReturningHumorStyle("") // Reset humor style
-        setReturningOpennessComfort("") // Reset openness comfort
+
+        // Pre-fill the form with the latest data after signup
+        if (data.participant) {
+            setReturningGenderPreference(data.participant.any_gender_preference ? "any_gender" : data.participant.same_gender_preference ? "same_gender" : "opposite_gender");
+            setReturningHumorStyle(data.participant.humor_banter_style || "");
+            setReturningOpennessComfort(data.participant.early_openness_comfort?.toString() || "");
+        }
       } else {
         // Check if already signed up
         if (data.error && data.error.includes("already signed up")) {
@@ -2690,6 +2703,7 @@ export default function WelcomePage() {
       console.error("Error with auto signup:", err)
       toast.error("حدث خطأ في النظام")
     } finally {
+{{ ... }}
       setNextEventSignupLoading(false)
     }
   }

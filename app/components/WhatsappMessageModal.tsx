@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
-import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle } from 'lucide-react';
+import { Check, Copy, MessageSquare, X, Clock, Info, HelpCircle, Settings, FileText } from 'lucide-react';
 
 interface WhatsappMessageModalProps {
   participant: any;
@@ -14,7 +14,42 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
-  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation'>('match');
+  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation'>('match');
+  const [showCustomize, setShowCustomize] = useState(false);
+  const [exportMode, setExportMode] = useState(false);
+
+  // Customizable settings with sensible defaults
+  const [config, setConfig] = useState({
+    // Deadlines (minutes)
+    normalDeadlineMin: 24 * 60,
+    semiUrgentDeadlineMin: 120,
+    urgentDeadlineMin: 60,
+    // Prices
+    earlyPrice: 45,
+    latePrice: 65,
+    latePriceSwitchLabel: 'الجمعة 3:00 مساءً',
+    // Event details
+    eventDateText: 'الأحد 16 نوفمبر 2025',
+    eventTimeText: '8:15 مساءً',
+    arrivalTimeText: '8:05 مساءً',
+    locationName: 'كوفي بلانيت - الدور الثاني',
+    mapUrl: 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+    // Payment
+    stcPay: '0560899666',
+    bankName: 'مصرف الراجحي: عبدالرحمن عبدالملك',
+    iban: 'SA2480000588608016007502',
+    // Formatting toggles
+    includeEmojis: true,
+    includeBold: true,
+  });
+
+  const sanitizeForExport = (text: string) => {
+    // remove markdown bold markers and most emojis/symbols while keeping Arabic/English text and punctuation
+    const noAsterisk = text.replace(/\*/g, '');
+    // basic emoji filter using unicode ranges (approx)
+    const noEmoji = noAsterisk.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '');
+    return noEmoji;
+  };
 
   const message = useMemo(() => {
     if (!participant) return "";
@@ -22,60 +57,22 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
     const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
+    const d = config;
+    const bold = (s: string) => (d.includeBold ? `*${s}*` : s);
+    const e = (s: string) => (d.includeEmojis ? s : '');
 
     // Generate message based on template type
     switch (templateType) {
       case 'match':
         if (urgencyLevel === 'urgent') {
-          // Urgent match message with 30-minute deadline
-          return `⏰ *عاجل - التوافق الأعمى* ⏰\n\nالسلام عليكم *${name}*،\n\n✨ تم العثور على شريك متوافق معكم!\n\n⏰ *يرجى الرد خلال نصف ساعة*\nنظراً لمحدودية المقاعد، قد نحتاج لإعطاء الفرصة لمشارك آخر إذا لم نتلقى ردكم قريباً.\n\n💳 رسوم المشاركة: 45 ريال سعودي\n\n📋 *المطلوب منكم:*\n1️⃣ تحويل المبلغ خلال النصف ساعة القادمة\n2️⃣ إرسال صورة الإيصال بعد التحويل\n3️⃣ تأكيد حضوركم\n\n*طرق الدفع:*\n• STC Pay: 0560899666\n• مصرف الراجحي: عبدالرحمن عبدالملك\n• IBAN:\nSA2480000588608016007502\n\n⚠️ *ملاحظة:* لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال خلال المدة المحددة.\n\n⚠️ *مهم - سياسة الحضور:*\n• لا استرداد للرسوم في حالة الإلغاء\n• لكن نرحب بحضوركم حتى لو تأخرتم!\n• المهم إبلاغنا فوراً إذا لن تتمكنوا من الحضور\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n📅 التاريخ: الأحد 16 نوفمبر 2025\n🕰️ الوقت: 8:15 مساءً\n⏱️ المدة: 60 دقيقة\n\n*يرجى الحضور قبل الموعد بـ 10 دقائق*\n\nمعلوماتكم للفعالية:\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n🔗 رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n⏰ *يرجى الرد في أقرب وقت ممكن*\n\nنتطلع لحضوركم!\n\nفريق التوافق الأعمى`;
+          const deadlineMin = d.urgentDeadlineMin;
+          return `${e('⏰ ')}${bold('عاجل - التوافق الأعمى')} ${e('⏰')}\n\nالسلام عليكم ${bold(name)}،\n\n${e('✨ ')}تم العثور على شريك متوافق معكم!\n\n${e('⏰ ')}${bold(`يرجى الرد خلال ${Math.round(deadlineMin/60) >= 1 ? `${Math.round(deadlineMin/60)} ساعة` : `${deadlineMin} دقيقة`}`)}\nنظراً لمحدودية المقاعد، قد نحتاج لإعطاء الفرصة لمشارك آخر إذا لم نتلقى ردكم قريباً.\n\n${e('💳 ')}رسوم المشاركة: ${d.earlyPrice} ريال سعودي\n\n${bold('المطلوب منكم:')}\n1️⃣ تحويل المبلغ خلال المدة المحددة\n2️⃣ إرسال صورة الإيصال بعد التحويل\n3️⃣ تأكيد حضوركم\n\n${bold('طرق الدفع:')}\n• STC Pay: ${d.stcPay}\n• ${d.bankName}\n• IBAN:\n${d.iban}\n\n${e('⚠️ ')}${bold('ملاحظة:')} لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال خلال المدة المحددة.\n\n${e('⚠️ ')}${bold('مهم - سياسة الحضور:')}\n• لا استرداد للرسوم في حالة الإلغاء\n• لكن نرحب بحضوركم حتى لو تأخرتم!\n• المهم إبلاغنا فوراً إذا لن تتمكنوا من الحضور\n\n${e('📍 ')}${bold('تفاصيل الفعالية:')}\nالمكان: ${d.locationName}\nالعنوان: ${d.mapUrl}\n\n${e('📅 ')}التاريخ: ${d.eventDateText}\n${e('🕰️ ')}الوقت: ${d.eventTimeText}\n${e('⏱️ ')}المدة: 60 دقيقة\n\n${bold('يرجى الحضور قبل الموعد بـ 10 دقائق')}\n\nمعلوماتكم للفعالية:\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز الخاص: ${bold(String(secureToken))}\n\n${e('🔗 ')}رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n${e('⏰ ')}${bold('يرجى الرد في أقرب وقت ممكن')}\n\nنتطلع لحضوركم!\n\nفريق التوافق الأعمى`;
         } else if (urgencyLevel === 'semi-urgent') {
-          // Semi-urgent match message with 2-hour deadline
-          return `⚠️ *مهم - التوافق الأعمى* ⚠️\n\nالسلام عليكم *${name}*،\n\n🎯 *مهم:* تم العثور على شريك متوافق معكم!\n\n⏰ *يرجى الرد خلال ساعتين*\n⚡ المقاعد محدودة وقد تُعطى الفرصة لمشارك آخر إذا لم نتلقى ردكم\n\n💳 رسوم المشاركة: 45 ريال سعودي\n\n📋 *المطلوب منكم:*\n1️⃣ تحويل المبلغ خلال الساعتين القادمتين\n2️⃣ إرسال صورة الإيصال فوراً بعد التحويل\n3️⃣ تأكيد حضوركم\n\n*طرق الدفع:*\n• STC Pay: 0560899666\n• مصرف الراجحي: عبدالرحمن عبدالملك\n• IBAN:\nSA2480000588608016007502\n\n⚠️ *ملاحظة مهمة:* لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال خلال المدة المحددة. في حالة عدم التحويل، سيتم إعطاء الفرصة لمشارك آخر.\n\n*تنبيه:* في حالة التأكيد ثم عدم الحضور أو الإلغاء، لا يمكن استرداد الرسوم.\n\n📍 *تفاصيل الفعالية:*\nالمكان: كوفي بلانيت - الدور الثاني\nالعنوان: https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n📅 التاريخ: الأحد 16 نوفمبر 2025\n🕰️ الوقت: 8:15 مساءً\n⏱️ المدة: 60 دقيقة\n\n*يرجى الحضور قبل الموعد بـ 10 دقائق*\n\nمعلوماتكم للفعالية:\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n🔗 رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n⏰ *تذكير: لديكم ساعتين للرد وتأكيد المشاركة*\n\nنتطلع لحضوركم!\n\nفريق التوافق الأعمى`;
+          const deadlineMin = d.semiUrgentDeadlineMin;
+          return `${e('⚠️ ')}${bold('مهم - التوافق الأعمى')} ${e('⚠️')}\n\nالسلام عليكم ${bold(name)}،\n\n${e('🎯 ')}${bold('مهم:')} تم العثور على شريك متوافق معكم!\n\n${e('⏰ ')}${bold(`يرجى الرد خلال ${Math.round(deadlineMin/60) >= 1 ? `${Math.round(deadlineMin/60)} ساعة` : `${deadlineMin} دقيقة`}`)}\n⚡ المقاعد محدودة وقد تُعطى الفرصة لمشارك آخر إذا لم نتلقى ردكم\n\n${e('💳 ')}رسوم المشاركة: ${d.earlyPrice} ريال سعودي\n\n${bold('المطلوب منكم:')}\n1️⃣ تحويل المبلغ خلال المدة المحددة\n2️⃣ إرسال صورة الإيصال فوراً بعد التحويل\n3️⃣ تأكيد حضوركم\n\n${bold('طرق الدفع:')}\n• STC Pay: ${d.stcPay}\n• ${d.bankName}\n• IBAN:\n${d.iban}\n\n${e('⚠️ ')}${bold('ملاحظة مهمة:')} لتأكيد حضوركم، يجب إتمام التحويل وإرسال صورة الإيصال خلال المدة المحددة. في حالة عدم التحويل، سيتم إعطاء الفرصة لمشارك آخر.\n\n${bold('تفاصيل الفعالية:')}\nالمكان: ${d.locationName}\nالعنوان: ${d.mapUrl}\n\n${e('📅 ')}التاريخ: ${d.eventDateText}\n${e('🕰️ ')}الوقت: ${d.eventTimeText}\n${e('⏱️ ')}المدة: 60 دقيقة\n\n${bold('يرجى الحضور قبل الموعد بـ 10 دقائق')}\n\nمعلوماتكم للفعالية:\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز الخاص: ${bold(String(secureToken))}\n\n${e('🔗 ')}رابط الدخول المباشر:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n${e('⏰ ')}${bold(`تذكير: لديكم ${Math.round(deadlineMin/60) >= 1 ? `${Math.round(deadlineMin/60)} ساعة` : `${deadlineMin} دقيقة`} للرد وتأكيد المشاركة`)}\n\nنتطلع لحضوركم!\n\nفريق التوافق الأعمى`;
         } else {
-          // Regular match message
-          return `*التوافق الأعمى* ✨
-
-السلام عليكم *${name}*،
-
-نسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم!
-
-⚠️ *ملاحظة مهمة:* 
-إذا لم تتمكنوا من الحضور، يرجى إبلاغنا فوراً حتى نعطي الفرصة لمشارك آخر.
-
-💰 *رسوم المشاركة:*
-🔸 45 ريال (التسجيل قبل الجمعة 3:00 مساءً)
-🔸 65 ريال (التسجيل بعد الجمعة 3:00 مساءً)
-
-*طرق الدفع:*
-✦ STC Pay: 0560899666
-✦ مصرف الراجحي: عبدالرحمن عبدالملك
-✦ IBAN: SA2480000588608016007502
-
-⚠️ *التأكيد يتم فقط بعد استلام التحويل والإيصال*
-
-⚠️ *مهم:*
-✦ التأكيد بدون حضور سيؤدي لمنعكم من الفعاليات القادمة
-✦ لا استرداد للرسوم بعد التأكيد (حتى في حالة الإلغاء المسبق)
-✦ لا يمكن تأجيل دفع من فعاليه الى فعاليه اخرى
-
-📍 *تفاصيل الفعالية:*
-المكان: كوفي بلانيت - الدور الثاني
-التاريخ: الأحد 16 نوفمبر 2025
-الوقت: 8:15 مساءً (الحضور 8:05 مساءً)
-
-العنوان: 
-https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
-
-📱 *معلوماتكم:*
-رقم المشارك: *${assignedNumber}*
-الرمز: *${secureToken}*
-الرابط: 
-https://match-omega.vercel.app/welcome?token=${secureToken}
-
-نتطلع لحضوركم!
-
-فريق التوافق الأعمى`;
+          // Regular match message (normal)
+          return `${bold('التوافق الأعمى')} ${e('✨')}\n\nالسلام عليكم ${bold(name)}،\n\nنسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم!\n\n${e('⚠️ ')}${bold('ملاحظة مهمة:')}\nإذا لم تتمكنوا من الحضور، يرجى إبلاغنا فوراً حتى نعطي الفرصة لمشارك آخر.\n\n${e('💰 ')}${bold('رسوم المشاركة:')}\n🔸 ${d.earlyPrice} ريال (التسجيل قبل ${d.latePriceSwitchLabel})\n🔸 ${d.latePrice} ريال (التسجيل بعد ${d.latePriceSwitchLabel})\n\n${bold('طرق الدفع:')}\n✦ STC Pay: ${d.stcPay}\n✦ ${d.bankName}\n✦ IBAN: ${d.iban}\n\n${e('⚠️ ')}${bold('التأكيد يتم فقط بعد استلام التحويل والإيصال')}\n\n${e('⚠️ ')}${bold('مهم:')}\n✦ التأكيد بدون حضور سيؤدي لمنعكم من الفعاليات القادمة\n✦ لا استرداد للرسوم بعد التأكيد (حتى في حالة الإلغاء المسبق)\n✦ لا يمكن تأجيل دفع من فعاليه الى فعاليه اخرى\n\n${e('📍 ')}${bold('تفاصيل الفعالية:')}\nالمكان: ${d.locationName}\nالتاريخ: ${d.eventDateText}\nالوقت: ${d.eventTimeText} (الحضور ${d.arrivalTimeText})\n\nالعنوان:\n${d.mapUrl}\n\n${e('📱 ')}${bold('معلوماتكم:')}\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز: ${bold(String(secureToken))}\nالرابط:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\nنتطلع لحضوركم!\n\nفريق التوافق الأعمى`;
         }
 
       case 'early-match':
@@ -94,65 +91,65 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
         return `*التوافق الفكري* ⏰\n\nالسلام عليكم *${name}*،\n\n🕐 *الأسئلة الشائعة - التوقيت والجدول*\n\n❓ *متى تبدأ الفعالية؟*\n📅 الأحد 16 نوفمبر 2025\n🕰️ الساعة 8:15 مساءً بالضبط\n⏰ يرجى الحضور 8:05 مساءً\n\n❓ *كم تستغرق الجلسات؟*\n• الجلسات الجماعية: 30 دقيقة مع مجموعة من 4-6 أشخاص\n• الجلسات الفردية: 30 دقيقة كحد أدنى، لكن يمكنكما الاستمرار كما تشاءان\n\n❓ *كيف يتم التوافق حسب العمر؟*\nيتم التوافق مع أشخاص قريبين من عمرك لضمان التجانس في مراحل الحياة والاهتمامات. الفارق العمري المسموح لا يتجاوز 5 سنوات إلا في حالات معينة.\n\n❓ *ماذا لو تأخرت؟*\n⚠️ التأخير يؤثر على تجربتك\n🚫 قد تفوت الجلسات الأولى\n📞 تواصل معنا فوراً إذا تأخرت\n\n❓ *هل يمكن المغادرة مبكراً؟*\n🚪 نعم، لكن لن تحصل على النتائج الكاملة\n⭐ ننصح بالبقاء للنهاية\n🎁 الأنشطة الجماعية ممتعة جداً\n\n❓ *متى تظهر النتائج؟*\n📊 في نهاية الفعالية\n📱 أو عبر الرابط الخاص بك لاحقاً\n✨ ستعرف من توافقت معهم\n\n❓ *ماذا بعد انتهاء الفعالية؟*\n📞 يمكنك التواصل مع من توافقت معهم\n📱 عبر المعلومات التي ستحصل عليها\n🤝 أو ترتيب لقاء آخر\n\nرقم المشارك: *${assignedNumber}*\n\n🔗 رابط حسابك:\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\nفريق التوافق الأعمى`;
 
       case 'reminder':
-        return `*التوافق الأعمى* 🔔\n\nالسلام عليكم *${name}*،\n\n⏰ *تذكير مهم بموعد الفعالية*\n\n🗓️ *غداً الأحد 16 نوفمبر 2025*\n🕰️ *الساعة 8:15 مساءً*\n📍 *كوفي بلانيت - الدور الثاني*\n\n✅ *تأكد من:*\n• وصولك قبل الموعد بـ 10 دقائق\n• إحضار هاتفك المحمول\n\n💙 *نتطلع لرؤيتكم!* نرحب بحضوركم بكل سرور حتى لو تأخرتم قليلاً. إن واجهتكم أي ظروف طارئة تمنعكم من الحضور، نرجو إبلاغنا فوراً لنتمكن من إعطاء الفرصة لمشارك على قائمة الانتظار.\n\n📱 *معلوماتك للفعالية:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n🗺️ *الموقع:*\nhttps://maps.app.goo.gl/CYsyK9M5mxXMNo9YA\n\n🔗 *رابط حسابك:*\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n🎉 *نتطلع لرؤيتك غداً!*\n\nفريق التوافق الأعمى`;
+        return `${bold('التوافق الأعمى')} ${e('🔔')}\n\nالسلام عليكم ${bold(name)}،\n\n${e('⏰ ')}${bold('تذكير مهم بموعد الفعالية')}\n\n${e('🗓️ ')}${bold(`غداً ${config.eventDateText}`)}\n${e('🕰️ ')}${bold(`الساعة ${config.eventTimeText}`)}\n${e('📍 ')}${bold(config.locationName)}\n\n${bold('تأكد من:')}\n• وصولك قبل الموعد بـ 10 دقائق\n• إحضار هاتفك المحمول\n\n${e('📱 ')}${bold('معلوماتك للفعالية:')}\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز الخاص: ${bold(String(secureToken))}\n\n${e('🗺️ ')}${bold('الموقع:')}\n${config.mapUrl}\n\n${e('🔗 ')}${bold('رابط حسابك:')}\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\n${e('🎉 ')}${bold('نتطلع لرؤيتك غداً!')}\n\nفريق التوافق الأعمى`;
 
       case 'payment-reminder':
-        return `*التوافق الأعمى* 💳
+        return `${bold('التوافق الأعمى')} ${e('💳')}
 
-السلام عليكم *${name}*،
+السلام عليكم ${bold(name)}،
 
-⚠️ *تذكير مهم - الدفع المطلوب*
+${e('⚠️ ')}${bold('تذكير مهم - الدفع المطلوب')}
 
-🔴 *لم نستلم تحويلكم بعد!*
+${e('🔴 ')}${bold('لم نستلم تحويلكم بعد!')}
 
 نذكركم بأنه تم العثور على شريك متوافق معكم، ولكن لم يتم إتمام الدفع حتى الآن.
 
-⏰ *مهم جداً:* يرجى إتمام التحويل في أقرب وقت ممكن لتأكيد حجزكم.
+${e('⏰ ')}${bold('مهم جداً:')} يرجى إتمام التحويل في أقرب وقت ممكن لتأكيد حجزكم.
 
-💰 *رسوم المشاركة:*
-🔸 45 ريال (التسجيل قبل الجمعة 3:00 مساءً)
-🔸 65 ريال (التسجيل بعد الجمعة 3:00 مساءً)
+${e('💰 ')}${bold('رسوم المشاركة:')}
+🔸 ${config.earlyPrice} ريال (التسجيل قبل ${config.latePriceSwitchLabel})
+🔸 ${config.latePrice} ريال (التسجيل بعد ${config.latePriceSwitchLabel})
 
-⚠️ *تحذير:* في حالة عدم استلام التحويل قريباً، سيتم إعطاء الفرصة لمشارك آخر.
+${e('⚠️ ')}${bold('تحذير:')} في حالة عدم استلام التحويل قريباً، سيتم إعطاء الفرصة لمشارك آخر.
 
-🚨 *لماذا يجب الدفع الآن؟*
+${e('🚨 ')}${bold('لماذا يجب الدفع الآن؟')}
 ✦ شريكك المتوافق ينتظر تأكيدك
 ✦ المقاعد محدودة وقد تُعطى لآخرين
 ✦ لضمان مشاركتك في الفعالية
 ✦ لتجنب خسارة هذه الفرصة الفريدة
-✦ توفير 20 ريال بالتأكيد قبل الجمعة
+✦ توفير ${Math.max(config.latePrice - config.earlyPrice, 0)} ريال بالتأكيد قبل ${config.latePriceSwitchLabel}
 
-*طرق الدفع السريعة:*
-✦ STC Pay: 0560899666
-✦ مصرف الراجحي: عبدالرحمن عبدالملك
-✦ IBAN: SA2480000588608016007502
+${bold('طرق الدفع السريعة:')}
+✦ STC Pay: ${config.stcPay}
+✦ ${config.bankName}
+✦ IBAN: ${config.iban}
 
-📸 *بعد التحويل:*
+${e('📸 ')}${bold('بعد التحويل:')}
 أرسل صورة الإيصال فوراً عبر الواتساب لتأكيد حجزكم.
 
-⚠️ *مهم:*
+${e('⚠️ ')}${bold('مهم:')}
 ✦ التأكيد بدون حضور سيؤدي لمنعكم من الفعاليات القادمة
 ✦ لا استرداد للرسوم بعد التأكيد (حتى في حالة الإلغاء المسبق)
 ✦ لا يمكن تأجيل دفع من فعاليه الى فعاليه اخرى
 
-📍 *تفاصيل الفعالية:*
-المكان: كوفي بلانيت - الدور الثاني
-التاريخ: الأحد 16 نوفمبر 2025
-الوقت: 8:15 مساءً (الحضور 8:05 مساءً)
+${e('📍 ')}${bold('تفاصيل الفعالية:')}
+المكان: ${config.locationName}
+التاريخ: ${config.eventDateText}
+الوقت: ${config.eventTimeText} (الحضور ${config.arrivalTimeText})
 
-العنوان: 
-https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+العنوان:
+${config.mapUrl}
 
-📱 *معلوماتك:*
-رقم المشارك: *${assignedNumber}*
-الرمز الخاص: *${secureToken}*
+${e('📱 ')}${bold('معلوماتك:')}
+رقم المشارك: ${bold(String(assignedNumber))}
+الرمز الخاص: ${bold(String(secureToken))}
 
 رابط حسابك:
 https://match-omega.vercel.app/welcome?token=${secureToken}
 
-⚡ *يرجى التحويل وإرسال الإيصال في أقرب وقت!*
+${e('⚡ ')}${bold('يرجى التحويل وإرسال الإيصال في أقرب وقت!')}
 
-🔥 لا تفوت هذه الفرصة!
+${e('🔥 ')}لا تفوت هذه الفرصة!
 
 فريق التوافق الأعمى`;
 
@@ -162,10 +159,15 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       case 'gender-confirmation':
         return `السلام عليكم *${name}* 👋\n\nلاحظنا إنك اخترت "*أي جنس*" في تفضيلات المطابقة.\n\nبس حبينا نتأكد إن هذا اختيارك الصحيح؟ 🤔\n\nلو تبي تأكد أو تغير:\n• "نعم" - أوكي مع أي جنس\n• "ذكر" - ذكور فقط\n• "أنثى" - إناث فقط\n\nشكراً! 🙏`;
 
+      case 'early-reminder':
+        return `${bold('تذكير مبكر')} ${e('🔔')}\n\nالسلام عليكم ${bold(name)}،\n\n${bold('تذكير ودي:')} الأسعار المخفضة (${config.earlyPrice} ريال) سارية حتى ${config.latePriceSwitchLabel}.\nبعدها تصبح ${config.latePrice} ريال.\n\n${bold('للتأكيد الآن:')}\n• STC Pay: ${config.stcPay}\n• ${config.bankName}\n• IBAN: ${config.iban}\n\n${bold('تفاصيل الفعالية:')} ${config.eventDateText} - ${config.eventTimeText}\nالمكان: ${config.locationName}\nالعنوان: ${config.mapUrl}`;
+
       default:
         return "";
     }
-  }, [participant, urgencyLevel, templateType]);
+  }, [participant, urgencyLevel, templateType, config]);
+
+  const exportMessage = useMemo(() => sanitizeForExport(message), [message]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message);
@@ -206,6 +208,141 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
         {/* Content */}
         <div className="p-6 space-y-4 overflow-y-auto">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Button onClick={() => setShowCustomize(v => !v)} className={`px-3 py-2 ${showCustomize ? 'bg-slate-700' : 'bg-slate-800 hover:bg-slate-700'}`}>
+                <Settings className="w-4 h-4 mr-2" /> تخصيص
+              </Button>
+            </div>
+            <label className="inline-flex items-center gap-2 text-slate-300">
+              <Checkbox checked={exportMode} onCheckedChange={(v:any) => setExportMode(!!v)} />
+              <span className="flex items-center"><FileText className="w-4 h-4 ml-2"/> وضع التصدير (نص صِرف)</span>
+            </label>
+          </div>
+
+          {/* Customize Panel */}
+          {showCustomize && (
+            <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400">مهلة عادية (دقيقة)</label>
+                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2"
+                    value={config.normalDeadlineMin}
+                    onChange={e=>setConfig({...config, normalDeadlineMin: Math.max(1, Number(e.target.value||0))})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">مهلة شبه عاجلة (دقيقة)</label>
+                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2"
+                    value={config.semiUrgentDeadlineMin}
+                    onChange={e=>setConfig({...config, semiUrgentDeadlineMin: Math.max(1, Number(e.target.value||0))})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">مهلة عاجلة جداً (دقيقة)</label>
+                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2"
+                    value={config.urgentDeadlineMin}
+                    onChange={e=>setConfig({...config, urgentDeadlineMin: Math.max(1, Number(e.target.value||0))})}/>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400">سعر مبكر (ريال)</label>
+                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.earlyPrice}
+                    onChange={e=>setConfig({...config, earlyPrice: Number(e.target.value||0)})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">سعر متأخر (ريال)</label>
+                  <input type="number" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.latePrice}
+                    onChange={e=>setConfig({...config, latePrice: Number(e.target.value||0)})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">موعد التحول للسعر المتأخر</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.latePriceSwitchLabel}
+                    onChange={e=>setConfig({...config, latePriceSwitchLabel: e.target.value})}/>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400">التاريخ (نصي)</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.eventDateText}
+                    onChange={e=>setConfig({...config, eventDateText: e.target.value})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">الوقت</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.eventTimeText}
+                    onChange={e=>setConfig({...config, eventTimeText: e.target.value})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">وقت الحضور المقترح</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.arrivalTimeText}
+                    onChange={e=>setConfig({...config, arrivalTimeText: e.target.value})}/>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400">المكان</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.locationName}
+                    onChange={e=>setConfig({...config, locationName: e.target.value})}/>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400">رابط الموقع (خرائط)</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.mapUrl}
+                    onChange={e=>setConfig({...config, mapUrl: e.target.value})}/>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400">STC Pay</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.stcPay}
+                    onChange={e=>setConfig({...config, stcPay: e.target.value})}/>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs text-slate-400">اسم البنك</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.bankName}
+                    onChange={e=>setConfig({...config, bankName: e.target.value})}/>
+                </div>
+                <div className="md:col-span-3">
+                  <label className="text-xs text-slate-400">IBAN</label>
+                  <input type="text" className="w-full mt-1 bg-slate-700 text-white rounded px-2 py-2" value={config.iban}
+                    onChange={e=>setConfig({...config, iban: e.target.value})}/>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="inline-flex items-center gap-2 text-slate-300">
+                  <Checkbox checked={config.includeEmojis} onCheckedChange={(v:any)=>setConfig({...config, includeEmojis: !!v})}/>
+                  تضمين الإيموجي
+                </label>
+                <label className="inline-flex items-center gap-2 text-slate-300">
+                  <Checkbox checked={config.includeBold} onCheckedChange={(v:any)=>setConfig({...config, includeBold: !!v})}/>
+                  تنسيق عريض (Bold)
+                </label>
+                <Button
+                  onClick={() => setConfig({
+                    normalDeadlineMin: 24 * 60,
+                    semiUrgentDeadlineMin: 120,
+                    urgentDeadlineMin: 60,
+                    earlyPrice: 45,
+                    latePrice: 65,
+                    latePriceSwitchLabel: 'الجمعة 3:00 مساءً',
+                    eventDateText: 'الأحد 16 نوفمبر 2025',
+                    eventTimeText: '8:15 مساءً',
+                    arrivalTimeText: '8:05 مساءً',
+                    locationName: 'كوفي بلانيت - الدور الثاني',
+                    mapUrl: 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+                    stcPay: '0560899666',
+                    bankName: 'مصرف الراجحي: عبدالرحمن عبدالملك',
+                    iban: 'SA2480000588608016007502',
+                    includeEmojis: true,
+                    includeBold: true,
+                  })}
+                  className="bg-slate-700 hover:bg-slate-600">
+                  استعادة الإفتراضيات
+                </Button>
+              </div>
+            </div>
+          )}
           {/* Phone Number Copy Field */}
           <div className="bg-slate-800 border border-slate-600 rounded-lg p-4">
             <div className="flex items-center justify-between">
@@ -251,6 +388,17 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
               >
                 <MessageSquare className="w-4 h-4 mx-auto mb-1" />
                 إشعار مبكر
+              </button>
+              <button
+                onClick={() => setTemplateType('early-reminder')}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'early-reminder' 
+                    ? 'bg-emerald-600 text-white' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <Clock className="w-4 h-4 mx-auto mb-1" />
+                تذكير مبكر
               </button>
               <button
                 onClick={() => setTemplateType('event-info')}
@@ -351,7 +499,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
                 مستوى الاستعجال
               </label>
               <div className="space-y-3">
-                {/* Normal - 24 hours */}
+                {/* Normal - 24 hours (modifiable) */}
                 <button
                   onClick={() => setUrgencyLevel('normal')}
                   className={`w-full p-3 rounded-lg text-right transition-all ${
@@ -363,7 +511,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="font-medium">📅 رسالة عادية</div>
-                      <div className="text-xs mt-1 opacity-80">مهلة 24 ساعة للرد - نبرة احترافية</div>
+                      <div className="text-xs mt-1 opacity-80">مهلة {Math.round(config.normalDeadlineMin/60)} ساعة للرد - نبرة احترافية</div>
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ml-3 ${
                       urgencyLevel === 'normal' ? 'border-white' : 'border-slate-400'
@@ -373,7 +521,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
                   </div>
                 </button>
 
-                {/* Semi-urgent - 2 hours */}
+                {/* Semi-urgent - configurable */}
                 <button
                   onClick={() => setUrgencyLevel('semi-urgent')}
                   className={`w-full p-3 rounded-lg text-right transition-all ${
@@ -385,7 +533,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="font-medium">⚠️ رسالة شبه عاجلة</div>
-                      <div className="text-xs mt-1 opacity-80">مهلة ساعتين للرد - نبرة مهمة</div>
+                      <div className="text-xs mt-1 opacity-80">مهلة {Math.round(config.semiUrgentDeadlineMin/60)} ساعة للرد - نبرة مهمة</div>
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ml-3 ${
                       urgencyLevel === 'semi-urgent' ? 'border-white' : 'border-slate-400'
@@ -395,7 +543,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
                   </div>
                 </button>
 
-                {/* Urgent - 1 hour */}
+                {/* Urgent - configurable */}
                 <button
                   onClick={() => setUrgencyLevel('urgent')}
                   className={`w-full p-3 rounded-lg text-right transition-all ${
@@ -407,7 +555,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="font-medium">🚨 رسالة عاجلة جداً</div>
-                      <div className="text-xs mt-1 opacity-80">مهلة ساعة واحدة فقط - ضغط نفسي عالي</div>
+                      <div className="text-xs mt-1 opacity-80">مهلة {Math.round(config.urgentDeadlineMin/60)} ساعة فقط - ضغط نفسي عالي</div>
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ml-3 ${
                       urgencyLevel === 'urgent' ? 'border-white' : 'border-slate-400'
@@ -420,19 +568,36 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
             </div>
           )}
 
-          <Textarea
-            readOnly
-            value={message}
-            className="w-full h-80 bg-slate-800 border-slate-600 text-slate-200 text-sm resize-none focus:ring-blue-500 focus:border-blue-500"
-            dir="rtl"
-          />
+          {!exportMode && (
+            <Textarea
+              readOnly
+              value={message}
+              className="w-full h-80 bg-slate-800 border-slate-600 text-slate-200 text-sm resize-none focus:ring-blue-500 focus:border-blue-500"
+              dir="rtl"
+            />
+          )}
+
+          {exportMode && (
+            <div className="space-y-2">
+              <label className="text-sm text-slate-300">نص التصدير (Plain)</label>
+              <Textarea
+                readOnly
+                value={exportMessage}
+                className="w-full h-80 bg-slate-800 border-slate-600 text-slate-200 text-sm resize-none focus:ring-blue-500 focus:border-blue-500"
+                dir="rtl"
+              />
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="flex flex-col sm:flex-row gap-3 p-5 border-t border-slate-700">
-          <Button onClick={handleCopy} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+          <Button onClick={() => {
+              navigator.clipboard.writeText(exportMode ? exportMessage : message);
+              setCopied(true); setTimeout(()=>setCopied(false), 2000);
+            }} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
             {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />} 
-            {copied ? 'تم النسخ!' : 'نسخ الرسالة'}
+            {copied ? 'تم النسخ!' : (exportMode ? 'نسخ (تصدير)' : 'نسخ الرسالة')}
           </Button>
           <Button onClick={openWhatsApp} className="w-full bg-green-600 hover:bg-green-700 text-white">
             <MessageSquare className="w-4 h-4 mr-2" />

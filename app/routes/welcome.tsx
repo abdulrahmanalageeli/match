@@ -2436,22 +2436,19 @@ export default function WelcomePage() {
           action: "update-vibe-questions",
           secure_token: secureToken,
           vibe_answers: vibeAnswers
-        }),
-      })
-      
+        })
+      });
       const data = await res.json()
       
       if (res.ok && data.success) {
-        toast.success("✅ تم تحديث إجاباتك بنجاح! أنت الآن مؤهل للحدث القادم")
-        setShowVibeCompletionPopup(false)
-        setIncompleteVibeQuestions({})
-        setVibeAnswers({})
+        toast.success(data.message || "تم تحديث البيانات بنجاح!");
+        setShowVibeCompletionPopup(false);
       } else {
-        toast.error(data.error || "حدث خطأ أثناء التحديث")
+        toast.error(data.error || "حدث خطأ أثناء التحديث");
       }
     } catch (err) {
-      console.error("Error updating vibe questions:", err)
-      toast.error("حدث خطأ أثناء التحديث")
+      console.error("Error updating vibe questions:", err);
+      toast.error("حدث خطأ أثناء التحديث");
     } finally {
       setVibeLoading(false)
     }
@@ -2495,6 +2492,10 @@ export default function WelcomePage() {
         setReturningHumorStyle("")
         setReturningOpennessComfort("")
         setShowReturningSignupPopup(false)
+        // Refresh the gender preference badge
+        if (data.secure_token) {
+          pollParticipantData(data.secure_token);
+        }
       } else {
         toast.error(`${data.error}${data.message ? ' - ' + data.message : ''}`)
       }
@@ -2673,24 +2674,19 @@ export default function WelcomePage() {
           humor_banter_style: returningHumorStyle,
           early_openness_comfort: returningOpennessComfort,
           auto_signup_next_event: autoSignupNextEvent
-        }),
-      })
-      
-      const data = await res.json()
+        })
+      });
+      const data = await res.json();
       
       if (res.ok) {
-        toast.success(`${data.message} - مرحباً ${data.participant_name} (#${data.participant_number})`)
-        setShowNextEventSignup(true) // Mark as already signed up
-        setShowNextEventPopup(false)
-        setReturningGenderPreference("") // Reset gender preference
-        setReturningHumorStyle("") // Reset humor style
-        setReturningOpennessComfort("") // Reset openness comfort
-      } else {
-        // Check if already signed up
-        if (data.error && data.error.includes("already signed up")) {
-          setShowNextEventSignup(true) // Mark as already signed up
+        toast.success(data.message || "تم تسجيلك للحدث القادم بنجاح!");
+        setShowNextEventPopup(false);
+        // Refresh the gender preference badge
+        if (token) {
+          pollParticipantData(token);
         }
-        toast.error(`${data.error}${data.message ? ' - ' + data.message : ''}`)
+      } else {
+        toast.error(`${data.error}${data.message ? ' - ' + data.message : ''}`);
       }
     } catch (err) {
       console.error("Error with auto signup:", err)
@@ -5481,7 +5477,13 @@ export default function WelcomePage() {
               <>
                 <div className="text-center mt-16 sm:mt-20 mb-4 relative z-20">
                   <button 
-                    onClick={() => setShowReturningSignupPopup(true)}
+                    onClick={() => {
+                    if (secureToken) {
+                      window.location.href = `/welcome?token=${secureToken}&flow=returning`;
+                    } else {
+                      toast.error('لم يتم العثور على رمز المستخدم. يرجى المحاولة مرة أخرى.');
+                    }
+                  }}
                     className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
                   >
                     <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>

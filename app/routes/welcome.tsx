@@ -9537,13 +9537,13 @@ export default function WelcomePage() {
         <DialogContent className={`max-w-md ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`} dir="rtl">
           <DialogHeader>
             <DialogTitle className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
-              تسجيل مشارك سابق
+              تحديث تفضيل الجنس
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-              مرحباً بعودتك! يرجى تحديث تفضيلاتك للحدث القادم
+              يمكنك تعديل تفضيل الجنس للمطابقة. سيتم حفظ التغيير فوراً.
             </p>
 
             <div className="space-y-4">
@@ -9630,11 +9630,11 @@ export default function WelcomePage() {
                 إلغاء
               </Button>
               <Button 
-                onClick={handleReturningSignupSubmit}
+                onClick={handleUpdateGenderPreferenceOnly}
                 disabled={returningLoading}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
-                {returningLoading ? "جاري التسجيل..." : "تسجيل للحدث القادم"}
+                {returningLoading ? "جاري الحفظ..." : "حفظ التفضيل"}
               </Button>
             </div>
           </div>

@@ -6222,6 +6222,20 @@ export default function WelcomePage() {
       {step !== 4 && <NavigationBar />}
       {/* Clickable Logo Header - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <LogoHeader />}
+      {step === 0 && showRegistrationContent && (
+        <div className="text-center my-4">
+          <button 
+            onClick={() => setShowReturningSignupPopup(true)}
+            className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
+          >
+            <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
+            <span className={`text-xs font-bold ${dark ? 'text-blue-400' : 'text-blue-600'}`}>
+              {returningGenderPreference === 'same_gender' ? 'نفس الجنس' : returningGenderPreference === 'any_gender' ? 'أي جنس' : 'الجنس الآخر'}
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-colors duration-300">(تغيير)</span>
+          </button>
+        </div>
+      )}
       {/* Bottom Left Contact Button - Hide in step 4 (round mode) as it's included in page content */}
       {step !== 4 && <BottomLeftContactButton />}
       {/* Participant Icon - Hide in step 4 (round mode) as it's included in page content */}

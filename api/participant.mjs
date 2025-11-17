@@ -1078,6 +1078,26 @@ export default async function handler(req, res) {
           updateData.any_gender_preference = false
           console.log('👫 Updated gender preference: opposite gender (default)')
         }
+
+        // Also update the survey_data JSONB
+        if (participant.survey_data) {
+          // Deep copy to avoid modifying the original object in memory
+          const newSurveyData = JSON.parse(JSON.stringify(participant.survey_data));
+          if (newSurveyData.answers) {
+            newSurveyData.answers.gender_preference = gender_preference;
+            // Mirror the logic from SurveyComponent to keep data consistent
+            const userGender = newSurveyData.answers.gender;
+            if (gender_preference === 'any_gender' || gender_preference === 'any') {
+                newSurveyData.answers.actual_gender_preference = 'any_gender';
+            } else if (gender_preference === userGender) {
+                newSurveyData.answers.actual_gender_preference = 'same_gender';
+            } else {
+                newSurveyData.answers.actual_gender_preference = 'opposite_gender';
+            }
+          }
+          updateData.survey_data = newSurveyData;
+          console.log('📝 Updated gender_preference in survey_data JSONB');
+        }
       }
 
       // Handle interaction style updates if provided
@@ -1209,6 +1229,26 @@ export default async function handler(req, res) {
           updateData.same_gender_preference = false
           updateData.any_gender_preference = false
           console.log('👫 Updated gender preference: opposite gender (default)')
+        }
+
+        // Also update the survey_data JSONB
+        if (participant.survey_data) {
+          // Deep copy to avoid modifying the original object in memory
+          const newSurveyData = JSON.parse(JSON.stringify(participant.survey_data));
+          if (newSurveyData.answers) {
+            newSurveyData.answers.gender_preference = gender_preference;
+            // Mirror the logic from SurveyComponent to keep data consistent
+            const userGender = newSurveyData.answers.gender;
+            if (gender_preference === 'any_gender' || gender_preference === 'any') {
+                newSurveyData.answers.actual_gender_preference = 'any_gender';
+            } else if (gender_preference === userGender) {
+                newSurveyData.answers.actual_gender_preference = 'same_gender';
+            } else {
+                newSurveyData.answers.actual_gender_preference = 'opposite_gender';
+            }
+          }
+          updateData.survey_data = newSurveyData;
+          console.log('📝 Updated gender_preference in survey_data JSONB');
         }
       }
 

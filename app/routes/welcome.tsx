@@ -139,47 +139,6 @@ export default function WelcomePage() {
     const multiplier = humorBonus === 'full' ? 1.15 : 1.05
     return Math.round(compatibilityScore / multiplier)
   }
-
-  // Update only gender preference (badge dialog), no phone lookup or signup
-  const handleUpdateGenderPreferenceOnly = async () => {
-    try {
-      setReturningLoading(true)
-      // Prefer secureToken; otherwise use any saved/synced tokens
-      const tokenToUse = secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')
-      if (!tokenToUse) {
-        toast.error('لا يوجد رمز للدخول. الرجاء تسجيل الدخول أولاً')
-        return
-      }
-
-      // Default to opposite_gender if nothing selected
-      const pref = (returningGenderPreference && returningGenderPreference.trim()) ? returningGenderPreference : 'opposite_gender'
-
-      const res = await fetch('/api/participant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'update-gender-preference',
-          secure_token: tokenToUse,
-          gender_preference: pref
-        })
-      })
-
-      const data = await res.json()
-      if (res.ok && data.success) {
-        toast.success('تم تحديث التفضيل بنجاح')
-        setShowPreferenceDialog(false)
-        // Refresh badge from DB
-        await pollParticipantData(tokenToUse)
-      } else {
-        toast.error(data?.error || 'فشل تحديث التفضيل')
-      }
-    } catch (err) {
-      console.error('Error updating gender preference only:', err)
-      toast.error('حدث خطأ أثناء التحديث')
-    } finally {
-      setReturningLoading(false)
-    }
-  }
   const [conversationStarted, setConversationStarted] = useState(false)
   const [conversationTimer, setConversationTimer] = useState(1800) // 30 minutes
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
@@ -428,8 +387,6 @@ export default function WelcomePage() {
   const [autoSignupNextEvent, setAutoSignupNextEvent] = useState(false);
   const [autoSignupEnabled, setAutoSignupEnabled] = useState(false);
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
-  // Separate dialog for badge-triggered preference changes (no phone input required)
-  const [showPreferenceDialog, setShowPreferenceDialog] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -5524,7 +5481,7 @@ export default function WelcomePage() {
               <>
                 <div className="text-center mt-16 sm:mt-20 mb-4 relative z-20">
                   <button 
-                    onClick={() => setShowPreferenceDialog(true)}
+                    onClick={() => setShowReturningSignupPopup(true)}
                     className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
                   >
                     <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
@@ -9533,17 +9490,17 @@ export default function WelcomePage() {
       )}
 
       {/* Returning Participant Signup Popup */}
-      <Dialog open={showPreferenceDialog} onOpenChange={setShowPreferenceDialog}>
+      <Dialog open={showReturningSignupPopup} onOpenChange={setShowReturningSignupPopup}>
         <DialogContent className={`max-w-md ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`} dir="rtl">
           <DialogHeader>
             <DialogTitle className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
-              تحديث تفضيل الجنس
+              تسجيل مشارك سابق
             </DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
-              يمكنك تعديل تفضيل الجنس للمطابقة. سيتم حفظ التغيير فوراً.
+              مرحباً بعودتك! يرجى تحديث تفضيلاتك للحدث القادم
             </p>
 
             <div className="space-y-4">
@@ -9623,18 +9580,18 @@ export default function WelcomePage() {
 
             <div className="flex gap-2 pt-4">
               <Button 
-                onClick={() => setShowPreferenceDialog(false)}
+                onClick={() => setShowReturningSignupPopup(false)}
                 variant="outline"
                 className="flex-1"
               >
                 إلغاء
               </Button>
               <Button 
-                onClick={handleUpdateGenderPreferenceOnly}
+                onClick={handleReturningSignupSubmit}
                 disabled={returningLoading}
                 className="flex-1 bg-blue-600 hover:bg-blue-700"
               >
-                {returningLoading ? "جاري الحفظ..." : "حفظ التفضيل"}
+                {returningLoading ? "جاري التسجيل..." : "تسجيل للحدث القادم"}
               </Button>
             </div>
           </div>

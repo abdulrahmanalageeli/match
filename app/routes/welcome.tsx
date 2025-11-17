@@ -139,6 +139,47 @@ export default function WelcomePage() {
     const multiplier = humorBonus === 'full' ? 1.15 : 1.05
     return Math.round(compatibilityScore / multiplier)
   }
+
+  // Update only gender preference (badge dialog), no phone lookup or signup
+  const handleUpdateGenderPreferenceOnly = async () => {
+    try {
+      setReturningLoading(true)
+      // Prefer secureToken; otherwise use any saved/synced tokens
+      const tokenToUse = secureToken || resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')
+      if (!tokenToUse) {
+        toast.error('لا يوجد رمز للدخول. الرجاء تسجيل الدخول أولاً')
+        return
+      }
+
+      // Default to opposite_gender if nothing selected
+      const pref = (returningGenderPreference && returningGenderPreference.trim()) ? returningGenderPreference : 'opposite_gender'
+
+      const res = await fetch('/api/participant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update-gender-preference',
+          secure_token: tokenToUse,
+          gender_preference: pref
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        toast.success('تم تحديث التفضيل بنجاح')
+        setShowPreferenceDialog(false)
+        // Refresh badge from DB
+        await pollParticipantData(tokenToUse)
+      } else {
+        toast.error(data?.error || 'فشل تحديث التفضيل')
+      }
+    } catch (err) {
+      console.error('Error updating gender preference only:', err)
+      toast.error('حدث خطأ أثناء التحديث')
+    } finally {
+      setReturningLoading(false)
+    }
+  }
   const [conversationStarted, setConversationStarted] = useState(false)
   const [conversationTimer, setConversationTimer] = useState(1800) // 30 minutes
   const [globalTimerActive, setGlobalTimerActive] = useState(false)

@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -197,6 +197,21 @@ export default async function handler(req, res) {
       console.log("[API] Error: Participant not found or DB error.");
       return res.status(404).json({ error: 'Participant not found' });
     }
+
+    // Compute gender preference from JSON or columns
+    let computedGenderPreference = "opposite_gender";
+    try {
+      const jsonPref = data?.survey_data?.answers?.gender_preference;
+      if (typeof jsonPref === 'string' && jsonPref.length > 0) {
+        computedGenderPreference = jsonPref;
+      } else if (data?.any_gender_preference === true) {
+        computedGenderPreference = 'any_gender';
+      } else if (data?.same_gender_preference === true) {
+        computedGenderPreference = 'same_gender';
+      } else {
+        computedGenderPreference = 'opposite_gender';
+      }
+    } catch (_) {}
 
     // Fetch participant history if they exist
     let history = []
@@ -260,6 +275,7 @@ export default async function handler(req, res) {
       auto_signup_next_event: data.auto_signup_next_event,
       humor_banter_style: data.humor_banter_style,
       early_openness_comfort: data.early_openness_comfort,
+      gender_preference: computedGenderPreference,
       history: history
     })
   }

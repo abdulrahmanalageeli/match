@@ -2532,6 +2532,12 @@ export default function WelcomePage() {
           localStorage.setItem('blindmatch_participant_number', data.assigned_number.toString());
           console.log('💾 Saved participant number to localStorage:', data.assigned_number);
         }
+
+        // Update gender preference badge from DB
+        if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
+          setReturningGenderPreference(data.gender_preference)
+          console.log('🎯 Fetched gender preference from DB:', data.gender_preference)
+        }
       } else {
         console.log('❌ Failed to poll participant data:', data.message);
       }
@@ -2993,9 +2999,9 @@ export default function WelcomePage() {
       console.log('📋 Loaded saved secure token:', savedToken);
     }
     
-    // If we have a token but missing name or number, poll the API to get them
-    if (savedToken && (!savedName || !savedNumber)) {
-      console.log('🔍 Missing participant data, polling API with saved token...');
+    // If we have a token, poll to refresh preference badge (and other info)
+    if (savedToken) {
+      console.log('🔍 Polling API with saved token to refresh preference badge...');
       pollParticipantData(savedToken);
     }
   }, []);
@@ -3028,6 +3034,8 @@ export default function WelcomePage() {
     if (secureToken && secureToken.trim()) {
       console.log('💾 Auto-saving secure token from any step/round:', secureToken);
       saveUserToken(secureToken);
+      // Refresh preference badge from DB whenever secureToken is set/changed
+      pollParticipantData(secureToken);
     }
   }, [secureToken]);
 

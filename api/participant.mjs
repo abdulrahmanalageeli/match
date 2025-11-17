@@ -39,6 +39,81 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
+  // UPDATE GENDER PREFERENCE ONLY (by token)
+  if (action === "update-gender-preference") {
+    try {
+      const { secure_token, gender_preference } = req.body
+      if (!secure_token || !gender_preference) {
+        return res.status(400).json({ error: "Missing secure_token or gender_preference" })
+      }
+
+      // Fetch participant by token (include survey_data for safe merge)
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("id, assigned_number, survey_data, gender, same_gender_preference, any_gender_preference")
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (participantError || !participant) {
+        console.error("Participant lookup error:", participantError)
+        return res.status(404).json({ error: "Participant not found" })
+      }
+
+      // Build updates for columns
+      const updateData = {}
+      if (gender_preference === "same_gender") {
+        updateData.same_gender_preference = true
+        updateData.any_gender_preference = false
+      } else if (gender_preference === "any_gender") {
+        updateData.same_gender_preference = false
+        updateData.any_gender_preference = true
+      } else {
+        updateData.same_gender_preference = false
+        updateData.any_gender_preference = false
+      }
+
+      // Merge into survey_data (preserve existing fields)
+      const newSurveyData = participant.survey_data && typeof participant.survey_data === 'object'
+        ? JSON.parse(JSON.stringify(participant.survey_data))
+        : {}
+      if (!newSurveyData.answers || typeof newSurveyData.answers !== 'object') {
+        newSurveyData.answers = {}
+      }
+      newSurveyData.answers.gender_preference = gender_preference
+
+      const userGender = newSurveyData.answers.gender || newSurveyData.gender || participant.gender || null
+      if (gender_preference === 'any_gender' || gender_preference === 'any') {
+        newSurveyData.answers.actual_gender_preference = 'any_gender'
+      } else if (userGender && (gender_preference === userGender)) {
+        newSurveyData.answers.actual_gender_preference = 'same_gender'
+      } else {
+        newSurveyData.answers.actual_gender_preference = 'opposite_gender'
+      }
+
+      updateData.survey_data = newSurveyData
+
+      const { error: updateError } = await supabase
+        .from("participants")
+        .update(updateData)
+        .eq("id", participant.id)
+
+      if (updateError) {
+        console.error("Update Error:", updateError)
+        return res.status(500).json({ error: "Failed to update gender preference" })
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "تم تحديث تفضيل الجنس",
+        assigned_number: participant.assigned_number,
+        gender_preference: newSurveyData.answers.actual_gender_preference
+      })
+    } catch (error) {
+      console.error("Error in update-gender-preference:", error)
+      return res.status(500).json({ error: "حدث خطأ أثناء تحديث التفضيل" })
+    }
+  }
+
   if (!req.body?.action) return res.status(400).json({ error: 'Missing action' })
 
   const { action } = req.body

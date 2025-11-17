@@ -387,6 +387,8 @@ export default function WelcomePage() {
   const [autoSignupNextEvent, setAutoSignupNextEvent] = useState(false);
   const [autoSignupEnabled, setAutoSignupEnabled] = useState(false);
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
+  // Separate dialog for badge-triggered preference changes (no phone input required)
+  const [showPreferenceDialog, setShowPreferenceDialog] = useState(false);
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -5481,7 +5483,7 @@ export default function WelcomePage() {
               <>
                 <div className="text-center mt-16 sm:mt-20 mb-4 relative z-20">
                   <button 
-                    onClick={() => setShowReturningSignupPopup(true)}
+                    onClick={() => setShowPreferenceDialog(true)}
                     className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
                   >
                     <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
@@ -9490,7 +9492,7 @@ export default function WelcomePage() {
       )}
 
       {/* Returning Participant Signup Popup */}
-      <Dialog open={showReturningSignupPopup} onOpenChange={setShowReturningSignupPopup}>
+      <Dialog open={showPreferenceDialog} onOpenChange={setShowPreferenceDialog}>
         <DialogContent className={`max-w-md ${dark ? 'bg-slate-800 border-slate-600' : 'bg-white border-gray-200'}`} dir="rtl">
           <DialogHeader>
             <DialogTitle className={`text-xl font-bold ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
@@ -9580,7 +9582,7 @@ export default function WelcomePage() {
 
             <div className="flex gap-2 pt-4">
               <Button 
-                onClick={() => setShowReturningSignupPopup(false)}
+                onClick={() => setShowPreferenceDialog(false)}
                 variant="outline"
                 className="flex-1"
               >

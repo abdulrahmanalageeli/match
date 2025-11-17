@@ -1078,26 +1078,29 @@ export default async function handler(req, res) {
           updateData.any_gender_preference = false
           console.log('👫 Updated gender preference: opposite gender (default)')
         }
+        // Also update the survey_data JSONB (only if it exists to avoid overwriting)
+        if (participant.survey_data && typeof participant.survey_data === 'object') {
+          const newSurveyData = JSON.parse(JSON.stringify(participant.survey_data));
+          if (!newSurveyData.answers || typeof newSurveyData.answers !== 'object') {
+            newSurveyData.answers = {};
+          }
+          newSurveyData.answers.gender_preference = gender_preference;
 
-        // Also update the survey_data JSONB
-        const newSurveyData = participant.survey_data ? JSON.parse(JSON.stringify(participant.survey_data)) : {};
-        if (!newSurveyData.answers) {
-          newSurveyData.answers = {};
-        }
-        newSurveyData.answers.gender_preference = gender_preference;
-
-        // Mirror the logic from SurveyComponent to keep data consistent
-        const userGender = newSurveyData.answers.gender;
-        if (gender_preference === 'any_gender' || gender_preference === 'any') {
+          // Mirror the logic from SurveyComponent to keep data consistent
+          const userGender = newSurveyData.answers.gender || newSurveyData.gender || null;
+          if (gender_preference === 'any_gender' || gender_preference === 'any') {
             newSurveyData.answers.actual_gender_preference = 'any_gender';
-        } else if (gender_preference === userGender) {
+          } else if (userGender && (gender_preference === userGender)) {
             newSurveyData.answers.actual_gender_preference = 'same_gender';
-        } else {
+          } else {
             newSurveyData.answers.actual_gender_preference = 'opposite_gender';
-        }
+          }
 
-        updateData.survey_data = newSurveyData;
-        console.log('📝 Updated gender_preference in survey_data JSONB');
+          updateData.survey_data = newSurveyData;
+          console.log('📝 Updated gender_preference in survey_data JSONB (merged)');
+        } else {
+          console.log('ℹ️ survey_data not present; skipping JSONB update to avoid overwriting');
+        }
       }
 
       // Handle interaction style updates if provided
@@ -1189,10 +1192,10 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing secure_token" })
       }
 
-      // Get participant data by token
+      // Get participant data by token (include survey_data for safe merge)
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, signup_for_next_event")
+        .select("id, assigned_number, name, phone_number, signup_for_next_event, survey_data")
         .eq("secure_token", secure_token)
         .single()
 

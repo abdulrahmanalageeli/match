@@ -5471,7 +5471,7 @@ export default function WelcomePage() {
             {/* Final Registration Content */}
             {showRegistrationContent && (
               <>
-                <div className="text-center mb-4">
+                <div className="text-center mt-16 sm:mt-20 mb-4 relative z-20">
                   <button 
                     onClick={() => setShowReturningSignupPopup(true)}
                     className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"

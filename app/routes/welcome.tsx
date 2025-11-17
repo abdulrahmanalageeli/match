@@ -4971,7 +4971,7 @@ export default function WelcomePage() {
                     className="space-y-2"
                   >
                     <div className="flex items-center gap-3">
-                      <RadioGroupItem value="" id="popup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <RadioGroupItem value="opposite_gender" id="popup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="popup-opposite-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         الجنس الآخر (افتراضي)
                       </Label>

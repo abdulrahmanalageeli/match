@@ -2703,7 +2703,6 @@ export default function WelcomePage() {
       console.error("Error with auto signup:", err)
       toast.error("حدث خطأ في النظام")
     } finally {
-{{ ... }}
       setNextEventSignupLoading(false)
     }
   }

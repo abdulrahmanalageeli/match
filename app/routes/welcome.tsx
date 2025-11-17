@@ -2570,15 +2570,6 @@ export default function WelcomePage() {
         
         setParticipantHasHumorStyle(!!hasHumorStyle)
         setParticipantHasOpennessComfort(!!hasOpennessComfort)
-
-        // Set gender preference based on DB values for the popup
-        if (participant.any_gender_preference) {
-          setReturningGenderPreference("any_gender");
-        } else if (participant.same_gender_preference) {
-          setReturningGenderPreference("same_gender");
-        } else {
-          setReturningGenderPreference("opposite_gender");
-        }
         
         console.log('📊 Next event participant data check:', {
           hasHumorStyle: !!hasHumorStyle,
@@ -2669,7 +2660,7 @@ export default function WelcomePage() {
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body: JSON.stringify({ 
           action: "auto-signup-next-event",
           secure_token: token,
           gender_preference: returningGenderPreference,
@@ -2680,18 +2671,14 @@ export default function WelcomePage() {
       })
       
       const data = await res.json()
-
+      
       if (res.ok) {
-        toast.success(data.message || "تم تسجيلك بنجاح!")
+        toast.success(`${data.message} - مرحباً ${data.participant_name} (#${data.participant_number})`)
         setShowNextEventSignup(true) // Mark as already signed up
         setShowNextEventPopup(false)
-
-        // Pre-fill the form with the latest data after signup
-        if (data.participant) {
-            setReturningGenderPreference(data.participant.any_gender_preference ? "any_gender" : data.participant.same_gender_preference ? "same_gender" : "opposite_gender");
-            setReturningHumorStyle(data.participant.humor_banter_style || "");
-            setReturningOpennessComfort(data.participant.early_openness_comfort?.toString() || "");
-        }
+        setReturningGenderPreference("") // Reset gender preference
+        setReturningHumorStyle("") // Reset humor style
+        setReturningOpennessComfort("") // Reset openness comfort
       } else {
         // Check if already signed up
         if (data.error && data.error.includes("already signed up")) {
@@ -5197,7 +5184,7 @@ export default function WelcomePage() {
                     className="space-y-2"
                   >
                     <div className="flex items-center gap-3">
-                      <RadioGroupItem value="" id="signup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
+                      <RadioGroupItem value="opposite_gender" id="signup-opposite-gender" className={`${dark ? "border-blue-400/50 text-blue-400" : "border-blue-500/50 text-blue-500"}`} />
                       <Label htmlFor="signup-opposite-gender" className={`text-sm cursor-pointer ${dark ? "text-blue-200" : "text-blue-700"}`}>
                         الجنس الآخر (افتراضي)
                       </Label>

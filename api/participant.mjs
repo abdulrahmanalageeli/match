@@ -1132,7 +1132,7 @@ export default async function handler(req, res) {
       // Get participant data by token
       const { data: participant, error: participantError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference")
+        .select("id, assigned_number, name, phone_number, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort")
         .eq("secure_token", secure_token)
         .single()
 
@@ -1150,9 +1150,7 @@ export default async function handler(req, res) {
           signup_for_next_event: participant.signup_for_next_event,
           auto_signup_next_event: participant.auto_signup_next_event,
           humor_banter_style: participant.humor_banter_style,
-          early_openness_comfort: participant.early_openness_comfort,
-          same_gender_preference: participant.same_gender_preference,
-          any_gender_preference: participant.any_gender_preference
+          early_openness_comfort: participant.early_openness_comfort
         }
       })
 

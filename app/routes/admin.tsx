@@ -175,14 +175,57 @@ export default function AdminPage() {
   const [showDeltaCacheTooltip, setShowDeltaCacheTooltip] = useState(false);
   const [loadingDeltaCacheParticipants, setLoadingDeltaCacheParticipants] = useState(false);
 
+  // WhatsApp config for exports (loaded from event_state.whatsapp_config)
+  const [whatsappConfig, setWhatsappConfig] = useState<any | null>(null);
+  const [loadingWhatsappConfig, setLoadingWhatsappConfig] = useState(false);
+
   const STATIC_PASSWORD = "soulmatch2025"
   const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
+
+  // Load WhatsApp config once on mount
+  useEffect(() => {
+    const load = async () => {
+      setLoadingWhatsappConfig(true)
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-whatsapp-config' }),
+        })
+        const data = await res.json()
+        if (res.ok && data?.success) {
+          setWhatsappConfig(data.whatsapp_config || null)
+        }
+      } catch (e) {
+        console.error('Failed to load WhatsApp config for exports', e)
+      } finally {
+        setLoadingWhatsappConfig(false)
+      }
+    }
+    load()
+  }, [])
 
   // Function to generate WhatsApp message for a participant
   const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'early-match' | 'payment-reminder' | 'reminder' = 'match') => {
     const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
+    const d = {
+      normalDeadlineMin: whatsappConfig?.normalDeadlineMin ?? 24 * 60,
+      semiUrgentDeadlineMin: whatsappConfig?.semiUrgentDeadlineMin ?? 120,
+      urgentDeadlineMin: whatsappConfig?.urgentDeadlineMin ?? 60,
+      earlyPrice: whatsappConfig?.earlyPrice ?? 45,
+      latePrice: whatsappConfig?.latePrice ?? 65,
+      latePriceSwitchLabel: whatsappConfig?.latePriceSwitchLabel ?? 'الجمعة 3:00 مساءً',
+      eventDateText: whatsappConfig?.eventDateText ?? 'الأحد 16 نوفمبر 2025',
+      eventTimeText: whatsappConfig?.eventTimeText ?? '8:15 مساءً',
+      arrivalTimeText: whatsappConfig?.arrivalTimeText ?? '8:05 مساءً',
+      locationName: whatsappConfig?.locationName ?? 'كوفي بلانيت - الدور الثاني',
+      mapUrl: whatsappConfig?.mapUrl ?? 'https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA',
+      stcPay: whatsappConfig?.stcPay ?? '0560899666',
+      bankName: whatsappConfig?.bankName ?? 'مصرف الراجحي: عبدالرحمن عبدالملك',
+      iban: whatsappConfig?.iban ?? 'SA2480000588608016007502',
+    }
 
     if (templateType === 'early-match') {
       return `*التوافق الأعمى* ✨
@@ -193,12 +236,12 @@ export default function AdminPage() {
 
 📅 *لديكم حتى يوم الجمعة لتأكيد المشاركة*
 
-💳 *رسوم المشاركة:* 45 ريال سعودي
+💳 *رسوم المشاركة:* ${d.earlyPrice} ريال سعودي
 
 *طرق الدفع:*
-✦ STC Pay: 0560899666
-✦ مصرف الراجحي: عبدالرحمن عبدالملك
-✦ IBAN: SA2480000588608016007502
+✦ STC Pay: ${d.stcPay}
+✦ ${d.bankName}
+✦ IBAN: ${d.iban}
 
 بعد إتمام التحويل، يرجى إرسال صورة الإيصال فوراً لتأكيد حجزكم.
 
@@ -217,12 +260,12 @@ export default function AdminPage() {
 في حالة التأكيد ثم عدم الحضور أو الإلغاء، لا يمكن استرداد الرسوم.
 
 📍 *تفاصيل الفعالية:*
-المكان: كوفي بلانيت - الدور الثاني
+المكان: ${d.locationName}
 العنوان: 
-https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+${d.mapUrl}
 
-📅 التاريخ: الأحد 26 أكتوبر 2025
-🕰️ الوقت: 8:15 مساءً
+📅 التاريخ: ${d.eventDateText}
+🕰️ الوقت: ${d.eventTimeText}
 ⏱️ المدة: 60 دقيقة
 
 *يرجى الحضور قبل الموعد بـ 10 دقائق*
@@ -251,8 +294,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 ⏰ *مهم جداً:* يرجى إتمام التحويل في أقرب وقت ممكن لتأكيد حجزكم.
 
 💰 *رسوم المشاركة:*
-🔸 45 ريال (التسجيل قبل الجمعة 3:00 مساءً)
-🔸 65 ريال (التسجيل بعد الجمعة 3:00 مساءً)
+🔸 ${d.earlyPrice} ريال (التسجيل قبل ${d.latePriceSwitchLabel})
+🔸 ${d.latePrice} ريال (التسجيل بعد ${d.latePriceSwitchLabel})
 
 ⚠️ *تحذير:* في حالة عدم استلام التحويل قريباً، سيتم إعطاء الفرصة لمشارك آخر.
 
@@ -261,12 +304,12 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 ✦ المقاعد محدودة وقد تُعطى لآخرين
 ✦ لضمان مشاركتك في الفعالية
 ✦ لتجنب خسارة هذه الفرصة الفريدة
-✦ توفير 20 ريال بالتأكيد قبل الجمعة
+✦ توفير ${Math.max(d.latePrice - d.earlyPrice, 0)} ريال بالتأكيد قبل ${d.latePriceSwitchLabel}
 
 *طرق الدفع السريعة:*
-✦ STC Pay: 0560899666
-✦ مصرف الراجحي: عبدالرحمن عبدالملك
-✦ IBAN: SA2480000588608016007502
+✦ STC Pay: ${d.stcPay}
+✦ ${d.bankName}
+✦ IBAN: ${d.iban}
 
 📸 *بعد التحويل:*
 أرسل صورة الإيصال فوراً عبر الواتساب لتأكيد حجزكم.
@@ -277,12 +320,12 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 ✦ لا يمكن تأجيل دفع من فعاليه الى فعاليه اخرى
 
 📍 *تفاصيل الفعالية:*
-المكان: كوفي بلانيت - الدور الثاني
-التاريخ: الأحد 16 نوفمبر 2025
-الوقت: 8:15 مساءً (الحضور 8:05 مساءً)
+المكان: ${d.locationName}
+التاريخ: ${d.eventDateText}
+الوقت: ${d.eventTimeText} (الحضور ${d.arrivalTimeText})
 
 العنوان: 
-https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+${d.mapUrl}
 
 📱 *معلوماتك:*
 رقم المشارك: *${assignedNumber}*
@@ -303,9 +346,9 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
 ⏰ *تذكير مهم بموعد الفعالية*
 
-🗓️ *غداً الأحد 16 نوفمبر 2025*
-🕰️ *الساعة 8:15 مساءً*
-📍 *كوفي بلانيت - الدور الثاني*
+🗓️ *غداً ${d.eventDateText}*
+🕰️ *الساعة ${d.eventTimeText}*
+📍 *${d.locationName}*
 
 ✅ *تأكد من:*
 • وصولك قبل الموعد بـ 10 دقائق
@@ -318,7 +361,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 الرمز الخاص: *${secureToken}*
 
 🗺️ *الموقع:*
-https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+${d.mapUrl}
 
 🔗 *رابط حسابك:*
 https://match-omega.vercel.app/welcome?token=${secureToken}
@@ -338,13 +381,13 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 إذا لم تتمكنوا من الحضور، يرجى إبلاغنا فوراً حتى نعطي الفرصة لمشارك آخر.
 
 💰 *رسوم المشاركة:*
-🔸 45 ريال (التسجيل قبل الجمعة 3:00 مساءً)
-🔸 65 ريال (التسجيل بعد الجمعة 3:00 مساءً)
+🔸 ${d.earlyPrice} ريال (التسجيل قبل ${d.latePriceSwitchLabel})
+🔸 ${d.latePrice} ريال (التسجيل بعد ${d.latePriceSwitchLabel})
 
 *طرق الدفع:*
-✦ STC Pay: 0560899666
-✦ مصرف الراجحي: عبدالرحمن عبدالملك
-✦ IBAN: SA2480000588608016007502
+✦ STC Pay: ${d.stcPay}
+✦ ${d.bankName}
+✦ IBAN: ${d.iban}
 
 ⚠️ *التأكيد يتم فقط بعد استلام التحويل والإيصال*
 
@@ -354,12 +397,12 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 ✦ لا يمكن تأجيل دفع من فعاليه الى فعاليه اخرى
 
 📍 *تفاصيل الفعالية:*
-المكان: كوفي بلانيت - الدور الثاني
-التاريخ: الأحد 16 نوفمبر 2025
-الوقت: 8:15 مساءً (الحضور 8:05 مساءً)
+المكان: ${d.locationName}
+التاريخ: ${d.eventDateText}
+الوقت: ${d.eventTimeText} (الحضور ${d.arrivalTimeText})
 
 العنوان: 
-https://maps.app.goo.gl/CYsyK9M5mxXMNo9YA
+${d.mapUrl}
 
 📱 *معلوماتكم:*
 رقم المشارك: *${assignedNumber}*

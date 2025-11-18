@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { Checkbox } from '../../components/ui/checkbox';
@@ -17,6 +17,13 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
   const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
   const [exportMode, setExportMode] = useState(false);
+
+  // Persistence state
+  const [loadingConfig, setLoadingConfig] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [lastUpdatedBy, setLastUpdatedBy] = useState<string | null>(null);
 
   // Customizable settings with sensible defaults
   const [config, setConfig] = useState({
@@ -43,12 +50,69 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
     includeBold: true,
   });
 
+  // Load WhatsApp config on open
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const load = async () => {
+      setLoadingConfig(true);
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-whatsapp-config' }),
+        });
+        const data = await res.json();
+        if (!cancelled && res.ok && data?.success && data?.whatsapp_config) {
+          setConfig((prev) => ({ ...prev, ...data.whatsapp_config }));
+          setLastUpdatedAt(data.whatsapp_config_updated_at || null);
+          setLastUpdatedBy(data.whatsapp_config_updated_by || null);
+        } else if (!cancelled) {
+          setLastUpdatedAt(null);
+          setLastUpdatedBy(null);
+        }
+      } catch (e) {
+        console.error('Failed to load WhatsApp config', e);
+      } finally {
+        if (!cancelled) setLoadingConfig(false);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [isOpen]);
+
   const sanitizeForExport = (text: string) => {
     // remove markdown bold markers and most emojis/symbols while keeping Arabic/English text and punctuation
     const noAsterisk = text.replace(/\*/g, '');
     // basic emoji filter using unicode ranges (approx)
     const noEmoji = noAsterisk.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '');
     return noEmoji;
+  };
+
+  const handleSaveConfig = async () => {
+    setSaving(true);
+    setSaveSuccess(false);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-whatsapp-config', config, updated_by: 'admin_ui' }),
+      });
+      const data = await res.json();
+      if (res.ok && data?.success) {
+        setSaveSuccess(true);
+        setLastUpdatedAt(data.whatsapp_config_updated_at || null);
+        setLastUpdatedBy(data.whatsapp_config_updated_by || null);
+        setTimeout(() => setSaveSuccess(false), 2000);
+      } else {
+        alert(data?.error || 'فشل حفظ الإعدادات');
+      }
+    } catch (e) {
+      console.error('Save WhatsApp config error', e);
+      alert('حدث خطأ أثناء الحفظ');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const message = useMemo(() => {
@@ -224,6 +288,15 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
           {/* Customize Panel */}
           {showCustomize && (
             <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 space-y-4">
+              {/* Load/last-updated status */}
+              {loadingConfig && (
+                <div className="text-xs text-slate-400">جارٍ تحميل إعدادات الواتساب...</div>
+              )}
+              {!loadingConfig && (lastUpdatedAt || lastUpdatedBy) && (
+                <div className="text-xs text-slate-400">
+                  آخر تحديث: {lastUpdatedAt ? new Date(lastUpdatedAt).toLocaleString() : '-'} {lastUpdatedBy ? `بواسطة ${lastUpdatedBy}` : ''}
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="text-xs text-slate-400">مهلة عادية (دقيقة)</label>
@@ -309,7 +382,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                 </div>
               </div>
 
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <label className="inline-flex items-center gap-2 text-slate-300">
                   <Checkbox checked={config.includeEmojis} onCheckedChange={(v:any)=>setConfig({...config, includeEmojis: !!v})}/>
                   تضمين الإيموجي
@@ -339,6 +412,12 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
                   })}
                   className="bg-slate-700 hover:bg-slate-600">
                   استعادة الإفتراضيات
+                </Button>
+                <Button
+                  onClick={handleSaveConfig}
+                  disabled={saving || loadingConfig}
+                  className="bg-green-600 hover:bg-green-700 disabled:opacity-50">
+                  {saving ? 'جارٍ الحفظ...' : (saveSuccess ? 'تم الحفظ ✅' : 'حفظ الإعدادات')}
                 </Button>
               </div>
             </div>

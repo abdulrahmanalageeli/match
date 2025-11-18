@@ -295,6 +295,74 @@ export default async function handler(req, res) {
         return res.status(200).json({ message: `Total rounds set to ${total_rounds}` })
       }
 
+      // Persist WhatsApp config in event_state.whatsapp_config
+      if (action === "set-whatsapp-config") {
+        try {
+          const { config, updated_by } = req.body
+          if (!config || typeof config !== 'object') {
+            return res.status(400).json({ error: "Invalid config payload" })
+          }
+
+          const now = new Date().toISOString()
+
+          const { data, error } = await supabase
+            .from("event_state")
+            .upsert({
+              match_id: STATIC_MATCH_ID,
+              whatsapp_config: config,
+              whatsapp_config_updated_at: now,
+              whatsapp_config_updated_by: updated_by || 'admin'
+            }, { onConflict: "match_id" })
+            .select("whatsapp_config, whatsapp_config_updated_at, whatsapp_config_updated_by")
+            .single()
+
+          if (error) {
+            console.error("set-whatsapp-config error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({
+            success: true,
+            whatsapp_config: data?.whatsapp_config || config,
+            whatsapp_config_updated_at: data?.whatsapp_config_updated_at || now,
+            whatsapp_config_updated_by: data?.whatsapp_config_updated_by || (updated_by || 'admin')
+          })
+        } catch (err) {
+          console.error("set-whatsapp-config exception:", err)
+          return res.status(500).json({ error: "Failed to save WhatsApp config" })
+        }
+      }
+
+      // Retrieve WhatsApp config from event_state.whatsapp_config
+      if (action === "get-whatsapp-config") {
+        try {
+          const { data, error } = await supabase
+            .from("event_state")
+            .select("whatsapp_config, whatsapp_config_updated_at, whatsapp_config_updated_by")
+            .eq("match_id", STATIC_MATCH_ID)
+            .single()
+
+          if (error) {
+            // If no record, return empty config (frontend can apply defaults)
+            if (error.code === 'PGRST116') {
+              return res.status(200).json({ success: true, whatsapp_config: null })
+            }
+            console.error("get-whatsapp-config error:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({
+            success: true,
+            whatsapp_config: data?.whatsapp_config || null,
+            whatsapp_config_updated_at: data?.whatsapp_config_updated_at || null,
+            whatsapp_config_updated_by: data?.whatsapp_config_updated_by || null
+          })
+        } catch (err) {
+          console.error("get-whatsapp-config exception:", err)
+          return res.status(500).json({ error: "Failed to get WhatsApp config" })
+        }
+      }
+
       if (action === "get-event-state") {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase

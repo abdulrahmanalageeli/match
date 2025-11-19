@@ -428,7 +428,25 @@ function checkGenderCompatibility(participantA, participantB) {
   return isOppositeGender
 }
 
-// Function to check age compatibility (females must be within 3 years of their match, unless both have any_gender_preference)
+// Helper to determine if a gender value represents female (supports EN/AR common forms)
+function isFemaleGender(value) {
+  if (!value) return false
+  const v = String(value).trim().toLowerCase()
+  return (
+    v === 'female' ||
+    v === 'f' ||
+    v === 'أنثى' ||
+    v === 'انثى' ||
+    v === 'امرأة' ||
+    v === 'سيدة' ||
+    v === 'بنت'
+  )
+}
+
+// Function to check age compatibility
+// Default: 3-year gap (5 if either >= 40)
+// Any-gender (both): 5-year gap (10 if either >= 40)
+// NEW: If any participant is a female aged 20 or less, allow up to 6 years
 function checkAgeCompatibility(participantA, participantB) {
   const ageA = participantA.age || participantA.survey_data?.age;
   const ageB = participantB.age || participantB.survey_data?.age;
@@ -441,12 +459,22 @@ function checkAgeCompatibility(participantA, participantB) {
   let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender') || participantA.survey_data?.answers?.gender_preference === 'any_gender';
   let anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender') || participantB.survey_data?.answers?.gender_preference === 'any_gender';
 
+  // Extract gender for female-specific rule
+  const genderA = participantA.gender || participantA.survey_data?.gender
+  const genderB = participantB.gender || participantB.survey_data?.gender
+  const isFemaleA = isFemaleGender(genderA)
+  const isFemaleB = isFemaleGender(genderB)
+
   // Rule Set 2: "Any Gender" Preference Matching
   if (anyGenderPrefA && anyGenderPrefB) {
     const ageDifference = Math.abs(ageA - ageB);
     let maxGap = 5;
     if (ageA >= 40 || ageB >= 40) {
       maxGap = 10;
+    }
+    // NEW: If a female participant is 20 or younger, allow up to 6 years
+    if ((isFemaleA && ageA <= 20) || (isFemaleB && ageB <= 20)) {
+      maxGap = Math.max(maxGap, 6)
     }
 
     const isCompatible = ageDifference <= maxGap;
@@ -463,6 +491,10 @@ function checkAgeCompatibility(participantA, participantB) {
   let maxGap = 3;
   if (ageA >= 40 || ageB >= 40) {
     maxGap = 5;
+  }
+  // NEW: If a female participant is 20 or younger, allow up to 6 years
+  if ((isFemaleA && ageA <= 20) || (isFemaleB && ageB <= 20)) {
+    maxGap = Math.max(maxGap, 6)
   }
 
   const isStandardCompatible = ageDifference <= maxGap;

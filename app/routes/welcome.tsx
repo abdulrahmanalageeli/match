@@ -5174,7 +5174,7 @@ export default function WelcomePage() {
                   </p>
                 </div>
 
-                {/* Gender Preference Options */}
+                {/* Gender Preference Options
                 <div className={`p-4 rounded-xl border ${dark ? "bg-blue-500/10 border-blue-400/30" : "bg-blue-50 border-blue-200"}`}>
                   <p className={`text-sm font-medium mb-3 ${dark ? "text-blue-300" : "text-blue-700"}`}>
                     تفضيلات التواصل (اختياري)
@@ -5206,7 +5206,7 @@ export default function WelcomePage() {
                       </Label>
                     </div>
                   </RadioGroup>
-                </div>
+                </div> */}
 
                 {/* Show other questions only if they haven't been filled in database */}
                 {(!participantHasHumorStyle || !participantHasOpennessComfort) && (

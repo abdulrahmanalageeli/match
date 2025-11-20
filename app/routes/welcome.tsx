@@ -344,6 +344,9 @@ export default function WelcomePage() {
   // Survey Completion Popup states
   const [showSurveyCompletionPopup, setShowSurveyCompletionPopup] = useState(false)
   const [incompleteSurveyInfo, setIncompleteSurveyInfo] = useState<{name: string, assigned_number: number, secure_token: string} | null>(null)
+  // Survey Recovery Popup (technical issue) states
+  const [showSurveyRecoveryPopup, setShowSurveyRecoveryPopup] = useState(false)
+  const [surveyRecoveryInfo, setSurveyRecoveryInfo] = useState<{assigned_number?: number, secure_token: string, name?: string} | null>(null)
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
@@ -1849,6 +1852,46 @@ export default function WelcomePage() {
     }
   }
 
+  // Check if user needs SURVEY RECOVERY (technical data loss):
+  // Condition: has interaction fields (humor/openness) BUT missing name or survey_data answers
+  const checkSurveyRecovery = async (tokenToCheck: string) => {
+    try {
+      // Avoid conflicts with other high-priority popups
+      if (showSurveyRecoveryPopup || showNewUserTypePopup || showReturningSignupPopup || showSurveyCompletionPopup) {
+        return;
+      }
+      if (window.location.search.includes('?token')) {
+        // Skip immediate popup when explicitly visiting with a token URL
+        return;
+      }
+
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Cache-Control": "no-cache", "Pragma": "no-cache" },
+        body: JSON.stringify({ action: "resolve-token", secure_token: tokenToCheck })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) return
+
+      const hasHumorStyle = !!data.humor_banter_style
+      const hasOpenness = data.early_openness_comfort === 0 || data.early_openness_comfort === 1 || data.early_openness_comfort === 2 || data.early_openness_comfort === 3
+      const missingName = !data.name || String(data.name).trim().length === 0
+      const missingSurvey = !data.survey_data || !data.survey_data.answers || Object.keys(data.survey_data.answers || {}).length === 0
+
+      if ((hasHumorStyle || hasOpenness) && (missingName || missingSurvey)) {
+        // Technical loss detected – ask user to refill survey
+        setSurveyRecoveryInfo({
+          assigned_number: data.assigned_number,
+          secure_token: tokenToCheck,
+          name: data.name || undefined
+        })
+        setShowSurveyRecoveryPopup(true)
+      }
+    } catch (err) {
+      console.error("Error checking survey recovery state:", err)
+    }
+  }
+
   // Unified Navigation Bar for saved users (similar to groups page)
   const NavigationBar = () => {
     // Show for users with saved tokens or assigned numbers
@@ -2335,7 +2378,7 @@ export default function WelcomePage() {
   // Check if participant has incomplete vibe questions (below 50% minimum)
   const checkVibeQuestionsCompletion = async (token: string) => {
     // Don't show vibe popup if other popups are already showing
-    if (showSurveyCompletionPopup || showNewUserTypePopup || showNextEventPopup || showReturningSignupPopup) {
+    if (showSurveyCompletionPopup || showNewUserTypePopup || showNextEventPopup || showReturningSignupPopup || showSurveyRecoveryPopup) {
       return;
     }
     
@@ -2551,7 +2594,7 @@ export default function WelcomePage() {
   // Check if logged in user needs next event signup
   const checkNextEventSignup = async (token: string) => {
     // Don't show next event popup if other popups are already showing
-    if (showSurveyCompletionPopup || showNewUserTypePopup) {
+    if (showSurveyCompletionPopup || showNewUserTypePopup || showSurveyRecoveryPopup) {
       console.log('❌ Other popup is showing, skipping next event signup popup');
       return;
     }
@@ -2614,7 +2657,7 @@ export default function WelcomePage() {
   // Check if user has incomplete survey data
   const checkIncompleteSurvey = async (savedToken: string) => {
     // Don't show popup if URL has ?token parameter or other popups are showing
-    if (window.location.search.includes('?token') || showNewUserTypePopup) {
+    if (window.location.search.includes('?token') || showNewUserTypePopup || showSurveyRecoveryPopup) {
       console.log('❌ URL has ?token parameter or other popup showing, skipping survey completion popup');
       return;
     }
@@ -2749,6 +2792,10 @@ export default function WelcomePage() {
         setTimeout(() => {
           checkIncompleteSurvey(newUserTokenInput.trim());
         }, 1500);
+
+        setTimeout(() => {
+          checkSurveyRecovery(newUserTokenInput.trim())
+        }, 1200);
         
       } else {
         toast.error(`${data.error || 'رمز غير صحيح'} - يرجى التأكد من الرمز والمحاولة مرة أخرى`);
@@ -2940,6 +2987,10 @@ export default function WelcomePage() {
         
         // Also check if user has incomplete survey data (only on main page)
         if (step === 0) {
+          // Check for technical recovery first to avoid conflicting popups
+          setTimeout(() => {
+            checkSurveyRecovery(tokenToUse)
+          }, 800)
           setTimeout(() => {
             checkIncompleteSurvey(tokenToUse);
           }, 1000); // Check survey completion status
@@ -4210,6 +4261,62 @@ export default function WelcomePage() {
         </div>
       </div>
     );
+  }
+
+  // Survey Recovery Popup (technical issue) - Top Level (highest priority)
+  if (showSurveyRecoveryPopup && surveyRecoveryInfo) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
+          <div className="p-6 overflow-y-auto">
+            <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
+              حدث خلل تقني في بياناتك
+            </h2>
+            <p className={`${dark ? 'text-slate-300' : 'text-gray-700'} leading-relaxed`}>
+              نعتذر عن الإزعاج. لاحظنا أن بعض معلوماتك مثل الاسم أو إجابات الاستبيان غير محفوظة، بينما تم حفظ تفضيلات التفاعل.
+              لضمان أفضل تجربة ومطابقة دقيقة، يُرجى إعادة تعبئة الاستبيان.
+            </p>
+
+            <div className={`mt-4 p-3 rounded-lg ${dark ? 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/30' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+              <div className="text-sm">
+                رقم المشارك: <span className="font-bold">#{surveyRecoveryInfo.assigned_number}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-5">
+              <button
+                onClick={() => {
+                  setShowSurveyRecoveryPopup(false)
+                }}
+                className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                  dark 
+                    ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                    : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                لاحقاً
+              </button>
+
+              <button
+                onClick={async () => {
+                  // Prepare survey step immediately
+                  if (!assignedNumber && surveyRecoveryInfo.assigned_number) {
+                    setAssignedNumber(surveyRecoveryInfo.assigned_number)
+                  }
+                  setShowSurveyRecoveryPopup(false)
+                  setStep(2)
+                  setShowSurvey(true)
+                  setTimeout(() => setIsEditingSurvey(true), 100)
+                }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
+              >
+                إعادة تعبئة الاستبيان الآن
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   // Survey Completion Popup - Top Level (before any conditional returns)

@@ -346,7 +346,7 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 
 ⏰ *تذكير مهم بموعد الفعالية*
 
-🗓️ *غداً ${d.eventDateText}*
+🗓️ *${d.eventDateText}*
 🕰️ *الساعة ${d.eventTimeText}*
 📍 *${d.locationName}*
 
@@ -366,7 +366,7 @@ ${d.mapUrl}
 🔗 *رابط حسابك:*
 https://match-omega.vercel.app/welcome?token=${secureToken}
 
-🎉 *نتطلع لرؤيتك غداً!*
+🎉 *نتطلع لرؤيتك في الفعالية!*
 
 فريق التوافق الأعمى`;
     }

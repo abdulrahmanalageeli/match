@@ -347,6 +347,8 @@ export default function WelcomePage() {
   // Survey Recovery Popup (technical issue) states
   const [showSurveyRecoveryPopup, setShowSurveyRecoveryPopup] = useState(false)
   const [surveyRecoveryInfo, setSurveyRecoveryInfo] = useState<{assigned_number?: number, secure_token: string, name?: string} | null>(null)
+  // Redo flow guard
+  const [redoHandled, setRedoHandled] = useState(false)
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
@@ -1279,6 +1281,33 @@ export default function WelcomePage() {
     }
     resolveToken()
   }, [token])
+
+  // Auto-open survey when redirected for redo: /welcome?token=...&redo=1 or flow=redo
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (isResolving) return;
+      if (redoHandled) return;
+      const params = new URLSearchParams(window.location.search);
+      const redoParam = params.get('redo');
+      const flowParam = params.get('flow');
+      const isRedo = (redoParam === '1' || redoParam === 'true' || flowParam === 'redo');
+      if (token && isRedo) {
+        setRedoHandled(true);
+        setStep(2);
+        setShowSurvey(true);
+        setTimeout(() => setIsEditingSurvey(true), 100);
+        // Clean URL but keep token query param
+        params.delete('redo');
+        params.delete('flow');
+        const newQuery = params.toString();
+        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : `?token=${encodeURIComponent(token)}`}`;
+        window.history.replaceState(null, '', newUrl);
+      }
+    } catch (e) {
+      console.error('Failed to process redo params:', e);
+    }
+  }, [isResolving, token, redoHandled]);
 
   useEffect(() => {
     if (assignedNumber && pendingMatchRound) {
@@ -4298,15 +4327,23 @@ export default function WelcomePage() {
               </button>
 
               <button
-                onClick={async () => {
-                  // Prepare survey step immediately
-                  if (!assignedNumber && surveyRecoveryInfo.assigned_number) {
-                    setAssignedNumber(surveyRecoveryInfo.assigned_number)
+                onClick={() => {
+                  // Prefer secure_token from server; fall back to any stored token
+                  const token = surveyRecoveryInfo.secure_token 
+                    || secureToken 
+                    || resultToken 
+                    || returningPlayerToken 
+                    || (typeof window !== 'undefined' && (localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')));
+                  if (token) {
+                    // Navigate to welcome page with token and a redo hint
+                    window.location.href = `/welcome?token=${encodeURIComponent(String(token))}&redo=1`;
+                  } else {
+                    // Fallback to in-place open if token missing
+                    setShowSurveyRecoveryPopup(false)
+                    setStep(2)
+                    setShowSurvey(true)
+                    setTimeout(() => setIsEditingSurvey(true), 100)
                   }
-                  setShowSurveyRecoveryPopup(false)
-                  setStep(2)
-                  setShowSurvey(true)
-                  setTimeout(() => setIsEditingSurvey(true), 100)
                 }}
                 className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
               >

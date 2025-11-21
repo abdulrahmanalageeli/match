@@ -8,6 +8,29 @@ const supabase = createClient(
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
+// Logging control: reduce noise by default and keep functional logs only
+// LOG_LEVEL options: 'debug' | 'info' | 'warn' | 'error' | 'silent'
+// Default is 'warn' (keep warnings and errors only)
+const LOG_LEVEL = process.env.MATCH_LOG_LEVEL || 'warn'
+if (["warn", "error", "silent"].includes(LOG_LEVEL)) {
+  // Mute verbose info logs
+  // eslint-disable-next-line no-console
+  console.log = () => {}
+  // Not used widely, but mute info as well to be safe
+  // eslint-disable-next-line no-console
+  console.info = () => {}
+}
+if (["error", "silent"].includes(LOG_LEVEL)) {
+  // In 'error' mode, hide warnings too
+  // eslint-disable-next-line no-console
+  console.warn = () => {}
+}
+if (LOG_LEVEL === "silent") {
+  // In 'silent' mode, hide everything
+  // eslint-disable-next-line no-console
+  console.error = () => {}
+}
+
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
 

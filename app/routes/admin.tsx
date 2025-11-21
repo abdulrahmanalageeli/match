@@ -4916,20 +4916,16 @@ Proceed?`
                           Updating...
                         </div>
                       ) : (() => {
-                        // Get current gender preference
-                        const actualGenderPref = p.survey_data?.answers?.actual_gender_preference;
-                        const sameGenderPref = p.same_gender_preference || p.survey_data?.answers?.gender_preference === 'same_gender';
-                        const anyGenderPref = p.any_gender_preference || p.survey_data?.answers?.gender_preference === 'any_gender';
-                        
-                        let currentPref: 'opposite_gender' | 'same_gender' | 'any_gender' = 'opposite_gender';
-                        if (actualGenderPref) {
-                          currentPref = actualGenderPref;
-                        } else if (anyGenderPref) {
-                          currentPref = 'any_gender';
-                        } else if (sameGenderPref) {
-                          currentPref = 'same_gender';
+                        // Determine current gender preference
+                        const storedPref = p.survey_data?.answers?.gender_preference as 'opposite_gender' | 'same_gender' | 'any_gender' | undefined;
+                        const sameGenderPref = p.same_gender_preference || storedPref === 'same_gender';
+                        const anyGenderPref = p.any_gender_preference || storedPref === 'any_gender';
+
+                        let currentPref: 'opposite_gender' | 'same_gender' | 'any_gender' = storedPref || 'opposite_gender';
+                        if (!storedPref) {
+                          currentPref = anyGenderPref ? 'any_gender' : (sameGenderPref ? 'same_gender' : 'opposite_gender');
                         }
-                        
+
                         return (
                           <div className="flex flex-col gap-1">
                             <button

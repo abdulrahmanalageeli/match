@@ -3612,14 +3612,12 @@ export default async function handler(req, res) {
           return res.status(404).json({ error: "Participant not found" })
         }
         
-        // Prepare the updated survey_data
+        // Prepare the updated survey_data: write the selected preference to answers.gender_preference
         const updatedSurveyData = {
           ...currentData.survey_data,
           answers: {
             ...currentData.survey_data?.answers,
-            actual_gender_preference: genderPreference === 'opposite_gender' ? undefined : genderPreference,
-            // Keep the selected gender (male/female) from existing data
-            gender_preference: currentData.survey_data?.answers?.gender_preference || currentData.gender || 'male'
+            gender_preference: genderPreference
           }
         }
         

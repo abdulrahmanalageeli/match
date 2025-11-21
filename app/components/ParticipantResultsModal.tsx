@@ -446,6 +446,25 @@ export default function ParticipantResultsModal({
                     <span className="text-red-400"> | دفعوا بدون مطابقة: {paidNoMatch}</span>
                   ) : null;
                 })()}
+                {matchType !== "group" && (() => {
+                  // Count unique pairs where one is paid and the other is unpaid
+                  const seen = new Set<string>()
+                  let mismatch = 0
+                  for (const r of sortedResults) {
+                    const a = r.assigned_number
+                    const b = r.partner_assigned_number
+                    if (!b || b === 9999) continue // skip organizer/non-pairs
+                    const key = a < b ? `${a}-${b}` : `${b}-${a}`
+                    if (seen.has(key)) continue
+                    seen.add(key)
+                    const aPaid = r.paid_done === true
+                    const bPaid = r.partner_paid_done === true
+                    if (aPaid !== bPaid) mismatch++
+                  }
+                  return mismatch > 0 ? (
+                    <span className="text-amber-400"> | مدفوع + غير مدفوع: {mismatch}</span>
+                  ) : null
+                })()}
                 {matchType !== "group" && results.length !== sortedResults.length && (
                   <span className="text-yellow-400"> (تم إزالة {results.length - sortedResults.length} مكرر)</span>
                 )}

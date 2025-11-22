@@ -172,6 +172,7 @@ export default function WelcomePage() {
   const [feedbackNextEventSignup, setFeedbackNextEventSignup] = useState(false)
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
+  const forceRound = searchParams.get("force_round")
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
@@ -1205,7 +1206,14 @@ export default function WelcomePage() {
             }
 
             // --- NEW LOGIC ---
-            if (hasFilledForm) {
+            if (forceRound === '1') {
+              const ok = await hasValidMatchForRound1(eventData.current_event_id || 1);
+              if (ok) {
+                setStep(4); // Force round 1 view
+              } else {
+                setStep(2); // Keep user in form if no valid match
+              }
+            } else if (hasFilledForm) {
               if (eventData.phase !== "form") {
                 // Registration closed but user filled form, skip to correct step
                 if (eventData.phase && eventData.phase.startsWith("round_")) {

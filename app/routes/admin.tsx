@@ -157,6 +157,8 @@ export default function AdminPage() {
   const [groupDebugData, setGroupDebugData] = useState<any>(null);
   const [loadingGroupDebug, setLoadingGroupDebug] = useState(false);
 
+  // Functions for prev event unmatched feature will be defined after state declarations
+
   // Brute-force protection for admin login
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
@@ -174,6 +176,107 @@ export default function AdminPage() {
   const [deltaCacheParticipants, setDeltaCacheParticipants] = useState<any[]>([]);
   const [showDeltaCacheTooltip, setShowDeltaCacheTooltip] = useState(false);
   const [loadingDeltaCacheParticipants, setLoadingDeltaCacheParticipants] = useState(false);
+
+  // Prev event unmatched/organizer-matched -> signup next event
+  const [showPrevUnmatchedModal, setShowPrevUnmatchedModal] = useState(false);
+  const [prevUnmatchedLoading, setPrevUnmatchedLoading] = useState(false);
+  const [prevUnmatched, setPrevUnmatched] = useState<any[]>([]);
+  const [prevUnmatchedSelected, setPrevUnmatchedSelected] = useState<Set<number>>(new Set());
+  const [prevEventId, setPrevEventId] = useState<number | null>(null);
+  const [prevModalMode, setPrevModalMode] = useState<'prev' | 'never'>('prev');
+
+  // Open modal and fetch candidates from previous event (N-1)
+  const openPrevUnmatchedModal = async () => {
+    setPrevUnmatchedLoading(true)
+    try {
+      setPrevModalMode('prev')
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-prev-unmatched-or-organizer', event_id: currentEventId })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || 'Failed to fetch previous event candidates')
+        return
+      }
+      setPrevUnmatched(data.participants || [])
+      setPrevEventId(typeof data.prev_event_id === 'number' ? data.prev_event_id : (currentEventId - 1))
+      setPrevUnmatchedSelected(new Set())
+      setShowPrevUnmatchedModal(true)
+    } catch (e: any) {
+      toast.error(e?.message || 'Network error while fetching candidates')
+    } finally {
+      setPrevUnmatchedLoading(false)
+    }
+  }
+
+  // Open modal for participants who were never in any events
+  const openNeverInEventsModal = async () => {
+    setPrevUnmatchedLoading(true)
+    try {
+      setPrevModalMode('never')
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-never-in-events' })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || 'Failed to fetch never-in-events participants')
+        return
+      }
+      setPrevUnmatched(data.participants || [])
+      setPrevEventId(null)
+      setPrevUnmatchedSelected(new Set())
+      setShowPrevUnmatchedModal(true)
+    } catch (e: any) {
+      toast.error(e?.message || 'Network error while fetching participants')
+    } finally {
+      setPrevUnmatchedLoading(false)
+    }
+  }
+
+  const togglePrevSelect = (num: number) => {
+    setPrevUnmatchedSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(num)) next.delete(num); else next.add(num)
+      return next
+    })
+  }
+
+  const selectAllPrev = () => {
+    setPrevUnmatchedSelected(new Set(prevUnmatched.map(p => p.assigned_number)))
+  }
+
+  const clearPrevSelection = () => setPrevUnmatchedSelected(new Set())
+
+  const signupPrevSelected = async () => {
+    const list = Array.from(prevUnmatchedSelected)
+    if (list.length === 0) { toast.error('اختر مشاركين أولاً'); return }
+    setPrevUnmatchedLoading(true)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'signup-participants-next-event', participantNumbers: list })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || 'Failed to sign up selected participants')
+        return
+      }
+      toast.success(`تم تسجيل ${data.updated} للحدث القادم`)
+      setShowPrevUnmatchedModal(false)
+      setPrevUnmatched([])
+      setPrevUnmatchedSelected(new Set())
+      fetchParticipants()
+    } catch (e: any) {
+      toast.error(e?.message || 'Network error while signing up participants')
+    } finally {
+      setPrevUnmatchedLoading(false)
+    }
+  }
 
   // WhatsApp config for exports (loaded from event_state.whatsapp_config)
   const [whatsappConfig, setWhatsappConfig] = useState<any | null>(null);
@@ -3398,6 +3501,24 @@ Proceed?`
                   </button>
 
                   <button
+                    onClick={openPrevUnmatchedModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
+                    title="Find previous event unmatched / organizer-matched participants and sign them up for next event"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5" />
+                    Prev Unmatched → Next Event
+                  </button>
+
+                  <button
+                    onClick={openNeverInEventsModal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white rounded-lg transition-all duration-300 text-sm"
+                    title="Find registrants who never participated in any event and sign them up for next event"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5" />
+                    Never-in-Events → Next Event
+                  </button>
+
+                  <button
                     onClick={async () => {
                       if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers (1, 2, 3...) only to locked/pinned matches")) return
                       const res = await fetch("/api/admin", {
@@ -4909,17 +5030,53 @@ Proceed?`
 
                     {/* Gender Preference Selector */}
                     <div className="mt-3 pt-3 border-t border-white/10">
-                      <div className="text-xs text-slate-400 mb-2 font-semibold text-center">Gender Preference:</div>
+                      {(() => {
+                        // Compute current preference for quick visibility (normalized)
+                        const rawPref = p.survey_data?.answers?.gender_preference as string | undefined
+                        const dbSame = !!p.same_gender_preference
+                        const dbAny = !!p.any_gender_preference
+                        let normalized: 'opposite_gender' | 'same_gender' | 'any_gender' | undefined
+                        if (rawPref === 'opposite_gender' || rawPref === 'same_gender' || rawPref === 'any_gender') {
+                          normalized = rawPref
+                        } else if (rawPref === 'any') {
+                          normalized = 'any_gender'
+                        } else if (rawPref === 'male' || rawPref === 'female') {
+                          const myGender = (p.gender || p.survey_data?.gender) as 'male' | 'female' | undefined
+                          if (myGender && rawPref === myGender) normalized = 'same_gender'
+                          else normalized = 'opposite_gender'
+                        }
+                        if (!normalized) normalized = dbAny ? 'any_gender' : (dbSame ? 'same_gender' : 'opposite_gender')
+
+                        const label = normalized === 'any_gender' ? '🌈 Any' : (normalized === 'same_gender' ? '👥 Same' : '↔️ Opposite')
+                        const color = normalized === 'any_gender' ? 'text-purple-300' : (normalized === 'same_gender' ? 'text-pink-300' : 'text-blue-300')
+
+                        return (
+                          <div className="text-xs text-slate-400 mb-2 font-semibold text-center">
+                            Gender Preference: <span className={`ml-1 ${color}`}>{label}</span>
+                          </div>
+                        )
+                      })()}
                       {updatingGenderPref === p.assigned_number ? (
                         <div className="flex items-center justify-center gap-2 text-purple-400 text-xs">
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Updating...
                         </div>
                       ) : (() => {
-                        // Determine current gender preference
-                        const storedPref = p.survey_data?.answers?.gender_preference as 'opposite_gender' | 'same_gender' | 'any_gender' | undefined;
-                        const sameGenderPref = p.same_gender_preference || storedPref === 'same_gender';
-                        const anyGenderPref = p.any_gender_preference || storedPref === 'any_gender';
+                        // Determine current gender preference (normalize new schema values)
+                        const rawPref = p.survey_data?.answers?.gender_preference as string | undefined;
+                        let storedPref: 'opposite_gender' | 'same_gender' | 'any_gender' | undefined;
+                        if (rawPref === 'opposite_gender' || rawPref === 'same_gender' || rawPref === 'any_gender') {
+                          storedPref = rawPref;
+                        } else if (rawPref === 'any') {
+                          storedPref = 'any_gender';
+                        } else if (rawPref === 'male' || rawPref === 'female') {
+                          const myGender = (p.gender || p.survey_data?.gender) as 'male' | 'female' | undefined;
+                          if (myGender && rawPref === myGender) storedPref = 'same_gender';
+                          else storedPref = 'opposite_gender';
+                        }
+
+                        const sameGenderPref = !!p.same_gender_preference || storedPref === 'same_gender';
+                        const anyGenderPref = !!p.any_gender_preference || storedPref === 'any_gender';
 
                         let currentPref: 'opposite_gender' | 'same_gender' | 'any_gender' = storedPref || 'opposite_gender';
                         if (!storedPref) {
@@ -5114,6 +5271,73 @@ Proceed?`
         onClose={() => setDetailParticipant(null)}
         participant={detailParticipant}
       />
+
+      {/* Prev Unmatched Candidates Modal */}
+      {showPrevUnmatchedModal && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <CalendarCheck className="w-5 h-5 text-green-400" />
+                <h3 className="text-lg font-bold">
+                  {prevModalMode === 'prev' ? (
+                    <>Prev Event Candidates {prevEventId ? `(Event ${prevEventId})` : ''}</>
+                  ) : (
+                    <>Never-in-Events Candidates</>
+                  )}
+                </h3>
+              </div>
+              <button onClick={() => setShowPrevUnmatchedModal(false)} className="p-2 rounded hover:bg-slate-800 text-slate-300">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 flex-1 overflow-auto">
+              {prevUnmatchedLoading ? (
+                <div className="text-center text-cyan-200 flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </div>
+              ) : prevUnmatched.length === 0 ? (
+                <div className="text-center text-slate-300">No candidates found from previous event.</div>
+              ) : (
+                <div className="space-y-2">
+                  {prevUnmatched.map((p) => (
+                    <label key={p.assigned_number} className="flex items-center justify-between bg-white/5 rounded px-3 py-2 border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          checked={prevUnmatchedSelected.has(p.assigned_number)}
+                          onChange={() => togglePrevSelect(p.assigned_number)}
+                          className="accent-green-500"
+                        />
+                        <div>
+                          <div className="text-white font-bold">#{p.assigned_number} • {p.name || 'No name'}</div>
+                          <div className="text-xs text-slate-400">{p.gender || '—'} {p.age ? `• ${p.age}y` : ''} {p.phone_number ? `• ${p.phone_number}` : ''}</div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-slate-400">Prev Event: E{p.event_id}</div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-4 border-t border-slate-700 flex items-center gap-2 justify-between">
+              <div className="flex items-center gap-2">
+                <button onClick={selectAllPrev} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm">Select All</button>
+                <button onClick={clearPrevSelection} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm">Clear</button>
+                <span className="text-xs text-slate-400">Selected: {prevUnmatchedSelected.size}</span>
+              </div>
+              <button
+                onClick={signupPrevSelected}
+                disabled={prevUnmatchedLoading || prevUnmatchedSelected.size === 0}
+                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50"
+              >
+                {prevUnmatchedLoading ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/>Signing up...</span> : 'Sign up for next event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full Profile Modal with Inline Editing */}
       <ParticipantProfileModal

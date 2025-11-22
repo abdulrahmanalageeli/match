@@ -51,6 +51,157 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing action parameter" });
       }
 
+      // 🔹 LIST PREV EVENT UNMATCHED OR ORGANIZER-MATCHED PARTICIPANTS
+      if (action === "get-prev-unmatched-or-organizer") {
+        try {
+          const { event_id } = req.body
+          const currentEvent = Number(event_id) || 1
+          const prevEvent = currentEvent - 1
+          if (prevEvent <= 0) {
+            return res.status(200).json({ success: true, prev_event_id: prevEvent, participants: [] })
+          }
+
+          // Fetch participants of previous event
+          const { data: prevParticipants, error: pErr } = await supabase
+            .from("participants")
+            .select("assigned_number, name, gender, age, phone_number, event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", prevEvent)
+            .neq("assigned_number", 9999)
+
+          if (pErr) {
+            console.error("Error fetching prev event participants:", pErr)
+            return res.status(500).json({ error: pErr.message })
+          }
+
+          const numbers = (prevParticipants || []).map(p => p.assigned_number)
+          if (numbers.length === 0) {
+            return res.status(200).json({ success: true, prev_event_id: prevEvent, participants: [] })
+          }
+
+          // Fetch individual matches for prevEvent (exclude groups: round != 0)
+          const { data: matches, error: mErr } = await supabase
+            .from("match_results")
+            .select("participant_a_number, participant_b_number, round")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", prevEvent)
+            .neq("round", 0)
+
+          if (mErr) {
+            console.error("Error fetching prev event matches:", mErr)
+            return res.status(500).json({ error: mErr.message })
+          }
+
+          // Compute map: participant -> set of partners (excluding nulls)
+          const partnerMap = new Map()
+          for (const row of matches || []) {
+            const a = row.participant_a_number
+            const b = row.participant_b_number
+            if (a) {
+              if (!partnerMap.has(a)) partnerMap.set(a, new Set())
+              partnerMap.get(a).add(b)
+            }
+            if (b) {
+              if (!partnerMap.has(b)) partnerMap.set(b, new Set())
+              partnerMap.get(b).add(a)
+            }
+          }
+
+          // Filter participants: no partners OR all partners are 9999
+          const candidates = []
+          for (const p of prevParticipants || []) {
+            const partners = partnerMap.get(p.assigned_number)
+            const include = !partners || partners.size === 0 || ([...partners].every((x) => x === 9999))
+            if (include) {
+              candidates.push(p)
+            }
+          }
+
+          return res.status(200).json({ success: true, prev_event_id: prevEvent, participants: candidates })
+        } catch (error) {
+          console.error("Error in get-prev-unmatched-or-organizer:", error)
+          return res.status(500).json({ error: "Failed to get previous event unmatched participants" })
+        }
+      }
+
+      // 🔹 LIST PARTICIPANTS WHO NEVER APPEARED IN ANY EVENT MATCHES
+      if (action === "get-never-in-events") {
+        try {
+          // Fetch all participants (excluding organizer)
+          const { data: allParticipants, error: pErr } = await supabase
+            .from("participants")
+            .select("assigned_number, name, gender, age, phone_number, event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999)
+
+          if (pErr) {
+            console.error("Error fetching participants:", pErr)
+            return res.status(500).json({ error: pErr.message })
+          }
+
+          // Fetch all match_results rows to build presence set
+          const { data: allMatches, error: mErr } = await supabase
+            .from("match_results")
+            .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number, participant_e_number, participant_f_number")
+            .eq("match_id", STATIC_MATCH_ID)
+
+          if (mErr) {
+            console.error("Error fetching matches:", mErr)
+            return res.status(500).json({ error: mErr.message })
+          }
+
+          const present = new Set()
+          for (const row of allMatches || []) {
+            const arr = [
+              row.participant_a_number,
+              row.participant_b_number,
+              row.participant_c_number,
+              row.participant_d_number,
+              row.participant_e_number,
+              row.participant_f_number
+            ]
+            for (const n of arr) {
+              if (n && n !== 9999) present.add(n)
+            }
+          }
+
+          const neverInEvents = (allParticipants || []).filter(p => !present.has(p.assigned_number))
+
+          return res.status(200).json({ success: true, participants: neverInEvents })
+        } catch (error) {
+          console.error("Error in get-never-in-events:", error)
+          return res.status(500).json({ error: "Failed to get never-in-events participants" })
+        }
+      }
+
+      // 🔹 BULK SIGNUP PARTICIPANTS FOR NEXT EVENT (set signup_for_next_event=true)
+      if (action === "signup-participants-next-event") {
+        try {
+          const { participantNumbers } = req.body
+          const list = Array.isArray(participantNumbers) ? participantNumbers.filter(n => typeof n === 'number') : []
+          if (list.length === 0) {
+            return res.status(400).json({ error: "participantNumbers must be a non-empty array of numbers" })
+          }
+
+          const now = new Date().toISOString()
+          const { error } = await supabase
+            .from("participants")
+            .update({ signup_for_next_event: true, next_event_signup_timestamp: now })
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", list)
+
+          if (error) {
+            console.error("Error signing up participants for next event:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          return res.status(200).json({ success: true, updated: list.length })
+        } catch (error) {
+          console.error("Error in signup-participants-next-event:", error)
+          return res.status(500).json({ error: "Failed to signup participants for next event" })
+        }
+      }
+
       console.log(`Processing action: ${action}`);
 
       if (action === "participants") {
@@ -733,7 +884,6 @@ export default async function handler(req, res) {
     if (action === "get-results-visibility") {
       try {
         console.log(`Getting results visibility for match_id: ${STATIC_MATCH_ID}`)
-        
         const { data, error } = await supabase
           .from("event_state")
           .select("results_visible")
@@ -742,62 +892,18 @@ export default async function handler(req, res) {
 
         if (error) {
           console.error("Error getting results visibility:", error)
-          
-          // If no record exists, return default (true)
           if (error.code === 'PGRST116') {
-            console.log("No event_state record found, returning default visibility (true)")
+            // No record exists, default to visible
             return res.status(200).json({ visible: true })
           }
-          
           return res.status(500).json({ error: error.message })
         }
 
-        const visible = data?.results_visible !== false // Default to true if null/undefined
-        console.log(`Results visibility retrieved: ${visible}`)
+        const visible = data?.results_visible !== false
         return res.status(200).json({ visible })
       } catch (err) {
         console.error("Error getting results visibility:", err)
         return res.status(500).json({ error: "Failed to get results visibility" })
-      }
-    }
-
-    if (action === "get-max-event-id") {
-      try {
-        console.log("Getting maximum event ID from participants and match_results")
-        
-        // Check both participants and match_results tables to get the true maximum
-        const [participantsResult, matchResultsResult] = await Promise.all([
-          supabase
-            .from("participants")
-            .select("event_id")
-            .order("event_id", { ascending: false })
-            .limit(1)
-            .single(),
-          supabase
-            .from("match_results")
-            .select("event_id")
-            .order("event_id", { ascending: false })
-            .limit(1)
-            .single()
-        ])
-
-        let maxEventId = 1
-
-        // Get max from participants table
-        if (!participantsResult.error && participantsResult.data?.event_id) {
-          maxEventId = Math.max(maxEventId, participantsResult.data.event_id)
-        }
-
-        // Get max from match_results table
-        if (!matchResultsResult.error && matchResultsResult.data?.event_id) {
-          maxEventId = Math.max(maxEventId, matchResultsResult.data.event_id)
-        }
-
-        console.log(`Maximum event ID retrieved: ${maxEventId}`)
-        return res.status(200).json({ max_event_id: maxEventId })
-      } catch (err) {
-        console.error("Error getting max event ID:", err)
-        return res.status(500).json({ error: "Failed to get max event ID" })
       }
     }
 

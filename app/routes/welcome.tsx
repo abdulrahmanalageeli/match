@@ -172,7 +172,7 @@ export default function WelcomePage() {
   const [feedbackNextEventSignup, setFeedbackNextEventSignup] = useState(false)
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
-  const forceStep = searchParams.get("forceStep")
+  const forceStep = searchParams.get("forceStep") || searchParams.get("forcestep")
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)

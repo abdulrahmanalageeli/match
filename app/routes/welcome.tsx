@@ -1207,12 +1207,7 @@ export default function WelcomePage() {
 
             // --- NEW LOGIC ---
             if (forceRound === '1') {
-              const ok = await hasValidMatchForRound1(eventData.current_event_id || 1);
-              if (ok) {
-                setStep(4); // Force round 1 view
-              } else {
-                setStep(2); // Keep user in form if no valid match
-              }
+              setStep(4); // Force round 1 view
             } else if (hasFilledForm) {
               if (eventData.phase !== "form") {
                 // Registration closed but user filled form, skip to correct step

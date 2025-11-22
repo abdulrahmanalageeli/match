@@ -394,12 +394,20 @@ export default function WelcomePage() {
   const [autoSignupNextEvent, setAutoSignupNextEvent] = useState(false);
   const [autoSignupEnabled, setAutoSignupEnabled] = useState(false);
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
+  const [isCheckingMatch, setIsCheckingMatch] = useState(false);
+  const hasCheckedMatchRef = useRef(false);
 
   // Call API to verify participant actually has a real match (not 9999)
   const hasValidMatchForRound1 = async (eventId: number) => {
+    if (hasCheckedMatchRef.current) return false; // Skip if we've already checked
+    
+    setIsCheckingMatch(true);
     try {
-      const tokenToUse = token || secureToken
-      if (!tokenToUse) return false
+      const tokenToUse = token || secureToken;
+      if (!tokenToUse) {
+        console.log("No token available for match check");
+        return false;
+      }
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -410,9 +418,16 @@ export default function WelcomePage() {
         })
       })
       const data = await res.json()
-      return !!(res.ok && data?.success && data?.has_valid_match === true)
-    } catch {
-      return false
+      const hasMatch = !!(res.ok && data?.success && data?.has_valid_match === true);
+      if (hasMatch) {
+        hasCheckedMatchRef.current = true; // Mark as checked if we found a valid match
+      }
+      return hasMatch;
+    } catch (error) {
+      console.error("Error checking valid match:", error);
+      return false;
+    } finally {
+      setIsCheckingMatch(false);
     }
   }
 
@@ -1214,11 +1229,19 @@ export default function WelcomePage() {
                 if (eventData.phase && eventData.phase.startsWith("round_")) {
                   const roundNumber = parseInt(eventData.phase.split('_')[1]);
                   setPendingMatchRound(roundNumber);
-                  const ok = await hasValidMatchForRound1(eventData.current_event_id || 1);
-                  if (ok) {
-                    setStep(4); // Show matches
-                  } else {
-                    setStep(2); // Keep user in form
+                  
+                  if (isCheckingMatch) return; // Skip if we're already checking
+                  
+                  try {
+                    const ok = await hasValidMatchForRound1(eventData.current_event_id || 1);
+                    if (ok) {
+                      setStep(4); // Show matches
+                    } else {
+                      setStep(2); // Keep user in form
+                    }
+                  } catch (error) {
+                    console.error("Error checking match status:", error);
+                    setStep(2); // Default to form on error
                   }
                 } else if (eventData.phase && eventData.phase.startsWith("waiting_")) {
                   setStep(3); // Show analysis/waiting
@@ -1519,11 +1542,19 @@ export default function WelcomePage() {
               console.log(`🔄 Round phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
               
               await fetchMatches(roundNumber);
-              const ok = await hasValidMatchForRound1(currentEventId || 1);
-              if (ok) {
-                setStep(4);
-              } else {
-                setStep(2);
+              
+              if (isCheckingMatch) return; // Skip if we're already checking
+              
+              try {
+                const ok = await hasValidMatchForRound1(currentEventId || 1);
+                if (ok) {
+                  setStep(4);
+                } else {
+                  setStep(2);
+                }
+              } catch (error) {
+                console.error("Error checking match status during phase change:", error);
+                setStep(2); // Default to form on error
               }
               
               // Check if event is finished and handle feedback/results automatically

@@ -1221,12 +1221,21 @@ export default function WelcomePage() {
               }
             }
 
-            // --- NEW LOGIC ---
-            if (forceRound === '1' && !hasForcedRound1Ref.current) {
-              console.log("🔄 Force round 1 view requested");
-              hasForcedRound1Ref.current = true;
-              setStep(4); // Force round 1 view
-              return; // Exit early to prevent other logic from overriding
+            // --- FORCE ROUND 1 LOGIC ---
+            if (forceRound === '1') {
+              if (!hasForcedRound1Ref.current) {
+                console.log("🔄 Force round 1 view requested");
+                hasForcedRound1Ref.current = true;
+                setStep(4); // Force round 1 view
+                
+                // Set a flag in session storage to persist across re-renders
+                sessionStorage.setItem('force_round_1', 'true');
+              }
+              // Skip all other phase logic when force_round=1
+              return;
+            } else {
+              // Clear the flag if force_round is not set
+              sessionStorage.removeItem('force_round_1');
             }
             
             if (hasFilledForm) {
@@ -1389,6 +1398,9 @@ export default function WelcomePage() {
     // Don't start polling until initial resolution is complete
     // Poll for all steps except the initial welcome screen (step -1)
     if (isResolving || step === -1) return
+    
+    // If force_round is set, don't let phase changes affect the view
+    if (forceRound === '1') return
 
     // Shared polling function that can be called on-demand or via interval
     const pollEventState = async () => {

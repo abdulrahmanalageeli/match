@@ -210,6 +210,7 @@ export default function WelcomePage() {
     termsAccepted: false,
     dataConsent: false
   })
+  
   const [showSurvey, setShowSurvey] = useState(false)
   const [isEditingSurvey, setIsEditingSurvey] = useState(false)
   const [partnerStartedTimer, setPartnerStartedTimer] = useState(false)
@@ -392,6 +393,28 @@ export default function WelcomePage() {
   const [autoSignupNextEvent, setAutoSignupNextEvent] = useState(false);
   const [autoSignupEnabled, setAutoSignupEnabled] = useState(false);
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
+
+  // Call API to verify participant actually has a real match (not 9999)
+  const hasValidMatchForRound1 = async (eventId: number) => {
+    try {
+      const tokenToUse = token || secureToken
+      if (!tokenToUse) return false
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "has-valid-match",
+          secure_token: tokenToUse,
+          event_id: eventId || 1
+        })
+      })
+      const data = await res.json()
+      return !!(res.ok && data?.success && data?.has_valid_match === true)
+    } catch {
+      return false
+    }
+  }
+
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
@@ -1188,7 +1211,12 @@ export default function WelcomePage() {
                 if (eventData.phase && eventData.phase.startsWith("round_")) {
                   const roundNumber = parseInt(eventData.phase.split('_')[1]);
                   setPendingMatchRound(roundNumber);
-                  setStep(4); // Show matches
+                  const ok = await hasValidMatchForRound1(eventData.current_event_id || 1);
+                  if (ok) {
+                    setStep(4); // Show matches
+                  } else {
+                    setStep(2); // Keep user in form
+                  }
                 } else if (eventData.phase && eventData.phase.startsWith("waiting_")) {
                   setStep(3); // Show analysis/waiting
                 // } else if (eventData.phase === "group_phase") {
@@ -1488,7 +1516,12 @@ export default function WelcomePage() {
               console.log(`🔄 Round phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
               
               await fetchMatches(roundNumber);
-              setStep(4);
+              const ok = await hasValidMatchForRound1(currentEventId || 1);
+              if (ok) {
+                setStep(4);
+              } else {
+                setStep(2);
+              }
               
               // Check if event is finished and handle feedback/results automatically
               if (secureToken && currentRound) {

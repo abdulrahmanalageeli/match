@@ -861,6 +861,72 @@ export default async function handler(req, res) {
     }
   }
 
+  // CHECK IF PARTICIPANT HAS A VALID MATCH (not organizer #9999) FOR ROUND 1
+  if (action === "has-valid-match") {
+    try {
+      const { secure_token, event_id: inputEventId } = req.body
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+      if (!secure_token) {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      // Resolve participant
+      const { data: participant, error: participantError } = await supabase
+        .from("participants")
+        .select("assigned_number, event_id")
+        .eq("secure_token", secure_token)
+        .eq("match_id", match_id)
+        .single()
+
+      if (participantError || !participant) {
+        return res.status(404).json({ success: false, error: "Participant not found" })
+      }
+
+      // Determine target event_id (request > participant > event_state > 1)
+      let eventId = inputEventId || participant.event_id || 1
+      if (!inputEventId && !participant.event_id) {
+        try {
+          const { data: eventState } = await supabase
+            .from("event_state")
+            .select("current_event_id")
+            .eq("match_id", match_id)
+            .single()
+          if (eventState?.current_event_id) {
+            eventId = eventState.current_event_id
+          }
+        } catch (_) {}
+      }
+
+      // Look for any round 1 match with a real partner (not 9999)
+      const { data: matches, error: matchesError } = await supabase
+        .from("match_results")
+        .select("participant_a_number, participant_b_number")
+        .eq("match_id", match_id)
+        .eq("event_id", eventId)
+        .eq("round", 1)
+        .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
+        .limit(20)
+
+      if (matchesError) {
+        console.error("Error checking matches:", matchesError)
+        return res.status(500).json({ success: false, error: "Database error" })
+      }
+
+      const has_valid_match = Array.isArray(matches) && matches.some(m => {
+        const partner = m.participant_a_number === participant.assigned_number
+          ? m.participant_b_number
+          : m.participant_a_number
+        return partner && partner !== 9999
+      })
+
+      return res.status(200).json({ success: true, has_valid_match })
+    } catch (error) {
+      console.error("Error in has-valid-match:", error)
+      return res.status(500).json({ success: false, error: "Unexpected error" })
+    }
+  }
+
   // CHECK PHONE NUMBER DUPLICATE (for survey validation)
   if (action === "check-phone-duplicate") {
     const { phone_number, current_participant_number, secure_token } = req.body

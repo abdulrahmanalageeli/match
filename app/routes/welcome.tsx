@@ -396,6 +396,7 @@ export default function WelcomePage() {
   const [showReturningSignupPopup, setShowReturningSignupPopup] = useState(false);
   const [isCheckingMatch, setIsCheckingMatch] = useState(false);
   const hasCheckedMatchRef = useRef(false);
+  const hasForcedRound1Ref = useRef(false);
 
   // Call API to verify participant actually has a real match (not 9999)
   const hasValidMatchForRound1 = async (eventId: number) => {
@@ -1221,9 +1222,14 @@ export default function WelcomePage() {
             }
 
             // --- NEW LOGIC ---
-            if (forceRound === '1') {
+            if (forceRound === '1' && !hasForcedRound1Ref.current) {
+              console.log("🔄 Force round 1 view requested");
+              hasForcedRound1Ref.current = true;
               setStep(4); // Force round 1 view
-            } else if (hasFilledForm) {
+              return; // Exit early to prevent other logic from overriding
+            }
+            
+            if (hasFilledForm) {
               if (eventData.phase !== "form") {
                 // Registration closed but user filled form, skip to correct step
                 if (eventData.phase && eventData.phase.startsWith("round_")) {

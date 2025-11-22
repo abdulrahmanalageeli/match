@@ -64,7 +64,7 @@ export default async function handler(req, res) {
           // Fetch participants of previous event
           const { data: prevParticipants, error: pErr } = await supabase
             .from("participants")
-            .select("assigned_number, name, gender, age, phone_number, event_id")
+            .select("assigned_number, name, gender, age, phone_number, event_id, survey_data")
             .eq("match_id", STATIC_MATCH_ID)
             .eq("event_id", prevEvent)
             .neq("assigned_number", 9999)
@@ -107,11 +107,12 @@ export default async function handler(req, res) {
             }
           }
 
-          // Filter participants: no partners OR all partners are 9999
+          // Filter participants: no partners OR all partners are 9999 (and must have a name from name or survey_data.name)
           const candidates = []
           for (const p of prevParticipants || []) {
             const partners = partnerMap.get(p.assigned_number)
-            const include = !partners || partners.size === 0 || ([...partners].every((x) => x === 9999))
+            const hasName = !!p.name || !!p.survey_data?.name
+            const include = (!partners || partners.size === 0 || ([...partners].every((x) => x === 9999))) && hasName
             if (include) {
               candidates.push(p)
             }
@@ -130,7 +131,7 @@ export default async function handler(req, res) {
           // Fetch all participants (excluding organizer)
           const { data: allParticipants, error: pErr } = await supabase
             .from("participants")
-            .select("assigned_number, name, gender, age, phone_number, event_id")
+            .select("assigned_number, name, gender, age, phone_number, event_id, survey_data")
             .eq("match_id", STATIC_MATCH_ID)
             .neq("assigned_number", 9999)
 
@@ -165,7 +166,7 @@ export default async function handler(req, res) {
             }
           }
 
-          const neverInEvents = (allParticipants || []).filter(p => !present.has(p.assigned_number))
+          const neverInEvents = (allParticipants || []).filter(p => !present.has(p.assigned_number) && (!!p.name || !!p.survey_data?.name))
 
           return res.status(200).json({ success: true, participants: neverInEvents })
         } catch (error) {

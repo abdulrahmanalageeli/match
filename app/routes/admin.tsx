@@ -5311,7 +5311,7 @@ Proceed?`
                           className="accent-green-500"
                         />
                         <div>
-                          <div className="text-white font-bold">#{p.assigned_number} • {p.name || 'No name'}</div>
+                          <div className="text-white font-bold">#{p.assigned_number} • {p.name || p.survey_data?.name || 'No name'}</div>
                           <div className="text-xs text-slate-400">{p.gender || '—'} {p.age ? `• ${p.age}y` : ''} {p.phone_number ? `• ${p.phone_number}` : ''}</div>
                         </div>
                       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react"
 import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown, BarChart, X } from "lucide-react"
 import FeedbackStatsModal from "~/components/FeedbackStatsModal"
+import FeedbackPairsModal from "~/components/FeedbackPairsModal"
 
 interface FeedbackData {
   participant_number: number
@@ -70,6 +71,7 @@ export default function MatrixPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [deletingMatch, setDeletingMatch] = useState<string | null>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
+  const [showFeedbackPairsModal, setShowFeedbackPairsModal] = useState(false)
 
   useEffect(() => {
     fetchAllMatches()
@@ -232,6 +234,13 @@ export default function MatrixPage() {
   const filteredCount = filteredMatches.length
   const uniqueEvents = [...new Set(matches.map(m => m.round))].sort() // round field contains event_id
   const mutualMatchCount = matches.filter(m => m.mutual_match).length
+
+  // Determine active event for feedback pairs modal (use filter if set, else the latest event)
+  const activeEventId = useMemo(() => {
+    if (eventFilter !== null) return eventFilter
+    if (uniqueEvents.length > 0) return uniqueEvents[uniqueEvents.length - 1]
+    return 1
+  }, [eventFilter, uniqueEvents])
 
 
   // UI helpers
@@ -439,6 +448,12 @@ export default function MatrixPage() {
   return (
     <div dir="rtl" className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-10 px-4 font-sans">
       {showStatsModal && <FeedbackStatsModal matches={matches} onClose={() => setShowStatsModal(false)} />}
+      {showFeedbackPairsModal && (
+        <FeedbackPairsModal
+          eventId={activeEventId}
+          onClose={() => setShowFeedbackPairsModal(false)}
+        />
+      )}
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -570,6 +585,15 @@ export default function MatrixPage() {
             >
               <BarChart className="w-4 h-4" />
               تحليل التقييمات
+            </button>
+
+            <button
+              onClick={() => setShowFeedbackPairsModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg transition"
+              title="عرض أزواج التقييم حسب الحدث"
+            >
+              <MessageSquare className="w-4 h-4" />
+              أزواج التقييم (الحدث {activeEventId})
             </button>
           </div>
         </div>

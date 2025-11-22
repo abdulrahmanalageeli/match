@@ -886,6 +886,169 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET EVENT FEEDBACK PAIRS - Feedback-focused view per event with correct pairing by round
+    if (action === "get-event-feedback-pairs") {
+      try {
+        const { event_id } = req.body
+        if (!event_id) {
+          return res.status(400).json({ error: "Missing event_id parameter" })
+        }
+
+        // Fetch individual matches for the event (exclude organizer)
+        const { data: matchResults, error: matchError } = await supabase
+          .from("match_results")
+          .select(`
+            id,
+            participant_a_number,
+            participant_b_number,
+            participant_c_number,
+            participant_d_number,
+            participant_e_number,
+            participant_f_number,
+            compatibility_score,
+            mbti_compatibility_score,
+            attachment_compatibility_score,
+            communication_compatibility_score,
+            lifestyle_compatibility_score,
+            core_values_compatibility_score,
+            vibe_compatibility_score,
+            humor_early_openness_bonus,
+            round,
+            table_number,
+            match_type,
+            mutual_match,
+            is_repeat_match,
+            event_id,
+            created_at
+          `)
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .neq("participant_a_number", 9999)
+          .neq("participant_b_number", 9999)
+          .order("round", { ascending: true })
+
+        if (matchError) {
+          console.error("Error fetching match results (feedback pairs):", matchError)
+          return res.status(500).json({ error: matchError.message })
+        }
+
+        // Keep only true 2-person matches for feedback pairing
+        const individualPairs = (matchResults || []).filter(m => {
+          const nums = [m.participant_a_number, m.participant_b_number, m.participant_c_number, m.participant_d_number, m.participant_e_number, m.participant_f_number]
+          const present = nums.filter(n => !!n && n !== 9999)
+          return present.length === 2
+        })
+
+        // Fetch participant info for names and demographics
+        const { data: participants, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number, name, gender, age, mbti_personality_type")
+          .eq("match_id", STATIC_MATCH_ID)
+          .neq("assigned_number", 9999)
+
+        if (participantError) {
+          console.error("Error fetching participants (feedback pairs):", participantError)
+          return res.status(500).json({ error: participantError.message })
+        }
+
+        const participantMap = new Map()
+        participants.forEach(p => {
+          participantMap.set(p.assigned_number, {
+            number: p.assigned_number,
+            name: p.name || `مشارك ${p.assigned_number}`,
+            gender: p.gender || 'غير محدد',
+            age: p.age || null,
+            mbti: p.mbti_personality_type || 'غير محدد'
+          })
+        })
+
+        // Fetch all feedback rows for this event and match
+        const { data: feedbackRows, error: feedbackError } = await supabase
+          .from("match_feedback")
+          .select(`
+            participant_number,
+            round,
+            event_id,
+            compatibility_rate,
+            conversation_quality,
+            personal_connection,
+            shared_interests,
+            comfort_level,
+            communication_style,
+            overall_experience,
+            recommendations,
+            would_meet_again,
+            participant_message,
+            submitted_at
+          `)
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+
+        if (feedbackError) {
+          console.error("Error fetching feedback (feedback pairs):", feedbackError)
+          return res.status(500).json({ error: feedbackError.message })
+        }
+
+        // Build feedback map: participant_number -> round -> feedback
+        const feedbackMap = new Map()
+        for (const f of (feedbackRows || [])) {
+          if (!feedbackMap.has(f.participant_number)) {
+            feedbackMap.set(f.participant_number, new Map())
+          }
+          feedbackMap.get(f.participant_number).set(f.round, f)
+        }
+
+        // Construct response rows with correct pairing by (event_id, round)
+        const rows = []
+        for (const m of individualPairs) {
+          const pA = Math.min(m.participant_a_number, m.participant_b_number)
+          const pB = Math.max(m.participant_a_number, m.participant_b_number)
+          const roundNo = m.round || 1
+
+          const aInfo = participantMap.get(pA)
+          const bInfo = participantMap.get(pB)
+
+          // Pair feedback by the same round
+          const aFb = feedbackMap.get(pA)?.get(roundNo) || null
+          const bFb = feedbackMap.get(pB)?.get(roundNo) || null
+
+          rows.push({
+            match_result_id: m.id,
+            event_id: m.event_id,
+            round: roundNo,
+            participant_a: aInfo || { number: pA },
+            participant_b: bInfo || { number: pB },
+            compatibility_score: m.compatibility_score || 0,
+            bonus_type: m.humor_early_openness_bonus || 'none',
+            mutual_match: m.mutual_match || false,
+            feedback_a: aFb,
+            feedback_b: bFb,
+            avg_compatibility_rate: (() => {
+              const a = aFb?.compatibility_rate
+              const b = bFb?.compatibility_rate
+              if (typeof a === 'number' && typeof b === 'number') return Math.round((a + b) / 2)
+              if (typeof a === 'number') return a
+              if (typeof b === 'number') return b
+              return null
+            })()
+          })
+        }
+
+        // Sort by round asc then avg_compatibility_rate desc
+        rows.sort((r1, r2) => {
+          if ((r1.round || 0) !== (r2.round || 0)) return (r1.round || 0) - (r2.round || 0)
+          const a = r1.avg_compatibility_rate ?? -1
+          const b = r2.avg_compatibility_rate ?? -1
+          return b - a
+        })
+
+        return res.status(200).json({ success: true, event_id, pairs: rows })
+      } catch (error) {
+        console.error("Error in get-event-feedback-pairs:", error)
+        return res.status(500).json({ error: "Failed to fetch event feedback pairs" })
+      }
+    }
+
     // 🔹 SWAP TWO PARTICIPANTS BETWEEN GROUPS (with validation and score recalculation)
     if (action === "swap-group-participants") {
       try {

@@ -172,6 +172,7 @@ export default function WelcomePage() {
   const [feedbackNextEventSignup, setFeedbackNextEventSignup] = useState(false)
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
+  const forceStep = searchParams.get("forceStep")
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
@@ -1003,6 +1004,16 @@ export default function WelcomePage() {
 
   useEffect(() => {
     const resolveToken = async () => {
+      if (forceStep) {
+        const stepNumber = parseInt(forceStep, 10);
+        if (!isNaN(stepNumber)) {
+          console.log(`⚙️ Overriding step with forceStep=${stepNumber}`);
+          setStep(stepNumber);
+          setIsResolving(false);
+          return; // Bypass normal flow
+        }
+      }
+
       if (!token) {
         setIsResolving(false)
         return

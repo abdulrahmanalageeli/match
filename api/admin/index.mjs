@@ -2205,13 +2205,10 @@ export default async function handler(req, res) {
     // 🔹 GET DELTA CACHE COUNT
     if (action === "get-delta-cache-count") {
       try {
-        const { event_id = 1 } = req.body
-        
-        // Get last cache timestamp
+        // Get the most recent cache timestamp from ANY event
         const { data: metaData } = await supabase
           .from('cache_metadata')
           .select('last_precache_timestamp')
-          .eq('event_id', event_id)
           .order('last_precache_timestamp', { ascending: false })
           .limit(1)
           .single()
@@ -2230,33 +2227,31 @@ export default async function handler(req, res) {
           })
         }
         
-        // Fetch eligible participants (same logic as delta-pre-cache)
-        const { data: allParticipants } = await supabase
+        // Fetch all participants who have updated their survey data since last cache
+        // regardless of event or match
+        const { data: updatedParticipants, error } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, survey_data_updated_at, signup_for_next_event, auto_signup_next_event")
-          .eq("match_id", STATIC_MATCH_ID)
-          .or(`signup_for_next_event.eq.true,event_id.eq.${event_id},auto_signup_next_event.eq.true`)
+          .select("assigned_number, survey_data, survey_data_updated_at")
+          .not("survey_data_updated_at", "is", null)
+          .gt("survey_data_updated_at", lastCacheTimestamp)
           .neq("assigned_number", 9999)
+          .not("survey_data", "is", null)
+          .not("survey_data", "eq", {})
         
-        if (!allParticipants) {
-          return res.status(200).json({ count: 0, lastCacheTimestamp })
+        if (error) {
+          console.error("Error fetching updated participants:", error)
+          return res.status(500).json({ error: "Failed to fetch updated participants" })
         }
         
-        // Filter for complete participants
-        const eligibleParticipants = allParticipants.filter(p => {
-          return p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
-        })
+        // Count participants who have updated their survey data since last cache
+        const needsCacheCount = updatedParticipants?.length || 0
         
-        // Count participants needing delta cache (only those who UPDATED after last cache)
-        // NOTE: Participants with NULL survey_data_updated_at are NOT counted here
-        // They should use regular pre-cache instead (first-time caching)
-        const needsCacheCount = eligibleParticipants.filter(p => {
-          if (!p.survey_data_updated_at) {
-            return false // Never cached - use pre-cache, not delta cache
-          }
-          // Only count if they updated AFTER the last cache
-          return new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
-        }).length
+        // Get total eligible participants for reference
+        const { count: totalEligible } = await supabase
+          .from("participants")
+          .select("*", { count: 'exact', head: true })
+          .not("survey_data", "is", null)
+          .not("survey_data", "eq", {})
         
         return res.status(200).json({ 
           count: needsCacheCount,

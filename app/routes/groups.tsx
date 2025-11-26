@@ -1149,7 +1149,7 @@ export default function GroupsPage() {
                 {/* NEW badge for the 'what-would-you-do' game (left corner, same style as recommended) */}
                 {game.id === 'what-would-you-do' && (
                   <div className="absolute top-2 left-2 z-10">
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
+                    <div className="bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
                       <Star className="w-2.5 h-2.5 fill-current" />
                       <span>لعبة جديدة</span>
                     </div>

@@ -98,6 +98,16 @@ const games: Game[] = [
     duration: 10,
     icon: <Heart className="w-6 h-6" />,
     color: "from-red-500 to-orange-500"
+  },
+  {
+    id: "what-would-you-do",
+    name: "What Would You Do",
+    nameAr: "ماذا تفعل لو",
+    description: "Medium-to-deep real-life scenarios for value-driven discussion",
+    descriptionAr: "سيناريوهات حياتية متوسطة إلى عميقة تفتح نقاشاً حول القيم والقرارات",
+    duration: 10,
+    icon: <MessageSquare className="w-6 h-6" />,
+    color: "from-indigo-500 to-blue-600"
   }
 ];
 
@@ -452,6 +462,47 @@ const wouldYouRatherQuestions = [
   }
 ];
 
+// ماذا تفعل لو؟ – سيناريوهات متوسطة إلى عميقة
+const whatWouldYouDoScenarios: string[] = [
+  // علاقات وحدود شخصية
+  "لو اكتشفت أن صديقاً مقرّباً يتصرف بطريقة تضرّه وتؤذي من حوله، كيف تتدخل بدون ما تفقد العلاقة؟",
+  "لو وعدت نفسك ما ترجع لعلاقة غير صحّية ثم رجعت خطوة بدون قصد، كيف تتعامل مع نفسك ومع الطرف الآخر؟",
+  "لو لاحظت شخصاً في مجموعتك يتم تهميشه أو مقاطعته باستمرار، وش أول تصرّف عملي تسويه؟",
+  // صدق وشفافية
+  "لو طُلب منك مجاملة في أمر مهم يخالف قناعاتك (تقييم/تزكية)، هل تتكلم بصراحة أم تسكت؟ ولماذا؟",
+  "لو صديقك طلب نصيحة في قرار مصيري وهو متحمّس لشيء تشوفه مؤذٍ له، كيف توازن بين الصراحة واللطف؟",
+  // قيم ومبادئ
+  "لو تعارضت مصلحة قريبة مع قيمة أساسية عندك (مثل الأمانة أو العدل)، أيهما تختار؟ وكيف تبرر لنفسك القرار؟",
+  "لو اكتشفت لاحقاً إنك كنت ظالماً في حكمك على شخص، كيف تصحح الخطأ؟ وهل تعتذر علناً؟",
+  // عائلة وضغط مجتمعي
+  "لو واجهت ضغط عائلي لاتخاذ قرار لا يتوافق مع قناعاتك، كيف تفاوض على حدودك بدون خسارات كبيرة؟",
+  "لو اختلفت قيمك عن عادات محيطة بك بشكلٍ واضح، ما خطوطك الحمراء؟ وكيف تتعامل عندما تُختبر؟",
+  // ثقة واعتذار
+  "لو فقدت ثقة شخص تحبه بسبب خطأ منك، ما الخطة العملية لاستعادة الثقة بمرور الوقت؟",
+  "لو شعرت أن اعتذارك لا يُقبل لأن الطرف الآخر ينتظر تغييراً فعلياً، ما أول تغيير ملموس تبدأ به؟",
+  // عمل ومسار مهني
+  "لو عُرضت عليك ترقية مغرية ولكنها تتطلب تنازلات أخلاقية صغيرة تتراكم، متى تقول لا؟",
+  "لو كان أمامك خياران: بيئة عمل صحّية براتب أقل أو راتب أعلى مع ضغوط تؤثر على صحتك، أيهما تختار ولماذا؟",
+  // وقت وصحّة نفسية
+  "لو لاحظت أن نمط حياتك يُستنزفك ويبعدك عن نفسك، ما ثلاثة تغييرات عملية تبدأ بها خلال أسبوع؟",
+  "لو اقتربت من الاحتراق النفسي، ما العلامات المبكرة عندك؟ وكيف تستجيب لها قبل فوات الأوان؟",
+  // أخلاقيات يومية
+  "لو رأيت خطأ صغيراً يتكرر في فريقك (تلاعب بسيط بالأرقام/تجاوز إجراء)، هل تتدخل؟ كيف؟",
+  "لو أخطأ زميلٌ بحقّك أمام الآخرين، هل تعالجها في العلن أم على انفراد؟ ولماذا؟",
+  // علاقات ومعنى
+  "لو لاحظت أن علاقتك الأقرب صارت عملية فقط وبدون عمق، ما ثلاث خطوات لإحياء المعنى والدفء؟",
+  "لو اضطررت للاختيار بين شخص يفهمك وشخص يشبهك، أيهما تختار لعلاقة طويلة؟ ولماذا؟",
+  // قرارات وهوية
+  "لو كان عليك اتخاذ قرار يغيّر مسارك بالكامل (هجرة/تخصص/زواج) مع ضبابية كبيرة، ما منهجك لاتخاذ القرار؟",
+  "لو اتضح أن سرديتك عن نفسك لم تعد دقيقة، كيف تعيد كتابة قصتك بدون جلد للذات؟",
+  // نزاهة وشجاعة
+  "لو شهدت موقف ظلم في مكانٍ رسمي وكنت الوحيد الشجاع، ما حدود تدخّلك؟ وما مخاطر تقبلها؟",
+  "لو كنت سبباً غير مباشر في أذى شخص بسبب قرارك، ما مسؤوليتك الأخلاقية الآن؟ وكيف تُصلح الضرر؟",
+  // تعلّم ونمو
+  "لو اكتشفت قناعة مركزية لديك كانت مجرد خوف متنكر، كيف تختبرها عملياً؟",
+  "لو خيروك أن تكون محقاً أو أن تحافظ على العلاقة، متى تختار كل خيار؟ وما معيارك؟"
+];
+
 // ولا كلمة topics - focused on 3 main categories with no duplicates
 const charadesTopics = {
   "أفلام ومسلسلات": [
@@ -565,6 +616,7 @@ export default function GroupsPage() {
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
   const [shuffledWouldYouRather, setShuffledWouldYouRather] = useState<typeof wouldYouRatherQuestions>([]);
+  const [shuffledWhatWouldYouDo, setShuffledWhatWouldYouDo] = useState<string[]>([]);
   
   // Charades game state
   const [currentCharadesWord, setCurrentCharadesWord] = useState<string>("");
@@ -982,6 +1034,8 @@ export default function GroupsPage() {
       setShuffledNeverHaveIEver(shuffleArray(neverHaveIEverQuestions));
     } else if (gameId === "would-you-rather") {
       setShuffledWouldYouRather(shuffleArray(wouldYouRatherQuestions));
+    } else if (gameId === "what-would-you-do") {
+      setShuffledWhatWouldYouDo(shuffleArray(whatWouldYouDoScenarios));
     } else if (gameId === "5-second-rule") {
       setShuffledCategories(shuffleArray(fiveSecondRuleCategories));
       setCategoryIndex(0);
@@ -1066,7 +1120,7 @@ export default function GroupsPage() {
         <div className="text-center space-y-3 py-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 mb-2 animate-in zoom-in duration-300">
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span className="text-cyan-400 text-sm font-bold">5 ألعاب تفاعلية</span>
+            <span className="text-cyan-400 text-sm font-bold">{games.length} ألعاب تفاعلية</span>
           </div>
           <h2 className="text-3xl font-bold text-white leading-tight animate-in slide-in-from-top duration-300">
             اختر لعبتك المفضلة
@@ -1288,6 +1342,64 @@ export default function GroupsPage() {
                 <Button 
                   onClick={() => setCurrentPromptIndex(prev => (prev + 1) % (shuffledNeverHaveIEver.length || neverHaveIEverQuestions.length))} 
                   className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                >
+                  <ChevronRight className="w-5 h-5 mr-2" />
+                  السؤال التالي
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentGame.id === "what-would-you-do" && (
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardContent className="p-6">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-white mb-2">ماذا تفعل لو؟</h3>
+                <p className="text-slate-400">سيناريوهات متوسطة إلى عميقة لتحفيز نقاش قيَمي وقرارات واعية</p>
+              </div>
+
+              {/* Game Instructions */}
+              <div className="bg-gradient-to-r from-indigo-700/40 to-blue-700/40 rounded-xl p-6 mb-8 border border-indigo-600/50">
+                <h4 className="text-white font-bold text-lg mb-4 flex items-center">
+                  <Lightbulb className="w-5 h-5 ml-3 text-indigo-300" />
+                  كيفية اللعب:
+                </h4>
+                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                  <li className="flex items-start">
+                    <span className="font-medium">اقرؤوا السيناريو بصوت عالٍ. لا توجد إجابة صحيحة/خاطئة.</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">كل شخص يشارك موقفه ودوافعه (1–2 دقيقة لكل شخص).</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">اسألوا سؤال متابعة واحد على الأقل يوضح القيم/المعايير وراء القرار.</span>
+                  </li>
+                  <li className="flex items-start">
+                    <span className="font-medium">اختتموا بجملة واحدة: "ما المبدأ الذي قاد قراري هنا؟"</span>
+                  </li>
+                </ol>
+              </div>
+
+              <div className="bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border-2 border-indigo-500/40 rounded-2xl p-8 text-center shadow-2xl">
+                <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30">
+                  <MessageSquare className="w-4 h-4 text-indigo-300" />
+                  <span className="text-indigo-200 text-xs font-bold">سيناريو</span>
+                </div>
+                <p className="text-white text-lg font-semibold leading-relaxed">
+                  {shuffledWhatWouldYouDo.length > 0
+                    ? shuffledWhatWouldYouDo[currentPromptIndex % shuffledWhatWouldYouDo.length]
+                    : whatWouldYouDoScenarios[currentPromptIndex % whatWouldYouDoScenarios.length]}
+                </p>
+              </div>
+
+              <div className="flex justify-center mt-8">
+                <Button
+                  onClick={() => {
+                    const len = (shuffledWhatWouldYouDo.length || whatWouldYouDoScenarios.length);
+                    setCurrentPromptIndex(prev => (prev + 1) % len);
+                  }}
+                  className="bg-gradient-to-r from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ChevronRight className="w-5 h-5 mr-2" />
                   السؤال التالي

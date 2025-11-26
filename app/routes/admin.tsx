@@ -2627,101 +2627,63 @@ This will:
 • Save time and API costs!
 
 Proceed?`
-
+    
     if (!confirm(confirmMessage)) return
-
+    
     setDeltaCaching(true)
     try {
-      // 1) Get last cache timestamp
-      const tsRes = await fetch("/api/admin", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "get-last-cache-timestamp", event_id: currentEventId })
-      })
-      const tsData = await tsRes.json()
-      if (!tsRes.ok) throw new Error(tsData.error || "Failed to get last cache timestamp")
-
-      const lastCacheTimestamp = tsData.last_cache_timestamp
-
-      // 2) Get participants needing cache (snapshot)
-      const needingRes = await fetch("/api/admin", {
+      const res = await fetch("/api/admin/trigger-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          action: "get-participants-needing-cache", 
-          event_id: currentEventId,
-          last_cache_timestamp: lastCacheTimestamp
-        })
+          action: "delta-pre-cache",
+          eventId: currentEventId,
+          skipAI: false
+        }),
       })
-      const needingData = await needingRes.json()
-      if (!needingRes.ok) throw new Error(needingData.error || "Failed to get participants needing cache")
-
-      const snapshot = (needingData.participants || []).map((p: any) => p.assigned_number)
-      const totalToProcess = snapshot.length
-
-      if (totalToProcess === 0) {
-        const msg = `✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${needingData.total_eligible || '-'}\n• Last cache: ${new Date(lastCacheTimestamp).toLocaleString()}`
-        toast.success(msg, { duration: 7000 })
-        return
+      
+      const data = await res.json()
+      
+      if (res.ok && data.success) {
+        let successMessage = `✅ Delta Cache Complete!`
+        
+        if (data.participants_needing_cache === 0) {
+          successMessage = `✅ Cache is FRESH!\n\nNo participants have updated their surveys since last cache.\n\n📊 Stats:\n• Total eligible: ${data.total_eligible}\n• Last cache: ${new Date(data.last_cache_timestamp).toLocaleString()}`
+        } else {
+          successMessage += `\n\n📊 Smart Caching Results:`
+          successMessage += `\n• Updated participants: ${data.participants_needing_cache}`
+          successMessage += `\n• New pairs cached: ${data.cached_count}`
+          
+          if (data.already_cached > 0) {
+            successMessage += `\n• Reused cached: ${data.already_cached}`
+          }
+          
+          if (data.skipped > 0) {
+            successMessage += `\n• Skipped (incompatible): ${data.skipped}`
+          }
+          
+          successMessage += `\n• Pairs checked: ${data.pairs_checked}`
+          successMessage += `\n• AI calls made: ${data.ai_calls_made}`
+          successMessage += `\n\n⏱️ Time: ${data.duration_seconds}s`
+          
+          const efficiency = data.pairs_checked > 0 ? ((1 - (data.pairs_checked / (data.total_eligible * (data.total_eligible - 1) / 2))) * 100).toFixed(0) : 0
+          successMessage += `\n💰 Efficiency: ${efficiency}% reduction vs full cache`
+        }
+        
+        toast.success(successMessage, { duration: 8000 })
+        // Refresh delta cache count
+        fetchParticipants()
+      } else {
+        // Check if error is about missing cache metadata
+        if (data.error && data.error.includes('No cache metadata')) {
+          toast.error(`❌ Delta Cache Not Available\n\n${data.message || data.error}\n\n💡 Tip: Use the Pre-Cache button first to establish a baseline cache.`, { duration: 8000 })
+        } else {
+          toast.error(`Failed to delta cache: ${data.error || 'Unknown error'}`)
+        }
       }
-
-      // 3) Process in batches (default size 5) using the snapshot so we don't "forget" remaining items
-      const batchSize = 5
-      const totalBatches = Math.ceil(totalToProcess / batchSize)
-
-      let agg = {
-        cached_count: 0,
-        already_cached: 0,
-        skipped: 0,
-        pairs_checked: 0,
-        ai_calls_made: 0,
-        duration_seconds: 0
-      }
-
-      for (let i = 0; i < totalBatches; i++) {
-        const res = await fetch("/api/admin/trigger-match", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "delta-pre-cache",
-            eventId: currentEventId,
-            skipAI: false,
-            snapshot_participants: snapshot,
-            batch_index: i,
-            batch_size: batchSize
-          })
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || `Batch ${i + 1} failed`)
-
-        // Aggregate stats
-        agg.cached_count += data.cached_count || 0
-        agg.already_cached += data.already_cached || 0
-        agg.skipped += data.skipped || 0
-        agg.pairs_checked += data.pairs_checked || 0
-        agg.ai_calls_made += data.ai_calls_made || 0
-        agg.duration_seconds += parseFloat(data.duration_seconds || '0')
-
-        // Optional per-batch progress toast (short duration)
-        toast.success(`Batch ${i + 1}/${totalBatches} done: +${data.cached_count} cached, +${data.already_cached} reused`, { duration: 2000 })
-      }
-
-      // 4) Final summary
-      let successMessage = `✅ Delta Cache Complete! (Batched ${totalBatches} × ${batchSize})`
-      successMessage += `\n\n📊 Aggregated Results:`
-      successMessage += `\n• Updated participants (snapshot): ${totalToProcess}`
-      successMessage += `\n• New pairs cached: ${agg.cached_count}`
-      if (agg.already_cached > 0) successMessage += `\n• Reused cached: ${agg.already_cached}`
-      if (agg.skipped > 0) successMessage += `\n• Skipped (incompatible): ${agg.skipped}`
-      successMessage += `\n• Pairs checked: ${agg.pairs_checked}`
-      successMessage += `\n• AI calls made: ${agg.ai_calls_made}`
-      successMessage += `\n\n⏱️ Total time (sum of batches): ${agg.duration_seconds.toFixed(2)}s`
-
-      toast.success(successMessage, { duration: 9000 })
-      fetchParticipants()
-    } catch (error: any) {
-      console.error("Error delta caching (batched):", error)
-      toast.error(`Error running delta pre-cache: ${error.message || error}`)
+    } catch (error) {
+      console.error("Error delta caching:", error)
+      toast.error("Error running delta pre-cache")
     } finally {
       setDeltaCaching(false)
     }

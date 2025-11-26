@@ -2210,17 +2210,6 @@ export default async function handler(req, res) {
     console.log(`🔄 DELTA PRE-CACHE START: Smart incremental caching for event ${eventId}`)
     
     try {
-      // Optional batched mode inputs
-      const rawSnapshot = Array.isArray(req.body?.snapshot_participants) ? req.body.snapshot_participants : []
-      const snapshotParticipants = rawSnapshot
-        .map((n) => parseInt(n))
-        .filter((n) => Number.isFinite(n))
-      const isBatchedMode = snapshotParticipants.length > 0
-      const batchSize = Number.isFinite(parseInt(req.body?.batch_size)) ? Math.max(1, parseInt(req.body.batch_size)) : 5
-      const batchIndex = Number.isFinite(parseInt(req.body?.batch_index)) ? Math.max(0, parseInt(req.body.batch_index)) : 0
-      const batchStart = batchIndex * batchSize
-      const batchEnd = batchStart + batchSize
-
       // Step 1: Get last cache timestamp
       const { data: lastTimestamp, error: timestampError } = await supabase
         .rpc('get_last_precache_timestamp', { p_event_id: eventId })
@@ -2266,43 +2255,27 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: `Need at least 2 participants. Found ${allEligibleParticipants.length}` })
       }
       
-      // Step 3: Identify participants who need recaching OR honor provided snapshot for batched mode
+      // Step 3: Identify participants who need recaching
       console.log(`\n${'='.repeat(80)}`)
-      if (isBatchedMode) {
-        console.log(`🧰 DELTA CACHE (BATCHED MODE): Using provided snapshot of ${snapshotParticipants.length} participant(s)`)
-      } else {
-        console.log(`🔍 DELTA CACHE: Analyzing ${allEligibleParticipants.length} eligible participants`)
-        console.log(`📅 Last cache timestamp: ${lastCacheTimestamp}`)
-      }
+      console.log(`🔍 DELTA CACHE: Analyzing ${allEligibleParticipants.length} eligible participants`)
+      console.log(`📅 Last cache timestamp: ${lastCacheTimestamp}`)
       console.log(`${'='.repeat(80)}\n`)
       
-      let participantsNeedingCache
-      let effectiveSnapshot = []
-      if (isBatchedMode) {
-        // Keep only snapshot numbers that are actually eligible
-        const eligibleSet = new Set(allEligibleParticipants.map(p => p.assigned_number))
-        effectiveSnapshot = snapshotParticipants.filter(n => eligibleSet.has(n))
-        const currentBatchNumbers = effectiveSnapshot.slice(batchStart, Math.min(batchEnd, effectiveSnapshot.length))
-        const currentBatchSet = new Set(currentBatchNumbers)
-        participantsNeedingCache = allEligibleParticipants.filter(p => currentBatchSet.has(p.assigned_number))
-        console.log(`📦 Processing batch ${batchIndex + 1} (size ${batchSize}) → ${participantsNeedingCache.length} participant(s) in this batch`)
-      } else {
-        participantsNeedingCache = allEligibleParticipants.filter(p => {
-          if (!p.survey_data_updated_at) {
-            // Never cached - skip for delta cache (use regular pre-cache for first-time caching)
-            console.log(`⏭️  #${p.assigned_number} - NEVER CACHED (survey_data_updated_at: NULL) - Use pre-cache, not delta`)
-            return false
-          }
-          // Updated after last cache
-          const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
-          if (needsUpdate) {
-            console.log(`🔄 #${p.assigned_number} - UPDATED after cache (survey_data_updated_at: ${p.survey_data_updated_at})`)
-          } else {
-            console.log(`✅ #${p.assigned_number} - FRESH (survey_data_updated_at: ${p.survey_data_updated_at})`)
-          }
-          return needsUpdate
-        })
-      }
+      const participantsNeedingCache = allEligibleParticipants.filter(p => {
+        if (!p.survey_data_updated_at) {
+          // Never cached - skip for delta cache (use regular pre-cache for first-time caching)
+          console.log(`⏭️  #${p.assigned_number} - NEVER CACHED (survey_data_updated_at: NULL) - Use pre-cache, not delta`)
+          return false
+        }
+        // Updated after last cache
+        const needsUpdate = new Date(p.survey_data_updated_at) > new Date(lastCacheTimestamp)
+        if (needsUpdate) {
+          console.log(`🔄 #${p.assigned_number} - UPDATED after cache (survey_data_updated_at: ${p.survey_data_updated_at})`)
+        } else {
+          console.log(`✅ #${p.assigned_number} - FRESH (survey_data_updated_at: ${p.survey_data_updated_at})`)
+        }
+        return needsUpdate
+      })
       
       console.log(`\n${'='.repeat(80)}`)
       console.log(`📊 DELTA CACHE SUMMARY:`)
@@ -2338,7 +2311,7 @@ export default async function handler(req, res) {
         })
       }
       
-      // Step 4: Generate pairs involving updated participants only (current batch in batched mode)
+      // Step 4: Generate pairs involving updated participants only
       const pairsToCache = []
       const updatedNumbers = new Set(participantsNeedingCache.map(p => p.assigned_number))
       
@@ -2369,7 +2342,7 @@ export default async function handler(req, res) {
       console.log(`📋 Pairs to cache: ${pairsToCache.length} (involving ${participantsNeedingCache.length} updated participant(s))`)
       console.log(`${'='.repeat(80)}\n`)
       
-      // Step 5: Delete all existing cache entries for updated participants (only current batch when in batched mode)
+      // Step 5: Delete all existing cache entries for updated participants
       console.log(`\n${'='.repeat(80)}`)
       console.log(`🗑️  DELETING OLD CACHE ENTRIES for updated participants...`)
       console.log(`${'='.repeat(80)}\n`)
@@ -2478,9 +2451,7 @@ export default async function handler(req, res) {
           p_duration_ms: durationMs,
           p_ai_calls: aiCallsMade,
           p_cache_hit_rate: parseFloat(cacheHitRate),
-          p_notes: isBatchedMode
-            ? `Delta cache (batched): batch ${batchIndex + 1} of ${Math.ceil((effectiveSnapshot.length || 1) / batchSize)} | ${participantsNeedingCache.length} participants from snapshot`
-            : `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`
+          p_notes: `Delta cache: ${participantsNeedingCache.length} participants updated since ${lastCacheTimestamp}`
         })
         
         console.log(`✅ Cache session metadata recorded`)
@@ -2516,15 +2487,7 @@ export default async function handler(req, res) {
         ai_calls_made: aiCallsMade,
         last_cache_timestamp: lastCacheTimestamp,
         duration_seconds: duration,
-        message: `Delta cached ${cachedCount} pairs for ${participantsNeedingCache.length} updated participants`,
-        batch: isBatchedMode ? {
-          snapshot_total: effectiveSnapshot.length,
-          batch_index: batchIndex,
-          batch_size: batchSize,
-          processed_count: participantsNeedingCache.length,
-          processed_range: [batchStart, Math.min(batchEnd, effectiveSnapshot.length)],
-          has_more: (batchEnd < effectiveSnapshot.length)
-        } : null
+        message: `Delta cached ${cachedCount} pairs for ${participantsNeedingCache.length} updated participants`
       })
     } catch (error) {
       console.error("❌ Delta pre-cache error:", error)

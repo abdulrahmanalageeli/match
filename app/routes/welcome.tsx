@@ -7315,42 +7315,67 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  {/* Question Set Toggle Button */}
+                  {/* Question Set Tabs + Discussion button */}
                   {currentRound === 1 && (
-                    <div className="flex justify-center gap-3 mb-6">
-                      <button
-                        onClick={() => {
-                          setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
-                          setCurrentQuestionIndex(0); // Reset to first question when switching sets
-                        }}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
-                          dark 
-                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-cyan-500/20' 
-                            : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-cyan-500/30'
-                        }`}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
-                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                          <path d="M21 3v5h-5"/>
-                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                          <path d="M3 21v-5h5"/>
-                        </svg>
-                        {activeQuestionSet === 'round1' ? 'تبديل لأسئلة بديلة' : 'العودة للأسئلة الأساسية'}
-                      </button>
-
+                    <div className="flex flex-col items-center gap-3 mb-6">
+                      {/* Centered discussion pill */}
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
-                          dark 
-                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-pink-500/20' 
-                            : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-pink-500/30'
+                        className={`${
+                          dark
+                            ? 'px-4 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/70 to-pink-600/70 hover:from-purple-600 hover:to-pink-600 text-white shadow-pink-500/20'
+                            : 'px-4 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-500/80 to-pink-500/80 hover:from-purple-600 hover:to-pink-600 text-white shadow-pink-500/30'
                         }`}
                         aria-label="فتح أسئلة النقاش"
                         title="أسئلة النقاش"
                       >
-                        <MessageSquare className="w-5 h-5" />
-                        أسئلة النقاش
+                        أسئلة للنقاش
                       </button>
+
+                      {/* Tabs */}
+                      <div
+                        className={`inline-flex items-center p-1 rounded-full border ${
+                          dark
+                            ? 'bg-slate-800/60 border-slate-700'
+                            : 'bg-white/80 border-gray-200'
+                        } shadow-sm`}
+                      >
+                        <button
+                          onClick={() => {
+                            setActiveQuestionSet('round1');
+                            setCurrentQuestionIndex(0);
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            activeQuestionSet === 'round1'
+                              ? (dark
+                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                              : (dark
+                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                          }`}
+                        >
+                          Set 1
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveQuestionSet('event');
+                            setCurrentQuestionIndex(0);
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            activeQuestionSet === 'event'
+                              ? (dark
+                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                              : (dark
+                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                          }`}
+                        >
+                          Set 2
+                        </button>
+                      </div>
+                      <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                     </div>
                   )}
 
@@ -7718,28 +7743,67 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  {/* Question Set Toggle Button */}
+                  {/* Question Set Tabs (duplicate section) */}
                   {currentRound === 1 && (
-                    <div className="flex justify-center mb-6">
+                    <div className="flex flex-col items-center gap-3 mb-6">
+                      {/* Centered discussion pill */}
                       <button
-                        onClick={() => {
-                          setActiveQuestionSet(prev => prev === 'round1' ? 'event' : 'round1');
-                          setCurrentQuestionIndex(0); // Reset to first question when switching sets
-                        }}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
-                          dark 
-                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white shadow-cyan-500/20' 
-                            : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white shadow-cyan-500/30'
+                        onClick={() => setShowPromptTopicsModal(true)}
+                        className={`${
+                          dark
+                            ? 'px-4 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/70 to-pink-600/70 hover:from-purple-600 hover:to-pink-600 text-white shadow-pink-500/20'
+                            : 'px-4 py-1.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-500/80 to-pink-500/80 hover:from-purple-600 hover:to-pink-600 text-white shadow-pink-500/30'
                         }`}
+                        aria-label="فتح أسئلة النقاش"
+                        title="أسئلة النقاش"
                       >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-refresh-cw">
-                          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                          <path d="M21 3v5h-5"/>
-                          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                          <path d="M3 21v-5h5"/>
-                        </svg>
-                        {activeQuestionSet === 'round1' ? 'تبديل لأسئلة بديلة' : 'العودة للأسئلة الأساسية'}
+                        أسئلة للنقاش
                       </button>
+
+                      {/* Tabs */}
+                      <div
+                        className={`inline-flex items-center p-1 rounded-full border ${
+                          dark
+                            ? 'bg-slate-800/60 border-slate-700'
+                            : 'bg-white/80 border-gray-200'
+                        } shadow-sm`}
+                      >
+                        <button
+                          onClick={() => {
+                            setActiveQuestionSet('round1');
+                            setCurrentQuestionIndex(0);
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            activeQuestionSet === 'round1'
+                              ? (dark
+                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                              : (dark
+                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                          }`}
+                        >
+                          Set 1
+                        </button>
+                        <button
+                          onClick={() => {
+                            setActiveQuestionSet('event');
+                            setCurrentQuestionIndex(0);
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            activeQuestionSet === 'event'
+                              ? (dark
+                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                              : (dark
+                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
+                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                          }`}
+                        >
+                          Set 2
+                        </button>
+                      </div>
+                      <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                     </div>
                   )}
 

@@ -7531,6 +7531,9 @@ export default function WelcomePage() {
                   {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
                     <div className="flex flex-col items-center gap-3 mb-4">
+                      <span className={`${dark ? 'bg-amber-600/80 text-white' : 'bg-amber-500 text-white'} text-[10px] px-2 py-0.5 rounded-full tracking-wide`}>
+                        اسئله عشوائيه
+                      </span>
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
                         className={`${
@@ -7602,40 +7605,50 @@ export default function WelcomePage() {
                           >
                             المجموعة ١
                           </button>
-                          <button
-                            onClick={() => {
-                              setActiveQuestionSet('event');
-                              setCurrentQuestionIndex(0);
-                            }}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'event'
-                                ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ٢
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveQuestionSet('set3');
-                              setCurrentQuestionIndex(0);
-                            }}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'set3'
-                                ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ٣
-                          </button>
+                          <div className="flex flex-col items-center mx-0.5">
+                            <span className={`${dark ? 'bg-pink-600/80 text-white' : 'bg-pink-500 text-white'} text-[10px] px-2 py-0.5 rounded-full mb-1 uppercase tracking-wide`}>
+                              new
+                            </span>
+                            <button
+                              onClick={() => {
+                                setActiveQuestionSet('event');
+                                setCurrentQuestionIndex(0);
+                              }}
+                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                activeQuestionSet === 'event'
+                                  ? (dark
+                                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                      : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                  : (dark
+                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                              }`}
+                            >
+                              المجموعة ٢
+                            </button>
+                          </div>
+                          <div className="flex flex-col items-center mx-0.5">
+                            <span className={`${dark ? 'bg-pink-600/80 text-white' : 'bg-pink-500 text-white'} text-[10px] px-2 py-0.5 rounded-full mb-1 uppercase tracking-wide`}>
+                              new
+                            </span>
+                            <button
+                              onClick={() => {
+                                setActiveQuestionSet('set3');
+                                setCurrentQuestionIndex(0);
+                              }}
+                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                activeQuestionSet === 'set3'
+                                  ? (dark
+                                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                      : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                  : (dark
+                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                              }`}
+                            >
+                              المجموعة ٣
+                            </button>
+                          </div>
                         </div>
                         <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                       </div>
@@ -7976,6 +7989,9 @@ export default function WelcomePage() {
                   {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
                     <div className="flex flex-col items-center gap-3 mb-4">
+                      <span className={`${dark ? 'bg-amber-600/80 text-white' : 'bg-amber-500 text-white'} text-[10px] px-2 py-0.5 rounded-full tracking-wide`}>
+                        اسئله عشوائيه
+                      </span>
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
                         className={`${
@@ -8039,40 +8055,50 @@ export default function WelcomePage() {
                           >
                             المجموعة ١
                           </button>
-                          <button
-                            onClick={() => {
-                              setActiveQuestionSet('event');
-                              setCurrentQuestionIndex(0);
-                            }}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'event'
-                                ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ٢
-                          </button>
-                          <button
-                            onClick={() => {
-                              setActiveQuestionSet('set3');
-                              setCurrentQuestionIndex(0);
-                            }}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                              activeQuestionSet === 'set3'
-                                ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                                : (dark
-                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                            }`}
-                          >
-                            المجموعة ٣
-                          </button>
+                          <div className="flex flex-col items-center mx-0.5">
+                            <span className={`${dark ? 'bg-pink-600/80 text-white' : 'bg-pink-500 text-white'} text-[10px] px-2 py-0.5 rounded-full mb-1 uppercase tracking-wide`}>
+                              new
+                            </span>
+                            <button
+                              onClick={() => {
+                                setActiveQuestionSet('event');
+                                setCurrentQuestionIndex(0);
+                              }}
+                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                activeQuestionSet === 'event'
+                                  ? (dark
+                                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                      : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                  : (dark
+                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                              }`}
+                            >
+                              المجموعة ٢
+                            </button>
+                          </div>
+                          <div className="flex flex-col items-center mx-0.5">
+                            <span className={`${dark ? 'bg-pink-600/80 text-white' : 'bg-pink-500 text-white'} text-[10px] px-2 py-0.5 rounded-full mb-1 uppercase tracking-wide`}>
+                              new
+                            </span>
+                            <button
+                              onClick={() => {
+                                setActiveQuestionSet('set3');
+                                setCurrentQuestionIndex(0);
+                              }}
+                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                activeQuestionSet === 'set3'
+                                  ? (dark
+                                      ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                      : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                  : (dark
+                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                              }`}
+                            >
+                              المجموعة ٣
+                            </button>
+                          </div>
                         </div>
                         <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                       </div>

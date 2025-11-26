@@ -7315,10 +7315,9 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  {/* Question Set Tabs + Discussion button */}
+                  {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
-                    <div className="flex flex-col items-center gap-3 mb-6">
-                      {/* Centered discussion pill */}
+                    <div className="flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
                         className={`${
@@ -7331,51 +7330,6 @@ export default function WelcomePage() {
                       >
                         أسئلة للنقاش
                       </button>
-
-                      {/* Tabs */}
-                      <div
-                        className={`inline-flex items-center p-1 rounded-full border ${
-                          dark
-                            ? 'bg-slate-800/60 border-slate-700'
-                            : 'bg-white/80 border-gray-200'
-                        } shadow-sm`}
-                      >
-                        <button
-                          onClick={() => {
-                            setActiveQuestionSet('round1');
-                            setCurrentQuestionIndex(0);
-                          }}
-                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                            activeQuestionSet === 'round1'
-                              ? (dark
-                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                              : (dark
-                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                          }`}
-                        >
-                          Set 1
-                        </button>
-                        <button
-                          onClick={() => {
-                            setActiveQuestionSet('event');
-                            setCurrentQuestionIndex(0);
-                          }}
-                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                            activeQuestionSet === 'event'
-                              ? (dark
-                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                              : (dark
-                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                          }`}
-                        >
-                          Set 2
-                        </button>
-                      </div>
-                      <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                     </div>
                   )}
 
@@ -7410,6 +7364,51 @@ export default function WelcomePage() {
                                 ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
                                 : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
                     }`}>
+                      <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
+                        <div
+                          className={`inline-flex items-center p-1 rounded-full border ${
+                            dark
+                              ? 'bg-slate-900/50 border-slate-700'
+                              : 'bg-white/80 border-gray-200'
+                          } shadow-sm`}
+                        >
+                          <button
+                            onClick={() => {
+                              setActiveQuestionSet('round1');
+                              setCurrentQuestionIndex(0);
+                            }}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              activeQuestionSet === 'round1'
+                                ? (dark
+                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                : (dark
+                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                            }`}
+                          >
+                            المجموعة ١
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveQuestionSet('event');
+                              setCurrentQuestionIndex(0);
+                            }}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              activeQuestionSet === 'event'
+                                ? (dark
+                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                : (dark
+                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                            }`}
+                          >
+                            المجموعة ٢
+                          </button>
+                        </div>
+                        <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
+                      </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -7743,10 +7742,9 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                  {/* Question Set Tabs (duplicate section) */}
+                  {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
-                    <div className="flex flex-col items-center gap-3 mb-6">
-                      {/* Centered discussion pill */}
+                    <div className="flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
                         className={`${
@@ -7759,51 +7757,6 @@ export default function WelcomePage() {
                       >
                         أسئلة للنقاش
                       </button>
-
-                      {/* Tabs */}
-                      <div
-                        className={`inline-flex items-center p-1 rounded-full border ${
-                          dark
-                            ? 'bg-slate-800/60 border-slate-700'
-                            : 'bg-white/80 border-gray-200'
-                        } shadow-sm`}
-                      >
-                        <button
-                          onClick={() => {
-                            setActiveQuestionSet('round1');
-                            setCurrentQuestionIndex(0);
-                          }}
-                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                            activeQuestionSet === 'round1'
-                              ? (dark
-                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                              : (dark
-                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                          }`}
-                        >
-                          Set 1
-                        </button>
-                        <button
-                          onClick={() => {
-                            setActiveQuestionSet('event');
-                            setCurrentQuestionIndex(0);
-                          }}
-                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                            activeQuestionSet === 'event'
-                              ? (dark
-                                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
-                              : (dark
-                                  ? 'text-slate-300 hover:text-white hover:bg-slate-700/60'
-                                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
-                          }`}
-                        >
-                          Set 2
-                        </button>
-                      </div>
-                      <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                     </div>
                   )}
 
@@ -7830,6 +7783,51 @@ export default function WelcomePage() {
                                 ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
                                 : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
                     }`}>
+                      <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
+                        <div
+                          className={`inline-flex items-center p-1 rounded-full border ${
+                            dark
+                              ? 'bg-slate-900/50 border-slate-700'
+                              : 'bg-white/80 border-gray-200'
+                          } shadow-sm`}
+                        >
+                          <button
+                            onClick={() => {
+                              setActiveQuestionSet('round1');
+                              setCurrentQuestionIndex(0);
+                            }}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              activeQuestionSet === 'round1'
+                                ? (dark
+                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                : (dark
+                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                            }`}
+                          >
+                            المجموعة ١
+                          </button>
+                          <button
+                            onClick={() => {
+                              setActiveQuestionSet('event');
+                              setCurrentQuestionIndex(0);
+                            }}
+                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                              activeQuestionSet === 'event'
+                                ? (dark
+                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
+                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                : (dark
+                                    ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                            }`}
+                          >
+                            المجموعة ٢
+                          </button>
+                        </div>
+                        <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
+                      </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${

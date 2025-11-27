@@ -4816,22 +4816,21 @@ Proceed?`
                     
                     {/* Registration Time (created_at) */}
                     {p.created_at && (() => {
-                      const utcDate = new Date(p.created_at);
-                      const riyadhDate = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                      
+                      const createdAt = new Date(p.created_at);
                       // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
                       const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
-                      const isLate = riyadhDate > cutoffDate;
-                      
-                      const dateTimeStr = riyadhDate.toLocaleString('en-GB', {
+                      const isLate = createdAt.getTime() > cutoffDate.getTime();
+
+                      const dateTimeStr = createdAt.toLocaleString('en-GB', {
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit',
-                        hour12: true
+                        hour12: true,
+                        timeZone: 'Asia/Riyadh'
                       });
-                      
+
                       return (
                         <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-400' : 'text-blue-400'}`}>
                           <Calendar className="w-3 h-3" />
@@ -4847,21 +4846,20 @@ Proceed?`
                     
                     {/* Next Event Signup Time */}
                     {p.next_event_signup_timestamp && (() => {
-                      const utcDate = new Date(p.next_event_signup_timestamp);
-                      const riyadhDate = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                      
+                      const signedAt = new Date(p.next_event_signup_timestamp);
                       // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
                       const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
-                      const isLate = riyadhDate > cutoffDate;
-                      
-                      const dateTimeStr = riyadhDate.toLocaleString('en-GB', {
+                      const isLate = signedAt.getTime() > cutoffDate.getTime();
+
+                      const dateTimeStr = signedAt.toLocaleString('en-GB', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
                         minute: '2-digit',
-                        hour12: true
+                        hour12: true,
+                        timeZone: 'Asia/Riyadh'
                       });
-                      
+
                       return (
                         <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-400' : 'text-green-400'}`}>
                           <CalendarCheck className="w-3 h-3" />
@@ -4877,19 +4875,17 @@ Proceed?`
                     
                     {/* Last Update Time (Relative) */}
                     {p.updated_at && (() => {
-                      const utcDate = new Date(p.updated_at);
-                      const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                      const now = new Date();
-                      const diffMs = now.getTime() - gmt3Date.getTime();
+                      const updatedAt = new Date(p.updated_at);
+                      const diffMs = Date.now() - updatedAt.getTime();
                       const diffMins = Math.floor(diffMs / 60000);
                       const diffHours = Math.floor(diffMs / 3600000);
                       const diffDays = Math.floor(diffMs / 86400000);
-                      
+
                       // Determine if updated within 24 hours
                       const isRecent = diffHours < 24;
                       const colorClass = isRecent ? 'text-green-400' : 'text-slate-500';
                       const iconColorClass = isRecent ? 'text-green-400' : '';
-                      
+
                       let timeText = '';
                       if (diffMins < 1) timeText = 'Just now';
                       else if (diffMins < 60) timeText = `${diffMins}m ago`;
@@ -4897,13 +4893,14 @@ Proceed?`
                       else if (diffDays === 1) timeText = '1d ago';
                       else if (diffDays < 30) timeText = `${diffDays}d ago`;
                       else {
-                        timeText = gmt3Date.toLocaleDateString('en-GB', { 
-                          day: '2-digit', 
+                        timeText = updatedAt.toLocaleDateString('en-GB', {
+                          day: '2-digit',
                           month: 'short',
-                          year: 'numeric'
+                          year: 'numeric',
+                          timeZone: 'Asia/Riyadh'
                         });
                       }
-                      
+
                       return (
                         <div className={`text-xs ${colorClass} mb-2 flex items-center justify-center gap-1 font-medium`}>
                           <Clock className={`w-3 h-3 ${iconColorClass}`} />

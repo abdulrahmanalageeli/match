@@ -297,8 +297,51 @@ export default async function handler(req, res) {
           // Step 3: Assign table numbers only to locked/pinned matches
           let tableCounter = 1
           let assignedCount = 0
-          
-          for (const locked of lockedMatches || []) {
+
+          // Build age-aware ordering so older participants get lower table numbers
+          // 1) Collect all participant numbers from locked matches
+          const allNumbersSet = new Set()
+          for (const lm of lockedMatches || []) {
+            if (lm?.participant1_number && lm.participant1_number !== 9999) allNumbersSet.add(lm.participant1_number)
+            if (lm?.participant2_number && lm.participant2_number !== 9999) allNumbersSet.add(lm.participant2_number)
+          }
+
+          // 2) Fetch ages for these participants (prefer column age; fallback to survey_data.age)
+          const { data: ageRows, error: ageErr } = await supabase
+            .from("participants")
+            .select("assigned_number, age, survey_data, event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEventId)
+            .in("assigned_number", Array.from(allNumbersSet))
+
+          if (ageErr) {
+            console.error("Error fetching ages for locked matches:", ageErr)
+            // We will proceed without age ordering if this fails
+          }
+
+          const ageMap = new Map()
+          for (const row of ageRows || []) {
+            const directAge = typeof row.age === 'number' ? row.age : parseInt(row.age, 10)
+            const fallbackAge = (row?.survey_data && (typeof row.survey_data.age === 'number' || typeof row.survey_data.age === 'string'))
+              ? parseInt(row.survey_data.age, 10)
+              : undefined
+            const ageVal = Number.isFinite(directAge) ? directAge : (Number.isFinite(fallbackAge) ? fallbackAge : undefined)
+            if (row.assigned_number != null) {
+              ageMap.set(row.assigned_number, Number.isFinite(ageVal) ? ageVal : 0)
+            }
+          }
+
+          // 3) Enrich locked matches with max pair age and sort DESC (older first)
+          const lockedWithAges = (lockedMatches || []).map((lm) => {
+            const a1 = ageMap.get(lm.participant1_number) ?? 0
+            const a2 = ageMap.get(lm.participant2_number) ?? 0
+            const pairMaxAge = Math.max(a1, a2)
+            return { ...lm, _age1: a1, _age2: a2, _pairMaxAge: pairMaxAge }
+          })
+
+          lockedWithAges.sort((x, y) => (y._pairMaxAge - x._pairMaxAge))
+
+          for (const locked of lockedWithAges) {
             // Update the match using participant numbers (bidirectional)
             const { error: updateError } = await supabase
               .from("match_results")
@@ -312,7 +355,11 @@ export default async function handler(req, res) {
               return res.status(500).json({ error: updateError.message })
             }
             
-            console.log(`   📍 Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked)`)
+            if (typeof locked._pairMaxAge === 'number') {
+              console.log(`   📍 Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked, max age ${locked._pairMaxAge})`)
+            } else {
+              console.log(`   📍 Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked)`)
+            }
             tableCounter++
             assignedCount++
           }

@@ -2102,12 +2102,22 @@ const fetchParticipants = async () => {
     
     const filtered = participants.filter(p => {
       // Search term filter - using debounced search for better performance
-      const matchesSearch = debouncedSearch === "" || (
-        p.assigned_number.toString().includes(debouncedSearch) ||
-        (p.name?.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-        (p.survey_data?.answers?.gender?.toLowerCase().includes(debouncedSearch.toLowerCase())) ||
-        (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(debouncedSearch.toLowerCase()))
-      )
+      const s = (debouncedSearch || "").trim();
+      let matchesSearch = true;
+      if (s !== "") {
+        if (/^p\d+$/i.test(s)) {
+          const digits = s.slice(1);
+          const phone = (p.phone_number || "").replace(/\D/g, "");
+          matchesSearch = phone.includes(digits);
+        } else {
+          matchesSearch = (
+            p.assigned_number.toString().includes(s) ||
+            (p.name?.toLowerCase().includes(s.toLowerCase())) ||
+            (p.survey_data?.answers?.gender?.toLowerCase().includes(s.toLowerCase())) ||
+            (p.survey_data?.answers?.ageGroup?.toLowerCase().includes(s.toLowerCase()))
+          );
+        }
+      }
       
       // Check if participant is excluded from all matching
       const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number)
@@ -3143,7 +3153,7 @@ Proceed?`
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search by name, number, gender..."
+                  placeholder="Search by name, number, gender... (p1234 = phone last digits)"
                   className="pl-10 pr-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}

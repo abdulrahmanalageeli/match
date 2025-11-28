@@ -3363,6 +3363,14 @@ export default async function handler(req, res) {
             .catch(err => console.error('Cache store error:', err))
         }
         
+        // In Preview Paid Matches mode, cap any full humor bonus (1.15) to partial (1.05)
+        // This makes preview scoring ignore the extra boost from full humor+openness match
+        if (SKIP_DB_WRITES && paidOnly && compatibilityResult && typeof compatibilityResult.humorMultiplier === 'number' && compatibilityResult.humorMultiplier > 1.05) {
+          const baseBeforeMultiplier = compatibilityResult.totalScore / compatibilityResult.humorMultiplier
+          compatibilityResult.humorMultiplier = 1.05
+          compatibilityResult.totalScore = baseBeforeMultiplier * 1.05
+        }
+
         const mbtiScore = compatibilityResult.mbtiScore
         const attachmentScore = compatibilityResult.attachmentScore
         const communicationScore = compatibilityResult.communicationScore

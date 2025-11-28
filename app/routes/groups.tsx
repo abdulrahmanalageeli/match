@@ -2174,7 +2174,7 @@ export default function GroupsPage() {
       {/* How-To Tutorial Modal (slideshow) */}
       {showHowToModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="relative w-full max-w-lg bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+          <div dir="rtl" className="relative w-full max-w-lg bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
               <div className="flex items-center gap-2 text-white">
@@ -2192,11 +2192,12 @@ export default function GroupsPage() {
                 <div className="space-y-4">
                   <h4 className="text-white text-base font-semibold">1) افتح تطبيق واتساب وابحث عن رسالة التأكيد</h4>
                   <p className="text-slate-300 text-sm">افتح المحادثة التي وصلتك من المنظم، وتأكد من وجود بياناتك مع الرابط.</p>
-                  <div className="rounded-xl overflow-hidden border border-slate-700/60 shadow-lg">
+                  <div className="rounded-xl overflow-hidden border border-slate-700/60 shadow-lg bg-slate-900/40 flex items-center justify-center">
                     <img
                       src="/example1.jpg"
                       alt="مثال رسالة واتساب"
-                      className="w-full h-56 sm:h-64 object-cover object-center"
+                      loading="lazy"
+                      className="w-full max-h-[60vh] object-contain"
                     />
                   </div>
                   <p className="text-slate-400 text-xs text-center">مثال رسالة واتساب تحتوي على رقمك والرمز والرابط</p>
@@ -2207,11 +2208,12 @@ export default function GroupsPage() {
                 <div className="space-y-4">
                   <h4 className="text-white text-base font-semibold">2) اعثر على رابط حسابك</h4>
                   <p className="text-slate-300 text-sm">ستجد في الرسالة رابط الدخول لحسابك. احتفظ به، ستحتاجه للجولة الفردية.</p>
-                  <div className="rounded-xl overflow-hidden border border-slate-700/60 shadow-lg">
+                  <div className="rounded-xl overflow-hidden border border-slate-700/60 shadow-lg bg-slate-900/40 flex items-center justify-center">
                     <img
                       src="/example2.jpg"
                       alt="مثال رابط الحساب"
-                      className="w-full h-56 sm:h-64 object-cover object-center"
+                      loading="lazy"
+                      className="w-full max-h-[60vh] object-contain"
                     />
                   </div>
                   <p className="text-slate-400 text-xs text-center">مثال رسالة تحتوي على رابط حسابك للدخول للجولة الفردية</p>

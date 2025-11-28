@@ -7,6 +7,7 @@ import {
   SkipForward, 
   ChevronRight, 
   ChevronLeft,
+  HelpCircle,
   Trophy,
   Star,
   Heart,
@@ -629,6 +630,9 @@ export default function GroupsPage() {
   const [tableNumber, setTableNumber] = useState<number | null>(null);
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  // How-to tutorial modal
+  const [showHowToModal, setShowHowToModal] = useState(false);
+  const [howToSlide, setHowToSlide] = useState(0);
   
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(SESSION_TOTAL_DURATION);
@@ -2072,6 +2076,19 @@ export default function GroupsPage() {
                 <span>عودة</span>
               </button>
             )}
+
+            {/* How-To fixed button on right */}
+            <button
+              onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
+              className="absolute right-0 flex flex-col items-end text-right gap-0.5 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-[13px]"
+              title="اضغط بعد انتهاء وقت الأنشطة"
+            >
+              <span className="inline-flex items-center gap-1 font-semibold">
+                <HelpCircle className="w-4 h-4" />
+                شرح الدخول للجولة الفردية
+              </span>
+              <span className="text-[10px] text-white/80">Click once group activity time is over</span>
+            </button>
           </div>
 
           {/* Beautiful Google-Quality Timer */}
@@ -2150,6 +2167,102 @@ export default function GroupsPage() {
             >
               انتقل للجولة الأولى
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* How-To Tutorial Modal (slideshow) */}
+      {showHowToModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative w-full max-w-lg bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
+              <div className="flex items-center gap-2 text-white">
+                <HelpCircle className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-lg font-bold">شرح الدخول للجولة الفردية</h3>
+              </div>
+              <button onClick={() => setShowHowToModal(false)} className="text-slate-300 hover:text-white">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Slide content */}
+            <div className="px-5 py-4">
+              {howToSlide === 0 && (
+                <div className="space-y-4">
+                  <h4 className="text-white text-base font-semibold">1) افتح تطبيق واتساب وابحث عن رسالة التأكيد</h4>
+                  <p className="text-slate-300 text-sm">افتح المحادثة التي وصلتك من المنظم، وتأكد من وجود بياناتك مع الرابط.</p>
+                  <div className="rounded-xl overflow-hidden border border-slate-700/60 shadow-lg">
+                    <img
+                      src="/example1.jpg"
+                      alt="مثال رسالة واتساب"
+                      className="w-full h-56 sm:h-64 object-cover object-center"
+                    />
+                  </div>
+                  <p className="text-slate-400 text-xs text-center">مثال رسالة واتساب تحتوي على رقمك والرمز والرابط</p>
+                </div>
+              )}
+
+              {howToSlide === 1 && (
+                <div className="space-y-4">
+                  <h4 className="text-white text-base font-semibold">2) اعثر على رابط حسابك</h4>
+                  <p className="text-slate-300 text-sm">ستجد في الرسالة رابط الدخول لحسابك. احتفظ به، ستحتاجه للجولة الفردية.</p>
+                  <div className="rounded-xl overflow-hidden border border-slate-700/60 shadow-lg">
+                    <img
+                      src="/example2.jpg"
+                      alt="مثال رابط الحساب"
+                      className="w-full h-56 sm:h-64 object-cover object-center"
+                    />
+                  </div>
+                  <p className="text-slate-400 text-xs text-center">مثال رسالة تحتوي على رابط حسابك للدخول للجولة الفردية</p>
+                </div>
+              )}
+
+              {howToSlide === 2 && (
+                <div className="space-y-4">
+                  <h4 className="text-white text-base font-semibold">3) متى يشتغل الرابط؟</h4>
+                  <p className="text-slate-300 text-sm">لن يعمل الرابط إلا بعد إعلان المنظم أن وقت الأنشطة الجماعية انتهى وبدء الجولات الفردية. عندها اضغط الرابط وسجّل دخولك.</p>
+                  <ul className="list-disc pr-5 text-slate-300 text-sm space-y-1">
+                    <li className="marker:text-emerald-400">تأكد أن اتصال الإنترنت يعمل</li>
+                    <li className="marker:text-emerald-400">افتح الرابط من رسالة الواتساب مباشرة</li>
+                    <li className="marker:text-emerald-400">ابقَ على الصفحة للحصول على التعليمات</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Controls */}
+              <div className="mt-6 flex items-center justify-between">
+                <button
+                  onClick={() => setHowToSlide((s) => Math.max(0, s - 1))}
+                  disabled={howToSlide === 0}
+                  className="px-3 py-2 rounded-lg border border-slate-600 text-slate-200 disabled:opacity-40 hover:bg-slate-700/40 flex items-center gap-1"
+                >
+                  <ChevronRight className="w-4 h-4 rotate-180" />
+                  السابق
+                </button>
+                <div className="flex items-center gap-2">
+                  {[0,1,2].map((i) => (
+                    <span key={i} className={`w-2 h-2 rounded-full ${howToSlide===i ? 'bg-emerald-400' : 'bg-slate-600'}`}></span>
+                  ))}
+                </div>
+                {howToSlide < 2 ? (
+                  <button
+                    onClick={() => setHowToSlide((s) => Math.min(2, s + 1))}
+                    className="px-3 py-2 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white flex items-center gap-1"
+                  >
+                    التالي
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowHowToModal(false)}
+                    className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white"
+                  >
+                    تم
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}

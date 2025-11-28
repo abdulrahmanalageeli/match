@@ -2076,18 +2076,7 @@ export default function GroupsPage() {
                 <span>عودة</span>
               </button>
             )}
-
-            {/* How-To compact button on right */}
-            <button
-              onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-              aria-label="شرح الدخول للجولة الفردية"
-              className="absolute right-1 top-1 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200 text-[11px] font-semibold z-10 max-w-[140px]"
-              title="اضغط بعد انتهاء وقت الأنشطة"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline md:hidden truncate">شرح</span>
-              <span className="hidden md:inline truncate">شرح الجولة</span>
-            </button>
+            
           </div>
 
           {/* Beautiful Google-Quality Timer */}
@@ -2123,6 +2112,19 @@ export default function GroupsPage() {
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* How-To button: centered under the timer */}
+            <div className="flex flex-col items-center justify-center">
+              <button
+                onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+                title="اضغط بعد انتهاء وقت الأنشطة"
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span className="font-semibold">شرح الدخول للجولة الفردية</span>
+              </button>
+              <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
             </div>
 
             {/* Current Game Badge - Sleek Design */}

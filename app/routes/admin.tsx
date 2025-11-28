@@ -319,7 +319,7 @@ export default function AdminPage() {
       urgentDeadlineMin: whatsappConfig?.urgentDeadlineMin ?? 60,
       earlyPrice: whatsappConfig?.earlyPrice ?? 45,
       latePrice: whatsappConfig?.latePrice ?? 65,
-      latePriceSwitchLabel: whatsappConfig?.latePriceSwitchLabel ?? 'الجمعة 3:00 مساءً',
+      latePriceSwitchLabel: whatsappConfig?.latePriceSwitchLabel ?? 'Friday 28 Nov 3:00pm (Riyadh time)',
       eventDateText: whatsappConfig?.eventDateText ?? 'الأحد 16 نوفمبر 2025',
       eventTimeText: whatsappConfig?.eventTimeText ?? '8:15 مساءً',
       arrivalTimeText: whatsappConfig?.arrivalTimeText ?? '8:05 مساءً',

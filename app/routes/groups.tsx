@@ -2077,17 +2077,16 @@ export default function GroupsPage() {
               </button>
             )}
 
-            {/* How-To fixed button on right */}
+            {/* How-To compact button on right */}
             <button
               onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-              className="absolute right-0 -top-1 flex flex-col items-end text-right gap-0 px-2 py-1 rounded-lg bg-slate-700/60 border border-slate-600/60 hover:border-emerald-400/60 text-white shadow-md transition-all duration-200 text-[11px]"
+              aria-label="شرح الدخول للجولة الفردية"
+              className="absolute right-1 top-1 inline-flex items-center gap-1 px-2 py-1 rounded-md bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md hover:shadow-lg transition-all duration-200 text-[11px] font-semibold z-10 max-w-[140px]"
               title="اضغط بعد انتهاء وقت الأنشطة"
             >
-              <span className="inline-flex items-center gap-1 font-medium">
-                <HelpCircle className="w-3.5 h-3.5" />
-                شرح الدخول للجولة الفردية
-              </span>
-              <span className="hidden md:block text-[10px] text-white/75">Click once group activity time is over</span>
+              <HelpCircle className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline md:hidden truncate">شرح</span>
+              <span className="hidden md:inline truncate">شرح الجولة</span>
             </button>
           </div>
 

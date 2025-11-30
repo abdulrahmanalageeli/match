@@ -93,7 +93,14 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
         text.includes('تذكير مهم بموعد الفعالية') &&
         !/(لا يوجد استرداد|لا استرداد|تأجيل)/.test(noEmoji)
       ) {
-        result += "\n\nمهم: لا يوجد استرداد أو تأجيل";
+        // Insert policy before the participant info section if possible
+        const injected = noEmoji.replace(/(\n+\s*معلوماتك للفعالية:)/, "\n\nمهم: لا يوجد استرداد أو تأجيل$1");
+        if (injected !== noEmoji) {
+          result = injected;
+        } else {
+          // Fallback: append at end
+          result = noEmoji + "\n\nمهم: لا يوجد استرداد أو تأجيل";
+        }
       }
     } catch (_) {
       // no-op safeguard

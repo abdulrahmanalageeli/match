@@ -400,7 +400,8 @@ export default function WelcomePage() {
 
   // Call API to verify participant actually has a real match (not 9999)
   const hasValidMatchForRound1 = async (eventId: number) => {
-    if (hasCheckedMatchRef.current) return false; // Skip if we've already checked
+    // If we've already confirmed a valid match previously, short-circuit to true
+    if (hasCheckedMatchRef.current) return true;
     
     setIsCheckingMatch(true);
     try {

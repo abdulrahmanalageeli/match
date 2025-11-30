@@ -117,7 +117,7 @@ export default async function handler(req, res) {
 
       // Handle timer actions
       if (action === "start" || action === "get-status" || action === "finish") {
-        return await handleTimerAction(req, res, supabase, match_id)
+        return await handleTimerAction(req, res, supabase, match_id, currentEventId)
       }
 
       if (match_type === "محايد" && round === 0) {
@@ -246,8 +246,9 @@ export default async function handler(req, res) {
 }
 
 // Timer handler function
-async function handleTimerAction(req, res, supabase, match_id) {
-  const { action, assigned_number, round, match_type = "individual" } = req.body
+async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
+  const { action, assigned_number, round, match_type = "individual", event_id } = req.body
+  const effectiveEventId = event_id || currentEventId || 1
 
   try {
     if (action === "start") {
@@ -265,6 +266,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
           .from("match_results")
           .select("conversation_status, conversation_start_time")
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", 0)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .single()
@@ -296,6 +298,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
             conversation_status: 'active'
           })
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", 0)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
@@ -309,6 +312,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
           .from("match_results")
           .select("conversation_status, conversation_start_time, conversation_duration")
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", round)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
           .single()
@@ -340,6 +344,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
             conversation_status: 'active'
           })
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", round)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
 
@@ -370,6 +375,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
           .from("match_results")
           .select("conversation_start_time, conversation_duration, conversation_status")
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", 0)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
           .single()
@@ -415,6 +421,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
           .from("match_results")
           .select("conversation_start_time, conversation_duration, conversation_status")
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", round)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
           .single()
@@ -471,6 +478,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
             conversation_duration: null
           })
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", 0)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
 
@@ -488,6 +496,7 @@ async function handleTimerAction(req, res, supabase, match_id) {
             conversation_duration: null
           })
           .eq("match_id", match_id)
+          .eq("event_id", effectiveEventId)
           .eq("round", round)
           .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number}`)
 

@@ -1395,10 +1395,9 @@ async function generateGroupMatches(participants, match_id, eventId) {
     const group = validGroups[i]
     const groupScore = calculateGroupCompatibilityScore(group, pairScores)
     
-    // Assign table numbers for groups: 1,2,3 then 10,11,12,...
-    // This avoids overlapping with individual match tables (e.g., 4-9)
-    const tableNumber = i < 3 ? (i + 1) : (10 + (i - 3))
+    // Assign table numbers sequentially and keep them equal to group numbers
     const groupNumber = i + 1
+    const tableNumber = groupNumber
     const groupId = `group_${groupNumber}`
     
     // Get participant names for the group

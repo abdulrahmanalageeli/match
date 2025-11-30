@@ -86,7 +86,19 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose }: W
     const noAsterisk = text.replace(/\*/g, '');
     // basic emoji filter using unicode ranges (approx)
     const noEmoji = noAsterisk.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '');
-    return noEmoji;
+    // If this is the event reminder message, ensure policy note is present in export
+    let result = noEmoji;
+    try {
+      if (
+        text.includes('تذكير مهم بموعد الفعالية') &&
+        !/(لا يوجد استرداد|لا استرداد|تأجيل)/.test(noEmoji)
+      ) {
+        result += "\n\nمهم: لا يوجد استرداد أو تأجيل";
+      }
+    } catch (_) {
+      // no-op safeguard
+    }
+    return result;
   };
 
   const handleSaveConfig = async () => {

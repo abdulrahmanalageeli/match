@@ -283,7 +283,7 @@ export default async function handler(req, res) {
   // MATCH PREFERENCE ACTION
   if (action === "match-preference") {
     try {
-      const { assigned_number, partner_number, wants_match, round = 1 } = req.body
+      const { assigned_number, partner_number, wants_match, round = 1, event_id } = req.body
       const match_id = "00000000-0000-0000-0000-000000000000"
 
       if (!assigned_number || !partner_number) {
@@ -299,6 +299,7 @@ export default async function handler(req, res) {
         .from("match_results")
         .select("*")
         .eq("match_id", match_id)
+        .eq("event_id", event_id || 1)
         .eq("round", round)
         .or(`and(participant_a_number.eq.${assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${assigned_number})`)
 
@@ -347,6 +348,7 @@ export default async function handler(req, res) {
           .select("name, age, phone_number")
           .eq("assigned_number", partner_number)
           .eq("match_id", match_id)
+          .eq("event_id", event_id || 1)
           .single()
 
         if (!partnerError && partnerData) {

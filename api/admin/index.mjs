@@ -51,6 +51,125 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: "Missing action parameter" });
       }
 
+      // 🔹 AUTO-PLACE PARTICIPANT INTO BEST GROUP (fills an empty seat)
+      if (action === "auto-place-participant-into-best-group") {
+        try {
+          const { event_id = 1, participant_number } = req.body
+          const pNum = parseInt(participant_number)
+          if (!pNum || pNum === 9999) {
+            return res.status(400).json({ error: "Invalid participant_number" })
+          }
+
+          // Load all groups for the event
+          const { data: groups, error: groupsErr } = await supabase
+            .from("group_matches")
+            .select("id, group_id, group_number, participant_numbers, participant_names, table_number, compatibility_score")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", event_id)
+            .order("group_number", { ascending: true })
+
+          if (groupsErr) {
+            console.error("auto-place fetch groups error:", groupsErr)
+            return res.status(500).json({ error: "Failed to load groups" })
+          }
+          if (!groups || groups.length === 0) {
+            return res.status(400).json({ error: "No groups available" })
+          }
+
+          // If participant already exists in any group, abort
+          const alreadyIn = groups.find(g => Array.isArray(g.participant_numbers) && g.participant_numbers.includes(pNum))
+          if (alreadyIn) {
+            return res.status(400).json({ error: `Participant #${pNum} is already in group ${alreadyIn.group_number}` })
+          }
+
+          // Consider only groups with empty seats (capacity < 6)
+          const candidateGroups = groups.filter(g => (Array.isArray(g.participant_numbers) ? g.participant_numbers.length : 0) < 6)
+          if (candidateGroups.length === 0) {
+            return res.status(400).json({ error: "All groups are full (max 6)" })
+          }
+
+          // Fetch ALL participants for evaluation (bypass eligibility)
+          const allNumsSet = new Set([pNum])
+          candidateGroups.forEach(g => {
+            (g.participant_numbers || []).forEach(n => allNumsSet.add(n))
+          })
+          const allNums = Array.from(allNumsSet)
+
+          const { data: participantsData, error: partErr } = await supabase
+            .from("participants")
+            .select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", allNums)
+
+          if (partErr) {
+            console.error("auto-place fetch participants error:", partErr)
+            return res.status(500).json({ error: "Failed to fetch participants" })
+          }
+          const detailsMap = new Map((participantsData || []).map(p => [p.assigned_number, p]))
+          const candidate = detailsMap.get(pNum)
+          if (!candidate) {
+            return res.status(404).json({ error: `Participant #${pNum} not found` })
+          }
+
+          // Evaluate best group by resulting score after insertion
+          let best = { group: null, newScore: -1 }
+          for (const g of candidateGroups) {
+            const nums = Array.isArray(g.participant_numbers) ? g.participant_numbers : []
+            const groupParticipants = nums.map(n => detailsMap.get(n)).filter(Boolean)
+            // If any member details missing, skip group (shouldn't happen often)
+            if (groupParticipants.length !== nums.length) continue
+            const newParticipants = [...groupParticipants, candidate]
+            const score = calculateGroupCompatibilityLocal(newParticipants)
+            if (score > best.newScore) {
+              best = { group: g, newScore: score }
+            }
+          }
+
+          if (!best.group) {
+            return res.status(400).json({ error: "Could not evaluate any group for placement" })
+          }
+
+          // Apply update to best group
+          const chosen = best.group
+          const updatedNums = [...(chosen.participant_numbers || []), pNum]
+          const updatedNames = updatedNums.map(n => {
+            const p = detailsMap.get(n)
+            return (p?.name || p?.survey_data?.name || `المشارك #${n}`)
+          })
+          const roundedScore = Math.round(best.newScore)
+
+          const { error: updErr } = await supabase
+            .from("group_matches")
+            .update({ participant_numbers: updatedNums, participant_names: updatedNames, compatibility_score: roundedScore })
+            .eq("id", chosen.id)
+
+          if (updErr) {
+            console.error("auto-place update error:", updErr)
+            return res.status(500).json({ error: "Failed to update group" })
+          }
+
+          const participants = updatedNums.map((num) => {
+            const p = detailsMap.get(num)
+            return { number: num, name: (p?.name || p?.survey_data?.name || `المشارك #${num}`), age: (p?.age || p?.survey_data?.age) }
+          })
+
+          return res.status(200).json({
+            success: true,
+            group: {
+              group_id: chosen.group_id,
+              group_number: chosen.group_number,
+              table_number: chosen.table_number,
+              participants,
+              compatibility_score: roundedScore,
+              participant_count: participants.length
+            }
+          })
+        } catch (error) {
+          console.error("Error in auto-place-participant-into-best-group:", error)
+          return res.status(500).json({ error: "Failed to auto-place participant" })
+        }
+      }
+
       // 🔹 LIST PREV EVENT UNMATCHED OR ORGANIZER-MATCHED PARTICIPANTS
       if (action === "get-prev-unmatched-or-organizer") {
         try {

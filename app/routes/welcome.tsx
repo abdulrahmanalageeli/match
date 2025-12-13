@@ -3914,6 +3914,7 @@ export default function WelcomePage() {
               partner_number: partnerNumber,
               wants_match: true,
               round: currentRound,
+              event_id: currentEventId || 1,
             })
           })
           const prefData = await prefRes.json()

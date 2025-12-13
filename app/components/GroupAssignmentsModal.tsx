@@ -36,6 +36,8 @@ export default function GroupAssignmentsModal({
 
   const [selected, setSelected] = useState<{ group: number; participant: number } | null>(null)
   const [swapping, setSwapping] = useState(false)
+  const [addingToGroup, setAddingToGroup] = useState<number | null>(null)
+  const [addInputs, setAddInputs] = useState<Record<number, string>>({})
 
   async function attemptSwap(target: { group: number; participant: number | null }) {
     const isEmptyTarget = !target.participant || target.participant === 0
@@ -218,6 +220,63 @@ export default function GroupAssignmentsModal({
                           </div>
                         </div>
                       ))}
+
+                      {/* Add ANY participant to this group */}
+                      <div className="mt-3 sm:mt-4 p-2 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <input
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            placeholder="رقم المشارك لإضافته"
+                            className="w-32 sm:w-40 px-2 py-1 rounded-md bg-slate-900/60 border border-white/10 text-white text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
+                            value={addInputs[group.group_number] || ""}
+                            onChange={(e) => setAddInputs(prev => ({ ...prev, [group.group_number]: e.target.value }))}
+                            disabled={addingToGroup === group.group_number || swapping}
+                          />
+                          <button
+                            className={`px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors ${addingToGroup === group.group_number ? 'bg-cyan-500/30 text-cyan-200 cursor-wait' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200'} `}
+                            disabled={addingToGroup === group.group_number || swapping}
+                            onClick={async () => {
+                              const raw = (addInputs[group.group_number] || '').trim()
+                              if (!raw) { alert('يرجى إدخال رقم المشارك'); return }
+                              const num = parseInt(raw)
+                              if (!Number.isFinite(num) || num <= 0) { alert('رقم مشارك غير صالح'); return }
+                              setAddingToGroup(group.group_number)
+                              try {
+                                const res = await fetch('/api/admin', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    action: 'add-participant-to-group',
+                                    event_id: eventId,
+                                    group_number: group.group_number,
+                                    participant_number: num
+                                  })
+                                })
+                                const data = await res.json()
+                                if (!res.ok || !data.success) {
+                                  alert(data?.error || 'فشل إضافة المشارك إلى المجموعة')
+                                  return
+                                }
+                                // Refresh via parent callback if provided
+                                if (onSwapApplied) await onSwapApplied()
+                                // Clear input for this group
+                                setAddInputs(prev => ({ ...prev, [group.group_number]: '' }))
+                              } catch (err) {
+                                console.error('add-participant-to-group error', err)
+                                alert('حدث خطأ أثناء الإضافة')
+                              } finally {
+                                setAddingToGroup(null)
+                              }
+                            }}
+                            title="إضافة مشارك إلى هذه المجموعة (تجاوز أهلية)"
+                          >
+                            {addingToGroup === group.group_number ? 'جارٍ الإضافة...' : 'إضافة'}
+                          </button>
+                          <span className="text-[11px] sm:text-xs text-slate-400">يتجاوز الأهلية ويعيد حساب التوافق</span>
+                        </div>
+                      </div>
 
                       {/* Empty slot placeholders up to capacity (6) */}
                       {Array.from({ length: Math.max(0, 6 - group.participants.length) }).map((_, idx) => (

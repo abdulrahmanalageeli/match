@@ -2249,6 +2249,236 @@ export default async function handler(req, res) {
       }
     }
 
+    // --- Helpers for group compatibility calculations (mirror trigger-match logic, no AI) ---
+    function calculateMBTICompatibilityLocal(type1, type2) {
+      if (!type1 || !type2) return 0
+      let score = 0
+      const firstLetter1 = type1[0]
+      const firstLetter2 = type2[0]
+      if (firstLetter1 === 'I' && firstLetter2 === 'I') {
+        score += 0
+      } else if (firstLetter1 === 'E' && firstLetter2 === 'E') {
+        score += 2.5
+      } else {
+        score += 2.5
+      }
+      let matchingLetters = 0
+      if (type1[1] === type2[1]) matchingLetters++
+      if (type1[2] === type2[2]) matchingLetters++
+      if (type1[3] === type2[3]) matchingLetters++
+      if (matchingLetters >= 2) score += 2.5
+      return score
+    }
+
+    function calculateAttachmentCompatibilityLocal(style1, style2) {
+      if (!style1 || !style2) return 2.5
+      if (style1 === 'Secure' || style2 === 'Secure') return 5
+      const bestMatches = {
+        'Anxious': ['Secure'],
+        'Avoidant': ['Secure'],
+        'Fearful': ['Secure'],
+        'Mixed (Secure-Anxious)': ['Secure'],
+        'Mixed (Secure-Avoidant)': ['Secure'],
+        'Mixed (Secure-Fearful)': ['Secure'],
+        'Mixed (Anxious-Avoidant)': ['Secure'],
+        'Mixed (Anxious-Fearful)': ['Secure'],
+        'Mixed (Avoidant-Fearful)': ['Secure']
+      }
+      const matches = bestMatches[style1] || []
+      return matches.includes(style2) ? 5 : 2.5
+    }
+
+    function calculateCommunicationCompatibilityLocal(style1, style2) {
+      if (!style1 || !style2) return 4
+      if ((style1 === 'Aggressive' && style2 === 'Passive-Aggressive') || (style2 === 'Aggressive' && style1 === 'Passive-Aggressive')) return 0
+      if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) return 10
+      const matrix = {
+        'Assertive': { top1: 'Assertive', top2: 'Passive' },
+        'Passive': { top1: 'Assertive', top2: 'Passive' },
+        'Aggressive': { top1: 'Assertive', top2: 'Aggressive' },
+        'Passive-Aggressive': { top1: 'Assertive', top2: 'Passive-Aggressive' }
+      }
+      const comp = matrix[style1]
+      if (!comp) return 4
+      if (comp.top1 === style2) return 10
+      if (comp.top2 === style2) return 8
+      return 4
+    }
+
+    function calculateLifestyleCompatibilityLocal(prefs1, prefs2) {
+      if (!prefs1 || !prefs2) return 0
+      const a = prefs1.split(',')
+      const b = prefs2.split(',')
+      if (a.length !== 5 || b.length !== 5) return 0
+      const weights = [1.25, 1.25, 1.25, 1.25, 1.25]
+      let total = 0
+      let max = 0
+      for (let i = 0; i < 5; i++) {
+        const w = weights[i]
+        let q = 0
+        if (i === 0) {
+          q = 4
+        } else if (a[i] === b[i]) {
+          q = 4
+        } else if ((a[i] === 'أ' && b[i] === 'ب') || (a[i] === 'ب' && b[i] === 'أ') || (a[i] === 'ب' && b[i] === 'ج') || (a[i] === 'ج' && b[i] === 'ب')) {
+          q = 3
+        } else {
+          q = 0
+        }
+        total += q * w
+        max += 4 * w
+      }
+      let finalScore = (total / max) * 25
+      const q18a = a[4]
+      const q18b = b[4]
+      if ((q18a === 'أ' && q18b === 'ج') || (q18a === 'ج' && q18b === 'أ')) finalScore -= 5
+      return Math.max(0, finalScore)
+    }
+
+    function calculateCoreValuesCompatibilityLocal(vals1, vals2) {
+      if (!vals1 || !vals2) return 0
+      const a = vals1.split(',')
+      const b = vals2.split(',')
+      if (a.length !== 5 || b.length !== 5) return 0
+      let total = 0
+      for (let i = 0; i < 5; i++) {
+        if (a[i] === b[i]) total += 4
+        else if ((a[i] === 'ب' && (b[i] === 'أ' || b[i] === 'ج')) || (b[i] === 'ب' && (a[i] === 'أ' || a[i] === 'ج'))) total += 2
+      }
+      return total
+    }
+
+    function computePairCompatibilityLocal(pA, pB) {
+      const mbtiA = pA.mbti_personality_type || pA.survey_data?.mbtiType
+      const mbtiB = pB.mbti_personality_type || pB.survey_data?.mbtiType
+      const attachA = pA.attachment_style || pA.survey_data?.attachmentStyle
+      const attachB = pB.attachment_style || pB.survey_data?.attachmentStyle
+      const commA = pA.communication_style || pA.survey_data?.communicationStyle
+      const commB = pB.communication_style || pB.survey_data?.communicationStyle
+      const lifeA = pA.survey_data?.lifestylePreferences
+      const lifeB = pB.survey_data?.lifestylePreferences
+      const coreA = pA.survey_data?.coreValues
+      const coreB = pB.survey_data?.coreValues
+      const mbti = calculateMBTICompatibilityLocal(mbtiA, mbtiB)
+      const att = calculateAttachmentCompatibilityLocal(attachA, attachB)
+      const comm = calculateCommunicationCompatibilityLocal(commA, commB)
+      const life = calculateLifestyleCompatibilityLocal(lifeA, lifeB)
+      const core = calculateCoreValuesCompatibilityLocal(coreA, coreB)
+      return mbti + att + comm + life + core // 0..75
+    }
+
+    function calculateGroupCompatibilityLocal(participantsArr) {
+      // Average of all pairwise scores
+      let sum = 0
+      let count = 0
+      for (let i = 0; i < participantsArr.length; i++) {
+        for (let j = i + 1; j < participantsArr.length; j++) {
+          sum += computePairCompatibilityLocal(participantsArr[i], participantsArr[j])
+          count++
+        }
+      }
+      return count > 0 ? (sum / count) : 0
+    }
+
+    // 🔹 ADD PARTICIPANT TO GROUP (BYPASS ELIGIBILITY)
+    if (action === "add-participant-to-group") {
+      try {
+        const { event_id = 1, group_number, participant_number } = req.body
+        const groupNum = parseInt(group_number)
+        const pNum = parseInt(participant_number)
+        if (!groupNum || !pNum) {
+          return res.status(400).json({ error: "Invalid group_number or participant_number" })
+        }
+        if (pNum === 9999) {
+          return res.status(400).json({ error: "Cannot add organizer (#9999) to groups" })
+        }
+
+        // Fetch existing group row
+        const { data: groupRow, error: groupErr } = await supabase
+          .from("group_matches")
+          .select("id, group_id, group_number, participant_numbers, participant_names, table_number, compatibility_score")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .eq("group_number", groupNum)
+          .single()
+
+        if (groupErr) {
+          console.error("add-participant-to-group fetch group error:", groupErr)
+          return res.status(500).json({ error: "Failed to load group" })
+        }
+        if (!groupRow) {
+          return res.status(404).json({ error: "Group not found" })
+        }
+
+        const currentNumbers = Array.isArray(groupRow.participant_numbers) ? groupRow.participant_numbers.slice() : []
+        if (currentNumbers.includes(pNum)) {
+          return res.status(400).json({ error: `Participant #${pNum} is already in group ${groupNum}` })
+        }
+        if (currentNumbers.length >= 6) {
+          return res.status(400).json({ error: "Group is full (max 6)" })
+        }
+
+        const newNumbers = [...currentNumbers, pNum]
+
+        // Fetch participant details for all numbers (bypass eligibility)
+        const { data: participantsData, error: partErr } = await supabase
+          .from("participants")
+          .select("assigned_number, name, age, gender, survey_data, mbti_personality_type, attachment_style, communication_style")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", newNumbers)
+
+        if (partErr) {
+          console.error("add-participant-to-group fetch participants error:", partErr)
+          return res.status(500).json({ error: "Failed to fetch participants" })
+        }
+        if (!participantsData || participantsData.length !== newNumbers.length) {
+          return res.status(404).json({ error: "One or more participants not found" })
+        }
+
+        // Recalculate group compatibility (0..75)
+        const newScore = Math.round(calculateGroupCompatibilityLocal(participantsData))
+
+        // Build names array aligned with newNumbers order
+        const detailsMap = new Map(participantsData.map(p => [p.assigned_number, p]))
+        const newNames = newNumbers.map(n => {
+          const p = detailsMap.get(n)
+          return (p?.name || p?.survey_data?.name || `المشارك #${n}`)
+        })
+
+        // Update group record
+        const { error: updErr } = await supabase
+          .from("group_matches")
+          .update({ participant_numbers: newNumbers, participant_names: newNames, compatibility_score: newScore })
+          .eq("id", groupRow.id)
+
+        if (updErr) {
+          console.error("add-participant-to-group update error:", updErr)
+          return res.status(500).json({ error: "Failed to update group" })
+        }
+
+        // Return the updated group in the same response shape used by get-group-assignments
+        const participants = newNumbers.map((num) => {
+          const p = detailsMap.get(num)
+          return { number: num, name: (p?.name || p?.survey_data?.name || `المشارك #${num}`), age: (p?.age || p?.survey_data?.age) }
+        })
+
+        return res.status(200).json({
+          success: true,
+          group: {
+            group_id: groupRow.group_id,
+            group_number: groupRow.group_number,
+            table_number: groupRow.table_number,
+            participants,
+            compatibility_score: newScore,
+            participant_count: participants.length
+          }
+        })
+      } catch (error) {
+        console.error("Error in add-participant-to-group:", error)
+        return res.status(500).json({ error: "Failed to add participant to group" })
+      }
+    }
+
     // 🔹 GET DELTA CACHE COUNT
     if (action === "get-delta-cache-count") {
       try {

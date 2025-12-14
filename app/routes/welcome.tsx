@@ -6536,7 +6536,7 @@ export default function WelcomePage() {
                     </div>
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>نتائج مضمونة</span>
+                      <span>نتائج متميزة</span>
                     </div>
                   </div>
                 </div>

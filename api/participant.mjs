@@ -198,12 +198,24 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Participant not found' });
     }
 
-    // Compute gender preference from JSON or columns
+    // Compute gender preference from JSON or columns (normalize to: opposite_gender | same_gender | any_gender)
     let computedGenderPreference = "opposite_gender";
     try {
       const jsonPref = data?.survey_data?.answers?.gender_preference;
-      if (typeof jsonPref === 'string' && jsonPref.length > 0) {
+      const userGender = data?.gender || data?.survey_data?.answers?.gender || null;
+      if (jsonPref === 'opposite_gender' || jsonPref === 'same_gender' || jsonPref === 'any_gender') {
         computedGenderPreference = jsonPref;
+      } else if (jsonPref === 'any') {
+        computedGenderPreference = 'any_gender';
+      } else if (jsonPref === 'male' || jsonPref === 'female') {
+        // Map raw choice to normalized using participant gender when available
+        if (userGender && typeof userGender === 'string') {
+          computedGenderPreference = (String(userGender).toLowerCase() === String(jsonPref).toLowerCase())
+            ? 'same_gender'
+            : 'opposite_gender';
+        } else {
+          computedGenderPreference = 'opposite_gender';
+        }
       } else if (data?.any_gender_preference === true) {
         computedGenderPreference = 'any_gender';
       } else if (data?.same_gender_preference === true) {
@@ -570,19 +582,34 @@ export default async function handler(req, res) {
         
         // Handle gender preferences from new structure
         const genderPref = answers.actual_gender_preference || answers.gender_preference || answers.same_gender_preference
+        let normalizedGenderPrefStr = 'opposite_gender'
         if (Array.isArray(genderPref)) {
           // Old checkbox structure: check for specific values
           updateFields.same_gender_preference = genderPref.includes('same_gender') || genderPref.includes('yes')
           updateFields.any_gender_preference = genderPref.includes('any_gender')
           console.log('👥 Same Gender Preference (old):', updateFields.same_gender_preference)
           console.log('🌐 Any Gender Preference (old):', updateFields.any_gender_preference)
+          normalizedGenderPrefStr = updateFields.any_gender_preference ? 'any_gender' : (updateFields.same_gender_preference ? 'same_gender' : 'opposite_gender')
         } else if (typeof genderPref === 'string') {
-          // New radio button structure: single string value
-          if (genderPref === 'same_gender') {
+          // Support both raw UI values (male|female|any) and normalized values
+          if (genderPref === 'same_gender' || genderPref === 'any_gender' || genderPref === 'opposite_gender') {
+            normalizedGenderPrefStr = genderPref
+          } else if (genderPref === 'any') {
+            normalizedGenderPrefStr = 'any_gender'
+          } else if (genderPref === 'male' || genderPref === 'female') {
+            const userGenderForPref = answers.gender || survey_data.gender
+            normalizedGenderPrefStr = (userGenderForPref && String(userGenderForPref).toLowerCase() === genderPref)
+              ? 'same_gender'
+              : 'opposite_gender'
+          } else {
+            normalizedGenderPrefStr = 'opposite_gender'
+          }
+
+          if (normalizedGenderPrefStr === 'same_gender') {
             updateFields.same_gender_preference = true
             updateFields.any_gender_preference = false
             console.log('👥 Gender Preference: same gender only')
-          } else if (genderPref === 'any_gender') {
+          } else if (normalizedGenderPrefStr === 'any_gender') {
             updateFields.same_gender_preference = false
             updateFields.any_gender_preference = true
             console.log('🌐 Gender Preference: any gender')
@@ -596,7 +623,19 @@ export default async function handler(req, res) {
           // Default to false if not provided (opposite gender matching)
           updateFields.same_gender_preference = false
           updateFields.any_gender_preference = false
+          normalizedGenderPrefStr = 'opposite_gender'
           console.log('👥 Gender Preferences (default): opposite gender matching')
+        }
+
+        // Persist normalized value back into survey_data JSONB for consistency
+        try {
+          if (updateFields.survey_data && updateFields.survey_data.answers) {
+            updateFields.survey_data.answers.gender_preference = normalizedGenderPrefStr
+            // Keep actual_gender_preference in sync as well
+            updateFields.survey_data.answers.actual_gender_preference = normalizedGenderPrefStr
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not persist normalized gender_preference into survey_data:', e?.message)
         }
         
         // Save interaction style preferences to dedicated columns

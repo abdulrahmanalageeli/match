@@ -7639,7 +7639,7 @@ export default function WelcomePage() {
                             المجموعة ٣
                           </button>
                         </div>
-                        <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
+                        <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر أي مجموعة اسئلة</div>
                       </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">

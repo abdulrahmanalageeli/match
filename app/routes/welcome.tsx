@@ -1145,6 +1145,7 @@ export default function WelcomePage() {
             // Sync gender preference with DB value when available
             if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
               setReturningGenderPreference(data.gender_preference)
+              try { localStorage.setItem('blindmatch_gender_preference', data.gender_preference) } catch (_) {}
             }
             if (data.auto_signup_next_event) {
               setAutoSignupEnabled(true)
@@ -1264,6 +1265,7 @@ export default function WelcomePage() {
           // Update gender preference from DB to keep navbar badge in sync
           if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
             setReturningGenderPreference(data.gender_preference)
+            try { localStorage.setItem('blindmatch_gender_preference', data.gender_preference) } catch (_) {}
           }
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
@@ -2867,7 +2869,6 @@ export default function WelcomePage() {
       if (res.ok) {
         toast.success(`${data.message} - مرحباً ${data.participant_name} (#${data.participant_number})`)
         setReturningPhoneNumber("")
-        setReturningGenderPreference("")
         setReturningHumorStyle("")
         setReturningOpennessComfort("")
         setShowReturningSignupPopup(false)
@@ -2916,6 +2917,7 @@ export default function WelcomePage() {
         // Update gender preference badge from DB
         if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
           setReturningGenderPreference(data.gender_preference)
+          try { localStorage.setItem('blindmatch_gender_preference', data.gender_preference) } catch (_) {}
           console.log('🎯 Fetched gender preference from DB:', data.gender_preference)
         }
       } else {
@@ -3017,6 +3019,7 @@ export default function WelcomePage() {
         // Keep navbar badge in sync with DB
         if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
           setReturningGenderPreference(data.gender_preference)
+          try { localStorage.setItem('blindmatch_gender_preference', data.gender_preference) } catch (_) {}
         }
         // Check if user has filled the survey using new structure
         const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
@@ -3116,6 +3119,7 @@ export default function WelcomePage() {
         // Sync gender preference from DB for navbar badge
         if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
           setReturningGenderPreference(data.gender_preference);
+          try { localStorage.setItem('blindmatch_gender_preference', data.gender_preference) } catch (_) {}
         }
         
         // Set token fields
@@ -3371,6 +3375,7 @@ export default function WelcomePage() {
     const savedName = localStorage.getItem('blindmatch_participant_name');
     const savedNumber = localStorage.getItem('blindmatch_participant_number');
     const savedToken = localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
+    const savedPref = localStorage.getItem('blindmatch_gender_preference');
     
     if (savedName) {
       setParticipantName(savedName);
@@ -3388,6 +3393,12 @@ export default function WelcomePage() {
     if (savedToken) {
       setSecureToken(savedToken);
       console.log('📋 Loaded saved secure token:', savedToken);
+    }
+    
+    // Preload gender preference so UI doesn't show '...' until network returns
+    if (savedPref && typeof savedPref === 'string') {
+      setReturningGenderPreference(savedPref);
+      console.log('📋 Loaded saved gender preference:', savedPref);
     }
     
     // If we have a token, poll to refresh preference badge (and other info)
@@ -5570,7 +5581,6 @@ export default function WelcomePage() {
                   <button
                     onClick={() => {
                       setShowNextEventPopup(false)
-                      setReturningGenderPreference("") // Reset gender preference
                       setReturningHumorStyle("") // Reset humor style
                       setReturningOpennessComfort("") // Reset openness comfort
                       setAutoSignupNextEvent(false) // Reset auto signup
@@ -5783,7 +5793,6 @@ export default function WelcomePage() {
                   <button
                     onClick={() => {
                       setShowReturningSignupPopup(false)
-                      setReturningGenderPreference("") // Reset gender preference
                       setReturningHumorStyle("") // Reset humor style
                       setReturningOpennessComfort("") // Reset openness comfort
                       setAutoSignupNextEvent(false) // Reset auto signup

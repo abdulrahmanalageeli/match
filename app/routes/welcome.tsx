@@ -1142,6 +1142,10 @@ export default function WelcomePage() {
           
           const data = await response.json()
           if (response.ok && data) {
+            // Sync gender preference with DB value when available
+            if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
+              setReturningGenderPreference(data.gender_preference)
+            }
             if (data.auto_signup_next_event) {
               setAutoSignupEnabled(true)
               console.log('✅ Feedback: Auto-signup is enabled, hiding checkbox')
@@ -1257,6 +1261,10 @@ export default function WelcomePage() {
           setParticipantName(data.name);
           setSecureToken(token); // Store the secure token
           saveUserToken(token, data.name, data.assigned_number); // Save token with name and number to localStorage
+          // Update gender preference from DB to keep navbar badge in sync
+          if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
+            setReturningGenderPreference(data.gender_preference)
+          }
           // If URL still has legacy showToken flag, show modal and then clean it from URL
           try {
             const params = new URLSearchParams(window.location.search)
@@ -3006,6 +3014,10 @@ export default function WelcomePage() {
       const data = await res.json()
       
       if (res.ok && data.success) {
+        // Keep navbar badge in sync with DB
+        if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
+          setReturningGenderPreference(data.gender_preference)
+        }
         // Check if user has filled the survey using new structure
         const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
         
@@ -3100,6 +3112,10 @@ export default function WelcomePage() {
         if (data.assigned_number) {
           localStorage.setItem('blindmatch_participant_number', data.assigned_number.toString());
           setAssignedNumber(data.assigned_number);
+        }
+        // Sync gender preference from DB for navbar badge
+        if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
+          setReturningGenderPreference(data.gender_preference);
         }
         
         // Set token fields
@@ -5932,7 +5948,13 @@ export default function WelcomePage() {
                   >
                     <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
                     <span className={`text-xs font-bold ${dark ? 'text-blue-400' : 'text-blue-600'}`}>
-                      {returningGenderPreference === 'same_gender' ? 'نفس الجنس' : returningGenderPreference === 'any_gender' ? 'أي جنس' : 'الجنس الآخر'}
+                      {returningGenderPreference === 'same_gender' 
+                        ? 'نفس الجنس' 
+                        : returningGenderPreference === 'any_gender' 
+                          ? 'أي جنس' 
+                          : returningGenderPreference === 'opposite_gender' 
+                            ? 'الجنس الآخر' 
+                            : '...'}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-colors duration-300">(تغيير)</span>
                   </button>

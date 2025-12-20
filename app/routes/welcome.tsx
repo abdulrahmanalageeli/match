@@ -2288,6 +2288,27 @@ export default function WelcomePage() {
                       {participantName}
                     </span>
                   )}
+                  {(() => {
+                    const pref = returningGenderPreference;
+                    if (!pref) return null; // Hide until loaded
+                    let label = '';
+                    let cls = '';
+                    if (pref === 'same_gender') {
+                      label = 'نفس الجنس';
+                      cls = 'bg-pink-500/20 text-pink-200 border-pink-400/30';
+                    } else if (pref === 'any_gender') {
+                      label = 'أي جنس';
+                      cls = 'bg-purple-500/20 text-purple-200 border-purple-400/30';
+                    } else if (pref === 'opposite_gender') {
+                      label = 'الجنس الآخر';
+                      cls = 'bg-blue-500/20 text-blue-200 border-blue-400/30';
+                    } else {
+                      return null;
+                    }
+                    return (
+                      <span className={`ml-1 px-2 py-0.5 text-[10px] font-semibold rounded-full border ${cls}`}>{label}</span>
+                    );
+                  })()}
                 </div>
               </>
             )}
@@ -2502,6 +2523,28 @@ export default function WelcomePage() {
                 <div className="text-white/90 text-xs sm:text-sm font-medium leading-tight mt-1 max-w-[80px] sm:max-w-[90px] truncate">
                   {participantName}
                 </div>
+                {/* Gender Preference Badge (matches admin normalization) */}
+                {(() => {
+                  const pref = returningGenderPreference;
+                  if (!pref) return null; // Hide until loaded
+                  let label = '';
+                  let cls = '';
+                  if (pref === 'same_gender') {
+                    label = 'نفس الجنس';
+                    cls = 'bg-pink-500/20 text-pink-200 border-pink-400/30';
+                  } else if (pref === 'any_gender') {
+                    label = 'أي جنس';
+                    cls = 'bg-purple-500/20 text-purple-200 border-purple-400/30';
+                  } else if (pref === 'opposite_gender') {
+                    label = 'الجنس الآخر';
+                    cls = 'bg-blue-500/20 text-blue-200 border-blue-400/30';
+                  } else {
+                    return null;
+                  }
+                  return (
+                    <span className={`mt-1 px-2 py-0.5 text-[10px] font-semibold rounded-full border ${cls}`}>{label}</span>
+                  );
+                })()}
               </div>
             </div>
             

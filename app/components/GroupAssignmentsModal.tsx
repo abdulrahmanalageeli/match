@@ -38,6 +38,16 @@ export default function GroupAssignmentsModal({
   const [swapping, setSwapping] = useState(false)
   const [autoPlacing, setAutoPlacing] = useState(false)
   const [autoPlaceNumber, setAutoPlaceNumber] = useState<string>("")
+  // Structured confirmation state for clearer warning display
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmData, setConfirmData] = useState<{
+    payload: { groupA_number: number; participantA: number; groupB_number: number; participantB: number | null; allowOverride: boolean }
+    warnings: Record<number, string[]>
+    proposed: Record<number, { participant_numbers: number[]; compatibility_score: number }>
+    currentScores: Record<number, number>
+    moveType: 'move' | 'swap' | 'reorder'
+  } | null>(null)
 
   async function attemptSwap(target: { group: number; participant: number | null }) {
     const isEmptyTarget = !target.participant || target.participant === 0
@@ -81,33 +91,26 @@ export default function GroupAssignmentsModal({
       }
 
       if (data && data.success === false && data.warnings) {
-        const wa = data.warnings[payload.groupA_number] || []
-        const wb = data.warnings[payload.groupB_number] || []
-        const proposedA = data.proposed?.[payload.groupA_number]?.compatibility_score
-        const proposedB = data.proposed?.[payload.groupB_number]?.compatibility_score
-        const msg = [
-          "⚠️ توجد تحذيرات أهلية للمجموعتين:",
-          wa.length ? `\nالمجموعة ${payload.groupA_number}:\n- ${wa.join("\n- ")}` : "",
-          wb.length ? `\nالمجموعة ${payload.groupB_number}:\n- ${wb.join("\n- ")}` : "",
-          (proposedA !== undefined)
-            ? `\nالدرجات المقترحة بعد التعديل → المجموعة ${payload.groupA_number}: ${proposedA}%${(proposedB !== undefined ? `، المجموعة ${payload.groupB_number}: ${proposedB}%` : "")}`
-            : ""
-        ].filter(Boolean).join("\n")
+        // Build current scores snapshot from UI state
+        const currentScores: Record<number, number> = {}
+        const gA = groupAssignments.find(g => g.group_number === payload.groupA_number)
+        const gB = groupAssignments.find(g => g.group_number === payload.groupB_number)
+        if (gA) currentScores[payload.groupA_number] = Math.round(gA.compatibility_score || 0)
+        if (gB) currentScores[payload.groupB_number] = Math.round(gB.compatibility_score || 0)
 
-        const proceed = confirm(`${msg}\n\nهل تريد المتابعة على أي حال؟`)
-        if (!proceed) { setSelected(null); return }
-
-        const res2 = await fetch("/api/admin", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...payload, allowOverride: true })
+        setConfirmData({
+          payload,
+          warnings: data.warnings || {},
+          proposed: data.proposed || {},
+          currentScores,
+          moveType: payload.groupA_number === payload.groupB_number
+            ? 'reorder'
+            : (isEmptyTarget ? 'move' : 'swap')
         })
-        const data2 = await res2.json()
-        if (!res2.ok || !data2.success) {
-          alert(data2?.error || "لم يتم حفظ التبديل")
-          setSelected(null)
-          return
-        }
+        setShowConfirm(true)
+        // Do not proceed now; wait for user confirmation
+        setSwapping(false)
+        return
       }
 
       if (onSwapApplied) await onSwapApplied()
@@ -345,6 +348,103 @@ export default function GroupAssignmentsModal({
           </div>
         )}
       </div>
+      {/* Structured Confirmation Modal */}
+      {showConfirm && confirmData && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="w-full max-w-4xl rounded-2xl border border-white/15 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 shadow-2xl overflow-hidden">
+            <div className="p-4 sm:p-5 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <div className="text-white font-semibold text-lg">تأكيد التبديل</div>
+                <div className="text-slate-300 text-xs sm:text-sm">
+                  {confirmData.moveType === 'swap' && `سيتم تبديل المشارك #${confirmData.payload.participantA} بين المجموعتين ${confirmData.payload.groupA_number} ↔ ${confirmData.payload.groupB_number}${confirmData.payload.participantB ? ` مع #${confirmData.payload.participantB}` : ''}.`}
+                  {confirmData.moveType === 'move' && `سيتم نقل المشارك #${confirmData.payload.participantA} من المجموعة ${confirmData.payload.groupA_number} إلى المجموعة ${confirmData.payload.groupB_number}.`}
+                  {confirmData.moveType === 'reorder' && `سيتم إعادة ترتيب المشاركين داخل المجموعة ${confirmData.payload.groupA_number}.`}
+                </div>
+              </div>
+              <button onClick={() => { setShowConfirm(false); setConfirmData(null); setSelected(null); }} className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-white flex items-center justify-center">×</button>
+            </div>
+            <div className="p-4 sm:p-6 space-y-4">
+              <div className={`grid grid-cols-1 ${confirmData.payload.groupA_number !== confirmData.payload.groupB_number ? 'md:grid-cols-2' : ''} gap-4`}>
+                {[confirmData.payload.groupA_number, (confirmData.payload.groupB_number !== confirmData.payload.groupA_number ? confirmData.payload.groupB_number : undefined)].filter(Boolean).map((gnum) => {
+                  const g = gnum as number
+                  const current = confirmData.currentScores[g]
+                  const proposed = confirmData.proposed?.[g]?.compatibility_score
+                  const warnings = confirmData.warnings?.[g] || []
+                  return (
+                    <div key={g} className="rounded-xl border border-white/10 bg-white/5">
+                      <div className="p-3 border-b border-white/10 flex items-center justify-between">
+                        <div className="text-white font-semibold text-sm">المجموعة {g}</div>
+                        <div className="text-xs text-slate-300">النتيجة الحالية: <span className="text-white font-semibold">{typeof current === 'number' ? `${current}%` : '—'}</span></div>
+                      </div>
+                      <div className="p-3 space-y-3">
+                        {typeof proposed === 'number' && (
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-300">النتيجة بعد التبديل</span>
+                            <span className={`font-semibold ${proposed > (current || 0) ? 'text-green-300' : proposed < (current || 0) ? 'text-red-300' : 'text-amber-300'}`}>{proposed}%</span>
+                          </div>
+                        )}
+                        <div className="text-slate-300 text-xs">التحذيرات:</div>
+                        {warnings.length > 0 ? (
+                          <ul className="list-disc list-inside space-y-1 text-xs text-amber-300">
+                            {warnings.map((w, i) => (
+                              <li key={i}>{w}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <div className="text-xs text-green-300">لا توجد تحذيرات</div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+                راجع التحذيرات والنتائج المقترحة. بالمتابعة سيتم حفظ التبديل رغم التحذيرات.
+              </div>
+            </div>
+            <div className="p-3 sm:p-4 border-t border-white/10 flex items-center justify-end gap-2">
+              <button
+                className="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm"
+                onClick={() => { setShowConfirm(false); setConfirmData(null); setSelected(null); }}
+                disabled={confirming}
+              >
+                إلغاء
+              </button>
+              <button
+                className={`px-3 py-1.5 rounded-lg text-sm ${confirming ? 'bg-cyan-500/30 text-cyan-200 cursor-wait' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200'}`}
+                disabled={confirming}
+                onClick={async () => {
+                  if (!confirmData) return
+                  setConfirming(true)
+                  try {
+                    const res2 = await fetch('/api/admin', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ ...confirmData.payload, allowOverride: true })
+                    })
+                    const data2 = await res2.json()
+                    if (!res2.ok || !data2.success) {
+                      alert(data2?.error || 'لم يتم حفظ التبديل')
+                    } else {
+                      setShowConfirm(false)
+                      setConfirmData(null)
+                      setSelected(null)
+                      if (onSwapApplied) await onSwapApplied()
+                    }
+                  } catch (e) {
+                    console.error('confirm swap error', e)
+                    alert('حدث خطأ أثناء الحفظ')
+                  } finally {
+                    setConfirming(false)
+                  }
+                }}
+              >
+                متابعة وحفظ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

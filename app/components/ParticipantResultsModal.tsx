@@ -1240,6 +1240,7 @@ export default function ParticipantResultsModal({
         matchType={matchType}
         swapMode={false}
         onSwapSelect={async () => {}}
+        lockedMatches={lockedMatches}
       />
 
       {/* WhatsApp Message Modal */}

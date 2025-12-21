@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react"
-import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles } from "lucide-react"
+import React, { useState, useEffect, useMemo } from "react"
+import { X, User, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown } from "lucide-react"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantMatch {
@@ -28,6 +28,7 @@ interface ParticipantDetailModalProps {
   matchType: "ai" | "no-ai" | "group"
   swapMode?: boolean
   onSwapSelect?: (newPartnerNumber: number) => Promise<void>
+  lockedMatches?: Array<{ participant1_number: number; participant2_number: number; original_compatibility_score?: number }>
 }
 
 export default function ParticipantDetailModal({ 
@@ -37,9 +38,21 @@ export default function ParticipantDetailModal({
   matches, 
   matchType,
   swapMode = false,
-  onSwapSelect
+  onSwapSelect,
+  lockedMatches = []
 }: ParticipantDetailModalProps) {
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
+
+  // Build quick lookup for locked partners and their locked scores
+  const lockedByParticipant = useMemo(() => {
+    const map = new Map<number, { with: number; score: number }>()
+    for (const lock of lockedMatches) {
+      const score = typeof lock.original_compatibility_score === 'number' ? Math.round(lock.original_compatibility_score) : 0
+      map.set(lock.participant1_number, { with: lock.participant2_number, score })
+      map.set(lock.participant2_number, { with: lock.participant1_number, score })
+    }
+    return map
+  }, [lockedMatches])
 
   // Fetch participant data for all potential matches
   useEffect(() => {
@@ -395,6 +408,29 @@ export default function ParticipantDetailModal({
                                   </Tooltip.Portal>
                                 </Tooltip.Root>
                               </Tooltip.Provider>
+                              {(() => {
+                                const locked = lockedByParticipant.get(match.participant_number)
+                                if (!locked) return null
+                                const isLockedWithSelected = participant && locked.with === participant.assigned_number
+                                return (
+                                  <Tooltip.Provider delayDuration={200}>
+                                    <Tooltip.Root>
+                                      <Tooltip.Trigger asChild>
+                                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs ${isLockedWithSelected ? 'bg-green-500/20 border-green-400/30 text-green-300' : 'bg-amber-500/20 border-amber-400/30 text-amber-300'}`}>
+                                          <Lock className="w-3 h-3" />
+                                          <span>{isLockedWithSelected ? 'مقفل مع المختار' : `مقفل مع #${locked.with}`}</span>
+                                        </div>
+                                      </Tooltip.Trigger>
+                                      <Tooltip.Portal>
+                                        <Tooltip.Content sideOffset={5} className="z-[101] px-3 py-2 text-sm text-white bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                                          التثبيت الحالي: #{locked.with} • {locked.score}%
+                                          <Tooltip.Arrow className="fill-slate-800" />
+                                        </Tooltip.Content>
+                                      </Tooltip.Portal>
+                                    </Tooltip.Root>
+                                  </Tooltip.Provider>
+                                )
+                              })()}
                               {match.is_repeated_match && (
                                 <div 
                                   className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-400/30 text-orange-300 text-xs"
@@ -429,6 +465,54 @@ export default function ParticipantDetailModal({
                               <span className={`font-bold ${getScoreColor(match.compatibility_score)}`}>
                                 {match.compatibility_score}%
                               </span>
+                              {(() => {
+                                const locked = lockedByParticipant.get(match.participant_number)
+                                if (!locked) return null
+                                const delta = match.compatibility_score - locked.score
+                                if (delta > 0) {
+                                  return (
+                                    <Tooltip.Provider delayDuration={150}>
+                                      <Tooltip.Root>
+                                        <Tooltip.Trigger asChild>
+                                          <span className="inline-flex items-center gap-1 text-green-300 text-xs">
+                                            <TrendingUp className="w-4 h-4" />
+                                            +{delta}%
+                                          </span>
+                                        </Tooltip.Trigger>
+                                        <Tooltip.Portal>
+                                          <Tooltip.Content sideOffset={5} className="z-[101] px-3 py-2 text-sm text-white bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                                            أعلى من التثبيت الحالي ({locked.score}%) بمقدار {delta}%
+                                            <Tooltip.Arrow className="fill-slate-800" />
+                                          </Tooltip.Content>
+                                        </Tooltip.Portal>
+                                      </Tooltip.Root>
+                                    </Tooltip.Provider>
+                                  )
+                                } else if (delta < 0) {
+                                  return (
+                                    <Tooltip.Provider delayDuration={150}>
+                                      <Tooltip.Root>
+                                        <Tooltip.Trigger asChild>
+                                          <span className="inline-flex items-center gap-1 text-red-300 text-xs">
+                                            <TrendingDown className="w-4 h-4" />
+                                            {delta}%
+                                          </span>
+                                        </Tooltip.Trigger>
+                                        <Tooltip.Portal>
+                                          <Tooltip.Content sideOffset={5} className="z-[101] px-3 py-2 text-sm text-white bg-slate-800 border border-slate-700 rounded-lg shadow-xl">
+                                            أقل من التثبيت الحالي ({locked.score}%) بمقدار {Math.abs(delta)}%
+                                            <Tooltip.Arrow className="fill-slate-800" />
+                                          </Tooltip.Content>
+                                        </Tooltip.Portal>
+                                      </Tooltip.Root>
+                                    </Tooltip.Provider>
+                                  )
+                                } else {
+                                  return (
+                                    <span className="text-amber-300 text-xs">مطابق للتثبيت الحالي</span>
+                                  )
+                                }
+                              })()}
                               {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
                                 <Tooltip.Provider delayDuration={200}>
                                   <Tooltip.Root>

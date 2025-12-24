@@ -2804,22 +2804,33 @@ export default async function handler(req, res) {
       console.log(`📋 No existing matches for event ${eventId}, will not set event_finished (let admin control it)`)
     }
 
-    // Fetch excluded participants from database (using excluded_pairs with participant2_number = -1 or -10)
-    const { data: excludedParticipantsData, error: excludedParticipantsError } = await supabase
-      .from("excluded_pairs")
-      .select("participant1_number")
-      .eq("match_id", match_id)
-      .in("participant2_number", [-1, -10]) // Include both excluded (-1) and banned (-10)
-
-    if (excludedParticipantsError) {
+    // Fetch excluded participants from database (prefer new excluded_participants table; fallback to legacy excluded_pairs)
+    let excludedParticipants = []
+    try {
+      // New table
+      const { data: exclNew, error: exclNewErr } = await supabase
+        .from("excluded_participants")
+        .select("participant_number")
+        .eq("match_id", match_id)
+      if (!exclNewErr && Array.isArray(exclNew) && exclNew.length > 0) {
+        excludedParticipants = exclNew.map(row => ({ participant_number: row.participant_number }))
+      } else {
+        // Legacy fallback: excluded_pairs with participant2_number IN (-1, -10)
+        const { data: exclLegacy, error: exclLegacyErr } = await supabase
+          .from("excluded_pairs")
+          .select("participant1_number, participant2_number")
+          .eq("match_id", match_id)
+          .in("participant2_number", [-1, -10])
+        if (exclLegacyErr) {
+          console.error("Error fetching excluded participants (legacy):", exclLegacyErr)
+        } else {
+          excludedParticipants = (exclLegacy || []).map(item => ({ participant_number: item.participant1_number }))
+        }
+      }
+    } catch (excludedParticipantsError) {
       console.error("Error fetching excluded participants:", excludedParticipantsError)
       // Continue without excluded participants rather than failing
     }
-    
-    // Map to expected format
-    const excludedParticipants = (excludedParticipantsData || []).map(item => ({
-      participant_number: item.participant1_number
-    }))
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
@@ -3666,6 +3677,16 @@ export default async function handler(req, res) {
         const vibeScore = compatibilityResult.vibeScore
         const humorMultiplier = compatibilityResult.humorMultiplier
         const totalScore = compatibilityResult.totalScore
+
+        // New-model fields from calculation/cache (with safe defaults)
+        const synergyScore = Number(compatibilityResult.synergyScore ?? 0)
+        const humorOpenScore = Number(compatibilityResult.humorOpenScore ?? 0)
+        const intentScore = Number(compatibilityResult.intentScore ?? 0)
+        const attachmentPenaltyApplied = !!compatibilityResult.attachmentPenaltyApplied
+        const intentBoostApplied = !!compatibilityResult.intentBoostApplied
+        const deadAirVetoApplied = !!compatibilityResult.deadAirVetoApplied
+        const humorClashVetoApplied = !!compatibilityResult.humorClashVetoApplied
+        const capApplied = compatibilityResult.capApplied ?? null
         
         // Extract data for reason string and storage
         const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
@@ -3691,7 +3712,21 @@ export default async function handler(req, res) {
             [b.survey_data.answers.core_values_1, b.survey_data.answers.core_values_2, b.survey_data.answers.core_values_3, b.survey_data.answers.core_values_4, b.survey_data.answers.core_values_5].join(',') : 
             null)
         
-        let reason = `MBTI: ${aMBTI || 'غير محدد'} مع ${bMBTI || 'غير محدد'} (${mbtiScore}%) + التعلق: ${aAttachment || 'غير محدد'} مع ${bAttachment || 'غير محدد'} (${attachmentScore}%) + التواصل: ${aCommunication || 'غير محدد'} مع ${bCommunication || 'غير محدد'} (${communicationScore}%) + نمط الحياة: (${lifestyleScore}%) + القيم الأساسية: (${coreValuesScore}%) + التوافق الشخصي: (${vibeScore}%)`
+        // Modern reason string reflecting the current 100-pt model
+        let reason = `التفاعل: ${Math.round(synergyScore)}% + الطاقة: ${Math.round(vibeScore)}% + نمط الحياة: ${Math.round(lifestyleScore)}% + الدعابة/الانفتاح: ${Math.round(humorOpenScore)}% + التواصل: ${Math.round(communicationScore)}% + الأهداف/القيم: ${Math.round(intentScore)}%`
+        // Append applied boosts/penalties/caps for transparency
+        if (attachmentPenaltyApplied) {
+          reason += ` − عقوبة التعلق (قلق×تجنُّب)`
+        }
+        if (intentBoostApplied) {
+          reason += ` + مضاعف الهدف (×1.1)`
+        }
+        if (humorMultiplier > 1.0) {
+          reason += ` × مضاعف الدعابة/الانفتاح (×${humorMultiplier})`
+        }
+        if (capApplied != null) {
+          reason += ` — تم التقييد عند ${capApplied}%`
+        }
         
         // Determine bonus type based on humor multiplier
         let bonusType = 'none'
@@ -3719,6 +3754,15 @@ export default async function handler(req, res) {
           vibeScore: vibeScore,
           humorMultiplier: humorMultiplier,
           bonusType: bonusType,
+          // New model fields for admin UI transparency
+          synergyScore: synergyScore,
+          humorOpenScore: humorOpenScore,
+          intentScore: intentScore,
+          attachmentPenaltyApplied: attachmentPenaltyApplied,
+          intentBoostApplied: intentBoostApplied,
+          deadAirVetoApplied: deadAirVetoApplied,
+          humorClashVetoApplied: humorClashVetoApplied,
+          capApplied: capApplied,
           // Store personality data for later use
           aMBTI: aMBTI,
           bMBTI: bMBTI,
@@ -4141,6 +4185,15 @@ export default async function handler(req, res) {
       lifestyle_compatibility_score: pair.lifestyleScore,
       core_values_compatibility_score: pair.coreValuesScore,
       vibe_compatibility_score: pair.vibeScore,
+      // New-model fields surfaced to UI
+      synergy_score: pair.synergyScore ?? 0,
+      humor_open_score: pair.humorOpenScore ?? 0,
+      intent_score: pair.intentScore ?? 0,
+      attachment_penalty_applied: !!pair.attachmentPenaltyApplied,
+      intent_boost_applied: !!pair.intentBoostApplied,
+      dead_air_veto_applied: !!pair.deadAirVetoApplied,
+      humor_clash_veto_applied: !!pair.humorClashVetoApplied,
+      cap_applied: pair.capApplied ?? null,
       humor_early_openness_bonus: pair.bonusType,
       reason: pair.reason,
       is_actual_match: finalMatches.some(match => 

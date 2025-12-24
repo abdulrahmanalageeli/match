@@ -104,10 +104,10 @@ export default function ResultsPage() {
     // Get strength levels for each component (using actual max scores from trigger-match.mjs)
     const mbtiStrength = getStrengthLevel(mbtiScore, 5)
     const attachmentStrength = getStrengthLevel(attachmentScore, 5)
-    const communicationStrength = getStrengthLevel(communicationScore, 25)
-    const lifestyleStrength = getStrengthLevel(lifestyleScore, 20)
-    const coreValuesStrength = getStrengthLevel(coreValuesScore, 10)
-    const vibeStrength = getStrengthLevel(vibeScore, 35)
+    const communicationStrength = getStrengthLevel(communicationScore, 10)
+    const lifestyleStrength = getStrengthLevel(lifestyleScore, 15)
+    const coreValuesStrength = getStrengthLevel(coreValuesScore, 20)
+    const vibeStrength = getStrengthLevel(vibeScore, 20)
     
     // Create natural language description
     const components = []

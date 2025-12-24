@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
-import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown } from "lucide-react"
+import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown, Info } from "lucide-react"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantMatch {
@@ -19,6 +19,13 @@ interface ParticipantMatch {
   synergy_score?: number
   humor_open_score?: number
   intent_score?: number
+  // Gates & bonuses flags (optional)
+  attachment_penalty_applied?: boolean
+  intent_boost_applied?: boolean
+  dead_air_veto_applied?: boolean
+  humor_clash_veto_applied?: boolean
+  cap_applied?: number | null
+  reason?: string
 }
 
 interface ParticipantDetailModalProps {
@@ -212,6 +219,9 @@ export default function ParticipantDetailModal({
                         <th className="text-center p-4 text-sm font-semibold text-slate-300">التوافق الإجمالي</th>
                         {swapMode && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">اختيار</th>
+                        )}
+                        {matchType !== "group" && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">القيود/المكافآت</th>
                         )}
                         {matchType !== "group" && (
                           <>
@@ -543,6 +553,61 @@ export default function ParticipantDetailModal({
                                 <ArrowLeftRight className="w-4 h-4" />
                                 <span>اختر هذا الشريك</span>
                               </button>
+                            </td>
+                          )}
+                          {matchType !== "group" && (
+                            <td className="p-4 text-center">
+                              {(() => {
+                                const hasAny = (
+                                  !!match.intent_boost_applied ||
+                                  !!match.attachment_penalty_applied ||
+                                  !!match.dead_air_veto_applied ||
+                                  !!match.humor_clash_veto_applied ||
+                                  match.cap_applied != null ||
+                                  (match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none')
+                                )
+                                if (!hasAny) return <span className="text-slate-500 text-xs">—</span>
+                                return (
+                                  <Tooltip.Provider delayDuration={200}>
+                                    <Tooltip.Root>
+                                      <Tooltip.Trigger asChild>
+                                        <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-help">
+                                          <Info className="w-4 h-4" />
+                                        </div>
+                                      </Tooltip.Trigger>
+                                      <Tooltip.Portal>
+                                        <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
+                                          <div className="space-y-1">
+                                            {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
+                                              <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {match.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
+                                              </div>
+                                            )}
+                                            {match.intent_boost_applied && (
+                                              <div className="text-emerald-300">• مضاعف الهدف (×1.1) مطبق</div>
+                                            )}
+                                            {match.attachment_penalty_applied && (
+                                              <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
+                                            )}
+                                            {match.dead_air_veto_applied && (
+                                              <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
+                                            )}
+                                            {match.humor_clash_veto_applied && (
+                                              <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
+                                            )}
+                                            {match.cap_applied != null && (
+                                              <div className="text-yellow-300">• تقييد نهائي: {match.cap_applied}%</div>
+                                            )}
+                                            {match.reason && (
+                                              <div className="text-slate-300 border-t border-slate-700 pt-1 mt-1">{match.reason}</div>
+                                            )}
+                                          </div>
+                                          <Tooltip.Arrow className="fill-slate-900" />
+                                        </Tooltip.Content>
+                                      </Tooltip.Portal>
+                                    </Tooltip.Root>
+                                  </Tooltip.Provider>
+                                )
+                              })()}
                             </td>
                           )}
                           {matchType !== "group" && (

@@ -411,6 +411,13 @@ export default function ParticipantResultsModal({
         synergy_score: pair.synergy_score,
         humor_open_score: pair.humor_open_score,
         intent_score: pair.intent_score,
+        // Gates & bonuses
+        attachment_penalty_applied: pair.attachment_penalty_applied,
+        intent_boost_applied: pair.intent_boost_applied,
+        dead_air_veto_applied: pair.dead_air_veto_applied,
+        humor_clash_veto_applied: pair.humor_clash_veto_applied,
+        cap_applied: pair.cap_applied,
+        reason: pair.reason,
         is_actual_match: pair.is_actual_match,
         is_repeated_match: pair.is_repeated_match,
         humor_early_openness_bonus: pair.humor_early_openness_bonus
@@ -490,6 +497,21 @@ export default function ParticipantResultsModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Weights Legend */}
+        {matchType !== "group" && (
+          <div className="mx-6 mt-3 mb-1 text-xs text-slate-300/80">
+            <div className="inline-flex flex-wrap items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+              <span className="font-semibold text-slate-200">معادلة 100 نقطة:</span>
+              <span>التفاعل 35</span>
+              <span>الطاقة 20</span>
+              <span>نمط الحياة 15</span>
+              <span>الدعابة/الانفتاح 15</span>
+              <span>التواصل 10</span>
+              <span>الأهداف/القيم 5</span>
+            </div>
+          </div>
+        )}
 
         {/* Fresh Data Warning */}
         {isFreshData && (
@@ -579,6 +601,9 @@ export default function ParticipantResultsModal({
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">واتساب</th>
+                        )}
+                        {matchType !== "group" && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">القيود/المكافآت</th>
                         )}
                         {matchType !== "group" && (
                           <>
@@ -1181,6 +1206,63 @@ export default function ParticipantResultsModal({
                               </button>
                             </td>
                           )}
+                          {matchType !== "group" && (() => {
+                            const pair = (calculatedPairs || []).find((p: any) => {
+                              const a = p.participant_a
+                              const b = p.participant_b
+                              const x = participant.assigned_number
+                              const y = participant.partner_assigned_number
+                              if (!y) return false
+                              return (a === x && b === y) || (a === y && b === x)
+                            })
+                            const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
+                            return (
+                              <td className="p-4 text-center">
+                                {hasAny ? (
+                                  <Tooltip.Provider delayDuration={200}>
+                                    <Tooltip.Root>
+                                      <Tooltip.Trigger asChild>
+                                        <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-help">
+                                          <Info className="w-4 h-4" />
+                                        </div>
+                                      </Tooltip.Trigger>
+                                      <Tooltip.Portal>
+                                        <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
+                                          <div className="space-y-1">
+                                            {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
+                                              <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {pair.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
+                                              </div>
+                                            )}
+                                            {pair?.intent_boost_applied && (
+                                              <div className="text-emerald-300">• مضاعف الهدف (×1.1) مطبق</div>
+                                            )}
+                                            {pair?.attachment_penalty_applied && (
+                                              <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
+                                            )}
+                                            {pair?.dead_air_veto_applied && (
+                                              <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
+                                            )}
+                                            {pair?.humor_clash_veto_applied && (
+                                              <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
+                                            )}
+                                            {pair?.cap_applied != null && (
+                                              <div className="text-yellow-300">• تقييد نهائي: {pair.cap_applied}%</div>
+                                            )}
+                                            {pair?.reason && (
+                                              <div className="text-slate-300 border-t border-slate-700 pt-1 mt-1">{pair.reason}</div>
+                                            )}
+                                          </div>
+                                          <Tooltip.Arrow className="fill-slate-900" />
+                                        </Tooltip.Content>
+                                      </Tooltip.Portal>
+                                    </Tooltip.Root>
+                                  </Tooltip.Provider>
+                                ) : (
+                                  <span className="text-slate-500 text-xs">—</span>
+                                )}
+                              </td>
+                            )
+                          })()}
                           {matchType !== "group" && (() => {
                             // Always show new model values; derive from calculatedPairs when available
                             const pair = (calculatedPairs || []).find((p: any) => {

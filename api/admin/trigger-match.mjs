@@ -871,16 +871,42 @@ async function getCachedCompatibility(participantA, participantB) {
       }
         
       console.log(`🎯 Cache HIT: #${smaller}-#${larger} (used ${data.use_count + 1} times)`)
+
+      // Pull cached breakdowns
+      const communicationScore = parseFloat(data.communication_score)
+      const lifestyleScore = parseFloat(data.lifestyle_score)
+      const coreValuesScore = parseFloat(data.core_values_score)
+      const vibeScore = parseFloat(data.ai_vibe_score ?? 0)
+      const totalScore = parseFloat(data.total_compatibility_score)
+
+      // Ensure new-model fields are populated for UI even if the cache predates them
+      // Humor/Openness (not historically cached) → compute now
+      const { score: humorOpenScore } = calculateHumorOpennessScore(participantA, participantB)
+
+      // Interaction synergy → prefer cache; if missing/NaN, compute now
+      let synergyScore = parseFloat(data.interaction_synergy_score)
+      if (!Number.isFinite(synergyScore)) {
+        synergyScore = calculateInteractionSynergyScore(participantA, participantB)
+      }
+
+      // Intent & Goal (meetingGoalValuesScore) → prefer cache; if missing/NaN, derive from intentRaw + cached coreValuesScore
+      let intentScore = parseFloat(data.intent_goal_score)
+      if (!Number.isFinite(intentScore)) {
+        const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0..5
+        intentScore = Math.min(5, (intentRaw / 5) * 3 + (coreValuesScore / 20) * 2)
+      }
+
       return {
         mbtiScore: parseFloat(data.mbti_score),
         attachmentScore: parseFloat(data.attachment_score),
-        communicationScore: parseFloat(data.communication_score),
-        lifestyleScore: parseFloat(data.lifestyle_score),
-        coreValuesScore: parseFloat(data.core_values_score),
-        synergyScore: parseFloat(data.interaction_synergy_score ?? 0),
-        intentScore: parseFloat(data.intent_goal_score ?? 0),
-        vibeScore: parseFloat(data.ai_vibe_score ?? 0),
-        totalScore: parseFloat(data.total_compatibility_score),
+        communicationScore,
+        lifestyleScore,
+        coreValuesScore,
+        synergyScore,
+        humorOpenScore,
+        intentScore,
+        vibeScore,
+        totalScore,
         humorMultiplier: parseFloat(data.humor_multiplier || 1.0),
         bonusType: data.humor_early_openness_bonus || 'none',
         cached: true

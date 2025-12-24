@@ -111,17 +111,74 @@ const MBTI_COMPATIBILITY = {
   'ESTP': { top1: 'ISFJ', top2: 'INFJ', top3: 'ISTJ', bonus: ['ESTJ'] },
   'ESFP': { top1: 'ISTJ', top2: 'INTJ', top3: 'ISFJ', bonus: ['ESFJ'] }
 }
-// Function to validate if participant has complete data for matching
+// Function to validate if participant has complete data for matching (STRICT)
 function isParticipantComplete(participant) {
-  // Check if participant has survey_data (not null and not empty object)
-  if (!participant.survey_data || 
-      typeof participant.survey_data !== 'object' || 
-      Object.keys(participant.survey_data).length === 0) {
-    console.log(`❌ Participant ${participant.assigned_number}: Missing or empty survey_data`)
+  const sd = participant?.survey_data || {}
+  const ans = sd?.answers || {}
+
+  const val = (v) => v !== undefined && v !== null && String(v).trim() !== ''
+  const num = (v) => v !== undefined && v !== null && !isNaN(parseInt(v))
+
+  const missing = []
+
+  // Required demographics
+  const gender = participant.gender || sd.gender
+  const age = participant.age || sd.age
+  if (!val(gender)) missing.push('gender')
+  if (!num(age)) missing.push('age')
+
+  // Personality & styles
+  const mbti = participant.mbti_personality_type || sd.mbtiType || ans.mbti
+  const attachment = participant.attachment_style || sd.attachmentStyle || ans.attachment_style
+  const communication = participant.communication_style || sd.communicationStyle || ans.communication_style
+  if (!val(mbti) || String(mbti).length < 4) missing.push('mbti')
+  if (!val(attachment)) missing.push('attachment_style')
+  if (!val(communication)) missing.push('communication_style')
+
+  // Lifestyle (5)
+  const lifestyleStr = sd.lifestylePreferences
+  const lifestyleArr = lifestyleStr ? String(lifestyleStr).split(',') : [ans.lifestyle_1, ans.lifestyle_2, ans.lifestyle_3, ans.lifestyle_4, ans.lifestyle_5]
+  if (!lifestyleArr || lifestyleArr.filter(val).length !== 5) missing.push('lifestyle_1..5')
+
+  // Core values (5)
+  const coreValuesStr = sd.coreValues
+  const coreValuesArr = coreValuesStr ? String(coreValuesStr).split(',') : [ans.core_values_1, ans.core_values_2, ans.core_values_3, ans.core_values_4, ans.core_values_5]
+  if (!coreValuesArr || coreValuesArr.filter(val).length !== 5) missing.push('core_values_1..5')
+
+  // Interaction synergy block (Q35,36,37,38,39,41)
+  const conversational_role = ans.conversational_role
+  const conversation_depth_pref = ans.conversation_depth_pref
+  const social_battery = ans.social_battery
+  const humor_subtype = ans.humor_subtype
+  const curiosity_style = ans.curiosity_style
+  const silence_comfort = ans.silence_comfort
+  if (!val(conversational_role)) missing.push('conversational_role')
+  if (!val(conversation_depth_pref)) missing.push('conversation_depth_pref')
+  if (!val(social_battery)) missing.push('social_battery')
+  if (!val(humor_subtype)) missing.push('humor_subtype')
+  if (!val(curiosity_style)) missing.push('curiosity_style')
+  if (!val(silence_comfort)) missing.push('silence_comfort')
+
+  // Humor & early openness
+  const humor_banter = participant.humor_banter_style || sd.humor_banter_style || ans.humor_banter_style
+  const early_open = participant.early_openness_comfort !== undefined ? participant.early_openness_comfort : ans.early_openness_comfort
+  if (!val(humor_banter)) missing.push('humor_banter_style')
+  if (!val(early_open) && early_open !== 0) missing.push('early_openness_comfort')
+
+  // Intent & Goal (Q40) needed for intent/values scoring
+  const intent_goal = ans.intent_goal
+  if (!val(intent_goal)) missing.push('intent_goal')
+
+  // Optional: Vibe (prefer presence for AI, but not mandatory to avoid over-excluding)
+  // const vibeComplete = val(sd.vibeDescription) || ['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'].every(k => val(ans[k]))
+  // if (!vibeComplete) missing.push('vibe_1..6')
+
+  if (missing.length > 0) {
+    console.log(`❌ Participant ${participant.assigned_number}: Incomplete survey fields → ${missing.join(', ')}`)
     return false
   }
 
-  console.log(`✅ Participant ${participant.assigned_number}: Has survey_data`)
+  console.log(`✅ Participant ${participant.assigned_number}: Survey is fully complete`)
   return true
 }
 
@@ -2985,6 +3042,7 @@ export default async function handler(req, res) {
             participant_b: potentialMatch.assigned_number,
             compatibility_score: totalCompatibility,
             humor_early_openness_bonus: compatibilityResult.humor_early_openness_bonus,
+            // Legacy fields (kept for backward compatibility)
             mbti_compatibility_score: compatibilityResult.mbtiScore,
             attachment_compatibility_score: compatibilityResult.attachmentScore,
             communication_compatibility_score: compatibilityResult.communicationScore,
@@ -2992,7 +3050,17 @@ export default async function handler(req, res) {
             core_values_compatibility_score: compatibilityResult.coreValuesScore,
             vibe_compatibility_score: compatibilityResult.vibeScore,
             humor_multiplier: compatibilityResult.humorMultiplier,
-            reason: `MBTI: ${compatibilityResult.mbtiScore}% + Attachment: ${compatibilityResult.attachmentScore}% + Communication: ${compatibilityResult.communicationScore}% + Lifestyle: ${compatibilityResult.lifestyleScore}% + Core Values: ${compatibilityResult.coreValuesScore}% + Vibe: ${compatibilityResult.vibeScore}%`,
+            // New model fields
+            synergy_score: compatibilityResult.synergyScore,                 // 0-35
+            humor_open_score: compatibilityResult.humorOpenScore,           // 0-15
+            intent_score: compatibilityResult.intentScore,                  // 0-5 (Goal & Values)
+            attachment_penalty_applied: compatibilityResult.attachmentPenaltyApplied || false,
+            intent_boost_applied: compatibilityResult.intentBoostApplied || false,
+            cap_applied: compatibilityResult.capApplied || null,
+            reason: `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Goal&Values: ${Math.round(compatibilityResult.intentScore)}%` +
+              (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
+              (compatibilityResult.intentBoostApplied ? ` + Intent×1.1` : '') +
+              (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : ''),
             is_actual_match: false, // These are potential matches, not actual matches
             is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
           })

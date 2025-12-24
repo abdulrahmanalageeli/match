@@ -15,6 +15,13 @@ interface ParticipantResult {
   lifestyle_compatibility_score?: number
   core_values_compatibility_score?: number
   vibe_compatibility_score?: number
+  // New model fields (optional)
+  synergy_score?: number
+  humor_open_score?: number
+  intent_score?: number
+  attachment_penalty_applied?: boolean
+  intent_boost_applied?: boolean
+  cap_applied?: number | null
   partner_assigned_number?: number
   partner_name?: string
   is_organizer_match?: boolean
@@ -400,7 +407,12 @@ export default function ParticipantResultsModal({
         lifestyle_compatibility_score: pair.lifestyle_compatibility_score,
         core_values_compatibility_score: pair.core_values_compatibility_score,
         vibe_compatibility_score: pair.vibe_compatibility_score,
+        // New model fields
+        synergy_score: pair.synergy_score,
+        humor_open_score: pair.humor_open_score,
+        intent_score: pair.intent_score,
         is_actual_match: pair.is_actual_match,
+        is_repeated_match: pair.is_repeated_match,
         humor_early_openness_bonus: pair.humor_early_openness_bonus
       }
     })
@@ -568,48 +580,95 @@ export default function ParticipantResultsModal({
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">واتساب</th>
                         )}
-                        {matchType !== "group" && (
-                          <>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Brain className="w-3 h-3" />
-                                <span className="text-xs">MBTI</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Heart className="w-3 h-3" />
-                                <span className="text-xs">التعلق</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <MessageCircle className="w-3 h-3" />
-                                <span className="text-xs">التواصل</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Home className="w-3 h-3" />
-                                <span className="text-xs">نمط الحياة</span>
-                              </div>
-                            </th>
-                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                              <div className="flex items-center justify-center gap-1">
-                                <Star className="w-3 h-3" />
-                                <span className="text-xs">القيم</span>
-                              </div>
-                            </th>
-                            {matchType === "ai" && (
+                        {matchType !== "group" && (() => {
+                          const hasNew = (calculatedPairs || []).some((p: any) => p.synergy_score !== undefined || p.humor_open_score !== undefined || p.intent_score !== undefined)
+                          if (hasNew) {
+                            return (
+                              <>
+                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Users className="w-3 h-3" />
+                                    <span className="text-xs">التفاعل</span>
+                                  </div>
+                                </th>
+                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Home className="w-3 h-3" />
+                                    <span className="text-xs">نمط الحياة</span>
+                                  </div>
+                                </th>
+                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Sparkles className="w-3 h-3" />
+                                    <span className="text-xs">الدعابة/الانفتاح</span>
+                                  </div>
+                                </th>
+                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <MessageCircle className="w-3 h-3" />
+                                    <span className="text-xs">التواصل</span>
+                                  </div>
+                                </th>
+                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Star className="w-3 h-3" />
+                                    <span className="text-xs">الأهداف/القيم</span>
+                                  </div>
+                                </th>
+                                {matchType === "ai" && (
+                                  <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                    <div className="flex items-center justify-center gap-1">
+                                      <Zap className="w-3 h-3" />
+                                      <span className="text-xs">الطاقة</span>
+                                    </div>
+                                  </th>
+                                )}
+                              </>
+                            )
+                          }
+                          return (
+                            <>
                               <th className="text-center p-4 text-sm font-semibold text-slate-300">
                                 <div className="flex items-center justify-center gap-1">
-                                  <Zap className="w-3 h-3" />
-                                  <span className="text-xs">الطاقة</span>
+                                  <Brain className="w-3 h-3" />
+                                  <span className="text-xs">MBTI</span>
                                 </div>
                               </th>
-                            )}
-                          </>
-                        )}
+                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Heart className="w-3 h-3" />
+                                  <span className="text-xs">التعلق</span>
+                                </div>
+                              </th>
+                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                <div className="flex items-center justify-center gap-1">
+                                  <MessageCircle className="w-3 h-3" />
+                                  <span className="text-xs">التواصل</span>
+                                </div>
+                              </th>
+                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Home className="w-3 h-3" />
+                                  <span className="text-xs">نمط الحياة</span>
+                                </div>
+                              </th>
+                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Star className="w-3 h-3" />
+                                  <span className="text-xs">القيم</span>
+                                </div>
+                              </th>
+                              {matchType === "ai" && (
+                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <Zap className="w-3 h-3" />
+                                    <span className="text-xs">الطاقة</span>
+                                  </div>
+                                </th>
+                              )}
+                            </>
+                          )
+                        })()}
                       </tr>
                     </thead>
                     <tbody>
@@ -1169,42 +1228,44 @@ export default function ParticipantResultsModal({
                               </button>
                             </td>
                           )}
-                          {matchType !== "group" && (
-                            <>
-                              <td className="p-4 text-center">
-                                <span className="text-slate-300 text-sm">
-                                  {participant.mbti_compatibility_score?.toFixed(1) || "0"}%
-                                </span>
-                              </td>
-                              <td className="p-4 text-center">
-                                <span className="text-slate-300 text-sm">
-                                  {participant.attachment_compatibility_score?.toFixed(1) || "0"}%
-                                </span>
-                              </td>
-                              <td className="p-4 text-center">
-                                <span className="text-slate-300 text-sm">
-                                  {participant.communication_compatibility_score?.toFixed(1) || "0"}%
-                                </span>
-                              </td>
-                              <td className="p-4 text-center">
-                                <span className="text-slate-300 text-sm">
-                                  {participant.lifestyle_compatibility_score?.toFixed(1) || "0"}%
-                                </span>
-                              </td>
-                              <td className="p-4 text-center">
-                                <span className="text-slate-300 text-sm">
-                                  {participant.core_values_compatibility_score?.toFixed(1) || "0"}%
-                                </span>
-                              </td>
-                              {matchType === "ai" && (
-                                <td className="p-4 text-center">
-                                  <span className="text-slate-300 text-sm">
-                                    {participant.vibe_compatibility_score?.toFixed(1) || "0"}%
-                                  </span>
-                                </td>
-                              )}
-                            </>
-                          )}
+                          {matchType !== "group" && (() => {
+                            // Prefer new model values from the calculated pair that matches this row
+                            const pair = (calculatedPairs || []).find((p: any) => {
+                              const a = p.participant_a
+                              const b = p.participant_b
+                              const x = participant.assigned_number
+                              const y = participant.partner_assigned_number
+                              if (!y) return false
+                              return (a === x && b === y) || (a === y && b === x)
+                            })
+                            const hasNew = pair && (pair.synergy_score !== undefined || pair.humor_open_score !== undefined || pair.intent_score !== undefined)
+                            if (hasNew) {
+                              return (
+                                <>
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(pair.synergy_score ?? 0).toFixed(1)}%</span></td>
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(pair.lifestyle_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(pair.humor_open_score ?? 0).toFixed(1)}%</span></td>
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(pair.communication_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(pair.intent_score ?? 0).toFixed(1)}%</span></td>
+                                  {matchType === "ai" && (
+                                    <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(pair.vibe_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                                  )}
+                                </>
+                              )
+                            }
+                            return (
+                              <>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{participant.mbti_compatibility_score?.toFixed(1) || "0"}%</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{participant.attachment_compatibility_score?.toFixed(1) || "0"}%</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{participant.communication_compatibility_score?.toFixed(1) || "0"}%</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{participant.lifestyle_compatibility_score?.toFixed(1) || "0"}%</span></td>
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{participant.core_values_compatibility_score?.toFixed(1) || "0"}%</span></td>
+                                {matchType === "ai" && (
+                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{participant.vibe_compatibility_score?.toFixed(1) || "0"}%</span></td>
+                                )}
+                              </>
+                            )
+                          })()}
                         </tr>
                       ))}
                     </tbody>

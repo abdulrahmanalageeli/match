@@ -212,112 +212,64 @@ function calculateAttachmentCompatibility(style1, style2) {
 
 // Function to calculate communication style compatibility score (up to 10% of total)
 function calculateCommunicationCompatibility(style1, style2) {
+  // New scale: up to 10 pts (Safety/Friction check)
   if (!style1 || !style2) {
-    return 4; // Default 4% if no communication data
+    return 4; // default mid-low if missing
   }
 
-  // Aggressive with Passive-Aggressive gets 0%
-  if ((style1 === 'Aggressive' && style2 === 'Passive-Aggressive') || 
-      (style1 === 'Passive-Aggressive' && style2 === 'Aggressive')) {
+  // Aggressive or Passive-Aggressive with ANY => 0
+  if (style1 === 'Aggressive' || style2 === 'Aggressive' || style1 === 'Passive-Aggressive' || style2 === 'Passive-Aggressive') {
     return 0;
   }
 
-  // Assertive + Passive is a full-score match
-  if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) {
-    return 10;
-  }
-  
-  // Communication style compatibility based on the image
-  const compatibilityMatrix = {
-    'Assertive': { top1: 'Assertive', top2: 'Passive' },
-    'Passive': { top1: 'Assertive', top2: 'Passive' },
-    'Aggressive': { top1: 'Assertive', top2: 'Aggressive' },
-    'Passive-Aggressive': { top1: 'Assertive', top2: 'Passive-Aggressive' }
-  };
-  
-  const compatibility = compatibilityMatrix[style1];
-  if (!compatibility) {
-    return 4; // Default if style not found
-  }
-  
-  if (compatibility.top1 === style2) {
-    return 10; // Top 1 match gets 10%
-  } else if (compatibility.top2 === style2) {
-    return 8; // Top 2 match gets 8%
-  } else {
-    return 4; // Neither match gets 4%
-  }
+  // Assertive + Assertive
+  if (style1 === 'Assertive' && style2 === 'Assertive') return 10;
+  // Assertive + Passive (orderless)
+  if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) return 8;
+  // Passive + Passive
+  if (style1 === 'Passive' && style2 === 'Passive') return 4;
+
+  return 4; // default
 }
 
 // Function to calculate lifestyle compatibility score (up to 25% of total)
 function calculateLifestyleCompatibility(preferences1, preferences2) {
-  if (!preferences1 || !preferences2) {
-    return 0 // Default 0% if no lifestyle data
-  }
-  
-  // Parse preferences (format: "أ,ب,ج,أ,ب")
+  // New scale: up to 15 pts with per-question 3 pts logic + shared context bonus +2 (capped)
+  if (!preferences1 || !preferences2) return 0
   const prefs1 = preferences1.split(',')
   const prefs2 = preferences2.split(',')
-  
-  if (prefs1.length !== 5 || prefs2.length !== 5) {
-    return 0 // Invalid format
+  if (prefs1.length !== 5 || prefs2.length !== 5) return 0
+
+  let score = 0
+  let q14Match = false
+  let q18Match = false
+
+  // Q14: Activity Time (index 0) – exact match → 3 pts
+  if (prefs1[0] && prefs2[0] && prefs1[0] === prefs2[0]) { score += 3; q14Match = true }
+
+  // Q15: Contact Freq (index 1) – exact match → 3 pts
+  if (prefs1[1] && prefs2[1] && prefs1[1] === prefs2[1]) { score += 3 }
+
+  // Q16: Personal Space (index 2) – same bucket (space vs closeness) → 3 pts
+  const bucket16 = v => (v === 'ج' ? 'close' : 'space') // أ,ب => space; ج => close
+  if (prefs1[2] && prefs2[2] && bucket16(prefs1[2]) === bucket16(prefs2[2])) { score += 3 }
+
+  // Q17: Planning (index 3) – exact match → 3 pts
+  if (prefs1[3] && prefs2[3] && prefs1[3] === prefs2[3]) { score += 3 }
+
+  // Q18: Weekend (index 4) – exact match → 3 pts
+  if (prefs1[4] && prefs2[4] && prefs1[4] === prefs2[4]) { score += 3; q18Match = true }
+
+  // Shared Context bonus: if Q14 & Q18 both matched → +2 (cap at 15 total)
+  if (q14Match && q18Match) score += 2
+
+  // Lifestyle Clash penalty: Q18 A vs C → -7
+  if ((prefs1[4] === 'أ' && prefs2[4] === 'ج') || (prefs1[4] === 'ج' && prefs2[4] === 'أ')) {
+    score -= 7
+    console.log(`⚠️ Lifestyle clash penalty: Q18 A vs C → -7`)
   }
-  
-  // Equal weights for all questions (5% each = 25% total)
-  const weights = [
-    1.25,  // lifestyle_1: 5% of total
-    1.25,  // lifestyle_2: 5% of total
-    1.25,  // lifestyle_3: 5% of total
-    1.25,  // lifestyle_4: 5% of total
-    1.25   // lifestyle_5: 5% of total
-  ]
-  // Total weight sum: 6.25, which scales to 25% total
-  
-  // Calculate weighted similarity with partial credit for adjacent choices
-  let totalScore = 0
-  let maxPossibleScore = 0
-  
-  for (let i = 0; i < 5; i++) {
-    const val1 = prefs1[i]
-    const val2 = prefs2[i]
-    const weight = weights[i]
-    
-    let questionScore = 0
-    
-    // Q14 (lifestyle_1 - morning/night person) always gets full score
-    if (i === 0) {
-      questionScore = 4 // Always full points regardless of match
-    } else if (val1 === val2) {
-      // Exact match = full points (4 points)
-      questionScore = 4
-    } else if (
-      (val1 === 'أ' && val2 === 'ب') || (val1 === 'ب' && val2 === 'أ') ||
-      (val1 === 'ب' && val2 === 'ج') || (val1 === 'ج' && val2 === 'ب')
-    ) {
-      // Adjacent choices = 75% credit (3 points)
-      questionScore = 3
-    } else {
-      // Opposite choices (أ vs ج) = no points
-      questionScore = 0
-    }
-    
-    totalScore += questionScore * weight
-    maxPossibleScore += 4 * weight
-  }
-  
-  // Scale to 25% total (maxPossibleScore should be 25)
-  let finalScore = (totalScore / maxPossibleScore) * 25
-  
-  // Q18 (lifestyle_5) penalty: -5% if one person is A and the other is C
-  const q18_val1 = prefs1[4] // lifestyle_5 is index 4
-  const q18_val2 = prefs2[4]
-  
-  if ((q18_val1 === 'أ' && q18_val2 === 'ج') || (q18_val1 === 'ج' && q18_val2 === 'أ')) {
-    finalScore -= 5
-    console.log(`⚠️ Q18 Penalty: One person is A (social) and other is C (alone) = -5%`)
-  }
-  
-  return Math.max(0, finalScore) // Ensure score doesn't go negative
+
+  return Math.max(0, Math.min(15, score))
 }
 
 // Function to calculate core values compatibility score (up to 20% of total)
@@ -358,6 +310,94 @@ function calculateCoreValuesCompatibility(values1, values2) {
   
   // Max score is 5 * 4 = 20 points, which directly translates to 20%
   return totalScore
+}
+
+// New: Interaction Synergy (Q35,36,37,38,39,41) → up to 30 pts
+function calculateInteractionSynergyScore(participantA, participantB) {
+  const ans = (p, key) => (p?.survey_data?.answers?.[key] ?? p?.[key] ?? '')
+
+  const a35 = String(ans(participantA, 'conversational_role') || '').toUpperCase()
+  const b35 = String(ans(participantB, 'conversational_role') || '').toUpperCase()
+  const a36 = String(ans(participantA, 'conversation_depth_pref') || '').toUpperCase()
+  const b36 = String(ans(participantB, 'conversation_depth_pref') || '').toUpperCase()
+  const a37 = String(ans(participantA, 'social_battery') || '').toUpperCase()
+  const b37 = String(ans(participantB, 'social_battery') || '').toUpperCase()
+  const a38 = String(ans(participantA, 'humor_subtype') || '').toUpperCase()
+  const b38 = String(ans(participantB, 'humor_subtype') || '').toUpperCase()
+  const a39 = String(ans(participantA, 'curiosity_style') || '').toUpperCase()
+  const b39 = String(ans(participantB, 'curiosity_style') || '').toUpperCase()
+  const a41 = String(ans(participantA, 'silence_comfort') || '').toUpperCase()
+  const b41 = String(ans(participantB, 'silence_comfort') || '').toUpperCase()
+
+  let total = 0
+
+  // Q35 (7 pts)
+  if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) {
+    total += 7
+  } else if (a35 === 'B' && b35 === 'B') {
+    total += 4
+  } else if (a35 === 'A' && b35 === 'A') {
+    total += 2
+  } else if (a35 === 'C' && b35 === 'C') {
+    total += 0
+  } else if ((a35 && b35)) {
+    // Assumption for B+C (unspecified): moderate synergy
+    total += 3
+  }
+
+  // Q36 (5 pts)
+  if ((a36 && b36)) {
+    if (a36 === b36) total += 5
+    else total += 1
+  }
+
+  // Q37 (4 pts)
+  if ((a37 && b37)) {
+    if (a37 === 'A' && b37 === 'A') total += 4
+    else if (a37 === 'B' && b37 === 'B') total += 3
+    else total += 1
+  }
+
+  // Q38 (4 pts)
+  if ((a38 && b38)) {
+    if (a38 === b38) total += 4
+    else total += 1
+  }
+
+  // Q39 (5 pts)
+  if ((a39 && b39)) {
+    if ((a39 === 'A' && b39 === 'B') || (a39 === 'B' && b39 === 'A')) total += 5
+    else if (a39 === 'C' && b39 === 'C') total += 5
+    else if ((a39 === 'A' && b39 === 'A') || (a39 === 'B' && b39 === 'B')) total += 0
+    else total += 3 // Assumption for A+C / B+C mixes
+  }
+
+  // Q41 (5 pts)
+  if ((a41 && b41)) {
+    if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5
+    else if (a41 === 'A' && b41 === 'A') total += 2
+    else if (a41 === 'B' && b41 === 'B') total += 0
+  }
+
+  // Scale existing 30-pt logic up to 35 pts
+  return Math.min(35, (total * (35 / 30)))
+}
+
+// New: Intent & Goal (Q40) → up to 5 pts
+function calculateIntentGoalScore(participantA, participantB) {
+  const ans = (p, key) => (p?.survey_data?.answers?.[key] ?? p?.[key] ?? '')
+  const a40 = String(ans(participantA, 'intent_goal') || '').toUpperCase()
+  const b40 = String(ans(participantB, 'intent_goal') || '').toUpperCase()
+
+  if (!a40 || !b40) return 0
+
+  if ((a40 === 'A' && b40 === 'A') || (a40 === 'B' && b40 === 'B')) return 5
+  if (a40 === 'C' && b40 === 'C') return 3
+  if ((a40 === 'A' && b40 === 'B') || (a40 === 'B' && b40 === 'A')) return 1
+  // Assumptions for mixed with C
+  if ((a40 === 'A' && b40 === 'C') || (a40 === 'C' && b40 === 'A')) return 3
+  if ((a40 === 'B' && b40 === 'C') || (a40 === 'C' && b40 === 'B')) return 1
+  return 0
 }
 
 // Function to check gender compatibility with support for any_gender_preference
@@ -466,69 +506,96 @@ function isFemaleGender(value) {
   )
 }
 
-// Function to check age compatibility
-// Default: 3-year gap (5 if either >= 40)
-// Any-gender (both): 5-year gap (10 if either >= 40)
-// NEW: If any participant is a female aged 20 or less, allow up to 6 years
+// Function to check age compatibility (soft check DISABLED)
+// NOTE: Age eligibility is now enforced ONLY via the hard gate
+//       `checkAgeRangeHardGate()` based on preferred age ranges.
+//       This function returns true to avoid any baseline (e.g., 3-year) limits.
 function checkAgeCompatibility(participantA, participantB) {
-  const ageA = participantA.age || participantA.survey_data?.age;
-  const ageB = participantB.age || participantB.survey_data?.age;
+  const ageA = participantA.age || participantA.survey_data?.age
+  const ageB = participantB.age || participantB.survey_data?.age
 
   if (!ageA || !ageB) {
-    console.warn(`🚫 Age mismatch (missing info): #${participantA.assigned_number} or #${participantB.assigned_number}`);
-    return false;
+    console.warn(`⚠️ Age info missing for #${participantA.assigned_number} or #${participantB.assigned_number} — skipping soft age checks (hard gates still apply)`)
+    return true
   }
 
-  let anyGenderPrefA = participantA.any_gender_preference || participantA.survey_data?.answers?.gender_preference?.includes('any_gender') || participantA.survey_data?.answers?.gender_preference === 'any_gender';
-  let anyGenderPrefB = participantB.any_gender_preference || participantB.survey_data?.answers?.gender_preference?.includes('any_gender') || participantB.survey_data?.answers?.gender_preference === 'any_gender';
+  console.log(`✅ Age soft constraint disabled: #${participantA.assigned_number} (${ageA}) × #${participantB.assigned_number} (${ageB}) — relying on checkAgeRangeHardGate()`)
+  return true
+}
 
-  // Extract gender for female-specific rule
-  const genderA = participantA.gender || participantA.survey_data?.gender
-  const genderB = participantB.gender || participantB.survey_data?.gender
-  const isFemaleA = isFemaleGender(genderA)
-  const isFemaleB = isFemaleGender(genderB)
+// Hard gate: If a participant prefers same nationality, both must share the same nationality
+function checkNationalityHardGate(participantA, participantB) {
+  const preferSameA = (participantA.prefer_same_nationality === true) || (participantA?.survey_data?.answers?.nationality_preference === 'same')
+  const preferSameB = (participantB.prefer_same_nationality === true) || (participantB?.survey_data?.answers?.nationality_preference === 'same')
 
-  // Rule Set 2: "Any Gender" Preference Matching
-  if (anyGenderPrefA && anyGenderPrefB) {
-    const ageDifference = Math.abs(ageA - ageB);
-    let maxGap = 5;
-    if (ageA >= 40 || ageB >= 40) {
-      maxGap = 10;
-    }
-    // NEW: If a female participant is 20 or younger, allow up to 6 years
-    if ((isFemaleA && ageA <= 20) || (isFemaleB && ageB <= 20)) {
-      maxGap = Math.max(maxGap, 6)
-    }
+  if (!preferSameA && !preferSameB) return true
 
-    const isCompatible = ageDifference <= maxGap;
-    if (isCompatible) {
-      console.log(`✅ Age compatible (any_gender): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
-    } else {
-      console.log(`🚫 Age mismatch (any_gender): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
-    }
-    return isCompatible;
+  const natA = participantA.nationality || participantA?.survey_data?.answers?.nationality || null
+  const natB = participantB.nationality || participantB?.survey_data?.answers?.nationality || null
+
+  if (!natA || !natB) {
+    console.log(`🚫 Nationality hard gate: missing nationality for #${participantA.assigned_number} or #${participantB.assigned_number}`)
+    return false
+  }
+  const ok = String(natA).trim() === String(natB).trim()
+  if (!ok) {
+    console.log(`🚫 Nationality hard gate: #${participantA.assigned_number} (${natA}) × #${participantB.assigned_number} (${natB}) require same nationality`)
+  }
+  return ok
+}
+
+// Hard gate: If a participant specifies a preferred age range, partner must fall within it
+function checkAgeRangeHardGate(participantA, participantB) {
+  const ageA = participantA.age || participantA?.survey_data?.age
+  const ageB = participantB.age || participantB?.survey_data?.age
+
+  // If ages are missing, we cannot evaluate partner ranges reliably
+  if (!ageA || !ageB) {
+    console.warn(`🚫 Age range hard gate: missing age for #${participantA.assigned_number} or #${participantB.assigned_number}`)
+    return false
   }
 
-  // Rule Set 1: Standard Matching (Default)
-  const ageDifference = Math.abs(ageA - ageB);
-  let maxGap = 3;
-  if (ageA >= 40 || ageB >= 40) {
-    maxGap = 5;
-  }
-  // NEW: If a female participant is 20 or younger, allow up to 6 years
-  if ((isFemaleA && ageA <= 20) || (isFemaleB && ageB <= 20)) {
-    maxGap = Math.max(maxGap, 6)
-  }
+  // Open age flag: if true, participant imposes no age limit on partner
+  const openA = (
+    participantA.open_age_preference === true ||
+    participantA?.survey_data?.answers?.open_age_preference === true ||
+    participantA?.survey_data?.answers?.open_age_preference === 'true'
+  )
+  const openB = (
+    participantB.open_age_preference === true ||
+    participantB?.survey_data?.answers?.open_age_preference === true ||
+    participantB?.survey_data?.answers?.open_age_preference === 'true'
+  )
 
-  const isStandardCompatible = ageDifference <= maxGap;
+  const minA = participantA.preferred_age_min ?? participantA?.survey_data?.answers?.preferred_age_min
+  const maxA = participantA.preferred_age_max ?? participantA?.survey_data?.answers?.preferred_age_max
+  const minB = participantB.preferred_age_min ?? participantB?.survey_data?.answers?.preferred_age_min
+  const maxB = participantB.preferred_age_max ?? participantB?.survey_data?.answers?.preferred_age_max
 
-  if (isStandardCompatible) {
-    console.log(`✅ Age compatible (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
-  } else {
-    console.log(`🚫 Age mismatch (standard): #${participantA.assigned_number} (${ageA}) vs #${participantB.assigned_number} (${ageB}) - Diff: ${ageDifference}, Max: ${maxGap}`);
+  // A has a range only if not open and numeric bounds are provided
+  const hasRangeA = !openA && minA !== undefined && minA !== null && maxA !== undefined && maxA !== null && !isNaN(parseInt(minA)) && !isNaN(parseInt(maxA))
+  // B has a range only if not open and numeric bounds are provided
+  const hasRangeB = !openB && minB !== undefined && minB !== null && maxB !== undefined && maxB !== null && !isNaN(parseInt(minB)) && !isNaN(parseInt(maxB))
+
+  // If neither participant enforces a range, pass
+  if (!hasRangeA && !hasRangeB) return true
+
+  const aMin = hasRangeA ? parseInt(minA) : null
+  const aMax = hasRangeA ? parseInt(maxA) : null
+  const bMin = hasRangeB ? parseInt(minB) : null
+  const bMax = hasRangeB ? parseInt(maxB) : null
+
+  // Enforce A's range on B, if A set one and is not open
+  if (hasRangeA && !(ageB >= aMin && ageB <= aMax)) {
+    console.log(`🚫 Age range hard gate (A): #${participantB.assigned_number} age ${ageB} not in [${aMin}, ${aMax}] preferred by #${participantA.assigned_number}`)
+    return false
   }
-
-  return isStandardCompatible;
+  // Enforce B's range on A, if B set one and is not open
+  if (hasRangeB && !(ageA >= bMin && ageA <= bMax)) {
+    console.log(`🚫 Age range hard gate (B): #${participantA.assigned_number} age ${ageA} not in [${bMin}, ${bMax}] preferred by #${participantB.assigned_number}`)
+    return false
+  }
+  return true
 }
 
 // Function to check interaction style compatibility (matching determinants)
@@ -579,6 +646,38 @@ function checkHumorCompatibility(humorA, humorB) {
   return false
 }
 
+// New: Humor & Openness score (max 15) + veto flag for A↔D clash
+function calculateHumorOpennessScore(participantA, participantB) {
+  const humorA = participantA.humor_banter_style || participantA.survey_data?.humor_banter_style || participantA.survey_data?.answers?.humor_banter_style || ''
+  const humorB = participantB.humor_banter_style || participantB.survey_data?.humor_banter_style || participantB.survey_data?.answers?.humor_banter_style || ''
+  const hA = String(humorA).toUpperCase()
+  const hB = String(humorB).toUpperCase()
+  const openA = participantA.early_openness_comfort !== undefined ? participantA.early_openness_comfort : participantA.survey_data?.answers?.early_openness_comfort
+  const openB = participantB.early_openness_comfort !== undefined ? participantB.early_openness_comfort : participantB.survey_data?.answers?.early_openness_comfort
+  const oA = openA !== undefined && openA !== null ? parseInt(openA) : undefined
+  const oB = openB !== undefined && openB !== null ? parseInt(openB) : undefined
+
+  let humorScore = 0
+  let vetoClash = false
+  if (hA && hB) {
+    if (hA === hB) humorScore = 10
+    else if ((hA === 'A' && hB === 'B') || (hA === 'B' && hB === 'A')) humorScore = 8
+    else if ((hA === 'B' && hB === 'C') || (hA === 'C' && hB === 'B') || (hA === 'C' && hB === 'D') || (hA === 'D' && hB === 'C')) humorScore = 5
+    else if ((hA === 'A' && hB === 'D') || (hA === 'D' && hB === 'A')) { humorScore = 0; vetoClash = true }
+    else humorScore = 5
+  }
+
+  let openScore = 0
+  if (oA !== undefined && oB !== undefined) {
+    const dist = Math.abs(oA - oB)
+    if (dist === 0) openScore = 5
+    else if (dist === 1) openScore = 3
+    else if (dist === 2) openScore = 1
+    else openScore = 0
+  }
+
+  return { score: humorScore + openScore, vetoClash }
+}
 // Helper function to check early openness compatibility
 function checkOpennessCompatibility(opennessA, opennessB) {
   // Allowed combinations:
@@ -639,6 +738,27 @@ function generateCacheKey(participantA, participantB) {
       [participantB.survey_data.answers.core_values_1, participantB.survey_data.answers.core_values_2, participantB.survey_data.answers.core_values_3, participantB.survey_data.answers.core_values_4, participantB.survey_data.answers.core_values_5].join(',') : 
       '')
   
+  // New: include Interaction Synergy + Intent answers to avoid stale cache hits
+  const getAns = (p, key) => p?.survey_data?.answers?.[key] ?? p?.[key] ?? ''
+  const synergyA = [
+    getAns(participantA, 'conversational_role'),
+    getAns(participantA, 'conversation_depth_pref'),
+    getAns(participantA, 'social_battery'),
+    getAns(participantA, 'humor_subtype'),
+    getAns(participantA, 'curiosity_style'),
+    getAns(participantA, 'silence_comfort'),
+    getAns(participantA, 'intent_goal')
+  ].join('|')
+  const synergyB = [
+    getAns(participantB, 'conversational_role'),
+    getAns(participantB, 'conversation_depth_pref'),
+    getAns(participantB, 'social_battery'),
+    getAns(participantB, 'humor_subtype'),
+    getAns(participantB, 'curiosity_style'),
+    getAns(participantB, 'silence_comfort'),
+    getAns(participantB, 'intent_goal')
+  ].join('|')
+  
   // Sort content for consistent hashing
   const vibeContent = [vibeA, vibeB].sort().join('|||')
   const mbtiContent = [mbtiA, mbtiB].sort().join('|||')
@@ -646,6 +766,13 @@ function generateCacheKey(participantA, participantB) {
   const communicationContent = [communicationA, communicationB].sort().join('|||')
   const lifestyleContent = [lifestyleA, lifestyleB].sort().join('|||')
   const coreValuesContent = [coreValuesA, coreValuesB].sort().join('|||')
+  const synergyContent = [synergyA, synergyB].sort().join('|||')
+  // New: include humor/openness (Q4.25/Q4.75)
+  const humorA = participantA.humor_banter_style || participantA.survey_data?.humor_banter_style || participantA.survey_data?.answers?.humor_banter_style || ''
+  const humorB = participantB.humor_banter_style || participantB.survey_data?.humor_banter_style || participantB.survey_data?.answers?.humor_banter_style || ''
+  const openA = (participantA.early_openness_comfort !== undefined ? participantA.early_openness_comfort : participantA.survey_data?.answers?.early_openness_comfort) ?? ''
+  const openB = (participantB.early_openness_comfort !== undefined ? participantB.early_openness_comfort : participantB.survey_data?.answers?.early_openness_comfort) ?? ''
+  const humorOpenContent = [[humorA, openA].join(':'), [humorB, openB].join(':')].sort().join('|||')
   
   return {
     vibeHash: generateContentHash(vibeContent),
@@ -654,7 +781,9 @@ function generateCacheKey(participantA, participantB) {
     communicationHash: generateContentHash(communicationContent),
     lifestyleHash: generateContentHash(lifestyleContent),
     coreValuesHash: generateContentHash(coreValuesContent),
-    combinedHash: generateContentHash(vibeContent + mbtiContent + attachmentContent + communicationContent + lifestyleContent + coreValuesContent)
+    synergyHash: generateContentHash(synergyContent),
+    // Include synergy + humor/openness so any changes invalidate old cache rows
+    combinedHash: generateContentHash(vibeContent + mbtiContent + attachmentContent + communicationContent + lifestyleContent + coreValuesContent + synergyContent + humorOpenContent)
   }
 }
 
@@ -691,7 +820,9 @@ async function getCachedCompatibility(participantA, participantB) {
         communicationScore: parseFloat(data.communication_score),
         lifestyleScore: parseFloat(data.lifestyle_score),
         coreValuesScore: parseFloat(data.core_values_score),
-        vibeScore: parseFloat(data.ai_vibe_score),
+        synergyScore: parseFloat(data.interaction_synergy_score ?? 0),
+        intentScore: parseFloat(data.intent_goal_score ?? 0),
+        vibeScore: parseFloat(data.ai_vibe_score ?? 0),
         totalScore: parseFloat(data.total_compatibility_score),
         humorMultiplier: parseFloat(data.humor_multiplier || 1.0),
         bonusType: data.humor_early_openness_bonus || 'none',
@@ -736,12 +867,15 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
         communication_hash: cacheKey.communicationHash,
         lifestyle_hash: cacheKey.lifestyleHash,
         core_values_hash: cacheKey.coreValuesHash,
+        synergy_hash: cacheKey.synergyHash,
         ai_vibe_score: scores.vibeScore,
         mbti_score: scores.mbtiScore,
         attachment_score: scores.attachmentScore,
         communication_score: scores.communicationScore,
         lifestyle_score: scores.lifestyleScore,
         core_values_score: scores.coreValuesScore,
+        interaction_synergy_score: scores.synergyScore ?? 0,
+        intent_goal_score: scores.intentScore ?? 0,
         total_compatibility_score: scores.totalScore,
         humor_multiplier: scores.humorMultiplier,
         humor_early_openness_bonus: bonusType,
@@ -851,24 +985,63 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
       null)
   
   // Calculate all compatibility scores
-  const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
-  const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
-  const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
-  const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
-  const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
-  const vibeScore = skipAI ? 20 : await calculateVibeCompatibility(participantA, participantB)
-  
-  // Calculate base total score (before interaction multiplier)
-  let totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + vibeScore
-  
-  // Get interaction style multiplier (1.0, 1.05, or 1.15)
-  const humorMultiplier = checkHumorMatch(participantA, participantB)
-  
-  // Apply interaction multiplier
-  if (humorMultiplier > 1.0) {
-    const scoreBeforeMultiplier = totalScore
-    totalScore = totalScore * humorMultiplier
-    console.log(`🎭 Interaction multiplier applied: ${scoreBeforeMultiplier.toFixed(2)} × ${humorMultiplier} = ${totalScore.toFixed(2)}`)
+  // Raw components used for new weighting
+  const coreRaw = calculateCoreValuesCompatibility(aCoreValues, bCoreValues) // 0-20 (values)
+  const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle) // 0-15 (new)
+  const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication) // 0-10 (new)
+  const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-35 (scaled)
+  const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
+  const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0-5
+  const meetingGoalValuesScore = Math.min(5, (intentRaw / 5) * 3 + (coreRaw / 20) * 2) // 0-5
+  const vibeScore = skipAI ? 12 : await calculateVibeCompatibility(participantA, participantB) // 0–20
+
+  // Base total (no multipliers)
+  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + meetingGoalValuesScore
+  let attachmentPenaltyApplied = false
+  let intentBoostApplied = false
+  let deadAirVetoApplied = false
+  let humorClashVetoApplied = false
+  let capApplied = null
+
+  // Attachment penalty: Anxious × Avoidant → -5 (apply before veto and caps)
+  const anxiousAvoidant = ((participantA.attachment_style || participantA.survey_data?.attachmentStyle) === 'Anxious' && (participantB.attachment_style || participantB.survey_data?.attachmentStyle) === 'Avoidant') ||
+                          ((participantA.attachment_style || participantA.survey_data?.attachmentStyle) === 'Avoidant' && (participantB.attachment_style || participantB.survey_data?.attachmentStyle) === 'Anxious')
+  if (anxiousAvoidant) {
+    totalScore -= 5
+    console.log(`⚠️ Attachment penalty applied: Anxious×Avoidant → -5`)
+    attachmentPenaltyApplied = true
+  }
+  if (totalScore < 0) totalScore = 0
+
+  // Intent multiplier: both intent_goal = 'B' → ×1.1 (apply before vetoes)
+  const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+  const aIntent = getAns(participantA, 'intent_goal')
+  const bIntent = getAns(participantB, 'intent_goal')
+  if (aIntent === 'B' && bIntent === 'B') {
+    totalScore = totalScore * 1.1
+    console.log(`✨ Intent multiplier applied (both B): ×1.1 → ${totalScore.toFixed(2)}`)
+    intentBoostApplied = true
+  }
+
+  // Dead-Air Veto: BOTH participants Q35=C and Q41=B → cap 40%
+  const a35 = getAns(participantA, 'conversational_role')
+  const b35 = getAns(participantB, 'conversational_role')
+  const a41 = getAns(participantA, 'silence_comfort')
+  const b41 = getAns(participantB, 'silence_comfort')
+  const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
+  if (deadAirBoth && totalScore > 40) {
+    console.log(`⛔ Dead-Air veto applied: total ${totalScore.toFixed(2)} → 40.00`)
+    totalScore = 40
+    deadAirVetoApplied = true
+    capApplied = 40
+  }
+
+  // Humor clash veto cap 50%
+  if (vetoClash && totalScore > 50) {
+    console.log(`⛔ Humor clash veto applied: total ${totalScore.toFixed(2)} → 50.00`)
+    totalScore = 50
+    humorClashVetoApplied = true
+    if (!capApplied) capApplied = 50
   }
   
   // Cap at 100% to ensure compatibility never exceeds maximum
@@ -878,14 +1051,23 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   }
   
   const result = {
-    mbtiScore,
-    attachmentScore,
-    communicationScore,
-    lifestyleScore,
-    coreValuesScore,
-    vibeScore,
-    humorMultiplier,
+    // Expose breakdowns
+    mbtiScore: 0, // MBTI not weighted independently in this model
+    attachmentScore: 0,
+    communicationScore,           // 0-10
+    lifestyleScore,               // 0-15
+    coreValuesScore: coreRaw,     // raw 0-20 (for transparency)
+    synergyScore,                 // 0-35
+    humorOpenScore,               // 0-15
+    intentScore: meetingGoalValuesScore, // 0-5 combined Goal & Values
+    vibeScore,                    // 0 (placeholder for 20)
+    humorMultiplier: 1.0,
     totalScore,
+    attachmentPenaltyApplied,
+    intentBoostApplied,
+    deadAirVetoApplied,
+    humorClashVetoApplied,
+    capApplied,
     cached: false
   }
   
@@ -897,7 +1079,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   return result
 }
 
-// Function to calculate vibe compatibility using AI (up to 35% of total)
+// Function to calculate vibe compatibility using AI (up to 20% of total)
 async function calculateVibeCompatibility(participantA, participantB) {
   try {
     // Get combined vibe descriptions from all 6 questions
@@ -905,14 +1087,15 @@ async function calculateVibeCompatibility(participantA, participantB) {
     const bVibeDescription = participantB.survey_data?.vibeDescription || ""
 
     if (!aVibeDescription || !bVibeDescription) {
-      console.warn("❌ Missing vibe descriptions, using default score")
-      return 20 // Default high score to be lenient
+      console.warn("❌ Missing vibe descriptions, using default AI vibe score (scaled to 20)")
+      return 12 // Default mid-high on a 0–20 scale
     }
 
     // Calculate mutual compatibility between the two combined profiles
-    const vibeScore = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
+    const raw35 = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
+    const vibeScore = Math.max(0, Math.min(20, (raw35 / 35) * 20))
     
-    console.log(`🎯 Vibe compatibility: AI score = ${vibeScore}/35`)
+    console.log(`🎯 Vibe compatibility: AI raw=${raw35}/35 → scaled=${vibeScore.toFixed(2)}/20`)
     console.log(`📝 Profile A preview: "${aVibeDescription.substring(0, 100)}..."`)
     console.log(`📝 Profile B preview: "${bVibeDescription.substring(0, 100)}..."`)
     
@@ -920,7 +1103,7 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
-    return 20 // Default high score to be lenient
+    return 12 // Default mid-high on a 0–20 scale
   }
 }
 
@@ -931,46 +1114,23 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
 
 Goal: score fast romantic "clickability" for Arabic-speaking users. Answers are short (~50 characters), so give more credit for small overlaps.
 
-TOTAL = Core (max 31) + Spark Bonus (max +4) = 35
+IMPORTANT SCORING POLICY
+• Use the FULL range 0–35. It MUST be possible to reach 35 WITHOUT any "bonus" concept.
+• If both profiles strongly align across most axes (lifestyle, interests, music/arts mood, conversation depth, traits/values), return 34–35. Perfect, unmistakable alignment should receive 35.
+• Do not require a separate "bonus" to reach the maximum. You may still give extra credit for a unique, obvious spark, but it is not mandatory for 35.
 
-CORE AXES (31 points):
+RECOMMENDED AXES (score directly 0–35 overall):
+1) Lifestyle & Weekend Habits
+2) Interests & Hobbies
+3) Music/Arts Taste or overall mood
+4) Conversation Style / Depth
+5) Traits & Values
 
-1) Lifestyle & Weekend Habits (0-7)
-• 7: Clear match (both home/social/balanced)
-• 4-5: Near-match or one flexible
-• 2-3: Different but not clashing
-• 0: Direct conflict
-
-2) Interests & Hobbies (0-7)
-Because answers are short, give credit for *any* overlap.
-• 6-7: At least one strong shared interest (niche or unique) and or more than two shared interests
-• 4-5: One mainstream overlap (e.g. travel, reading, gym)
-• 2-3: General vibe is compatible (both social/active/creative)
-• 0-1: No overlap or opposite vibes
-
-3) Music/Arts Taste (0-4)
-• 4: Same genre/cultural family OR similar mood
-• 2-3: Different but not clashing
-• 0-1: Mismatch or aversion
-
-4) Conversation Style (0-5)
-• 5: Same (deep×deep or light×light)
-• 3: Slight difference or one flexible
-• 0: Opposites with no flexibility
-
-5) Traits & Values (0-8)
-Use "friends describe me" + "I describe friends."
-• 6-8: Multiple keywords overlap (kind, funny, loyal, ambitious)
-• 3-5: One overlap or generally positive with no conflict
-• 0-2: Clear clash (e.g. loud vs quiet if valued opposite)
-
-SPARK BONUS (0-4)
-+1 to +2: Unique shared passion (poetry, anime, niche sport)
-+1: Shared romantic/affectionate tone
-+1 to +2: Complement explicitly appreciated (cook × eater, listener × talker)
-Cap at +4.
-
-Aggregation: Core (0-31) + Bonus (0-4) = 0-35.
+GUIDELINES
+• Heavy overlap across 4–5 axes → 34–35
+• Strong overlap across 3 axes, neutral elsewhere → 30–33
+• Mixed/partial alignment → 15–29
+• Mostly mismatched → 0–14
 
 أرجِع رقمًا واحدًا فقط من 0 إلى 35 دون أي نص إضافي.
 `
@@ -998,7 +1158,7 @@ Aggregation: Core (0-31) + Bonus (0-4) = 0-35.
     console.log(`   ✅ OpenAI API responded in ${apiDuration}ms`)
 
     const rawResponse = completion.choices[0].message.content.trim()
-    const score = parseInt(rawResponse)
+    let score = parseInt(rawResponse)
     
     console.log(`🤖 AI raw response: "${rawResponse}" → Parsed score: ${score}`)
     
@@ -1008,6 +1168,10 @@ Aggregation: Core (0-31) + Bonus (0-4) = 0-35.
       return 20 // Default higher score to be more lenient
     }
 
+    // Ensure top-end is reachable in practice: round 34 up to 35
+    if (score >= 34) score = 35
+    if (score < 0) score = 0
+    if (score > 35) score = 35
     return score
 
   } catch (error) {
@@ -1114,6 +1278,8 @@ async function generateGroupMatches(participants, match_id, eventId) {
   const constraintViolations = {
     gender: [],
     age: [],
+    nationality: [],
+    ageRange: [],
     total_pairs_checked: 0,
     compatible_pairs: 0
   }
@@ -1129,6 +1295,16 @@ async function generateGroupMatches(participants, match_id, eventId) {
       if (!checkGenderCompatibility(a, b)) {
         console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - gender incompatible`)
         constraintViolations.gender.push(`${a.assigned_number}×${b.assigned_number}`)
+        continue
+      }
+      
+      // Hard gates before soft compatibility
+      if (!checkNationalityHardGate(a, b)) {
+        constraintViolations.nationality.push(`${a.assigned_number}×${b.assigned_number}`)
+        continue
+      }
+      if (!checkAgeRangeHardGate(a, b)) {
+        constraintViolations.ageRange.push(`${a.assigned_number}×${b.assigned_number}`)
         continue
       }
       
@@ -1181,6 +1357,8 @@ async function generateGroupMatches(participants, match_id, eventId) {
   console.log(`   Total pairs checked: ${constraintViolations.total_pairs_checked}`)
   console.log(`   Compatible pairs: ${constraintViolations.compatible_pairs}`)
   console.log(`   Gender violations: ${constraintViolations.gender.length}`)
+  console.log(`   Nationality hard-gate violations: ${constraintViolations.nationality.length}`)
+  console.log(`   Age-range hard-gate violations: ${constraintViolations.ageRange.length}`)
   console.log(`   Age violations: ${constraintViolations.age.length}`)
   
   if (constraintViolations.gender.length > 0) {
@@ -2059,7 +2237,7 @@ export default async function handler(req, res) {
       // Fetch eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -2121,6 +2299,10 @@ export default async function handler(req, res) {
           continue
         }
         
+        // Hard gates
+        if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
+        if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
+
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
           skipped++
@@ -2239,7 +2421,7 @@ export default async function handler(req, res) {
       // Step 2: Fetch all eligible participants
       const { data: allParticipants, error } = await supabase
         .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, survey_data_updated_at, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
         .eq("match_id", match_id)
         .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
         .neq("assigned_number", 9999)
@@ -2392,6 +2574,18 @@ export default async function handler(req, res) {
         }
         console.log(`   ✅ Gender compatible`)
         
+        // Hard gates
+        if (!checkNationalityHardGate(p1, p2)) {
+          console.log(`   🚫 SKIPPED: Nationality hard gate failed`)
+          skipped++
+          continue
+        }
+        if (!checkAgeRangeHardGate(p1, p2)) {
+          console.log(`   🚫 SKIPPED: Age range hard gate failed`)
+          skipped++
+          continue
+        }
+
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
           console.log(`   🚫 SKIPPED: Age incompatible (${p1.age} vs ${p2.age})`)
@@ -2546,7 +2740,7 @@ export default async function handler(req, res) {
     
     const { data: allParticipants, error } = await supabase
       .from("participants")
-      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
       .eq("match_id", match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)  // Participants who signed up for next event OR have current event_id OR have auto_signup enabled
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
@@ -2616,7 +2810,7 @@ export default async function handler(req, res) {
         // Fetch ALL participants from database
         const { data: allDatabaseParticipants, error: bypassError } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)  // Only exclude organizer
         
@@ -2650,11 +2844,11 @@ export default async function handler(req, res) {
       }
       
       // Filter potential matches by gender compatibility
-      const genderCompatibleMatches = potentialMatches.filter(potentialMatch => {
-        return checkGenderCompatibility(targetParticipant, potentialMatch)
-      })
-      
+      const genderCompatibleMatches = potentialMatches.filter(potentialMatch => checkGenderCompatibility(targetParticipant, potentialMatch))
       console.log(`🎯 Gender filtering: ${potentialMatches.length} total → ${genderCompatibleMatches.length} gender-compatible matches`)
+      // Apply hard gates (nationality + age range)
+      const hardGateCompatibleMatches = genderCompatibleMatches.filter(p => checkNationalityHardGate(targetParticipant, p) && checkAgeRangeHardGate(targetParticipant, p))
+      console.log(`🎯 Hard-gate filtering: ${genderCompatibleMatches.length} → ${hardGateCompatibleMatches.length}`)
       
       if (genderCompatibleMatches.length === 0) {
         return res.status(400).json({ 
@@ -2695,7 +2889,7 @@ export default async function handler(req, res) {
       console.log(`💾 Bulk fetching cached compatibility scores for all potential pairs...`)
       const viewAllCacheStartTime = Date.now()
       
-      const allNumbers = [participantNumber, ...genderCompatibleMatches.map(p => p.assigned_number)]
+      const allNumbers = [participantNumber, ...hardGateCompatibleMatches.map(p => p.assigned_number)]
       const { data: allCachedScores, error: cacheError } = await supabase
         .from("compatibility_cache")
         .select("*")
@@ -2719,13 +2913,13 @@ export default async function handler(req, res) {
         console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
       }
       
-      // Calculate compatibility with all gender-compatible potential matches
+      // Calculate compatibility with all hard-gate-compatible potential matches
       const calculatedPairs = []
       let cacheHits = 0
       let cacheMisses = 0
       let aiCalls = 0
       
-      for (const potentialMatch of genderCompatibleMatches) {
+      for (const potentialMatch of hardGateCompatibleMatches) {
         try {
           const isRepeatedMatch = previousPartners.has(potentialMatch.assigned_number)
           
@@ -2844,7 +3038,7 @@ export default async function handler(req, res) {
         // Fetch ALL participants from database without any filtering for true bypass
         const { data: allDatabaseParticipants, error: bypassError } = await supabase
           .from("participants")
-          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
           .eq("match_id", match_id)
           .neq("assigned_number", 9999)  // Only exclude organizer
         

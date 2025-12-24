@@ -2069,18 +2069,41 @@ const fetchParticipants = async () => {
         detailedMessage += `📊 Total Score: ${data.compatibility_score}%\n\n`
         
         if (result) {
-          detailedMessage += `🧠 MBTI: ${result.mbti_compatibility_score}% (5% max)\n`
-          detailedMessage += `💝 Attachment: ${result.attachment_compatibility_score}% (5% max)\n`
-          detailedMessage += `💬 Communication: ${result.communication_compatibility_score}% (10% max)\n`
-          detailedMessage += `🏠 Lifestyle: ${result.lifestyle_compatibility_score}% (25% max)\n`
-          detailedMessage += `⭐ Core Values: ${result.core_values_compatibility_score}% (20% max)\n`
-          detailedMessage += `✨ Vibe Analysis: ${result.vibe_compatibility_score}% (35% max)\n`
-          
-          // Add humor multiplier if applicable
-          if (result.humor_multiplier && result.humor_multiplier > 1.0) {
-            detailedMessage += `😄 Humor Multiplier: ×${result.humor_multiplier} (matching styles)`
+          // Prefer new model fields if present
+          const hasNewModel = (
+            typeof result.synergyScore === 'number' ||
+            typeof result.lifestyleScore === 'number' ||
+            typeof result.humorOpenScore === 'number' ||
+            typeof result.communicationScore === 'number' ||
+            typeof result.vibeScore === 'number' ||
+            typeof result.intentScore === 'number'
+          )
+          if (hasNewModel) {
+            const round = (v:any) => Math.round((Number(v) || 0) * 100) / 100
+            detailedMessage += `⚡ Synergy: ${round(result.synergyScore)}/35\n`
+            detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/15\n`
+            detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/15\n`
+            detailedMessage += `💬 Communication: ${round(result.communicationScore)}/10\n`
+            detailedMessage += `✨ AI Vibe: ${round(result.vibeScore)}/20\n`
+            detailedMessage += `🎯 Meeting Goal & Values: ${round(result.intentScore)}/5\n`
+            // Safety row (if flags present)
+            const safety: string[] = []
+            if (result.attachmentPenaltyApplied) safety.push('Attachment penalty: −5 (Anxious × Avoidant)')
+            if (result.intentBoostApplied) safety.push('Intent Match: ×1.1 (Deep Seekers)')
+            if (result.deadAirVetoApplied) safety.push('Capped by Dead‑Air (40%)')
+            if (result.humorClashVetoApplied) safety.push('Capped by Humor Clash (50%)')
+            if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Capped by rule (${result.capApplied}%)`)
+            if (safety.length > 0) {
+              detailedMessage += `\n🛡️ Safety:\n- ${safety.join('\n- ')}\n`
+            }
           } else {
-            detailedMessage += `😄 Humor Multiplier: ×1.0 (different styles)`
+            // Fallback to legacy fields
+            detailedMessage += `🧠 MBTI: ${result.mbti_compatibility_score}% (5% max)\n`
+            detailedMessage += `💝 Attachment: ${result.attachment_compatibility_score}% (5% max)\n`
+            detailedMessage += `💬 Communication: ${result.communication_compatibility_score}% (10% max)\n`
+            detailedMessage += `🏠 Lifestyle: ${result.lifestyle_compatibility_score}% (25% max)\n`
+            detailedMessage += `⭐ Core Values: ${result.core_values_compatibility_score}% (20% max)\n`
+            detailedMessage += `✨ Vibe Analysis: ${result.vibe_compatibility_score}% (35% max)\n`
           }
         }
         

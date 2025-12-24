@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -553,6 +553,51 @@ export default async function handler(req, res) {
           updateFields.phone_number = survey_data.phoneNumber.trim()
         } else if (typeof answers.phone_number === 'string' && answers.phone_number.trim()) {
           updateFields.phone_number = answers.phone_number.trim()
+        }
+
+        // Nationality (text) and nationality preference (boolean: prefers same nationality)
+        if (typeof answers.nationality === 'string' && answers.nationality.trim()) {
+          updateFields.nationality = answers.nationality.trim()
+          console.log('🌍 Nationality:', updateFields.nationality)
+        }
+        if (typeof answers.nationality_preference === 'string') {
+          if (answers.nationality_preference === 'same') {
+            updateFields.prefer_same_nationality = true
+          } else if (answers.nationality_preference === 'any') {
+            updateFields.prefer_same_nationality = false
+          }
+          console.log('🤝 Nationality Preference (prefer_same_nationality):', updateFields.prefer_same_nationality)
+        }
+
+        // Preferred age range (min/max integers)
+        const minPrefRaw = answers.preferred_age_min
+        const maxPrefRaw = answers.preferred_age_max
+        const minPref = typeof minPrefRaw === 'string' ? parseInt(minPrefRaw) : (typeof minPrefRaw === 'number' ? minPrefRaw : null)
+        const maxPref = typeof maxPrefRaw === 'string' ? parseInt(maxPrefRaw) : (typeof maxPrefRaw === 'number' ? maxPrefRaw : null)
+        // Open age preference (optional)
+        if (answers.open_age_preference !== undefined) {
+          const openAge = answers.open_age_preference === true || answers.open_age_preference === 'true'
+          updateFields.open_age_preference = openAge
+          console.log('🟢 Open Age Preference:', openAge)
+          if (openAge) {
+            // Clear stored range if user opted for open age
+            updateFields.preferred_age_min = null
+            updateFields.preferred_age_max = null
+          }
+        }
+
+        if (!isNaN(minPref) && !isNaN(maxPref)) {
+          // Basic guard rails; DB will enforce too
+          if (minPref >= 16 && maxPref <= 80 && minPref <= maxPref) {
+            // Only persist range if NOT explicitly open age
+            if (!(updateFields.open_age_preference === true)) {
+              updateFields.preferred_age_min = minPref
+              updateFields.preferred_age_max = maxPref
+              console.log('📏 Preferred Age Range:', minPref, '-', maxPref)
+            } else {
+              console.log('ℹ️ Skipping saving age range because open_age_preference is true')
+            }
+          }
         }
         
         // Save MBTI personality type to dedicated column (4 characters max)
@@ -1125,7 +1170,7 @@ export default async function handler(req, res) {
       // Look in ALL events (including current) to find previous participants
       const { data: participants, error: searchError } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event, match_id")
+        .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event, match_id, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
         .not("phone_number", "is", null)
         .order("created_at", { ascending: false }) // Get most recent first
 

@@ -2777,11 +2777,10 @@ export default function WelcomePage() {
             }
           }
           
-          // If any questions are incomplete, show popup
+          // If any questions are incomplete, redirect to retake survey using token URL
           if (Object.keys(incomplete).length > 0) {
-            setIncompleteVibeQuestions(incomplete)
-            setVibeAnswers(currentAnswers)
-            setShowVibeCompletionPopup(true)
+            window.location.href = `/welcome?token=${encodeURIComponent(token)}`
+            return
           }
         }
       }
@@ -3021,20 +3020,36 @@ export default function WelcomePage() {
           setReturningGenderPreference(data.gender_preference)
           // preference source: DB only (no localStorage caching)
         }
-        // Check if user has filled the survey using new structure
-        const hasFilledForm = data.survey_data && data.survey_data.answers && Object.keys(data.survey_data.answers).length > 0;
-        
-        // Show survey completion popup if user hasn't filled the survey
-        if (!hasFilledForm) {
-          console.log('📝 User has incomplete survey, showing completion popup');
-          setIncompleteSurveyInfo({
-            name: data.name,
-            assigned_number: data.assigned_number,
-            secure_token: savedToken
-          });
-          setShowSurveyCompletionPopup(true);
+        // Check completeness of required survey answers
+        const answers = data.survey_data?.answers || {}
+        const requiredKeys: string[] = [
+          // Personal info
+          'name','age','gender','phone_number','nationality','nationality_preference','open_age_preference',
+          // Interaction synergy
+          'conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style','silence_comfort',
+          'lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5',
+          'core_values_1','core_values_2','core_values_3','core_values_4','core_values_5',
+          // Vibe & Interaction
+          'vibe_1','vibe_2','vibe_3','vibe_4','vibe_5',
+          // Humor & Openness baseline
+          'humor_banter_style','early_openness_comfort'
+        ];
+        const missing = requiredKeys.some(k => {
+          const v = (answers as any)[k];
+          return v == null || (typeof v === 'string' && v.trim().length === 0);
+        });
+
+        // Conditional check for preferred_age_min and preferred_age_max
+        const openAgePref = (answers as any).open_age_preference;
+        const missingAgeRange = !openAgePref && 
+                              ((answers as any).preferred_age_min == null || 
+                               (answers as any).preferred_age_max == null);
+
+        if (missing || missingAgeRange) {
+          console.log('📝 Incomplete survey detected — redirecting to token URL to retake survey');
+          window.location.href = `/welcome?token=${encodeURIComponent(savedToken)}`;
         } else {
-          console.log('✅ User has completed survey');
+          console.log('✅ Survey is complete');
         }
       }
     } catch (err) {

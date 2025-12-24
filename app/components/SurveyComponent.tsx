@@ -51,6 +51,15 @@ const surveyQuestions = [
     min: 18,
     max: 65
   },
+  // Preferred age range (optional) - inserted as fractional to avoid shifting counts
+  {
+    id: "preferred_age_range",
+    question: "السؤال 2.25",
+    description: "وش المدى العمري اللي يناسبك في الطرف الآخر؟",
+    type: "age_range",
+    required: false,
+    category: "personal_info"
+  },
   {
     id: "gender",
     question: "السؤال 3", 
@@ -59,6 +68,54 @@ const surveyQuestions = [
     options: [
       { value: "male", label: "ذكر" },
       { value: "female", label: "أنثى" }
+    ],
+    required: true,
+    category: "personal_info"
+  },
+  // Nationality (required) - Saudi on top, then the rest exactly as provided
+  {
+    id: "nationality",
+    question: "السؤال 3.5",
+    description: "جنسيتك؟",
+    type: "select",
+    placeholder: "اختر جنسيتك",
+    options: [
+      { value: "السعودية", label: "السعودية" },
+      { value: "الإمارات", label: "الإمارات" },
+      { value: "الكويت", label: "الكويت" },
+      { value: "قطر", label: "قطر" },
+      { value: "البحرين", label: "البحرين" },
+      { value: "عمان", label: "عمان" },
+      { value: "الأردن", label: "الأردن" },
+      { value: "لبنان", label: "لبنان" },
+      { value: "سوريا", label: "سوريا" },
+      { value: "فلسطين", label: "فلسطين" },
+      { value: "العراق", label: "العراق" },
+      { value: "اليمن", label: "اليمن" },
+      { value: "مصر", label: "مصر" },
+      { value: "السودان", label: "السودان" },
+      { value: "ليبيا", label: "ليبيا" },
+      { value: "تونس", label: "تونس" },
+      { value: "الجزائر", label: "الجزائر" },
+      { value: "المغرب", label: "المغرب" },
+      { value: "موريتانيا", label: "موريتانيا" },
+      { value: "الصومال", label: "الصومال" },
+      { value: "جيبوتي", label: "جيبوتي" },
+      { value: "جزر القمر", label: "جزر القمر" },
+      { value: "أخرى", label: "أخرى" }
+    ],
+    required: true,
+    category: "personal_info"
+  },
+  // Nationality preference (optional)
+  {
+    id: "nationality_preference",
+    question: "السؤال 3.75",
+    description: "هل يهمك يكون الطرف الآخر من نفس جنسيتك؟",
+    type: "radio",
+    options: [
+      { value: "same", label: "نعم، أفضل شخص من نفس الجنسية." },
+      { value: "any", label: "ما يفرق، الأهم التوافق الشخصي." }
     ],
     required: true,
     category: "personal_info"
@@ -504,6 +561,96 @@ const surveyQuestions = [
     required: true,
     category: "vibe",
     maxLength: 150
+  },
+  // Interaction Synergy (Q35–Q41)
+  {
+    id: "conversational_role",
+    question: "السؤال 35",
+    description: "في أي جلسة أو \"جمعة\"، وش يكون دورك العفوي؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. المبادر: أنا اللي أفتح المواضيع وأحرك الجو." },
+      { value: "B", label: "ب. المتفاعل: أشارك بحماس وأرد على اللي ينقال." },
+      { value: "C", label: "ج. المستمع: أحب أسمع أكثر من إني أتكلم وأركز في التفاصيل." }
+    ],
+    required: true,
+    category: "interaction_synergy"
+  },
+  {
+    id: "conversation_depth_pref",
+    question: "السؤال 36",
+    description: "وش نوع السوالف اللي تشدك وتخليك تسترسل؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. العميقة: أحب نحلل \"ليه وكيف\" ونغوص في الفلسفة والأسباب." },
+      { value: "B", label: "ب. الواقعية: أحب نتكلم عن \"وش صار ومتى\" وأخبار اليوم والأشياء الملموسة." }
+    ],
+    required: true,
+    category: "interaction_synergy"
+  },
+  {
+    id: "social_battery",
+    question: "السؤال 37",
+    description: "بعد ساعة من السوالف مع ناس جدد، كيف تحس طاقتك؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. تزيد: أحس إني نشطت وأبي أكمل السهرة." },
+      { value: "B", label: "ب. تقل: استمتعت بس أحس \"بطاريتي\" بدت تخلص وأحتاج هدوء." }
+    ],
+    required: true,
+    category: "interaction_synergy"
+  },
+  {
+    id: "humor_subtype",
+    question: "السؤال 38",
+    description: "وش أكثر شيء يضحكك من قلب؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. الذبّات والسرعة: الذكاء في الرد والسخرية الخفيفة." },
+      { value: "B", label: "ب. المواقف العفوية: الأشياء اللي تصير فجأة وبدون تخطيط." },
+      { value: "C", label: "ج. القصص والسرد: طريقة حكي السالفة وتفاصيلها المضحكة." }
+    ],
+    required: true,
+    category: "interaction_synergy"
+  },
+  {
+    id: "curiosity_style",
+    question: "السؤال 39",
+    description: "وش اللي يمتعك أكثر وأنت تتعرف على شخص جديد؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. إنه يسألني أسئلة عميقة عن نفسي وتجاربي." },
+      { value: "B", label: "ب. إني أنا اللي أسأله وأكتشف تفاصيل حياته." },
+      { value: "C", label: "ج. \"الأخذ والعطاء\" السريع والمزح بدون رسميات." }
+    ],
+    required: true,
+    category: "interaction_synergy"
+  },
+  // Intent & Goal
+  {
+    id: "intent_goal",
+    question: "السؤال 40",
+    description: "وش هدفك الأساسي من حضورك معنا اليوم؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. ودي أوسع دائرة معارفي وأكون صداقات جديدة ورهيبة." },
+      { value: "B", label: "ب. أبحث عن شيء أعمق: شخص يفهمني فكرياً ونكون على \"نفس الموجة\" تماماً." },
+      { value: "C", label: "ج. جاي أجرب تجربة اجتماعية جديدة وأغير جو." }
+    ],
+    required: true,
+    category: "intent_goal"
+  },
+  {
+    id: "silence_comfort",
+    question: "السؤال 41",
+    description: "لو صار فيه هدوء مفاجئ في الجلسة، وش يكون شعورك؟",
+    type: "radio",
+    options: [
+      { value: "A", label: "أ. قلق: أحس لازم أقول أي شيء عشان أكسر الصمت." },
+      { value: "B", label: "ب. راحة: عادي عندي، الهدوء جزء من السالفة ولا يوترني." }
+    ],
+    required: true,
+    category: "interaction_synergy"
   }
 ]
 
@@ -741,6 +888,11 @@ const SurveyComponent = memo(function SurveyComponent({
   // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
   const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
   const progress = useMemo(() => ((currentPage + 1) / totalPages) * 100, [currentPage, totalPages])
+  // Determine which page contains the phone number question (to run duplicate check at the right time)
+  const phoneQuestionPage = useMemo(() => {
+    const idx = surveyQuestions.findIndex(q => q.id === 'phone_number')
+    return idx >= 0 ? Math.floor(idx / questionsPerPage) : 0
+  }, [])
   
   // Memoize current page questions to avoid re-slicing on every render
   const currentQuestions = useMemo(() => 
@@ -800,64 +952,69 @@ const SurveyComponent = memo(function SurveyComponent({
 
   // Memoize page validation to avoid expensive recalculation on every render
   const isPageValid = useMemo(() => {
-    const validationCache = new Map<number, boolean>()
-    
+    const validationCache = new Map<number, boolean>();
+
     return (page: number) => {
-      // Check cache first
       if (validationCache.has(page)) {
-        return validationCache.get(page)!
+        return validationCache.get(page)!;
       }
-      
-      let isValid = true
-      
-      // Validate questions on this page
-      const startIndex = page * questionsPerPage
-      const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
-      
+
+      let isValid = true;
+      const startIndex = page * questionsPerPage;
+      const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length);
+
       for (let i = startIndex; i < endIndex; i++) {
-        const question = surveyQuestions[i]
-        const value = surveyData.answers[question.id]
-        
+        const question = surveyQuestions[i];
+        const value = surveyData.answers[question.id];
+
         if (question.required) {
           if (Array.isArray(value)) {
             if (!value || value.length === 0) {
-              isValid = false
-              break
+              isValid = false;
+              break;
             }
           } else {
-            if (!value || value === "" || value.trim() === "") {
-              isValid = false
-              break
+            if (value == null || String(value).trim() === "") {
+              isValid = false;
+              break;
             }
-            
-            // Check character limit for text questions
-            if (question.type === "text" && question.maxLength) {
-              if (value.length > question.maxLength) {
-                isValid = false
-                break
-              }
-              // Check 50% minimum requirement for text questions (except name and phone)
-              if (question.id !== 'name' && question.id !== 'phone_number') {
-                const minRequired = Math.ceil(question.maxLength * 0.5)
-                if (value.length < minRequired) {
-                  isValid = false
-                  break
-                }
-              }
+          }
+        }
+
+        // Special validations
+        if (question.id === 'phone_number') {
+          const phone = String(value || '').replace(/\D/g, '');
+          if (phone.length < 10) {
+            isValid = false;
+            break;
+          }
+        }
+
+        if (question.id === 'preferred_age_range') {
+          const openAge = surveyData.answers['open_age_preference'] === 'true';
+          if (!openAge) {
+            const minAge = surveyData.answers['preferred_age_min'];
+            const maxAge = surveyData.answers['preferred_age_max'];
+            if (minAge == null || maxAge == null || String(minAge).trim() === '' || String(maxAge).trim() === '') {
+              isValid = false;
+              break;
+            }
+            if (parseInt(String(minAge), 10) > parseInt(String(maxAge), 10)) {
+              isValid = false;
+              break;
             }
           }
         }
       }
-      
-      // Cache the result
-      validationCache.set(page, isValid)
-      return isValid
-    }
-  }, [surveyData.answers, surveyData.termsAccepted, surveyData.dataConsent, totalPages])
+
+      validationCache.set(page, isValid);
+      return isValid;
+    };
+  }, [surveyData.answers]);
 
   const nextPage = async () => {
-    // Check for phone number duplicates when moving from first page
-    if (currentPage === 0) {
+    // Check for phone number duplicates when moving from the page that contains phone number
+    if (currentPage === phoneQuestionPage) {
       const phoneNumber = surveyData.answers.phone_number
       if (phoneNumber) {
         try {
@@ -1159,7 +1316,7 @@ const SurveyComponent = memo(function SurveyComponent({
               onValueChange={(val) => handleInputChange(question.id, val)}
             >
               <SelectTrigger className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700">
-                <SelectValue placeholder="اختر نوع شخصيتك" />
+                <SelectValue placeholder={question.placeholder || "اختر"} />
               </SelectTrigger>
               <SelectContent>
                 {question.options.map((option: any) => (
@@ -1183,6 +1340,69 @@ const SurveyComponent = memo(function SurveyComponent({
                   اختبار مجاني على 16personalities.com
                 </a>
               </div>
+            )}
+          </div>
+        )
+
+      case "age_range":
+        // Use two numeric inputs stored under preferred_age_min and preferred_age_max
+        const minVal = (surveyData.answers['preferred_age_min'] as string) || ""
+        const maxVal = (surveyData.answers['preferred_age_max'] as string) || ""
+        const openAge = (surveyData.answers['open_age_preference'] === 'true') || (surveyData.answers['open_age_preference'] === true as any)
+        return (
+          <div className="mt-4">
+            {/* Open Age toggle */}
+            <div className="mb-3 flex items-center justify-end gap-2">
+              <label htmlFor="open-age" className="text-sm text-gray-700 dark:text-gray-200">بدون قيود عمرية (مفتوح)</label>
+              <Checkbox
+                id="open-age"
+                checked={!!openAge}
+                onCheckedChange={(checked: boolean) => {
+                  handleInputChange('open_age_preference', checked ? 'true' : 'false')
+                  if (checked) {
+                    // Clear min/max if enabling open age
+                    handleInputChange('preferred_age_min', '')
+                    handleInputChange('preferred_age_max', '')
+                  }
+                }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">من عمر</Label>
+                <Input
+                  type="text"
+                  value={minVal}
+                  disabled={!!openAge}
+                  onChange={(e) => {
+                    const converted = convertArabicToEnglish(e.target.value).replace(/[^0-9]/g, '')
+                    handleInputChange('preferred_age_min', converted)
+                  }}
+                  placeholder="مثلاً 24"
+                  className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                />
+              </div>
+              <div>
+                <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">إلى عمر</Label>
+                <Input
+                  type="text"
+                  value={maxVal}
+                  disabled={!!openAge}
+                  onChange={(e) => {
+                    const converted = convertArabicToEnglish(e.target.value).replace(/[^0-9]/g, '')
+                    handleInputChange('preferred_age_max', converted)
+                  }}
+                  placeholder="مثلاً 32"
+                  className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                />
+              </div>
+            </div>
+            {openAge && (
+              <p className="mt-2 text-xs text-green-700 dark:text-green-300 text-right">لن يتم تطبيق أي حدود عمرية عليك أو على شريكك من جهتك — سيتم تجاهل المدى العمري.</p>
             )}
           </div>
         )
@@ -1231,9 +1451,12 @@ const SurveyComponent = memo(function SurveyComponent({
               <Input
                 value={value as string || ""}
                 onChange={(e) => {
-                  const newValue = e.target.value
+                  let newValue = e.target.value;
+                  if (isPhoneNumber) {
+                    newValue = convertArabicToEnglish(newValue);
+                  }
                   if (newValue.length <= maxLength) {
-                    handleInputChange(question.id, newValue)
+                    handleInputChange(question.id, newValue);
                   }
                 }}
                 placeholder={question.placeholder}

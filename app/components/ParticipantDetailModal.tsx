@@ -213,95 +213,48 @@ export default function ParticipantDetailModal({
                         {swapMode && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">اختيار</th>
                         )}
-                        {matchType !== "group" && (() => {
-                          const hasNew = sortedMatches.some(m => m.synergy_score !== undefined || m.humor_open_score !== undefined || m.intent_score !== undefined)
-                          if (hasNew) {
-                            return (
-                              <>
-                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Users className="w-3 h-3" />
-                                    <span className="text-xs">التفاعل</span>
-                                  </div>
-                                </th>
-                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Home className="w-3 h-3" />
-                                    <span className="text-xs">نمط الحياة</span>
-                                  </div>
-                                </th>
-                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Sparkles className="w-3 h-3" />
-                                    <span className="text-xs">الدعابة/الانفتاح</span>
-                                  </div>
-                                </th>
-                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <MessageCircle className="w-3 h-3" />
-                                    <span className="text-xs">التواصل</span>
-                                  </div>
-                                </th>
-                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Star className="w-3 h-3" />
-                                    <span className="text-xs">الأهداف/القيم</span>
-                                  </div>
-                                </th>
-                                {matchType === "ai" && (
-                                  <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                    <div className="flex items-center justify-center gap-1">
-                                      <Zap className="w-3 h-3" />
-                                      <span className="text-xs">الطاقة</span>
-                                    </div>
-                                  </th>
-                                )}
-                              </>
-                            )
-                          }
-                          return (
-                            <>
+                        {matchType !== "group" && (
+                          <>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                              <div className="flex items-center justify-center gap-1">
+                                <Users className="w-3 h-3" />
+                                <span className="text-xs">التفاعل</span>
+                              </div>
+                            </th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                              <div className="flex items-center justify-center gap-1">
+                                <Home className="w-3 h-3" />
+                                <span className="text-xs">نمط الحياة</span>
+                              </div>
+                            </th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                              <div className="flex items-center justify-center gap-1">
+                                <Sparkles className="w-3 h-3" />
+                                <span className="text-xs">الدعابة/الانفتاح</span>
+                              </div>
+                            </th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                              <div className="flex items-center justify-center gap-1">
+                                <MessageCircle className="w-3 h-3" />
+                                <span className="text-xs">التواصل</span>
+                              </div>
+                            </th>
+                            <th className="text-center p-4 text-sm font-semibold text-slate-300">
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="w-3 h-3" />
+                                <span className="text-xs">الأهداف/القيم</span>
+                              </div>
+                            </th>
+                            {matchType === "ai" && (
                               <th className="text-center p-4 text-sm font-semibold text-slate-300">
                                 <div className="flex items-center justify-center gap-1">
-                                  <Brain className="w-3 h-3" />
-                                  <span className="text-xs">MBTI</span>
+                                  <Zap className="w-3 h-3" />
+                                  <span className="text-xs">الطاقة</span>
                                 </div>
                               </th>
-                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Heart className="w-3 h-3" />
-                                  <span className="text-xs">التعلق</span>
-                                </div>
-                              </th>
-                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                <div className="flex items-center justify-center gap-1">
-                                  <MessageCircle className="w-3 h-3" />
-                                  <span className="text-xs">التواصل</span>
-                                </div>
-                              </th>
-                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Home className="w-3 h-3" />
-                                  <span className="text-xs">نمط الحياة</span>
-                                </div>
-                              </th>
-                              <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                <div className="flex items-center justify-center gap-1">
-                                  <Star className="w-3 h-3" />
-                                  <span className="text-xs">القيم</span>
-                                </div>
-                              </th>
-                              {matchType === "ai" && (
-                                <th className="text-center p-4 text-sm font-semibold text-slate-300">
-                                  <div className="flex items-center justify-center gap-1">
-                                    <Zap className="w-3 h-3" />
-                                    <span className="text-xs">الطاقة</span>
-                                  </div>
-                                </th>
-                              )}
-                            </>
-                          )
-                        })()}
+                            )}
+                          </>
+                        )}
                       </tr>
                     </thead>
                     <tbody>
@@ -592,59 +545,18 @@ export default function ParticipantDetailModal({
                               </button>
                             </td>
                           )}
-                          {matchType !== "group" && (() => {
-                            const hasNew = match.synergy_score !== undefined || match.humor_open_score !== undefined || match.intent_score !== undefined
-                            if (hasNew) {
-                              return (
-                                <>
-                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}%</span></td>
-                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.lifestyle_compatibility_score ?? 0).toFixed(1)}%</span></td>
-                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.humor_open_score ?? 0).toFixed(1)}%</span></td>
-                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.communication_compatibility_score ?? 0).toFixed(1)}%</span></td>
-                                  <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.intent_score ?? 0).toFixed(1)}%</span></td>
-                                  {matchType === "ai" && (
-                                    <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}%</span></td>
-                                  )}
-                                </>
-                              )
-                            }
-                            return (
-                              <>
-                                <td className="p-4 text-center">
-                                  <span className="text-slate-300 text-sm">
-                                    {match.mbti_compatibility_score?.toFixed(1) || "0"}%
-                                  </span>
-                                </td>
-                                <td className="p-4 text-center">
-                                  <span className="text-slate-300 text-sm">
-                                    {match.attachment_compatibility_score?.toFixed(1) || "0"}%
-                                  </span>
-                                </td>
-                                <td className="p-4 text-center">
-                                  <span className="text-slate-300 text-sm">
-                                    {match.communication_compatibility_score?.toFixed(1) || "0"}%
-                                  </span>
-                                </td>
-                                <td className="p-4 text-center">
-                                  <span className="text-slate-300 text-sm">
-                                    {match.lifestyle_compatibility_score?.toFixed(1) || "0"}%
-                                  </span>
-                                </td>
-                                <td className="p-4 text-center">
-                                  <span className="text-slate-300 text-sm">
-                                    {match.core_values_compatibility_score?.toFixed(1) || "0"}%
-                                  </span>
-                                </td>
-                                {matchType === "ai" && (
-                                  <td className="p-4 text-center">
-                                    <span className="text-slate-300 text-sm">
-                                      {match.vibe_compatibility_score?.toFixed(1) || "0"}%
-                                    </span>
-                                  </td>
-                                )}
-                              </>
-                            )
-                          })()}
+                          {matchType !== "group" && (
+                            <>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.synergy_score ?? 0).toFixed(1)}%</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.lifestyle_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.humor_open_score ?? 0).toFixed(1)}%</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.communication_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                              <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.intent_score ?? 0).toFixed(1)}%</span></td>
+                              {matchType === "ai" && (
+                                <td className="p-4 text-center"><span className="text-slate-300 text-sm">{(match.vibe_compatibility_score ?? 0).toFixed(1)}%</span></td>
+                              )}
+                            </>
+                          )}
                         </tr>
                       ))}
                     </tbody>

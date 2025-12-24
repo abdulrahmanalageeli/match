@@ -2777,9 +2777,12 @@ export default function WelcomePage() {
             }
           }
           
-          // If any questions are incomplete, redirect to retake survey using token URL
+          // If any questions are incomplete, show the completion popup
           if (Object.keys(incomplete).length > 0) {
-            window.location.href = `/welcome?token=${encodeURIComponent(token)}`
+            setIncompleteVibeQuestions(incomplete)
+            setVibeAnswers(currentAnswers)
+            setShowVibeCompletionPopup(true)
+            console.log("💡 Vibe questions incomplete, showing popup", incomplete)
             return
           }
         }

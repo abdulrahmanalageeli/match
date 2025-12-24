@@ -3049,8 +3049,13 @@ export default function WelcomePage() {
                                (answers as any).preferred_age_max == null);
 
         if (missing || missingAgeRange) {
-          console.log('📝 Incomplete survey detected — redirecting to token URL to retake survey');
-          window.location.href = `/welcome?token=${encodeURIComponent(savedToken)}`;
+          console.log('📝 Incomplete survey detected — showing popup');
+          setIncompleteSurveyInfo({
+            name: data.name || "المشارك",
+            assigned_number: data.assigned_number,
+            secure_token: savedToken
+          });
+          setShowSurveyCompletionPopup(true);
         } else {
           console.log('✅ Survey is complete');
         }

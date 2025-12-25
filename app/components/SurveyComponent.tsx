@@ -1338,7 +1338,7 @@ const SurveyComponent = memo(function SurveyComponent({
             {question.options.map((option: any) => (
               <div
                 key={option.value}
-                className={`group rounded-xl border-2 transition p-3 ${
+                className={`group rounded-xl border-2 transition p-3 focus-within:ring-1 focus-within:ring-blue-300 ${
                   (value as string) === option.value
                     ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
                     : 'border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400/50 bg-white dark:bg-slate-800/40'
@@ -1348,7 +1348,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   <RadioGroupItem
                     value={option.value}
                     id={`${question.id}-${option.value}`}
-                    className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-slate-500 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 flex-shrink-0"
+                    className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-slate-500 text-blue-600 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none ring-0 overflow-hidden data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 flex-shrink-0"
                   />
                   <Label
                     htmlFor={`${question.id}-${option.value}`}
@@ -1368,7 +1368,7 @@ const SurveyComponent = memo(function SurveyComponent({
             {question.options.map((option: any) => (
               <div
                 key={option.value}
-                className={`group rounded-xl border-2 transition p-3 ${
+                className={`group rounded-xl border-2 transition p-3 focus-within:ring-1 focus-within:ring-green-300 ${
                   ((value as string[] || []).includes(option.value))
                     ? 'border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-900/20'
                     : 'border-gray-200 dark:border-slate-600 hover:border-green-300 dark:hover:border-green-400/50 bg-white dark:bg-slate-800/40'
@@ -1381,7 +1381,7 @@ const SurveyComponent = memo(function SurveyComponent({
                     onCheckedChange={(checked: boolean) =>
                       handleCheckboxChange(question.id, option.value, checked)
                     }
-                    className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-slate-500 text-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700 data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600 flex-shrink-0"
+                    className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-slate-500 text-green-600 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none ring-0 overflow-hidden data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600 flex-shrink-0"
                   />
                   <Label
                     htmlFor={`${question.id}-${option.value}`}

@@ -713,13 +713,13 @@ export default async function handler(req, res) {
         }
 
         const conversationDepth = answers.conversation_depth_pref
-        if (typeof conversationDepth === 'string' && ['A','B','C'].includes(conversationDepth)) {
+        if (typeof conversationDepth === 'string' && ['A','B'].includes(conversationDepth)) {
           updateFields.conversation_depth_pref = conversationDepth
           console.log('📚 Conversation Depth Pref:', conversationDepth)
         }
 
         const socialBattery = answers.social_battery
-        if (typeof socialBattery === 'string' && ['A','B','C'].includes(socialBattery)) {
+        if (typeof socialBattery === 'string' && ['A','B'].includes(socialBattery)) {
           updateFields.social_battery = socialBattery
           console.log('🔋 Social Battery:', socialBattery)
         }
@@ -731,7 +731,7 @@ export default async function handler(req, res) {
         }
 
         const silenceComfort = answers.silence_comfort
-        if (typeof silenceComfort === 'string' && ['A','B','C'].includes(silenceComfort)) {
+        if (typeof silenceComfort === 'string' && ['A','B'].includes(silenceComfort)) {
           updateFields.silence_comfort = silenceComfort
           console.log('🤫 Silence Comfort:', silenceComfort)
         }

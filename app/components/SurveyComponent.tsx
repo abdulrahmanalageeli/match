@@ -919,6 +919,23 @@ const SurveyComponent = memo(function SurveyComponent({
     }))
   }, [surveyData.answers['phone_number'], setSurveyData])
 
+  // Default country code to +966 if not set and no composed phone present
+  useEffect(() => {
+    const cc = String(surveyData.answers['phone_cc'] || '')
+    const composed = String(surveyData.answers['phone_number'] || '')
+    if (cc || composed) return
+    const local = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
+    setSurveyData((prev) => ({
+      ...prev,
+      answers: {
+        ...prev.answers,
+        phone_cc: '966',
+        // If user already typed local before CC defaulted, compose full phone
+        phone_number: local ? `+966${local}` : prev.answers['phone_number']
+      }
+    }))
+  }, [surveyData.answers['phone_cc'], surveyData.answers['phone_number'], surveyData.answers['phone_local'], setSurveyData])
+
   // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
   const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
   const progress = useMemo(() => ((currentPage + 1) / totalPages) * 100, [currentPage, totalPages])
@@ -1532,6 +1549,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   <div className="col-span-2">
                     <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">رمز الدولة</Label>
                     <Input
+                      dir="ltr"
                       value={`+${cc}`}
                       onChange={(e) => {
                         let v = convertArabicToEnglish(e.target.value)
@@ -1541,7 +1559,7 @@ const SurveyComponent = memo(function SurveyComponent({
                         handleInputChange('phone_number', v ? `+${v}${loc}` : loc)
                       }}
                       placeholder="+966"
-                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
+                      className={`text-left border-2 rounded-lg px-3 py-2 text-sm ${
                         ccInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
                       } bg-white dark:bg-slate-700`}
                     />
@@ -1549,6 +1567,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   <div className="col-span-3">
                     <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">الرقم</Label>
                     <Input
+                      dir="ltr"
                       value={local}
                       onChange={(e) => {
                         let v = convertArabicToEnglish(e.target.value)
@@ -1559,7 +1578,7 @@ const SurveyComponent = memo(function SurveyComponent({
                         handleInputChange('phone_number', code ? `+${code}${v}` : v)
                       }}
                       placeholder="5XXXXXXXX"
-                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
+                      className={`text-left border-2 rounded-lg px-3 py-2 text-sm ${
                         localInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
                       } bg-white dark:bg-slate-700`}
                       inputMode="numeric"
@@ -1571,7 +1590,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   <span className={`font-medium ${ccInvalid || localInvalid ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
                   </span>
-                  <span className="text-gray-600 dark:text-gray-300">{composed || question.placeholder}</span>
+                  <span className="text-gray-600 dark:text-gray-300 font-mono" dir="ltr">{composed || question.placeholder}</span>
                 </div>
               </div>
             )

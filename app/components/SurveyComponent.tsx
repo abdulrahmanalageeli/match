@@ -896,6 +896,29 @@ const SurveyComponent = memo(function SurveyComponent({
       .filter(Boolean)
   }, [])
 
+  // Auto-parse existing composed phone_number into split fields
+  useEffect(() => {
+    const composed = String(surveyData.answers['phone_number'] || '')
+    const ccExists = !!surveyData.answers['phone_cc']
+    const localExists = !!surveyData.answers['phone_local']
+    if (!composed || (ccExists && localExists)) return
+    const digits = convertArabicToEnglish(composed).replace(/[^0-9]/g, '')
+    if (digits.length < 10) return
+    // Choose cc length so that local remains at least 9 digits, and cc is max 3
+    let ccLen = Math.min(3, Math.max(1, digits.length - 9))
+    const cc = digits.slice(0, ccLen)
+    const local = digits.slice(ccLen).replace(/^0+/, '')
+    setSurveyData((prev) => ({
+      ...prev,
+      answers: {
+        ...prev.answers,
+        phone_cc: cc,
+        phone_local: local,
+        phone_number: cc ? `+${cc}${local}` : local
+      }
+    }))
+  }, [surveyData.answers['phone_number'], setSurveyData])
+
   // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
   const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
   const progress = useMemo(() => ((currentPage + 1) / totalPages) * 100, [currentPage, totalPages])
@@ -979,23 +1002,29 @@ const SurveyComponent = memo(function SurveyComponent({
         const value = surveyData.answers[question.id];
 
         if (question.required) {
-          if (Array.isArray(value)) {
-            if (!value || value.length === 0) {
-              isValid = false;
-              break;
-            }
-          } else {
-            if (value == null || String(value).trim() === "") {
-              isValid = false;
-              break;
+          // For phone_number, we validate via split fields (phone_cc, phone_local) below
+          if (question.id !== 'phone_number') {
+            if (Array.isArray(value)) {
+              if (!value || value.length === 0) {
+                isValid = false;
+                break;
+              }
+            } else {
+              if (value == null || String(value).trim() === "") {
+                isValid = false;
+                break;
+              }
             }
           }
         }
 
         // Special validations
         if (question.id === 'phone_number') {
-          const phone = String(value || '').replace(/\D/g, '');
-          if (phone.length < 10) {
+          // Validate split phone inputs: country code (1-3 digits) + local (>=9 digits, no leading zero)
+          const cc = String(surveyData.answers['phone_cc'] || '').replace(/\D/g, '')
+          const localRaw = String(surveyData.answers['phone_local'] || '').replace(/\D/g, '')
+          const local = localRaw.replace(/^0+/, '')
+          if (cc.length < 1 || cc.length > 3 || local.length < 9) {
             isValid = false;
             break;
           }
@@ -1013,6 +1042,15 @@ const SurveyComponent = memo(function SurveyComponent({
             if (parseInt(String(minAge), 10) > parseInt(String(maxAge), 10)) {
               isValid = false;
               break;
+            }
+            const minVal = parseInt(String(minAge), 10)
+            const maxVal = parseInt(String(maxAge), 10)
+            if (!isNaN(minVal) && !isNaN(maxVal)) {
+              // Enforce minimum 3-year span
+              if ((maxVal - minVal) < 3) {
+                isValid = false;
+                break;
+              }
             }
           }
         }
@@ -1143,7 +1181,12 @@ const SurveyComponent = memo(function SurveyComponent({
       // Extract personal information
       const name = surveyData.answers['name'] as string
       const gender = surveyData.answers['gender'] as string
-      const phoneNumber = surveyData.answers['phone_number'] as string
+      let phoneNumber = surveyData.answers['phone_number'] as string
+      if (!phoneNumber) {
+        const cc = String(surveyData.answers['phone_cc'] || '').replace(/[^0-9]/g, '')
+        const local = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
+        phoneNumber = cc || local ? `+${cc}${local}` : ''
+      }
       
       // Determine actual gender preference based on user's gender and choice
       const actualGenderPreference = determineGenderPreference(surveyData.answers)
@@ -1227,7 +1270,12 @@ const SurveyComponent = memo(function SurveyComponent({
       // Extract personal information
       const name = dataToSubmit.answers['name'] as string
       const gender = dataToSubmit.answers['gender'] as string
-      const phoneNumber = dataToSubmit.answers['phone_number'] as string
+      let phoneNumber = dataToSubmit.answers['phone_number'] as string
+      if (!phoneNumber) {
+        const cc = String(dataToSubmit.answers['phone_cc'] || '').replace(/[^0-9]/g, '')
+        const local = String(dataToSubmit.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
+        phoneNumber = cc || local ? `+${cc}${local}` : ''
+      }
       
       // Determine actual gender preference based on user's gender and choice
       const actualGenderPreference = determineGenderPreference(dataToSubmit.answers)
@@ -1420,6 +1468,9 @@ const SurveyComponent = memo(function SurveyComponent({
                 />
               </div>
             </div>
+            {(!openAge && minVal && maxVal && !isNaN(parseInt(minVal)) && !isNaN(parseInt(maxVal)) && (parseInt(maxVal) - parseInt(minVal) < 3)) && (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-center">المدى العمري يجب أن يكون 3 سنوات على الأقل.</p>
+            )}
             {openAge && (
               <p className="mt-2 text-xs text-green-700 dark:text-green-300 text-center">لن يتم تطبيق أي حدود عمرية عليك أو على شريكك من جهتك — سيتم تجاهل المدى العمري.</p>
             )}
@@ -1466,6 +1517,66 @@ const SurveyComponent = memo(function SurveyComponent({
         
         // Name and phone don't have 50% minimum requirement
         if (isPhoneNumber || isName) {
+          if (isPhoneNumber) {
+            const ccRaw = String(surveyData.answers['phone_cc'] || '')
+            const localRaw = String(surveyData.answers['phone_local'] || '')
+            const cc = convertArabicToEnglish(ccRaw).replace(/[^0-9]/g, '').slice(0, 3)
+            const localDigits = convertArabicToEnglish(localRaw).replace(/[^0-9]/g, '')
+            const local = localDigits.replace(/^0+/, '')
+            const composed = cc ? `+${cc} ${local}` : local ? `${local}` : ''
+            const ccInvalid = cc.length < 1 || cc.length > 3
+            const localInvalid = local.length < 9
+            return (
+              <div className="mt-4">
+                <div className="grid grid-cols-5 gap-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">رمز الدولة</Label>
+                    <Input
+                      value={`+${cc}`}
+                      onChange={(e) => {
+                        let v = convertArabicToEnglish(e.target.value)
+                        v = v.replace(/[^0-9]/g, '').slice(0, 3)
+                        handleInputChange('phone_cc', v)
+                        const loc = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
+                        handleInputChange('phone_number', v ? `+${v}${loc}` : loc)
+                      }}
+                      placeholder="+966"
+                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
+                        ccInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
+                      } bg-white dark:bg-slate-700`}
+                    />
+                  </div>
+                  <div className="col-span-3">
+                    <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">الرقم</Label>
+                    <Input
+                      value={local}
+                      onChange={(e) => {
+                        let v = convertArabicToEnglish(e.target.value)
+                        v = v.replace(/[^0-9]/g, '')
+                        v = v.replace(/^0+/, '')
+                        handleInputChange('phone_local', v)
+                        const code = String(surveyData.answers['phone_cc'] || '').replace(/[^0-9]/g, '')
+                        handleInputChange('phone_number', code ? `+${code}${v}` : v)
+                      }}
+                      placeholder="5XXXXXXXX"
+                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
+                        localInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
+                      } bg-white dark:bg-slate-700`}
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-between items-center mt-2 text-xs">
+                  <span className={`font-medium ${ccInvalid || localInvalid ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                    {ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
+                  </span>
+                  <span className="text-gray-600 dark:text-gray-300">{composed || question.placeholder}</span>
+                </div>
+              </div>
+            )
+          }
+          // Name input fallback
           return (
             <div className="relative mt-4">
               <Input
@@ -1486,16 +1597,12 @@ const SurveyComponent = memo(function SurveyComponent({
                     : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
                 } bg-white dark:bg-slate-700`}
               />
-              
-              {/* Character counter */}
               <div className="flex justify-between items-center mt-2 text-xs">
                 <span className={`font-medium ${isOverLimit ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                   {currentLength}/{maxLength} حرف
                 </span>
                 {isOverLimit && (
-                  <span className="text-red-500 dark:text-red-400 font-medium">
-                    تجاوزت الحد المسموح
-                  </span>
+                  <span className="text-red-500 dark:text-red-400 font-medium">تجاوزت الحد المسموح</span>
                 )}
               </div>
             </div>

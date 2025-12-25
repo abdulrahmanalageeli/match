@@ -1110,11 +1110,61 @@ export default async function handler(req, res) {
         console.log(`📝 Edit mode detected - current participant: #${current_participant_number}, token: ${secure_token ? 'provided' : 'none'}`)
       }
 
-      // Search for participants with matching last 7 digits
-      const { data: existingParticipants, error } = await supabase
+      // Determine current event id to avoid false positives from previous events
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      let currentEventId = null
+
+      try {
+        if (secure_token) {
+          const { data: meByToken, error: meTokenErr } = await supabase
+            .from("participants")
+            .select("event_id")
+            .eq("match_id", match_id)
+            .eq("secure_token", secure_token)
+            .single()
+          if (!meTokenErr && meByToken?.event_id) currentEventId = meByToken.event_id
+        } else if (current_participant_number) {
+          const { data: meByNumber, error: meNumErr } = await supabase
+            .from("participants")
+            .select("event_id")
+            .eq("match_id", match_id)
+            .eq("assigned_number", current_participant_number)
+            .single()
+          if (!meNumErr && meByNumber?.event_id) currentEventId = meByNumber.event_id
+        }
+      } catch (e) {
+        console.warn("⚠️ Could not determine current event_id from participant context:", e?.message)
+      }
+
+      // Fallback: read current_event_id from event_state if not resolved
+      if (!currentEventId) {
+        try {
+          const { data: eventState, error: esErr } = await supabase
+            .from("event_state")
+            .select("current_event_id")
+            .eq("match_id", match_id)
+            .single()
+          if (!esErr && eventState?.current_event_id) currentEventId = eventState.current_event_id
+        } catch (e) {
+          console.warn("⚠️ Could not read current_event_id from event_state:", e?.message)
+        }
+      }
+
+      // Search for participants with matching last 7 digits, scoped to current event when known
+      let query = supabase
         .from("participants")
-        .select("assigned_number, name, phone_number, secure_token")
+        .select("assigned_number, name, phone_number, secure_token, event_id")
+        .eq("match_id", match_id)
         .not("phone_number", "is", null)
+
+      if (currentEventId) {
+        query = query.eq("event_id", currentEventId)
+        console.log(`📅 Scoping phone duplicate check to event_id=${currentEventId}`)
+      } else {
+        console.log("📅 No current event_id resolved; checking across all events for this match_id")
+      }
+
+      const { data: existingParticipants, error } = await query
 
       if (error) {
         console.error("Database error:", error)

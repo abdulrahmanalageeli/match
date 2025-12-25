@@ -1029,14 +1029,26 @@ const SurveyComponent = memo(function SurveyComponent({
       const phoneNumber = surveyData.answers.phone_number
       if (phoneNumber) {
         try {
+          // Fallbacks for current participant context (important when editing)
+          const storedToken = typeof window !== 'undefined'
+            ? (localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token'))
+            : null
+          const storedNumberStr = typeof window !== 'undefined'
+            ? localStorage.getItem('blindmatch_participant_number')
+            : null
+          const storedNumber = storedNumberStr ? parseInt(storedNumberStr, 10) : undefined
+
+          const tokenForCheck = secureToken || storedToken || undefined
+          const numberForCheck = assignedNumber || storedNumber || undefined
+
           const res = await fetch("/api/participant", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action: "check-phone-duplicate",
               phone_number: phoneNumber,
-              current_participant_number: assignedNumber, // Exclude current participant from duplicate check
-              secure_token: secureToken // For additional validation
+              current_participant_number: numberForCheck, // Exclude current participant from duplicate check
+              secure_token: tokenForCheck // For additional validation
             }),
           })
           

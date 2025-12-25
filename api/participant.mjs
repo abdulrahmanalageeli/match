@@ -492,11 +492,40 @@ export default async function handler(req, res) {
 
       console.log('📝 Processing participant data for assigned_number:', assigned_number)
 
+      const phoneNumber = survey_data?.phoneNumber || survey_data?.answers?.phone_number
+
+      // Security check: If phone number is provided, ensure it's not already taken by another user
+      if (phoneNumber) {
+        const { data: phoneOwner, error: phoneOwnerError } = await supabase
+          .from("participants")
+          .select("id, secure_token, assigned_number")
+          .eq("phone_number", phoneNumber)
+          .eq("match_id", match_id)
+          .limit(1)
+
+        if (phoneOwnerError) {
+          logError("Error checking phone owner", phoneOwnerError)
+          throw phoneOwnerError
+        }
+
+        if (phoneOwner && phoneOwner.length > 0) {
+          const owner = phoneOwner[0]
+          // If the phone number belongs to someone else (identified by a different token), block the request.
+          if (owner.secure_token !== secure_token) {
+            return res.status(409).json({ 
+              error: "Phone number already registered.",
+              message: "رقم الهاتف مسجل بالفعل. يرجى استخدام الرابط الأصلي الخاص بك لتعديل بياناتك."
+            })
+          }
+        }
+      }
+
+      // Find the participant to update using their secure_token as the primary identifier
       const { data: existing, error: existingError } = await supabase
         .from("participants")
         .select("id")
         .eq("match_id", match_id)
-        .eq("assigned_number", assigned_number)
+        .eq("secure_token", secure_token)
 
       if (existingError) {
         logError("Error checking existing participant", existingError)
@@ -760,13 +789,13 @@ export default async function handler(req, res) {
       console.log('💾 Saving fields:', updateFields)
 
       if (existing && existing.length > 0) {
-        // ✅ Update existing
+        // ✅ Update existing participant identified by their secure_token
         console.log('🔄 Updating existing participant')
         const { error: updateError } = await supabase
           .from("participants")
           .update(updateFields)
           .eq("match_id", match_id)
-          .eq("assigned_number", assigned_number)
+          .eq("secure_token", secure_token)
 
         if (updateError) {
           logError("Update error", updateError)

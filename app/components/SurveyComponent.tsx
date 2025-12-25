@@ -919,22 +919,21 @@ const SurveyComponent = memo(function SurveyComponent({
     }))
   }, [surveyData.answers['phone_number'], setSurveyData])
 
-  // Default country code to +966 if not set and no composed phone present
+  // Default country code to +966 if nothing set yet
   useEffect(() => {
-    const cc = String(surveyData.answers['phone_cc'] || '')
-    const composed = String(surveyData.answers['phone_number'] || '')
-    if (cc || composed) return
-    const local = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
-    setSurveyData((prev) => ({
-      ...prev,
-      answers: {
-        ...prev.answers,
-        phone_cc: '966',
-        // If user already typed local before CC defaulted, compose full phone
-        phone_number: local ? `+966${local}` : prev.answers['phone_number']
-      }
-    }))
-  }, [surveyData.answers['phone_cc'], surveyData.answers['phone_number'], surveyData.answers['phone_local'], setSurveyData])
+    const hasCC = !!surveyData.answers['phone_cc']
+    const hasComposed = !!surveyData.answers['phone_number']
+    if (!hasCC && !hasComposed) {
+      setSurveyData((prev) => ({
+        ...prev,
+        answers: {
+          ...prev.answers,
+          phone_cc: '966'
+        }
+      }))
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
   const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
@@ -1334,6 +1333,7 @@ const SurveyComponent = memo(function SurveyComponent({
             value={value as string || ""}
             onValueChange={(val) => handleInputChange(question.id, val)}
             className="space-y-4 mt-4"
+            dir="rtl"
           >
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
@@ -1357,7 +1357,7 @@ const SurveyComponent = memo(function SurveyComponent({
 
       case "checkbox":
         return (
-          <div className="space-y-3 mt-3">
+          <div className="space-y-3 mt-3" dir="rtl">
             {question.options.map((option: any) => (
               <div key={option.value} className="group">
                 <div className="flex items-start space-x-5 space-x-reverse">
@@ -1388,7 +1388,7 @@ const SurveyComponent = memo(function SurveyComponent({
 
       case "select":
         return (
-          <div className="mt-4">
+          <div className="mt-4" dir="rtl">
             <Select
               value={value as string || ""}
               onValueChange={(val) => handleInputChange(question.id, val)}
@@ -1451,7 +1451,7 @@ const SurveyComponent = memo(function SurveyComponent({
                 <span>{openAge ? 'مفتوح: بدون قيود عمرية' : 'تفعيل: بدون قيود عمرية'}</span>
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" dir="ltr">
               <div>
                 <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">من عمر</Label>
                 <Input
@@ -1466,6 +1466,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  dir="ltr"
                 />
               </div>
               <div>
@@ -1482,6 +1483,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  dir="ltr"
                 />
               </div>
             </div>
@@ -1496,7 +1498,7 @@ const SurveyComponent = memo(function SurveyComponent({
 
       case "number":
         return (
-          <div className="mt-4">
+          <div className="mt-4" dir="rtl">
             <Input
               type="text"
               value={value as string || ""}
@@ -1511,6 +1513,7 @@ const SurveyComponent = memo(function SurveyComponent({
               className="text-right border-2 border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-slate-700 rounded-lg px-3 py-2 text-sm"
               inputMode="numeric"
               pattern="[0-9]*"
+              dir="ltr"
             />
             {(question.min || question.max) && (
               <p className="text-xs text-gray-500 dark:text-gray-400 text-right mt-2">
@@ -1544,12 +1547,11 @@ const SurveyComponent = memo(function SurveyComponent({
             const ccInvalid = cc.length < 1 || cc.length > 3
             const localInvalid = local.length < 9
             return (
-              <div className="mt-4">
-                <div className="grid grid-cols-5 gap-2">
+              <div className="mt-4" dir="rtl">
+                <div className="grid grid-cols-5 gap-2" dir="ltr">
                   <div className="col-span-2">
                     <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">رمز الدولة</Label>
                     <Input
-                      dir="ltr"
                       value={`+${cc}`}
                       onChange={(e) => {
                         let v = convertArabicToEnglish(e.target.value)
@@ -1559,15 +1561,15 @@ const SurveyComponent = memo(function SurveyComponent({
                         handleInputChange('phone_number', v ? `+${v}${loc}` : loc)
                       }}
                       placeholder="+966"
-                      className={`text-left border-2 rounded-lg px-3 py-2 text-sm ${
+                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
                         ccInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
                       } bg-white dark:bg-slate-700`}
+                      dir="ltr"
                     />
                   </div>
                   <div className="col-span-3">
                     <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">الرقم</Label>
                     <Input
-                      dir="ltr"
                       value={local}
                       onChange={(e) => {
                         let v = convertArabicToEnglish(e.target.value)
@@ -1578,11 +1580,12 @@ const SurveyComponent = memo(function SurveyComponent({
                         handleInputChange('phone_number', code ? `+${code}${v}` : v)
                       }}
                       placeholder="5XXXXXXXX"
-                      className={`text-left border-2 rounded-lg px-3 py-2 text-sm ${
+                      className={`text-right border-2 rounded-lg px-3 py-2 text-sm ${
                         localInvalid ? 'border-red-300 dark:border-red-600 focus:border-red-500 dark:focus:border-red-400' : 'border-gray-200 dark:border-slate-600 focus:border-blue-500 dark:focus:border-blue-400'
                       } bg-white dark:bg-slate-700`}
                       inputMode="numeric"
                       pattern="[0-9]*"
+                      dir="ltr"
                     />
                   </div>
                 </div>
@@ -1590,14 +1593,14 @@ const SurveyComponent = memo(function SurveyComponent({
                   <span className={`font-medium ${ccInvalid || localInvalid ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
                   </span>
-                  <span className="text-gray-600 dark:text-gray-300 font-mono" dir="ltr">{composed || question.placeholder}</span>
+                  <span className="text-gray-600 dark:text-gray-300">{composed || question.placeholder}</span>
                 </div>
               </div>
             )
           }
           // Name input fallback
           return (
-            <div className="relative mt-4">
+            <div className="relative mt-4" dir="rtl">
               <Input
                 value={value as string || ""}
                 onChange={(e) => {

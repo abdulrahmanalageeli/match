@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Progress } from "../../components/ui/progress"
-import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus, Sparkles } from "lucide-react"
 import HobbiesPickerModal from "./HobbiesPickerModal"
 
 interface SurveyData {
@@ -1363,22 +1363,28 @@ const SurveyComponent = memo(function SurveyComponent({
         const maxVal = (surveyData.answers['preferred_age_max'] as string) || ""
         const openAge = (surveyData.answers['open_age_preference'] === 'true') || (surveyData.answers['open_age_preference'] === true as any)
         return (
-          <div className="mt-4">
-            {/* Open Age toggle */}
-            <div className="mb-3 flex items-center justify-end gap-2">
-              <label htmlFor="open-age" className="text-sm text-gray-700 dark:text-gray-200">بدون قيود عمرية (مفتوح)</label>
-              <Checkbox
-                id="open-age"
-                checked={!!openAge}
-                onCheckedChange={(checked: boolean) => {
-                  handleInputChange('open_age_preference', checked ? 'true' : 'false')
-                  if (checked) {
-                    // Clear min/max if enabling open age
+          <div className="mt-4 relative">
+            {/* Open Age toggle - pretty pill anchored inside field (top-right) */}
+            <div className="absolute top-2 right-2 z-10">
+              <Button
+                type="button"
+                onClick={() => {
+                  const next = !openAge
+                  handleInputChange('open_age_preference', next ? 'true' : 'false')
+                  if (next) {
                     handleInputChange('preferred_age_min', '')
                     handleInputChange('preferred_age_max', '')
                   }
                 }}
-              />
+                aria-pressed={!!openAge}
+                className={`inline-flex items-center gap-2 rounded-full h-9 px-3 text-xs font-medium transition shadow-sm border whitespace-nowrap
+                  ${openAge
+                    ? 'bg-linear-to-r from-violet-600 to-indigo-600 text-white border-transparent hover:from-violet-700 hover:to-indigo-700'
+                    : 'bg-white/70 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border-slate-300/60 dark:border-slate-700/60 hover:bg-white/90 dark:hover:bg-slate-700/60'}`}
+              >
+                <Sparkles className={`w-4 h-4 ${openAge ? 'text-white' : 'text-violet-500 dark:text-violet-300'}`} />
+                <span>{openAge ? 'مفتوح: بدون قيود عمرية' : 'تفعيل: بدون قيود عمرية'}</span>
+              </Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -1504,16 +1510,14 @@ const SurveyComponent = memo(function SurveyComponent({
         return (
           <div className="relative mt-4">
             {isHobbies && (
-              <div className="flex items-center justify-end mb-2">
+              <div className="absolute top-2 right-2">
                 <Button
                   type="button"
-                  variant="secondary"
-                  size="sm"
                   onClick={() => setShowHobbiesModal(true)}
-                  className="inline-flex items-center gap-1"
+                  className="inline-flex items-center gap-2 rounded-full h-9 px-3 text-xs font-medium transition shadow-sm border bg-white/80 dark:bg-slate-800/70 border-slate-300/60 dark:border-slate-700/60 hover:bg-white dark:hover:bg-slate-700/60 whitespace-nowrap"
                 >
-                  <ListPlus className="w-4 h-4" />
-                  <span>اختيار من قائمة الهوايات</span>
+                  <ListPlus className="w-4 h-4 text-violet-500" />
+                  <span className="text-slate-700 dark:text-slate-200">اختيار من قائمة الهوايات</span>
                 </Button>
               </div>
             )}

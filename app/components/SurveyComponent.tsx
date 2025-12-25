@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Progress } from "../../components/ui/progress"
-import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus } from "lucide-react"
+import HobbiesPickerModal from "./HobbiesPickerModal"
 
 interface SurveyData {
   answers: Record<string, string | string[]>
@@ -884,6 +885,16 @@ const SurveyComponent = memo(function SurveyComponent({
   
   const [currentPage, setCurrentPage] = useState(0)
   const [showTermsModal, setShowTermsModal] = useState(false)
+  const [showHobbiesModal, setShowHobbiesModal] = useState(false)
+
+  // Helper to parse hobbies from the text field
+  const getHobbiesArray = useCallback((str: string) => {
+    if (!str) return [] as string[]
+    return String(str)
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+  }, [])
 
   // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
   const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
@@ -1443,6 +1454,7 @@ const SurveyComponent = memo(function SurveyComponent({
         // Use Input for phone number and name, Textarea for longer text
         const isPhoneNumber = question.id === 'phone_number'
         const isName = question.id === 'name'
+        const isHobbies = question.id === 'vibe_2'
         
         // Name and phone don't have 50% minimum requirement
         if (isPhoneNumber || isName) {
@@ -1489,6 +1501,20 @@ const SurveyComponent = memo(function SurveyComponent({
         
         return (
           <div className="relative mt-4">
+            {isHobbies && (
+              <div className="flex items-center justify-end mb-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowHobbiesModal(true)}
+                  className="inline-flex items-center gap-1"
+                >
+                  <ListPlus className="w-4 h-4" />
+                  <span>اختيار من قائمة الهوايات</span>
+                </Button>
+              </div>
+            )}
             <Textarea
               value={value as string || ""}
               onChange={(e) => {
@@ -1878,7 +1904,20 @@ const SurveyComponent = memo(function SurveyComponent({
             </Button>
           )}
         </div>
-        
+
+        {/* Hobbies Picker Modal */}
+        <HobbiesPickerModal
+          open={showHobbiesModal}
+          onOpenChange={setShowHobbiesModal}
+          initialSelected={getHobbiesArray(String(surveyData.answers['vibe_2'] || ''))}
+          onApply={(selected) => {
+            const current = getHobbiesArray(String(surveyData.answers['vibe_2'] || ''))
+            const merged = Array.from(new Set([...current, ...selected]))
+            handleInputChange('vibe_2', merged.join(', '))
+            setShowHobbiesModal(false)
+          }}
+        />
+
         {/* Terms Modal */}
         {renderTermsModal()}
       </div>

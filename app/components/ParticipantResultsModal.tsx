@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
+import PairAnalysisModal from "./PairAnalysisModal"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantResult {
@@ -79,6 +80,11 @@ export default function ParticipantResultsModal({
   const [showWhatsappModal, setShowWhatsappModal] = useState(false)
   const [localMatchHistory, setLocalMatchHistory] = useState<Record<number, any[]>>(matchHistory)
   const [loadingModalHistory, setLoadingModalHistory] = useState(false)
+  // Analysis modal state
+  const [showPairAnalysis, setShowPairAnalysis] = useState(false)
+  const [analysisA, setAnalysisA] = useState<any | null>(null)
+  const [analysisB, setAnalysisB] = useState<any | null>(null)
+  const [analysisPair, setAnalysisPair] = useState<any | null>(null)
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -444,6 +450,27 @@ export default function ParticipantResultsModal({
     return "bg-red-500/20 border-red-400/30"
   }
 
+  // Open pair analysis for a specific row
+  const openPairAnalysis = (participant: ParticipantResult) => {
+    if (!participant.partner_assigned_number || participant.partner_assigned_number === 9999) return
+    // find pair from calculatedPairs
+    const pair = (calculatedPairs || []).find((p: any) => {
+      const a = p.participant_a
+      const b = p.participant_b
+      const x = participant.assigned_number
+      const y = participant.partner_assigned_number
+      if (!y) return false
+      return (a === x && b === y) || (a === y && b === x)
+    })
+    // full participant rows (with survey_data)
+    const aFull = participantData.get(participant.assigned_number)
+    const bFull = participantData.get(participant.partner_assigned_number)
+    setAnalysisA(aFull || null)
+    setAnalysisB(bFull || null)
+    setAnalysisPair(pair || null)
+    setShowPairAnalysis(true)
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
@@ -598,6 +625,9 @@ export default function ParticipantResultsModal({
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">عرض التفاصيل</th>
+                        )}
+                        {matchType !== "group" && (
+                          <th className="text-center p-4 text-sm font-semibold text-slate-300">تحليل</th>
                         )}
                         {matchType !== "group" && (
                           <th className="text-center p-4 text-sm font-semibold text-slate-300">واتساب</th>
@@ -1187,6 +1217,21 @@ export default function ParticipantResultsModal({
                           )}
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
+                              {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
+                                <button
+                                  onClick={() => openPairAnalysis(participant)}
+                                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:bg-purple-500/30 transition-all duration-300"
+                                  title="تحليل المقارنة"
+                                >
+                                  <Brain className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <span className="text-slate-500 text-xs">غير متاح</span>
+                              )}
+                            </td>
+                          )}
+                          {matchType !== "group" && (
+                            <td className="p-4 text-center">
                               <button
                                 onClick={() => {
                                   // Get full participant data from participantData map
@@ -1338,6 +1383,15 @@ export default function ParticipantResultsModal({
           setShowWhatsappModal(false)
           setWhatsappParticipant(null)
         }}
+      />
+
+      {/* Pair Analysis Modal */}
+      <PairAnalysisModal
+        open={showPairAnalysis}
+        onOpenChange={setShowPairAnalysis}
+        a={analysisA}
+        b={analysisB}
+        pair={analysisPair}
       />
     </div>
   )

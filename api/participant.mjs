@@ -699,6 +699,49 @@ export default async function handler(req, res) {
           }
         }
         
+        // NEW: Persist additional interaction & goal fields to dedicated columns
+        const intentGoal = answers.intent_goal
+        if (typeof intentGoal === 'string' && ['A','B','C'].includes(intentGoal)) {
+          updateFields.intent_goal = intentGoal
+          console.log('🎯 Intent Goal:', intentGoal)
+        }
+
+        const conversationalRole = answers.conversational_role
+        if (typeof conversationalRole === 'string' && ['A','B','C'].includes(conversationalRole)) {
+          updateFields.conversational_role = conversationalRole
+          console.log('🗣️ Conversational Role:', conversationalRole)
+        }
+
+        const conversationDepth = answers.conversation_depth_pref
+        if (typeof conversationDepth === 'string' && ['A','B','C'].includes(conversationDepth)) {
+          updateFields.conversation_depth_pref = conversationDepth
+          console.log('📚 Conversation Depth Pref:', conversationDepth)
+        }
+
+        const socialBattery = answers.social_battery
+        if (typeof socialBattery === 'string' && ['A','B','C'].includes(socialBattery)) {
+          updateFields.social_battery = socialBattery
+          console.log('🔋 Social Battery:', socialBattery)
+        }
+
+        const curiosityStyle = answers.curiosity_style
+        if (typeof curiosityStyle === 'string' && ['A','B','C'].includes(curiosityStyle)) {
+          updateFields.curiosity_style = curiosityStyle
+          console.log('🧩 Curiosity Style:', curiosityStyle)
+        }
+
+        const silenceComfort = answers.silence_comfort
+        if (typeof silenceComfort === 'string' && ['A','B','C'].includes(silenceComfort)) {
+          updateFields.silence_comfort = silenceComfort
+          console.log('🤫 Silence Comfort:', silenceComfort)
+        }
+
+        const humorSubtype = answers.humor_subtype
+        if (typeof humorSubtype === 'string' && ['A','B','C','D'].includes(humorSubtype)) {
+          updateFields.humor_subtype = humorSubtype
+          console.log('✨ Humor Subtype:', humorSubtype)
+        }
+
         // Note: lifestyle_preferences, core_values, vibe_description, ideal_person_description
         // are not separate columns in the schema - they should be stored in survey_data JSONB
       }

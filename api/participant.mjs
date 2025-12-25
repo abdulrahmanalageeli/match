@@ -495,6 +495,7 @@ export default async function handler(req, res) {
       const phoneNumber = survey_data?.phoneNumber || survey_data?.answers?.phone_number
 
       // Security check: If phone number is provided, ensure it's not already taken by another user
+      /* --- PHONE CHECK TEMPORARILY DISABLED ---
       if (phoneNumber) {
         const { data: phoneOwner, error: phoneOwnerError } = await supabase
           .from("participants")
@@ -519,6 +520,7 @@ export default async function handler(req, res) {
           }
         }
       }
+      */
 
       // Find the participant to update using their secure_token as the primary identifier
       const { data: existing, error: existingError } = await supabase

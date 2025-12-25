@@ -131,8 +131,9 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[90vw] max-h-[85vh] overflow-hidden p-0" dir="rtl">
-        <div className="flex items-center justify-between px-5 py-4 border-b">
+      <DialogContent className="sm:max-w-3xl sm:w-[90vw] w-screen sm:h-[85vh] h-dvh p-0 sm:rounded-2xl rounded-none bg-linear-to-b from-white/80 to-white/60 dark:from-slate-950/70 dark:to-slate-900/60 backdrop-blur-xl border border-white/30 dark:border-slate-800/60 shadow-2xl" dir="rtl">
+        <div className="flex h-full flex-col">
+        <div className="sticky top-0 z-10 px-5 py-4 border-b bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl flex items-center justify-between">
           <DialogHeader>
             <DialogTitle className="text-lg font-bold">اختر هواياتك بسهولة</DialogTitle>
           </DialogHeader>
@@ -141,13 +142,13 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
           </Button>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           <div className="flex items-center gap-2">
             <Input
               placeholder="ابحث عن هواية..."
               value={query}
               onChange={e => setQuery(e.target.value)}
-              className="text-right"
+              className="text-right h-11 text-base"
             />
             <div className="flex-1"></div>
           </div>
@@ -158,7 +159,7 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
               <button
                 key={s}
                 onClick={() => toggle(s)}
-                className="px-2.5 py-1 rounded-full text-xs bg-blue-500/10 border border-blue-400/30 text-blue-600 hover:bg-blue-500/20"
+                className="px-3 py-1.5 rounded-full text-xs sm:text-sm bg-linear-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-400/30 text-cyan-700 dark:text-cyan-300 hover:from-cyan-500/15 hover:to-blue-500/15 transition"
                 title="إزالة"
               >
                 {s}
@@ -173,7 +174,7 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
           <div className="space-y-6">
             {HOBBY_CATEGORIES.map(cat => (
               <div key={cat.key}>
-                <div className="text-sm font-semibold text-slate-700 mb-2">{cat.title}</div>
+                <div className="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{cat.title}</div>
                 <div className="flex flex-wrap gap-2">
                   {cat.items
                     .filter(it => !query || it.toLowerCase().includes(query.trim().toLowerCase()))
@@ -183,10 +184,10 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
                         <button
                           key={it}
                           onClick={() => toggle(it)}
-                          className={`px-2.5 py-1 rounded-full text-xs border transition ${
+                          className={`px-3 py-1.5 rounded-full text-xs sm:text-sm border transition focus:outline-none focus:ring-2 focus:ring-cyan-400/50 ${
                             active
-                              ? 'bg-emerald-500/15 border-emerald-400/40 text-emerald-600'
-                              : 'bg-white/50 dark:bg-slate-800/50 border-slate-300/60 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-white'
+                              ? 'bg-linear-to-r from-cyan-500/20 to-blue-500/20 border-cyan-400/50 text-cyan-700 dark:text-cyan-300'
+                              : 'bg-white/60 dark:bg-slate-800/60 border-slate-300/50 dark:border-slate-700/50 text-slate-700 dark:text-slate-200 hover:bg-white/80 dark:hover:bg-slate-700/60'
                           }`}
                         >
                           {it}
@@ -207,19 +208,22 @@ export default function HobbiesPickerModal({ open, onOpenChange, initialSelected
                 value={custom}
                 onChange={e => setCustom(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom(); } }}
-                className="text-right"
+                className="text-right h-11 text-base"
               />
-              <Button onClick={addCustom} variant="secondary">إضافة</Button>
+              <Button onClick={addCustom} variant="secondary" className="h-11 px-4 text-sm">إضافة</Button>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-4 border-t bg-white/60 dark:bg-slate-800/60">
-          <span className="text-xs text-slate-500">تلميح: يمكنك الضغط على أي عنصر لإضافته أو إزالته</span>
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>إلغاء</Button>
-            <Button onClick={() => onApply(selected)}>اعتماد</Button>
+        <div className="sticky bottom-0 z-10 px-5 py-4 border-t bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl pb-[env(safe-area-inset-bottom)]">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs sm:text-sm text-slate-500">تلميح: يمكنك الضغط على أي عنصر لإضافته أو إزالته</span>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={() => onOpenChange(false)} className="h-11 px-4">إلغاء</Button>
+              <Button onClick={() => onApply(selected)} className="h-11 px-5">اعتماد ({selected.length})</Button>
+            </div>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>

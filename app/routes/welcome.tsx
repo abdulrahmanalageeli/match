@@ -3576,6 +3576,7 @@ export default function WelcomePage() {
         body: JSON.stringify({
           action: "save-participant",
           assigned_number: assignedNumber,
+          secure_token: secureToken,
           survey_data: dataToUse,
         }),
       })
@@ -3598,6 +3599,7 @@ export default function WelcomePage() {
         body: JSON.stringify({
           action: "save-participant",
           assigned_number: assignedNumber,
+          secure_token: secureToken,
           summary: newSummary,
         }),
       })

@@ -1336,15 +1336,22 @@ const SurveyComponent = memo(function SurveyComponent({
             dir="rtl"
           >
             {question.options.map((option: any) => (
-              <div key={option.value} className="group">
-                <div className="flex items-start space-x-5 space-x-reverse">
-                  <RadioGroupItem 
-                    value={option.value} 
-                    id={`${question.id}-${option.value}`} 
-                    className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20 mt-0.5 flex-shrink-0"
+              <div
+                key={option.value}
+                className={`group rounded-xl border-2 transition p-3 ${
+                  (value as string) === option.value
+                    ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20'
+                    : 'border-gray-200 dark:border-slate-600 hover:border-blue-300 dark:hover:border-blue-400/50 bg-white dark:bg-slate-800/40'
+                }`}
+              >
+                <div className="flex flex-row-reverse items-center gap-3">
+                  <RadioGroupItem
+                    value={option.value}
+                    id={`${question.id}-${option.value}`}
+                    className="w-5 h-5 rounded-full border-2 border-gray-300 dark:border-slate-500 text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 dark:focus:ring-blue-700 data-[state=checked]:border-blue-600 data-[state=checked]:bg-blue-600 flex-shrink-0"
                   />
-                  <Label 
-                    htmlFor={`${question.id}-${option.value}`} 
+                  <Label
+                    htmlFor={`${question.id}-${option.value}`}
                     className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
                   >
                     {option.label}
@@ -1359,19 +1366,26 @@ const SurveyComponent = memo(function SurveyComponent({
         return (
           <div className="space-y-3 mt-3" dir="rtl">
             {question.options.map((option: any) => (
-              <div key={option.value} className="group">
-                <div className="flex items-start space-x-5 space-x-reverse">
+              <div
+                key={option.value}
+                className={`group rounded-xl border-2 transition p-3 ${
+                  ((value as string[] || []).includes(option.value))
+                    ? 'border-green-500 bg-green-50 dark:border-green-400 dark:bg-green-900/20'
+                    : 'border-gray-200 dark:border-slate-600 hover:border-green-300 dark:hover:border-green-400/50 bg-white dark:bg-slate-800/40'
+                }`}
+              >
+                <div className="flex flex-row-reverse items-center gap-3">
                   <Checkbox
                     id={`${question.id}-${option.value}`}
                     checked={(value as string[] || []).includes(option.value)}
-                    onCheckedChange={(checked: boolean) => 
+                    onCheckedChange={(checked: boolean) =>
                       handleCheckboxChange(question.id, option.value, checked)
                     }
-                    className="w-4 h-4 text-blue-500 border-2 border-gray-300 dark:border-slate-500 focus:ring-4 focus:ring-blue-500/20 mt-0.5 flex-shrink-0"
+                    className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-slate-500 text-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 dark:focus:ring-green-700 data-[state=checked]:border-green-600 data-[state=checked]:bg-green-600 flex-shrink-0"
                   />
-                  <Label 
-                    htmlFor={`${question.id}-${option.value}`} 
-                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 flex-1 leading-relaxed"
+                  <Label
+                    htmlFor={`${question.id}-${option.value}`}
+                    className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-200 flex-1 leading-relaxed"
                   >
                     {option.label}
                   </Label>
@@ -1452,7 +1466,7 @@ const SurveyComponent = memo(function SurveyComponent({
               </Button>
             </div>
             <div className="grid grid-cols-2 gap-3" dir="ltr">
-              <div>
+              <div className="order-2">
                 <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">من عمر</Label>
                 <Input
                   type="text"
@@ -1469,7 +1483,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   dir="ltr"
                 />
               </div>
-              <div>
+              <div className="order-1">
                 <Label className="text-xs text-gray-600 dark:text-gray-300 block text-right mb-1">إلى عمر</Label>
                 <Input
                   type="text"
@@ -1590,10 +1604,10 @@ const SurveyComponent = memo(function SurveyComponent({
                   </div>
                 </div>
                 <div className="flex justify-between items-center mt-2 text-xs">
+                  <span className="text-gray-600 dark:text-gray-300" dir="ltr">{composed || question.placeholder}</span>
                   <span className={`font-medium ${ccInvalid || localInvalid ? 'text-red-500 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>
                     {ccInvalid ? 'أدخل رمز دولة صحيح (1-3 أرقام).' : localInvalid ? 'أدخل رقم محلي صحيح (9 أرقام على الأقل بدون صفر في البداية).' : 'رقمك الكامل'}
                   </span>
-                  <span className="text-gray-600 dark:text-gray-300">{composed || question.placeholder}</span>
                 </div>
               </div>
             )

@@ -1363,9 +1363,9 @@ const SurveyComponent = memo(function SurveyComponent({
         const maxVal = (surveyData.answers['preferred_age_max'] as string) || ""
         const openAge = (surveyData.answers['open_age_preference'] === 'true') || (surveyData.answers['open_age_preference'] === true as any)
         return (
-          <div className="mt-4 relative">
-            {/* Open Age toggle - pretty pill anchored inside field (top-right) */}
-            <div className="absolute top-2 right-2 z-10">
+          <div className="mt-4">
+            {/* Open Age toggle - centered pill above inputs */}
+            <div className="mb-3 flex justify-center">
               <Button
                 type="button"
                 onClick={() => {
@@ -1377,7 +1377,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   }
                 }}
                 aria-pressed={!!openAge}
-                className={`inline-flex items-center gap-2 rounded-full h-9 px-3 text-xs font-medium transition shadow-sm border whitespace-nowrap
+                className={`inline-flex items-center gap-2 rounded-full h-9 px-4 text-xs font-medium transition shadow-sm border whitespace-nowrap
                   ${openAge
                     ? 'bg-linear-to-r from-violet-600 to-indigo-600 text-white border-transparent hover:from-violet-700 hover:to-indigo-700'
                     : 'bg-white/70 dark:bg-slate-800/60 text-slate-700 dark:text-slate-200 border-slate-300/60 dark:border-slate-700/60 hover:bg-white/90 dark:hover:bg-slate-700/60'}`}
@@ -1421,7 +1421,7 @@ const SurveyComponent = memo(function SurveyComponent({
               </div>
             </div>
             {openAge && (
-              <p className="mt-2 text-xs text-green-700 dark:text-green-300 text-right">لن يتم تطبيق أي حدود عمرية عليك أو على شريكك من جهتك — سيتم تجاهل المدى العمري.</p>
+              <p className="mt-2 text-xs text-green-700 dark:text-green-300 text-center">لن يتم تطبيق أي حدود عمرية عليك أو على شريكك من جهتك — سيتم تجاهل المدى العمري.</p>
             )}
           </div>
         )
@@ -1508,13 +1508,13 @@ const SurveyComponent = memo(function SurveyComponent({
         const remaining = minRequired - currentLength
         
         return (
-          <div className="relative mt-4">
+          <div className="mt-4">
             {isHobbies && (
-              <div className="absolute top-2 right-2">
+              <div className="mb-2 flex justify-center">
                 <Button
                   type="button"
                   onClick={() => setShowHobbiesModal(true)}
-                  className="inline-flex items-center gap-2 rounded-full h-9 px-3 text-xs font-medium transition shadow-sm border bg-white/80 dark:bg-slate-800/70 border-slate-300/60 dark:border-slate-700/60 hover:bg-white dark:hover:bg-slate-700/60 whitespace-nowrap"
+                  className="inline-flex items-center gap-2 rounded-full h-9 px-4 text-xs font-medium transition shadow-sm border bg-white/80 dark:bg-slate-800/70 border-slate-300/60 dark:border-slate-700/60 hover:bg-white dark:hover:bg-slate-700/60 whitespace-nowrap"
                 >
                   <ListPlus className="w-4 h-4 text-violet-500" />
                   <span className="text-slate-700 dark:text-slate-200">اختيار من قائمة الهوايات</span>

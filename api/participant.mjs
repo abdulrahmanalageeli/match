@@ -804,19 +804,45 @@ export default async function handler(req, res) {
           throw updateError
         }
       } else {
-        // ✅ Insert new
-        console.log('➕ Inserting new participant')
-        const { error: insertError } = await supabase.from("participants").insert([
-          {
-            assigned_number,
-            match_id,
-            is_host: false,
-            ...updateFields,
-          },
-        ])
-        if (insertError) {
-          logError("Insert error", insertError)
-          throw insertError
+        // 🔎 Fallback: check by assigned_number ONLY (match_id is same for everyone per app design)
+        const { data: existingByNumber, error: numberCheckErr } = await supabase
+          .from("participants")
+          .select("id, secure_token, survey_data")
+          .eq("assigned_number", assigned_number)
+          .limit(1)
+
+        if (numberCheckErr) {
+          logError("Error checking existing by assigned_number", numberCheckErr)
+          throw numberCheckErr
+        }
+
+        if (existingByNumber && existingByNumber.length > 0) {
+          const hadSurvey = !!existingByNumber[0]?.survey_data
+          console.log(`🔄 Updating existing participant by assigned_number #${assigned_number} (previous survey_data=${hadSurvey ? 'yes' : 'no'})`)
+          const { error: updateByNumberErr } = await supabase
+            .from("participants")
+            .update(updateFields)
+            .eq("assigned_number", assigned_number)
+
+          if (updateByNumberErr) {
+            logError("Update error (by number)", updateByNumberErr)
+            throw updateByNumberErr
+          }
+        } else {
+          // ✅ Insert new when truly not existing
+          console.log('➕ Inserting new participant (no existing by token or number)')
+          const { error: insertError } = await supabase.from("participants").insert([
+            {
+              assigned_number,
+              match_id,
+              is_host: false,
+              ...updateFields,
+            },
+          ])
+          if (insertError) {
+            logError("Insert error", insertError)
+            throw insertError
+          }
         }
       }
 

@@ -6448,6 +6448,48 @@ export default function WelcomePage() {
       </>
     );
   }
+      {/* Survey Completion Popup (overlay within main page) */}
+      {showSurveyCompletionPopup && incompleteSurveyInfo && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" dir="rtl">
+          <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
+            <div className="p-6 overflow-y-auto">
+              <div className="text-center space-y-4">
+                <div className="flex items-center justify-center mb-4">
+                  <div className="p-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-full border border-orange-400/30">
+                    <AlertCircle className="w-8 h-8 text-orange-400" />
+                  </div>
+                </div>
+                <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>مرحباً {incompleteSurveyInfo.name}!</h3>
+                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>المشارك رقم #{incompleteSurveyInfo.assigned_number}</p>
+                <div className={`p-6 rounded-2xl border ${dark ? "bg-gradient-to-br from-orange-500/20 to-yellow-500/20 border-orange-400/30 backdrop-blur-lg" : "bg-orange-50 border-orange-200"}`}>
+                  <div className="flex items-center">
+                    <div className={`${dark ? "bg-orange-500/20" : "bg-orange-100"} p-3 rounded-full`}>
+                      <FileText size={24} className={`${dark ? "text-orange-300" : "text-orange-600"}`} />
+                    </div>
+                    <div className="ml-4">
+                      <p className={`text-lg font-bold ${dark ? "text-orange-200" : "text-orange-800"}`}>📝 تحديثات مهمة في الاستبيان</p>
+                      <p className={`text-sm mt-1 ${dark ? "text-orange-300" : "text-orange-700"}`}>لقد أضفنا أسئلة جديدة وحسّنا بعض الأسئلة الحالية. يرجى إكمال الاستبيان المحدث لضمان أفضل المطابقات لك.</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setShowSurveyCompletionPopup(false)}
+                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${dark ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"}`}
+                  >إغلاق</button>
+                  <button
+                    onClick={() => { setShowSurveyCompletionPopup(false); window.location.href = `/welcome?token=${incompleteSurveyInfo.secure_token}`; }}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    <FileText className="w-4 h-4" />
+                    إكمال الاستبيان
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
   if (phase === null) {
     return (
@@ -9594,48 +9636,6 @@ export default function WelcomePage() {
         </div>
       )}
 
-      {/* Survey Completion Popup (overlay within main page) */}
-      {showSurveyCompletionPopup && incompleteSurveyInfo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" dir="rtl">
-          <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
-            <div className="p-6 overflow-y-auto">
-              <div className="text-center space-y-4">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="p-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-full border border-orange-400/30">
-                    <AlertCircle className="w-8 h-8 text-orange-400" />
-                  </div>
-                </div>
-                <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>مرحباً {incompleteSurveyInfo.name}!</h3>
-                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>المشارك رقم #{incompleteSurveyInfo.assigned_number}</p>
-                <div className={`p-6 rounded-2xl border ${dark ? "bg-gradient-to-br from-orange-500/20 to-yellow-500/20 border-orange-400/30 backdrop-blur-lg" : "bg-orange-50 border-orange-200"}`}>
-                  <div className="flex items-center">
-                    <div className={`${dark ? "bg-orange-500/20" : "bg-orange-100"} p-3 rounded-full`}>
-                      <FileText size={24} className={`${dark ? "text-orange-300" : "text-orange-600"}`} />
-                    </div>
-                    <div className="ml-4">
-                      <p className={`text-lg font-bold ${dark ? "text-orange-200" : "text-orange-800"}`}>📝 تحديثات مهمة في الاستبيان</p>
-                      <p className={`text-sm mt-1 ${dark ? "text-orange-300" : "text-orange-700"}`}>لقد أضفنا أسئلة جديدة وحسّنا بعض الأسئلة الحالية. يرجى إكمال الاستبيان المحدث لضمان أفضل المطابقات لك.</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={() => setShowSurveyCompletionPopup(false)}
-                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${dark ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"}`}
-                  >إغلاق</button>
-                  <button
-                    onClick={() => { setShowSurveyCompletionPopup(false); window.location.href = `/welcome?token=${incompleteSurveyInfo.secure_token}`; }}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    إكمال الاستبيان
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Form filled prompt modal */}
       {showFormFilledPrompt && (

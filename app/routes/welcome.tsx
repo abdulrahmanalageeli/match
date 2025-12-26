@@ -4025,20 +4025,37 @@ export default function WelcomePage() {
     try {
       if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
       
-      // Extract scores from the technical format
+      // Extract scores (OLD model keys)
       const mbtiMatch = reason.match(/MBTI:.*?\((\d+)%\)/)
       const attachmentMatch = reason.match(/التعلق:.*?\((\d+)%\)/)
-      const communicationMatch = reason.match(/التواصل:.*?\((\d+)%\)/)
-      const lifestyleMatch = reason.match(/نمط الحياة:.*?\((\d+)%\)/)
+      const communicationOldMatch = reason.match(/التواصل:.*?\((\d+)%\)/)
+      const lifestyleOldMatch = reason.match(/نمط الحياة:.*?\((\d+)%\)/)
       const coreValuesMatch = reason.match(/القيم الأساسية:.*?\((\d+)%\)/)
-      const vibeMatch = reason.match(/التوافق الشخصي:.*?\((\d+)%\)/)
+      const vibeOldMatch = reason.match(/التوافق الشخصي:.*?\((\d+)%\)/)
       
       const mbtiScore = mbtiMatch ? parseInt(mbtiMatch[1]) || 0 : 0
       const attachmentScore = attachmentMatch ? parseInt(attachmentMatch[1]) || 0 : 0
-      const communicationScore = communicationMatch ? parseInt(communicationMatch[1]) || 0 : 0
-      const lifestyleScore = lifestyleMatch ? parseInt(lifestyleMatch[1]) || 0 : 0
+      const communicationOldScore = communicationOldMatch ? parseInt(communicationOldMatch[1]) || 0 : 0
+      const lifestyleOldScore = lifestyleOldMatch ? parseInt(lifestyleOldMatch[1]) || 0 : 0
       const coreValuesScore = coreValuesMatch ? parseInt(coreValuesMatch[1]) || 0 : 0
-      const vibeScore = vibeMatch ? parseInt(vibeMatch[1]) || 0 : 0
+      const vibeOldScore = vibeOldMatch ? parseInt(vibeOldMatch[1]) || 0 : 0
+
+      // Extract scores (NEW 100-pt model keys, support EN and AR labels)
+      const synergyMatch = reason.match(/(?:Synergy|التفاعل):\s*(\d+)%/)
+      const vibeNewMatch = reason.match(/(?:Vibe|الطاقة):\s*(\d+)%/)
+      const lifestyleNewMatch = reason.match(/(?:Lifestyle|نمط الحياة):\s*(\d+)%/)
+      const humorOpenMatch = reason.match(/(?:Humor\/Openness|الدعابة\/الانفتاح):\s*(\d+)%/)
+      const communicationNewMatch = reason.match(/(?:Communication|التواصل):\s*(\d+)%/)
+      const intentValuesMatch = reason.match(/(?:Goal&Values|الأهداف\/القيم):\s*(\d+)%/)
+
+      const synergyScore = synergyMatch ? parseInt(synergyMatch[1]) || 0 : 0 // max 35
+      const vibeNewScore = vibeNewMatch ? parseInt(vibeNewMatch[1]) || 0 : 0   // max 20
+      const lifestyleNewScore = lifestyleNewMatch ? parseInt(lifestyleNewMatch[1]) || 0 : 0 // max 15
+      const humorOpenScore = humorOpenMatch ? parseInt(humorOpenMatch[1]) || 0 : 0 // max 15
+      const communicationNewScore = communicationNewMatch ? parseInt(communicationNewMatch[1]) || 0 : 0 // max 10
+      const intentValuesScore = intentValuesMatch ? parseInt(intentValuesMatch[1]) || 0 : 0 // max 5
+
+      const hasNewModel = [synergyScore, vibeNewScore, lifestyleNewScore, humorOpenScore, communicationNewScore, intentValuesScore].some(s => s > 0)
     
     // Helper function to get strength level and color
     const getStrengthLevel = (score: number, maxScore: number) => {
@@ -4050,16 +4067,111 @@ export default function WelcomePage() {
       return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
     }
     
-    // Get strength levels for each component (using actual max scores from trigger-match.mjs)
+    // Prepare components based on detected model
+    const components = [] as Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>
+    
+    if (hasNewModel) {
+      // New model strengths (maxes per trigger-match.mjs)
+      const synergyStrength = getStrengthLevel(synergyScore, 35)
+      const vibeStrengthNew = getStrengthLevel(vibeNewScore, 20)
+      const lifestyleStrengthNew = getStrengthLevel(lifestyleNewScore, 15)
+      const humorOpenStrength = getStrengthLevel(humorOpenScore, 15)
+      const communicationStrengthNew = getStrengthLevel(communicationNewScore, 10)
+      const intentStrength = getStrengthLevel(intentValuesScore, 5)
+
+      if (synergyScore > 0) {
+        components.push({
+          name: "الانسجام التفاعلي",
+          strength: synergyStrength.level,
+          color: synergyStrength.color,
+          bgColor: synergyStrength.bgColor,
+          borderColor: synergyStrength.borderColor,
+          description: synergyScore >= 28 ? "انسجام عالٍ في الأدوار وعمق الحديث والراحة مع الصمت." :
+                       synergyScore >= 18 ? "انسجام جيد مع بعض الفروقات التي تحتاج تنسيق بسيط." :
+                       "اختلافات ملحوظة في أسلوب التفاعل تحتاج وقت للتأقلم."
+        })
+      }
+
+      if (vibeNewScore > 0) {
+        components.push({
+          name: "الطاقة والكيمياء",
+          strength: vibeStrengthNew.level,
+          color: vibeStrengthNew.color,
+          bgColor: vibeStrengthNew.bgColor,
+          borderColor: vibeStrengthNew.borderColor,
+          description: vibeNewScore >= 14 ? "كيمياء واضحة وتوافق في الإحساس العام والحماس." :
+                       vibeNewScore >= 8 ? "انسجام لطيف في الطاقة مع مساحة للنمو." :
+                       "إيقاعات مختلفة قد تحتاجان لبعض الوقت للتقارب."
+        })
+      }
+
+      if (lifestyleNewScore > 0) {
+        components.push({
+          name: "نمط الحياة",
+          strength: lifestyleStrengthNew.level,
+          color: lifestyleStrengthNew.color,
+          bgColor: lifestyleStrengthNew.bgColor,
+          borderColor: lifestyleStrengthNew.borderColor,
+          description: lifestyleNewScore >= 12 ? "روتين متقارب جداً في التوقيت والتخطيط والأنشطة." :
+                       lifestyleNewScore >= 8 ? "تشابه جيد في الروتين مع اختلافات بسيطة." :
+                       "إيقاعات يومية مختلفة قد تتطلب تنسيقاً."
+        })
+      }
+
+      if (humorOpenScore > 0) {
+        components.push({
+          name: "الدعابة والانفتاح",
+          strength: humorOpenStrength.level,
+          color: humorOpenStrength.color,
+          bgColor: humorOpenStrength.bgColor,
+          borderColor: humorOpenStrength.borderColor,
+          description: humorOpenScore >= 12 ? "حس فكاهي متقارب وارتياح جميل للانفتاح المبكر." :
+                       humorOpenScore >= 8 ? "انسجام جيد في الدعابة ومستوى الانفتاح." :
+                       "أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة."
+        })
+      }
+
+      if (communicationNewScore > 0) {
+        components.push({
+          name: "أسلوب التواصل",
+          strength: communicationStrengthNew.level,
+          color: communicationStrengthNew.color,
+          bgColor: communicationStrengthNew.bgColor,
+          borderColor: communicationStrengthNew.borderColor,
+          description: communicationNewScore >= 8 ? "تفاهم سريع ولغة مشتركة واضحة." :
+                       communicationNewScore >= 5 ? "تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح." :
+                       "أساليب تواصل مختلفة قد تتطلب مرونة أكبر."
+        })
+      }
+
+      if (intentValuesScore > 0) {
+        components.push({
+          name: "الأهداف والقيم",
+          strength: intentStrength.level,
+          color: intentStrength.color,
+          bgColor: intentStrength.bgColor,
+          borderColor: intentStrength.borderColor,
+          description: intentValuesScore >= 4 ? "اتجاهات متشابهة في هدف اللقاء وما يعتبر مهماً." :
+                       intentValuesScore >= 2 ? "تقارب معقول في الأهداف أو القيم العامة." :
+                       "توقعات مختلفة قد تحتاج وضوحاً مبكراً."
+        })
+      }
+
+      return { components, originalReason: reason }
+    }
+    
+    // Fallback to OLD model rendering
+    const communicationScore = communicationOldScore
+    const lifestyleScore = lifestyleOldScore
+    const vibeScore = vibeOldScore
     const mbtiStrength = getStrengthLevel(mbtiScore, 5)
     const attachmentStrength = getStrengthLevel(attachmentScore, 5)
     const communicationStrength = getStrengthLevel(communicationScore, 25)
     const lifestyleStrength = getStrengthLevel(lifestyleScore, 20)
     const coreValuesStrength = getStrengthLevel(coreValuesScore, 10)
     const vibeStrength = getStrengthLevel(vibeScore, 35)
-    
-    // Create natural language description
-    const components = []
+
+    // Create natural language description (OLD)
     
     if (mbtiScore > 0) {
       components.push({

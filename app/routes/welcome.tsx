@@ -109,6 +109,7 @@ export default function WelcomePage() {
   const [participantHasOpennessComfort, setParticipantHasOpennessComfort] = useState(false)
   
   // Vibe questions completion popup states
+  const vibeCompletionPopupEnabled = false
   const [showVibeCompletionPopup, setShowVibeCompletionPopup] = useState(false)
   const [incompleteVibeQuestions, setIncompleteVibeQuestions] = useState<{[key: string]: {current: number, required: number, max: number, label: string}}>({})
   const [vibeAnswers, setVibeAnswers] = useState<{[key: string]: string}>({})
@@ -4598,7 +4599,7 @@ export default function WelcomePage() {
   // Contact Form Popup will be rendered within main page structure
 
   // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
-  if (showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
+  if (vibeCompletionPopupEnabled && showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
     return (
       <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         {/* Background Animation */}

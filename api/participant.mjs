@@ -1763,18 +1763,60 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: err.message })
     }
   }
-
-  // GENERATE AI VIBE ANALYSIS ACTION
+// ---------------------------------------------------------------------------
+  // ACTION: GENERATE AI VIBE ANALYSIS
+  // ---------------------------------------------------------------------------
   if (action === "generate-vibe-analysis") {
     try {
-      const { secure_token, partner_number, current_round, event_id } = req.body
+      const { secure_token, partner_number, event_id } = req.body
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
       
+      // 1. Validation
       if (!secure_token || !partner_number || !event_id) {
         return res.status(400).json({ error: "Missing secure_token, partner_number, or event_id" })
       }
 
-      // Get current participant data
+      // --- HELPER FUNCTIONS ---
+
+      // Safely extract answers from nested or flat structure
+      const getAns = (p, key) => {
+        return p.survey_data?.answers?.[key] || p.survey_data?.[key] || ""
+      }
+
+      // Map English names to Arabic to keep the narrative consistent
+      const cleanName = (fullName) => {
+        if (!fullName) return "المشارك"
+        const first = fullName.trim().split(/\s+/)[0]
+        // Common mappings
+        const map = { 
+          "Ahmed": "أحمد", "Sara": "سارة", "Mohammad": "محمد", "Ali": "علي", 
+          "Fatima": "فاطمة", "Omar": "عمر", "Nora": "نورا", "Khalid": "خالد", 
+          "Lama": "لمى", "Fahad": "فهد", "Saud": "سعود", "Reem": "ريم" 
+        }
+        return map[first] || first
+      }
+
+      // Convert Abstract Codes (A/B/C) to Semantic Meaning for AI
+      const interpretProfile = (p) => {
+        // Q35: Conversational Role
+        const roleMap = { 'أ': 'مبادر ويقود السوالف', 'ب': 'متفاعل وحيوي', 'ج': 'مستمع هادئ' }
+        // Q37: Social Battery
+        const energyMap = { 'أ': 'طاقة عالية وتزيد مع الناس', 'ب': 'طاقة هادئة وتحتاج روقان' }
+        // Q40: Intent
+        const intentMap = { 'أ': 'تكوين صداقات', 'ب': 'بحث عن كيمياء عميقة (Spark)', 'ج': 'تجربة اجتماعية' }
+
+        return {
+          vibes: `${getAns(p, 'vibe_1')} | ${getAns(p, 'vibe_2')} | ${getAns(p, 'vibe_3')}`,
+          personality: getAns(p, 'vibe_5'), // How friends describe them
+          social_style: `${roleMap[getAns(p, 'q35')] || 'متوازن'} / ${energyMap[getAns(p, 'q37')] || 'طاقة متوسطة'}`,
+          goal: intentMap[getAns(p, 'q40')] || 'تعارف عام',
+          hooks: getAns(p, 'vibe_2') // Specific hobbies to target
+        }
+      }
+
+      // ------------------------
+
+      // 2. Get Participant 1 (Current User)
       const { data: participant, error: participantError } = await supabase
         .from("participants")
         .select("assigned_number, survey_data")
@@ -1787,24 +1829,18 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Participant not found" })
       }
 
-      // Check if analysis already exists in match_results (shared between both participants)
-      // Query for the match record where this participant is either participant_a or participant_b
+      // 3. Check Cache (Avoid paying for OpenAI if analysis exists)
+      // Logic: Check match_results for this pair
       const { data: existingMatch, error: matchLookupError } = await supabase
         .from("match_results")
-        .select("ai_personality_analysis, participant_a_number, participant_b_number")
+        .select("ai_personality_analysis")
         .eq("match_id", match_id)
         .eq("event_id", event_id)
         .or(`and(participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${participant.assigned_number})`)
         .single()
 
-      if (matchLookupError && matchLookupError.code !== 'PGRST116') {
-        console.error("Match lookup error:", matchLookupError)
-        return res.status(500).json({ error: "Failed to lookup match record" })
-      }
-
-      // If analysis already exists in the match record, return it
       if (existingMatch?.ai_personality_analysis) {
-        console.log(`🔄 Returning existing AI analysis from match_results for participants ${participant.assigned_number} ↔ ${partner_number}`)
+        console.log(`🔄 Returning Cached Analysis for ${participant.assigned_number} <-> ${partner_number}`)
         return res.status(200).json({
           success: true,
           analysis: existingMatch.ai_personality_analysis,
@@ -1812,12 +1848,7 @@ export default async function handler(req, res) {
         })
       }
 
-      if (!existingMatch) {
-        console.error("Match record not found for participants", participant.assigned_number, "and", partner_number)
-        return res.status(404).json({ error: "Match record not found" })
-      }
-
-      // Get partner data
+      // 4. Get Participant 2 (Partner)
       const { data: partner, error: partnerError } = await supabase
         .from("participants")
         .select("assigned_number, survey_data")
@@ -1830,119 +1861,59 @@ export default async function handler(req, res) {
         return res.status(404).json({ error: "Partner not found" })
       }
 
-      // Extract and process names
-      const extractFirstName = (fullName) => {
-        if (!fullName) return null
-        // Remove extra spaces and split by space
-        const nameParts = fullName.trim().split(/\s+/)
-        // Return only first name (first part)
-        return nameParts[0]
-      }
+      // 5. Build The Context Objects
+      const name1 = cleanName(participant.survey_data?.name)
+      const name2 = cleanName(partner.survey_data?.name)
 
-      const participantFullName = participant.survey_data?.name || `المشارك ${participant.assigned_number}`
-      const partnerFullName = partner.survey_data?.name || `المشارك ${partner.assigned_number}`
-      
-      const participantName = extractFirstName(participantFullName) || participantFullName
-      const partnerName = extractFirstName(partnerFullName) || partnerFullName
+      const p1Data = interpretProfile(participant)
+      const p2Data = interpretProfile(partner)
 
-      // Extract vibe data from both participants
-      const participantVibes = {
-        weekend: participant.survey_data?.vibe_1 || '',
-        hobbies: participant.survey_data?.vibe_2 || '',
-        music: participant.survey_data?.vibe_3 || '',
-        conversations: participant.survey_data?.vibe_4 || '',
-        friendsDescribe: participant.survey_data?.vibe_5 || '',
-        describesFriends: participant.survey_data?.vibe_6 || ''
-      }
+      // 6. The "Spark" Narrative Prompt
+      const prompt = `أنت خبير كيمياء اجتماعية في الرياض (Matchmaker). حلل التوافق بين "${name1}" و "${name2}" لفعالية "التوافق الأعمى".
 
-      const partnerVibes = {
-        weekend: partner.survey_data?.vibe_1 || '',
-        hobbies: partner.survey_data?.vibe_2 || '',
-        music: partner.survey_data?.vibe_3 || '',
-        conversations: partner.survey_data?.vibe_4 || '',
-        friendsDescribe: partner.survey_data?.vibe_5 || '',
-        describesFriends: partner.survey_data?.vibe_6 || ''
-      }
+[ملف ${name1}]:
+- الاهتمامات والجو: ${p1Data.vibes}
+- شخصيته: ${p1Data.personality}
+- أسلوبه في السوالف: ${p1Data.social_style}
+- هدفه من اللقاء: ${p1Data.goal}
 
-      // Extract lifestyle data
-      const participantLifestyle = {
-        lifestyle_1: participant.survey_data?.answers?.lifestyle_1 || participant.survey_data?.lifestyle_1 || '',
-        lifestyle_2: participant.survey_data?.answers?.lifestyle_2 || participant.survey_data?.lifestyle_2 || '',
-        lifestyle_3: participant.survey_data?.answers?.lifestyle_3 || participant.survey_data?.lifestyle_3 || '',
-        lifestyle_4: participant.survey_data?.answers?.lifestyle_4 || participant.survey_data?.lifestyle_4 || '',
-        lifestyle_5: participant.survey_data?.answers?.lifestyle_5 || participant.survey_data?.lifestyle_5 || ''
-      }
+[ملف ${name2}]:
+- الاهتمامات والجو: ${p2Data.vibes}
+- شخصيته: ${p2Data.personality}
+- أسلوبه في السوالف: ${p2Data.social_style}
+- هدفه من اللقاء: ${p2Data.goal}
 
-      const partnerLifestyle = {
-        lifestyle_1: partner.survey_data?.answers?.lifestyle_1 || partner.survey_data?.lifestyle_1 || '',
-        lifestyle_2: partner.survey_data?.answers?.lifestyle_2 || partner.survey_data?.lifestyle_2 || '',
-        lifestyle_3: partner.survey_data?.answers?.lifestyle_3 || partner.survey_data?.lifestyle_3 || '',
-        lifestyle_4: partner.survey_data?.answers?.lifestyle_4 || partner.survey_data?.lifestyle_4 || '',
-        lifestyle_5: partner.survey_data?.answers?.lifestyle_5 || partner.survey_data?.lifestyle_5 || ''
-      }
+المطلوب:
+اكتب تحليلاً ذكياً بلهجة بيضاء راقية (فقرة واحدة متصلة، 180 كلمة).
+1. ابدأ فوراً بوصف "الكيمياء" بينهما (مثلاً: "بين هدوء فهد وحماس سارة..").
+2. استخدم كلماتهم الأصلية (مثل "كشتة"، "بادل"، "شايب"، "روقان") ليكون التحليل شخصياً.
+3. حلل كيف سيكملون بعضهم: هل أحدهم سيبدأ السوالف والآخر يسمع؟
+4. اقترح "سيناريو لقاء" في الرياض يناسب ذوقهم (مثلاً: قهوة هادئة، ممشى، أو مكان فيه حركة).
 
-      // Create AI prompt for personalized analysis
-      const prompt = `أنت خبير توافق شخصي متخصص في الثقافة السعودية. اكتب تحليلاً دافئاً وطبيعياً عن التوافق بين شخصين في سياق التعارف والصداقة (ليس رومانسياً).
+ممنوعات:
+- لا تبدأ بمقدمات مثل "بناءً على البيانات" أو "يسعدني".
+- لا تستخدم القوائم أو النقاط.
+- لا تكن رسمياً، كن مثل الصديق الناصح.`
 
-السياق: هذا تحليل لتوافق شخصين التقيا في فعالية ترابط فكري بهدف بناء صداقات وعلاقات اجتماعية صحية قائمة على التوافق الفكري والاهتمامات المشتركة.
-
-معلومات الشخص الأول (${participantName}):
-عطلة نهاية الأسبوع: ${participantVibes.weekend}
-الهوايات: ${participantVibes.hobbies}
-الموسيقى: ${participantVibes.music}
-المحادثات: ${participantVibes.conversations}
-وصف الأصدقاء: ${participantVibes.friendsDescribe}
-الطاقة اليومية: ${participantLifestyle.lifestyle_1}
-التواصل: ${participantLifestyle.lifestyle_2}
-التخطيط: ${participantLifestyle.lifestyle_4}
-
-معلومات الشخص الثاني (${partnerName}):
-عطلة نهاية الأسبوع: ${partnerVibes.weekend}
-الهوايات: ${partnerVibes.hobbies}
-الموسيقى: ${partnerVibes.music}
-المحادثات: ${partnerVibes.conversations}
-وصف الأصدقاء: ${partnerVibes.friendsDescribe}
-الطاقة اليومية: ${partnerLifestyle.lifestyle_1}
-التواصل: ${partnerLifestyle.lifestyle_2}
-التخطيط: ${partnerLifestyle.lifestyle_4}
-
-اكتب تحليلاً بالعربية (180-220 كلمة) بأسلوب سردي طبيعي ومتدفق، كأنك تحكي قصة توافقهم كأصدقاء محتملين لصديق. لا تستخدم نقاط أو قوائم.
-
-ابدأ بمقدمة دافئة تذكر اسميهما وتشير للتوافق بينهما كأصدقاء أو معارف اجتماعيين. ثم تحدث بشكل طبيعي عن الاهتمامات المشتركة التي تجمعهم، وكيف أن نمط حياتهم متناغم. اذكر تفاصيل محددة من إجاباتهم لتجعل التحليل شخصياً وحقيقياً.
-
-وضح كيف تكمل شخصياتهم بعضها البعض في سياق الصداقة والتعارف الاجتماعي. في نهاية التحليل، اقترح نشاطين محددين يمكنهم الاستمتاع بهما معاً في الرياض كأصدقاء.
-
-اختم بجملة أو جملتين محفزة تشجعهم على الاستمرار في التعرف على بعضهم البعض وبناء صداقة.
-
-مهم جداً - الأسماء:
-- الاسم الأول: ${participantName} - إذا كان بالإنجليزية، يجب ترجمته للعربية حتماً (Ahmed=أحمد، Sara=سارة، Mohammad=محمد، Ali=علي، Fatima=فاطمة، Omar=عمر، Nora=نورا، Khalid=خالد، Lama=لمى)
-- الاسم الثاني: ${partnerName} - إذا كان بالإنجليزية، يجب ترجمته للعربية حتماً
-- استخدم الأسماء المترجمة في كل التحليل
-- لا تذكر أرقام المشاركين أبداً
-
-إرشادات الكتابة:
-- اكتب بلغة عربية فصحى سهلة وودية
-- لا تستخدم نقاط أو قوائم، اكتب فقرات متصلة
-- اجعل النص يتدفق بشكل طبيعي من فكرة لأخرى
-- ركز على الصداقة والتعارف الاجتماعي، ليس الرومانسية`
-
-      // Generate AI analysis
-      console.log(`🤖 Generating AI vibe analysis for participants ${participant.assigned_number} and ${partner.assigned_number}`)
+      // 7. Generate with Anti-Repetition Settings
+      console.log(`🤖 Generating fresh Vibe Analysis for ${name1} & ${name2}...`)
       
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
-        max_tokens: 500,
-        temperature: 0.7,
+        max_tokens: 550,
+        temperature: 0.85,      // High creativity
+        presence_penalty: 0.8,   // Strong penalty for repeating sentence structures
+        frequency_penalty: 0.6   // Penalty for overusing common words
       })
 
       const analysis = completion.choices[0]?.message?.content?.trim()
       
       if (!analysis) {
-        throw new Error("No analysis generated by AI")
+        throw new Error("AI generated empty analysis")
       }
 
-      // Store the analysis in the match_results table (shared between both participants)
+      // 8. Store Result
       const { error: updateError } = await supabase
         .from("match_results")
         .update({ ai_personality_analysis: analysis })
@@ -1951,12 +1922,10 @@ export default async function handler(req, res) {
         .or(`and(participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${partner_number}),and(participant_a_number.eq.${partner_number},participant_b_number.eq.${participant.assigned_number})`)
 
       if (updateError) {
-        console.error("Error storing AI analysis:", updateError)
+        console.error("Error storing analysis:", updateError)
         return res.status(500).json({ error: "Failed to store analysis" })
       }
 
-      console.log(`✅ AI vibe analysis generated and stored in match_results for participants ${participant.assigned_number} ↔ ${partner_number}`)
-      
       return res.status(200).json({
         success: true,
         analysis: analysis,
@@ -1970,9 +1939,7 @@ export default async function handler(req, res) {
         details: error.message 
       })
     }
-  }
-
-  // ENABLE AUTO-SIGNUP FOR ALL FUTURE EVENTS
+  }  // ENABLE AUTO-SIGNUP FOR ALL FUTURE EVENTS
   if (action === "enable-auto-signup") {
     try {
       const { secure_token } = req.body

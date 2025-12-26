@@ -4079,83 +4079,72 @@ export default function WelcomePage() {
       const communicationStrengthNew = getStrengthLevel(communicationNewScore, 10)
       const intentStrength = getStrengthLevel(intentValuesScore, 5)
 
-      if (synergyScore > 0) {
-        components.push({
-          name: "الانسجام التفاعلي",
-          strength: synergyStrength.level,
-          color: synergyStrength.color,
-          bgColor: synergyStrength.bgColor,
-          borderColor: synergyStrength.borderColor,
-          description: synergyScore >= 28 ? "انسجام عالٍ في الأدوار وعمق الحديث والراحة مع الصمت." :
-                       synergyScore >= 18 ? "انسجام جيد مع بعض الفروقات التي تحتاج تنسيق بسيط." :
-                       "اختلافات ملحوظة في أسلوب التفاعل تحتاج وقت للتأقلم."
-        })
-      }
+      // Always show all six components (even if score is 0)
+      components.push({
+        name: "الانسجام التفاعلي",
+        strength: synergyStrength.level,
+        color: synergyStrength.color,
+        bgColor: synergyStrength.bgColor,
+        borderColor: synergyStrength.borderColor,
+        description: synergyScore >= 28 ? "انسجام عالٍ في الأدوار وعمق الحديث والراحة مع الصمت." :
+                     synergyScore >= 18 ? "انسجام جيد مع بعض الفروقات التي تحتاج تنسيق بسيط." :
+                     "اختلافات ملحوظة في أسلوب التفاعل تحتاج وقت للتأقلم."
+      })
 
-      if (vibeNewScore > 0) {
-        components.push({
-          name: "الطاقة والكيمياء",
-          strength: vibeStrengthNew.level,
-          color: vibeStrengthNew.color,
-          bgColor: vibeStrengthNew.bgColor,
-          borderColor: vibeStrengthNew.borderColor,
-          description: vibeNewScore >= 14 ? "كيمياء واضحة وتوافق في الإحساس العام والحماس." :
-                       vibeNewScore >= 8 ? "انسجام لطيف في الطاقة مع مساحة للنمو." :
-                       "إيقاعات مختلفة قد تحتاجان لبعض الوقت للتقارب."
-        })
-      }
+      components.push({
+        name: "الطاقة والكيمياء",
+        strength: vibeStrengthNew.level,
+        color: vibeStrengthNew.color,
+        bgColor: vibeStrengthNew.bgColor,
+        borderColor: vibeStrengthNew.borderColor,
+        description: vibeNewScore >= 14 ? "كيمياء واضحة وتوافق في الإحساس العام والحماس." :
+                     vibeNewScore >= 8 ? "انسجام لطيف في الطاقة مع مساحة للنمو." :
+                     "إيقاعات مختلفة قد تحتاجان لبعض الوقت للتقارب."
+      })
 
-      if (lifestyleNewScore > 0) {
-        components.push({
-          name: "نمط الحياة",
-          strength: lifestyleStrengthNew.level,
-          color: lifestyleStrengthNew.color,
-          bgColor: lifestyleStrengthNew.bgColor,
-          borderColor: lifestyleStrengthNew.borderColor,
-          description: lifestyleNewScore >= 12 ? "روتين متقارب جداً في التوقيت والتخطيط والأنشطة." :
-                       lifestyleNewScore >= 8 ? "تشابه جيد في الروتين مع اختلافات بسيطة." :
-                       "إيقاعات يومية مختلفة قد تتطلب تنسيقاً."
-        })
-      }
+      components.push({
+        name: "نمط الحياة",
+        strength: lifestyleStrengthNew.level,
+        color: lifestyleStrengthNew.color,
+        bgColor: lifestyleStrengthNew.bgColor,
+        borderColor: lifestyleStrengthNew.borderColor,
+        description: lifestyleNewScore >= 12 ? "روتين متقارب جداً في التوقيت والتخطيط والأنشطة." :
+                     lifestyleNewScore >= 8 ? "تشابه جيد في الروتين مع اختلافات بسيطة." :
+                     "إيقاعات يومية مختلفة قد تتطلب تنسيقاً."
+      })
 
-      if (humorOpenScore > 0) {
-        components.push({
-          name: "الدعابة والانفتاح",
-          strength: humorOpenStrength.level,
-          color: humorOpenStrength.color,
-          bgColor: humorOpenStrength.bgColor,
-          borderColor: humorOpenStrength.borderColor,
-          description: humorOpenScore >= 12 ? "حس فكاهي متقارب وارتياح جميل للانفتاح المبكر." :
-                       humorOpenScore >= 8 ? "انسجام جيد في الدعابة ومستوى الانفتاح." :
-                       "أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة."
-        })
-      }
+      components.push({
+        name: "الدعابة والانفتاح",
+        strength: humorOpenStrength.level,
+        color: humorOpenStrength.color,
+        bgColor: humorOpenStrength.bgColor,
+        borderColor: humorOpenStrength.borderColor,
+        description: humorOpenScore >= 12 ? "حس فكاهي متقارب وارتياح جميل للانفتاح المبكر." :
+                     humorOpenScore >= 8 ? "انسجام جيد في الدعابة ومستوى الانفتاح." :
+                     "أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة."
+      })
 
-      if (communicationNewScore > 0) {
-        components.push({
-          name: "أسلوب التواصل",
-          strength: communicationStrengthNew.level,
-          color: communicationStrengthNew.color,
-          bgColor: communicationStrengthNew.bgColor,
-          borderColor: communicationStrengthNew.borderColor,
-          description: communicationNewScore >= 8 ? "تفاهم سريع ولغة مشتركة واضحة." :
-                       communicationNewScore >= 5 ? "تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح." :
-                       "أساليب تواصل مختلفة قد تتطلب مرونة أكبر."
-        })
-      }
+      components.push({
+        name: "أسلوب التواصل",
+        strength: communicationStrengthNew.level,
+        color: communicationStrengthNew.color,
+        bgColor: communicationStrengthNew.bgColor,
+        borderColor: communicationStrengthNew.borderColor,
+        description: communicationNewScore >= 8 ? "تفاهم سريع ولغة مشتركة واضحة." :
+                     communicationNewScore >= 5 ? "تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح." :
+                     "أساليب تواصل مختلفة قد تتطلب مرونة أكبر."
+      })
 
-      if (intentValuesScore > 0) {
-        components.push({
-          name: "الأهداف والقيم",
-          strength: intentStrength.level,
-          color: intentStrength.color,
-          bgColor: intentStrength.bgColor,
-          borderColor: intentStrength.borderColor,
-          description: intentValuesScore >= 4 ? "اتجاهات متشابهة في هدف اللقاء وما يعتبر مهماً." :
-                       intentValuesScore >= 2 ? "تقارب معقول في الأهداف أو القيم العامة." :
-                       "توقعات مختلفة قد تحتاج وضوحاً مبكراً."
-        })
-      }
+      components.push({
+        name: "الأهداف والقيم",
+        strength: intentStrength.level,
+        color: intentStrength.color,
+        bgColor: intentStrength.bgColor,
+        borderColor: intentStrength.borderColor,
+        description: intentValuesScore >= 4 ? "اتجاهات متشابهة في هدف اللقاء وما يعتبر مهماً." :
+                     intentValuesScore >= 2 ? "تقارب معقول في الأهداف أو القيم العامة." :
+                     "توقعات مختلفة قد تحتاج وضوحاً مبكراً."
+      })
 
       return { components, originalReason: reason }
     }

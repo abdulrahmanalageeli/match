@@ -4597,11 +4597,281 @@ export default function WelcomePage() {
 
   // Contact Form Popup will be rendered within main page structure
 
-  // Vibe Questions Completion Popup overlay will be rendered within the main page structure
+  // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
+  if (showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
+    return (
+      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        {/* Background Animation */}
+        <div className="absolute inset-0">
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
+                i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 3) * 24}px`,
+                left: `${10 + i * 12}%`,
+                top: `${15 + (i % 4) * 20}%`,
+                animationDelay: `${i * 0.8}s`,
+                animationDuration: `${4 + (i % 3)}s`,
+              }}
+            />
+          ))}
+        </div>
 
-  // Survey Recovery Popup overlay will be rendered within the main page structure
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`} dir="rtl">
+            <div className="p-6 overflow-y-auto">
+              <div className="space-y-4">
+                {/* Icon */}
+                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-yellow-500/20" : "bg-yellow-100"}`}>
+                  <AlertTriangle className={`w-8 h-8 ${dark ? "text-yellow-400" : "text-yellow-600"}`} />
+                </div>
+                
+                <h3 className={`text-xl font-bold text-center ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                  إكمال الأسئلة المطلوبة
+                </h3>
+                
+                <div className={`p-4 rounded-xl border ${dark ? "bg-yellow-500/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-200"}`}>
+                  <p className={`text-sm font-medium ${dark ? "text-yellow-300" : "text-yellow-700"}`}>
+                    ⚠️ لم تكمل الحد الأدنى المطلوب (50%) من الإجابات التالية
+                  </p>
+                  <p className={`text-xs mt-2 ${dark ? "text-yellow-200" : "text-yellow-600"}`}>
+                    يرجى إكمال الأسئلة أدناه لتكون مؤهلاً للحدث القادم
+                  </p>
+                </div>
 
-  // Survey Completion Popup overlay will be rendered within the main page structure
+                {/* Incomplete Vibe Questions */}
+                {Object.entries(incompleteVibeQuestions).map(([key, info]) => {
+                  const currentLength = (vibeAnswers[key] || "").length
+                  const remaining = info.required - currentLength
+                  const isBelowMinimum = currentLength < info.required
+                  
+                  return (
+                    <div key={key} className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
+                      <p className={`text-sm font-medium mb-2 ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                        {info.label}
+                      </p>
+                      <textarea
+                        value={vibeAnswers[key] || ""}
+                        onChange={(e) => {
+                          const newValue = e.target.value
+                          if (newValue.length <= info.max) {
+                            setVibeAnswers(prev => ({ ...prev, [key]: newValue }))
+                          }
+                        }}
+                        placeholder="اكتب إجابتك هنا..."
+                        className={`w-full min-h-[80px] text-right border-2 rounded-lg px-3 py-2 text-sm resize-y ${
+                          isBelowMinimum
+                            ? dark 
+                              ? 'border-yellow-600 focus:border-yellow-500 bg-slate-700 text-slate-100' 
+                              : 'border-yellow-300 focus:border-yellow-500 bg-white text-gray-800'
+                            : dark
+                              ? 'border-green-600 focus:border-green-500 bg-slate-700 text-slate-100'
+                              : 'border-green-300 focus:border-green-500 bg-white text-gray-800'
+                        }`}
+                      />
+                      <div className="flex justify-between items-center mt-2 text-xs">
+                        <span className={`font-medium ${
+                          isBelowMinimum 
+                            ? dark ? 'text-yellow-400' : 'text-yellow-600'
+                            : dark ? 'text-green-400' : 'text-green-600'
+                        }`}>
+                          {currentLength}/{info.max} حرف (الحد الأدنى: {info.required})
+                        </span>
+                        {isBelowMinimum ? (
+                          <span className={`font-medium ${dark ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                            يحتاج {remaining} حرف إضافي
+                          </span>
+                        ) : (
+                          <span className={`font-medium ${dark ? 'text-green-400' : 'text-green-600'}`}>
+                            ✓ مكتمل
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                
+                {/* Buttons */}
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowVibeCompletionPopup(false)
+                      setIncompleteVibeQuestions({})
+                      setVibeAnswers({})
+                    }}
+                    disabled={vibeLoading}
+                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                      dark 
+                        ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                        : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                    } disabled:opacity-50`}
+                  >
+                    إغلاق
+                  </button>
+                  
+                  <button
+                    onClick={handleVibeCompletionSubmit}
+                    disabled={vibeLoading}
+                    className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {vibeLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        جاري الحفظ...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        حفظ التحديثات
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Survey Recovery Popup (technical issue) - Top Level (highest priority)
+  if (showSurveyRecoveryPopup && surveyRecoveryInfo) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
+          <div className="p-6 overflow-y-auto">
+            <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-slate-100' : 'text-gray-800'}`}>
+              حدث خلل تقني في بياناتك
+            </h2>
+            <p className={`${dark ? 'text-slate-300' : 'text-gray-700'} leading-relaxed`}>
+              نعتذر عن الإزعاج. لاحظنا أن بعض معلوماتك مثل الاسم أو إجابات الاستبيان غير محفوظة، بينما تم حفظ تفضيلات التفاعل.
+              لضمان أفضل تجربة ومطابقة دقيقة، يُرجى إعادة تعبئة الاستبيان.
+            </p>
+
+            <div className={`mt-4 p-3 rounded-lg ${dark ? 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/30' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
+              <div className="text-sm">
+                رقم المشارك: <span className="font-bold">#{surveyRecoveryInfo.assigned_number}</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-5">
+              <button
+                onClick={() => {
+                  setShowSurveyRecoveryPopup(false)
+                }}
+                className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                  dark 
+                    ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                    : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                لاحقاً
+              </button>
+
+              <button
+                onClick={() => {
+                  // Prefer secure_token from server; fall back to any stored token
+                  const token = surveyRecoveryInfo.secure_token 
+                    || secureToken 
+                    || resultToken 
+                    || returningPlayerToken 
+                    || (typeof window !== 'undefined' && (localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')));
+                  if (token) {
+                    // Navigate to welcome page with token and a redo hint
+                    window.location.href = `/welcome?token=${encodeURIComponent(String(token))}&redo=1`;
+                  } else {
+                    // Fallback to in-place open if token missing
+                    setShowSurveyRecoveryPopup(false)
+                    setStep(2)
+                    setShowSurvey(true)
+                    setTimeout(() => setIsEditingSurvey(true), 100)
+                  }
+                }}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
+              >
+                إعادة تعبئة الاستبيان الآن
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Survey Completion Popup - Top Level (before any conditional returns)
+  if (showSurveyCompletionPopup && incompleteSurveyInfo) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`} dir="rtl">
+          <div className="p-6 overflow-y-auto">
+            <div className="text-center space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="p-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-full border border-orange-400/30">
+                  <AlertCircle className="w-8 h-8 text-orange-400" />
+                </div>
+              </div>
+              
+              <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>
+                مرحباً {incompleteSurveyInfo.name}!
+              </h3>
+              
+              <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>
+                المشارك رقم #{incompleteSurveyInfo.assigned_number}
+              </p>
+              
+              <div className={`p-6 rounded-2xl border ${dark ? "bg-gradient-to-br from-orange-500/20 to-yellow-500/20 border-orange-400/30 backdrop-blur-lg" : "bg-orange-50 border-orange-200"}`}>
+                <div className="flex items-center">
+                  <div className={`p-3 rounded-full ${dark ? "bg-orange-500/20" : "bg-orange-100"}`}>
+                    <FileText size={24} className={`${dark ? "text-orange-300" : "text-orange-600"}`} />
+                  </div>
+                  <div className="ml-4">
+                    <p className={`text-lg font-bold ${dark ? "text-orange-200" : "text-orange-800"}`}>
+                      📝 تحديثات مهمة في الاستبيان
+                    </p>
+                    <p className={`text-sm mt-1 ${dark ? "text-orange-300" : "text-orange-700"}`}>
+                      لقد أضفنا أسئلة جديدة وحسّنا بعض الأسئلة الحالية. يرجى إكمال الاستبيان المحدث لضمان أفضل المطابقات لك.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowSurveyCompletionPopup(false)}
+                  className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${
+                    dark 
+                      ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" 
+                      : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  إغلاق
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setShowSurveyCompletionPopup(false);
+                    // Navigate to survey with the secure token
+                    window.location.href = `/welcome?token=${incompleteSurveyInfo.secure_token}`;
+                  }}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  إكمال الاستبيان
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Token validation loading UI
   if (token && isResolving) {
@@ -6448,48 +6718,6 @@ export default function WelcomePage() {
       </>
     );
   }
-      {/* Survey Completion Popup (overlay within main page) */}
-      {showSurveyCompletionPopup && incompleteSurveyInfo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" dir="rtl">
-          <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
-            <div className="p-6 overflow-y-auto">
-              <div className="text-center space-y-4">
-                <div className="flex items-center justify-center mb-4">
-                  <div className="p-3 bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-full border border-orange-400/30">
-                    <AlertCircle className="w-8 h-8 text-orange-400" />
-                  </div>
-                </div>
-                <h3 className={`text-xl font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>مرحباً {incompleteSurveyInfo.name}!</h3>
-                <p className={`text-sm ${dark ? "text-slate-300" : "text-gray-600"}`}>المشارك رقم #{incompleteSurveyInfo.assigned_number}</p>
-                <div className={`p-6 rounded-2xl border ${dark ? "bg-gradient-to-br from-orange-500/20 to-yellow-500/20 border-orange-400/30 backdrop-blur-lg" : "bg-orange-50 border-orange-200"}`}>
-                  <div className="flex items-center">
-                    <div className={`${dark ? "bg-orange-500/20" : "bg-orange-100"} p-3 rounded-full`}>
-                      <FileText size={24} className={`${dark ? "text-orange-300" : "text-orange-600"}`} />
-                    </div>
-                    <div className="ml-4">
-                      <p className={`text-lg font-bold ${dark ? "text-orange-200" : "text-orange-800"}`}>📝 تحديثات مهمة في الاستبيان</p>
-                      <p className={`text-sm mt-1 ${dark ? "text-orange-300" : "text-orange-700"}`}>لقد أضفنا أسئلة جديدة وحسّنا بعض الأسئلة الحالية. يرجى إكمال الاستبيان المحدث لضمان أفضل المطابقات لك.</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={() => setShowSurveyCompletionPopup(false)}
-                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${dark ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"}`}
-                  >إغلاق</button>
-                  <button
-                    onClick={() => { setShowSurveyCompletionPopup(false); window.location.href = `/welcome?token=${incompleteSurveyInfo.secure_token}`; }}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
-                  >
-                    <FileText className="w-4 h-4" />
-                    إكمال الاستبيان
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
   if (phase === null) {
     return (
@@ -9518,124 +9746,6 @@ export default function WelcomePage() {
         )}
 
       </div>
-
-      {/* Vibe Questions Completion Popup (overlay within main page) */}
-      {showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0 && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4" dir="rtl">
-          <div className={`max-w-2xl w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/95 border-slate-600" : "bg-white/95 border-gray-200"} flex flex-col`}>
-            <div className="p-6 overflow-y-auto">
-              <div className="space-y-4">
-                <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${dark ? "bg-yellow-500/20" : "bg-yellow-100"}`}>
-                  <AlertTriangle className={`w-8 h-8 ${dark ? "text-yellow-400" : "text-yellow-600"}`} />
-                </div>
-                <h3 className={`text-xl font-bold text-center ${dark ? "text-slate-100" : "text-gray-800"}`}>
-                  إكمال الأسئلة المطلوبة
-                </h3>
-                <div className={`p-4 rounded-xl border ${dark ? "bg-yellow-500/10 border-yellow-400/30" : "bg-yellow-50 border-yellow-200"}`}>
-                  <p className={`text-sm font-medium ${dark ? "text-yellow-300" : "text-yellow-700"}`}>
-                    ⚠️ لم تكمل الحد الأدنى المطلوب (50%) من الإجابات التالية
-                  </p>
-                  <p className={`text-xs mt-2 ${dark ? "text-yellow-200" : "text-yellow-600"}`}>
-                    يرجى إكمال الأسئلة أدناه لتكون مؤهلاً للحدث القادم
-                  </p>
-                </div>
-                {Object.entries(incompleteVibeQuestions).map(([key, info]) => {
-                  const currentLength = (vibeAnswers[key] || "").length
-                  const remaining = info.required - currentLength
-                  const isBelowMinimum = currentLength < info.required
-                  return (
-                    <div key={key} className={`p-4 rounded-xl border ${dark ? "bg-purple-500/10 border-purple-400/30" : "bg-purple-50 border-purple-200"}`}>
-                      <p className={`text-sm font-medium mb-2 ${dark ? "text-purple-300" : "text-purple-700"}`}>{info.label}</p>
-                      <textarea
-                        value={vibeAnswers[key] || ""}
-                        onChange={(e) => {
-                          const newValue = e.target.value
-                          if (newValue.length <= info.max) {
-                            setVibeAnswers(prev => ({ ...prev, [key]: newValue }))
-                          }
-                        }}
-                        placeholder="اكتب إجابتك هنا..."
-                        className={`w-full min-h-[80px] text-right border-2 rounded-lg px-3 py-2 text-sm resize-y ${
-                          isBelowMinimum
-                            ? dark 
-                              ? 'border-yellow-600 focus:border-yellow-500 bg-slate-700 text-slate-100' 
-                              : 'border-yellow-300 focus:border-yellow-500 bg-white text-gray-800'
-                            : dark
-                              ? 'border-green-600 focus:border-green-500 bg-slate-700 text-slate-100'
-                              : 'border-green-300 focus:border-green-500 bg-white text-gray-800'
-                        }`}
-                      />
-                      <div className="flex justify-between items-center mt-2 text-xs">
-                        <span className={`font-medium ${isBelowMinimum ? (dark ? 'text-yellow-400' : 'text-yellow-600') : (dark ? 'text-green-400' : 'text-green-600')}`}>
-                          {currentLength}/{info.max} حرف (الحد الأدنى: {info.required})
-                        </span>
-                        {isBelowMinimum ? (
-                          <span className={`font-medium ${dark ? 'text-yellow-400' : 'text-yellow-600'}`}>يحتاج {remaining} حرف إضافي</span>
-                        ) : (
-                          <span className={`font-medium ${dark ? 'text-green-400' : 'text-green-600'}`}>✓ مكتمل</span>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-                <div className="flex gap-3 pt-4">
-                  <button
-                    onClick={() => { setShowVibeCompletionPopup(false); setIncompleteVibeQuestions({}); setVibeAnswers({}); }}
-                    disabled={vibeLoading}
-                    className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${dark ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"} disabled:opacity-50`}
-                  >إغلاق</button>
-                  <button
-                    onClick={handleVibeCompletionSubmit}
-                    disabled={vibeLoading}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {vibeLoading ? (<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>جاري الحفظ...</>) : (<><CheckCircle className="w-4 h-4" />حفظ التحديثات</>)}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Survey Recovery Popup (overlay within main page) */}
-      {showSurveyRecoveryPopup && surveyRecoveryInfo && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" dir="rtl">
-          <div className={`max-w-md w-full max-h-[90vh] rounded-2xl shadow-2xl border-2 ${dark ? "bg-slate-800/90 border-slate-600" : "bg-white/90 border-gray-200"} flex flex-col`}>
-            <div className="p-6 overflow-y-auto">
-              <h2 className={`text-xl font-bold mb-2 ${dark ? 'text-slate-100' : 'text-gray-800'}`}>حدث خلل تقني في بياناتك</h2>
-              <p className={`${dark ? 'text-slate-300' : 'text-gray-700'} leading-relaxed`}>
-                نعتذر عن الإزعاج. لاحظنا أن بعض معلوماتك مثل الاسم أو إجابات الاستبيان غير محفوظة، بينما تم حفظ تفضيلات التفاعل.
-                لضمان أفضل تجربة ومطابقة دقيقة، يُرجى إعادة تعبئة الاستبيان.
-              </p>
-              <div className={`mt-4 p-3 rounded-lg ${dark ? 'bg-yellow-500/10 text-yellow-300 border border-yellow-500/30' : 'bg-yellow-50 text-yellow-700 border border-yellow-200'}`}>
-                <div className="text-sm">رقم المشارك: <span className="font-bold">#{surveyRecoveryInfo.assigned_number}</span></div>
-              </div>
-              <div className="flex gap-3 pt-5">
-                <button
-                  onClick={() => { setShowSurveyRecoveryPopup(false) }}
-                  className={`flex-1 px-4 py-3 rounded-xl border transition-all duration-300 ${dark ? "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/50" : "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200"}`}
-                >لاحقاً</button>
-                <button
-                  onClick={() => {
-                    const token = surveyRecoveryInfo.secure_token || secureToken || resultToken || returningPlayerToken || (typeof window !== 'undefined' && (localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')));
-                    if (token) {
-                      window.location.href = `/welcome?token=${encodeURIComponent(String(token))}&redo=1`;
-                    } else {
-                      setShowSurveyRecoveryPopup(false)
-                      setStep(2)
-                      setShowSurvey(true)
-                      setTimeout(() => setIsEditingSurvey(true), 100)
-                    }
-                  }}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-xl transition-all duration-300"
-                >إعادة تعبئة الاستبيان الآن</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
 
       {/* Form filled prompt modal */}
       {showFormFilledPrompt && (

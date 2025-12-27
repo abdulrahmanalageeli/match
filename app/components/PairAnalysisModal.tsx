@@ -173,16 +173,6 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return '—'
   }
 
-  // Derived display texts for the new preferences card
-  const aGenderText = mapGender(a?.gender || aAns?.gender)
-  const bGenderText = mapGender(b?.gender || bAns?.gender)
-  const aAgeText = String(a?.age || aAns?.age || '—')
-  const bAgeText = String(b?.age || bAns?.age || '—')
-  const aGenderPrefText = mapGenderPref(aAns?.gender_preference as any, aAns?.gender as any)
-  const bGenderPrefText = mapGenderPref(bAns?.gender_preference as any, bAns?.gender as any)
-  const aAgeRangeText = mapAgePref(aAns?.open_age_preference, aAns?.preferred_age_min, aAns?.preferred_age_max)
-  const bAgeRangeText = mapAgePref(bAns?.open_age_preference, bAns?.preferred_age_min, bAns?.preferred_age_max)
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto p-0" dir="rtl">
@@ -248,33 +238,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             <div className="bg-white/5 border border-white/10 rounded-xl p-4">
               <div className="text-slate-400 text-xs mb-2">لمحة عن الطاقة والشخصية</div>
               <div className="space-y-1 text-xs text-slate-300">
-                {aAns?.vibe_1 && <div><span className="text-slate-500">{aName} - ويكند:</span> {String(aAns.vibe_1)}</div>}
-                {bAns?.vibe_1 && <div><span className="text-slate-500">{bName} - ويكند:</span> {String(bAns.vibe_1)}</div>}
-                {aAns?.vibe_2 && <div><span className="text-slate-500">{aName} - هوايات:</span> {String(aAns.vibe_2)}</div>}
-                {bAns?.vibe_2 && <div><span className="text-slate-500">{bName} - هوايات:</span> {String(bAns.vibe_2)}</div>}
-              </div>
-            </div>
-          </div>
-
-          {/* Gender & Age Preferences */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">تفضيلات الجندر والعمر</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                <div className="text-slate-400 mb-1">{aName}</div>
-                <div className="space-y-1">
-                  <div className="text-slate-300"><span className="text-slate-500">الجندر/العمر:</span> {aGenderText} • {aAgeText}</div>
-                  <div className="text-slate-300"><span className="text-slate-500">تفضيل الجندر:</span> {aGenderPrefText}</div>
-                  <div className="text-slate-300"><span className="text-slate-500">المدى العمري المرغوب:</span> {aAgeRangeText}</div>
-                </div>
-              </div>
-              <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                <div className="text-slate-400 mb-1">{bName}</div>
-                <div className="space-y-1">
-                  <div className="text-slate-300"><span className="text-slate-500">الجندر/العمر:</span> {bGenderText} • {bAgeText}</div>
-                  <div className="text-slate-300"><span className="text-slate-500">تفضيل الجندر:</span> {bGenderPrefText}</div>
-                  <div className="text-slate-300"><span className="text-slate-500">المدى العمري المرغوب:</span> {bAgeRangeText}</div>
-                </div>
+                {aAns?.vibe_1 && <div><span className="text-slate-500">A- ويكند:</span> {String(aAns.vibe_1)}</div>}
+                {bAns?.vibe_1 && <div><span className="text-slate-500">B- ويكند:</span> {String(bAns.vibe_1)}</div>}
+                {aAns?.vibe_2 && <div><span className="text-slate-500">A- هوايات:</span> {String(aAns.vibe_2)}</div>}
+                {bAns?.vibe_2 && <div><span className="text-slate-500">B- هوايات:</span> {String(bAns.vibe_2)}</div>}
               </div>
             </div>
           </div>
@@ -287,8 +254,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 <div key={i} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
                   <div className="text-slate-400 mb-1">{LIFESTYLE_QUESTIONS[i]}</div>
                   <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aName}: {lifestyleA[i-1] || '—'}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bName}: {lifestyleB[i-1] || '—'}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">A: {lifestyleA[i-1] || '—'}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">B: {lifestyleB[i-1] || '—'}</span>
                   </div>
                 </div>
               ))}
@@ -309,10 +276,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <div className="text-slate-400 mb-1">{meta?.label || k}</div>
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aName}: {meta?.options?.[aVal] || aVal || '—'}
+                        A: {meta?.options?.[aVal] || aVal || '—'}
                       </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bName}: {meta?.options?.[bVal] || bVal || '—'}
+                        B: {meta?.options?.[bVal] || bVal || '—'}
                       </span>
                     </div>
                   </div>
@@ -335,10 +302,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <div className="text-slate-400 mb-1">{meta?.label || k}</div>
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aName}: {meta?.options?.[aVal] || aVal || '—'}
+                        A: {meta?.options?.[aVal] || aVal || '—'}
                       </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bName}: {meta?.options?.[bVal] || bVal || '—'}
+                        B: {meta?.options?.[bVal] || bVal || '—'}
                       </span>
                     </div>
                   </div>
@@ -361,10 +328,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <div className="text-slate-400 mb-1">{meta?.label || k}</div>
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aName}: {meta?.options?.[aVal] || aVal || '—'}
+                        A: {meta?.options?.[aVal] || aVal || '—'}
                       </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bName}: {meta?.options?.[bVal] || bVal || '—'}
+                        B: {meta?.options?.[bVal] || bVal || '—'}
                       </span>
                     </div>
                   </div>
@@ -387,10 +354,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <div className="text-slate-400 mb-1">{meta?.label || k}</div>
                     <div className="flex items-center justify-between">
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aName}: {meta?.options?.[aVal] || aVal || '—'}
+                        A: {meta?.options?.[aVal] || aVal || '—'}
                       </span>
                       <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bName}: {meta?.options?.[bVal] || bVal || '—'}
+                        B: {meta?.options?.[bVal] || bVal || '—'}
                       </span>
                     </div>
                   </div>
@@ -407,8 +374,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 <div key={key} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
                   <div className="text-slate-400 mb-1">{label}</div>
                   <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aName}: {VALUE_LABELS[String(aAns[key] || '').toUpperCase()] || String(aAns[key] || '—')}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bName}: {VALUE_LABELS[String(bAns[key] || '').toUpperCase()] || String(bAns[key] || '—')}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">A: {VALUE_LABELS[String(aAns[key] || '').toUpperCase()] || String(aAns[key] || '—')}</span>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">B: {VALUE_LABELS[String(bAns[key] || '').toUpperCase()] || String(bAns[key] || '—')}</span>
                   </div>
                 </div>
               ))}
@@ -422,15 +389,15 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
               <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
                 <div className="text-slate-400 mb-1">الهدف من الحضور</div>
                 <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aName}: {String(aAns.intent_goal || '—')}</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bName}: {String(bAns.intent_goal || '—')}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">A: {String(aAns.intent_goal || '—')}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">B: {String(bAns.intent_goal || '—')}</span>
                 </div>
               </div>
               <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
                 <div className="text-slate-400 mb-1">القيم الأساسية (5 أسئلة)</div>
                 <div className="space-y-1">
-                  <div className="text-slate-400">{aName}: {String(a?.coreValues || a?.survey_data?.coreValues || '—')}</div>
-                  <div className="text-slate-400">{bName}: {String(b?.coreValues || b?.survey_data?.coreValues || '—')}</div>
+                  <div className="text-slate-400">A: {String(a?.coreValues || a?.survey_data?.coreValues || '—')}</div>
+                  <div className="text-slate-400">B: {String(b?.coreValues || b?.survey_data?.coreValues || '—')}</div>
                 </div>
               </div>
             </div>

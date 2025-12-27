@@ -1589,12 +1589,46 @@ export default function WelcomePage() {
       if (token && isRedo) {
         setRedoHandled(true);
         setStep(2);
-        setShowSurvey(true);
         // Emulate clicking "إعادة تعبئة النموذج" directly
         setFormFilledChoiceMade(true);
         setShowFormFilledPrompt(false);
         setAnalysisStarted(false);
-        setTimeout(() => setIsEditingSurvey(true), 100);
+
+        // Restore previous answers exactly like the manual redo button
+        (async () => {
+          try {
+            const tokenToUse = token || secureToken;
+            if (!hasSubstantialSurveyData(surveyData.answers) && tokenToUse) {
+              const userRes = await fetch("/api/participant", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "resolve-token", secure_token: tokenToUse }),
+              });
+              const userData = await userRes.json();
+              if (userData.success && userData.survey_data) {
+                if (userData.assigned_number && !assignedNumber) {
+                  setAssignedNumber(userData.assigned_number);
+                }
+                if (userData.name && !participantName) {
+                  setParticipantName(userData.name);
+                }
+                const formattedSurveyData = {
+                  answers: userData.survey_data.answers || {},
+                  termsAccepted: userData.survey_data.termsAccepted || false,
+                  dataConsent: userData.survey_data.dataConsent || false,
+                  ...userData.survey_data,
+                };
+                setSurveyData(formattedSurveyData);
+              }
+            }
+          } catch (err) {
+            console.error("Failed to load existing survey data during auto-redo:", err);
+          } finally {
+            // Show survey and enable editing after attempting to load
+            setShowSurvey(true);
+            setTimeout(() => setIsEditingSurvey(true), 100);
+          }
+        })();
         // Clean URL but keep token query param
         params.delete('redo');
         params.delete('flow');

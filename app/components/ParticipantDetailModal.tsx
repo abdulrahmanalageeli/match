@@ -316,6 +316,26 @@ export default function ParticipantDetailModal({
                                         const pData = participantData.get(match.participant_number)
                                         const surveyData = pData?.survey_data || {}
                                         const answers = surveyData.answers || {}
+                                        // Preference helpers
+                                        const genderPrefLabel = (() => {
+                                          const raw = answers.actual_gender_preference || answers.gender_preference
+                                          if (raw === 'any_gender' || pData?.any_gender_preference) return 'أي جنس'
+                                          if (raw === 'same_gender' || pData?.same_gender_preference) return 'نفس الجنس فقط'
+                                          if (raw === 'opposite_gender') return 'الجنس المقابل'
+                                          if (pData?.any_gender_preference) return 'أي جنس'
+                                          if (pData?.same_gender_preference) return 'نفس الجنس فقط'
+                                          return 'الجنس المقابل'
+                                        })()
+                                        const agePrefLabel = (() => {
+                                          const open = answers.open_age_preference === 'true' || answers.open_age_preference === true || pData?.open_age_preference
+                                          if (open) return 'مفتوح: بدون قيود عمرية'
+                                          const min = answers.preferred_age_min ?? pData?.preferred_age_min
+                                          const max = answers.preferred_age_max ?? pData?.preferred_age_max
+                                          if (min && max) return `من ${min} إلى ${max}`
+                                          if (min) return `من ${min}+`
+                                          if (max) return `حتى ${max}`
+                                          return 'غير محدد'
+                                        })()
                                         
                                         return (
                                           <div className="space-y-2">
@@ -352,9 +372,11 @@ export default function ParticipantDetailModal({
                                                   </span>
                                                 )}
                                               </div>
-                                              <div className="flex gap-3 text-xs">
+                                              <div className="flex flex-wrap gap-3 text-xs">
                                                 <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
                                                 <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
+                                                <span className="text-slate-400">تفضيل الجنس: <span className="text-white">{genderPrefLabel}</span></span>
+                                                <span className="text-slate-400">تفضيل العمر: <span className="text-white">{agePrefLabel}</span></span>
                                               </div>
                                             </div>
                                             

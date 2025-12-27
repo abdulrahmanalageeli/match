@@ -141,37 +141,35 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const lifestyleA = (a?.lifestylePreferences as string | undefined)?.split(',') || []
   const lifestyleB = (b?.lifestylePreferences as string | undefined)?.split(',') || []
 
-  // Resolve participant display names
-  const aName = (a?.name || a?.survey_data?.name || aAns?.name || 'A') as string
-  const bName = (b?.name || b?.survey_data?.name || bAns?.name || 'B') as string
+  // Helpers to format preferences
+  const mapGenderPref = (p: any): string => {
+    const ans = p?.survey_data?.answers || {}
+    const raw = ans.actual_gender_preference || ans.gender_preference
+    if (raw === 'any_gender' || p?.any_gender_preference) return 'أي جنس'
+    if (raw === 'same_gender' || p?.same_gender_preference) return 'نفس الجنس فقط'
+    if (raw === 'opposite_gender') return 'الجنس المقابل'
+    // default when nothing explicit
+    if (p?.any_gender_preference) return 'أي جنس'
+    if (p?.same_gender_preference) return 'نفس الجنس فقط'
+    return 'الجنس المقابل'
+  }
 
-  // Helper mappers
-  const mapGender = (g?: string) => g === 'male' ? 'ذكر' : g === 'female' ? 'أنثى' : (g || '—')
-  const mapGenderPref = (pref?: string, userGender?: string) => {
-    switch (pref) {
-      case 'any_gender':
-      case 'any':
-        return 'أي جنس'
-      case 'same_gender':
-        return 'نفس الجنس'
-      case 'opposite_gender':
-        return 'الجنس الآخر'
-      case 'male':
-        return 'ذكر'
-      case 'female':
-        return 'أنثى'
-      default:
-        // Fallback: if user's gender is known, raw pref equal to userGender implies same
-        if (userGender && pref && pref === userGender) return 'نفس الجنس'
-        return pref || '—'
-    }
+  const mapAgePref = (p: any): string => {
+    const ans = p?.survey_data?.answers || {}
+    const open = ans.open_age_preference === 'true' || ans.open_age_preference === true || p?.open_age_preference
+    if (open) return 'مفتوح: بدون قيود عمرية'
+    const min = ans.preferred_age_min ?? p?.preferred_age_min
+    const max = ans.preferred_age_max ?? p?.preferred_age_max
+    if (min && max) return `من ${min} إلى ${max}`
+    if (min) return `من ${min}+`
+    if (max) return `حتى ${max}`
+    return 'غير محدد'
   }
-  const mapAgePref = (open: any, min?: any, max?: any) => {
-    const isOpen = open === true || open === 'true'
-    if (isOpen) return 'مفتوح'
-    if (min && max) return `${min} - ${max}`
-    return '—'
-  }
+
+  const aGenderPref = mapGenderPref(a)
+  const bGenderPref = mapGenderPref(b)
+  const aAgePref = mapAgePref(a)
+  const bAgePref = mapAgePref(b)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -192,7 +190,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
 
         <div className="p-6 space-y-6 bg-slate-950">
           {/* Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-white/5 border border-white/10 rounded-xl p-4">
               <div className="text-slate-400 text-xs">التوافق الإجمالي</div>
               <div className="text-3xl font-extrabold text-white">{pair?.compatibility_score ?? 0}%</div>
@@ -242,6 +240,21 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 {bAns?.vibe_1 && <div><span className="text-slate-500">B- ويكند:</span> {String(bAns.vibe_1)}</div>}
                 {aAns?.vibe_2 && <div><span className="text-slate-500">A- هوايات:</span> {String(aAns.vibe_2)}</div>}
                 {bAns?.vibe_2 && <div><span className="text-slate-500">B- هوايات:</span> {String(bAns.vibe_2)}</div>}
+              </div>
+            </div>
+
+            {/* Preferences snapshot */}
+            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+              <div className="text-slate-400 text-xs mb-2">التفضيلات</div>
+              <div className="space-y-2 text-xs text-slate-300">
+                <div className="space-y-1">
+                  <div><span className="text-slate-500">A- الجنس المفضل:</span> {aGenderPref}</div>
+                  <div><span className="text-slate-500">A- العمر المفضل:</span> {aAgePref}</div>
+                </div>
+                <div className="space-y-1">
+                  <div><span className="text-slate-500">B- الجنس المفضل:</span> {bGenderPref}</div>
+                  <div><span className="text-slate-500">B- العمر المفضل:</span> {bAgePref}</div>
+                </div>
               </div>
             </div>
           </div>

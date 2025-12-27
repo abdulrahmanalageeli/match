@@ -935,19 +935,78 @@ const SurveyComponent = memo(function SurveyComponent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Memoize expensive calculations - removed +1 since we no longer have a dedicated terms page
-  const totalPages = useMemo(() => Math.ceil(surveyQuestions.length / questionsPerPage), [])
+  // Build a stable display order without changing IDs/types (DB-safe)
+  const orderedQuestions = useMemo(() => {
+    const desiredOrder: string[] = [
+      // Personal Info
+      'name','age','gender','nationality','nationality_preference','phone_number',
+      // Preferences
+      'gender_preference','preferred_age_range',
+      // MBTI
+      'mbti_1','mbti_2','mbti_3','mbti_4',
+      // Attachment
+      'attachment_1','attachment_2','attachment_3','attachment_4','attachment_5',
+      // Communication
+      'communication_1','communication_2','communication_3','communication_4','communication_5',
+      // Lifestyle
+      'lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5',
+      // Core Values
+      'core_values_1','core_values_2','core_values_3','core_values_4','core_values_5',
+      // Vibe
+      'vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6',
+      // Interaction Style
+      'humor_banter_style','early_openness_comfort',
+      // Interaction Synergy
+      'conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style',
+      // Intent
+      'intent_goal','silence_comfort'
+    ]
+    const byId = new Map<string, any>()
+    surveyQuestions.forEach(q => byId.set(q.id, q))
+    return desiredOrder.map(id => byId.get(id)).filter(Boolean)
+  }, [])
+
+  // Section titles for prettier grouping
+  const getSectionTitle = useCallback((id: string): string | null => {
+    const personal = new Set(['name','age','gender','nationality','nationality_preference','phone_number'])
+    const prefs = new Set(['gender_preference','preferred_age_range'])
+    const mbti = new Set(['mbti_1','mbti_2','mbti_3','mbti_4'])
+    const attach = new Set(['attachment_1','attachment_2','attachment_3','attachment_4','attachment_5'])
+    const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5'])
+    const lifestyle = new Set(['lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5'])
+    const core = new Set(['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'])
+    const vibe = new Set(['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'])
+    const interactionStyle = new Set(['humor_banter_style','early_openness_comfort'])
+    const interactionSynergy = new Set(['conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
+    const intent = new Set(['intent_goal','silence_comfort'])
+
+    if (personal.has(id)) return 'المعلومات الشخصية'
+    if (prefs.has(id)) return 'التفضيلات'
+    if (mbti.has(id)) return 'الشخصية (MBTI)'
+    if (attach.has(id)) return 'أسلوب التعلّق'
+    if (comm.has(id)) return 'أسلوب التواصل'
+    if (lifestyle.has(id)) return 'نمط الحياة'
+    if (core.has(id)) return 'القيم الأساسية'
+    if (vibe.has(id)) return 'الطاقة والشخصية (Vibe)'
+    if (interactionStyle.has(id)) return 'أسلوب التفاعل'
+    if (interactionSynergy.has(id)) return 'التوافق في التفاعل'
+    if (intent.has(id)) return 'النية والهدف'
+    return null
+  }, [])
+
+  // Memoize expensive calculations - pages based on orderedQuestions
+  const totalPages = useMemo(() => Math.ceil(orderedQuestions.length / questionsPerPage), [orderedQuestions.length])
   const progress = useMemo(() => ((currentPage + 1) / totalPages) * 100, [currentPage, totalPages])
   // Determine which page contains the phone number question (to run duplicate check at the right time)
   const phoneQuestionPage = useMemo(() => {
-    const idx = surveyQuestions.findIndex(q => q.id === 'phone_number')
+    const idx = orderedQuestions.findIndex(q => q.id === 'phone_number')
     return idx >= 0 ? Math.floor(idx / questionsPerPage) : 0
-  }, [])
+  }, [orderedQuestions])
   
   // Memoize current page questions to avoid re-slicing on every render
   const currentQuestions = useMemo(() => 
-    surveyQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
-    [currentPage]
+    orderedQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
+    [currentPage, orderedQuestions]
   )
 
   const handleInputChange = useCallback((questionId: string, value: string | string[]) => {
@@ -1011,10 +1070,10 @@ const SurveyComponent = memo(function SurveyComponent({
 
       let isValid = true;
       const startIndex = page * questionsPerPage;
-      const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length);
+      const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length);
 
       for (let i = startIndex; i < endIndex; i++) {
-        const question = surveyQuestions[i];
+        const question = orderedQuestions[i];
         const value = surveyData.answers[question.id];
 
         if (question.required) {
@@ -1075,7 +1134,7 @@ const SurveyComponent = memo(function SurveyComponent({
       validationCache.set(page, isValid);
       return isValid;
     };
-  }, [surveyData.answers]);
+  }, [surveyData.answers, orderedQuestions]);
 
   const nextPage = async () => {
     // TEMP DISABLE: skip phone duplicate check on next page
@@ -1111,11 +1170,11 @@ const SurveyComponent = memo(function SurveyComponent({
     
     // Check 50% minimum requirement for text questions before proceeding (except name and phone)
     const startIndex = currentPage * questionsPerPage
-    const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+    const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length)
     const incompleteQuestions: string[] = []
     
     for (let i = startIndex; i < endIndex; i++) {
-      const question = surveyQuestions[i]
+      const question = orderedQuestions[i]
       const value = surveyData.answers[question.id]
       
       // Skip 50% check for name and phone_number
@@ -1149,7 +1208,7 @@ const SurveyComponent = memo(function SurveyComponent({
 
   const handleSubmit = useCallback(() => {
     // Validate all required questions (including MBTI dropdown and all other questions)
-    for (const question of surveyQuestions) {
+    for (const question of orderedQuestions) {
       if (question.required) {
         const value = surveyData.answers[question.id];
         
@@ -1237,7 +1296,7 @@ const SurveyComponent = memo(function SurveyComponent({
   // Handle submit with provided data (to avoid race condition)
   const handleSubmitWithData = useCallback((dataToSubmit: SurveyData) => {
     // Validate all required questions (including MBTI dropdown and all other questions)
-    for (const question of surveyQuestions) {
+    for (const question of orderedQuestions) {
       if (question.required) {
         const value = dataToSubmit.answers[question.id];
         
@@ -1875,17 +1934,17 @@ const SurveyComponent = memo(function SurveyComponent({
 
         {/* Vibe Questions Disclaimer */}
         {(() => {
-          const currentQuestions = surveyQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage);
+          const currentQuestions = orderedQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage);
           const hasVibeQuestions = currentQuestions.some(q => q.category === 'vibe');
           
           if (hasVibeQuestions) {
             return (
               <div className="mb-6">
-                <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800/50 shadow-lg">
+                <Card className="bg-linear-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800/50 shadow-lg">
                   <CardContent className="p-6">
                     <div className="flex items-start gap-4">
                       <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                        <div className="w-10 h-10 bg-linear-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
                           <Star className="w-5 h-5 text-white" />
                         </div>
                       </div>
@@ -1925,10 +1984,29 @@ const SurveyComponent = memo(function SurveyComponent({
           <div className="space-y-4">
             {currentQuestions.map((question, index) => (
               <div key={question.id} className="group">
+                {/* Section header when a new section starts on this page */}
+                {(() => {
+                  const absoluteIndex = currentPage * questionsPerPage + index
+                  const title = getSectionTitle(question.id)
+                  const prevTitle = absoluteIndex > 0 ? getSectionTitle(orderedQuestions[absoluteIndex - 1]?.id) : null
+                  if (title && title !== prevTitle) {
+                    return (
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-base font-extrabold bg-linear-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+                            {title}
+                          </h4>
+                          <div className="h-1 w-24 rounded-full bg-linear-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  return null
+                })()}
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
                   <div className="flex items-start gap-3">
                     <div className="relative">
-                      <div className="w-6 h-6 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
+                      <div className="w-6 h-6 bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
                         {currentPage * questionsPerPage + index + 1}
                       </div>
                     </div>
@@ -1980,11 +2058,11 @@ const SurveyComponent = memo(function SurveyComponent({
                 onClick={() => {
                   // Validate last page questions before submitting
                   const startIndex = currentPage * questionsPerPage
-                  const endIndex = Math.min(startIndex + questionsPerPage, surveyQuestions.length)
+                  const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length)
                   const incompleteQuestions: string[] = []
                   
                   for (let i = startIndex; i < endIndex; i++) {
-                    const question = surveyQuestions[i]
+                    const question = orderedQuestions[i]
                     const value = surveyData.answers[question.id]
                     
                     if (question.required) {

@@ -1934,13 +1934,8 @@ const SurveyComponent = memo(function SurveyComponent({
                     </div>
                     <div className="flex-1">
                       <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3 text-right leading-relaxed">
-                        {question.question}
+                        {question.description || question.question}
                       </h3>
-                      {question.description && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400 mb-3 text-right leading-relaxed">
-                          {question.description}
-                        </p>
-                      )}
                       <div className="space-y-3">
                         {renderQuestion(question)}
                       </div>

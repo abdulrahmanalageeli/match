@@ -336,6 +336,16 @@ export default function ParticipantDetailModal({
                                           if (max) return `حتى ${max}`
                                           return 'غير محدد'
                                         })()
+                                        const nationalityLabel = answers.nationality || pData?.nationality || 'غير محدد'
+                                        const nationalityPrefLabel = (() => {
+                                          const pref = answers.nationality_preference
+                                          if (pref === 'same') return 'نفس الجنسية'
+                                          if (pref === 'any') return 'أي جنسية'
+                                          if (typeof pData?.prefer_same_nationality === 'boolean') {
+                                            return pData.prefer_same_nationality ? 'نفس الجنسية' : 'أي جنسية'
+                                          }
+                                          return 'غير محدد'
+                                        })()
                                         
                                         return (
                                           <div className="space-y-2">
@@ -377,6 +387,8 @@ export default function ParticipantDetailModal({
                                                 <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
                                                 <span className="text-slate-400">تفضيل الجنس: <span className="text-white">{genderPrefLabel}</span></span>
                                                 <span className="text-slate-400">تفضيل العمر: <span className="text-white">{agePrefLabel}</span></span>
+                                                <span className="text-slate-400">الجنسية: <span className="text-white">{nationalityLabel}</span></span>
+                                                <span className="text-slate-400">تفضيل الجنسية: <span className="text-white">{nationalityPrefLabel}</span></span>
                                               </div>
                                             </div>
                                             

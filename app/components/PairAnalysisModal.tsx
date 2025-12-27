@@ -166,10 +166,30 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return 'غير محدد'
   }
 
+  const mapNationality = (p: any): string => {
+    const ans = p?.survey_data?.answers || {}
+    return p?.nationality || ans.nationality || 'غير محدد'
+  }
+
+  const mapNationalityPref = (p: any): string => {
+    const ans = p?.survey_data?.answers || {}
+    const pref = ans.nationality_preference
+    if (pref === 'same') return 'نفس الجنسية'
+    if (pref === 'any') return 'أي جنسية'
+    if (typeof p?.prefer_same_nationality === 'boolean') {
+      return p.prefer_same_nationality ? 'نفس الجنسية' : 'أي جنسية'
+    }
+    return 'غير محدد'
+  }
+
   const aGenderPref = mapGenderPref(a)
   const bGenderPref = mapGenderPref(b)
   const aAgePref = mapAgePref(a)
   const bAgePref = mapAgePref(b)
+  const aNationality = mapNationality(a)
+  const bNationality = mapNationality(b)
+  const aNationalityPref = mapNationalityPref(a)
+  const bNationalityPref = mapNationalityPref(b)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,10 +270,14 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 <div className="space-y-1">
                   <div><span className="text-slate-500">A- الجنس المفضل:</span> {aGenderPref}</div>
                   <div><span className="text-slate-500">A- العمر المفضل:</span> {aAgePref}</div>
+                  <div><span className="text-slate-500">A- الجنسية:</span> {aNationality}</div>
+                  <div><span className="text-slate-500">A- تفضيل الجنسية:</span> {aNationalityPref}</div>
                 </div>
                 <div className="space-y-1">
                   <div><span className="text-slate-500">B- الجنس المفضل:</span> {bGenderPref}</div>
                   <div><span className="text-slate-500">B- العمر المفضل:</span> {bAgePref}</div>
+                  <div><span className="text-slate-500">B- الجنسية:</span> {bNationality}</div>
+                  <div><span className="text-slate-500">B- تفضيل الجنسية:</span> {bNationalityPref}</div>
                 </div>
               </div>
             </div>

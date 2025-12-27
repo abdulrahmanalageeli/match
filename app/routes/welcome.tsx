@@ -1590,6 +1590,10 @@ export default function WelcomePage() {
         setRedoHandled(true);
         setStep(2);
         setShowSurvey(true);
+        // Emulate clicking "إعادة تعبئة النموذج" directly
+        setFormFilledChoiceMade(true);
+        setShowFormFilledPrompt(false);
+        setAnalysisStarted(false);
         setTimeout(() => setIsEditingSurvey(true), 100);
         // Clean URL but keep token query param
         params.delete('redo');
@@ -4879,8 +4883,9 @@ export default function WelcomePage() {
                   <button
                     onClick={() => {
                       setShowSurveyCompletionPopup(false);
-                      // Navigate to survey with the secure token
-                      window.location.href = `/welcome?token=${incompleteSurveyInfo.secure_token}`;
+                      // Navigate to survey with the secure token and flag redo flow to auto-open editing
+                      const t = encodeURIComponent(incompleteSurveyInfo.secure_token);
+                      window.location.href = `/welcome?token=${t}&redo=1`;
                     }}
                     className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white rounded-xl transition-all duration-300 flex items-center justify-center gap-2"
                   >

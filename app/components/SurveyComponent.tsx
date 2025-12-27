@@ -986,7 +986,7 @@ const SurveyComponent = memo(function SurveyComponent({
     if (attach.has(id)) return 'علاقتك بالآخرين'
     if (comm.has(id)) return 'طريقة تواصلك'
     if (lifestyle.has(id)) return 'أسلوب حياتك'
-    if (core.has(id)) return 'ما يهمك'
+    if (core.has(id)) return 'قيمك الأساسية'
     if (vibe.has(id)) return 'أسئلة مفتوحة'
     if (interactionStyle.has(id) || interactionSynergy.has(id)) return 'طريقتك في التفاعل'
     if (intent.has(id)) return 'هدف المشاركة'

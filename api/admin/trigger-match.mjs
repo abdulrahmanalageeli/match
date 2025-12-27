@@ -432,7 +432,7 @@ function calculateInteractionSynergyScore(participantA, participantB) {
   // Q41 (5 pts)
   if ((a41 && b41)) {
     if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5
-    else if (a41 === 'A' && b41 === 'A') total += 2
+    else if (a41 === 'A' && b41 === 'A') total += 3
     else if (a41 === 'B' && b41 === 'B') total += 0
   }
 

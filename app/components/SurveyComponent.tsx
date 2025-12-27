@@ -947,7 +947,7 @@ const SurveyComponent = memo(function SurveyComponent({
       // Attachment
       'attachment_1','attachment_2','attachment_3','attachment_4','attachment_5',
       // Communication
-      'communication_1','communication_2','communication_3','communication_4','communication_5',
+      'communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort',
       // Lifestyle
       'lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5',
       // Core Values
@@ -959,7 +959,7 @@ const SurveyComponent = memo(function SurveyComponent({
       // Interaction Synergy
       'conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style',
       // Intent
-      'intent_goal','silence_comfort'
+      'intent_goal'
     ]
     const byId = new Map<string, any>()
     surveyQuestions.forEach(q => byId.set(q.id, q))
@@ -972,25 +972,24 @@ const SurveyComponent = memo(function SurveyComponent({
     const prefs = new Set(['gender_preference','preferred_age_range'])
     const mbti = new Set(['mbti_1','mbti_2','mbti_3','mbti_4'])
     const attach = new Set(['attachment_1','attachment_2','attachment_3','attachment_4','attachment_5'])
-    const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5'])
+    const comm = new Set(['communication_1','communication_2','communication_3','communication_4','communication_5','silence_comfort'])
     const lifestyle = new Set(['lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5'])
     const core = new Set(['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'])
     const vibe = new Set(['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'])
     const interactionStyle = new Set(['humor_banter_style','early_openness_comfort'])
     const interactionSynergy = new Set(['conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style'])
-    const intent = new Set(['intent_goal','silence_comfort'])
+    const intent = new Set(['intent_goal'])
 
-    if (personal.has(id)) return 'المعلومات الشخصية'
-    if (prefs.has(id)) return 'التفضيلات'
-    if (mbti.has(id)) return 'الشخصية (MBTI)'
-    if (attach.has(id)) return 'أسلوب التعلّق'
-    if (comm.has(id)) return 'أسلوب التواصل'
-    if (lifestyle.has(id)) return 'نمط الحياة'
-    if (core.has(id)) return 'القيم الأساسية'
-    if (vibe.has(id)) return 'الطاقة والشخصية (Vibe)'
-    if (interactionStyle.has(id)) return 'أسلوب التفاعل'
-    if (interactionSynergy.has(id)) return 'التوافق في التفاعل'
-    if (intent.has(id)) return 'النية والهدف'
+    if (personal.has(id)) return 'نبذة عنك'
+    if (prefs.has(id)) return 'تفضيلات عامة'
+    if (mbti.has(id)) return 'أسئلة شخصية سلوكية'
+    if (attach.has(id)) return 'علاقتك بالآخرين'
+    if (comm.has(id)) return 'طريقة تواصلك'
+    if (lifestyle.has(id)) return 'أسلوب حياتك'
+    if (core.has(id)) return 'ما يهمك'
+    if (vibe.has(id)) return 'أسئلة مفتوحة'
+    if (interactionStyle.has(id) || interactionSynergy.has(id)) return 'طريقتك في التفاعل'
+    if (intent.has(id)) return 'هدف المشاركة'
     return null
   }, [])
 

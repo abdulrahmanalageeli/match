@@ -180,8 +180,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const bAgeText = String(b?.age || bAns?.age || '—')
   const aGenderPrefText = mapGenderPref(aAns?.gender_preference as any, aAns?.gender as any)
   const bGenderPrefText = mapGenderPref(bAns?.gender_preference as any, bAns?.gender as any)
-  const aAgeRangeText = mapAgePref((aAns as any)?.preferred_age_range?.open, (aAns as any)?.preferred_age_range?.min, (aAns as any)?.preferred_age_range?.max)
-  const bAgeRangeText = mapAgePref((bAns as any)?.preferred_age_range?.open, (bAns as any)?.preferred_age_range?.min, (bAns as any)?.preferred_age_range?.max)
+  const aAgeRangeText = mapAgePref(aAns?.open_age_preference, aAns?.preferred_age_min, aAns?.preferred_age_max)
+  const bAgeRangeText = mapAgePref(bAns?.open_age_preference, bAns?.preferred_age_min, bAns?.preferred_age_max)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

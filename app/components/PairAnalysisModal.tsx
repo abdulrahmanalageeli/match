@@ -45,7 +45,10 @@ const SYNERGY_QUESTIONS: Record<string, string> = {
 }
 
 const VALUE_LABELS: Record<string, string> = {
-  {aNameLabel}:  'أ', {bNameLabel}:  'ب', C: 'ج', D: 'د'
+  A: 'أ',
+  B: 'ب',
+  C: 'ج',
+  D: 'د',
 }
 
 // Additional question maps with option labels for richer comparison

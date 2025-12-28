@@ -1,6 +1,8 @@
 import React from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap } from "lucide-react"
+import CircularProgressBar from "./CircularProgressBar"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
 
 interface PairAnalysisModalProps {
   open: boolean
@@ -269,290 +271,316 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const aNameLabel = (a?.name || aSurvey?.name || aAns?.name || (a?.assigned_number ? `#${a.assigned_number}` : 'A')).toString()
   const bNameLabel = (b?.name || bSurvey?.name || bAns?.name || (b?.assigned_number ? `#${b.assigned_number}` : 'B')).toString()
 
+  // Overall percentage and normalized section scores for summary
+  const overallPercent = (() => {
+    const v = typeof pair?.compatibility_score === 'number' ? pair.compatibility_score : 0
+    return Math.round(v <= 1 ? v * 100 : v)
+  })()
+
+  const scores = {
+    synergy: normalize(pair?.synergy_score as number, 35),
+    lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 15),
+    humor: normalize(pair?.humor_open_score as number, 15),
+    communication: normalize(pair?.communication_compatibility_score as number, 10),
+    intent: normalize(pair?.intent_score as number, 5),
+    vibe: normalize(pair?.vibe_compatibility_score as number, 20),
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[95vw] max-h-[90vh] overflow-y-auto p-0" dir="rtl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
-              <Brain className="w-5 h-5 text-cyan-400" />
-              تحليل المقارنة بين الإجابات والتأثير على التوافق
-            </DialogTitle>
-          </DialogHeader>
+      <DialogContent className="max-w-6xl w-[96vw] max-h-[92vh] overflow-y-auto p-0" dir="rtl">
+        {/* Header */}
+        <div className="flex flex-col gap-4 px-6 py-5 border-b border-white/10 bg-linear-to-l from-slate-900 via-slate-800 to-slate-900">
+          <div className="flex items-center justify-between gap-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg md:text-xl font-bold text-white flex items-center gap-2">
+                <Brain className="w-5 h-5 text-cyan-400" />
+                تحليل التوافق والتأثيرات التفصيلية
+              </DialogTitle>
+            </DialogHeader>
+            <div className="shrink-0 hidden md:block">
+              <CircularProgressBar progress={overallPercent} size={120} strokeWidth={12} />
+            </div>
+          </div>
           {pair?.reason && (
-            <div className="text-xs text-slate-300 max-w-md">
+            <div className="text-xs md:text-sm text-slate-300/90 bg-white/5 border border-white/10 rounded-lg px-3 py-2 w-full md:w-fit">
               <span className="text-slate-400">السبب:</span> {pair.reason}
             </div>
           )}
         </div>
 
-        <div className="p-6 space-y-6 bg-slate-950" dir="rtl">
-          {/* Overview */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="text-slate-400 text-xs">التوافق الإجمالي</div>
-              <div className="text-3xl font-extrabold text-white">{(() => { const v = typeof pair?.compatibility_score === 'number' ? pair.compatibility_score : 0; return Math.round(v <= 1 ? v * 100 : v) })()}%</div>
-              <div className="mt-3 space-y-2">
-                <ScoreBar label="التفاعل" value={normalize(pair?.synergy_score as number, 35)} max={35} color="bg-cyan-500" />
-                <ScoreBar label="نمط الحياة" value={normalize(pair?.lifestyle_compatibility_score as number, 15)} max={15} color="bg-emerald-500" />
-                <ScoreBar label="الدعابة/الانفتاح" value={normalize(pair?.humor_open_score as number, 15)} max={15} color="bg-amber-500" />
-                <ScoreBar label="التواصل" value={normalize(pair?.communication_compatibility_score as number, 10)} max={10} color="bg-indigo-500" />
-                <ScoreBar label="الأهداف/القيم" value={normalize(pair?.intent_score as number, 5)} max={5} color="bg-pink-500" />
-                <ScoreBar label="الطاقة" value={normalize(pair?.vibe_compatibility_score as number, 20)} max={20} color="bg-violet-500" />
-              </div>
-            </div>
+        {/* Body */}
+        <div className="p-6 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-slate-950 via-slate-950 to-slate-900" dir="rtl">
+          <Tabs defaultValue="summary" className="w-full">
+            <TabsList className="bg-white/5 text-slate-300 border border-white/10">
+              <TabsTrigger value="summary">الملخص</TabsTrigger>
+              <TabsTrigger value="synergy">التفاعل</TabsTrigger>
+              <TabsTrigger value="lifestyle">نمط الحياة</TabsTrigger>
+              <TabsTrigger value="communication">التواصل</TabsTrigger>
+              <TabsTrigger value="values">القيم</TabsTrigger>
+              <TabsTrigger value="humor">الدعابة/الانفتاح</TabsTrigger>
+              <TabsTrigger value="mbti">MBTI</TabsTrigger>
+            </TabsList>
 
-            {/* Gates & Bonuses */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="text-slate-400 text-xs mb-2">القيود والمكافآت</div>
-              <div className="space-y-2 text-sm">
-                {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
-                  <div className="flex items-center gap-2 text-amber-300"><Sparkles className="w-4 h-4" /> مكافأة الدعابة/الانفتاح ({pair.humor_early_openness_bonus === 'full' ? 'كاملة ×1.15' : 'جزئية ×1.05'})</div>
-                )}
-                {pair?.intent_boost_applied && (
-                  <div className="flex items-center gap-2 text-emerald-300"><BadgeCheck className="w-4 h-4" /> مضاعف الهدف ×1.1</div>
-                )}
-                {pair?.attachment_penalty_applied && (
-                  <div className="flex items-center gap-2 text-red-300"><Shield className="w-4 h-4" /> عقوبة التعلق −5</div>
-                )}
-                {pair?.dead_air_veto_applied && (
-                  <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> قيد الصمت: سقف 40%</div>
-                )}
-                {pair?.humor_clash_veto_applied && (
-                  <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> تعارض الدعابة: سقف 50%</div>
-                )}
-                {pair?.cap_applied != null && (
-                  <div className="flex items-center gap-2 text-yellow-300"><Zap className="w-4 h-4" /> تقييد نهائي: {pair.cap_applied}%</div>
-                )}
-                {!pair?.intent_boost_applied && !pair?.attachment_penalty_applied && !pair?.dead_air_veto_applied && !pair?.humor_clash_veto_applied && !pair?.cap_applied && (!pair?.humor_early_openness_bonus || pair.humor_early_openness_bonus === 'none') && (
-                  <div className="text-slate-500">لا توجد قيود/مكافآت خاصة</div>
-                )}
-              </div>
-            </div>
-
-            {/* Vibe snapshot */
-            }
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="text-slate-400 text-xs mb-2">لمحة عن الطاقة والشخصية</div>
-              <div className="space-y-1 text-xs text-slate-300">
-                {aAns?.vibe_1 && <div><span className="text-slate-500">{aNameLabel} - ويكند:</span> {String(aAns.vibe_1)}</div>}
-                {bAns?.vibe_1 && <div><span className="text-slate-500">{bNameLabel} - ويكند:</span> {String(bAns.vibe_1)}</div>}
-                {aAns?.vibe_2 && <div><span className="text-slate-500">{aNameLabel} - هوايات:</span> {String(aAns.vibe_2)}</div>}
-                {bAns?.vibe_2 && <div><span className="text-slate-500">{bNameLabel} - هوايات:</span> {String(bAns.vibe_2)}</div>}
-              </div>
-            </div>
-
-            {/* Preferences snapshot */}
-            <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-              <div className="text-slate-400 text-xs mb-2">التفضيلات</div>
-              <div className="space-y-2 text-xs text-slate-300">
-                <div className="space-y-1">
-                  <div><span className="text-slate-500">{aNameLabel} - الجنس المفضل:</span> {aGenderPref}</div>
-                  <div><span className="text-slate-500">{aNameLabel} - العمر المفضل:</span> {aAgePref}</div>
-                  <div><span className="text-slate-500">{aNameLabel} - الجنسية:</span> {aNationality}</div>
-                  <div><span className="text-slate-500">{aNameLabel} - تفضيل الجنسية:</span> {aNationalityPref}</div>
-                </div>
-                <div className="space-y-1">
-                  <div><span className="text-slate-500">{bNameLabel} - الجنس المفضل:</span> {bGenderPref}</div>
-                  <div><span className="text-slate-500">{bNameLabel} - العمر المفضل:</span> {bAgePref}</div>
-                  <div><span className="text-slate-500">{bNameLabel} - الجنسية:</span> {bNationality}</div>
-                  <div><span className="text-slate-500">{bNameLabel} - تفضيل الجنسية:</span> {bNationalityPref}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Lifestyle Q14-18 comparison */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">نمط الحياة (تأثير حتى 15 نقطة)</div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
-              {[1,2,3,4,5].map(i => (
-                <div key={i} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                  <div className="text-slate-400 mb-1">{LIFESTYLE_QUESTIONS[i]}</div>
+            {/* Summary */}
+            <TabsContent value="summary">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
+                {/* Column 1: Overall + breakdown */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
                   <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {lifestyleA[i-1] || '—'}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {lifestyleB[i-1] || '—'}</span>
+                    <div>
+                      <div className="text-slate-400 text-xs">التوافق الإجمالي</div>
+                      <div className="text-3xl font-extrabold text-white">{overallPercent}%</div>
+                    </div>
+                    <div className="md:hidden">
+                      <CircularProgressBar progress={overallPercent} size={90} strokeWidth={10} />
+                    </div>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    <ScoreBar label="التفاعل" value={scores.synergy} max={35} color="bg-cyan-500" />
+                    <ScoreBar label="الطاقة" value={scores.vibe} max={20} color="bg-violet-500" />
+                    <ScoreBar label="نمط الحياة" value={scores.lifestyle} max={15} color="bg-emerald-500" />
+                    <ScoreBar label="الدعابة/الانفتاح" value={scores.humor} max={15} color="bg-amber-500" />
+                    <ScoreBar label="التواصل" value={scores.communication} max={10} color="bg-indigo-500" />
+                    <ScoreBar label="الأهداف/القيم" value={scores.intent} max={5} color="bg-pink-500" />
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* MBTI comparison (Q5-8) */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">MBTI (لا يؤثر مباشرة في 100 نقطة، لكنه يشرح التوافق)</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {['mbti_1','mbti_2','mbti_3','mbti_4'].map((k) => {
-                const meta = MBTI_QUESTIONS[k]
-                const aVal = String(aAns[k] || '')
-                const bVal = String(bAns[k] || '')
-                const same = aVal && bVal && aVal === bVal
-                return (
-                  <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
-                    <div className="text-slate-400 mb-1">{meta?.label || k}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
-                      </span>
+                {/* Column 2: Gates & Bonuses + Quick vibe */}
+                <div className="space-y-4">
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="text-slate-400 text-xs mb-2">القيود والمكافآت</div>
+                    <div className="space-y-2 text-sm">
+                      {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
+                        <div className="flex items-center gap-2 text-amber-300"><Sparkles className="w-4 h-4" /> مكافأة الدعابة/الانفتاح ({pair.humor_early_openness_bonus === 'full' ? 'كاملة ×1.15' : 'جزئية ×1.05'})</div>
+                      )}
+                      {pair?.intent_boost_applied && (
+                        <div className="flex items-center gap-2 text-emerald-300"><BadgeCheck className="w-4 h-4" /> مضاعف الهدف ×1.1</div>
+                      )}
+                      {pair?.attachment_penalty_applied && (
+                        <div className="flex items-center gap-2 text-red-300"><Shield className="w-4 h-4" /> عقوبة التعلق −5</div>
+                      )}
+                      {pair?.dead_air_veto_applied && (
+                        <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> قيد الصمت: سقف 40%</div>
+                      )}
+                      {pair?.humor_clash_veto_applied && (
+                        <div className="flex items-center gap-2 text-red-300"><Info className="w-4 h-4" /> تعارض الدعابة: سقف 50%</div>
+                      )}
+                      {pair?.cap_applied != null && (
+                        <div className="flex items-center gap-2 text-yellow-300"><Zap className="w-4 h-4" /> تقييد نهائي: {pair.cap_applied}%</div>
+                      )}
+                      {!pair?.intent_boost_applied && !pair?.attachment_penalty_applied && !pair?.dead_air_veto_applied && !pair?.humor_clash_veto_applied && !pair?.cap_applied && (!pair?.humor_early_openness_bonus || pair.humor_early_openness_bonus === 'none') && (
+                        <div className="text-slate-500">لا توجد قيود/مكافآت خاصة</div>
+                      )}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          </div>
 
-          {/* Attachment comparison (Q9-13) */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">التعلق (مؤثر ضمنيًا عبر القيود)</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {['attachment_1','attachment_2','attachment_3','attachment_4','attachment_5'].map((k) => {
-                const meta = ATTACHMENT_QUESTIONS[k]
-                const aVal = String(aAns[k] || '')
-                const bVal = String(bAns[k] || '')
-                const same = aVal && bVal && aVal === bVal
-                return (
-                  <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
-                    <div className="text-slate-400 mb-1">{meta?.label || k}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
-                      </span>
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="text-slate-400 text-xs mb-2">لمحة عن الطاقة والشخصية</div>
+                    <div className="space-y-1 text-xs text-slate-300">
+                      {aAns?.vibe_1 && <div><span className="text-slate-500">{aNameLabel} - ويكند:</span> {String(aAns.vibe_1)}</div>}
+                      {bAns?.vibe_1 && <div><span className="text-slate-500">{bNameLabel} - ويكند:</span> {String(bAns.vibe_1)}</div>}
+                      {aAns?.vibe_2 && <div><span className="text-slate-500">{aNameLabel} - هوايات:</span> {String(aAns.vibe_2)}</div>}
+                      {bAns?.vibe_2 && <div><span className="text-slate-500">{bNameLabel} - هوايات:</span> {String(bAns.vibe_2)}</div>}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          </div>
+                </div>
 
-          {/* Communication comparison (Q24-28) */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">التواصل (حتى 10 نقاط)</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {['communication_1','communication_2','communication_3','communication_4','communication_5'].map((k) => {
-                const meta = COMMUNICATION_QUESTIONS[k]
-                const aVal = String(aAns[k] || '')
-                const bVal = String(bAns[k] || '')
-                const same = aVal && bVal && aVal === bVal
-                return (
-                  <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
-                    <div className="text-slate-400 mb-1">{meta?.label || k}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
-                      </span>
+                {/* Column 3: Preferences */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="text-slate-400 text-xs mb-2">التفضيلات</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-300">
+                    <div className="space-y-1">
+                      <div><span className="text-slate-500">{aNameLabel} - الجنس المفضل:</span> {aGenderPref}</div>
+                      <div><span className="text-slate-500">{aNameLabel} - العمر المفضل:</span> {aAgePref}</div>
+                      <div><span className="text-slate-500">{aNameLabel} - الجنسية:</span> {aNationality}</div>
+                      <div><span className="text-slate-500">{aNameLabel} - تفضيل الجنسية:</span> {aNationalityPref}</div>
+                    </div>
+                    <div className="space-y-1">
+                      <div><span className="text-slate-500">{bNameLabel} - الجنس المفضل:</span> {bGenderPref}</div>
+                      <div><span className="text-slate-500">{bNameLabel} - العمر المفضل:</span> {bAgePref}</div>
+                      <div><span className="text-slate-500">{bNameLabel} - الجنسية:</span> {bNationality}</div>
+                      <div><span className="text-slate-500">{bNameLabel} - تفضيل الجنسية:</span> {bNationalityPref}</div>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          </div>
+                </div>
+              </div>
+            </TabsContent>
 
-          {/* Core values comparison (Q19-23) */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">القيم الأساسية (حتى 20 نقطة)</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              {['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'].map((k) => {
-                const meta = CORE_VALUES_QUESTIONS[k]
-                const aVal = String(aAns[k] || '')
-                const bVal = String(bAns[k] || '')
-                const same = aVal && bVal && aVal === bVal
-                return (
-                  <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
-                    <div className="text-slate-400 mb-1">{meta?.label || k}</div>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
-                        {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
-                      </span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
-                        {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
-                      </span>
+            {/* Synergy */}
+            <TabsContent value="synergy">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-3">
+                <div className="text-slate-200 font-semibold mb-3">التفاعل (حتى 35 نقطة) — {scores.synergy.toFixed(1)} / 35</div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  {Object.entries(SYNERGY_QUESTIONS).map(([key, label]) => (
+                    <div key={key} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                      <div className="text-slate-400 mb-1">{label}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {VALUE_LABELS[String(aAns[key] || '').toUpperCase()] || String(aAns[key] || '—')}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {VALUE_LABELS[String(bAns[key] || '').toUpperCase()] || String(bAns[key] || '—')}</span>
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
 
-          {/* Humor & Early Openness (15 pts) */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">
-              الدعابة والانفتاح المبكر (حتى 15 نقطة) — {normalize(pair?.humor_open_score as number, 15).toFixed(1)} / 15
-            </div>
-            {(() => {
-              const hb = computeHumorOpenBreakdown(a, b)
-              return (
+            {/* Lifestyle */}
+            <TabsContent value="lifestyle">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-3">
+                <div className="text-slate-200 font-semibold mb-3">نمط الحياة (تأثير حتى 15 نقطة)</div>
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                      <div className="text-slate-400 mb-1">{LIFESTYLE_QUESTIONS[i]}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {lifestyleA[i-1] || '—'}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {lifestyleB[i-1] || '—'}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Communication */}
+            <TabsContent value="communication">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-3">
+                <div className="text-slate-200 font-semibold mb-3">التواصل (حتى 10 نقاط)</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                    <div className="text-slate-400 mb-1">أسلوب الدعابة/المزاح</div>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.hA || '—'}</span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.hB || '—'}</span>
-                    </div>
-                    <div className="mt-2 text-slate-400">نقاط الدعابة: <span className="text-amber-300 font-semibold">{hb.humorScore}</span> / 10 {hb.vetoClash ? '— تعارض قوي (A↔D)' : ''}</div>
-                  </div>
-                  <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                    <div className="text-slate-400 mb-1">الراحة مع الانفتاح المبكر</div>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.oA ?? '—'}</span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.oB ?? '—'}</span>
-                    </div>
-                    <div className="mt-2 text-slate-400">نقاط الانفتاح: <span className="text-amber-300 font-semibold">{hb.openScore}</span> / 5</div>
-                  </div>
-                </div>
-              )
-            })()}
-          </div>
-
-          {/* Synergy comparison */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">التفاعل (حتى 35 نقطة) — {normalize(pair?.synergy_score as number, 35).toFixed(1)} / 35</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-              {Object.entries(SYNERGY_QUESTIONS).map(([key, label]) => (
-                <div key={key} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                  <div className="text-slate-400 mb-1">{label}</div>
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {VALUE_LABELS[String(aAns[key] || '').toUpperCase()] || String(aAns[key] || '—')}</span>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {VALUE_LABELS[String(bAns[key] || '').toUpperCase()] || String(bAns[key] || '—')}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Intent (5 pts) + Values snapshot */}
-          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">الهدف من الحضور (حتى 5 نقاط) — {normalize(pair?.intent_score as number, 5).toFixed(1)} / 5</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-              <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                <div className="text-slate-400 mb-1">الهدف من الحضور</div>
-                {(() => { const is = computeIntentScore(a, b); return (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {String(is.a40 || '—')}</span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {String(is.b40 || '—')}</span>
-                    </div>
-                    <div className="mt-2 text-slate-400">النقاط المحسوبة: <span className="text-emerald-300 font-semibold">{is.score}</span> / 5</div>
-                  </>
-                ) })()}
-              </div>
-              <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
-                <div className="text-slate-400 mb-1">القيم الأساسية (5 أسئلة)</div>
-                <div className="space-y-1">
-                  <div className="text-slate-400">{aNameLabel}:  {String(a?.coreValues || aSurvey?.coreValues || '—')}</div>
-                  <div className="text-slate-400">{bNameLabel}:  {String(b?.coreValues || bSurvey?.coreValues || '—')}</div>
+                  {['communication_1','communication_2','communication_3','communication_4','communication_5'].map((k) => {
+                    const meta = COMMUNICATION_QUESTIONS[k]
+                    const aVal = String(aAns[k] || '')
+                    const bVal = String(bAns[k] || '')
+                    const same = aVal && bVal && aVal === bVal
+                    return (
+                      <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
+                        <div className="text-slate-400 mb-1">{meta?.label || k}</div>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
+                            {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
+                            {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
-            </div>
-          </div>
+            </TabsContent>
+
+            {/* Values */}
+            <TabsContent value="values">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-3">
+                <div className="text-slate-200 font-semibold mb-3">القيم الأساسية (حتى 20 نقطة)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'].map((k) => {
+                    const meta = CORE_VALUES_QUESTIONS[k]
+                    const aVal = String(aAns[k] || '')
+                    const bVal = String(bAns[k] || '')
+                    const same = aVal && bVal && aVal === bVal
+                    return (
+                      <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
+                        <div className="text-slate-400 mb-1">{meta?.label || k}</div>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
+                            {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
+                            {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Intent details within values tab */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mt-4">
+                  <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                    <div className="text-slate-400 mb-1">الهدف من الحضور (حتى 5 نقاط)</div>
+                    {(() => { const is = computeIntentScore(a, b); return (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {String(is.a40 || '—')}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {String(is.b40 || '—')}</span>
+                        </div>
+                        <div className="mt-2 text-slate-400">النقاط المحسوبة: <span className="text-emerald-300 font-semibold">{is.score}</span> / 5</div>
+                      </>
+                    ) })()}
+                  </div>
+                  <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                    <div className="text-slate-400 mb-1">ملخص القيم (اختياري)</div>
+                    <div className="space-y-1">
+                      <div className="text-slate-400">{aNameLabel}:  {String(a?.coreValues || aSurvey?.coreValues || '—')}</div>
+                      <div className="text-slate-400">{bNameLabel}:  {String(b?.coreValues || bSurvey?.coreValues || '—')}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Humor & Early Openness */}
+            <TabsContent value="humor">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-3">
+                <div className="text-slate-200 font-semibold mb-3">
+                  الدعابة والانفتاح المبكر (حتى 15 نقطة) — {scores.humor.toFixed(1)} / 15
+                </div>
+                {(() => {
+                  const hb = computeHumorOpenBreakdown(a, b)
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                      <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                        <div className="text-slate-400 mb-1">أسلوب الدعابة/المزاح</div>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.hA || '—'}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.hB || '—'}</span>
+                        </div>
+                        <div className="mt-2 text-slate-400">نقاط الدعابة: <span className="text-amber-300 font-semibold">{hb.humorScore}</span> / 10 {hb.vetoClash ? '— تعارض قوي (A↔D)' : ''}</div>
+                      </div>
+                      <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                        <div className="text-slate-400 mb-1">الراحة مع الانفتاح المبكر</div>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.oA ?? '—'}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.oB ?? '—'}</span>
+                        </div>
+                        <div className="mt-2 text-slate-400">نقاط الانفتاح: <span className="text-amber-300 font-semibold">{hb.openScore}</span> / 5</div>
+                      </div>
+                    </div>
+                  )
+                })()}
+              </div>
+            </TabsContent>
+
+            {/* MBTI */}
+            <TabsContent value="mbti">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-4 mt-3">
+                <div className="text-slate-200 font-semibold mb-3">MBTI (توضيحي فقط)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  {['mbti_1','mbti_2','mbti_3','mbti_4'].map((k) => {
+                    const meta = MBTI_QUESTIONS[k]
+                    const aVal = String(aAns[k] || '')
+                    const bVal = String(bAns[k] || '')
+                    const same = aVal && bVal && aVal === bVal
+                    return (
+                      <div key={k} className={`bg-slate-900/60 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/10'}`}>
+                        <div className="text-slate-400 mb-1">{meta?.label || k}</div>
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">
+                            {aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}
+                          </span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">
+                            {bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </DialogContent>
     </Dialog>

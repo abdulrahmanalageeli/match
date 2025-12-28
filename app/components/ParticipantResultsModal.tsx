@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
-import PairAnalysisModal from "./PairAnalysisModal"
+import PairAnalysisModal from "./PairAnalysisModalEnhanced"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantResult {

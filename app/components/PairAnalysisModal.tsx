@@ -153,6 +153,55 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return val <= 1 ? val * max : val
   }
 
+  // Compute Humor & Early Openness breakdown (mirror backend logic)
+  const computeHumorOpenBreakdown = (pa: any, pb: any) => {
+    const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.survey_data?.[key] ?? p?.[key] ?? undefined
+    const rawHumorA = getAns(pa, 'humor_banter_style')
+    const rawHumorB = getAns(pb, 'humor_banter_style')
+    const hA = rawHumorA ? String(rawHumorA).toUpperCase() : ''
+    const hB = rawHumorB ? String(rawHumorB).toUpperCase() : ''
+    const rawOpenA = getAns(pa, 'early_openness_comfort')
+    const rawOpenB = getAns(pb, 'early_openness_comfort')
+    const oA = rawOpenA !== undefined && rawOpenA !== null ? parseInt(rawOpenA) : undefined
+    const oB = rawOpenB !== undefined && rawOpenB !== null ? parseInt(rawOpenB) : undefined
+
+    let humorScore = 0
+    let vetoClash = false
+    if (hA && hB) {
+      if (hA === hB) humorScore = 10
+      else if ((hA === 'A' && hB === 'B') || (hA === 'B' && hB === 'A')) humorScore = 8
+      else if ((hA === 'B' && hB === 'C') || (hA === 'C' && hB === 'B') || (hA === 'C' && hB === 'D') || (hA === 'D' && hB === 'C')) humorScore = 5
+      else if ((hA === 'A' && hB === 'D') || (hA === 'D' && hB === 'A')) { humorScore = 0; vetoClash = true }
+      else humorScore = 5
+    }
+
+    let openScore = 0
+    if (oA !== undefined && oB !== undefined) {
+      const dist = Math.abs(oA - oB)
+      if (dist === 0) openScore = 5
+      else if (dist === 1) openScore = 3
+      else if (dist === 2) openScore = 1
+      else openScore = 0
+    }
+
+    return { hA, hB, oA, oB, humorScore, openScore, total: humorScore + openScore, vetoClash }
+  }
+
+  // Compute Intent score (mirror backend mapping, 0..5)
+  const computeIntentScore = (pa: any, pb: any) => {
+    const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.[key] ?? ''
+    const a40 = String(getAns(pa, 'intent_goal') || '').toUpperCase()
+    const b40 = String(getAns(pb, 'intent_goal') || '').toUpperCase()
+    let score = 0
+    if (!a40 || !b40) score = 0
+    else if ((a40 === 'A' && b40 === 'A') || (a40 === 'B' && b40 === 'B')) score = 5
+    else if (a40 === 'C' && b40 === 'C') score = 3
+    else if ((a40 === 'A' && b40 === 'B') || (a40 === 'B' && b40 === 'A')) score = 1
+    else if ((a40 === 'A' && b40 === 'C') || (a40 === 'C' && b40 === 'A')) score = 3
+    else if ((a40 === 'B' && b40 === 'C') || (a40 === 'C' && b40 === 'B')) score = 1
+    return { a40, b40, score }
+  }
+
   // Derive lifestyle list from row, survey_data, or answers
   const deriveLifestyleList = (p: any, survey: any, ans: any): string[] => {
     const fromRow = typeof p?.lifestylePreferences === 'string' ? p.lifestylePreferences : undefined
@@ -409,7 +458,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
 
           {/* Core values comparison (Q19-23) */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">الأهداف والقيم (حتى 5 نقاط)</div>
+            <div className="text-slate-200 font-semibold mb-3">القيم الأساسية (حتى 20 نقطة)</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               {['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'].map((k) => {
                 const meta = CORE_VALUES_QUESTIONS[k]
@@ -433,9 +482,39 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             </div>
           </div>
 
+          {/* Humor & Early Openness (15 pts) */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+            <div className="text-slate-200 font-semibold mb-3">
+              الدعابة والانفتاح المبكر (حتى 15 نقطة) — {normalize(pair?.humor_open_score as number, 15).toFixed(1)} / 15
+            </div>
+            {(() => {
+              const hb = computeHumorOpenBreakdown(a, b)
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                    <div className="text-slate-400 mb-1">أسلوب الدعابة/المزاح</div>
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.hA || '—'}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.hB || '—'}</span>
+                    </div>
+                    <div className="mt-2 text-slate-400">نقاط الدعابة: <span className="text-amber-300 font-semibold">{hb.humorScore}</span> / 10 {hb.vetoClash ? '— تعارض قوي (A↔D)' : ''}</div>
+                  </div>
+                  <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
+                    <div className="text-slate-400 mb-1">الراحة مع الانفتاح المبكر</div>
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.oA ?? '—'}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.oB ?? '—'}</span>
+                    </div>
+                    <div className="mt-2 text-slate-400">نقاط الانفتاح: <span className="text-amber-300 font-semibold">{hb.openScore}</span> / 5</div>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+
           {/* Synergy comparison */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">التفاعل (حتى 35 نقطة)</div>
+            <div className="text-slate-200 font-semibold mb-3">التفاعل (حتى 35 نقطة) — {normalize(pair?.synergy_score as number, 35).toFixed(1)} / 35</div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
               {Object.entries(SYNERGY_QUESTIONS).map(([key, label]) => (
                 <div key={key} className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
@@ -449,16 +528,21 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             </div>
           </div>
 
-          {/* Goals & Values snapshot */}
+          {/* Intent (5 pts) + Values snapshot */}
           <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-            <div className="text-slate-200 font-semibold mb-3">الأهداف والقيم (حتى 5 نقاط)</div>
+            <div className="text-slate-200 font-semibold mb-3">الهدف من الحضور (حتى 5 نقاط) — {normalize(pair?.intent_score as number, 5).toFixed(1)} / 5</div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
               <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
                 <div className="text-slate-400 mb-1">الهدف من الحضور</div>
-                <div className="flex items-center justify-between">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {String(aAns.intent_goal || '—')}</span>
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {String(bAns.intent_goal || '—')}</span>
-                </div>
+                {(() => { const is = computeIntentScore(a, b); return (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {String(is.a40 || '—')}</span>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {String(is.b40 || '—')}</span>
+                    </div>
+                    <div className="mt-2 text-slate-400">النقاط المحسوبة: <span className="text-emerald-300 font-semibold">{is.score}</span> / 5</div>
+                  </>
+                ) })()}
               </div>
               <div className="bg-slate-900/60 border border-white/10 rounded-lg p-3">
                 <div className="text-slate-400 mb-1">القيم الأساسية (5 أسئلة)</div>

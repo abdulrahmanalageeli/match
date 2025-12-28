@@ -3558,6 +3558,7 @@ export default async function handler(req, res) {
     let processedPairs = 0
     let skippedGender = 0
     let skippedAge = 0
+    let skippedNationality = 0
     let skippedInteractionStyle = 0
     let skippedPrevious = 0
     let skippedExcluded = 0
@@ -3592,8 +3593,12 @@ export default async function handler(req, res) {
           continue
         }
         
-        // Check age compatibility (girls must be within 3 years)
-        if (!checkAgeCompatibility(a, b)) {
+        // Hard gates: nationality and age range (mutual)
+        if (!checkNationalityHardGate(a, b)) {
+          skippedNationality++
+          continue
+        }
+        if (!checkAgeRangeHardGate(a, b)) {
           skippedAge++
           continue
         }
@@ -3793,7 +3798,8 @@ export default async function handler(req, res) {
     console.log(`   Total pairs processed: ${processedPairs}`)
     console.log(`   Compatible pairs found: ${compatibilityScores.length}`)
     console.log(`   Skipped - Gender incompatible: ${skippedGender}`)
-    console.log(`   Skipped - Age incompatible: ${skippedAge}`)
+    console.log(`   Skipped - Nationality hard gate: ${skippedNationality}`)
+    console.log(`   Skipped - Age range hard gate: ${skippedAge}`)
     console.log(`   Skipped - Interaction style: ${skippedInteractionStyle}`)
     console.log(`   Skipped - Previous matches: ${skippedPrevious}`)
     console.log(`   Skipped - Excluded pairs: ${skippedExcluded}`)
@@ -3820,12 +3826,13 @@ export default async function handler(req, res) {
     }
     
     // Show skip summary
-    const totalSkipped = skippedGender + skippedAge + skippedInteractionStyle + skippedPrevious + skippedExcluded
+    const totalSkipped = skippedGender + skippedNationality + skippedAge + skippedInteractionStyle + skippedPrevious + skippedExcluded
     if (totalSkipped > 0) {
       console.log(`🚫 Skipped pairs (no calculation):`)
       if (skippedExcluded > 0) console.log(`   ${skippedExcluded} pairs - Admin excluded`)
       if (skippedGender > 0) console.log(`   ${skippedGender} pairs - Gender preference mismatch`)
-      if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age constraint (>5 years with female)`)
+      if (skippedNationality > 0) console.log(`   ${skippedNationality} pairs - Nationality hard gate failed`)
+      if (skippedAge > 0) console.log(`   ${skippedAge} pairs - Age range hard gate failed`)
       if (skippedInteractionStyle > 0) console.log(`   ${skippedInteractionStyle} pairs - Interaction style incompatible`)
       if (skippedPrevious > 0) console.log(`   ${skippedPrevious} pairs - Previously matched`)
     }

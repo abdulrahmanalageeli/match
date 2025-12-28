@@ -288,7 +288,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[96vw] max-h-[92vh] overflow-y-auto p-0" dir="rtl">
+      <DialogContent className="max-w-6xl w-[96vw] max-h-[92vh] overflow-y-auto p-0 bg-slate-950 border-white/10 text-white" dir="rtl">
         {/* Header */}
         <div className="flex flex-col gap-4 px-6 py-5 border-b border-white/10 bg-linear-to-l from-slate-900 via-slate-800 to-slate-900">
           <div className="flex items-center justify-between gap-6">

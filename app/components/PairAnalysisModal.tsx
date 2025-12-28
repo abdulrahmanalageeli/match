@@ -189,6 +189,61 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return { hA, hB, oA, oB, humorScore, openScore, total: humorScore + openScore, vetoClash }
   }
 
+  // Compute Interaction Synergy score (Q35,36,37,38,39,41) to mirror backend (scaled to 35)
+  const computeSynergyScore = (pa: any, pb: any) => {
+    const getA = (p: any, k: string) => p?.survey_data?.answers?.[k] ?? p?.[k] ?? ''
+    const a35 = String(getA(pa, 'conversational_role') || '').toUpperCase()
+    const b35 = String(getA(pb, 'conversational_role') || '').toUpperCase()
+    const a36 = String(getA(pa, 'conversation_depth_pref') || '').toUpperCase()
+    const b36 = String(getA(pb, 'conversation_depth_pref') || '').toUpperCase()
+    const a37 = String(getA(pa, 'social_battery') || '').toUpperCase()
+    const b37 = String(getA(pb, 'social_battery') || '').toUpperCase()
+    const a38 = String(getA(pa, 'humor_subtype') || '').toUpperCase()
+    const b38 = String(getA(pb, 'humor_subtype') || '').toUpperCase()
+    const a39 = String(getA(pa, 'curiosity_style') || '').toUpperCase()
+    const b39 = String(getA(pb, 'curiosity_style') || '').toUpperCase()
+    const a41 = String(getA(pa, 'silence_comfort') || '').toUpperCase()
+    const b41 = String(getA(pb, 'silence_comfort') || '').toUpperCase()
+
+    let total = 0
+    // Q35 (7 pts)
+    if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) total += 7
+    else if (a35 === 'B' && b35 === 'B') total += 4
+    else if (a35 === 'A' && b35 === 'A') total += 2
+    else if (a35 === 'C' && b35 === 'C') total += 0
+    else if (a35 && b35) total += 3
+
+    // Q36 (5 pts)
+    if (a36 && b36) total += (a36 === b36 ? 5 : 1)
+
+    // Q37 (4 pts)
+    if (a37 && b37) {
+      if (a37 === 'A' && b37 === 'A') total += 4
+      else if (a37 === 'B' && b37 === 'B') total += 3
+      else total += 1
+    }
+
+    // Q38 (4 pts)
+    if (a38 && b38) total += (a38 === b38 ? 4 : 1)
+
+    // Q39 (5 pts)
+    if (a39 && b39) {
+      if ((a39 === 'A' && b39 === 'B') || (a39 === 'B' && b39 === 'A')) total += 5
+      else if (a39 === 'C' && b39 === 'C') total += 5
+      else if ((a39 === 'A' && b39 === 'A') || (a39 === 'B' && b39 === 'B')) total += 0
+      else total += 3
+    }
+
+    // Q41 (5 pts)
+    if (a41 && b41) {
+      if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5
+      else if (a41 === 'A' && b41 === 'A') total += 3
+      else if (a41 === 'B' && b41 === 'B') total += 0
+    }
+
+    return Math.min(35, (total * (35 / 30)))
+  }
+
   // Compute Intent score (mirror backend mapping, 0..5)
   const computeIntentScore = (pa: any, pb: any) => {
     const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.[key] ?? ''
@@ -277,12 +332,23 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return Math.round(v <= 1 ? v * 100 : v)
   })()
 
+  const hbForSummary = computeHumorOpenBreakdown(a, b)
+  const computedSynergy = computeSynergyScore(a, b)
+  const computedIntent = computeIntentScore(a, b).score
+
   const scores = {
-    synergy: normalize(pair?.synergy_score as number, 35),
+    // Prefer API-provided numbers; if missing/undefined, fall back to local computation
+    synergy: pair?.synergy_score !== undefined && pair?.synergy_score !== null
+      ? normalize(pair.synergy_score as number, 35)
+      : normalize(computedSynergy, 35),
     lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 15),
-    humor: normalize(pair?.humor_open_score as number, 15),
+    humor: pair?.humor_open_score !== undefined && pair?.humor_open_score !== null
+      ? normalize(pair.humor_open_score as number, 15)
+      : normalize(hbForSummary.total, 15),
     communication: normalize(pair?.communication_compatibility_score as number, 10),
-    intent: normalize(pair?.intent_score as number, 5),
+    intent: pair?.intent_score !== undefined && pair?.intent_score !== null
+      ? normalize(pair.intent_score as number, 5)
+      : normalize(computedIntent, 5),
     vibe: normalize(pair?.vibe_compatibility_score as number, 20),
   }
 

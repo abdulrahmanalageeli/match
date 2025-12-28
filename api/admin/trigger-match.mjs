@@ -881,7 +881,7 @@ async function getCachedCompatibility(participantA, participantB) {
 
       // Ensure new-model fields are populated for UI even if the cache predates them
       // Humor/Openness (not historically cached) → compute now
-      const { score: humorOpenScore } = calculateHumorOpennessScore(participantA, participantB)
+      const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB)
 
       // Interaction synergy → prefer cache; if missing/NaN, compute now
       let synergyScore = parseFloat(data.interaction_synergy_score)
@@ -896,6 +896,32 @@ async function getCachedCompatibility(participantA, participantB) {
         intentScore = Math.min(5, (intentRaw / 5) * 3 + (coreValuesScore / 20) * 2)
       }
 
+      // Derive gate/bonus flags and caps for transparency (does NOT mutate cached totalScore)
+      const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+      const aIntent = getAns(participantA, 'intent_goal')
+      const bIntent = getAns(participantB, 'intent_goal')
+      const intentBoostApplied = (aIntent === 'B' && bIntent === 'B')
+
+      const aAttach = participantA.attachment_style || participantA.survey_data?.attachmentStyle
+      const bAttach = participantB.attachment_style || participantB.survey_data?.attachmentStyle
+      const attachmentPenaltyApplied = ((aAttach === 'Anxious' && bAttach === 'Avoidant') || (aAttach === 'Avoidant' && bAttach === 'Anxious'))
+
+      const a35 = getAns(participantA, 'conversational_role')
+      const b35 = getAns(participantB, 'conversational_role')
+      const a41 = getAns(participantA, 'silence_comfort')
+      const b41 = getAns(participantB, 'silence_comfort')
+      const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
+
+      // Reconstruct pre-cap value to decide which caps would have applied (keeps cached total intact)
+      let preCap = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + intentScore
+      if (attachmentPenaltyApplied) preCap -= 5
+      if (intentBoostApplied) preCap *= 1.1
+      const deadAirVetoApplied = deadAirBoth && preCap > 40
+      const humorClashVetoApplied = !!vetoClash && preCap > 50
+      let capApplied = null
+      if (deadAirVetoApplied) capApplied = 40
+      else if (humorClashVetoApplied) capApplied = 50
+
       return {
         mbtiScore: parseFloat(data.mbti_score),
         attachmentScore: parseFloat(data.attachment_score),
@@ -909,6 +935,11 @@ async function getCachedCompatibility(participantA, participantB) {
         totalScore,
         humorMultiplier: parseFloat(data.humor_multiplier || 1.0),
         bonusType: data.humor_early_openness_bonus || 'none',
+        attachmentPenaltyApplied,
+        intentBoostApplied,
+        deadAirVetoApplied,
+        humorClashVetoApplied,
+        capApplied,
         cached: true
       }
     }
@@ -3040,6 +3071,21 @@ export default async function handler(req, res) {
               bonusType: cachedData.humor_early_openness_bonus || 'none',
               cached: true
             }
+
+            // Ensure new-model fields are populated even on cache hits
+            const _cachedSynergy = parseFloat(cachedData.interaction_synergy_score)
+            const _coreValForIntent = parseFloat(cachedData.core_values_score)
+            const _cachedIntent = parseFloat(cachedData.intent_goal_score)
+            const _derivedSynergy = Number.isFinite(_cachedSynergy)
+              ? _cachedSynergy
+              : calculateInteractionSynergyScore(targetParticipant, potentialMatch)
+            const { score: _derivedHumorOpen } = calculateHumorOpennessScore(targetParticipant, potentialMatch)
+            const _derivedIntent = Number.isFinite(_cachedIntent)
+              ? _cachedIntent
+              : Math.min(5, (calculateIntentGoalScore(targetParticipant, potentialMatch) / 5) * 3 + ( (_coreValForIntent || 0) / 20) * 2)
+            compatibilityResult.synergyScore = _derivedSynergy
+            compatibilityResult.humorOpenScore = _derivedHumorOpen
+            compatibilityResult.intentScore = _derivedIntent
             
             // Update cache usage statistics in background (don't await) - skip in preview
             if (!SKIP_DB_WRITES) {
@@ -3333,6 +3379,16 @@ export default async function handler(req, res) {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
+          // New-model persisted fields
+          synergy_score: compatibilityResult.synergyScore ?? 0,
+          humor_open_score: compatibilityResult.humorOpenScore ?? 0,
+          intent_score: compatibilityResult.intentScore ?? 0,
+          humor_multiplier: humorMultiplier ?? 1.0,
+          attachment_penalty_applied: !!compatibilityResult.attachmentPenaltyApplied,
+          intent_boost_applied: !!compatibilityResult.intentBoostApplied,
+          dead_air_veto_applied: !!compatibilityResult.deadAirVetoApplied,
+          humor_clash_veto_applied: !!compatibilityResult.humorClashVetoApplied,
+          cap_applied: compatibilityResult.capApplied ?? null,
           humor_early_openness_bonus: manualBonusType,
           round: 1,
           ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
@@ -3639,6 +3695,21 @@ export default async function handler(req, res) {
             bonusType: cachedData.humor_early_openness_bonus || 'none',
             cached: true
           }
+
+          // Ensure new-model fields are populated even on cache hits
+          const _cachedSynergy2 = parseFloat(cachedData.interaction_synergy_score)
+          const _coreValForIntent2 = parseFloat(cachedData.core_values_score)
+          const _cachedIntent2 = parseFloat(cachedData.intent_goal_score)
+          const _derivedSynergy2 = Number.isFinite(_cachedSynergy2)
+            ? _cachedSynergy2
+            : calculateInteractionSynergyScore(a, b)
+          const { score: _derivedHumorOpen2 } = calculateHumorOpennessScore(a, b)
+          const _derivedIntent2 = Number.isFinite(_cachedIntent2)
+            ? _cachedIntent2
+            : Math.min(5, (calculateIntentGoalScore(a, b) / 5) * 3 + ( (_coreValForIntent2 || 0) / 20) * 2)
+          compatibilityResult.synergyScore = _derivedSynergy2
+          compatibilityResult.humorOpenScore = _derivedHumorOpen2
+          compatibilityResult.intentScore = _derivedIntent2
           
           // Update cache usage statistics in background (don't await)
           if (!SKIP_DB_WRITES) {

@@ -29,10 +29,22 @@ create table public.participants (
   updated_at timestamp with time zone null default now(),
   auto_signup_next_event boolean not null default false,
   survey_data_updated_at timestamp with time zone null,
+  conversational_role text null,
+  conversation_depth_pref text null,
+  social_battery text null,
+  humor_subtype text null,
+  curiosity_style text null,
+  intent_goal text null,
+  silence_comfort text null,
+  nationality text null,
+  prefer_same_nationality boolean null,
+  preferred_age_min integer null,
+  preferred_age_max integer null,
+  open_age_preference boolean null,
   constraint participants_pkey primary key (id),
+  constraint participants_assigned_number_key unique (assigned_number),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),
   constraint unique_secure_token unique (secure_token),
-  constraint participants_assigned_number_key unique (assigned_number),
   constraint check_auto_signup_not_null check ((auto_signup_next_event is not null)),
   constraint check_core_values_format check (
     (
@@ -78,6 +90,30 @@ create table public.participants (
       or (jsonb_typeof(survey_data) = 'object'::text)
     )
   ),
+  constraint participants_conversation_depth_pref_check check (
+    (
+      (conversation_depth_pref is null)
+      or (
+        conversation_depth_pref = any (array['A'::text, 'B'::text])
+      )
+    )
+  ),
+  constraint participants_conversational_role_check check (
+    (
+      (conversational_role is null)
+      or (
+        conversational_role = any (array['A'::text, 'B'::text, 'C'::text])
+      )
+    )
+  ),
+  constraint participants_curiosity_style_check check (
+    (
+      (curiosity_style is null)
+      or (
+        curiosity_style = any (array['A'::text, 'B'::text, 'C'::text])
+      )
+    )
+  ),
   constraint participants_early_openness_comfort_check check (
     (early_openness_comfort = any (array[0, 1, 2, 3]))
   ),
@@ -100,6 +136,53 @@ create table public.participants (
             'D'::character varying
           ]
         )::text[]
+      )
+    )
+  ),
+  constraint participants_humor_subtype_check check (
+    (
+      (humor_subtype is null)
+      or (
+        humor_subtype = any (array['A'::text, 'B'::text, 'C'::text])
+      )
+    )
+  ),
+  constraint participants_intent_goal_check check (
+    (
+      (intent_goal is null)
+      or (
+        intent_goal = any (array['A'::text, 'B'::text, 'C'::text])
+      )
+    )
+  ),
+  constraint participants_preferred_age_bounds check (
+    (
+      (
+        (preferred_age_min is null)
+        and (preferred_age_max is null)
+      )
+      or (
+        (preferred_age_min is not null)
+        and (preferred_age_max is not null)
+        and (preferred_age_min >= 16)
+        and (preferred_age_max <= 80)
+        and (preferred_age_min <= preferred_age_max)
+      )
+    )
+  ),
+  constraint participants_silence_comfort_check check (
+    (
+      (silence_comfort is null)
+      or (
+        silence_comfort = any (array['A'::text, 'B'::text])
+      )
+    )
+  ),
+  constraint participants_social_battery_check check (
+    (
+      (social_battery is null)
+      or (
+        social_battery = any (array['A'::text, 'B'::text])
       )
     )
   ),
@@ -196,6 +279,8 @@ where
 
 create index IF not exists idx_participants_communication_style on public.participants using btree (communication_style) TABLESPACE pg_default;
 
+create index IF not exists idx_participants_nationality on public.participants using btree (nationality) TABLESPACE pg_default;
+
 create index IF not exists idx_participants_lifestyle on public.participants using gin (((survey_data -> 'lifestylePreferences'::text))) TABLESPACE pg_default;
 
 create index IF not exists idx_participants_personality_types on public.participants using gin (
@@ -211,6 +296,20 @@ create index IF not exists idx_participants_auto_signup on public.participants u
 where
   (auto_signup_next_event = true);
 
+create index IF not exists idx_participants_event_survey_updated on public.participants using btree (event_id, survey_data_updated_at desc) TABLESPACE pg_default
+where
+  (survey_data_updated_at is not null);
+
+create index IF not exists idx_participants_signup_survey_updated on public.participants using btree (
+  signup_for_next_event,
+  survey_data_updated_at desc
+) TABLESPACE pg_default
+where
+  (
+    (survey_data_updated_at is not null)
+    and (signup_for_next_event = true)
+  );
+
 create index IF not exists idx_participants_name on public.participants using btree (name) TABLESPACE pg_default;
 
 create index IF not exists idx_participants_gender on public.participants using btree (gender) TABLESPACE pg_default;
@@ -222,6 +321,8 @@ create index IF not exists idx_participants_age on public.participants using btr
 create index IF not exists idx_participants_age_not_null on public.participants using btree (age) TABLESPACE pg_default
 where
   (age is not null);
+
+create index IF not exists idx_participants_open_age_pref on public.participants using btree (open_age_preference) TABLESPACE pg_default;
 
 create index IF not exists idx_participants_same_gender_preference on public.participants using btree (same_gender_preference) TABLESPACE pg_default;
 
@@ -276,6 +377,10 @@ where
 create index IF not exists idx_participants_humor_banter_style on public.participants using btree (humor_banter_style) TABLESPACE pg_default
 where
   (humor_banter_style is not null);
+
+create index IF not exists idx_participants_survey_updated_at on public.participants using btree (survey_data_updated_at desc) TABLESPACE pg_default
+where
+  (survey_data_updated_at is not null);
 
 create trigger set_updated_at BEFORE
 update on participants for EACH row

@@ -19,14 +19,32 @@ create table public.compatibility_cache (
   communication_hash text not null default ''::text,
   lifestyle_hash text not null default ''::text,
   core_values_hash text not null default ''::text,
+  humor_multiplier numeric null default 1.0,
+  humor_early_openness_bonus text null default 'none'::text,
+  participant_a_cached_at timestamp with time zone null,
+  participant_b_cached_at timestamp with time zone null,
+  synergy_hash text not null default ''::text,
+  interaction_synergy_score numeric(5, 2) not null default 0,
+  intent_goal_score numeric(5, 2) not null default 0,
   constraint compatibility_cache_pkey primary key (id),
   constraint cache_unique unique (
     participant_a_number,
     participant_b_number,
     combined_content_hash
   ),
-  constraint cache_ordered check ((participant_a_number < participant_b_number))
+  constraint cache_ordered check ((participant_a_number < participant_b_number)),
+  constraint humor_early_openness_bonus_check check (
+    (
+      humor_early_openness_bonus = any (
+        array['none'::text, 'partial'::text, 'full'::text]
+      )
+    )
+  )
 ) TABLESPACE pg_default;
+
+create index IF not exists idx_cache_synergy_hash on public.compatibility_cache using btree (synergy_hash) TABLESPACE pg_default;
+
+create index IF not exists idx_cache_participant_timestamps on public.compatibility_cache using btree (participant_a_cached_at, participant_b_cached_at) TABLESPACE pg_default;
 
 create index IF not exists idx_cache_participants on public.compatibility_cache using btree (participant_a_number, participant_b_number) TABLESPACE pg_default;
 

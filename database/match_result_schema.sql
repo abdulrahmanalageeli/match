@@ -47,6 +47,15 @@ create table public.match_results (
   event_finished boolean not null default false,
   ai_personality_analysis text null,
   humor_early_openness_bonus text null,
+  synergy_score numeric(5, 2) not null default 0,
+  humor_open_score numeric(5, 2) not null default 0,
+  intent_score numeric(5, 2) not null default 0,
+  humor_multiplier numeric(5, 2) not null default 1.0,
+  attachment_penalty_applied boolean not null default false,
+  intent_boost_applied boolean not null default false,
+  dead_air_veto_applied boolean not null default false,
+  humor_clash_veto_applied boolean not null default false,
+  cap_applied numeric(5, 2) null,
   constraint match_results_pkey primary key (id),
   constraint fk_match_results_participant_a foreign KEY (participant_a_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
   constraint fk_match_results_participant_b foreign KEY (participant_b_number, match_id) references participants (assigned_number, match_id) on update CASCADE on delete CASCADE,
@@ -144,9 +153,17 @@ create table public.match_results (
   )
 ) TABLESPACE pg_default;
 
+create index IF not exists idx_match_results_synergy_score on public.match_results using btree (synergy_score) TABLESPACE pg_default;
+
 create index IF not exists idx_match_results_conversation_status on public.match_results using btree (conversation_status) TABLESPACE pg_default;
 
 create index IF not exists idx_match_results_conversation_start_time on public.match_results using btree (conversation_start_time) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_humor_open_score on public.match_results using btree (humor_open_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_intent_score on public.match_results using btree (intent_score) TABLESPACE pg_default;
+
+create index IF not exists idx_match_results_humor_multiplier on public.match_results using btree (humor_multiplier) TABLESPACE pg_default;
 
 create index IF not exists idx_match_results_participant_a_mbti on public.match_results using btree (participant_a_mbti_type) TABLESPACE pg_default;
 

@@ -1185,6 +1185,16 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score,
             core_values_compatibility_score,
             vibe_compatibility_score,
+            -- New-model fields
+            synergy_score,
+            humor_open_score,
+            intent_score,
+            humor_multiplier,
+            attachment_penalty_applied,
+            intent_boost_applied,
+            dead_air_veto_applied,
+            humor_clash_veto_applied,
+            cap_applied,
             humor_early_openness_bonus,
             round,
             table_number,
@@ -1685,7 +1695,24 @@ export default async function handler(req, res) {
             table_number,
             match_type,
             event_id,
-            created_at
+            created_at,
+            -- New-model fields
+            mbti_compatibility_score,
+            attachment_compatibility_score,
+            communication_compatibility_score,
+            lifestyle_compatibility_score,
+            core_values_compatibility_score,
+            vibe_compatibility_score,
+            synergy_score,
+            humor_open_score,
+            intent_score,
+            humor_multiplier,
+            attachment_penalty_applied,
+            intent_boost_applied,
+            dead_air_veto_applied,
+            humor_clash_veto_applied,
+            cap_applied,
+            humor_early_openness_bonus
           `)
           .eq("match_id", STATIC_MATCH_ID)
           .eq("event_id", event_id || 1)
@@ -1944,6 +1971,17 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score,
             core_values_compatibility_score,
             vibe_compatibility_score,
+            -- New-model fields
+            synergy_score,
+            humor_open_score,
+            intent_score,
+            humor_multiplier,
+            attachment_penalty_applied,
+            intent_boost_applied,
+            dead_air_veto_applied,
+            humor_clash_veto_applied,
+            cap_applied,
+            humor_early_openness_bonus,
             round
           `)
           .eq("event_id", event_id || 1)
@@ -1970,6 +2008,10 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score: 0,
             core_values_compatibility_score: 0,
             vibe_compatibility_score: 0,
+            // New-model fields (aggregated by max for display)
+            synergy_score: 0,
+            humor_open_score: 0,
+            intent_score: 0,
             partner_assigned_number: null,
             partner_name: null
           })
@@ -1989,6 +2031,9 @@ export default async function handler(req, res) {
             participantA.lifestyle_compatibility_score = Math.max(participantA.lifestyle_compatibility_score, match.lifestyle_compatibility_score || 0)
             participantA.core_values_compatibility_score = Math.max(participantA.core_values_compatibility_score, match.core_values_compatibility_score || 0)
             participantA.vibe_compatibility_score = Math.max(participantA.vibe_compatibility_score, match.vibe_compatibility_score || 0)
+            participantA.synergy_score = Math.max(participantA.synergy_score, match.synergy_score || 0)
+            participantA.humor_open_score = Math.max(participantA.humor_open_score, match.humor_open_score || 0)
+            participantA.intent_score = Math.max(participantA.intent_score, match.intent_score || 0)
             participantA.partner_assigned_number = match.participant_b_number
             participantA.partner_name = participantB.name
             
@@ -2000,6 +2045,9 @@ export default async function handler(req, res) {
             participantB.lifestyle_compatibility_score = Math.max(participantB.lifestyle_compatibility_score, match.lifestyle_compatibility_score || 0)
             participantB.core_values_compatibility_score = Math.max(participantB.core_values_compatibility_score, match.core_values_compatibility_score || 0)
             participantB.vibe_compatibility_score = Math.max(participantB.vibe_compatibility_score, match.vibe_compatibility_score || 0)
+            participantB.synergy_score = Math.max(participantB.synergy_score, match.synergy_score || 0)
+            participantB.humor_open_score = Math.max(participantB.humor_open_score, match.humor_open_score || 0)
+            participantB.intent_score = Math.max(participantB.intent_score, match.intent_score || 0)
             participantB.partner_assigned_number = match.participant_a_number
             participantB.partner_name = participantA.name
           }
@@ -2942,15 +2990,28 @@ export default async function handler(req, res) {
                 participant_a: firstParticipant,
                 participant_b: secondParticipant,
                 compatibility_score: match.compatibility_score || 0,
+                // Top-level access for UI
+                synergy_score: match.synergy_score || 0,
+                humor_open_score: match.humor_open_score || 0,
+                intent_score: match.intent_score || 0,
                 detailed_scores: {
                   mbti: match.mbti_compatibility_score || 0,
                   attachment: match.attachment_compatibility_score || 0,
                   communication: match.communication_compatibility_score || 0,
                   lifestyle: match.lifestyle_compatibility_score || 0,
                   core_values: match.core_values_compatibility_score || 0,
-                  vibe: match.vibe_compatibility_score || 0
+                  vibe: match.vibe_compatibility_score || 0,
+                  synergy: match.synergy_score || 0,
+                  humor_open: match.humor_open_score || 0,
+                  intent: match.intent_score || 0
                 },
+                humor_multiplier: match.humor_multiplier || 1.0,
                 bonus_type: match.humor_early_openness_bonus || 'none',
+                attachment_penalty_applied: !!match.attachment_penalty_applied,
+                intent_boost_applied: !!match.intent_boost_applied,
+                dead_air_veto_applied: !!match.dead_air_veto_applied,
+                humor_clash_veto_applied: !!match.humor_clash_veto_applied,
+                cap_applied: match.cap_applied ?? null,
                 round: match.event_id || 1, // Use event_id instead of round
                 table_number: match.table_number,
                 match_type: match.match_type || 'مقابلة فردية',
@@ -2986,15 +3047,28 @@ export default async function handler(req, res) {
                     participant_a: firstParticipant,
                     participant_b: secondParticipant,
                     compatibility_score: match.compatibility_score || 0,
+                    // Top-level access for UI
+                    synergy_score: match.synergy_score || 0,
+                    humor_open_score: match.humor_open_score || 0,
+                    intent_score: match.intent_score || 0,
                     detailed_scores: {
                       mbti: match.mbti_compatibility_score || 0,
                       attachment: match.attachment_compatibility_score || 0,
                       communication: match.communication_compatibility_score || 0,
                       lifestyle: match.lifestyle_compatibility_score || 0,
                       core_values: match.core_values_compatibility_score || 0,
-                      vibe: match.vibe_compatibility_score || 0
+                      vibe: match.vibe_compatibility_score || 0,
+                      synergy: match.synergy_score || 0,
+                      humor_open: match.humor_open_score || 0,
+                      intent: match.intent_score || 0
                     },
+                    humor_multiplier: match.humor_multiplier || 1.0,
                     bonus_type: match.humor_early_openness_bonus || 'none',
+                    attachment_penalty_applied: !!match.attachment_penalty_applied,
+                    intent_boost_applied: !!match.intent_boost_applied,
+                    dead_air_veto_applied: !!match.dead_air_veto_applied,
+                    humor_clash_veto_applied: !!match.humor_clash_veto_applied,
+                    cap_applied: match.cap_applied ?? null,
                     round: match.event_id || 1, // Use event_id instead of round
                     table_number: match.table_number,
                     match_type: match.match_type || 'مجموعة',

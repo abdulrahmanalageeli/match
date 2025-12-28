@@ -3935,6 +3935,16 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score: compatibilityData?.lifestyleScore || 15,
             core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
             vibe_compatibility_score: compatibilityData?.vibeScore || 10,
+            // New-model persisted fields
+            synergy_score: compatibilityData?.synergyScore ?? 0,
+            humor_open_score: compatibilityData?.humorOpenScore ?? 0,
+            intent_score: compatibilityData?.intentScore ?? 0,
+            humor_multiplier: compatibilityData?.humorMultiplier ?? 1.0,
+            attachment_penalty_applied: !!compatibilityData?.attachmentPenaltyApplied,
+            intent_boost_applied: !!compatibilityData?.intentBoostApplied,
+            dead_air_veto_applied: !!compatibilityData?.deadAirVetoApplied,
+            humor_clash_veto_applied: !!compatibilityData?.humorClashVetoApplied,
+            cap_applied: compatibilityData?.capApplied ?? null,
             // Add humor/early openness bonus tracking
             humor_early_openness_bonus: compatibilityData?.bonusType || 'none'
           })
@@ -4045,6 +4055,16 @@ export default async function handler(req, res) {
               lifestyle_compatibility_score: pair.lifestyleScore,
               core_values_compatibility_score: pair.coreValuesScore,
               vibe_compatibility_score: pair.vibeScore,
+              // New-model persisted fields
+              synergy_score: pair.synergyScore ?? 0,
+              humor_open_score: pair.humorOpenScore ?? 0,
+              intent_score: pair.intentScore ?? 0,
+              humor_multiplier: pair.humorMultiplier ?? 1.0,
+              attachment_penalty_applied: !!pair.attachmentPenaltyApplied,
+              intent_boost_applied: !!pair.intentBoostApplied,
+              dead_air_veto_applied: !!pair.deadAirVetoApplied,
+              humor_clash_veto_applied: !!pair.humorClashVetoApplied,
+              cap_applied: pair.capApplied ?? null,
               humor_early_openness_bonus: pair.bonusType
             })
             tableCounter++
@@ -4094,6 +4114,16 @@ export default async function handler(req, res) {
               lifestyle_compatibility_score: pair.lifestyleScore,
               core_values_compatibility_score: pair.coreValuesScore,
               vibe_compatibility_score: pair.vibeScore,
+              // New-model persisted fields
+              synergy_score: pair.synergyScore ?? 0,
+              humor_open_score: pair.humorOpenScore ?? 0,
+              intent_score: pair.intentScore ?? 0,
+              humor_multiplier: pair.humorMultiplier ?? 1.0,
+              attachment_penalty_applied: !!pair.attachmentPenaltyApplied,
+              intent_boost_applied: !!pair.intentBoostApplied,
+              dead_air_veto_applied: !!pair.deadAirVetoApplied,
+              humor_clash_veto_applied: !!pair.humorClashVetoApplied,
+              cap_applied: pair.capApplied ?? null,
               // Add humor/early openness bonus tracking
               humor_early_openness_bonus: pair.bonusType
             })
@@ -4134,7 +4164,18 @@ export default async function handler(req, res) {
             communication_compatibility_score: 70,
             lifestyle_compatibility_score: 70,
             core_values_compatibility_score: 70,
-            vibe_compatibility_score: 70
+            vibe_compatibility_score: 70,
+            // New-model persisted fields (defaults for organizer match)
+            synergy_score: 0,
+            humor_open_score: 0,
+            intent_score: 0,
+            humor_multiplier: 1.0,
+            attachment_penalty_applied: false,
+            intent_boost_applied: false,
+            dead_air_veto_applied: false,
+            humor_clash_veto_applied: false,
+            cap_applied: null,
+            humor_early_openness_bonus: 'none'
           })
           
           tableCounter++

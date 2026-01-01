@@ -4842,7 +4842,7 @@ Proceed?`
                   data-participant={p.assigned_number}
                   className={
                     isCohost
-                      ? `group bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 ${
+                      ? `group relative bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 ${
                           p.PAID_DONE
                             ? 'border-emerald-400/60 shadow-lg shadow-emerald-500/20'
                             : (p.PAID
@@ -4851,7 +4851,7 @@ Proceed?`
                         } ${
                           selectedParticipants.has(p.assigned_number) ? 'ring-4 ring-rose-400 bg-rose-400/10' : ''
                         }`
-                      : `group bg-white/5 backdrop-blur-xl border-2 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${borderColor} ${borderGlow} ${
+                      : `group relative bg-white/5 backdrop-blur-xl border-2 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${borderColor} ${borderGlow} ${
                           selectedParticipants.has(p.assigned_number) ? 'ring-2 ring-slate-400 bg-slate-400/10' : ''
                         }`
                   }
@@ -4860,31 +4860,35 @@ Proceed?`
                     setShowProfileModal(true);
                   }}
                 >
+                {/* Top-right Exclude Button (Admin only) */}
+                {!isCohost && (
+                  <div className="absolute top-2 right-2 z-10">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleParticipantExclusion(p.assigned_number, p.name || `#${p.assigned_number}`);
+                      }}
+                      className={`rounded-full p-2 backdrop-blur border transition-all duration-200 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-white/30 ${
+                        excludedParticipants.some(ep => ep.participant_number === p.assigned_number)
+                          ? 'bg-orange-500/15 border-orange-400/40 text-orange-200 hover:bg-orange-500/25 hover:shadow-orange-500/30'
+                          : 'bg-red-500/15 border-red-400/40 text-red-200 hover:bg-red-500/25 hover:shadow-red-500/30'
+                      }`}
+                      title={excludedParticipants.some(ep => ep.participant_number === p.assigned_number) ? 'Remove from exclusion list' : 'Exclude from all matching'}
+                      aria-label={excludedParticipants.some(ep => ep.participant_number === p.assigned_number) ? 'Unexclude participant' : 'Exclude participant'}
+                    >
+                      {excludedParticipants.some(ep => ep.participant_number === p.assigned_number) ? (
+                        <Shield className="w-4 h-4" />
+                      ) : (
+                        <Ban className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                )}
                 <div className="flex items-start justify-between mb-4">
                   <div className="bg-gradient-to-r from-slate-600 to-slate-700 p-3 rounded-xl">
                     <UserRound className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex items-center gap-2">
-                    {!isCohost && (() => {
-                      const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
-                      return (
-                        <button
-                          onClick={(e) => { 
-                            e.stopPropagation();
-                            toggleParticipantExclusion(p.assigned_number, p.name || `#${p.assigned_number}`);
-                          }}
-                          className={`p-3 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation ${
-                            isExcluded 
-                              ? 'bg-orange-500/20 hover:bg-orange-500/30 text-orange-400 hover:text-orange-300' 
-                              : 'bg-red-500/20 hover:bg-red-500/30 text-red-400 hover:text-red-300'
-                          }`}
-                          title={isExcluded ? 'Remove from exclusion list' : 'Exclude from all matching'}
-                          aria-label={isExcluded ? 'Unexclude participant' : 'Exclude participant'}
-                        >
-                          {isExcluded ? <Shield className="w-5 h-5" /> : <Ban className="w-5 h-5" />}
-                        </button>
-                      );
-                    })()}
                     {!isCohost && (
                       <button
                         onClick={(e) => { 

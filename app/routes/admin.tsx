@@ -5225,6 +5225,52 @@ Proceed?`
                         {p.table_number ?? "Unassigned"}
                       </div>
                     )}
+                    {/* Admin-only: Participant Token (copyable) */}
+                    {!isCohost && (
+                      <div className="flex items-center justify-center gap-2 mb-2">
+                        <span className="text-slate-400 text-xs">Token:</span>
+                        {p.secure_token ? (
+                          <div className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1 border border-white/10">
+                            <code className="text-[11px] text-slate-200 tracking-wide">{p.secure_token}</code>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.secure_token); toast.success('Token copied'); }}
+                              className="p-1 rounded-md hover:bg-white/10 text-slate-300"
+                              title="Copy token"
+                              aria-label="Copy token"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const res = await fetch('/api/participant', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ action: 'create-token', assigned_number: p.assigned_number })
+                                });
+                                const data = await res.json();
+                                if (data.secure_token) {
+                                  toast.success('Token generated');
+                                  fetchParticipants();
+                                } else {
+                                  toast.error(data.error || 'Failed to generate token');
+                                }
+                              } catch (err) {
+                                console.error('Error generating token', err);
+                                toast.error('Failed to generate token');
+                              }
+                            }}
+                            className="text-xs px-2 py-1 rounded-lg border border-white/20 bg-white/5 text-slate-200 hover:bg-white/10 transition-colors"
+                            title="Generate token"
+                          >
+                            Generate Token
+                          </button>
+                        )}
+                      </div>
+                    )}
                     
                     {/* Eligibility Badges */}
                     {!isCohost && (

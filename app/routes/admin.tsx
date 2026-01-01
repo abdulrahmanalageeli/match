@@ -4521,78 +4521,114 @@ Proceed?`
       {/* Participants Section */}
       <div className="relative z-10 flex-1 overflow-hidden">
         <div className="max-w-6xl mx-auto p-6">
-          {/* Participants List */}
-          <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <label className="text-slate-300 text-sm">Current Rounds:</label>
-                  <select
-                    value={currentRounds}
-                    onChange={(e) => updateRounds(Number(e.target.value))}
-                    className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+          {/* Participants List (hide rounds for co-host) */}
+          {!isCohost && (
+            <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/20 overflow-hidden">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-slate-300 text-sm">Current Rounds:</label>
+                    <select
+                      value={currentRounds}
+                      onChange={(e) => updateRounds(Number(e.target.value))}
+                      className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
+                    >
+                      {[2, 3, 4, 5, 6].map(rounds => (
+                        <option key={rounds} value={rounds} style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>
+                          {rounds} rounds
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <button
+                    onClick={() => updateRounds(optimalRounds)}
+                    className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
                   >
-                    {[2, 3, 4, 5, 6].map(rounds => (
-                      <option key={rounds} value={rounds} style={{ backgroundColor: 'rgb(15, 23, 42)', color: 'white' }}>
-                        {rounds} rounds
-                      </option>
-                    ))}
-                  </select>
+                    <Settings className="w-3 h-3" />
+                    Use Optimal
+                  </button>
                 </div>
-                <button
-                  onClick={() => updateRounds(optimalRounds)}
-                  className="flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg transition-all duration-300 text-sm"
-                >
-                  <Settings className="w-3 h-3" />
-                  Use Optimal
-                </button>
-              </div>
-              <div className="text-slate-400 text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span>Participants:</span>
-                  <span className="text-white">{participants.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Max pairs per round:</span>
-                  <span className="text-white">{Math.floor(participants.length / 2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total possible pairs:</span>
-                  <span className="text-white">{participants.length > 0 ? Math.floor((participants.length * (participants.length - 1)) / 2) : 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Repeats with {currentRounds} rounds:</span>
-                  <span className={`${currentRounds > optimalRounds ? 'text-yellow-400' : 'text-green-400'}`}>
-                    {participants.length > 0 ? Math.max(0, (currentRounds * Math.floor(participants.length / 2)) - Math.floor((participants.length * (participants.length - 1)) / 2)) : 0}
-                  </span>
+                <div className="text-slate-400 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>Participants:</span>
+                    <span className="text-white">{participants.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Max pairs per round:</span>
+                    <span className="text-white">{Math.floor(participants.length / 2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total possible pairs:</span>
+                    <span className="text-white">{participants.length > 0 ? Math.floor((participants.length * (participants.length - 1)) / 2) : 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Repeats with {currentRounds} rounds:</span>
+                    <span className={`${currentRounds > optimalRounds ? 'text-yellow-400' : 'text-green-400'}`}>
+                      {participants.length > 0 ? Math.max(0, (currentRounds * Math.floor(participants.length / 2)) - Math.floor((participants.length * (participants.length - 1)) / 2)) : 0}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Statistics Display */}
-          {participantStats && (
-            <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
-              <h3 className="text-white font-semibold mb-3">Participant Statistics</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-blue-400">{participantStats.total_participants}</p>
-                  <p className="text-slate-400 text-sm">Total Registered</p>
+          {isCohost ? (
+            (() => {
+              const girls = participants.filter(p => (p.gender || p.survey_data?.gender) === 'female');
+              const girlsRegistered = girls.length;
+              const girlsEligible = girls.filter(p => p.event_id === currentEventId || p.signup_for_next_event === true).length;
+              const girlsMessaged = girls.filter(p => p.PAID === true).length;
+              const girlsPaid = girls.filter(p => p.PAID_DONE === true).length;
+
+              return (
+                <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
+                  <h3 className="text-white font-semibold mb-3">Girls Overview</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-rose-300">{girlsRegistered}</p>
+                      <p className="text-slate-400 text-sm">Registered</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-pink-300">{girlsEligible}</p>
+                      <p className="text-slate-400 text-sm">Eligible</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-300">{girlsMessaged}</p>
+                      <p className="text-slate-400 text-sm">Messaged</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-emerald-300">{girlsPaid}</p>
+                      <p className="text-slate-400 text-sm">Paid</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-400">{participantStats.form_completed}</p>
-                  <p className="text-slate-400 text-sm">Form Completed</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-yellow-400">{participantStats.waiting_count}</p>
-                  <p className="text-slate-400 text-sm">Currently Waiting</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-purple-400">{participantStats.current_round_participants}</p>
-                  <p className="text-slate-400 text-sm">In Current Round</p>
+              )
+            })()
+          ) : (
+            participantStats && (
+              <div className="mt-4 p-4 rounded-xl border border-white/20 bg-white/5">
+                <h3 className="text-white font-semibold mb-3">Participant Statistics</h3>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-400">{participantStats.total_participants}</p>
+                    <p className="text-slate-400 text-sm">Total Registered</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-400">{participantStats.form_completed}</p>
+                    <p className="text-slate-400 text-sm">Form Completed</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-yellow-400">{participantStats.waiting_count}</p>
+                    <p className="text-slate-400 text-sm">Currently Waiting</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-purple-400">{participantStats.current_round_participants}</p>
+                    <p className="text-slate-400 text-sm">In Current Round</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )
           )}
 
           {/* Current Announcement Display */}

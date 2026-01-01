@@ -2944,11 +2944,11 @@ Proceed?`
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${isCohost ? 'from-slate-950 via-slate-900 to-slate-950' : 'from-slate-900 via-slate-800 to-slate-900'} text-white relative overflow-hidden`}>
+    <div className={`min-h-screen bg-gradient-to-br ${isCohost ? 'from-slate-950 via-rose-950 to-slate-950' : 'from-slate-900 via-slate-800 to-slate-900'} text-white relative overflow-hidden`}>
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-slate-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-slate-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className={`absolute -top-40 -right-40 w-80 h-80 ${isCohost ? 'bg-rose-400/10' : 'bg-slate-500/10'} rounded-full blur-3xl animate-pulse`}></div>
+        <div className={`absolute -bottom-40 -left-40 w-80 h-80 ${isCohost ? 'bg-pink-400/10' : 'bg-slate-400/10'} rounded-full blur-3xl animate-pulse delay-1000`}></div>
       </div>
 
       {/* Header */}
@@ -3023,20 +3023,36 @@ Proceed?`
         <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">
           <div className="max-w-5xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-400/30 text-indigo-300 text-sm font-medium">Cohost</div>
+              <div className="px-3 py-1 rounded-lg bg-rose-500/10 border border-rose-400/30 text-rose-300 text-sm font-medium">Cohost</div>
               <div className="px-3 py-1 rounded-lg bg-slate-800/60 border border-white/10 text-slate-100 text-sm font-semibold tracking-wide">
-                Ghady
+                Ghady ❤
               </div>
               <div className="text-slate-300/90 text-sm hidden md:block">
                 Focused view • Defaults: <span className="font-semibold text-slate-200">Eligible Only</span> • <span className="font-semibold text-slate-200">Female</span> • <span className="font-semibold text-slate-200">WhatsApp Not Sent</span>
               </div>
             </div>
-            <button
-              onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number'); }}
-              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition-colors"
-            >
-              Reset Defaults
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={loadCachedResults}
+                className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-200 text-sm hover:bg-rose-500/30 border border-rose-400/30 transition-colors"
+                title="Load cached matches (results modal)"
+              >
+                ❤ Load Matches
+              </button>
+              <button
+                onClick={fetchGroupAssignments}
+                className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-200 text-sm hover:bg-rose-500/30 border border-rose-400/30 transition-colors"
+                title="Show current groups"
+              >
+                ❤ Show Groups
+              </button>
+              <button
+                onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number'); }}
+                className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-sm hover:bg-rose-700 transition-colors"
+              >
+                Reset Defaults
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -4813,9 +4829,15 @@ Proceed?`
                 <div
                   key={p.id}
                   data-participant={p.assigned_number}
-                  className={`group bg-white/5 backdrop-blur-xl border-2 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${borderColor} ${borderGlow} ${
-                    selectedParticipants.has(p.assigned_number) ? 'ring-2 ring-slate-400 bg-slate-400/10' : ''
-                  }`}
+                  className={
+                    isCohost
+                      ? `group bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 border-rose-300/30 shadow-md shadow-rose-300/10 ${
+                          selectedParticipants.has(p.assigned_number) ? 'ring-4 ring-rose-400 bg-rose-400/10' : ''
+                        }`
+                      : `group bg-white/5 backdrop-blur-xl border-2 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${borderColor} ${borderGlow} ${
+                          selectedParticipants.has(p.assigned_number) ? 'ring-2 ring-slate-400 bg-slate-400/10' : ''
+                        }`
+                  }
                   onClick={() => {
                     setProfileModalParticipant(p);
                     setShowProfileModal(true);
@@ -4896,9 +4918,9 @@ Proceed?`
                     {/* Participant Name - Make it POP! */}
                     {p.name && (
                       <div className="mt-2 mb-3">
-                        <div className="bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30 rounded-lg px-3 py-2 backdrop-blur-sm">
-                          <div className="text-lg font-bold bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent">
-                            {p.name}
+                        <div className={`${isCohost ? 'bg-gradient-to-r from-rose-500/20 to-pink-500/20 border border-rose-400/30' : 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30'} rounded-lg px-3 py-2 backdrop-blur-sm`}> 
+                          <div className={`text-lg font-bold ${isCohost ? 'bg-gradient-to-r from-rose-300 to-pink-300' : 'bg-gradient-to-r from-cyan-300 to-blue-300'} bg-clip-text text-transparent`}>
+                            {isCohost ? '❤ ' : ''}{p.name}
                           </div>
                         </div>
                       </div>

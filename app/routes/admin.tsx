@@ -4878,7 +4878,7 @@ Proceed?`
                   data-participant={p.assigned_number}
                   className={
                     isCohost
-                      ? `group relative bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 ${
+                      ? `group relative bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-4 md:p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 ${
                           p.PAID_DONE
                             ? 'border-emerald-400/60 shadow-lg shadow-emerald-500/20'
                             : (p.PAID
@@ -4897,13 +4897,13 @@ Proceed?`
                   }}
                 >
                 {/* Top-right Exclude Button (Both admin and co-host) */}
-                <div className="absolute top-2 right-2 z-10">
+                <div className="absolute top-3 right-3 md:top-2 md:right-2 z-10">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleParticipantExclusion(p.assigned_number, p.name || `#${p.assigned_number}`);
                     }}
-                    className={`rounded-full p-2 backdrop-blur border transition-all duration-200 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-white/30 ${
+                    className={`rounded-full p-3 md:p-2 backdrop-blur border transition-all duration-200 active:scale-95 shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-0 focus:ring-white/30 ${
                       isExcluded
                         ? (isCohost
                             ? 'bg-rose-500/20 border-rose-400/50 text-rose-100 hover:bg-rose-500/30'
@@ -4916,9 +4916,9 @@ Proceed?`
                     aria-label={isExcluded ? 'Unexclude participant' : 'Exclude participant'}
                   >
                     {isExcluded ? (
-                      <Shield className="w-4 h-4" />
+                      <Shield className="w-5 h-5 md:w-4 md:h-4" />
                     ) : (
-                      <Ban className="w-4 h-4" />
+                      <Ban className="w-5 h-5 md:w-4 md:h-4" />
                     )}
                   </button>
                 </div>
@@ -4993,7 +4993,7 @@ Proceed?`
                     {isCohost && (
                       <div className="mt-2 pt-3 border-t border-white/10">
                         <div className="text-xs text-slate-400 mb-2 font-semibold text-center">Quick Actions</div>
-                        <div className="flex flex-col items-center gap-2">
+                        <div className="flex flex-col items-center gap-3 md:gap-2">
                           {/* Message sent toggle */}
                           <button
                             onClick={(e) => {
@@ -5001,7 +5001,7 @@ Proceed?`
                               toggleMessageSentStatus(p.assigned_number, p.PAID);
                             }}
                             disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message'}
-                            className={`w-full max-w-[240px] justify-center px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-60 ${
+                            className={`w-full max-w-[280px] justify-center px-5 py-3 md:px-4 md:py-2 rounded-xl border text-base md:text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-60 ${
                               p.PAID
                                 ? 'bg-green-500/15 text-green-200 border-green-400/40 hover:bg-green-500/25'
                                 : 'bg-red-500/15 text-red-200 border-red-400/40 hover:bg-red-500/25'
@@ -5015,7 +5015,7 @@ Proceed?`
                               </span>
                             ) : (
                               <span className="flex items-center gap-2 justify-center">
-                                <Phone className="w-4 h-4" />
+                                <Phone className="w-5 h-5 md:w-4 md:h-4" />
                                 <span>{p.PAID ? 'Message: Sent' : 'Message: Not Sent'}</span>
                               </span>
                             )}
@@ -5028,7 +5028,7 @@ Proceed?`
                               togglePaymentStatus(p.assigned_number, p.PAID_DONE);
                             }}
                             disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment'}
-                            className={`w-full max-w-[240px] justify-center px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-60 ${
+                            className={`w-full max-w-[280px] justify-center px-5 py-3 md:px-4 md:py-2 rounded-xl border text-base md:text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-60 ${
                               p.PAID_DONE
                                 ? 'bg-emerald-500/15 text-emerald-200 border-emerald-400/40 hover:bg-emerald-500/25'
                                 : (p.PAID
@@ -5044,7 +5044,7 @@ Proceed?`
                               </span>
                             ) : (
                               <span className="flex items-center gap-2 justify-center">
-                                <CreditCard className="w-4 h-4" />
+                                <CreditCard className="w-5 h-5 md:w-4 md:h-4" />
                                 <span>{p.PAID_DONE ? 'Payment: Paid' : (p.PAID ? 'Payment: Pending' : 'Payment: No Contact')}</span>
                               </span>
                             )}
@@ -5057,11 +5057,11 @@ Proceed?`
                               setWhatsappParticipant(p);
                               setShowWhatsappModal(true);
                             }}
-                            className="w-full max-w-[240px] justify-center px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 bg-green-500/10 text-green-200 border-green-400/30 hover:bg-green-500/20"
+                            className="w-full max-w-[280px] justify-center px-5 py-3 md:px-4 md:py-2 rounded-xl border text-base md:text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 bg-green-500/10 text-green-200 border-green-400/30 hover:bg-green-500/20"
                             title="Send WhatsApp message"
                           >
                             <span className="flex items-center gap-2 justify-center">
-                              <MessageSquare className="w-4 h-4" />
+                              <MessageSquare className="w-5 h-5 md:w-4 md:h-4" />
                               <span>Send WhatsApp</span>
                             </span>
                           </button>

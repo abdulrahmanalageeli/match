@@ -4195,7 +4195,7 @@ Proceed?`
 
       {/* Control Panel */}
       <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10" style={{ display: isCohost ? 'none' : undefined }}>
-        <div className="max-w-6xl mx-auto p-6">
+        <div className={`max-w-6xl mx-auto ${isCohost ? 'p-4 md:p-6' : 'p-6'}`}>
           {/* Timer Control Section */}
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-6">
             <div className="flex items-center justify-between">
@@ -4662,8 +4662,48 @@ Proceed?`
           )}
         </div>
 
+        {/* Co-host Mobile Filters (compact) */}
+        {isCohost && (
+          <div className="md:hidden sticky top-0 z-20 bg-white/5 backdrop-blur-xl backdrop-saturate-150 border border-white/20 rounded-2xl p-3 mb-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowEligibleOnly(!showEligibleOnly)}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${showEligibleOnly ? 'bg-green-500/20 border-green-400/50 text-green-300' : 'bg-white/10 border-white/20 text-slate-300'}`}
+              >
+                <Filter className="w-4 h-4" />
+                Eligible
+              </button>
+              <div className="flex-1 relative">
+                <select
+                  value={paymentFilter}
+                  onChange={(e) => setPaymentFilter(e.target.value)}
+                  className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-2 pr-8 text-white text-sm focus:outline-none"
+                >
+                  <option value="all" className="bg-slate-800 text-white">Payment</option>
+                  <option value="paid" className="bg-slate-800 text-white">Awaiting</option>
+                  <option value="unpaid" className="bg-slate-800 text-white">Not Contacted</option>
+                  <option value="done" className="bg-slate-800 text-white">Done</option>
+                </select>
+                <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+              <div className="flex-1 relative">
+                <select
+                  value={whatsappFilter}
+                  onChange={(e) => setWhatsappFilter(e.target.value)}
+                  className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-3 py-2 pr-8 text-white text-sm focus:outline-none"
+                >
+                  <option value="all" className="bg-slate-800 text-white">WhatsApp</option>
+                  <option value="sent" className="bg-slate-800 text-white">Sent</option>
+                  <option value="not_sent" className="bg-slate-800 text-white">Not Sent</option>
+                </select>
+                <ChevronRight className="absolute right-2 top-1/2 -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filter Controls */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-4 mb-4">
+        <div className={`${isCohost ? 'hidden md:block ' : ''}bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-4 mb-4`}>
           <div className="flex flex-wrap items-center gap-4">
             {/* Eligible Filter Toggle */}
             <button
@@ -4833,7 +4873,7 @@ Proceed?`
           </div>
         ) : (
           <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 ${isCohost ? 'gap-6 md:gap-4' : 'gap-4'}`}>
             {visibleParticipants.map((p) => {
               // Determine color-coded border based on status - PRIORITY SYSTEM
               const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
@@ -4878,7 +4918,7 @@ Proceed?`
                   data-participant={p.assigned_number}
                   className={
                     isCohost
-                      ? `group relative bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-4 md:p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 ${
+                      ? `group relative bg-gradient-to-b from-white/10 to-white/5 backdrop-blur-2xl md:backdrop-blur-xl border-4 rounded-3xl p-4 md:p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 shadow-xl md:shadow-md ${
                           p.PAID_DONE
                             ? 'border-emerald-400/60 shadow-lg shadow-emerald-500/20'
                             : (p.PAID
@@ -4976,23 +5016,38 @@ Proceed?`
                 
                 <div className="space-y-3">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-white">#{p.assigned_number}</div>
+                    <div className={`${isCohost ? 'text-3xl md:text-2xl' : 'text-2xl'} font-bold text-white`}>#{p.assigned_number}</div>
                     
                     {/* Participant Name - Make it POP! */}
                     {p.name && (
                       <div className="mt-2 mb-3">
                         <div className={`${isCohost ? 'bg-gradient-to-r from-rose-500/20 to-pink-500/20 border border-rose-400/30' : 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30'} rounded-lg px-3 py-2 backdrop-blur-sm`}> 
-                          <div className={`text-lg font-bold ${isCohost ? 'bg-gradient-to-r from-rose-300 to-pink-300' : 'bg-gradient-to-r from-cyan-300 to-blue-300'} bg-clip-text text-transparent`}>
+                          <div className={`${isCohost ? 'text-xl md:text-lg' : 'text-lg'} font-bold ${isCohost ? 'bg-gradient-to-r from-rose-300 to-pink-300' : 'bg-gradient-to-r from-cyan-300 to-blue-300'} bg-clip-text text-transparent`}>
                             {p.name}
                           </div>
                         </div>
                       </div>
                     )}
 
+                    {/* Co-host Mobile: status pill under name */}
+                    {isCohost && (
+                      <div className="md:hidden mt-1">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${
+                          p.PAID_DONE
+                            ? 'bg-emerald-500/15 text-emerald-200 border-emerald-400/30'
+                            : (p.PAID
+                                ? 'bg-yellow-500/15 text-yellow-200 border-yellow-400/30'
+                                : 'bg-gray-500/15 text-gray-200 border-gray-400/30')
+                        }`}>
+                          {p.PAID_DONE ? 'Paid' : (p.PAID ? 'Pending' : 'Not Sent')}
+                        </span>
+                      </div>
+                    )}
+
                     {/* Co-host centered actions */}
                     {isCohost && (
-                      <div className="mt-2 pt-3 border-t border-white/10">
-                        <div className="text-xs text-slate-400 mb-2 font-semibold text-center">Quick Actions</div>
+                      <div className={`mt-2 pt-3 border-t border-white/10 ${isCohost ? 'bg-white/5 rounded-2xl p-3 md:p-0' : ''}`}> 
+                        <div className="hidden md:block text-xs text-slate-400 mb-2 font-semibold text-center">Quick Actions</div>
                         <div className="flex flex-col items-center gap-3 md:gap-2">
                           {/* Message sent toggle */}
                           <button
@@ -5292,8 +5347,8 @@ Proceed?`
                     </div>
                     )}
 
-                    {/* Gender Preference Selector */}
-                    <div className="mt-3 pt-3 border-t border-white/10">
+                    {/* Gender Preference Selector (hide on co-host mobile) */}
+                    <div className={`mt-3 pt-3 border-t border-white/10 ${isCohost ? 'hidden md:block' : ''}`}>
                       {(() => {
                         // Compute current preference for quick visibility (normalized)
                         const rawPref = p.survey_data?.answers?.gender_preference as string | undefined
@@ -5410,9 +5465,9 @@ Proceed?`
                       })()}
                     </div>
 
-                    {/* Load Match History Button */}
+                    {/* Load Match History Button (hide on co-host mobile) */}
                     {!participantMatchHistory[p.assigned_number] && !loadingMatchHistory[p.assigned_number] && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className={`mt-3 pt-3 border-t border-white/10 ${isCohost ? 'hidden md:block' : ''}`}>
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -5426,9 +5481,9 @@ Proceed?`
                       </div>
                     )}
 
-                    {/* Loading State */}
+                    {/* Loading State (hide on co-host mobile) */}
                     {loadingMatchHistory[p.assigned_number] && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className={`mt-3 pt-3 border-t border-white/10 ${isCohost ? 'hidden md:block' : ''}`}>
                         <div className="flex items-center justify-center gap-2 text-blue-400 text-xs">
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Loading history...
@@ -5436,9 +5491,9 @@ Proceed?`
                       </div>
                     )}
 
-                    {/* Previous Match History */}
+                    {/* Previous Match History (hide on co-host mobile) */}
                     {participantMatchHistory[p.assigned_number] && participantMatchHistory[p.assigned_number].length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-white/10">
+                      <div className={`mt-3 pt-3 border-t border-white/10 ${isCohost ? 'hidden md:block' : ''}`}>
                         <div className="text-xs text-slate-400 mb-2 font-semibold">Previous Matches:</div>
                         <div className="space-y-1">
                           {participantMatchHistory[p.assigned_number].slice(0, 5).map((match: any, idx: number) => (

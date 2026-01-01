@@ -3062,32 +3062,9 @@ export default function WelcomePage() {
           setReturningGenderPreference(data.gender_preference)
           // preference source: DB only (no localStorage caching)
         }
-        // Check completeness of required survey answers
-        const answers = data.survey_data?.answers || {}
-        const requiredKeys: string[] = [
-          // Personal info
-          'name','age','gender','phone_number','nationality','nationality_preference','open_age_preference',
-          // Interaction synergy
-          'conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style','silence_comfort',
-          'lifestyle_1','lifestyle_2','lifestyle_3','lifestyle_4','lifestyle_5',
-          'core_values_1','core_values_2','core_values_3','core_values_4','core_values_5',
-          // Vibe & Interaction
-          'vibe_1','vibe_2','vibe_3','vibe_4','vibe_5',
-          // Humor & Openness baseline
-          'humor_banter_style','early_openness_comfort'
-        ];
-        const missing = requiredKeys.some(k => {
-          const v = (answers as any)[k];
-          return v == null || (typeof v === 'string' && v.trim().length === 0);
-        });
-
-        // Conditional check for preferred_age_min and preferred_age_max
-        const openAgePref = (answers as any).open_age_preference;
-        const missingAgeRange = !openAgePref && 
-                              ((answers as any).preferred_age_min == null || 
-                               (answers as any).preferred_age_max == null);
-
-        if (missing || missingAgeRange) {
+        // Simple rule: only check nationality column
+        const noNationality = (data.nationality == null) || (typeof data.nationality === 'string' && data.nationality.trim().length === 0)
+        if (noNationality) {
           console.log('📝 Incomplete survey detected — showing popup');
           setIncompleteSurveyInfo({
             name: data.name || "المشارك",

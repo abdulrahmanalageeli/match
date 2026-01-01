@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     }
     const { data, error } = await supabase
       .from("participants")
-      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+      .select("assigned_number, name, survey_data, summary, signup_for_next_event, auto_signup_next_event, humor_banter_style, early_openness_comfort, same_gender_preference, any_gender_preference, gender, phone_number, age, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
       .eq("secure_token", req.body.secure_token)
       .single();
 
@@ -288,6 +288,15 @@ export default async function handler(req, res) {
       humor_banter_style: data.humor_banter_style,
       early_openness_comfort: data.early_openness_comfort,
       gender_preference: computedGenderPreference,
+      // Extra fields to help client-side completeness checks with fallbacks
+      gender: data.gender || null,
+      phone_number: data.phone_number || null,
+      age: data.age || null,
+      nationality: data.nationality || null,
+      prefer_same_nationality: typeof data.prefer_same_nationality === 'boolean' ? data.prefer_same_nationality : null,
+      preferred_age_min: data.preferred_age_min ?? null,
+      preferred_age_max: data.preferred_age_max ?? null,
+      open_age_preference: typeof data.open_age_preference === 'boolean' ? data.open_age_preference : null,
       history: history
     })
   }

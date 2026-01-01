@@ -3553,6 +3553,34 @@ Proceed?`
 
                   <button
                     onClick={async () => {
+                      if (!confirm("Sign up ALL participants with nationality filled (completed new survey fields) for next event?")) return
+                      try {
+                        const res = await fetch('/api/admin', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'signup-nationality-next-event' })
+                        })
+                        const data = await res.json()
+                        if (res.ok) {
+                          toast.success(`Signed up ${data.updatedCount || 0} participants for next event`)
+                          fetchParticipants()
+                        } else {
+                          toast.error(`Failed: ${data.error || 'Unknown error'}`)
+                        }
+                      } catch (err) {
+                        console.error('Network error:', err)
+                        toast.error('Network error while signing up nationality-complete participants')
+                      }
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white rounded-lg transition-all duration-300 text-sm"
+                    title="Sign up all participants with nationality filled for next event"
+                  >
+                    <CalendarCheck className="w-3.5 h-3.5" />
+                    Nationality → Next Event
+                  </button>
+
+                  <button
+                    onClick={async () => {
                       if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers (1, 2, 3...) only to locked/pinned matches")) return
                       const res = await fetch("/api/admin", {
                         method: "POST",

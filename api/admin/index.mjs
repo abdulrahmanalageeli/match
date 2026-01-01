@@ -322,6 +322,32 @@ export default async function handler(req, res) {
         }
       }
 
+      // 🔹 BULK SIGNUP: ALL WITH NATIONALITY FILLED → NEXT EVENT
+      if (action === "signup-nationality-next-event") {
+        try {
+          const now = new Date().toISOString()
+          const { data, error } = await supabase
+            .from("participants")
+            .update({ signup_for_next_event: true, next_event_signup_timestamp: now })
+            .eq("match_id", STATIC_MATCH_ID)
+            .neq("assigned_number", 9999) // exclude organizer
+            .not("nationality", "is", null)
+            .neq("nationality", "")
+            .select("id")
+
+          if (error) {
+            console.error("Error in signup-nationality-next-event:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          const updatedCount = Array.isArray(data) ? data.length : 0
+          return res.status(200).json({ success: true, updatedCount })
+        } catch (error) {
+          console.error("Error in signup-nationality-next-event:", error)
+          return res.status(500).json({ error: "Failed to signup nationality-completed participants for next event" })
+        }
+      }
+
       console.log(`Processing action: ${action}`);
 
       if (action === "participants") {

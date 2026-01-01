@@ -2944,7 +2944,7 @@ Proceed?`
   }
 
   return (
-    <div className={`min-h-screen bg-gradient-to-br ${isCohost ? 'from-pink-950 via-rose-900 to-fuchsia-900' : 'from-slate-900 via-slate-800 to-slate-900'} text-white relative overflow-hidden`}>
+    <div className={`min-h-screen bg-gradient-to-br ${isCohost ? 'from-slate-950 via-slate-900 to-slate-950' : 'from-slate-900 via-slate-800 to-slate-900'} text-white relative overflow-hidden`}>
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-slate-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -3020,20 +3020,20 @@ Proceed?`
       </div>
 
       {isCohost && (
-        <div className="relative z-10 bg-pink-500/10 backdrop-blur-xl border-b border-pink-400/20 p-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">
+          <div className="max-w-5xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 rounded-lg bg-pink-500/20 border border-pink-400/30 text-pink-300 text-sm font-semibold">Cohost Mode</div>
-              <div className="px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-400/30 text-rose-200 text-sm font-bold tracking-wide">
-                Ghady 💖
+              <div className="px-3 py-1 rounded-lg bg-indigo-500/10 border border-indigo-400/30 text-indigo-300 text-sm font-medium">Cohost</div>
+              <div className="px-3 py-1 rounded-lg bg-slate-800/60 border border-white/10 text-slate-100 text-sm font-semibold tracking-wide">
+                Ghady
               </div>
-              <div className="text-pink-200/90 text-sm">
-                Defaults: <span className="font-semibold">Eligible Only</span> • <span className="font-semibold">Female</span> • <span className="font-semibold">WhatsApp Not Sent</span>
+              <div className="text-slate-300/90 text-sm hidden md:block">
+                Focused view • Defaults: <span className="font-semibold text-slate-200">Eligible Only</span> • <span className="font-semibold text-slate-200">Female</span> • <span className="font-semibold text-slate-200">WhatsApp Not Sent</span>
               </div>
             </div>
             <button
               onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number'); }}
-              className="px-3 py-1.5 rounded-lg bg-pink-600 text-white text-sm hover:bg-pink-700 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition-colors"
             >
               Reset Defaults
             </button>

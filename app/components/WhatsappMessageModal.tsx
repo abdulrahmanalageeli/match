@@ -8,9 +8,10 @@ interface WhatsappMessageModalProps {
   participant: any;
   isOpen: boolean;
   onClose: () => void;
+  cohostTheme?: boolean;
 }
 
-export default function WhatsappMessageModal({ participant, isOpen, onClose }: WhatsappMessageModalProps) {
+export default function WhatsappMessageModal({ participant, isOpen, onClose, cohostTheme = false }: WhatsappMessageModalProps) {
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
@@ -279,12 +280,12 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
   if (!isOpen || !participant) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/60'} backdrop-blur-sm z-50 flex items-center justify-center p-4`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-slate-900 border border-slate-700 rounded-2xl'} shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-slate-700">
+        <div className={`flex items-center justify-between p-5 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-slate-700'}`}>
           <h2 className="text-lg font-bold text-white">رسالة واتساب للمشارك #${participant.assigned_number}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white">
+          <button onClick={onClose} className={`p-2 rounded-full ${cohostTheme ? 'hover:bg-rose-900/40 text-rose-200' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}`}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -306,7 +307,7 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
 
           {/* Customize Panel */}
           {showCustomize && (
-            <div className="bg-slate-800 border border-slate-600 rounded-lg p-4 space-y-4">
+            <div className={`rounded-lg p-4 space-y-4 ${cohostTheme ? 'bg-rose-900/30 border border-rose-400/30' : 'bg-slate-800 border border-slate-600'}`}>
               {/* Load/last-updated status */}
               {loadingConfig && (
                 <div className="text-xs text-slate-400">جارٍ تحميل إعدادات الواتساب...</div>

@@ -5,9 +5,10 @@ interface ParticipantQRModalProps {
   isOpen: boolean
   onClose: () => void
   participant: any
+  cohostTheme?: boolean
 }
 
-export default function ParticipantQRModal({ isOpen, onClose, participant }: ParticipantQRModalProps) {
+export default function ParticipantQRModal({ isOpen, onClose, participant, cohostTheme = false }: ParticipantQRModalProps) {
   const [copied, setCopied] = useState(false)
 
   if (!isOpen || !participant) return null
@@ -21,12 +22,12 @@ export default function ParticipantQRModal({ isOpen, onClose, participant }: Par
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto">
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm z-50 flex items-center justify-center p-4`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-white/20 sticky top-0 bg-slate-900/95 backdrop-blur-sm z-10">
+        <div className={`flex items-center justify-between p-4 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-white/20'} sticky top-0 ${cohostTheme ? 'bg-rose-950/95' : 'bg-slate-900/95'} backdrop-blur-sm z-10`}>
           <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-2 rounded-lg">
+            <div className={`p-2 rounded-lg ${cohostTheme ? 'bg-gradient-to-r from-rose-500 to-pink-600' : 'bg-gradient-to-r from-blue-600 to-blue-700'}`}>
               <QrCode className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -36,7 +37,7 @@ export default function ParticipantQRModal({ isOpen, onClose, participant }: Par
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+            className={`p-2 rounded-lg text-white transition-all duration-300 ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -94,7 +95,7 @@ export default function ParticipantQRModal({ isOpen, onClose, participant }: Par
           {/* Close Button - Inside content */}
           <button
             onClick={onClose}
-            className="w-full px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-lg transition-all duration-300 text-sm"
+            className={`w-full px-4 py-2 text-white rounded-lg transition-all duration-300 text-sm ${cohostTheme ? 'bg-rose-600 hover:bg-rose-700' : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800'}`}
           >
             إغلاق
           </button>

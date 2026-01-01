@@ -7,9 +7,10 @@ interface ParticipantProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdate: () => void;
+  cohostTheme?: boolean;
 }
 
-export default function ParticipantProfileModal({ participant, isOpen, onClose, onUpdate }: ParticipantProfileModalProps) {
+export default function ParticipantProfileModal({ participant, isOpen, onClose, onUpdate, cohostTheme = false }: ParticipantProfileModalProps) {
   const [editMode, setEditMode] = useState<Record<string, boolean>>({});
   const [editedData, setEditedData] = useState<any>({});
   const [saving, setSaving] = useState(false);
@@ -208,13 +209,13 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/60'} backdrop-blur-sm z-50 flex items-center justify-center p-4`} onClick={onClose}>
       <div 
-        className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/20 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+        className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 rounded-3xl border-4 border-rose-400/30' : 'bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-white/20'} shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-b border-white/10 p-6">
+        <div className={`border-b p-6 ${cohostTheme ? 'bg-gradient-to-r from-rose-600/20 to-pink-600/20 border-rose-400/20' : 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10'}`}>
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold text-white mb-1">
@@ -224,7 +225,7 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
             </div>
             <button
               onClick={onClose}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+              className={`p-2 rounded-lg transition-colors ${cohostTheme ? 'hover:bg-rose-900/40' : 'hover:bg-white/10'}`}
             >
               <X className="w-6 h-6 text-white" />
             </button>

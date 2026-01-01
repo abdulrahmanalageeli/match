@@ -2959,10 +2959,17 @@ Proceed?`
               <LayoutDashboard className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
-                Admin Dashboard
-              </h1>
-              <p className="text-slate-400 text-sm">Participant Management System</p>
+              <div className="flex items-center gap-3">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-slate-200 to-slate-400 bg-clip-text text-transparent">
+                  Admin Dashboard
+                </h1>
+                {isCohost && (
+                  <span className="px-2 py-0.5 rounded-full text-sm bg-rose-500/15 border border-rose-400/30 text-rose-200">
+                    Ghady
+                  </span>
+                )}
+              </div>
+              <p className="text-slate-400/70 text-sm">Participant Management System</p>
             </div>
           </div>
 
@@ -4888,26 +4895,65 @@ Proceed?`
                         setWhatsappParticipant(p); 
                         setShowWhatsappModal(true); 
                       }}
-                      className="p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-all duration-200 active:scale-95 touch-manipulation"
+                      className="p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2"
                       aria-label="Send WhatsApp message"
                       title="Send WhatsApp message"
                     >
                       <MessageSquare className="w-5 h-5" />
+                      {isCohost && <span className="text-sm font-medium">WhatsApp</span>}
                     </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleParticipantSelection(p.assigned_number)
-                      }}
-                      className="text-slate-400 hover:text-white transition-colors"
-                      title="Select participant"
-                    >
-                      {selectedParticipants.has(p.assigned_number) ? (
-                        <CheckSquare className="w-4 h-4" />
-                      ) : (
-                        <Square className="w-4 h-4" />
-                      )}
-                    </button>
+                    {isCohost && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleMessageSentStatus(p.assigned_number, p.PAID);
+                          }}
+                          disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message'}
+                          className={`p-3 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2 ${
+                            p.PAID 
+                              ? 'bg-green-500/20 hover:bg-green-500/30 text-green-300' 
+                              : 'bg-red-500/20 hover:bg-red-500/30 text-red-300'
+                          }`}
+                          title={`Click to ${p.PAID ? 'mark as not sent' : 'mark as sent'}`}
+                        >
+                          <span className="text-sm font-medium">Message Sent</span>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            togglePaymentStatus(p.assigned_number, p.PAID_DONE);
+                          }}
+                          disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment'}
+                          className={`p-3 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2 ${
+                            p.PAID_DONE 
+                              ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300' 
+                              : p.PAID 
+                                ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300' 
+                                : 'bg-gray-500/20 hover:bg-gray-500/30 text-gray-300'
+                          }`}
+                          title={`Click to ${p.PAID_DONE ? 'mark as unpaid' : 'mark as paid'}`}
+                        >
+                          <span className="text-sm font-medium">Payment Done</span>
+                        </button>
+                      </>
+                    )}
+                    {!isCohost && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          toggleParticipantSelection(p.assigned_number)
+                        }}
+                        className="text-slate-400 hover:text-white transition-colors"
+                        title="Select participant"
+                      >
+                        {selectedParticipants.has(p.assigned_number) ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
                 
@@ -4920,14 +4966,14 @@ Proceed?`
                       <div className="mt-2 mb-3">
                         <div className={`${isCohost ? 'bg-gradient-to-r from-rose-500/20 to-pink-500/20 border border-rose-400/30' : 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-400/30'} rounded-lg px-3 py-2 backdrop-blur-sm`}> 
                           <div className={`text-lg font-bold ${isCohost ? 'bg-gradient-to-r from-rose-300 to-pink-300' : 'bg-gradient-to-r from-cyan-300 to-blue-300'} bg-clip-text text-transparent`}>
-                            {isCohost ? '❤ ' : ''}{p.name}
+                            {p.name}
                           </div>
                         </div>
                       </div>
                     )}
                     
                     {/* Registration Time (created_at) */}
-                    {p.created_at && (() => {
+                    {!isCohost && p.created_at && (() => {
                       const createdAt = new Date(p.created_at);
                       // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
                       const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
@@ -4957,7 +5003,7 @@ Proceed?`
                     })()}
                     
                     {/* Next Event Signup Time */}
-                    {p.next_event_signup_timestamp && (() => {
+                    {!isCohost && p.next_event_signup_timestamp && (() => {
                       const signedAt = new Date(p.next_event_signup_timestamp);
                       // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
                       const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
@@ -4986,7 +5032,7 @@ Proceed?`
                     })()}
                     
                     {/* Last Update Time (Relative) */}
-                    {p.updated_at && (() => {
+                    {!isCohost && p.updated_at && (() => {
                       const updatedAt = new Date(p.updated_at);
                       const diffMs = Date.now() - updatedAt.getTime();
                       const diffMins = Math.floor(diffMs / 60000);
@@ -5021,12 +5067,15 @@ Proceed?`
                       );
                     })()}
                     
-                    <div className="flex items-center justify-center gap-1 text-slate-400 text-sm mb-2">
-                      <Table2 className="w-4 h-4" />
-                      {p.table_number ?? "Unassigned"}
-                    </div>
+                    {!isCohost && (
+                      <div className="flex items-center justify-center gap-1 text-slate-400 text-sm mb-2">
+                        <Table2 className="w-4 h-4" />
+                        {p.table_number ?? "Unassigned"}
+                      </div>
+                    )}
                     
                     {/* Eligibility Badges */}
+                    {!isCohost && (
                     <div className="flex flex-wrap items-center justify-center gap-1 mb-2">
                       {excludedParticipants.some(ep => ep.participant_number === p.assigned_number) && (
                         <span className="px-2 py-1 text-xs bg-red-500/20 text-red-300 rounded-full border border-red-400/30 font-semibold animate-pulse">
@@ -5083,8 +5132,10 @@ Proceed?`
                         </button>
                       )}
                     </div>
+                    )}
 
                     {/* Payment and WhatsApp Status Badges */}
+                    {!isCohost && (
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {/* WhatsApp Status Badge - Clickable */}
                       <button
@@ -5136,6 +5187,7 @@ Proceed?`
                         )}
                       </button>
                     </div>
+                    )}
 
                     {/* Gender Preference Selector */}
                     <div className="mt-3 pt-3 border-t border-white/10">
@@ -5170,7 +5222,7 @@ Proceed?`
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Updating...
                         </div>
-                      ) : (isCohost ? null : (() => {
+                      ) : (() => {
                         // Determine current gender preference (normalize new schema values)
                         const rawPref = p.survey_data?.answers?.gender_preference as string | undefined;
                         let storedPref: 'opposite_gender' | 'same_gender' | 'any_gender' | undefined;
@@ -5238,7 +5290,7 @@ Proceed?`
                             </button>
                           </div>
                         );
-                      })())}
+                      })()}
                     </div>
 
                     {/* Load Match History Button */}
@@ -5348,6 +5400,7 @@ Proceed?`
           setShowWhatsappModal(false);
           setWhatsappParticipant(null);
         }}
+        cohostTheme={isCohost}
       />
 
       {/* Participant Results Modal */}
@@ -5361,6 +5414,7 @@ Proceed?`
         isFromCache={isFromCache}
         matchHistory={participantMatchHistory}
         currentEventId={currentEventId}
+        cohostTheme={isCohost}
       />
 
       {/* Group Assignments Modal */}
@@ -5372,6 +5426,7 @@ Proceed?`
         totalParticipants={totalGroupParticipants}
         eventId={currentEventId}
         onSwapApplied={async () => { await fetchGroupAssignments() }}
+        cohostTheme={isCohost}
       />
 
       {/* Participant QR Code Modal */}
@@ -5379,15 +5434,16 @@ Proceed?`
         isOpen={detailParticipant !== null}
         onClose={() => setDetailParticipant(null)}
         participant={detailParticipant}
+        cohostTheme={isCohost}
       />
 
       {/* Prev Unmatched Candidates Modal */}
       {showPrevUnmatchedModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 rounded-2xl border border-slate-700 max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b border-slate-700 flex items-center justify-between">
+        <div className={`fixed inset-0 z-50 ${isCohost ? 'bg-rose-900/40' : 'bg-black/70'} backdrop-blur-sm flex items-center justify-center p-4`}>
+          <div className={`${isCohost ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl shadow-2xl' : 'bg-slate-900 rounded-2xl border border-slate-700'} max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col`}>
+            <div className={`p-4 border-b ${isCohost ? 'border-rose-400/20' : 'border-slate-700'} flex items-center justify-between`}>
               <div className="flex items-center gap-2 text-white">
-                <CalendarCheck className="w-5 h-5 text-green-400" />
+                <CalendarCheck className={`w-5 h-5 ${isCohost ? 'text-rose-300' : 'text-green-400'}`} />
                 <h3 className="text-lg font-bold">
                   {prevModalMode === 'prev' ? (
                     <>Prev Event Candidates {prevEventId ? `(Event ${prevEventId})` : ''}</>
@@ -5396,13 +5452,13 @@ Proceed?`
                   )}
                 </h3>
               </div>
-              <button onClick={() => setShowPrevUnmatchedModal(false)} className="p-2 rounded hover:bg-slate-800 text-slate-300">
+              <button onClick={() => setShowPrevUnmatchedModal(false)} className={`p-2 rounded ${isCohost ? 'hover:bg-rose-900/40 text-rose-200' : 'hover:bg-slate-800 text-slate-300'}`}>
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 flex-1 overflow-auto">
               {prevUnmatchedLoading ? (
-                <div className="text-center text-cyan-200 flex items-center justify-center gap-2">
+                <div className={`text-center ${isCohost ? 'text-rose-200' : 'text-cyan-200'} flex items-center justify-center gap-2`}>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Loading...
                 </div>
@@ -5411,13 +5467,13 @@ Proceed?`
               ) : (
                 <div className="space-y-2">
                   {prevUnmatched.map((p) => (
-                    <label key={p.assigned_number} className="flex items-center justify-between bg-white/5 rounded px-3 py-2 border border-white/10">
+                    <label key={p.assigned_number} className={`flex items-center justify-between rounded px-3 py-2 border ${isCohost ? 'bg-rose-500/10 border-rose-400/20' : 'bg-white/5 border-white/10'}`}>
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
                           checked={prevUnmatchedSelected.has(p.assigned_number)}
                           onChange={() => togglePrevSelect(p.assigned_number)}
-                          className="accent-green-500"
+                          className={`${isCohost ? 'accent-rose-400' : 'accent-green-500'}`}
                         />
                         <div>
                           <div className="text-white font-bold">#{p.assigned_number} • {p.name || p.survey_data?.name || 'No name'}</div>
@@ -5430,16 +5486,16 @@ Proceed?`
                 </div>
               )}
             </div>
-            <div className="p-4 border-t border-slate-700 flex items-center gap-2 justify-between">
+            <div className={`p-4 border-t ${isCohost ? 'border-rose-400/20' : 'border-slate-700'} flex items-center gap-2 justify-between`}>
               <div className="flex items-center gap-2">
-                <button onClick={selectAllPrev} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm">Select All</button>
-                <button onClick={clearPrevSelection} className="px-3 py-1.5 rounded bg-slate-700 hover:bg-slate-600 text-white text-sm">Clear</button>
+                <button onClick={selectAllPrev} className={`px-3 py-1.5 rounded text-white text-sm ${isCohost ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-700 hover:bg-slate-600'}`}>Select All</button>
+                <button onClick={clearPrevSelection} className={`px-3 py-1.5 rounded text-white text-sm ${isCohost ? 'bg-rose-600 hover:bg-rose-700' : 'bg-slate-700 hover:bg-slate-600'}`}>Clear</button>
                 <span className="text-xs text-slate-400">Selected: {prevUnmatchedSelected.size}</span>
               </div>
               <button
                 onClick={signupPrevSelected}
                 disabled={prevUnmatchedLoading || prevUnmatchedSelected.size === 0}
-                className="px-4 py-2 rounded bg-green-600 hover:bg-green-700 text-white text-sm disabled:opacity-50"
+                className={`px-4 py-2 rounded text-white text-sm disabled:opacity-50 ${isCohost ? 'bg-rose-600 hover:bg-rose-700' : 'bg-green-600 hover:bg-green-700'}`}
               >
                 {prevUnmatchedLoading ? <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin"/>Signing up...</span> : 'Sign up for next event'}
               </button>
@@ -5457,6 +5513,7 @@ Proceed?`
           setProfileModalParticipant(null);
         }}
         onUpdate={fetchParticipants}
+        cohostTheme={isCohost}
       />
 
       {/* Group Debug Modal */}

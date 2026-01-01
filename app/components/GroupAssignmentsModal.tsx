@@ -21,6 +21,7 @@ interface GroupAssignmentsModalProps {
   totalParticipants: number
   eventId?: number
   onSwapApplied?: () => Promise<void> | void
+  cohostTheme?: boolean
 }
 
 export default function GroupAssignmentsModal({
@@ -30,7 +31,8 @@ export default function GroupAssignmentsModal({
   totalGroups,
   totalParticipants,
   eventId = 1,
-  onSwapApplied
+  onSwapApplied,
+  cohostTheme = false
 }: GroupAssignmentsModalProps) {
   if (!isOpen) return null
 
@@ -125,12 +127,12 @@ export default function GroupAssignmentsModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm flex items-center justify-center p-4 z-50`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
+        <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-white/10'}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-rose-500 to-pink-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -140,7 +142,7 @@ export default function GroupAssignmentsModal({
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+            className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'}`}
           >
             <X className="w-4 h-4" />
           </button>
@@ -158,7 +160,7 @@ export default function GroupAssignmentsModal({
               </span>
             )}
             {swapping && (
-              <span className="inline-flex items-center gap-1 text-cyan-300">
+              <span className={`inline-flex items-center gap-1 ${cohostTheme ? 'text-rose-200' : 'text-cyan-300'}`}>
                 <Loader2 className="w-3 h-3 animate-spin" /> جاري الحفظ...
               </span>
             )}
@@ -231,11 +233,11 @@ export default function GroupAssignmentsModal({
               {groupAssignments.map((group) => (
                 <div
                   key={group.group_number}
-                  className="bg-white/5 rounded-xl border border-white/10 overflow-hidden"
+                  className={`rounded-xl overflow-hidden ${cohostTheme ? 'bg-rose-500/10 border border-rose-400/20' : 'bg-white/5 border border-white/10'}`}
                 >
-                  <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between">
+                  <div className={`p-3 sm:p-4 border-b flex items-center justify-between ${cohostTheme ? 'border-rose-400/20' : 'border-white/10'}`}>
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-rose-500 to-pink-600' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
                         <MapPin className="w-4 h-4 text-white" />
                       </div>
                       <div>
@@ -260,10 +262,10 @@ export default function GroupAssignmentsModal({
                         <div
                           key={participant.number}
                           onClick={() => !swapping && attemptSwap({ group: group.group_number, participant: participant.number })}
-                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gradient-to-r from-white/10 to-white/5 border transition-all cursor-pointer ${
+                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-rose-500/10 to-rose-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
                             selected && selected.group === group.group_number && selected.participant === participant.number
-                              ? 'border-cyan-300 ring-2 ring-cyan-400/40'
-                              : 'border-white/20 hover:border-cyan-400/40'
+                              ? `${cohostTheme ? 'border-rose-300 ring-2 ring-rose-400/40' : 'border-cyan-300 ring-2 ring-cyan-400/40'}`
+                              : `${cohostTheme ? 'border-rose-400/20 hover:border-rose-300/40' : 'border-white/20 hover:border-cyan-400/40'}`
                           }`}
                         >
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">

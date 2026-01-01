@@ -40,6 +40,7 @@ interface ParticipantDetailModalProps {
   swapMode?: boolean
   onSwapSelect?: (newPartnerNumber: number) => Promise<void>
   lockedMatches?: Array<{ participant1_number: number; participant2_number: number; original_compatibility_score?: number }>
+  cohostTheme?: boolean
 }
 
 export default function ParticipantDetailModal({ 
@@ -50,7 +51,8 @@ export default function ParticipantDetailModal({
   matchType,
   swapMode = false,
   onSwapSelect,
-  lockedMatches = []
+  lockedMatches = [],
+  cohostTheme = false
 }: ParticipantDetailModalProps) {
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
 
@@ -122,12 +124,12 @@ export default function ParticipantDetailModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden">
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm z-50 flex items-center justify-center p-4`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/20">
+        <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-white/20'}`}>
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-xl">
+            <div className={`p-2 rounded-xl ${cohostTheme ? 'bg-gradient-to-r from-rose-500 to-pink-600' : 'bg-gradient-to-r from-blue-600 to-purple-600'}`}>
               <User className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -142,14 +144,14 @@ export default function ParticipantDetailModal({
           <div className="flex items-center gap-2">
             <button
               onClick={onClose}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-white transition-all duration-300 ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'}`}
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="text-sm">العودة</span>
             </button>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+              className={`p-2 rounded-xl text-white transition-all duration-300 ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'}`}
             >
               <X className="w-5 h-5" />
             </button>

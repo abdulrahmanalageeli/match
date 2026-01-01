@@ -52,6 +52,7 @@ interface ParticipantResultsModalProps {
   currentEventId?: number
   isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
   matchHistory?: Record<number, any[]>
+  cohostTheme?: boolean
 }
 
 export default function ParticipantResultsModal({ 
@@ -67,7 +68,8 @@ export default function ParticipantResultsModal({
   sessionInfo = null,
   currentEventId = 1,
   isFreshData = false,
-  matchHistory = {}
+  matchHistory = {},
+  cohostTheme = false
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -472,12 +474,12 @@ export default function ParticipantResultsModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden">
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm z-50 flex items-center justify-center p-4`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-white/20">
+        <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-white/20'}`}>
           <div className="flex items-center gap-3">
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-2 rounded-xl">
+            <div className={`p-2 rounded-xl ${cohostTheme ? 'bg-gradient-to-r from-rose-500 to-pink-600' : 'bg-gradient-to-r from-purple-600 to-pink-600'}`}>
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
@@ -519,7 +521,7 @@ export default function ParticipantResultsModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all duration-300"
+            className={`p-2 rounded-xl ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'} text-white transition-all duration-300`}
           >
             <X className="w-5 h-5" />
           </button>
@@ -1348,14 +1350,14 @@ export default function ParticipantResultsModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-white/20 p-4 bg-white/5">
+        <div className={`border-t p-4 ${cohostTheme ? 'border-rose-400/20 bg-rose-500/10' : 'border-white/20 bg-white/5'}`}>
           <div className="flex items-center justify-between">
             <div className="text-sm text-slate-400">
               تم إنشاء {totalMatches} مطابقة بنجاح
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 text-white rounded-xl transition-all duration-300"
+              className={`px-4 py-2 rounded-xl transition-all duration-300 text-white ${cohostTheme ? 'bg-rose-600 hover:bg-rose-700' : 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800'}`}
             >
               إغلاق
             </button>
@@ -1373,6 +1375,7 @@ export default function ParticipantResultsModal({
         swapMode={false}
         onSwapSelect={async () => {}}
         lockedMatches={lockedMatches}
+        cohostTheme={cohostTheme}
       />
 
       {/* WhatsApp Message Modal */}
@@ -1383,6 +1386,7 @@ export default function ParticipantResultsModal({
           setShowWhatsappModal(false)
           setWhatsappParticipant(null)
         }}
+        cohostTheme={cohostTheme}
       />
 
       {/* Pair Analysis Modal */}

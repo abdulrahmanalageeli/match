@@ -2944,7 +2944,7 @@ Proceed?`
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white relative overflow-hidden">
+    <div className={`min-h-screen bg-gradient-to-br ${isCohost ? 'from-pink-950 via-rose-900 to-fuchsia-900' : 'from-slate-900 via-slate-800 to-slate-900'} text-white relative overflow-hidden`}>
       {/* Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-slate-500/10 rounded-full blur-3xl animate-pulse"></div>
@@ -3020,17 +3020,20 @@ Proceed?`
       </div>
 
       {isCohost && (
-        <div className="relative z-10 bg-emerald-500/10 backdrop-blur-xl border-b border-emerald-400/20 p-4">
+        <div className="relative z-10 bg-pink-500/10 backdrop-blur-xl border-b border-pink-400/20 p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-sm font-semibold">Cohost Mode</div>
-              <div className="text-emerald-200/90 text-sm">
+              <div className="px-3 py-1 rounded-lg bg-pink-500/20 border border-pink-400/30 text-pink-300 text-sm font-semibold">Cohost Mode</div>
+              <div className="px-3 py-1 rounded-lg bg-rose-500/20 border border-rose-400/30 text-rose-200 text-sm font-bold tracking-wide">
+                Ghady 💖
+              </div>
+              <div className="text-pink-200/90 text-sm">
                 Defaults: <span className="font-semibold">Eligible Only</span> • <span className="font-semibold">Female</span> • <span className="font-semibold">WhatsApp Not Sent</span>
               </div>
             </div>
             <button
               onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number'); }}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-pink-600 text-white text-sm hover:bg-pink-700 transition-colors"
             >
               Reset Defaults
             </button>
@@ -3829,7 +3832,7 @@ Proceed?`
         </div>
 
         {/* Excluded Pairs Management */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6" style={{ display: isCohost ? 'none' : undefined }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-red-500/20 rounded-lg">
               <X className="w-5 h-5 text-red-400" />
@@ -3898,7 +3901,7 @@ Proceed?`
         </div>
 
         {/* Excluded Participants Management */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6" style={{ display: isCohost ? 'none' : undefined }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-orange-500/20 rounded-lg">
               <Shield className="w-5 h-5 text-orange-400" />
@@ -4012,7 +4015,7 @@ Proceed?`
         </div>
 
         {/* Manual Match Creation */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/20 rounded-2xl p-6 mb-6" style={{ display: isCohost ? 'none' : undefined }}>
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 bg-blue-500/20 rounded-lg">
               <Users className="w-5 h-5 text-blue-400" />
@@ -4164,7 +4167,7 @@ Proceed?`
         </div>
 
       {/* Control Panel */}
-      <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10">
+      <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10" style={{ display: isCohost ? 'none' : undefined }}>
         <div className="max-w-6xl mx-auto p-6">
           {/* Timer Control Section */}
           <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-6">
@@ -4583,12 +4586,14 @@ Proceed?`
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={clearAnnouncement}
-                  className="text-slate-400 hover:text-white transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                {!isCohost && (
+                  <button
+                    onClick={clearAnnouncement}
+                    className="text-slate-400 hover:text-white transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -4821,7 +4826,7 @@ Proceed?`
                     <UserRound className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex items-center gap-2">
-                    {(() => {
+                    {!isCohost && (() => {
                       const isExcluded = excludedParticipants.some(ep => ep.participant_number === p.assigned_number);
                       return (
                         <button
@@ -4841,18 +4846,20 @@ Proceed?`
                         </button>
                       );
                     })()}
-                    <button
-                      onClick={(e) => { 
-                        e.stopPropagation();
-                        setQrParticipant(p);
-                        setDetailParticipant(p);
-                      }}
-                      className="p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 transition-all duration-200 active:scale-95 touch-manipulation"
-                      aria-label="Show QR Code"
-                      title="Show QR Code"
-                    >
-                      <QrCode className="w-5 h-5" />
-                    </button>
+                    {!isCohost && (
+                      <button
+                        onClick={(e) => { 
+                          e.stopPropagation();
+                          setQrParticipant(p);
+                          setDetailParticipant(p);
+                        }}
+                        className="p-3 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 hover:text-blue-300 transition-all duration-200 active:scale-95 touch-manipulation"
+                        aria-label="Show QR Code"
+                        title="Show QR Code"
+                      >
+                        <QrCode className="w-5 h-5" />
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { 
                         e.stopPropagation();
@@ -5141,7 +5148,7 @@ Proceed?`
                           <Loader2 className="w-3 h-3 animate-spin" />
                           Updating...
                         </div>
-                      ) : (() => {
+                      ) : (isCohost ? null : (() => {
                         // Determine current gender preference (normalize new schema values)
                         const rawPref = p.survey_data?.answers?.gender_preference as string | undefined;
                         let storedPref: 'opposite_gender' | 'same_gender' | 'any_gender' | undefined;
@@ -5209,7 +5216,7 @@ Proceed?`
                             </button>
                           </div>
                         );
-                      })()}
+                      })())}
                     </div>
 
                     {/* Load Match History Button */}

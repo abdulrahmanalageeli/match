@@ -31,6 +31,10 @@ import {
   Square,
   X,
   MessageSquare,
+  Phone,
+  CreditCard,
+  ArrowLeftRight,
+  Shuffle,
   Ban,
   FileText,
   Bug,
@@ -4838,7 +4842,13 @@ Proceed?`
                   data-participant={p.assigned_number}
                   className={
                     isCohost
-                      ? `group bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 border-rose-300/30 shadow-md shadow-rose-300/10 ${
+                      ? `group bg-white/5 backdrop-blur-xl border-4 rounded-3xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer hover:rotate-1 hover:-translate-y-0.5 ${
+                          p.PAID_DONE
+                            ? 'border-emerald-400/60 shadow-lg shadow-emerald-500/20'
+                            : (p.PAID
+                                ? 'border-yellow-400/60 shadow-lg shadow-yellow-500/20'
+                                : 'border-rose-300/30 shadow-md shadow-rose-300/10')
+                        } ${
                           selectedParticipants.has(p.assigned_number) ? 'ring-4 ring-rose-400 bg-rose-400/10' : ''
                         }`
                       : `group bg-white/5 backdrop-blur-xl border-2 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 cursor-pointer transform hover:scale-105 ${borderColor} ${borderGlow} ${
@@ -4889,54 +4899,19 @@ Proceed?`
                         <QrCode className="w-5 h-5" />
                       </button>
                     )}
-                    <button
-                      onClick={(e) => { 
-                        e.stopPropagation();
-                        setWhatsappParticipant(p); 
-                        setShowWhatsappModal(true); 
-                      }}
-                      className="p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2"
-                      aria-label="Send WhatsApp message"
-                      title="Send WhatsApp message"
-                    >
-                      <MessageSquare className="w-5 h-5" />
-                      {isCohost && <span className="text-sm font-medium">WhatsApp</span>}
-                    </button>
-                    {isCohost && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleMessageSentStatus(p.assigned_number, p.PAID);
-                          }}
-                          disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message'}
-                          className={`p-3 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2 ${
-                            p.PAID 
-                              ? 'bg-green-500/20 hover:bg-green-500/30 text-green-300' 
-                              : 'bg-red-500/20 hover:bg-red-500/30 text-red-300'
-                          }`}
-                          title={`Click to ${p.PAID ? 'mark as not sent' : 'mark as sent'}`}
-                        >
-                          <span className="text-sm font-medium">Message Sent</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePaymentStatus(p.assigned_number, p.PAID_DONE);
-                          }}
-                          disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment'}
-                          className={`p-3 rounded-lg transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2 ${
-                            p.PAID_DONE 
-                              ? 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300' 
-                              : p.PAID 
-                                ? 'bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300' 
-                                : 'bg-gray-500/20 hover:bg-gray-500/30 text-gray-300'
-                          }`}
-                          title={`Click to ${p.PAID_DONE ? 'mark as unpaid' : 'mark as paid'}`}
-                        >
-                          <span className="text-sm font-medium">Payment Done</span>
-                        </button>
-                      </>
+                    {!isCohost && (
+                      <button
+                        onClick={(e) => { 
+                          e.stopPropagation();
+                          setWhatsappParticipant(p); 
+                          setShowWhatsappModal(true); 
+                        }}
+                        className="p-3 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-green-400 hover:text-green-300 transition-all duration-200 active:scale-95 touch-manipulation flex items-center gap-2"
+                        aria-label="Send WhatsApp message"
+                        title="Send WhatsApp message"
+                      >
+                        <MessageSquare className="w-5 h-5" />
+                      </button>
                     )}
                     {!isCohost && (
                       <button
@@ -4968,6 +4943,86 @@ Proceed?`
                           <div className={`text-lg font-bold ${isCohost ? 'bg-gradient-to-r from-rose-300 to-pink-300' : 'bg-gradient-to-r from-cyan-300 to-blue-300'} bg-clip-text text-transparent`}>
                             {p.name}
                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Co-host centered actions */}
+                    {isCohost && (
+                      <div className="mt-2 pt-3 border-t border-white/10">
+                        <div className="text-xs text-slate-400 mb-2 font-semibold text-center">Quick Actions</div>
+                        <div className="flex flex-col items-center gap-2">
+                          {/* Message sent toggle */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleMessageSentStatus(p.assigned_number, p.PAID);
+                            }}
+                            disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message'}
+                            className={`w-full max-w-[240px] justify-center px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-60 ${
+                              p.PAID
+                                ? 'bg-green-500/15 text-green-200 border-green-400/40 hover:bg-green-500/25'
+                                : 'bg-red-500/15 text-red-200 border-red-400/40 hover:bg-red-500/25'
+                            }`}
+                            title={`Click to ${p.PAID ? 'mark as not sent' : 'mark as sent'}`}
+                          >
+                            {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message' ? (
+                              <span className="flex items-center gap-2 justify-center">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Updating...</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2 justify-center">
+                                <Phone className="w-4 h-4" />
+                                <span>{p.PAID ? 'Message: Sent' : 'Message: Not Sent'}</span>
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Payment status toggle */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePaymentStatus(p.assigned_number, p.PAID_DONE);
+                            }}
+                            disabled={updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment'}
+                            className={`w-full max-w-[240px] justify-center px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 disabled:opacity-60 ${
+                              p.PAID_DONE
+                                ? 'bg-emerald-500/15 text-emerald-200 border-emerald-400/40 hover:bg-emerald-500/25'
+                                : (p.PAID
+                                    ? 'bg-yellow-500/15 text-yellow-200 border-yellow-400/40 hover:bg-yellow-500/25'
+                                    : 'bg-gray-500/15 text-gray-200 border-gray-400/40 hover:bg-gray-500/25')
+                            }`}
+                            title={`Click to ${p.PAID_DONE ? 'mark as unpaid' : 'mark as paid'}`}
+                          >
+                            {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment' ? (
+                              <span className="flex items-center gap-2 justify-center">
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                <span>Updating...</span>
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-2 justify-center">
+                                <CreditCard className="w-4 h-4" />
+                                <span>{p.PAID_DONE ? 'Payment: Paid' : (p.PAID ? 'Payment: Pending' : 'Payment: No Contact')}</span>
+                              </span>
+                            )}
+                          </button>
+
+                          {/* Open WhatsApp modal */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setWhatsappParticipant(p);
+                              setShowWhatsappModal(true);
+                            }}
+                            className="w-full max-w-[240px] justify-center px-4 py-2 rounded-xl border text-sm font-medium transition-all duration-200 hover:scale-[1.02] active:scale-95 bg-green-500/10 text-green-200 border-green-400/30 hover:bg-green-500/20"
+                            title="Send WhatsApp message"
+                          >
+                            <span className="flex items-center gap-2 justify-center">
+                              <MessageSquare className="w-4 h-4" />
+                              <span>Send WhatsApp</span>
+                            </span>
+                          </button>
                         </div>
                       </div>
                     )}
@@ -5128,7 +5183,7 @@ Proceed?`
                           className="px-2 py-1 text-xs bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-400/30 hover:bg-cyan-500/30 transition-all duration-200 hover:scale-105 active:scale-95"
                           title="Click to remove auto signup"
                         >
-                          🤖 Auto Signup
+                          Auto Signup
                         </button>
                       )}
                     </div>
@@ -5153,11 +5208,14 @@ Proceed?`
                       >
                         {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'message' ? (
                           <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin"></div>
-                            📱
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Updating...</span>
                           </span>
                         ) : (
-                          p.PAID ? '📱 Sent' : '📱 Not Sent'
+                          <span className="flex items-center gap-1">
+                            <Phone className="w-3 h-3" />
+                            <span>{p.PAID ? 'Sent' : 'Not Sent'}</span>
+                          </span>
                         )}
                       </button>
 
@@ -5179,11 +5237,14 @@ Proceed?`
                       >
                         {updatingStatus?.participantNumber === p.assigned_number && updatingStatus?.type === 'payment' ? (
                           <span className="flex items-center gap-1">
-                            <div className="w-2 h-2 border border-current border-t-transparent rounded-full animate-spin"></div>
-                            💰
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                            <span>Updating...</span>
                           </span>
                         ) : (
-                          p.PAID_DONE ? '💰 Paid' : (p.PAID ? '💰 Pending' : '💰 No Contact')
+                          <span className="flex items-center gap-1">
+                            <CreditCard className="w-3 h-3" />
+                            <span>{p.PAID_DONE ? 'Paid' : (p.PAID ? 'Pending' : 'No Contact')}</span>
+                          </span>
                         )}
                       </button>
                     </div>
@@ -5208,12 +5269,17 @@ Proceed?`
                         }
                         if (!normalized) normalized = dbAny ? 'any_gender' : (dbSame ? 'same_gender' : 'opposite_gender')
 
-                        const label = normalized === 'any_gender' ? '🌈 Any' : (normalized === 'same_gender' ? '👥 Same' : '↔️ Opposite')
+                        const labelText = normalized === 'any_gender' ? 'Any' : (normalized === 'same_gender' ? 'Same' : 'Opposite')
                         const color = normalized === 'any_gender' ? 'text-purple-300' : (normalized === 'same_gender' ? 'text-pink-300' : 'text-blue-300')
 
                         return (
                           <div className="text-xs text-slate-400 mb-2 font-semibold text-center">
-                            Gender Preference: <span className={`ml-1 ${color}`}>{label}</span>
+                            Gender Preference: <span className={`ml-1 inline-flex items-center gap-1 ${color}`}>
+                              {normalized === 'any_gender' && <Shuffle className="w-3 h-3" />}
+                              {normalized === 'same_gender' && <Users className="w-3 h-3" />}
+                              {normalized === 'opposite_gender' && <ArrowLeftRight className="w-3 h-3" />}
+                              {labelText}
+                            </span>
                           </div>
                         )
                       })()}
@@ -5258,7 +5324,10 @@ Proceed?`
                               }`}
                               title="Match with opposite gender only"
                             >
-                              {currentPref === 'opposite_gender' ? '✓ ' : ''}↔️ Opposite Gender
+                              <span className="inline-flex items-center gap-2">
+                                <ArrowLeftRight className="w-4 h-4" />
+                                <span>Opposite Gender {currentPref === 'opposite_gender' ? '(Selected)' : ''}</span>
+                              </span>
                             </button>
                             <button
                               onClick={(e) => {
@@ -5272,7 +5341,10 @@ Proceed?`
                               }`}
                               title="Match with same gender only"
                             >
-                              {currentPref === 'same_gender' ? '✓ ' : ''}👥 Same Gender
+                              <span className="inline-flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                <span>Same Gender {currentPref === 'same_gender' ? '(Selected)' : ''}</span>
+                              </span>
                             </button>
                             <button
                               onClick={(e) => {
@@ -5286,7 +5358,10 @@ Proceed?`
                               }`}
                               title="Match with any gender"
                             >
-                              {currentPref === 'any_gender' ? '✓ ' : ''}🌈 Any Gender
+                              <span className="inline-flex items-center gap-2">
+                                <Shuffle className="w-4 h-4" />
+                                <span>Any Gender {currentPref === 'any_gender' ? '(Selected)' : ''}</span>
+                              </span>
                             </button>
                           </div>
                         );

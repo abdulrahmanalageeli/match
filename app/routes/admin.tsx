@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useLocation } from "react-router"
 import toast, { Toaster } from 'react-hot-toast'
 import { useDebounce } from "~/hooks/useDebounce"
 import {
@@ -46,6 +47,8 @@ import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
 
 export default function AdminPage() {
+  const location = useLocation()
+  const isCohost = location.pathname.includes('cohost') || new URLSearchParams(location.search).get('cohost') === '1'
   const [password, setPassword] = useState("")
   const [authenticated, setAuthenticated] = useState(false)
   const [participants, setParticipants] = useState<any[]>([])
@@ -56,10 +59,10 @@ export default function AdminPage() {
   const [currentPhase, setCurrentPhase] = useState("form")
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearch = useDebounce(searchTerm, 300) // Performance: debounce search by 300ms
-  const [showEligibleOnly, setShowEligibleOnly] = useState(false)
-  const [genderFilter, setGenderFilter] = useState("all") // "all", "male", "female"
+  const [showEligibleOnly, setShowEligibleOnly] = useState(() => isCohost ? true : false)
+  const [genderFilter, setGenderFilter] = useState(() => isCohost ? "female" : "all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
-  const [whatsappFilter, setWhatsappFilter] = useState("all") // "all", "sent", "not_sent"
+  const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
   const [sortBy, setSortBy] = useState("number") // "number", "name", "updated", "survey_updated"
   const [copied, setCopied] = useState(false)
   const [selectedParticipants, setSelectedParticipants] = useState<Set<number>>(new Set())
@@ -3016,8 +3019,27 @@ Proceed?`
         </div>
       </div>
 
+      {isCohost && (
+        <div className="relative z-10 bg-emerald-500/10 backdrop-blur-xl border-b border-emerald-400/20 p-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="px-3 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-sm font-semibold">Cohost Mode</div>
+              <div className="text-emerald-200/90 text-sm">
+                Defaults: <span className="font-semibold">Eligible Only</span> • <span className="font-semibold">Female</span> • <span className="font-semibold">WhatsApp Not Sent</span>
+              </div>
+            </div>
+            <button
+              onClick={() => { setShowEligibleOnly(true); setGenderFilter('female'); setWhatsappFilter('not_sent'); setPaymentFilter('all'); setSortBy('number'); }}
+              className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm hover:bg-emerald-700 transition-colors"
+            >
+              Reset Defaults
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Phase Control */}
-      <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4">
+      <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4" style={{ display: isCohost ? 'none' : undefined }}>
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${currentPhaseConfig.bg} border border-white/20`}>
@@ -3183,7 +3205,7 @@ Proceed?`
                 />
               </div>
               
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2" style={{ display: isCohost ? 'none' : undefined }}>
                 <input
                   type="number"
                   value={manualNumber ?? ""}
@@ -3246,7 +3268,7 @@ Proceed?`
             </div>
 
             {/* Admin Actions - Organized in sections */}
-            <div className="space-y-3">
+            <div className="space-y-3" style={{ display: isCohost ? 'none' : undefined }}>
               
               {/* Section 1: Match Generation */}
               <div className="bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">

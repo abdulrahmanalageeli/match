@@ -1005,6 +1005,19 @@ const SurveyComponent = memo(function SurveyComponent({
     return idx >= 0 ? Math.floor(idx / questionsPerPage) : 0
   }, [orderedQuestions])
   
+  // New questions (Q35–Q41) paging helpers
+  const newQuestionsStartIndex = useMemo(() => orderedQuestions.findIndex(q => q.id === 'conversational_role'), [orderedQuestions])
+  const newQuestionsStartPage = useMemo(() => newQuestionsStartIndex >= 0 ? Math.floor(newQuestionsStartIndex / questionsPerPage) : null, [newQuestionsStartIndex])
+  const newQuestionIds = useMemo(() => (
+    ['conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style','intent_goal','silence_comfort']
+  ), [])
+  const newQuestionsMissingCount = useMemo(() => newQuestionIds.reduce((acc, id) => {
+    const v = surveyData.answers[id]
+    if (Array.isArray(v)) return acc + ((v && v.length > 0) ? 0 : 1)
+    const val = (v ?? '').toString().trim()
+    return acc + (val ? 0 : 1)
+  }, 0), [surveyData.answers, newQuestionIds])
+
   // Memoize current page questions to avoid re-slicing on every render
   const currentQuestions = useMemo(() => 
     orderedQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
@@ -2089,14 +2102,33 @@ const SurveyComponent = memo(function SurveyComponent({
           </div>
         )}
 
+        {/* Jump to New Questions (Q35–Q41) */}
+        {isEditing && newQuestionsStartPage !== null && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-blue-300/40 bg-blue-500/10 p-3">
+            <div className="text-xs sm:text-sm text-blue-900 dark:text-blue-200">
+              <span className="font-semibold">الأسئلة الجديدة (س 35–41)</span>
+              {newQuestionsMissingCount > 0 && (
+                <span className="ml-2 text-blue-700 dark:text-blue-300">— لديك {newQuestionsMissingCount} سؤال جديد غير مُكتمل</span>
+              )}
+            </div>
+            <Button
+              onClick={() => typeof newQuestionsStartPage === 'number' && setCurrentPage(newQuestionsStartPage)}
+              className="px-3 py-1.5 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg text-xs sm:text-sm"
+            >
+              اذهب للأسئلة الجديدة
+            </Button>
+          </div>
+        )}
+
         {/* Quick submit for new questions only (Q35–Q41) */}
         {isEditing && (
           <div className="mb-4 flex justify-end">
             <Button
               onClick={handleQuickSubmitNewQuestions}
-              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg shadow transition-all duration-200 text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 text-sm"
             >
-              إرسال الأسئلة الجديدة فقط
+              <CheckCircle className="w-4 h-4" />
+              <span>إرسال الأسئلة الجديدة فقط</span>
             </Button>
           </div>
         )}
@@ -2146,6 +2178,23 @@ const SurveyComponent = memo(function SurveyComponent({
                 </div>
               </div>
             )})}
+            {/* Visual indicator that other questions are collapsed */}
+            {isEditing && !showAllOnPage && currentQuestions.length > displayQuestions.length && (
+              <div className="mt-3">
+                <div className="relative h-0.5 bg-gray-200 dark:bg-slate-700">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs text-gray-600 dark:text-gray-300 shadow">
+                    تم إخفاء بقية أسئلة هذه الصفحة
+                    <button
+                      type="button"
+                      onClick={() => setShowAllOnPage(true)}
+                      className="ml-2 text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                      عرض الكل
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

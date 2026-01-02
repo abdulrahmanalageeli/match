@@ -203,36 +203,38 @@ export default function ResultsPage() {
     try {
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search)
-        const hasDisableParam = params.has('disableauto') || ['1','true',''].includes((params.get('disableauto') || '').toLowerCase())
-        if (hasDisableParam) {
-          const tokenToUse = token
-          if (!tokenToUse) {
-            setAutoDisableMsg('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح')
-          } else {
-            (async () => {
-              try {
-                const res = await fetch('/api/participant', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ action: 'disable-auto-signup', secure_token: tokenToUse })
-                })
-                const data = await res.json()
-                if (res.ok && data.success) {
-                  setAutoDisableMsg('تم إيقاف التسجيل التلقائي للأحداث القادمة')
-                } else {
-                  setAutoDisableMsg(data.error || 'فشل إيقاف التسجيل التلقائي')
-                }
-              } catch (err) {
-                setAutoDisableMsg('حدث خطأ أثناء إيقاف التسجيل التلقائي')
-              } finally {
-                // Clean URL param regardless of outcome
-                params.delete('disableauto')
-                const newQuery = params.toString()
-                const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
-                window.history.replaceState(null, '', newUrl)
+        if (!params.has('disableauto')) return
+        const val = (params.get('disableauto') ?? '').toLowerCase()
+        const isRequested = val === '' || val === '1' || val === 'true'
+        if (!isRequested) return
+        const tokenToUse = token
+        if (!tokenToUse) {
+          setAutoDisableMsg('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح')
+        } else {
+          (async () => {
+            try {
+              const res = await fetch('/api/participant', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'disable-auto-signup', secure_token: tokenToUse })
+              })
+              const data = await res.json()
+              if (res.ok && data.success) {
+                setAutoDisableMsg('تم إيقاف التسجيل التلقائي للأحداث القادمة')
+              } else {
+                setAutoDisableMsg(data.error || 'فشل إيقاف التسجيل التلقائي')
               }
-            })()
-          }
+            } catch (err) {
+              setAutoDisableMsg('حدث خطأ أثناء إيقاف التسجيل التلقائي')
+            } finally {
+              // Clean URL param regardless of outcome
+              const p = new URLSearchParams(window.location.search)
+              p.delete('disableauto')
+              const newQuery = p.toString()
+              const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+              window.history.replaceState(null, '', newUrl)
+            }
+          })()
         }
       }
     } catch (_) {}

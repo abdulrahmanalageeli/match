@@ -1650,9 +1650,11 @@ export default function WelcomePage() {
       if (disableAutoHandled) return;
 
       const params = new URLSearchParams(window.location.search);
-      // Accept presence of key, or truthy values like 1/true
-      const hasDisableParam = params.has('disableauto') || ['1', 'true', ''].includes((params.get('disableauto') || '').toLowerCase());
-      if (!hasDisableParam) return;
+      // Only trigger when the key exists AND value is one of '', '1', 'true'
+      if (!params.has('disableauto')) return;
+      const disableVal = (params.get('disableauto') ?? '').toLowerCase();
+      const isDisableRequested = disableVal === '' || disableVal === '1' || disableVal === 'true';
+      if (!isDisableRequested) return;
 
       // Determine token to use: prefer URL token, then in-memory, then localStorage
       const urlToken = token;

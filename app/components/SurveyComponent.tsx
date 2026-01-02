@@ -886,6 +886,9 @@ const SurveyComponent = memo(function SurveyComponent({
   const [currentPage, setCurrentPage] = useState(0)
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showHobbiesModal, setShowHobbiesModal] = useState(false)
+  const topRef = useRef<HTMLDivElement | null>(null)
+  const isEditing = !!(assignedNumber || secureToken)
+  const [showAllOnPage, setShowAllOnPage] = useState(true)
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -1007,6 +1010,50 @@ const SurveyComponent = memo(function SurveyComponent({
     orderedQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
     [currentPage, orderedQuestions]
   )
+
+  // Determine incomplete questions for current page (required missing or below min for long-texts)
+  const pageIncompleteIds = useMemo(() => {
+    const ids: string[] = []
+    const startIndex = currentPage * questionsPerPage
+    const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length)
+    for (let i = startIndex; i < endIndex; i++) {
+      const q = orderedQuestions[i]
+      const v = surveyData.answers[q.id]
+      if (!q.required) continue
+      if (Array.isArray(v)) {
+        if (!v || v.length === 0) ids.push(q.id)
+      } else {
+        const val = (v ?? '').toString()
+        if (!val.trim()) {
+          ids.push(q.id)
+        } else if (q.type === 'text' && q.maxLength && q.id !== 'name' && q.id !== 'phone_number') {
+          const minRequired = Math.ceil(q.maxLength * 0.5)
+          if (val.length < minRequired) ids.push(q.id)
+        }
+      }
+    }
+    return ids
+  }, [currentPage, orderedQuestions, surveyData.answers])
+
+  // When page changes, if editing and there are incomplete answers, collapse to show missing first and scroll to top
+  useEffect(() => {
+    if (isEditing && pageIncompleteIds.length > 0) {
+      setShowAllOnPage(false)
+    } else {
+      setShowAllOnPage(true)
+    }
+    if (topRef.current) {
+      topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }, [currentPage, isEditing, pageIncompleteIds.length])
+
+  // Display list for current page: either only missing (collapsed) or the full set in original order
+  const displayQuestions = useMemo(() => {
+    if (!isEditing) return currentQuestions
+    if (showAllOnPage) return currentQuestions
+    if (pageIncompleteIds.length === 0) return currentQuestions
+    return currentQuestions.filter(q => pageIncompleteIds.includes(q.id))
+  }, [currentQuestions, isEditing, showAllOnPage, pageIncompleteIds])
 
   const handleInputChange = useCallback((questionId: string, value: string | string[]) => {
     // Mark that user is actively editing the survey
@@ -1978,14 +2025,35 @@ const SurveyComponent = memo(function SurveyComponent({
           return null;
         })()}
 
+        {/* Top anchor for smooth scroll on page change */}
+        <div ref={topRef} />
+
+        {/* Missing questions notice (edit mode) */}
+        {isEditing && pageIncompleteIds.length > 0 && (
+          <div className="mt-4 mb-6 p-3 rounded-xl border bg-yellow-50 text-yellow-900 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-200 dark:border-yellow-400/30">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-medium">هناك أسئلة ناقصة في هذه الصفحة. تم عرض الأسئلة الناقصة أولاً.</div>
+              <button
+                type="button"
+                onClick={() => setShowAllOnPage(v => !v)}
+                className="px-3 py-1.5 text-xs rounded-lg bg-yellow-500/20 border border-yellow-400/40 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-500/30 transition"
+              >
+                {showAllOnPage ? 'إظهار الناقصة فقط' : 'عرض جميع الأسئلة'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Survey Content */}
         <div className="space-y-4">
           <div className="space-y-4">
-            {currentQuestions.map((question, index) => (
+            {displayQuestions.map((question, index) => {
+              const absoluteIndex = orderedQuestions.findIndex(q => q.id === question.id)
+              const isMissing = pageIncompleteIds.includes(question.id)
+              return (
               <div key={question.id} className="group">
                 {/* Section header when a new section starts on this page */}
                 {(() => {
-                  const absoluteIndex = currentPage * questionsPerPage + index
                   const title = getSectionTitle(question.id)
                   const prevTitle = absoluteIndex > 0 ? getSectionTitle(orderedQuestions[absoluteIndex - 1]?.id) : null
                   if (title && title !== prevTitle) {
@@ -2002,11 +2070,11 @@ const SurveyComponent = memo(function SurveyComponent({
                   }
                   return null
                 })()}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-lg border border-gray-200 dark:border-slate-700 p-3">
+                <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-3 ${isMissing ? 'border-red-300 dark:border-red-500/60 ring-2 ring-red-400/30' : 'border-gray-200 dark:border-slate-700'}`}>
                   <div className="flex items-start gap-3">
                     <div className="relative">
-                      <div className="w-6 h-6 bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
-                        {currentPage * questionsPerPage + index + 1}
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow ${isMissing ? 'bg-red-500' : 'bg-linear-to-br from-blue-500 via-purple-500 to-pink-500'}`}>
+                        {absoluteIndex + 1}
                       </div>
                     </div>
                     <div className="flex-1">
@@ -2020,7 +2088,7 @@ const SurveyComponent = memo(function SurveyComponent({
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
 

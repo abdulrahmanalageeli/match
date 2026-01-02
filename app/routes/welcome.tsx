@@ -2653,7 +2653,7 @@ export default function WelcomePage() {
     };
   };
 
-  const handleTokenNavigation = (token: string) => {
+  const handleTokenNavigation = async (token: string) => {
     const lockoutTime = checkTokenLockout('token');
     if (lockoutTime > 0) {
       toast.error(`تم تجاوز عدد المحاولات المسموح. يرجى المحاولة مرة أخرى بعد ${lockoutTime} ثانية`);
@@ -2673,6 +2673,13 @@ export default function WelcomePage() {
     // Save token to localStorage before redirecting
     saveUserToken(token);
     console.log('💾 Saved returning player token before navigation:', token);
+    
+    // Immediately check for incomplete survey and show popup if needed instead of redirecting
+    const hasIncomplete = await checkIncompleteSurvey(token);
+    if (hasIncomplete) {
+      // Popup will show; do not redirect so user can choose to redo survey
+      return;
+    }
     
     window.location.href = `/welcome?token=${token}`;
   };
@@ -3034,17 +3041,17 @@ export default function WelcomePage() {
   }
 
   // Check if user has incomplete survey data
-  const checkIncompleteSurvey = async (savedToken: string) => {
+  const checkIncompleteSurvey = async (savedToken: string): Promise<boolean> => {
     // Don't show popup if URL has ?token parameter or other popups are showing
     if (window.location.search.includes('?token') || showNewUserTypePopup || showSurveyRecoveryPopup) {
       console.log('❌ URL has ?token parameter or other popup showing, skipping survey completion popup');
-      return;
+      return false;
     }
     
     // Don't show popup if user just created their token (new user in middle of registration)
     if (isJustCreatedUser) {
       console.log('❌ User just created token, skipping survey completion popup');
-      return;
+      return false;
     }
     
     try {
@@ -3072,13 +3079,17 @@ export default function WelcomePage() {
             secure_token: savedToken
           });
           setShowSurveyCompletionPopup(true);
+          return true;
         } else {
           console.log('✅ Survey is complete');
+          return false;
         }
       }
+      return false;
     } catch (err) {
       console.error("Error checking survey completion:", err)
       // Silently fail - this is not critical functionality
+      return false;
     }
   }
 

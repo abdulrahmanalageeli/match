@@ -1060,7 +1060,7 @@ const SurveyComponent = memo(function SurveyComponent({
   // Smoothly scroll to the top of the survey content when navigating pages (with extra offset)
   useEffect(() => {
     const el = surveyContainerRef.current
-    const extraOffset = 100 // px; adjust if header height changes
+    const extraOffset = 160 // px; adjusted to avoid header covering first question
     if (el && typeof window !== 'undefined') {
       const rect = el.getBoundingClientRect()
       const y = Math.max(0, rect.top + window.scrollY - extraOffset)

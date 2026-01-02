@@ -886,9 +886,7 @@ const SurveyComponent = memo(function SurveyComponent({
   const [currentPage, setCurrentPage] = useState(0)
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showHobbiesModal, setShowHobbiesModal] = useState(false)
-  const topRef = useRef<HTMLDivElement | null>(null)
-  const isEditing = !!(assignedNumber || secureToken)
-  const [showAllOnPage, setShowAllOnPage] = useState(true)
+  const surveyContainerRef = useRef<HTMLDivElement | null>(null)
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -1005,68 +1003,20 @@ const SurveyComponent = memo(function SurveyComponent({
     return idx >= 0 ? Math.floor(idx / questionsPerPage) : 0
   }, [orderedQuestions])
   
-  // New questions (Q35–Q41) paging helpers
-  const newQuestionsStartIndex = useMemo(() => orderedQuestions.findIndex(q => q.id === 'conversational_role'), [orderedQuestions])
-  const newQuestionsStartPage = useMemo(() => newQuestionsStartIndex >= 0 ? Math.floor(newQuestionsStartIndex / questionsPerPage) : null, [newQuestionsStartIndex])
-  const newQuestionIds = useMemo(() => (
-    ['conversational_role','conversation_depth_pref','social_battery','humor_subtype','curiosity_style','intent_goal','silence_comfort']
-  ), [])
-  const newQuestionsMissingCount = useMemo(() => newQuestionIds.reduce((acc, id) => {
-    const v = surveyData.answers[id]
-    if (Array.isArray(v)) return acc + ((v && v.length > 0) ? 0 : 1)
-    const val = (v ?? '').toString().trim()
-    return acc + (val ? 0 : 1)
-  }, 0), [surveyData.answers, newQuestionIds])
-
   // Memoize current page questions to avoid re-slicing on every render
   const currentQuestions = useMemo(() => 
     orderedQuestions.slice(currentPage * questionsPerPage, (currentPage + 1) * questionsPerPage),
     [currentPage, orderedQuestions]
   )
 
-  // Determine incomplete questions for current page (required missing or below min for long-texts)
-  const pageIncompleteIds = useMemo(() => {
-    const ids: string[] = []
-    const startIndex = currentPage * questionsPerPage
-    const endIndex = Math.min(startIndex + questionsPerPage, orderedQuestions.length)
-    for (let i = startIndex; i < endIndex; i++) {
-      const q = orderedQuestions[i]
-      const v = surveyData.answers[q.id]
-      if (!q.required) continue
-      if (Array.isArray(v)) {
-        if (!v || v.length === 0) ids.push(q.id)
-      } else {
-        const val = (v ?? '').toString()
-        if (!val.trim()) {
-          ids.push(q.id)
-        } else if (q.type === 'text' && q.maxLength && q.id !== 'name' && q.id !== 'phone_number') {
-          const minRequired = Math.ceil(q.maxLength * 0.5)
-          if (val.length < minRequired) ids.push(q.id)
-        }
-      }
-    }
-    return ids
-  }, [currentPage, orderedQuestions, surveyData.answers])
-
-  // When page changes, if editing and there are incomplete answers, collapse to show missing first and scroll to top
+  // Smoothly scroll to the top of the survey content when navigating pages
   useEffect(() => {
-    // Only auto-collapse when there ARE incomplete questions.
-    // Do NOT auto-expand when the user completes them (keep user's toggle state).
-    if (isEditing && pageIncompleteIds.length > 0) {
-      setShowAllOnPage(false)
+    if (surveyContainerRef.current) {
+      surveyContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     }
-    if (topRef.current) {
-      topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
-  }, [currentPage, isEditing, pageIncompleteIds.length])
-
-  // Display list for current page: either only missing (collapsed) or the full set in original order
-  const displayQuestions = useMemo(() => {
-    if (!isEditing) return currentQuestions
-    if (showAllOnPage) return currentQuestions
-    if (pageIncompleteIds.length === 0) return currentQuestions
-    return currentQuestions.filter(q => pageIncompleteIds.includes(q.id))
-  }, [currentQuestions, isEditing, showAllOnPage, pageIncompleteIds])
+  }, [currentPage])
 
   const handleInputChange = useCallback((questionId: string, value: string | string[]) => {
     // Mark that user is actively editing the survey
@@ -1117,6 +1067,41 @@ const SurveyComponent = memo(function SurveyComponent({
       }
     })
   }, [setSurveyData, setIsEditingSurvey, questionMap])
+
+  // Critical questions to highlight when missing
+  const criticalIds = useMemo(() => new Set([
+    'nationality',
+    'nationality_preference',
+    'preferred_age_range',
+    // Q35–Q41
+    'conversational_role',
+    'conversation_depth_pref',
+    'social_battery',
+    'humor_subtype',
+    'curiosity_style',
+    'intent_goal',
+    'silence_comfort'
+  ]), [])
+
+  const isCriticalMissing = useCallback((id: string): boolean => {
+    if (!criticalIds.has(id)) return false
+    if (id === 'preferred_age_range') {
+      const openAge = surveyData.answers['open_age_preference'] === 'true' || (surveyData.answers['open_age_preference'] as any) === true
+      if (openAge) return false
+      const minAge = String(surveyData.answers['preferred_age_min'] || '').trim()
+      const maxAge = String(surveyData.answers['preferred_age_max'] || '').trim()
+      if (!minAge || !maxAge) return true
+      const minVal = parseInt(minAge, 10)
+      const maxVal = parseInt(maxAge, 10)
+      if (isNaN(minVal) || isNaN(maxVal)) return true
+      if (minVal > maxVal) return true
+      if ((maxVal - minVal) < 3) return true
+      return false
+    }
+    const v = surveyData.answers[id]
+    if (Array.isArray(v)) return v.length === 0
+    return v == null || String(v).trim() === ''
+  }, [criticalIds, surveyData.answers])
 
   // Memoize page validation to avoid expensive recalculation on every render
   const isPageValid = useMemo(() => {
@@ -1353,62 +1338,29 @@ const SurveyComponent = memo(function SurveyComponent({
   }, [surveyData, onSubmit])
 
   // Handle submit with provided data (to avoid race condition)
-  const handleSubmitWithData = useCallback((dataToSubmit: SurveyData, options?: { partial?: boolean }) => {
-    const partial = options?.partial === true
-    // New questions (Q35-Q41) ids for minimal validation in partial mode
-    const NEW_QUESTION_IDS = [
-      'conversational_role', // Q35
-      'conversation_depth_pref', // Q36
-      'social_battery', // Q37
-      'humor_subtype', // Q38
-      'curiosity_style', // Q39
-      'intent_goal', // Q40
-      'silence_comfort' // Q41
-    ]
-
-    if (!partial) {
-      // Validate all required questions (including MBTI dropdown and all other questions)
-      for (const question of orderedQuestions) {
-        if (question.required) {
-          const value = dataToSubmit.answers[question.id];
+  const handleSubmitWithData = useCallback((dataToSubmit: SurveyData) => {
+    // Validate all required questions (including MBTI dropdown and all other questions)
+    for (const question of orderedQuestions) {
+      if (question.required) {
+        const value = dataToSubmit.answers[question.id];
+        
+        if (Array.isArray(value)) {
+          if (!value || value.length === 0) {
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
+        } else {
+          if (!value || value === "" || value.trim() === "") {
+            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+            return;
+          }
           
-          if (Array.isArray(value)) {
-            if (!value || value.length === 0) {
-              alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
-              return;
-            }
-          } else {
-            if (!value || value === "" || value.trim() === "") {
-              alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
-              return;
-            }
-            
-            // Check character limit for text questions
-            if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
-              alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
-              return;
-            }
+          // Check character limit for text questions
+          if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
+            alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
+            return;
           }
         }
-      }
-    } else {
-      // Partial mode: only require the new questions to be answered (if present/required)
-      const missingNew: string[] = []
-      for (const id of NEW_QUESTION_IDS) {
-        const q = orderedQuestions.find(qq => qq.id === id)
-        if (!q) continue
-        if (!q.required) continue
-        const v = dataToSubmit.answers[id]
-        if (Array.isArray(v)) {
-          if (!v || v.length === 0) missingNew.push(id)
-        } else {
-          const val = (v ?? '').toString().trim()
-          if (!val) missingNew.push(id)
-        }
-      }
-      if (missingNew.length > 0) {
-        alert('يرجى إكمال الأسئلة الجديدة قبل الإرسال: ' + missingNew.map(id => `• ${id}`).join('\n'))
-        return
       }
     }
     
@@ -1472,19 +1424,7 @@ const SurveyComponent = memo(function SurveyComponent({
     } else {
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }, [onSubmit, orderedQuestions])
-
-  // Quick submit handler for new questions only (Q35–Q41)
-  const handleQuickSubmitNewQuestions = useCallback(() => {
-    // Do not mutate existing answers; just submit current state with terms consented
-    const updatedData: SurveyData = {
-      ...surveyData,
-      termsAccepted: true,
-      dataConsent: true,
-      answers: { ...surveyData.answers }
-    }
-    handleSubmitWithData(updatedData, { partial: true })
-  }, [surveyData, handleSubmitWithData])
+  }, [onSubmit])
 
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]
@@ -2083,66 +2023,14 @@ const SurveyComponent = memo(function SurveyComponent({
           return null;
         })()}
 
-        {/* Top anchor for smooth scroll on page change */}
-        <div ref={topRef} />
-
-        {/* Missing questions notice (edit mode) */}
-        {isEditing && pageIncompleteIds.length > 0 && (
-          <div className="mt-4 mb-6 p-3 rounded-xl border bg-yellow-50 text-yellow-900 border-yellow-200 dark:bg-yellow-500/10 dark:text-yellow-200 dark:border-yellow-400/30">
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-sm font-medium">هناك أسئلة ناقصة في هذه الصفحة. تم عرض الأسئلة الناقصة أولاً.</div>
-              <button
-                type="button"
-                onClick={() => setShowAllOnPage(v => !v)}
-                className="px-3 py-1.5 text-xs rounded-lg bg-yellow-500/20 border border-yellow-400/40 text-yellow-900 dark:text-yellow-200 hover:bg-yellow-500/30 transition"
-              >
-                {showAllOnPage ? 'إظهار الناقصة فقط' : 'عرض جميع الأسئلة'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Jump to New Questions (Q35–Q41) */}
-        {isEditing && newQuestionsStartPage !== null && (
-          <div className="mb-4 flex items-center justify-between rounded-xl border border-blue-300/40 bg-blue-500/10 p-3">
-            <div className="text-xs sm:text-sm text-blue-900 dark:text-blue-200">
-              <span className="font-semibold">الأسئلة الجديدة (س 35–41)</span>
-              {newQuestionsMissingCount > 0 && (
-                <span className="ml-2 text-blue-700 dark:text-blue-300">— لديك {newQuestionsMissingCount} سؤال جديد غير مُكتمل</span>
-              )}
-            </div>
-            <Button
-              onClick={() => typeof newQuestionsStartPage === 'number' && setCurrentPage(newQuestionsStartPage)}
-              className="px-3 py-1.5 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg text-xs sm:text-sm"
-            >
-              اذهب للأسئلة الجديدة
-            </Button>
-          </div>
-        )}
-
-        {/* Quick submit for new questions only (Q35–Q41) */}
-        {isEditing && (
-          <div className="mb-4 flex justify-end">
-            <Button
-              onClick={handleQuickSubmitNewQuestions}
-              className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-lg shadow hover:shadow-md transition-all duration-200 text-sm"
-            >
-              <CheckCircle className="w-4 h-4" />
-              <span>إرسال الأسئلة الجديدة فقط</span>
-            </Button>
-          </div>
-        )}
-
         {/* Survey Content */}
-        <div className="space-y-4">
+        <div className="space-y-4" ref={surveyContainerRef}>
           <div className="space-y-4">
-            {displayQuestions.map((question, index) => {
-              const absoluteIndex = orderedQuestions.findIndex(q => q.id === question.id)
-              const isMissing = pageIncompleteIds.includes(question.id)
-              return (
+            {currentQuestions.map((question, index) => (
               <div key={question.id} className="group">
                 {/* Section header when a new section starts on this page */}
                 {(() => {
+                  const absoluteIndex = currentPage * questionsPerPage + index
                   const title = getSectionTitle(question.id)
                   const prevTitle = absoluteIndex > 0 ? getSectionTitle(orderedQuestions[absoluteIndex - 1]?.id) : null
                   if (title && title !== prevTitle) {
@@ -2159,11 +2047,15 @@ const SurveyComponent = memo(function SurveyComponent({
                   }
                   return null
                 })()}
-                <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-3 ${isMissing ? 'border-red-300 dark:border-red-500/60 ring-2 ring-red-400/30' : 'border-gray-200 dark:border-slate-700'}`}>
+                <div className={`bg-white dark:bg-slate-800 rounded-2xl shadow-lg border p-3 ${
+                  isCriticalMissing(question.id)
+                    ? 'border-red-400 dark:border-red-500 ring-1 ring-red-300/50'
+                    : 'border-gray-200 dark:border-slate-700'
+                }`}>
                   <div className="flex items-start gap-3">
                     <div className="relative">
-                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow ${isMissing ? 'bg-red-500' : 'bg-linear-to-br from-blue-500 via-purple-500 to-pink-500'}`}>
-                        {absoluteIndex + 1}
+                      <div className="w-6 h-6 bg-linear-to-br from-blue-500 via-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow">
+                        {currentPage * questionsPerPage + index + 1}
                       </div>
                     </div>
                     <div className="flex-1">
@@ -2172,29 +2064,19 @@ const SurveyComponent = memo(function SurveyComponent({
                       </h3>
                       <div className="space-y-3">
                         {renderQuestion(question)}
+                        {isCriticalMissing(question.id) && (
+                          <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-right">
+                            {question.id === 'preferred_age_range'
+                              ? 'المدى العمري مطلوب (أدخل من/إلى مع فرق لا يقل عن 3 سنوات) أو فعّل خيار بدون قيود عمرية'
+                              : 'هذا الحقل مطلوب'}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            )})}
-            {/* Visual indicator that other questions are collapsed */}
-            {isEditing && !showAllOnPage && currentQuestions.length > displayQuestions.length && (
-              <div className="mt-3">
-                <div className="relative h-0.5 bg-gray-200 dark:bg-slate-700">
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-xs text-gray-600 dark:text-gray-300 shadow">
-                    تم إخفاء بقية أسئلة هذه الصفحة
-                    <button
-                      type="button"
-                      onClick={() => setShowAllOnPage(true)}
-                      className="ml-2 text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      عرض الكل
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            ))}
           </div>
         </div>
 

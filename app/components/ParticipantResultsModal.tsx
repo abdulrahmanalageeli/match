@@ -457,19 +457,41 @@ export default function ParticipantResultsModal({
 
   // Open pair analysis for a specific row
   const openPairAnalysis = (participant: ParticipantResult) => {
-    if (!participant.partner_assigned_number || participant.partner_assigned_number === 9999) return
-    // find pair from calculatedPairs
-    const pair = (calculatedPairs || []).find((p: any) => {
-      const a = p.participant_a
-      const b = p.participant_b
-      const x = participant.assigned_number
-      const y = participant.partner_assigned_number
-      if (!y) return false
-      return (a === x && b === y) || (a === y && b === x)
-    })
-    // full participant rows (with survey_data)
-    const aFull = participantData.get(participant.assigned_number)
-    const bFull = participantData.get(participant.partner_assigned_number)
+    const hasRealPartner = !!participant.partner_assigned_number && participant.partner_assigned_number !== 9999
+    const x = participant.assigned_number
+    const y = hasRealPartner ? (participant.partner_assigned_number as number) : 9999
+
+    // For real partners, try to locate the exact calculated pair; otherwise, no pair data
+    const pair = hasRealPartner
+      ? (calculatedPairs || []).find((p: any) => {
+          const a = p.participant_a
+          const b = p.participant_b
+          return (a === x && b === y) || (a === y && b === x)
+        })
+      : null
+
+    // Full participant rows (with survey_data) if available
+    const aFull = participantData.get(x) || { assigned_number: x, name: participant.name, survey_data: {} }
+    const bFull = hasRealPartner
+      ? (participantData.get(y) || { assigned_number: y, name: participant.partner_name || `#${y}`, survey_data: {} })
+      : {
+          assigned_number: 9999,
+          name: 'شريك افتراضي',
+          survey_data: {
+            answers: {
+              conversational_role: 'B',
+              conversation_depth_pref: 'B',
+              social_battery: 'B',
+              humor_subtype: 'B',
+              curiosity_style: 'B',
+              silence_comfort: 'B',
+              humor_banter_style: 'B',
+              early_openness_comfort: '2',
+              intent_goal: 'C',
+            },
+          },
+        }
+
     setAnalysisA(aFull || null)
     setAnalysisB(bFull || null)
     setAnalysisPair(pair || null)
@@ -1222,17 +1244,13 @@ export default function ParticipantResultsModal({
                           )}
                           {matchType !== "group" && (
                             <td className="p-4 text-center">
-                              {participant.partner_assigned_number && participant.partner_assigned_number !== 9999 ? (
-                                <button
-                                  onClick={() => openPairAnalysis(participant)}
-                                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:bg-purple-500/30 transition-all duration-300"
-                                  title="تحليل المقارنة"
-                                >
-                                  <Brain className="w-4 h-4" />
-                                </button>
-                              ) : (
-                                <span className="text-slate-500 text-xs">غير متاح</span>
-                              )}
+                              <button
+                                onClick={() => openPairAnalysis(participant)}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 hover:bg-purple-500/30 transition-all duration-300"
+                                title="تحليل المقارنة"
+                              >
+                                <Brain className="w-4 h-4" />
+                              </button>
                             </td>
                           )}
                           {matchType !== "group" && (

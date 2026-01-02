@@ -1057,11 +1057,15 @@ const SurveyComponent = memo(function SurveyComponent({
     [currentPage, orderedQuestions]
   )
 
-  // Smoothly scroll to the top of the survey content when navigating pages
+  // Smoothly scroll to the top of the survey content when navigating pages (with extra offset)
   useEffect(() => {
-    if (surveyContainerRef.current) {
-      surveyContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    } else {
+    const el = surveyContainerRef.current
+    const extraOffset = 100 // px; adjust if header height changes
+    if (el && typeof window !== 'undefined') {
+      const rect = el.getBoundingClientRect()
+      const y = Math.max(0, rect.top + window.scrollY - extraOffset)
+      window.scrollTo({ top: y, behavior: 'smooth' })
+    } else if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }, [currentPage])

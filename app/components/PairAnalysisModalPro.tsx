@@ -268,10 +268,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     lifestyle: normalize(pair?.lifestyle_compatibility_score as number, 15),
     humor: pair?.humor_open_score !== undefined && pair?.humor_open_score !== null ? normalize(pair.humor_open_score as number, 15) : normalize(hbForSummary.total, 15),
     communication: normalize(pair?.communication_compatibility_score as number, 10),
-    intent: pair?.intent_score !== undefined && pair?.intent_score !== null ? normalize(pair.intent_score as number, 5) : normalize(computedIntent, 5),
     coreValues: normalize(pair?.core_values_compatibility_score as number, 20),
     vibe: normalize(pair?.vibe_compatibility_score as number, 20),
   }
+  const coreValues5 = Math.max(0, Math.min(5, (scores.coreValues / 20) * 5))
 
   const humorMultiplier = useMemo(() => {
     const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.survey_data?.[key] ?? p?.[key] ?? undefined
@@ -293,8 +293,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const handleCopy = async () => {
     try {
       const text = pair?.reason
-        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${scores.intent.toFixed(1)}/5`
-        : `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${scores.intent.toFixed(1)}/5`
+        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
+        : `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
       await navigator.clipboard.writeText(text)
       setCopied(true); setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -385,7 +385,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <ScoreBar label="الدعابة/الانفتاح" value={scores.humor} max={15} color="bg-amber-500" />
                     <ScoreBar label="التواصل" value={scores.communication} max={10} color="bg-indigo-500" />
                     <ScoreBar label="القيم" value={scores.coreValues} max={20} color="bg-rose-500" />
-                    <ScoreBar label="الأهداف" value={scores.intent} max={5} color="bg-pink-500" />
+                    <ScoreBar label="القيم (5)" value={coreValues5} max={5} color="bg-pink-500" />
                   </div>
                 </div>
 
@@ -394,13 +394,13 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <div className="text-slate-300 text-xs mb-2">القيود والمكافآت</div>
                     <div className="flex flex-wrap gap-2 text-xs md:text-sm">
                       {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200" title="تطابق الدعابة وال/or الانفتاح المبكر يمنح مضاعفًا للنتيجة النهائية">
-                          <Sparkles className="w-4 h-4" /> مكافأة الدعابة/الانفتاح ({pair.humor_early_openness_bonus === 'full' ? 'كاملة ×1.15' : 'جزئية ×1.05'})
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200" title="تطابق أسلوب الدعابة يمنح مضاعفًا ×1.05 للنتيجة">
+                          <Sparkles className="w-4 h-4" /> مكافأة أسلوب الدعابة ×1.05
                         </span>
                       )}
                       {pair?.intent_boost_applied && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200" title="كلا الطرفين اختار الهدف B ⇒ ×1.1">
-                          <BadgeCheck className="w-4 h-4" /> مضاعف الهدف ×1.1
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200" title="تطابق الأهداف يمنح مضاعفًا ×1.05">
+                          <BadgeCheck className="w-4 h-4" /> مضاعف الأهداف ×1.05
                         </span>
                       )}
                       {pair?.attachment_penalty_applied && (
@@ -689,7 +689,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
               lines.push(`الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15 (×${humorMultiplier.toFixed(2)})`)
               lines.push(`التواصل: ${scores.communication.toFixed(1)}/10`)
               lines.push(`القيم: ${scores.coreValues.toFixed(1)}/20`)
-              lines.push(`الأهداف: ${scores.intent.toFixed(1)}/5`)
+              lines.push(`الأهداف: ${coreValues5 .toFixed(1)}/5`)
               const top = computeTopSynergyDrivers(synergyDetails)
               if (top.length) lines.push(`أهم العوامل: ${top.map(t => `+${t.scaled.toFixed(2)} ${t.label}`).join('، ')}`)
               const flags: string[] = []

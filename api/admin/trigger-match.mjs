@@ -924,8 +924,8 @@ async function getCachedCompatibility(participantA, participantB) {
       const b41 = getAns(participantB, 'silence_comfort')
       const deadAirBoth = (a35 === 'C' && b35 === 'C' && a41 === 'B' && b41 === 'B')
 
-      // Reconstruct pre-cap value to decide which caps would have applied (keeps cached total intact)
-      let preCap = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + intentScore
+      // Reconstruct pre-cap with new model: add Core Values scaled to 5 (no additive intent)
+      let preCap = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + Math.max(0, Math.min(5, (coreValuesScore / 20) * 5))
       if (attachmentPenaltyApplied) preCap -= 5
       const deadAirVetoApplied = deadAirBoth && preCap > 40
       const humorClashVetoApplied = !!vetoClash && preCap > 50
@@ -1088,11 +1088,11 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-35 (scaled)
   const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
   const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0 or 5
-  const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI) // 0-5
+  const coreValuesScaled5 = Math.max(0, Math.min(5, (coreRaw / 20) * 5))
   const vibeScore = skipAI ? 12 : await calculateVibeCompatibility(participantA, participantB) // 0–20
 
-  // Base total (no multipliers): remove additive intent, add MBTI 0-5
-  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + mbtiScore
+  // Base total (no multipliers): remove additive intent, add Core Values scaled to 5
+  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
   let attachmentPenaltyApplied = false
   let intentBoostApplied = false
   let deadAirVetoApplied = false
@@ -1148,11 +1148,12 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   
   const result = {
     // Expose breakdowns
-    mbtiScore: mbtiScore,
+    mbtiScore: 0, // MBTI not counted in total now
     attachmentScore: 0,
     communicationScore,           // 0-10
     lifestyleScore,               // 0-15
     coreValuesScore: coreRaw,     // raw 0-20 (for transparency)
+    coreValuesScaled5: coreValuesScaled5, // scaled 0-5 used in total
     synergyScore,                 // 0-35
     humorOpenScore,               // 0-15
     intentScore: intentRaw, // for transparency (not added directly)

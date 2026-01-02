@@ -933,6 +933,8 @@ const SurveyComponent = memo(function SurveyComponent({
   const [showTermsModal, setShowTermsModal] = useState(false)
   const [showHobbiesModal, setShowHobbiesModal] = useState(false)
   const surveyContainerRef = useRef<HTMLDivElement | null>(null)
+  const [showPhoneConfirmModal, setShowPhoneConfirmModal] = useState(false)
+  const [phoneConfirmDisplay, setPhoneConfirmDisplay] = useState('')
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -1283,6 +1285,16 @@ const SurveyComponent = memo(function SurveyComponent({
     if (incompleteQuestions.length > 0) {
       alert(`⚠️ يرجى إكمال الحد الأدنى المطلوب (50%) للأسئلة التالية:\n\n${incompleteQuestions.join('\n\n')}\n\n💡 نصيحة: الإجابات المفصلة تساعد في إيجاد أفضل توافق لك!`)
       return // Don't proceed to next page
+    }
+    
+    // Phone confirmation: if we are on the page that includes the phone number, ask user to confirm
+    if (currentPage === phoneQuestionPage) {
+      const cc = String(surveyData.answers['phone_cc'] || '').replace(/[^0-9]/g, '')
+      const local = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
+      const composed = cc ? `+${cc}${local}` : local
+      setPhoneConfirmDisplay(composed || '')
+      setShowPhoneConfirmModal(true)
+      return
     }
     
     if (currentPage < totalPages - 1) {
@@ -2262,6 +2274,43 @@ const SurveyComponent = memo(function SurveyComponent({
 
         {/* Terms Modal */}
         {renderTermsModal()}
+
+        {/* Phone Confirmation Modal */}
+        <Dialog open={showPhoneConfirmModal} onOpenChange={setShowPhoneConfirmModal}>
+          <DialogContent className="max-w-md" dir="rtl">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold">تأكيد رقم الهاتف</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                هل هذا رقم هاتفك الصحيح؟
+              </p>
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-100" dir="ltr">
+                  <span className="font-semibold">{phoneConfirmDisplay || '—'}</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPhoneConfirmModal(false)}
+                  className="px-3 py-1.5 text-sm"
+                >
+                  تعديل
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowPhoneConfirmModal(false)
+                    setCurrentPage((p) => Math.min(p + 1, totalPages - 1))
+                  }}
+                  className="px-3 py-1.5 text-sm bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
+                >
+                  نعم، صحيح
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )

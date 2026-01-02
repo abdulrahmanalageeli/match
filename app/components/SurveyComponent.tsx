@@ -1037,10 +1037,10 @@ const SurveyComponent = memo(function SurveyComponent({
 
   // When page changes, if editing and there are incomplete answers, collapse to show missing first and scroll to top
   useEffect(() => {
+    // Only auto-collapse when there ARE incomplete questions.
+    // Do NOT auto-expand when the user completes them (keep user's toggle state).
     if (isEditing && pageIncompleteIds.length > 0) {
       setShowAllOnPage(false)
-    } else {
-      setShowAllOnPage(true)
     }
     if (topRef.current) {
       topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -1340,29 +1340,62 @@ const SurveyComponent = memo(function SurveyComponent({
   }, [surveyData, onSubmit])
 
   // Handle submit with provided data (to avoid race condition)
-  const handleSubmitWithData = useCallback((dataToSubmit: SurveyData) => {
-    // Validate all required questions (including MBTI dropdown and all other questions)
-    for (const question of orderedQuestions) {
-      if (question.required) {
-        const value = dataToSubmit.answers[question.id];
-        
-        if (Array.isArray(value)) {
-          if (!value || value.length === 0) {
-            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
-            return;
-          }
-        } else {
-          if (!value || value === "" || value.trim() === "") {
-            alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
-            return;
-          }
+  const handleSubmitWithData = useCallback((dataToSubmit: SurveyData, options?: { partial?: boolean }) => {
+    const partial = options?.partial === true
+    // New questions (Q35-Q41) ids for minimal validation in partial mode
+    const NEW_QUESTION_IDS = [
+      'conversational_role', // Q35
+      'conversation_depth_pref', // Q36
+      'social_battery', // Q37
+      'humor_subtype', // Q38
+      'curiosity_style', // Q39
+      'intent_goal', // Q40
+      'silence_comfort' // Q41
+    ]
+
+    if (!partial) {
+      // Validate all required questions (including MBTI dropdown and all other questions)
+      for (const question of orderedQuestions) {
+        if (question.required) {
+          const value = dataToSubmit.answers[question.id];
           
-          // Check character limit for text questions
-          if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
-            alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
-            return;
+          if (Array.isArray(value)) {
+            if (!value || value.length === 0) {
+              alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+              return;
+            }
+          } else {
+            if (!value || value === "" || value.trim() === "") {
+              alert("يرجى استكمال جميع أسئلة الاستبيان المطلوبة");
+              return;
+            }
+            
+            // Check character limit for text questions
+            if (question.type === "text" && question.maxLength && value.length > question.maxLength) {
+              alert(`يرجى تقصير النص في السؤال ${question.question} (الحد الأقصى: ${question.maxLength} حرف)`);
+              return;
+            }
           }
         }
+      }
+    } else {
+      // Partial mode: only require the new questions to be answered (if present/required)
+      const missingNew: string[] = []
+      for (const id of NEW_QUESTION_IDS) {
+        const q = orderedQuestions.find(qq => qq.id === id)
+        if (!q) continue
+        if (!q.required) continue
+        const v = dataToSubmit.answers[id]
+        if (Array.isArray(v)) {
+          if (!v || v.length === 0) missingNew.push(id)
+        } else {
+          const val = (v ?? '').toString().trim()
+          if (!val) missingNew.push(id)
+        }
+      }
+      if (missingNew.length > 0) {
+        alert('يرجى إكمال الأسئلة الجديدة قبل الإرسال: ' + missingNew.map(id => `• ${id}`).join('\n'))
+        return
       }
     }
     
@@ -1426,7 +1459,19 @@ const SurveyComponent = memo(function SurveyComponent({
     } else {
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }, [onSubmit])
+  }, [onSubmit, orderedQuestions])
+
+  // Quick submit handler for new questions only (Q35–Q41)
+  const handleQuickSubmitNewQuestions = useCallback(() => {
+    // Do not mutate existing answers; just submit current state with terms consented
+    const updatedData: SurveyData = {
+      ...surveyData,
+      termsAccepted: true,
+      dataConsent: true,
+      answers: { ...surveyData.answers }
+    }
+    handleSubmitWithData(updatedData, { partial: true })
+  }, [surveyData, handleSubmitWithData])
 
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]
@@ -2041,6 +2086,18 @@ const SurveyComponent = memo(function SurveyComponent({
                 {showAllOnPage ? 'إظهار الناقصة فقط' : 'عرض جميع الأسئلة'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Quick submit for new questions only (Q35–Q41) */}
+        {isEditing && (
+          <div className="mb-4 flex justify-end">
+            <Button
+              onClick={handleQuickSubmitNewQuestions}
+              className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-lg shadow transition-all duration-200 text-sm"
+            >
+              إرسال الأسئلة الجديدة فقط
+            </Button>
           </div>
         )}
 

@@ -352,6 +352,8 @@ export default function WelcomePage() {
   const [surveyRecoveryInfo, setSurveyRecoveryInfo] = useState<{assigned_number?: number, secure_token: string, name?: string} | null>(null)
   // Redo flow guard
   const [redoHandled, setRedoHandled] = useState(false)
+  // Disable auto-signup URL action guard
+  const [disableAutoHandled, setDisableAutoHandled] = useState(false)
   // New states for match preference and partner reveal
   const [wantMatch, setWantMatch] = useState<boolean | null>(null);
   const [partnerInfo, setPartnerInfo] = useState<{ name?: string | null; age?: number | null; phone_number?: string | null } | null>(null);
@@ -1640,6 +1642,70 @@ export default function WelcomePage() {
       console.error('Failed to process redo params:', e);
     }
   }, [isResolving, token, redoHandled]);
+
+  // Handle /welcome?token=...&disableauto to disable auto-signup for this token
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (disableAutoHandled) return;
+
+      const params = new URLSearchParams(window.location.search);
+      // Accept presence of key, or truthy values like 1/true
+      const hasDisableParam = params.has('disableauto') || ['1', 'true', ''].includes((params.get('disableauto') || '').toLowerCase());
+      if (!hasDisableParam) return;
+
+      // Determine token to use: prefer URL token, then in-memory, then localStorage
+      const urlToken = token;
+      const localToken =
+        secureToken ||
+        resultToken ||
+        returningPlayerToken ||
+        localStorage.getItem('blindmatch_result_token') ||
+        localStorage.getItem('blindmatch_returning_token');
+      const tokenToUse = urlToken || localToken || '';
+
+      if (!tokenToUse) {
+        // No token available; clean the param and inform user
+        params.delete('disableauto');
+        const newQuery = params.toString();
+        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`;
+        window.history.replaceState(null, '', newUrl);
+        toast.error('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح');
+        setDisableAutoHandled(true);
+        return;
+      }
+
+      (async () => {
+        try {
+          const res = await fetch('/api/participant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'disable-auto-signup', secure_token: tokenToUse })
+          });
+          const data = await res.json();
+          if (res.ok && data.success) {
+            setAutoSignupEnabled(false);
+            toast.success('تم إيقاف التسجيل التلقائي للأحداث القادمة');
+          } else {
+            toast.error(data.error || 'فشل إيقاف التسجيل التلقائي');
+          }
+        } catch (err) {
+          console.error('Error disabling auto-signup via URL param:', err);
+          toast.error('حدث خطأ أثناء إيقاف التسجيل التلقائي');
+        } finally {
+          // Clean the URL param regardless of outcome
+          const p = new URLSearchParams(window.location.search);
+          p.delete('disableauto');
+          const newQuery = p.toString();
+          const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`;
+          window.history.replaceState(null, '', newUrl);
+          setDisableAutoHandled(true);
+        }
+      })();
+    } catch (e) {
+      console.error('Failed to process disableauto param:', e);
+    }
+  }, [token, secureToken, resultToken, returningPlayerToken, disableAutoHandled]);
 
   useEffect(() => {
     if (assignedNumber && pendingMatchRound) {

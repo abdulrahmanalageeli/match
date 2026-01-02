@@ -61,6 +61,7 @@ export default function ResultsPage() {
   const [showAiAnalysis, setShowAiAnalysis] = useState<{[key: number]: boolean}>({})
   const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
+  const [autoDisableMsg, setAutoDisableMsg] = useState<string | null>(null)
   
   // Helper function to calculate original score (before bonus)
   const getOriginalScore = (match: MatchResult): number => {
@@ -198,6 +199,44 @@ export default function ResultsPage() {
   }
 
   useEffect(() => {
+    // Optional: handle /results?token=...&disableauto to disable auto-signup
+    try {
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search)
+        const hasDisableParam = params.has('disableauto') || ['1','true',''].includes((params.get('disableauto') || '').toLowerCase())
+        if (hasDisableParam) {
+          const tokenToUse = token
+          if (!tokenToUse) {
+            setAutoDisableMsg('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح')
+          } else {
+            (async () => {
+              try {
+                const res = await fetch('/api/participant', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ action: 'disable-auto-signup', secure_token: tokenToUse })
+                })
+                const data = await res.json()
+                if (res.ok && data.success) {
+                  setAutoDisableMsg('تم إيقاف التسجيل التلقائي للأحداث القادمة')
+                } else {
+                  setAutoDisableMsg(data.error || 'فشل إيقاف التسجيل التلقائي')
+                }
+              } catch (err) {
+                setAutoDisableMsg('حدث خطأ أثناء إيقاف التسجيل التلقائي')
+              } finally {
+                // Clean URL param regardless of outcome
+                params.delete('disableauto')
+                const newQuery = params.toString()
+                const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+                window.history.replaceState(null, '', newUrl)
+              }
+            })()
+          }
+        }
+      }
+    } catch (_) {}
+
     const fetchResults = async () => {
       if (!token) {
         setError("لم يتم توفير رمز صحيح")
@@ -326,6 +365,11 @@ export default function ResultsPage() {
 
         {/* Content */}
         <div className={`rounded-2xl shadow-xl ${dark ? 'bg-slate-800/95 backdrop-blur-sm' : 'bg-white'} p-3 sm:p-6`}>
+          {autoDisableMsg && (
+            <div className={`mb-4 p-3 rounded-lg border ${dark ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-200' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
+              {autoDisableMsg}
+            </div>
+          )}
           {error === "waiting" ? (
             <div className={`text-center py-12 ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
               <div className="w-16 h-16 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mx-auto mb-6"></div>

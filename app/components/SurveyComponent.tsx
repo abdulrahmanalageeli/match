@@ -668,6 +668,52 @@ const convertArabicToEnglish = (input: string): string => {
   })
 }
 
+// Normalize various input formats into { cc, local } suitable for E.164 composition
+// Handles: +9665xxxxxxxx, 009665xxxxxxxx, 9665xxxxxxxx, 05xxxxxxxx, 5xxxxxxxx, plain digits
+const normalizeAndSplitPhone = (rawInput: string, fallbackCC = '966'): { cc: string, local: string } => {
+  if (!rawInput) return { cc: fallbackCC, local: '' }
+  let s = convertArabicToEnglish(String(rawInput)).trim()
+  // Remove spaces, hyphens, parentheses
+  s = s.replace(/[\s\-()]/g, '')
+  // Strip leading + or 00 international prefix
+  if (s.startsWith('+')) s = s.slice(1)
+  if (s.startsWith('00')) s = s.slice(2)
+  // Keep digits only
+  s = s.replace(/[^0-9]/g, '')
+
+  let cc = ''
+  let local = ''
+
+  // Saudi-specific rules first (primary audience)
+  if (s.startsWith('966')) {
+    cc = '966'
+    local = s.slice(3)
+    if (local.startsWith('0')) local = local.slice(1)
+  } else if (/^05\d{8}$/.test(s)) {
+    // National format with trunk '0'
+    cc = '966'
+    local = s.slice(1)
+  } else if (/^5\d{8}$/.test(s)) {
+    // National significant number
+    cc = '966'
+    local = s
+  } else if (s.length >= 11 && !s.startsWith('0')) {
+    // Generic international: assume 3-digit CC if unknown
+    cc = s.slice(0, 3)
+    local = s.slice(3)
+    if (local.startsWith('0')) local = local.slice(1)
+  } else {
+    // Fallback to local with default CC, strip leading zeros
+    cc = fallbackCC
+    local = s.replace(/^0+/, '')
+  }
+
+  // Final sanitation: digits only
+  cc = cc.replace(/[^0-9]/g, '').slice(0, 3)
+  local = local.replace(/[^0-9]/g, '')
+  return { cc, local }
+}
+
 // Function to calculate MBTI personality type from four questions
 const getMBTIType = (answers: Record<string, string | string[]>): string => {
   // For each question, الخيار (أ) represents the first trait in the pair (E, S, T, or J) 
@@ -899,25 +945,25 @@ const SurveyComponent = memo(function SurveyComponent({
 
   // Auto-parse existing composed phone_number into split fields
   useEffect(() => {
-    const composed = String(surveyData.answers['phone_number'] || '')
-    const ccExists = !!surveyData.answers['phone_cc']
-    const localExists = !!surveyData.answers['phone_local']
-    if (!composed || (ccExists && localExists)) return
-    const digits = convertArabicToEnglish(composed).replace(/[^0-9]/g, '')
-    if (digits.length < 10) return
-    // Choose cc length so that local remains at least 9 digits, and cc is max 3
-    let ccLen = Math.min(3, Math.max(1, digits.length - 9))
-    const cc = digits.slice(0, ccLen)
-    const local = digits.slice(ccLen).replace(/^0+/, '')
-    setSurveyData((prev) => ({
-      ...prev,
-      answers: {
-        ...prev.answers,
-        phone_cc: cc,
-        phone_local: local,
-        phone_number: cc ? `+${cc}${local}` : local
-      }
-    }))
+    const composedRaw = String(surveyData.answers['phone_number'] || '')
+    if (!composedRaw) return
+    const fallbackCC = String(surveyData.answers['phone_cc'] || '966')
+    const { cc, local } = normalizeAndSplitPhone(composedRaw, fallbackCC)
+    const prevCC = String(surveyData.answers['phone_cc'] || '')
+    const prevLocal = String(surveyData.answers['phone_local'] || '')
+    const newComposed = (cc ? `+${cc}${local}` : local)
+    const prevComposed = String(surveyData.answers['phone_number'] || '')
+    if (cc !== prevCC || local !== prevLocal || newComposed !== prevComposed) {
+      setSurveyData((prev) => ({
+        ...prev,
+        answers: {
+          ...prev.answers,
+          phone_cc: cc,
+          phone_local: local,
+          phone_number: newComposed
+        }
+      }))
+    }
   }, [surveyData.answers['phone_number'], setSurveyData])
 
   // Default country code to +966 if nothing set yet
@@ -1671,7 +1717,16 @@ const SurveyComponent = memo(function SurveyComponent({
                     <Input
                       value={`+${cc}`}
                       onChange={(e) => {
-                        let v = convertArabicToEnglish(e.target.value)
+                        const raw = e.target.value
+                        const looksFull = /[+]|^00|^966|^05/.test(raw) || convertArabicToEnglish(raw).replace(/[^0-9]/g, '').length > 3
+                        if (looksFull) {
+                          const { cc: ncc, local: nlocal } = normalizeAndSplitPhone(raw, String(surveyData.answers['phone_cc'] || '966'))
+                          handleInputChange('phone_cc', ncc)
+                          handleInputChange('phone_local', nlocal)
+                          handleInputChange('phone_number', ncc ? `+${ncc}${nlocal}` : nlocal)
+                          return
+                        }
+                        let v = convertArabicToEnglish(raw)
                         v = v.replace(/[^0-9]/g, '').slice(0, 3)
                         handleInputChange('phone_cc', v)
                         const loc = String(surveyData.answers['phone_local'] || '').replace(/[^0-9]/g, '').replace(/^0+/, '')
@@ -1689,7 +1744,17 @@ const SurveyComponent = memo(function SurveyComponent({
                     <Input
                       value={local}
                       onChange={(e) => {
-                        let v = convertArabicToEnglish(e.target.value)
+                        const raw = e.target.value
+                        const digits = convertArabicToEnglish(raw).replace(/[^0-9]/g, '')
+                        const looksFull = /[+]|^00|^966|^05/.test(raw) || digits.length >= 11
+                        if (looksFull) {
+                          const { cc: ncc, local: nlocal } = normalizeAndSplitPhone(raw, String(surveyData.answers['phone_cc'] || '966'))
+                          handleInputChange('phone_cc', ncc)
+                          handleInputChange('phone_local', nlocal)
+                          handleInputChange('phone_number', ncc ? `+${ncc}${nlocal}` : nlocal)
+                          return
+                        }
+                        let v = convertArabicToEnglish(raw)
                         v = v.replace(/[^0-9]/g, '')
                         v = v.replace(/^0+/, '')
                         handleInputChange('phone_local', v)

@@ -1021,49 +1021,20 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
   }
 }
 
-// Function to check if BOTH humor and openness styles match (for 1.15x multiplier)
+// Function to check HUMOR style match only → 1.05x if humor matches, else 1.0
 function checkHumorMatch(participantA, participantB) {
-  // Extract humor/banter style from different possible locations
   const humorA = participantA.humor_banter_style || 
                  participantA.survey_data?.humor_banter_style ||
-                 participantA.survey_data?.answers?.humor_banter_style;
-                 
+                 participantA.survey_data?.answers?.humor_banter_style
   const humorB = participantB.humor_banter_style || 
                  participantB.survey_data?.humor_banter_style ||
-                 participantB.survey_data?.answers?.humor_banter_style;
-
-  // Extract early openness comfort from different possible locations
-  const opennessA = participantA.early_openness_comfort !== undefined ? 
-                    participantA.early_openness_comfort : 
-                    participantA.survey_data?.answers?.early_openness_comfort;
-                    
-  const opennessB = participantB.early_openness_comfort !== undefined ? 
-                    participantB.early_openness_comfort : 
-                    participantB.survey_data?.answers?.early_openness_comfort;
-
-  // Check if humor styles match
-  const humorMatches = humorA && humorB && humorA === humorB;
-  
-  // Check if openness levels match
-  const opennessMatches = opennessA !== undefined && 
-                          opennessB !== undefined && 
-                          parseInt(opennessA) === parseInt(opennessB);
-
-  // Return multiplier based on matches
-  if (humorMatches && opennessMatches) {
-    console.log(`✅ Full interaction match: Humor="${humorA}" AND Openness="${opennessA}" (1.15x multiplier)`);
-    return 1.15;
-  } else if (humorMatches || opennessMatches) {
-    // Partial match - only one matches
-    if (humorMatches) {
-      console.log(`⚠️ Partial match: Humor matches ("${humorA}") but openness differs (${opennessA} vs ${opennessB}) - 1.05x multiplier`);
-    } else {
-      console.log(`⚠️ Partial match: Openness matches (${opennessA}) but humor differs (${humorA} vs ${humorB}) - 1.05x multiplier`);
-    }
-    return 1.05;
+                 participantB.survey_data?.answers?.humor_banter_style
+  const humorMatches = humorA && humorB && humorA === humorB
+  if (humorMatches) {
+    console.log(`✅ Humor style match: "${humorA}" → 1.05x multiplier`)
+    return 1.05
   }
-  
-  return 1.0; // No matches - no multiplier
+  return 1.0
 }
 
 // Function to calculate full compatibility with caching
@@ -1116,12 +1087,12 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication) // 0-10 (new)
   const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-35 (scaled)
   const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
-  const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0-5
-  const intentScore = intentRaw // simplified: 5 if same goal else 1
+  const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0 or 5
+  const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI) // 0-5
   const vibeScore = skipAI ? 12 : await calculateVibeCompatibility(participantA, participantB) // 0–20
 
-  // Base total (no multipliers)
-  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + intentScore
+  // Base total (no multipliers): remove additive intent, add MBTI 0-5
+  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + mbtiScore
   let attachmentPenaltyApplied = false
   let intentBoostApplied = false
   let deadAirVetoApplied = false
@@ -1138,7 +1109,14 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   }
   if (totalScore < 0) totalScore = 0
 
-  // Prepare accessor for veto checks (no intent multiplier)
+  // Apply multipliers before veto caps
+  const humorMultiplier = checkHumorMatch(participantA, participantB)
+  totalScore = totalScore * humorMultiplier
+  const intentMultiplier = (intentRaw === 5 ? 1.05 : 1.0)
+  if (intentMultiplier > 1.0) intentBoostApplied = true
+  totalScore = totalScore * intentMultiplier
+
+  // Prepare accessor for veto checks
   const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
 
   // Dead-Air Veto: BOTH participants Q35=C and Q41=B → cap 40%
@@ -1170,16 +1148,16 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   
   const result = {
     // Expose breakdowns
-    mbtiScore: 0, // MBTI not weighted independently in this model
+    mbtiScore: mbtiScore,
     attachmentScore: 0,
     communicationScore,           // 0-10
     lifestyleScore,               // 0-15
     coreValuesScore: coreRaw,     // raw 0-20 (for transparency)
     synergyScore,                 // 0-35
     humorOpenScore,               // 0-15
-    intentScore: intentScore, // 0-5 (intent only)
+    intentScore: intentRaw, // for transparency (not added directly)
     vibeScore,                    // 0 (placeholder for 20)
-    humorMultiplier: 1.0,
+    humorMultiplier: humorMultiplier,
     totalScore,
     attachmentPenaltyApplied,
     intentBoostApplied,

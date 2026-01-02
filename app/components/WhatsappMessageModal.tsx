@@ -15,7 +15,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
-  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation'>('match');
+  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
   const [exportMode, setExportMode] = useState(false);
 
@@ -245,6 +245,9 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
 
       case 'early-reminder':
         return `${bold('تذكير مبكر')} ${e('🔔')}\n\nالسلام عليكم ${bold(name)}،\n\n${bold('تذكير ودي:')} الأسعار المخفضة (${config.earlyPrice} ريال) سارية حتى ${config.latePriceSwitchLabel}.\nبعدها تصبح ${config.latePrice} ريال.\n\n${bold('للتأكيد الآن:')}\n• STC Pay: ${config.stcPay}\n• ${config.bankName}\n• IBAN: ${config.iban}\n\n${bold('تفاصيل الفعالية:')} ${config.eventDateText} - ${config.eventTimeText}\nالمكان: ${config.locationName}\nالعنوان: ${config.mapUrl}`;
+
+      case 'survey-completion':
+        return `${bold('إكمال الاستبيان للفعالية القادمة')} ${e('📝')}\n\nالسلام عليكم ${bold(name)}،\n\n${e('ℹ️ ')}لاحظنا أن لديك ${bold('بعض الأسئلة غير المكتملة')} في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n${e('🔗 ')}${bold('رابط الدخول المباشر إلى الاستبيان:')}\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&redo=1\n${e('✅ ')}يفتح الرابط الاستبيان مباشرة بدون نوافذ انتظار أو تأكيد.\n\n${e('📱 ')}${bold('معلوماتك:')}\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز الخاص: ${bold(String(secureToken))}\n\n${e('⏰ ')}يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\nفريق التوافق الأعمى`;
 
       default:
         return "";
@@ -586,6 +589,17 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
               >
                 <HelpCircle className="w-4 h-4 mx-auto mb-1" />
                 تأكيد الجنس
+              </button>
+              <button
+                onClick={() => setTemplateType('survey-completion')}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'survey-completion' 
+                    ? 'bg-teal-600 text-white' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <FileText className="w-4 h-4 mx-auto mb-1" />
+                إكمال الاستبيان
               </button>
             </div>
           </div>

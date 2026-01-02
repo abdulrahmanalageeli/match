@@ -64,6 +64,7 @@ export default function AdminPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const debouncedSearch = useDebounce(searchTerm, 300) // Performance: debounce search by 300ms
   const [showEligibleOnly, setShowEligibleOnly] = useState(() => isCohost ? true : false)
+  const [eligibleSubFilter, setEligibleSubFilter] = useState("none") // "none", "withNationality", "withoutNationality"
   const [genderFilter, setGenderFilter] = useState(() => isCohost ? "female" : "all") // "all", "male", "female"
   const [paymentFilter, setPaymentFilter] = useState("all") // "all", "paid", "unpaid", "done"
   const [whatsappFilter, setWhatsappFilter] = useState(() => isCohost ? "not_sent" : "all") // "all", "sent", "not_sent"
@@ -2155,11 +2156,23 @@ const fetchParticipants = async () => {
       // Eligible participants filter (current event or signed up for next event or auto-signup)
       // When eligible filter is active, also exclude participants in the excluded list
       const isEligible = !showEligibleOnly || (
-        !isExcluded && ( // Exclude participants who are in the excluded list
-          p.event_id === currentEventId || // Current event participants
-          p.signup_for_next_event === true || // Manually signed up for next event
-          p.auto_signup_next_event === true // Auto-signup for next event
+        !isExcluded && (
+          p.event_id === currentEventId ||
+          p.signup_for_next_event === true ||
+          p.auto_signup_next_event === true
         )
+      )
+
+      // Nationality-based subfilter when Eligible Only is active
+      // "withNationality": must have nationality column filled (non-null, non-empty)
+      // "withoutNationality": eligible but nationality missing/empty
+      const hasNationality = (() => {
+        if (p.nationality == null) return false
+        if (typeof p.nationality === 'string') return p.nationality.trim().length > 0
+        return true
+      })()
+      const matchesEligibleSub = !showEligibleOnly || eligibleSubFilter === "none" || (
+        eligibleSubFilter === "withNationality" ? hasNationality : !hasNationality
       )
       
       // Gender filter
@@ -2193,7 +2206,7 @@ const fetchParticipants = async () => {
         }
       }
       
-      return matchesSearch && isEligible && matchesGender && matchesPayment && matchesWhatsapp
+      return matchesSearch && isEligible && matchesEligibleSub && matchesGender && matchesPayment && matchesWhatsapp
     })
 
     // Sort the filtered results
@@ -2217,7 +2230,7 @@ const fetchParticipants = async () => {
       }
       return 0
     })
-  }, [participants, debouncedSearch, showEligibleOnly, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId, excludedParticipants])
+  }, [participants, debouncedSearch, showEligibleOnly, eligibleSubFilter, genderFilter, paymentFilter, whatsappFilter, sortBy, currentEventId, excludedParticipants])
   
   // Virtualized participants - only show a subset for performance
   const visibleParticipants = useMemo(() => {
@@ -4673,6 +4686,21 @@ Proceed?`
                 <Filter className="w-4 h-4" />
                 Eligible
               </button>
+              {/* Nationality subfilters (co-host mobile) */}
+              <button
+                onClick={() => setEligibleSubFilter(prev => prev === 'withNationality' ? 'none' : 'withNationality')}
+                className={`px-3 py-2 rounded-xl border text-sm transition-all ${eligibleSubFilter === 'withNationality' ? 'bg-blue-500/20 border-blue-400/50 text-blue-300' : 'bg-white/10 border-white/20 text-slate-300'}`}
+                title="Eligible + Nationality filled"
+              >
+                Nat ✓
+              </button>
+              <button
+                onClick={() => setEligibleSubFilter(prev => prev === 'withoutNationality' ? 'none' : 'withoutNationality')}
+                className={`px-3 py-2 rounded-xl border text-sm transition-all ${eligibleSubFilter === 'withoutNationality' ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'bg-white/10 border-white/20 text-slate-300'}`}
+                title="Eligible + No nationality"
+              >
+                Nat ✗
+              </button>
               <div className="flex-1 relative">
                 <select
                   value={paymentFilter}
@@ -4721,6 +4749,21 @@ Proceed?`
               {showEligibleOnly && (
                 <CheckCircle className="w-4 h-4" />
               )}
+            </button>
+            {/* Nationality subfilters (main filter bar) */}
+            <button
+              onClick={() => setEligibleSubFilter(prev => prev === 'withNationality' ? 'none' : 'withNationality')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 ${eligibleSubFilter === 'withNationality' ? 'bg-blue-500/20 border-blue-400/50 text-blue-300' : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'}`}
+              title="Eligible + Nationality filled"
+            >
+              <span className="text-sm font-medium">Nat ✓</span>
+            </button>
+            <button
+              onClick={() => setEligibleSubFilter(prev => prev === 'withoutNationality' ? 'none' : 'withoutNationality')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-300 ${eligibleSubFilter === 'withoutNationality' ? 'bg-amber-500/20 border-amber-400/50 text-amber-300' : 'bg-white/10 border-white/20 text-slate-300 hover:bg-white/20'}`}
+              title="Eligible + No nationality"
+            >
+              <span className="text-sm font-medium">Nat ✗</span>
             </button>
             
             {/* Gender Filter Dropdown */}
@@ -4782,7 +4825,7 @@ Proceed?`
             </div>
 
             {/* Filter Results Count */}
-            {(showEligibleOnly || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all") && (
+            {(showEligibleOnly || eligibleSubFilter !== "none" || genderFilter !== "all" || paymentFilter !== "all" || whatsappFilter !== "all") && (
               <div className="bg-green-500/20 backdrop-blur-sm border border-green-400/30 rounded-xl px-3 py-2">
                 <span className="text-green-300 text-sm">Filtered: </span>
                 <span className="font-bold text-green-200">{filteredParticipants.length}</span>
@@ -5230,7 +5273,7 @@ Proceed?`
                       <div className="flex items-center justify-center gap-2 mb-2">
                         <span className="text-slate-400 text-xs">Token:</span>
                         {p.secure_token ? (
-                          <div className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1 border border-white/10">
+                          <div onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.secure_token); toast.success('Token copied'); }} className="flex items-center gap-2 bg-white/5 rounded-lg px-2 py-1 border border-white/10 cursor-pointer hover:bg-white/10 active:bg-white/20" title="Copy token" aria-label="Copy token" role="button">
                             <code className="text-[11px] text-slate-200 tracking-wide">{p.secure_token}</code>
                             <button
                               onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(p.secure_token); toast.success('Token copied'); }}

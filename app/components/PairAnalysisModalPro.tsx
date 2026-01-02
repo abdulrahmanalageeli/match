@@ -244,6 +244,11 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const bMBTI = b?.mbti_personality_type || bSurvey?.mbtiType
 
   const overallPercent = (() => { const v = typeof pair?.compatibility_score === 'number' ? pair.compatibility_score : 0; return Math.round(v <= 1 ? v * 100 : v) })()
+  // Show unbonused percentage (divide out multipliers) if any multiplier applied
+  const intentApplied = !!pair?.intent_boost_applied
+  const humorApplied = !!(pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none')
+  const totalMultiplier = (intentApplied ? 1.05 : 1.0) * (humorApplied ? 1.05 : 1.0)
+  const unbonusedPercent = totalMultiplier > 1.0 ? Math.round(overallPercent / totalMultiplier) : null
   const tierName = getTierName(overallPercent)
 
   const hbForSummary = computeHumorOpenBreakdown(a, b)
@@ -276,12 +281,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const humorMultiplier = useMemo(() => {
     const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.survey_data?.[key] ?? p?.[key] ?? undefined
     const hA = getAns(a, 'humor_banter_style'); const hB = getAns(b, 'humor_banter_style')
-    const oA = getAns(a, 'early_openness_comfort'); const oB = getAns(b, 'early_openness_comfort')
     const humorMatches = hA && hB && String(hA).toUpperCase() === String(hB).toUpperCase()
-    const opennessMatches = oA !== undefined && oB !== undefined && parseInt(oA) === parseInt(oB)
-    if (humorMatches && opennessMatches) return 1.15
-    if (humorMatches || opennessMatches) return 1.05
-    return 1.0
+    return humorMatches ? 1.05 : 1.0
   }, [a, b])
 
   const synergyDetails = useMemo(() => computeSynergyDetails(a, b), [a, b])
@@ -374,7 +375,12 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-slate-300 text-xs">التوافق الإجمالي</div>
-                      <div className="text-3xl font-extrabold text-white">{overallPercent}%</div>
+                      <div className="text-3xl font-extrabold text-white flex items-center gap-2">
+                        <span>{overallPercent}%</span>
+                        {unbonusedPercent !== null && (
+                          <span className="text-[11px] font-normal text-slate-400">(بدون مكافآت: {unbonusedPercent}%)</span>
+                        )}
+                      </div>
                     </div>
                     <div className="md:hidden"><CircularProgressBar progress={overallPercent} size={90} strokeWidth={10} /></div>
                   </div>
@@ -384,7 +390,6 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <ScoreBar label="نمط الحياة" value={scores.lifestyle} max={15} color="bg-emerald-500" />
                     <ScoreBar label="الدعابة/الانفتاح" value={scores.humor} max={15} color="bg-amber-500" />
                     <ScoreBar label="التواصل" value={scores.communication} max={10} color="bg-indigo-500" />
-                    <ScoreBar label="القيم" value={scores.coreValues} max={20} color="bg-rose-500" />
                     <ScoreBar label="القيم (5)" value={coreValues5} max={5} color="bg-pink-500" />
                   </div>
                 </div>

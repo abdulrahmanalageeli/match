@@ -264,7 +264,8 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       // Only add if not already present; match account link not followed by &disableauto
       const escaped = accountLink.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const re = new RegExp(`${escaped}(?!&disableauto)`, 'g');
-      msg = msg.replace(re, `${accountLink}\n${disableLine}`);
+      // Add an extra blank line before the disable section
+      msg = msg.replace(re, `${accountLink}\n\n${disableLine}`);
     } catch (_) {}
     return msg;
   }, [participant, urgencyLevel, templateType, config]);

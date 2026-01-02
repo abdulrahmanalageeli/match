@@ -16,6 +16,7 @@ interface PairAnalysisModalProps {
     humor_open_score?: number
     communication_compatibility_score?: number
     intent_score?: number
+    core_values_compatibility_score?: number
     vibe_compatibility_score?: number
     humor_early_openness_bonus?: 'full' | 'partial' | 'none'
     intent_boost_applied?: boolean
@@ -268,6 +269,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     humor: pair?.humor_open_score !== undefined && pair?.humor_open_score !== null ? normalize(pair.humor_open_score as number, 15) : normalize(hbForSummary.total, 15),
     communication: normalize(pair?.communication_compatibility_score as number, 10),
     intent: pair?.intent_score !== undefined && pair?.intent_score !== null ? normalize(pair.intent_score as number, 5) : normalize(computedIntent, 5),
+    coreValues: normalize(pair?.core_values_compatibility_score as number, 20),
     vibe: normalize(pair?.vibe_compatibility_score as number, 20),
   }
 
@@ -291,8 +293,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const handleCopy = async () => {
     try {
       const text = pair?.reason
-        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، الأهداف/القيم: ${scores.intent.toFixed(1)}/5`
-        : `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، الأهداف/القيم: ${scores.intent.toFixed(1)}/5`
+        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${scores.intent.toFixed(1)}/5`
+        : `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${scores.intent.toFixed(1)}/5`
       await navigator.clipboard.writeText(text)
       setCopied(true); setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -382,7 +384,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <ScoreBar label="نمط الحياة" value={scores.lifestyle} max={15} color="bg-emerald-500" />
                     <ScoreBar label="الدعابة/الانفتاح" value={scores.humor} max={15} color="bg-amber-500" />
                     <ScoreBar label="التواصل" value={scores.communication} max={10} color="bg-indigo-500" />
-                    <ScoreBar label="الأهداف/القيم" value={scores.intent} max={5} color="bg-pink-500" />
+                    <ScoreBar label="القيم" value={scores.coreValues} max={20} color="bg-rose-500" />
+                    <ScoreBar label="الأهداف" value={scores.intent} max={5} color="bg-pink-500" />
                   </div>
                 </div>
 
@@ -685,7 +688,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
               lines.push(`نمط الحياة: ${scores.lifestyle.toFixed(1)}/15`)
               lines.push(`الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15 (×${humorMultiplier.toFixed(2)})`)
               lines.push(`التواصل: ${scores.communication.toFixed(1)}/10`)
-              lines.push(`الأهداف/القيم: ${scores.intent.toFixed(1)}/5`)
+              lines.push(`القيم: ${scores.coreValues.toFixed(1)}/20`)
+              lines.push(`الأهداف: ${scores.intent.toFixed(1)}/5`)
               const top = computeTopSynergyDrivers(synergyDetails)
               if (top.length) lines.push(`أهم العوامل: ${top.map(t => `+${t.scaled.toFixed(2)} ${t.label}`).join('، ')}`)
               const flags: string[] = []

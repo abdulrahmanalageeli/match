@@ -182,6 +182,25 @@ function isParticipantComplete(participant) {
   return true
 }
 
+// Hard gate: If either participant chooses goal 'B', both must have goal 'B'
+function checkIntentHardGate(participantA, participantB) {
+  const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+  const a = getAns(participantA, 'intent_goal')
+  const b = getAns(participantB, 'intent_goal')
+  if (!a || !b) {
+    // Be permissive if missing; participants are validated elsewhere
+    return true
+  }
+  if (a === 'B' || b === 'B') {
+    const ok = (a === 'B' && b === 'B')
+    if (!ok) {
+      console.log(`🚫 Intent hard gate: #${participantA.assigned_number} (${a}) × #${participantB.assigned_number} (${b}) → 'B' must pair only with 'B'`)
+    }
+    return ok
+  }
+  return true
+}
+
 // Function to calculate MBTI compatibility score (up to 5% of total)
 function calculateMBTICompatibility(type1, type2) {
   if (!type1 || !type2) {
@@ -440,7 +459,7 @@ function calculateInteractionSynergyScore(participantA, participantB) {
   return Math.min(35, (total * (35 / 30)))
 }
 
-// New: Intent & Goal (Q40) → up to 5 pts
+// New: Intent & Goal (Q40) → simplified: full if same goal, else 1
 function calculateIntentGoalScore(participantA, participantB) {
   const ans = (p, key) => (p?.survey_data?.answers?.[key] ?? p?.[key] ?? '')
   const a40 = String(ans(participantA, 'intent_goal') || '').toUpperCase()
@@ -448,13 +467,8 @@ function calculateIntentGoalScore(participantA, participantB) {
 
   if (!a40 || !b40) return 0
 
-  if ((a40 === 'A' && b40 === 'A') || (a40 === 'B' && b40 === 'B')) return 5
-  if (a40 === 'C' && b40 === 'C') return 3
-  if ((a40 === 'A' && b40 === 'B') || (a40 === 'B' && b40 === 'A')) return 1
-  // Assumptions for mixed with C
-  if ((a40 === 'A' && b40 === 'C') || (a40 === 'C' && b40 === 'A')) return 3
-  if ((a40 === 'B' && b40 === 'C') || (a40 === 'C' && b40 === 'B')) return 1
-  return 0
+  if (a40 === b40) return 5
+  return 1
 }
 
 // Function to check gender compatibility with support for any_gender_preference
@@ -889,18 +903,16 @@ async function getCachedCompatibility(participantA, participantB) {
         synergyScore = calculateInteractionSynergyScore(participantA, participantB)
       }
 
-      // Intent & Goal (meetingGoalValuesScore) → prefer cache; if missing/NaN, derive from intentRaw + cached coreValuesScore
+      // Intent & Goal (intentScore) → prefer cache; if missing/NaN, derive from intent only (no mixing with core values)
       let intentScore = parseFloat(data.intent_goal_score)
       if (!Number.isFinite(intentScore)) {
         const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0..5
-        intentScore = Math.min(5, (intentRaw / 5) * 3 + (coreValuesScore / 20) * 2)
+        intentScore = intentRaw
       }
 
       // Derive gate/bonus flags and caps for transparency (does NOT mutate cached totalScore)
       const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
-      const aIntent = getAns(participantA, 'intent_goal')
-      const bIntent = getAns(participantB, 'intent_goal')
-      const intentBoostApplied = (aIntent === 'B' && bIntent === 'B')
+      const intentBoostApplied = false
 
       const aAttach = participantA.attachment_style || participantA.survey_data?.attachmentStyle
       const bAttach = participantB.attachment_style || participantB.survey_data?.attachmentStyle
@@ -915,7 +927,6 @@ async function getCachedCompatibility(participantA, participantB) {
       // Reconstruct pre-cap value to decide which caps would have applied (keeps cached total intact)
       let preCap = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + intentScore
       if (attachmentPenaltyApplied) preCap -= 5
-      if (intentBoostApplied) preCap *= 1.1
       const deadAirVetoApplied = deadAirBoth && preCap > 40
       const humorClashVetoApplied = !!vetoClash && preCap > 50
       let capApplied = null
@@ -1106,11 +1117,11 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0-35 (scaled)
   const { score: humorOpenScore, vetoClash } = calculateHumorOpennessScore(participantA, participantB) // 0-15
   const intentRaw = calculateIntentGoalScore(participantA, participantB) // 0-5
-  const meetingGoalValuesScore = Math.min(5, (intentRaw / 5) * 3 + (coreRaw / 20) * 2) // 0-5
+  const intentScore = intentRaw // simplified: 5 if same goal else 1
   const vibeScore = skipAI ? 12 : await calculateVibeCompatibility(participantA, participantB) // 0–20
 
   // Base total (no multipliers)
-  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + meetingGoalValuesScore
+  let totalScore = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + intentScore
   let attachmentPenaltyApplied = false
   let intentBoostApplied = false
   let deadAirVetoApplied = false
@@ -1127,15 +1138,8 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   }
   if (totalScore < 0) totalScore = 0
 
-  // Intent multiplier: both intent_goal = 'B' → ×1.1 (apply before vetoes)
+  // Prepare accessor for veto checks (no intent multiplier)
   const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
-  const aIntent = getAns(participantA, 'intent_goal')
-  const bIntent = getAns(participantB, 'intent_goal')
-  if (aIntent === 'B' && bIntent === 'B') {
-    totalScore = totalScore * 1.1
-    console.log(`✨ Intent multiplier applied (both B): ×1.1 → ${totalScore.toFixed(2)}`)
-    intentBoostApplied = true
-  }
 
   // Dead-Air Veto: BOTH participants Q35=C and Q41=B → cap 40%
   const a35 = getAns(participantA, 'conversational_role')
@@ -1173,7 +1177,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     coreValuesScore: coreRaw,     // raw 0-20 (for transparency)
     synergyScore,                 // 0-35
     humorOpenScore,               // 0-15
-    intentScore: meetingGoalValuesScore, // 0-5 combined Goal & Values
+    intentScore: intentScore, // 0-5 (intent only)
     vibeScore,                    // 0 (placeholder for 20)
     humorMultiplier: 1.0,
     totalScore,
@@ -1418,6 +1422,10 @@ async function generateGroupMatches(participants, match_id, eventId) {
         continue
       }
       if (!checkAgeRangeHardGate(a, b)) {
+        constraintViolations.ageRange.push(`${a.assigned_number}×${b.assigned_number}`)
+        continue
+      }
+      if (!checkIntentHardGate(a, b)) {
         constraintViolations.ageRange.push(`${a.assigned_number}×${b.assigned_number}`)
         continue
       }
@@ -2416,6 +2424,7 @@ export default async function handler(req, res) {
         // Hard gates
         if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
         if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
+        if (!checkIntentHardGate(p1, p2)) { skipped++; continue }
 
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
@@ -2699,6 +2708,11 @@ export default async function handler(req, res) {
           skipped++
           continue
         }
+        if (!checkIntentHardGate(p1, p2)) {
+          console.log(`   🚫 SKIPPED: Intent hard gate failed`)
+          skipped++
+          continue
+        }
 
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
@@ -2971,8 +2985,12 @@ export default async function handler(req, res) {
       // Filter potential matches by gender compatibility
       const genderCompatibleMatches = potentialMatches.filter(potentialMatch => checkGenderCompatibility(targetParticipant, potentialMatch))
       console.log(`🎯 Gender filtering: ${potentialMatches.length} total → ${genderCompatibleMatches.length} gender-compatible matches`)
-      // Apply hard gates (nationality + age range)
-      const hardGateCompatibleMatches = genderCompatibleMatches.filter(p => checkNationalityHardGate(targetParticipant, p) && checkAgeRangeHardGate(targetParticipant, p))
+      // Apply hard gates (nationality + age range + intent)
+      const hardGateCompatibleMatches = genderCompatibleMatches.filter(p =>
+        checkNationalityHardGate(targetParticipant, p) &&
+        checkAgeRangeHardGate(targetParticipant, p) &&
+        checkIntentHardGate(targetParticipant, p)
+      )
       console.log(`🎯 Hard-gate filtering: ${genderCompatibleMatches.length} → ${hardGateCompatibleMatches.length}`)
       
       if (genderCompatibleMatches.length === 0) {
@@ -3074,7 +3092,6 @@ export default async function handler(req, res) {
 
             // Ensure new-model fields are populated even on cache hits
             const _cachedSynergy = parseFloat(cachedData.interaction_synergy_score)
-            const _coreValForIntent = parseFloat(cachedData.core_values_score)
             const _cachedIntent = parseFloat(cachedData.intent_goal_score)
             const _derivedSynergy = Number.isFinite(_cachedSynergy)
               ? _cachedSynergy
@@ -3082,7 +3099,7 @@ export default async function handler(req, res) {
             const { score: _derivedHumorOpen } = calculateHumorOpennessScore(targetParticipant, potentialMatch)
             const _derivedIntent = Number.isFinite(_cachedIntent)
               ? _cachedIntent
-              : Math.min(5, (calculateIntentGoalScore(targetParticipant, potentialMatch) / 5) * 3 + ( (_coreValForIntent || 0) / 20) * 2)
+              : calculateIntentGoalScore(targetParticipant, potentialMatch)
             compatibilityResult.synergyScore = _derivedSynergy
             compatibilityResult.humorOpenScore = _derivedHumorOpen
             compatibilityResult.intentScore = _derivedIntent
@@ -3124,7 +3141,7 @@ export default async function handler(req, res) {
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
             compatibility_score: totalCompatibility,
-            humor_early_openness_bonus: compatibilityResult.humor_early_openness_bonus,
+            humor_early_openness_bonus: (compatibilityResult.bonusType || (compatibilityResult.humorMultiplier === 1.15 ? 'full' : (compatibilityResult.humorMultiplier === 1.05 ? 'partial' : 'none'))),
             // Legacy fields (kept for backward compatibility)
             mbti_compatibility_score: compatibilityResult.mbtiScore,
             attachment_compatibility_score: compatibilityResult.attachmentScore,
@@ -3139,10 +3156,11 @@ export default async function handler(req, res) {
             intent_score: compatibilityResult.intentScore,                  // 0-5 (Goal & Values)
             attachment_penalty_applied: compatibilityResult.attachmentPenaltyApplied || false,
             intent_boost_applied: compatibilityResult.intentBoostApplied || false,
+            dead_air_veto_applied: compatibilityResult.deadAirVetoApplied || false,
+            humor_clash_veto_applied: compatibilityResult.humorClashVetoApplied || false,
             cap_applied: compatibilityResult.capApplied || null,
-            reason: `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Goal&Values: ${Math.round(compatibilityResult.intentScore)}%` +
+            reason: `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Intent: ${Math.round(compatibilityResult.intentScore)}%` +
               (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
-              (compatibilityResult.intentBoostApplied ? ` + Intent×1.1` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : ''),
             is_actual_match: false, // These are potential matches, not actual matches
             is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
@@ -3649,12 +3667,16 @@ export default async function handler(req, res) {
           continue
         }
         
-        // Hard gates: nationality and age range (mutual)
+        // Hard gates: nationality, age range, and intent (mutual)
         if (!checkNationalityHardGate(a, b)) {
           skippedNationality++
           continue
         }
         if (!checkAgeRangeHardGate(a, b)) {
+          skippedAge++
+          continue
+        }
+        if (!checkIntentHardGate(a, b)) {
           skippedAge++
           continue
         }

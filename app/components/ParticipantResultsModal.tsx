@@ -22,6 +22,9 @@ interface ParticipantResult {
   intent_score?: number
   attachment_penalty_applied?: boolean
   intent_boost_applied?: boolean
+  dead_air_veto_applied?: boolean
+  humor_clash_veto_applied?: boolean
+  humor_multiplier?: number
   cap_applied?: number | null
   partner_assigned_number?: number
   partner_name?: string
@@ -537,7 +540,7 @@ export default function ParticipantResultsModal({
               <span>نمط الحياة 15</span>
               <span>الدعابة/الانفتاح 15</span>
               <span>التواصل 10</span>
-              <span>الأهداف/القيم 5</span>
+              <span>الأهداف 5</span>
             </div>
           </div>
         )}

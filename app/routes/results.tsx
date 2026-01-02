@@ -210,7 +210,23 @@ export default function ResultsPage() {
         const tokenToUse = token
         if (!tokenToUse) {
           setAutoDisableMsg('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح')
+          // Clean URL param
+          const p = new URLSearchParams(window.location.search)
+          p.delete('disableauto')
+          const newQuery = p.toString()
+          const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+          window.history.replaceState(null, '', newUrl)
         } else {
+          const confirmed = window.confirm('هل تريد إيقاف التسجيل التلقائي لجميع الفعاليات القادمة لهذا الحساب؟\nيمكنك إعادة تفعيله لاحقاً من داخل الصفحة.')
+          if (!confirmed) {
+            setAutoDisableMsg('لم يتم إجراء أي تغيير')
+            const p = new URLSearchParams(window.location.search)
+            p.delete('disableauto')
+            const newQuery = p.toString()
+            const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+            window.history.replaceState(null, '', newUrl)
+            return
+          }
           (async () => {
             try {
               const res = await fetch('/api/participant', {

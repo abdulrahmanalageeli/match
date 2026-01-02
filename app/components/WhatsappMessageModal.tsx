@@ -145,8 +145,9 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
     const bold = (s: string) => (d.includeBold ? `*${s}*` : s);
     const e = (s: string) => (d.includeEmojis ? s : '');
 
-    // Generate message based on template type
-    switch (templateType) {
+    // Generate message based on template type via a builder function
+    const build = () => {
+      switch (templateType) {
       case 'match':
         if (urgencyLevel === 'urgent') {
           const deadlineMin = d.urgentDeadlineMin;
@@ -251,7 +252,21 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
 
       default:
         return "";
-    }
+      }
+    };
+
+    // After building the message, append a disable-auto link after the account link
+    const accountLink = `https://match-omega.vercel.app/welcome?token=${secureToken}`;
+    const disableLine = `${e('🛑 ')}${bold('إيقاف التسجيل التلقائي:')}` + "\n" + `${accountLink}&disableauto=1`;
+
+    let msg = build();
+    try {
+      // Only add if not already present; match account link not followed by &disableauto
+      const escaped = accountLink.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const re = new RegExp(`${escaped}(?!&disableauto)`, 'g');
+      msg = msg.replace(re, `${accountLink}\n${disableLine}`);
+    } catch (_) {}
+    return msg;
   }, [participant, urgencyLevel, templateType, config]);
 
   const exportMessage = useMemo(() => sanitizeForExport(message), [message]);

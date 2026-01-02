@@ -1677,6 +1677,20 @@ export default function WelcomePage() {
         return;
       }
 
+      // Ask for confirmation before disabling
+      const confirmed = window.confirm('هل تريد إيقاف التسجيل التلقائي لجميع الفعاليات القادمة لهذا الحساب؟\nيمكنك إعادة تفعيله لاحقاً من داخل الصفحة.');
+      if (!confirmed) {
+        // Clean the URL param and exit
+        const p = new URLSearchParams(window.location.search);
+        p.delete('disableauto');
+        const newQuery = p.toString();
+        const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`;
+        window.history.replaceState(null, '', newUrl);
+        toast('لم يتم إجراء أي تغيير');
+        setDisableAutoHandled(true);
+        return;
+      }
+
       (async () => {
         try {
           const res = await fetch('/api/participant', {

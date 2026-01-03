@@ -608,14 +608,22 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
         headers.join(','),
         ...selectedData.map(participant => {
           const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
-          // Apply the same phone normalization used in SurveyComponent
+          // Apply the same phone normalization used in SurveyComponent, but
+          // if the original input is already in international format with '+', keep it as-is.
           const rawPhone = (participant.phone_number
             || participant.survey_data?.answers?.phone_number
             || participant.survey_data?.phone_number
             || '') as string
-          const fallbackCC = String(participant.survey_data?.answers?.phone_cc || '966')
-          const { cc, local } = normalizeAndSplitPhone(rawPhone, fallbackCC)
-          const phone = local ? (cc ? `+${cc}${local}` : local) : '';
+          const cleanedOriginal = convertArabicToEnglish(rawPhone).trim().replace(/[\s\-()]/g, '')
+          let phone = ''
+          if (/^\+\d{6,}$/.test(cleanedOriginal)) {
+            // Already valid international; keep it exactly as provided (after basic whitespace cleanup)
+            phone = cleanedOriginal
+          } else {
+            const fallbackCC = String(participant.survey_data?.answers?.phone_cc || '966')
+            const { cc, local } = normalizeAndSplitPhone(rawPhone, fallbackCC)
+            phone = local ? (cc ? `+${cc}${local}` : local) : ''
+          }
           const message1 = generateWhatsAppMessage(participant, exportTemplateType).replace(/"/g, '""'); // Escape quotes for CSV
           const message2 = ''; // Empty as requested
           

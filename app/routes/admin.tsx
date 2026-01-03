@@ -135,7 +135,7 @@ export default function AdminPage() {
   
   // Excel export state
   const [isExporting, setIsExporting] = useState(false);
-  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder' | 'reminder'>('match');
+  const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder' | 'reminder' | 'survey-completion'>('match');
   
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
@@ -316,8 +316,69 @@ export default function AdminPage() {
     load()
   }, [])
 
+  // Helper function to add bold formatting
+  const bold = (text: string) => `*${text}*`;
+
+  // Phone normalization helpers (mirrors SurveyComponent)
+  // Convert Arabic numbers to English numbers
+  const convertArabicToEnglish = (input: string): string => {
+    const arabicNumbers = '٠١٢٣٤٥٦٧٨٩'
+    const englishNumbers = '0123456789'
+    
+    return input.replace(/[٠-٩]/g, (match) => {
+      const index = arabicNumbers.indexOf(match)
+      return englishNumbers[index]
+    })
+  }
+
+  // Normalize various input formats into { cc, local } suitable for E.164 composition
+  // Handles: +9665xxxxxxxx, 009665xxxxxxxx, 9665xxxxxxxx, 05xxxxxxxx, 5xxxxxxxx, plain digits
+  const normalizeAndSplitPhone = (rawInput: string, fallbackCC = '966'): { cc: string, local: string } => {
+    if (!rawInput) return { cc: fallbackCC, local: '' }
+    let s = convertArabicToEnglish(String(rawInput)).trim()
+    // Remove spaces, hyphens, parentheses
+    s = s.replace(/[\s\-()]/g, '')
+    // Strip leading + or 00 international prefix
+    if (s.startsWith('+')) s = s.slice(1)
+    if (s.startsWith('00')) s = s.slice(2)
+    // Keep digits only
+    s = s.replace(/[^0-9]/g, '')
+
+    let cc = ''
+    let local = ''
+
+    // Saudi-specific rules first (primary audience)
+    if (s.startsWith('966')) {
+      cc = '966'
+      local = s.slice(3)
+      if (local.startsWith('0')) local = local.slice(1)
+    } else if (/^05\d{8}$/.test(s)) {
+      // National format with trunk '0'
+      cc = '966'
+      local = s.slice(1)
+    } else if (/^5\d{8}$/.test(s)) {
+      // National significant number
+      cc = '966'
+      local = s
+    } else if (s.length >= 11 && !s.startsWith('0')) {
+      // Generic international: assume 3-digit CC if unknown
+      cc = s.slice(0, 3)
+      local = s.slice(3)
+      if (local.startsWith('0')) local = local.slice(1)
+    } else {
+      // Fallback to local with default CC, strip leading zeros
+      cc = fallbackCC
+      local = s.replace(/^0+/, '')
+    }
+
+    // Final sanitation: digits only
+    cc = cc.replace(/[^0-9]/g, '').slice(0, 3)
+    local = local.replace(/[^0-9]/g, '')
+    return { cc, local }
+  }
+
   // Function to generate WhatsApp message for a participant
-  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'early-match' | 'payment-reminder' | 'reminder' = 'match') => {
+  const generateWhatsAppMessage = (participant: any, templateType: 'match' | 'early-match' | 'payment-reminder' | 'reminder' | 'survey-completion' = 'match') => {
     const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
     const assignedNumber = participant.assigned_number;
     const secureToken = participant.secure_token;
@@ -450,6 +511,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 🔥 لا تفوت هذه الفرصة!
 
 فريق التوافق الأعمى`;
+    } else if (templateType === 'survey-completion') {
+      return `*${bold('إكمال الاستبيان للفعالية القادمة')}* 📝\n\nالسلام عليكم *${name}*،\n\nℹ️ لاحظنا أن لديك *بعض الأسئلة غير المكتملة* في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n🔗 *رابط الدخول المباشر إلى الاستبيان:*\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&redo=1\n✅ يفتح الرابط الاستبيان مباشرة بدون نوافذ انتظار أو تأكيد.\n\n🛑 *إيقاف التسجيل التلقائي:*\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&disableauto=1\n\n📱 *معلوماتك:*\nرقم المشارك: *${assignedNumber}*\nالرمز الخاص: *${secureToken}*\n\n⏰ يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\nفريق التوافق الأعمى`;
     } else if (templateType === 'reminder') {
       return `*التوافق الأعمى* 🔔
 
@@ -545,7 +608,14 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
         headers.join(','),
         ...selectedData.map(participant => {
           const name = participant.name || participant.survey_data?.name || `المشارك #${participant.assigned_number}`;
-          const phone = participant.phone_number || '';
+          // Apply the same phone normalization used in SurveyComponent
+          const rawPhone = (participant.phone_number
+            || participant.survey_data?.answers?.phone_number
+            || participant.survey_data?.phone_number
+            || '') as string
+          const fallbackCC = String(participant.survey_data?.answers?.phone_cc || '966')
+          const { cc, local } = normalizeAndSplitPhone(rawPhone, fallbackCC)
+          const phone = local ? (cc ? `+${cc}${local}` : local) : '';
           const message1 = generateWhatsAppMessage(participant, exportTemplateType).replace(/"/g, '""'); // Escape quotes for CSV
           const message2 = ''; // Empty as requested
           
@@ -561,7 +631,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       // Create and download file
       const templateName = exportTemplateType === 'payment-reminder' ? 'payment_reminder' : 
                            exportTemplateType === 'early-match' ? 'early_match_notification' : 
-                           exportTemplateType === 'reminder' ? 'event_reminder' : 'match_notification';
+                           exportTemplateType === 'reminder' ? 'event_reminder' :
+                           exportTemplateType === 'survey-completion' ? 'survey_completion' : 'match_notification';
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // BOM for proper UTF-8
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
@@ -577,7 +648,8 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       
       const templateLabel = exportTemplateType === 'payment-reminder' ? 'تذكير الدفع' : 
                             exportTemplateType === 'early-match' ? 'إشعار مبكر' : 
-                            exportTemplateType === 'reminder' ? 'تذكير الفعالية' : 'إشعار المطابقة';
+                            exportTemplateType === 'reminder' ? 'تذكير الفعالية' :
+                            exportTemplateType === 'survey-completion' ? 'إكمال الاستبيان' : 'إشعار المطابقة';
       toast.success(`تم تصدير ${selectedData.length} مشارك بنجاح (${templateLabel}) وتم تحديث حالة الرسائل!`);
       
       // Refresh participants list to show updated status

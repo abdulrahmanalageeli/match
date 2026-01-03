@@ -4949,13 +4949,14 @@ Proceed?`
                 <div className="relative">
                   <select
                     value={exportTemplateType}
-                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'early-match' | 'payment-reminder' | 'reminder')}
+                    onChange={(e) => setExportTemplateType(e.target.value as 'match' | 'early-match' | 'payment-reminder' | 'reminder' | 'survey-completion')}
                     className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl px-4 py-2 pr-8 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-400/50 transition-all duration-300"
                   >
                     <option value="match" className="bg-slate-800 text-white">Match Notification</option>
                     <option value="early-match" className="bg-slate-800 text-white">Early Match Notification</option>
                     <option value="payment-reminder" className="bg-slate-800 text-white">Payment Reminder</option>
                     <option value="reminder" className="bg-slate-800 text-white">Event Reminder</option>
+                    <option value="survey-completion" className="bg-slate-800 text-white">Survey Completion (إكمال الاستبيان)</option>
                   </select>
                   <ChevronRight className="absolute right-2 top-1/2 transform -translate-y-1/2 rotate-90 w-4 h-4 text-slate-400 pointer-events-none" />
                 </div>

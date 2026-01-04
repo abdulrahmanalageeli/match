@@ -203,54 +203,56 @@ export default function ResultsPage() {
     try {
       if (typeof window !== 'undefined') {
         const params = new URLSearchParams(window.location.search)
-        if (!params.has('disableauto')) return
-        const val = (params.get('disableauto') ?? '').toLowerCase()
-        const isRequested = val === '' || val === '1' || val === 'true'
-        if (!isRequested) return
-        const tokenToUse = token
-        if (!tokenToUse) {
-          setAutoDisableMsg('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح')
-          // Clean URL param
-          const p = new URLSearchParams(window.location.search)
-          p.delete('disableauto')
-          const newQuery = p.toString()
-          const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
-          window.history.replaceState(null, '', newUrl)
-        } else {
-          const confirmed = window.confirm('هل تريد إيقاف التسجيل التلقائي لجميع الفعاليات القادمة لهذا الحساب؟\nيمكنك إعادة تفعيله لاحقاً من داخل الصفحة.')
-          if (!confirmed) {
-            setAutoDisableMsg('لم يتم إجراء أي تغيير')
-            const p = new URLSearchParams(window.location.search)
-            p.delete('disableauto')
-            const newQuery = p.toString()
-            const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
-            window.history.replaceState(null, '', newUrl)
-            return
-          }
-          (async () => {
-            try {
-              const res = await fetch('/api/participant', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'disable-auto-signup', secure_token: tokenToUse })
-              })
-              const data = await res.json()
-              if (res.ok && data.success) {
-                setAutoDisableMsg('تم إيقاف التسجيل التلقائي للأحداث القادمة')
-              } else {
-                setAutoDisableMsg(data.error || 'فشل إيقاف التسجيل التلقائي')
-              }
-            } catch (err) {
-              setAutoDisableMsg('حدث خطأ أثناء إيقاف التسجيل التلقائي')
-            } finally {
-              // Clean URL param regardless of outcome
+        if (params.has('disableauto')) {
+          const val = (params.get('disableauto') ?? '').toLowerCase()
+          const isRequested = val === '' || val === '1' || val === 'true'
+          if (isRequested) {
+            const tokenToUse = token
+            if (!tokenToUse) {
+              setAutoDisableMsg('لا يمكن إيقاف التسجيل التلقائي بدون رمز صحيح')
+              // Clean URL param
               const p = new URLSearchParams(window.location.search)
               p.delete('disableauto')
               const newQuery = p.toString()
               const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
               window.history.replaceState(null, '', newUrl)
+            } else {
+              const confirmed = window.confirm('هل تريد إيقاف التسجيل التلقائي لجميع الفعاليات القادمة لهذا الحساب؟\nيمكنك إعادة تفعيله لاحقاً من داخل الصفحة.')
+              if (!confirmed) {
+                setAutoDisableMsg('لم يتم إجراء أي تغيير')
+                const p = new URLSearchParams(window.location.search)
+                p.delete('disableauto')
+                const newQuery = p.toString()
+                const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+                window.history.replaceState(null, '', newUrl)
+              } else {
+                (async () => {
+                  try {
+                    const res = await fetch('/api/participant', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'disable-auto-signup', secure_token: tokenToUse })
+                    })
+                    const data = await res.json()
+                    if (res.ok && data.success) {
+                      setAutoDisableMsg('تم إيقاف التسجيل التلقائي للأحداث القادمة')
+                    } else {
+                      setAutoDisableMsg(data.error || 'فشل إيقاف التسجيل التلقائي')
+                    }
+                  } catch (err) {
+                    setAutoDisableMsg('حدث خطأ أثناء إيقاف التسجيل التلقائي')
+                  } finally {
+                    // Clean URL param regardless of outcome
+                    const p = new URLSearchParams(window.location.search)
+                    p.delete('disableauto')
+                    const newQuery = p.toString()
+                    const newUrl = `${window.location.pathname}${newQuery ? `?${newQuery}` : ''}`
+                    window.history.replaceState(null, '', newUrl)
+                  }
+                })()
+              }
             }
-          })()
+          }
         }
       }
     } catch (_) {}

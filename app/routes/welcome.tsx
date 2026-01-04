@@ -4156,7 +4156,7 @@ export default function WelcomePage() {
       const lifestyleNewMatch = reason.match(/(?:Lifestyle|نمط الحياة):\s*(\d+)%/)
       const humorOpenMatch = reason.match(/(?:Humor\/Openness|الدعابة\/الانفتاح):\s*(\d+)%/)
       const communicationNewMatch = reason.match(/(?:Communication|التواصل):\s*(\d+)%/)
-      const intentValuesMatch = reason.match(/(?:Goal&Values|الأهداف\/القيم):\s*(\d+)%/)
+      const intentValuesMatch = reason.match(/(?:Intent|Goal&Values|الأهداف\/القيم):\s*(\d+)%/)
 
       const synergyScore = synergyMatch ? parseInt(synergyMatch[1]) || 0 : 0 // max 35
       const vibeNewScore = vibeNewMatch ? parseInt(vibeNewMatch[1]) || 0 : 0   // max 20
@@ -9718,6 +9718,18 @@ export default function WelcomePage() {
                             const sorted = [...dims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
                             const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 60).slice(0, 2)
                             const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
+                            
+                            // Fallback: if no components parsed (old/group/organizer reasons), show a concise message
+                            if (!m?.newModel && formattedReason.components.length === 0) {
+                              return (
+                                <div className={`rounded-xl p-4 ${dark ? 'bg-slate-800/50 border border-slate-700/50' : 'bg-white border border-gray-200/50'}`}>
+                                  <h4 className={`font-semibold text-sm mb-2 ${dark ? 'text-slate-200' : 'text-gray-800'}`}>تحليل التوافق</h4>
+                                  <p className={`text-sm ${dark ? 'text-slate-300' : 'text-gray-600'}`}>
+                                    {formattedReason.originalReason || 'لا توجد تفاصيل تحليل متوفرة لهذا اللقاء حالياً.'}
+                                  </p>
+                                </div>
+                              )
+                            }
                             return (
                               <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50' : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200/50'} shadow-lg`}>
                                 {/* Header */}

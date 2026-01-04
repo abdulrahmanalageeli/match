@@ -883,7 +883,8 @@ async function getCachedCompatibility(participantA, participantB) {
           })
           .eq('id', data.id)
       }
-        
+
+      
       console.log(`🎯 Cache HIT: #${smaller}-#${larger} (used ${data.use_count + 1} times)`)
 
       // Pull cached breakdowns
@@ -1284,7 +1285,9 @@ GUIDELINES
 }
 
 // Function to create groups of 3-4 (or 5) based on MBTI compatibility, avoiding matched pairs
-async function generateGroupMatches(participants, match_id, eventId) {
+// options.bannedCombos: Set<string> of sorted combo signatures (e.g., "1-2-3-4") to skip when selecting core groups
+async function generateGroupMatches(participants, match_id, eventId, options = {}) {
+  const bannedCombos = options?.bannedCombos instanceof Set ? options.bannedCombos : new Set()
   console.log("🎯 Starting enhanced group matching for", participants.length, "total participants")
   
   // First, get existing individual matches to avoid putting matched pairs in same group
@@ -1490,7 +1493,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
   console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs, ensuring gender balance)")
   while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
     const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
-    let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants)
+    let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants, bannedCombos)
     
     // Fallback: if no group can be formed avoiding matches, try with matches allowed
     if (!group && availableParticipants.length >= 4) {
@@ -1599,7 +1602,7 @@ async function generateGroupMatches(participants, match_id, eventId) {
     // 3 extra people - create a new group OR distribute among existing groups
     if (groups.length === 0) {
       // No existing groups, try to create a gender-balanced group of 3
-      const group3 = findBestGroupAvoidingMatches(remainingParticipants, pairScores, 3, areMatched, eligibleParticipants)
+      const group3 = findBestGroupAvoidingMatches(remainingParticipants, pairScores, 3, areMatched, eligibleParticipants, bannedCombos)
       if (group3) {
         groups.push([...group3])
         console.log(`✅ Created new gender-balanced group of 3: [${group3.join(', ')}]`)
@@ -1707,7 +1710,8 @@ async function generateGroupMatches(participants, match_id, eventId) {
 }
 
 // Helper function to find the best group of specified size, avoiding matched pairs and ensuring gender balance
-function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched, eligibleParticipants) {
+// bannedCombos: Set<string> to skip specific sorted combinations (e.g., "1-2-3-4")
+function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetSize, areMatched, eligibleParticipants, bannedCombos = new Set()) {
   if (availableParticipants.length < targetSize) return null
 
   // Generate all combinations of the target size once
@@ -1719,6 +1723,12 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     let localBestScore = -1
 
     for (const combination of combinations) {
+      // Skip banned core combinations
+      const comboSig = [...combination].sort((a,b)=>a-b).join('-')
+      if (bannedCombos.has(comboSig)) {
+        console.log(`⛔ Skipping banned combination [${combination.join(', ')}]`)
+        continue
+      }
       // 0) Disallow any previously matched pairs inside the same group
       let hasMatchedPair = false
       for (let i = 0; i < combination.length && !hasMatchedPair; i++) {
@@ -3487,6 +3497,97 @@ export default async function handler(req, res) {
         })
       }
 
+      // Preview top-K arrangements without committing to DB
+      if (action === "preview-groups-topk") {
+        try {
+          const topK = Math.max(1, Math.min(5, parseInt(req.body?.topK || 3)))
+          const arrangements = []
+          const bannedCombos = new Set()
+
+          const pickSignature = (gm) => {
+            if (!gm || gm.length === 0) return null
+            const four = gm.find(g => Array.isArray(g.participant_numbers) && g.participant_numbers.length === 4)
+            const chosen = four || gm.slice().sort((a,b)=> (b.participant_numbers?.length||0) - (a.participant_numbers?.length||0))[0]
+            const nums = (chosen?.participant_numbers || []).slice().sort((a,b)=>a-b)
+            return nums.length ? nums.join('-') : null
+          }
+
+          for (let i = 0; i < topK; i++) {
+            const gm = await generateGroupMatches(eligibleParticipants, match_id, eventId, { bannedCombos })
+            arrangements.push(gm)
+            const sig = pickSignature(gm)
+            if (sig) bannedCombos.add(sig)
+          }
+
+          const payload = arrangements.map((gm, idx) => ({
+            label: idx === 0 ? 'Best' : (idx === 1 ? 'Second Best' : `Option ${idx+1}`),
+            overall_score: (gm || []).reduce((s, g) => s + (g.compatibility_score || 0), 0),
+            groupMatches: gm
+          }))
+
+          return res.status(200).json({ success: true, topK: payload.length, arrangements: payload })
+        } catch (e) {
+          console.error('preview-groups-topk error:', e)
+          return res.status(500).json({ error: 'Failed to preview group arrangements' })
+        }
+      }
+
+      // Finalize an arrangement: replace all group_matches rows with the provided set
+      if (action === "finalize-groups-arrangement") {
+        try {
+          const arrangement = req.body?.arrangement
+          if (!Array.isArray(arrangement) || arrangement.length === 0) {
+            return res.status(400).json({ error: 'Invalid or empty arrangement' })
+          }
+          const normalized = arrangement.map((g, idx) => ({
+            match_id,
+            group_id: g.group_id || `group_${(g.group_number || idx + 1)}`,
+            group_number: g.group_number || (idx + 1),
+            participant_numbers: g.participant_numbers || [],
+            participant_names: g.participant_names || (g.participant_numbers || []).map(n => `المشارك #${n}`),
+            compatibility_score: Math.round(g.compatibility_score || 0),
+            reason: g.reason || `مجموعة من ${(g.participant_numbers || []).length} أشخاص بتوافق ${Math.round(g.compatibility_score || 0)}%`,
+            table_number: g.table_number || (g.group_number || (idx + 1)),
+            event_id: eventId,
+            conversation_status: g.conversation_status || 'pending'
+          }))
+
+          const { error: delErr } = await supabase
+            .from('group_matches')
+            .delete()
+            .eq('match_id', match_id)
+            .eq('event_id', eventId)
+          if (delErr) {
+            console.error('Failed to clear previous group matches:', delErr)
+            return res.status(500).json({ error: 'Failed to clear previous group matches' })
+          }
+          const { error: insErr } = await supabase
+            .from('group_matches')
+            .insert(normalized)
+          if (insErr) {
+            console.error('Failed to insert chosen arrangement:', insErr)
+            return res.status(500).json({ error: 'Failed to insert chosen arrangement' })
+          }
+          await autoSaveAdminResults(
+            eventId,
+            'group',
+            'manual-finalize',
+            normalized,
+            [],
+            [],
+            { totalTime: 0, cacheHitRate: 0, aiCalls: 0 },
+            false,
+            excludedPairs,
+            excludedParticipants,
+            []
+          )
+          return res.status(200).json({ success: true, message: 'Groups finalized successfully', count: normalized.length })
+        } catch (e) {
+          console.error('finalize-groups-arrangement error:', e)
+          return res.status(500).json({ error: 'Failed to finalize arrangement' })
+        }
+      }
+
       const groupMatches = await generateGroupMatches(eligibleParticipants, match_id, eventId)
 
       // Insert new group matches
@@ -3521,7 +3622,7 @@ export default async function handler(req, res) {
         results: groupMatches,
         groups: groupMatches.map(match => ({
           group_number: match.group_number,
-          participants: [match.participant_a_number, match.participant_b_number, match.participant_c_number, match.participant_d_number, match.participant_e_number, match.participant_f_number].filter(p => p !== null),
+          participants: match.participant_numbers || [],
           score: match.compatibility_score,
           table_number: match.table_number
         })),

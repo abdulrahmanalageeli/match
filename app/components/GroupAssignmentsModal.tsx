@@ -1,4 +1,4 @@
-import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2 } from "lucide-react"
+import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2 } from "lucide-react"
 import { useState } from "react"
 
 interface GroupAssignment {
@@ -40,6 +40,21 @@ export default function GroupAssignmentsModal({
   const [swapping, setSwapping] = useState(false)
   const [autoPlacing, setAutoPlacing] = useState(false)
   const [autoPlaceNumber, setAutoPlaceNumber] = useState<string>("")
+  // Preview alternatives (Top 3) and finalize
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewArrangements, setPreviewArrangements] = useState<Array<{
+    label: string
+    groupMatches: Array<{
+      group_id: string
+      group_number: number
+      table_number: number
+      participant_numbers: number[]
+      participant_names?: string[]
+      compatibility_score: number
+    }>
+  }> | null>(null)
+  const [activeArrangement, setActiveArrangement] = useState(0)
+  const [finalizing, setFinalizing] = useState(false)
   // Structured confirmation state for clearer warning display
   const [showConfirm, setShowConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -126,6 +141,28 @@ export default function GroupAssignmentsModal({
     }
   }
 
+  // Compute which groups to display: preview (if active) or current DB state
+  const isPreviewActive = !!previewArrangements && previewArrangements.length > 0
+  const computedDisplayGroups: GroupAssignment[] = (() => {
+    if (!isPreviewActive) return groupAssignments
+    const idx = Math.min(Math.max(activeArrangement, 0), (previewArrangements?.length || 1) - 1)
+    const gm = previewArrangements?.[idx]?.groupMatches || []
+    const mapped = gm.map((match) => {
+      const participants = (match.participant_numbers || []).map((num, i) => ({
+        number: num,
+        name: match.participant_names?.[i] || `المشارك #${num}`
+      }))
+      return {
+        group_number: match.group_number,
+        table_number: match.table_number,
+        participants,
+        compatibility_score: match.compatibility_score,
+        participant_count: participants.length
+      } as GroupAssignment
+    })
+    return mapped
+  })()
+
   return (
     <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm flex items-center justify-center p-4 z-50`}>
       <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
@@ -150,6 +187,102 @@ export default function GroupAssignmentsModal({
 
         {/* Content */}
         <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          {/* Preview Top 3 Controls */}
+          <div className="mb-4 flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300">
+                <Layers className="w-4 h-4" />
+                <span>معاينة أفضل 3 توزيعات قبل الحفظ</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={previewLoading || swapping || autoPlacing}
+                  onClick={async () => {
+                    setPreviewLoading(true)
+                    try {
+                      const res = await fetch('/api/admin/trigger-match', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ matchType: 'group', eventId, action: 'preview-groups-topk', topK: 3 })
+                      })
+                      const data = await res.json()
+                      if (!res.ok || !data?.success) {
+                        alert(data?.error || 'فشل في جلب البدائل')
+                      } else {
+                        setPreviewArrangements(data.arrangements || [])
+                        setActiveArrangement(0)
+                      }
+                    } catch (e) {
+                      console.error('preview error', e)
+                      alert('حدث خطأ أثناء المعاينة')
+                    } finally {
+                      setPreviewLoading(false)
+                    }
+                  }}
+                  className={`px-3 py-1.5 rounded-md font-medium transition-colors ${previewLoading ? 'bg-cyan-500/30 text-cyan-200 cursor-wait' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200'}`}
+                  title="احسب أفضل 3 توزيعات (بدون حفظ)"
+                >
+                  {previewLoading ? (
+                    <span className="inline-flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> جارٍ الحساب...</span>
+                  ) : (
+                    <span className="inline-flex items-center gap-2"><Sparkles className="w-4 h-4" /> معاينة أفضل 3</span>
+                  )}
+                </button>
+                {isPreviewActive && (
+                  <button
+                    disabled={finalizing}
+                    onClick={async () => {
+                      if (!previewArrangements || previewArrangements.length === 0) return
+                      const idx = Math.min(Math.max(activeArrangement, 0), previewArrangements.length - 1)
+                      const chosen = previewArrangements[idx]
+                      if (!chosen?.groupMatches?.length) { alert('لا توجد بيانات للحفظ'); return }
+                      if (!confirm('سيتم حفظ هذا التوزيع كالمجموعات النهائية. هل أنت متأكد؟')) return
+                      setFinalizing(true)
+                      try {
+                        const res = await fetch('/api/admin/trigger-match', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ matchType: 'group', eventId, action: 'finalize-groups-arrangement', arrangement: chosen.groupMatches })
+                        })
+                        const data = await res.json()
+                        if (!res.ok || !data?.success) {
+                          alert(data?.error || 'لم يتم حفظ التوزيع')
+                        } else {
+                          alert(`تم الحفظ: ${data.count} مجموعة`)
+                          setPreviewArrangements(null)
+                          setActiveArrangement(0)
+                          if (onSwapApplied) await onSwapApplied()
+                        }
+                      } catch (e) {
+                        console.error('finalize error', e)
+                        alert('حدث خطأ أثناء الحفظ')
+                      } finally {
+                        setFinalizing(false)
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-md font-medium transition-colors ${finalizing ? 'bg-emerald-500/30 text-emerald-200 cursor-wait' : 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200'}`}
+                    title="حفظ هذا التوزيع في قاعدة البيانات"
+                  >
+                    <span className="inline-flex items-center gap-2"><CheckCircle2 className="w-4 h-4" /> اعتماد هذا التوزيع</span>
+                  </button>
+                )}
+              </div>
+            </div>
+            {isPreviewActive && (
+              <div className="flex items-center gap-2">
+                {previewArrangements!.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveArrangement(idx)}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${activeArrangement === idx ? (cohostTheme ? 'bg-rose-500/20 border-rose-400/40 text-white' : 'bg-white/10 border-white/30 text-white') : 'bg-transparent border-white/10 text-slate-300 hover:bg-white/5'}`}
+                  >
+                    {idx === 0 ? 'الأفضل' : idx === 1 ? 'الثاني' : 'الثالث'}
+                  </button>
+                ))}
+                <span className="text-[11px] text-slate-400">المعاينة لا تحفظ تلقائياً</span>
+              </div>
+            )}
+          </div>
           {/* Swap helper */}
           <div className="mb-4 flex items-center gap-2 text-xs sm:text-sm text-slate-300">
             <Shuffle className="w-4 h-4" />
@@ -176,11 +309,11 @@ export default function GroupAssignmentsModal({
               className="w-40 sm:w-56 px-2 py-1 rounded-md bg-slate-900/60 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-cyan-400/40"
               value={autoPlaceNumber}
               onChange={(e) => setAutoPlaceNumber(e.target.value)}
-              disabled={autoPlacing || swapping}
+              disabled={autoPlacing || swapping || isPreviewActive}
             />
             <button
-              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${autoPlacing ? 'bg-cyan-500/30 text-cyan-200 cursor-wait' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200'}`}
-              disabled={autoPlacing || swapping}
+              className={`px-3 py-1.5 rounded-md font-medium transition-colors ${autoPlacing ? 'bg-cyan-500/30 text-cyan-200 cursor-wait' : isPreviewActive ? 'bg-slate-600/30 text-slate-300 cursor-not-allowed' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200'}`}
+              disabled={autoPlacing || swapping || isPreviewActive}
               onClick={async () => {
                 const raw = autoPlaceNumber.trim()
                 if (!raw) { alert('يرجى إدخال رقم المشارك'); return }
@@ -222,7 +355,7 @@ export default function GroupAssignmentsModal({
             <span className="text-slate-400">يفحص كل المجموعات ويملأ مقعداً فارغاً</span>
           </div>
 
-          {groupAssignments.length === 0 ? (
+          {computedDisplayGroups.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-slate-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-300 mb-2">لا توجد مجموعات</h3>
@@ -230,7 +363,7 @@ export default function GroupAssignmentsModal({
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {groupAssignments.map((group) => (
+              {computedDisplayGroups.map((group) => (
                 <div
                   key={group.group_number}
                   className={`rounded-xl overflow-hidden ${cohostTheme ? 'bg-rose-500/10 border border-rose-400/20' : 'bg-white/5 border border-white/10'}`}
@@ -261,7 +394,7 @@ export default function GroupAssignmentsModal({
                       {group.participants.map((participant) => (
                         <div
                           key={participant.number}
-                          onClick={() => !swapping && attemptSwap({ group: group.group_number, participant: participant.number })}
+                          onClick={() => !swapping && !isPreviewActive && attemptSwap({ group: group.group_number, participant: participant.number })}
                           className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-rose-500/10 to-rose-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
                             selected && selected.group === group.group_number && selected.participant === participant.number
                               ? `${cohostTheme ? 'border-rose-300 ring-2 ring-rose-400/40' : 'border-cyan-300 ring-2 ring-cyan-400/40'}`
@@ -286,7 +419,7 @@ export default function GroupAssignmentsModal({
                       {Array.from({ length: Math.max(0, 6 - group.participants.length) }).map((_, idx) => (
                         <div
                           key={`empty-${idx}`}
-                          onClick={() => !swapping && selected && selected.group !== group.group_number && attemptSwap({ group: group.group_number, participant: null })}
+                          onClick={() => !swapping && !isPreviewActive && selected && selected.group !== group.group_number && attemptSwap({ group: group.group_number, participant: null })}
                           className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border-2 border-dashed transition-all ${
                             selected && selected.group !== group.group_number
                               ? 'border-cyan-400/40 hover:border-cyan-300 cursor-pointer'
@@ -326,7 +459,7 @@ export default function GroupAssignmentsModal({
         </div>
 
         {/* Footer */}
-        {groupAssignments.length > 0 && (
+        {computedDisplayGroups.length > 0 && (
           <div className="border-t border-white/10 p-3 sm:p-4 bg-white/5">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0 text-sm">
               <div className="text-slate-400 text-xs sm:text-sm">

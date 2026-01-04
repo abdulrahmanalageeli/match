@@ -72,24 +72,42 @@ export default function ResultsPage() {
   }
 
   // Function to convert technical compatibility reason to natural Arabic description
-  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
+  // Enhanced to expose structured metrics for the new model (Synergy, Vibe, Lifestyle, Humor/Openness, Communication, Goals/Values)
+  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
     try {
-      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
       
-      // Extract scores from the technical format
+      // Extract scores (OLD model keys)
       const mbtiMatch = reason.match(/MBTI:.*?\((\d+)%\)/)
       const attachmentMatch = reason.match(/التعلق:.*?\((\d+)%\)/)
-      const communicationMatch = reason.match(/التواصل:.*?\((\d+)%\)/)
-      const lifestyleMatch = reason.match(/نمط الحياة:.*?\((\d+)%\)/)
+      const communicationOldMatch = reason.match(/التواصل:.*?\((\d+)%\)/)
+      const lifestyleOldMatch = reason.match(/نمط الحياة:.*?\((\d+)%\)/)
       const coreValuesMatch = reason.match(/القيم الأساسية:.*?\((\d+)%\)/)
-      const vibeMatch = reason.match(/التوافق الشخصي:.*?\((\d+)%\)/)
+      const vibeOldMatch = reason.match(/التوافق الشخصي:.*?\((\d+)%\)/)
       
       const mbtiScore = mbtiMatch ? parseInt(mbtiMatch[1]) || 0 : 0
       const attachmentScore = attachmentMatch ? parseInt(attachmentMatch[1]) || 0 : 0
-      const communicationScore = communicationMatch ? parseInt(communicationMatch[1]) || 0 : 0
-      const lifestyleScore = lifestyleMatch ? parseInt(lifestyleMatch[1]) || 0 : 0
+      const communicationScore = communicationOldMatch ? parseInt(communicationOldMatch[1]) || 0 : 0
+      const lifestyleScore = lifestyleOldMatch ? parseInt(lifestyleOldMatch[1]) || 0 : 0
       const coreValuesScore = coreValuesMatch ? parseInt(coreValuesMatch[1]) || 0 : 0
-      const vibeScore = vibeMatch ? parseInt(vibeMatch[1]) || 0 : 0
+      const vibeScore = vibeOldMatch ? parseInt(vibeOldMatch[1]) || 0 : 0
+
+      // Extract scores (NEW 100-pt model keys, support EN and AR labels)
+      const synergyMatch = reason.match(/(?:Synergy|التفاعل):\s*(\d+)%/)
+      const vibeNewMatch = reason.match(/(?:Vibe|الطاقة):\s*(\d+)%/)
+      const lifestyleNewMatch = reason.match(/(?:Lifestyle|نمط الحياة):\s*(\d+)%/)
+      const humorOpenMatch = reason.match(/(?:Humor\/Openness|الدعابة\/الانفتاح):\s*(\d+)%/)
+      const communicationNewMatch = reason.match(/(?:Communication|التواصل):\s*(\d+)%/)
+      const intentValuesMatch = reason.match(/(?:Goal&Values|الأهداف\/القيم):\s*(\d+)%/)
+
+      const synergyScore = synergyMatch ? parseInt(synergyMatch[1]) || 0 : 0 // max 35
+      const vibeNewScore = vibeNewMatch ? parseInt(vibeNewMatch[1]) || 0 : 0   // max 20
+      const lifestyleNewScore = lifestyleNewMatch ? parseInt(lifestyleNewMatch[1]) || 0 : 0 // max 15
+      const humorOpenScore = humorOpenMatch ? parseInt(humorOpenMatch[1]) || 0 : 0 // max 15
+      const communicationNewScore = communicationNewMatch ? parseInt(communicationNewMatch[1]) || 0 : 0 // max 10
+      const intentValuesNewScore = intentValuesMatch ? parseInt(intentValuesMatch[1]) || 0 : 0 // max 5
+
+      const hasNewModel = [synergyScore, vibeNewScore, lifestyleNewScore, humorOpenScore, communicationNewScore, intentValuesNewScore].some(s => s > 0)
     
     // Helper function to get strength level and color
     const getStrengthLevel = (score: number, maxScore: number) => {
@@ -101,16 +119,95 @@ export default function ResultsPage() {
       return { level: "منخفض", color: "text-red-400", bgColor: "bg-red-500/20", borderColor: "border-red-400/30" }
     }
     
-    // Get strength levels for each component (using actual max scores from trigger-match.mjs)
+    // New model rendering
+    const components = [] as Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>
+    if (hasNewModel) {
+      const synergyStrength = getStrengthLevel(synergyScore, 35)
+      const vibeStrengthNew = getStrengthLevel(vibeNewScore, 20)
+      const lifestyleStrengthNew = getStrengthLevel(lifestyleNewScore, 15)
+      const humorOpenStrength = getStrengthLevel(humorOpenScore, 15)
+      const communicationStrengthNew = getStrengthLevel(communicationNewScore, 10)
+      const intentStrength = getStrengthLevel(intentValuesNewScore, 5)
+
+      components.push({
+        name: "الانسجام التفاعلي",
+        strength: synergyStrength.level,
+        color: synergyStrength.color,
+        bgColor: synergyStrength.bgColor,
+        borderColor: synergyStrength.borderColor,
+        description: synergyScore >= 28 ? "انسجام عالٍ في الأدوار وعمق الحديث والراحة مع الصمت." :
+                     synergyScore >= 18 ? "انسجام جيد مع بعض الفروقات التي تحتاج تنسيق بسيط." :
+                     "اختلافات ملحوظة في أسلوب التفاعل تحتاج وقت للتأقلم."
+      })
+
+      components.push({
+        name: "الطاقة والكيمياء",
+        strength: vibeStrengthNew.level,
+        color: vibeStrengthNew.color,
+        bgColor: vibeStrengthNew.bgColor,
+        borderColor: vibeStrengthNew.borderColor,
+        description: vibeNewScore >= 14 ? "كيمياء واضحة وتوافق في الإحساس العام والحماس." :
+                     vibeNewScore >= 8 ? "انسجام لطيف في الطاقة مع مساحة للنمو." :
+                     "إيقاعات مختلفة قد تحتاجان لبعض الوقت للتقارب."
+      })
+
+      components.push({
+        name: "نمط الحياة",
+        strength: lifestyleStrengthNew.level,
+        color: lifestyleStrengthNew.color,
+        bgColor: lifestyleStrengthNew.bgColor,
+        borderColor: lifestyleStrengthNew.borderColor,
+        description: lifestyleNewScore >= 12 ? "روتين متقارب جداً في التوقيت والتخطيط والأنشطة." :
+                     lifestyleNewScore >= 8 ? "تشابه جيد في الروتين مع اختلافات بسيطة." :
+                     "إيقاعات يومية مختلفة قد تتطلب تنسيقاً."
+      })
+
+      components.push({
+        name: "الدعابة والانفتاح",
+        strength: humorOpenStrength.level,
+        color: humorOpenStrength.color,
+        bgColor: humorOpenStrength.bgColor,
+        borderColor: humorOpenStrength.borderColor,
+        description: humorOpenScore >= 12 ? "حس فكاهي متقارب وارتياح جميل للانفتاح المبكر." :
+                     humorOpenScore >= 8 ? "انسجام جيد في الدعابة ومستوى الانفتاح." :
+                     "أساليب مزاح أو انفتاح مختلفة تحتاج حساسية متبادلة."
+      })
+
+      components.push({
+        name: "أسلوب التواصل",
+        strength: communicationStrengthNew.level,
+        color: communicationStrengthNew.color,
+        bgColor: communicationStrengthNew.bgColor,
+        borderColor: communicationStrengthNew.borderColor,
+        description: communicationNewScore >= 8 ? "تفاهم سريع ولغة مشتركة واضحة." :
+                     communicationNewScore >= 5 ? "تواصل سهل إجمالاً مع حاجة أحياناً للتوضيح." :
+                     "أساليب تواصل مختلفة قد تتطلب مرونة أكبر."
+      })
+
+      components.push({
+        name: "الأهداف والقيم",
+        strength: intentStrength.level,
+        color: intentStrength.color,
+        bgColor: intentStrength.bgColor,
+        borderColor: intentStrength.borderColor,
+        description: intentValuesNewScore >= 4 ? "اتجاهات متشابهة في هدف اللقاء وما يعتبر مهماً." :
+                     intentValuesNewScore >= 2 ? "تقارب معقول في الأهداف أو القيم العامة." :
+                     "توقعات مختلفة قد تحتاج وضوحاً مبكراً."
+      })
+
+      return { components, originalReason: reason, metrics: { newModel: true, synergyScore, synergyMax: 35, synergyPercent: Math.max(0, Math.min(100, Math.round((synergyScore / 35) * 100))), vibe: vibeNewScore, lifestyle: lifestyleNewScore, humorOpen: humorOpenScore, communication: communicationNewScore, intentValues: intentValuesNewScore } }
+    }
+
+    // OLD model rendering
     const mbtiStrength = getStrengthLevel(mbtiScore, 5)
     const attachmentStrength = getStrengthLevel(attachmentScore, 5)
     const communicationStrength = getStrengthLevel(communicationScore, 10)
     const lifestyleStrength = getStrengthLevel(lifestyleScore, 15)
     const coreValuesStrength = getStrengthLevel(coreValuesScore, 20)
     const vibeStrength = getStrengthLevel(vibeScore, 20)
-    
+
     // Create natural language description
-    const components = []
+    // Reuse components array for old model
     
     if (mbtiScore > 0) {
       components.push({
@@ -190,10 +287,10 @@ export default function ResultsPage() {
       })
     }
     
-    return { components, originalReason: reason }
+    return { components, originalReason: reason, metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: vibeScore || 0, lifestyle: lifestyleScore || 0, humorOpen: 0, communication: communicationScore || 0, intentValues: coreValuesScore || 0 } }
     } catch (error) {
       console.error("Error in formatCompatibilityReason:", error)
-      return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+      return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
     }
   }
 
@@ -529,9 +626,42 @@ export default function ResultsPage() {
                                   </div>
                                 )
                               }
-                              
+                              // Synergy overview for new model
+                              const m = formattedReason.metrics
+                              const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
+                              const dims = [
+                                { label: 'الطاقة والكيمياء', value: m.vibe, max: 20, bar: 'from-purple-500 to-pink-500' },
+                                { label: 'نمط الحياة', value: m.lifestyle, max: 15, bar: 'from-cyan-500 to-blue-500' },
+                                { label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
+                                { label: 'التواصل', value: m.communication, max: 10, bar: 'from-indigo-500 to-sky-500' },
+                                { label: 'الأهداف/القيم', value: m.intentValues, max: 5, bar: 'from-emerald-500 to-teal-500' },
+                              ]
                               return (
                                 <div className="space-y-3">
+                                  {m?.newModel && (
+                                    <div className={`rounded-lg p-3 ${dark ? 'bg-slate-800/50 border border-slate-700/40' : 'bg-gray-50 border border-gray-200'}`}>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-xs font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>مؤشر الانسجام العام</span>
+                                        <span className={`text-xs font-extrabold ${m.synergyPercent >= 70 ? 'text-emerald-400' : m.synergyPercent >= 50 ? 'text-yellow-600' : 'text-orange-500'}`}>{m.synergyPercent}%</span>
+                                      </div>
+                                      <div className={`w-full h-2 rounded-full ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                                        <div className={`h-full rounded-full bg-gradient-to-r ${m.synergyPercent >= 70 ? 'from-emerald-500 to-teal-500' : m.synergyPercent >= 50 ? 'from-amber-500 to-yellow-500' : 'from-orange-500 to-red-500'}`} style={{ width: `${m.synergyPercent}%` }} />
+                                      </div>
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+                                        {dims.map((d, i) => (
+                                          <div key={i} className={`rounded-md p-2 ${dark ? 'bg-slate-900/40 border border-slate-700/40' : 'bg-white border border-gray-200'}`}>
+                                            <div className="flex items-center justify-between mb-1">
+                                              <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{d.label}</span>
+                                              <span className={`text-[11px] font-bold ${dark ? 'text-slate-300' : 'text-gray-700'}`}>{percent(d.value, d.max)}%</span>
+                                            </div>
+                                            <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                                              <div className={`h-full rounded-full bg-gradient-to-r ${d.bar}`} style={{ width: `${percent(d.value, d.max)}%` }} />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                   <h4 className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>تحليل التوافق</h4>
                                   <div className="grid grid-cols-1 gap-2">
                                     {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, compIndex: number) => (

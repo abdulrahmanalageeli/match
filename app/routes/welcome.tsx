@@ -4130,9 +4130,10 @@ export default function WelcomePage() {
   }
 
   // Function to convert technical compatibility reason to natural Arabic description
-  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string } => {
+  // Enhanced to also expose structured metrics for the new model view
+  const formatCompatibilityReason = (reason: string): { components: Array<{ name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }>; originalReason: string; metrics: { newModel: boolean; synergyScore: number; synergyMax: number; synergyPercent: number; vibe: number; lifestyle: number; humorOpen: number; communication: number; intentValues: number } } => {
     try {
-      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+      if (!reason || typeof reason !== 'string') return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
       
       // Extract scores (OLD model keys)
       const mbtiMatch = reason.match(/MBTI:.*?\((\d+)%\)/)
@@ -4255,7 +4256,7 @@ export default function WelcomePage() {
                      "توقعات مختلفة قد تحتاج وضوحاً مبكراً."
       })
 
-      return { components, originalReason: reason }
+      return { components, originalReason: reason, metrics: { newModel: true, synergyScore, synergyMax: 35, synergyPercent: Math.max(0, Math.min(100, Math.round((synergyScore / 35) * 100))), vibe: vibeNewScore, lifestyle: lifestyleNewScore, humorOpen: humorOpenScore, communication: communicationNewScore, intentValues: intentValuesScore } }
     }
     
     // Fallback to OLD model rendering
@@ -4349,10 +4350,10 @@ export default function WelcomePage() {
       })
     }
     
-    return { components, originalReason: reason }
+    return { components, originalReason: reason, metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: vibeScore || 0, lifestyle: lifestyleScore || 0, humorOpen: 0, communication: communicationScore || 0, intentValues: coreValuesScore || 0 } }
     } catch (error) {
       console.error("Error in formatCompatibilityReason:", error)
-      return { components: [], originalReason: "معلومات التوافق غير متوفرة" }
+      return { components: [], originalReason: "معلومات التوافق غير متوفرة", metrics: { newModel: false, synergyScore: 0, synergyMax: 35, synergyPercent: 0, vibe: 0, lifestyle: 0, humorOpen: 0, communication: 0, intentValues: 0 } }
     }
   }
 
@@ -9705,6 +9706,18 @@ export default function WelcomePage() {
                           {/* Compatibility Analysis Section */}
                           {(() => {
                             const formattedReason = formatCompatibilityReason(matchReason)
+                            const m = formattedReason.metrics
+                            const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
+                            const dims = [
+                              { key: 'vibe', label: 'الطاقة والكيمياء', value: m.vibe, max: 20, bar: 'from-purple-500 to-pink-500' },
+                              { key: 'lifestyle', label: 'نمط الحياة', value: m.lifestyle, max: 15, bar: 'from-cyan-500 to-blue-500' },
+                              { key: 'humorOpen', label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
+                              { key: 'communication', label: 'التواصل', value: m.communication, max: 10, bar: 'from-indigo-500 to-sky-500' },
+                              { key: 'intentValues', label: 'الأهداف/القيم', value: m.intentValues, max: 5, bar: 'from-emerald-500 to-teal-500' },
+                            ]
+                            const sorted = [...dims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
+                            const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 60).slice(0, 2)
+                            const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
                             return (
                               <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50' : 'bg-gradient-to-br from-white to-gray-50/80 border border-gray-200/50'} shadow-lg`}>
                                 {/* Header */}
@@ -9719,6 +9732,66 @@ export default function WelcomePage() {
                                     تفصيل دقيق لمستويات التوافق بينكما
                                   </p>
                                 </div>
+
+                                {/* Synergy Overview (New Model) */}
+                                {m?.newModel && (
+                                  <div className={`px-6 pt-5 ${dark ? '' : ''}`}>
+                                    <div className={`rounded-xl p-4 ${dark ? 'bg-slate-900/30 border border-slate-700/40' : 'bg-white/70 border border-gray-200/70'} `}>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className={`text-sm font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>مؤشر الانسجام العام</span>
+                                        <span className={`text-sm font-extrabold ${m.synergyPercent >= 70 ? 'text-emerald-400' : m.synergyPercent >= 50 ? 'text-yellow-500' : 'text-orange-500'}`}>{m.synergyPercent}%</span>
+                                      </div>
+                                      <div className={`w-full h-2.5 rounded-full ${dark ? 'bg-slate-700/70' : 'bg-gray-200'}`}>
+                                        <div
+                                          className={`h-full rounded-full bg-gradient-to-r ${m.synergyPercent >= 70 ? 'from-emerald-500 to-teal-500' : m.synergyPercent >= 50 ? 'from-amber-500 to-yellow-500' : 'from-orange-500 to-red-500'}`}
+                                          style={{ width: `${m.synergyPercent}%` }}
+                                        />
+                                      </div>
+
+                                      {/* Dimension mini-bars */}
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                                        {dims.map((d, i) => (
+                                          <div key={i} className={`rounded-lg p-3 ${dark ? 'bg-slate-800/40 border border-slate-700/40' : 'bg-white/70 border border-gray-200/70'}`}>
+                                            <div className="flex items-center justify-between mb-1">
+                                              <span className={`text-xs font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{d.label}</span>
+                                              <span className={`text-xs font-bold ${dark ? 'text-slate-300' : 'text-gray-700'}`}>{percent(d.value, d.max)}%</span>
+                                            </div>
+                                            <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-slate-700/70' : 'bg-gray-200'}`}>
+                                              <div
+                                                className={`h-full rounded-full bg-gradient-to-r ${d.bar}`}
+                                                style={{ width: `${percent(d.value, d.max)}%` }}
+                                              />
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      {/* Highlights & Tips */}
+                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mt-4">
+                                        {topStrengths.length > 0 && (
+                                          <div className={`${dark ? 'bg-emerald-500/10 border border-emerald-400/30' : 'bg-emerald-50 border border-emerald-200'} rounded-lg p-3`}>
+                                            <div className={`text-xs font-bold mb-1 ${dark ? 'text-emerald-300' : 'text-emerald-700'}`}>أبرز النقاط</div>
+                                            <ul className={`text-xs leading-relaxed ${dark ? 'text-emerald-100' : 'text-emerald-800'} list-disc pr-4`}> 
+                                              {topStrengths.map((d, idx) => (
+                                                <li key={idx}>{d.label}: جانب قويّ يساعد على سهولة الانسجام.</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                        {growth.length > 0 && (
+                                          <div className={`${dark ? 'bg-amber-500/10 border border-amber-400/30' : 'bg-amber-50 border border-amber-200'} rounded-lg p-3`}>
+                                            <div className={`text-xs font-bold mb-1 ${dark ? 'text-amber-300' : 'text-amber-700'}`}>نقاط تحتاج رعاية</div>
+                                            <ul className={`text-xs leading-relaxed ${dark ? 'text-amber-100' : 'text-amber-800'} list-disc pr-4`}>
+                                              {growth.map((d, idx) => (
+                                                <li key={idx}>{d.label}: خذا دقائق إضافية للتوضيح، وابدآ بأسئلة بسيطة وشفافة.</li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
 
                                 {/* Compatibility Cards */}
                                 <div className="p-6 space-y-3">

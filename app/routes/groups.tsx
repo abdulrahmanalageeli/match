@@ -34,7 +34,8 @@ import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
 import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
-import logoPng from "../welcome/blindmatch.png";
+import { EnhancedHeader } from "../components/groups/EnhancedHeader";
+import { ProfessionalGameCard } from "../components/groups/ProfessionalGameCard";
 
 // Logo Component for Groups Page - Removed (now integrated into header)
 
@@ -1303,80 +1304,24 @@ export default function GroupsPage() {
           </p>
         </div>
 
-        {/* Professional game cards with stagger animation */}
+        {/* Professional game cards with stagger animation (reused component) */}
         <div className="grid grid-cols-1 gap-4">
           {games.map((game, index) => (
-            <div 
+            <div
               key={game.id}
               className="animate-in slide-in-from-right duration-300"
-              style={{animationDelay: `${index * 100}ms`}}
+              style={{ animationDelay: `${index * 100}ms` }}
             >
-              <div 
-                className="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] overflow-hidden" 
-                onClick={() => startGame(game.id)}
-              >
-                {/* Background gradient effect */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
-                
-                {/* Decorative circles */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl"></div>
-                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-tr from-white/5 to-transparent rounded-full blur-2xl"></div>
-
-                {/* Recommended badge for first game */}
-                {index === 0 && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5 fill-current" />
-                      <span>موصى به</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* NEW badge for the 'what-would-you-do' game (left corner, same style as recommended) */}
-                {game.id === 'what-would-you-do' && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <div className="bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5 fill-current" />
-                      <span>لعبة جديدة</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="relative z-10 flex items-start gap-4">
-                  {/* Enhanced icon with rotation on hover */}
-                  <div className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3`}>
-                    {game.icon}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-blue-400 transition-all duration-300">
-                      {game.nameAr}
-                    </h3>
-                    <p className="text-slate-300 text-sm leading-relaxed mb-3">
-                      {game.descriptionAr}
-                    </p>
-
-                    {/* Meta information */}
-                    <div className="flex items-center gap-4 text-slate-400 text-xs mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{game.duration} دقائق</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>3-6 أشخاص</span>
-                      </div>
-                    </div>
-
-                    {/* Play button hint with smooth animation */}
-                    <div className="flex items-center gap-2 text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-                      <span>ابدأ اللعبة</span>
-                      <ChevronLeft className="w-4 h-4" />
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ProfessionalGameCard
+                id={game.id}
+                nameAr={game.nameAr}
+                descriptionAr={game.descriptionAr}
+                icon={game.icon}
+                color={game.color}
+                duration={game.duration}
+                onSelect={(id) => startGame(id)}
+                recommended={index === 0}
+              />
             </div>
           ))}
         </div>
@@ -1441,7 +1386,7 @@ export default function GroupsPage() {
         </div>
 
         {currentGame.id === "discussion-questions" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">
@@ -1481,7 +1426,7 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "never-have-i-ever" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">لم أفعل من قبل</h3>
@@ -1535,7 +1480,7 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "what-would-you-do" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-2">ماذا تفعل لو؟</h3>
@@ -1593,7 +1538,7 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "two-truths-lie" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6 text-center">
               <div className="space-y-4 text-slate-300">
                 <p>قل ثلاث عبارات عن نفسك:</p>
@@ -1609,7 +1554,7 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "5-second-rule" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">قاعدة الخمس ثواني</h3>
@@ -1746,7 +1691,7 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "would-you-rather" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">ماذا تفضل؟</h3>
@@ -1802,7 +1747,7 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "charades" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-white/5 border-white/10 backdrop-blur-xl">
             <CardContent className="p-6">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-white mb-4">ولا كلمة</h3>
@@ -2035,6 +1980,15 @@ export default function GroupsPage() {
 
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
         <div className="max-w-md mx-auto px-4 py-6">
+          <EnhancedHeader
+            timeRemaining={timeRemaining}
+            participantName={participantName}
+            participantNumber={participantNumber}
+            tableNumber={tableNumber}
+            groupMembers={groupMembers}
+            onGoHome={() => { window.location.href = "/welcome"; }}
+            onShowHelp={() => setShowGroupGuide(true)}
+          />
           {/* Enhanced Mobile-First Header with Animations */}
           <div className="text-center mb-6 animate-in fade-in duration-500">
             <div className="relative inline-block mb-4 animate-in zoom-in duration-500" style={{animationDelay: '200ms'}}>
@@ -2059,53 +2013,11 @@ export default function GroupsPage() {
             </div>
           </div>
 
-          {/* Navigation Bar - Similar to main page */}
-          {dataLoaded && participantName && participantNumber && (
-            <div className="mb-6">
-              <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-3 border border-slate-600/50 shadow-md backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  {/* Logo */}
-                  <div 
-                    onClick={() => window.location.href = "/welcome"}
-                    className="cursor-pointer transition-all duration-200 hover:opacity-80"
-                  >
-                    <img 
-                      src={logoPng} 
-                      alt="BlindMatch" 
-                      className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain" 
-                    />
-                  </div>
-
-                  {/* Participant Info */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-sm">
-                        #{participantNumber}
-                      </div>
-                      <span className="text-white/90 text-sm font-medium">
-                        {participantName}
-                      </span>
-                    </div>
-
-                    {/* Table Number */}
-                    {(tableNumber !== null && tableNumber !== undefined) && (
-                      <>
-                        <div className="w-px h-4 bg-slate-600"></div>
-                        <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-green-300 flex items-center gap-1.5">
-                          <Target className="w-3 h-3" />
-                          <span>طاولة {tableNumber}</span>
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Header handled by EnhancedHeader above */}
 
           {/* Enhanced Instructions Card with Professional Design */}
           <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '600ms'}}>
-            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
               <div className="bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 p-5 border-b border-slate-600/50">
                 <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
                   <BookOpen className="w-6 h-6 text-cyan-400" />
@@ -2153,7 +2065,7 @@ export default function GroupsPage() {
 
           {/* Enhanced Games Preview with Professional Grid */}
           <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '700ms'}}>
-            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
               <div className="bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-rose-500/20 p-5 border-b border-slate-600/50">
                 <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
                   <Sparkles className="w-6 h-6 text-purple-400" />
@@ -2163,29 +2075,21 @@ export default function GroupsPage() {
               </div>
               <div className="p-5 grid grid-cols-2 gap-4">
                 {games.map((game, index) => (
-                  <div 
-                    key={game.id} 
-                    onClick={() => {
-                      // Start session and directly select this game
-                      setGameStarted(true);
-                      setTimerActive(true);
-                      startGame(game.id);
-                    }}
-                    className="group relative bg-gradient-to-br from-slate-700/60 to-slate-800/60 rounded-2xl p-4 text-center cursor-pointer transition-all duration-300 hover:from-slate-700 hover:to-slate-800 hover:scale-105 active:scale-95 shadow-lg hover:shadow-2xl border border-slate-600/30 hover:border-cyan-500/50 overflow-hidden"
-                  >
-                    {/* Hover glow effect */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
-                    
-                    <div className="relative z-10">
-                      <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
-                        {game.icon}
-                      </div>
-                      <h3 className="text-white font-bold text-sm mb-2 leading-tight group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
-                      <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs">
-                        <Clock className="w-3 h-3" />
-                        <span>{game.duration} دقائق</span>
-                      </div>
-                    </div>
+                  <div key={game.id}>
+                    <ProfessionalGameCard
+                      id={game.id}
+                      nameAr={game.nameAr}
+                      descriptionAr={game.descriptionAr}
+                      icon={game.icon}
+                      color={game.color}
+                      duration={game.duration}
+                      onSelect={(id) => {
+                        setGameStarted(true);
+                        setTimerActive(true);
+                        startGame(id);
+                      }}
+                      recommended={index === 0}
+                    />
                   </div>
                 ))}
               </div>
@@ -2230,101 +2134,32 @@ export default function GroupsPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
-        {/* Professional Sticky Header with Glassmorphism */}
-        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl mb-4 p-4 animate-in slide-in-from-top duration-300">
-          <div className="relative flex items-center justify-center mb-4">
-            {/* Logo with hover effect - centered */}
-            <button 
-              onClick={() => window.location.href = "/welcome"}
-              className="flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
+        <EnhancedHeader
+          timeRemaining={timeRemaining}
+          participantName={participantName}
+          participantNumber={participantNumber}
+          tableNumber={tableNumber}
+          groupMembers={groupMembers}
+          currentGame={selectedGameId ? games.find(g => g.id === selectedGameId)?.nameAr : undefined}
+          onGoHome={() => { window.location.href = "/welcome"; }}
+          onShowHelp={() => { setShowHowToModal(true); setHowToSlide(0); }}
+        />
+
+        {/* Back pill below header when a game is selected */}
+        {selectedGameId && (
+          <div className="mt-2 mb-2">
+            <button
+              onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-slate-200 hover:text-white hover:bg-white/10 transition-colors text-xs"
             >
-              <img 
-                src={logoPng} 
-                alt="BlindMatch" 
-                className="w-10 h-10 object-contain drop-shadow-lg" 
-              />
+              <ChevronLeft className="w-4 h-4" />
+              عودة
             </button>
-
-            {/* Back Button with smooth transition - positioned absolutely on left */}
-            {selectedGameId && (
-              <button
-                onClick={() => {
-                  setSelectedGameId(null);
-                  setGamePhase('intro');
-                }}
-                className="absolute left-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-700/50 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 transition-all duration-200 text-slate-300 hover:text-cyan-300 text-sm font-medium shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95"
-              >
-                <ChevronLeft className="w-4 h-4" />
-                <span>عودة</span>
-              </button>
-            )}
-            
           </div>
-
-          {/* Beautiful Google-Quality Timer */}
-          <div className="space-y-3">
-            {/* Elegant Timer Display */}
-            <div className="relative">
-              <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-4 px-6 transition-all duration-500 ${
-                timeRemaining <= 300 ? 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent' : 
-                timeRemaining <= 600 ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 
-                'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent'
-              }`}>
-                <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-light tabular-nums tracking-tight ${
-                    timeRemaining <= 300 ? 'text-red-400' : 
-                    timeRemaining <= 600 ? 'text-amber-400' : 
-                    'text-emerald-400'
-                  }`}>
-                    {formatTime(timeRemaining)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Clock className={`w-3.5 h-3.5 ${
-                    timeRemaining <= 300 ? 'text-red-400/60' : 
-                    timeRemaining <= 600 ? 'text-amber-400/60' : 
-                    'text-emerald-400/60'
-                  }`} />
-                  <span className={`text-xs font-medium ${
-                    timeRemaining <= 300 ? 'text-red-400/80' : 
-                    timeRemaining <= 600 ? 'text-amber-400/80' : 
-                    'text-emerald-400/80'
-                  }`}>
-                    {timeRemaining <= 300 ? 'انتهى الوقت قريباً!' : timeRemaining <= 600 ? 'الوقت ينفد' : 'الوقت المتبقي'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* How-To button: centered under the timer */}
-            <div className="flex flex-col items-center justify-center">
-              <button
-                onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
-                title="اضغط بعد انتهاء وقت الأنشطة"
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span className="font-semibold">شرح الدخول للجولة الفردية</span>
-              </button>
-              <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
-            </div>
-
-            {/* Current Game Badge - Sleek Design */}
-            {selectedGameId && (
-              <div className="flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border border-white/10">
-                <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg`}>
-                  {games.find(g => g.id === selectedGameId)?.icon}
-                </div>
-                <span className="text-sm font-medium text-white/90">
-                  {games.find(g => g.id === selectedGameId)?.nameAr}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Mobile Game Content */}
-        <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl overflow-hidden">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-4 shadow-xl overflow-hidden">
           {renderGameContent()}
         </div>
 

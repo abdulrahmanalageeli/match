@@ -3373,13 +3373,24 @@ export default async function handler(req, res) {
       
       // Create and insert match record (skip in test mode)
       if (!manualMatch.testModeOnly) {
-        
+        // Build reason string (new-model) for consistent UI parsing
+        const reasonStr =
+          `Synergy: ${Math.round(Number(compatibilityResult.synergyScore ?? 0))}% + ` +
+          `Vibe: ${Math.round(Number(vibeScore || 0))}% + ` +
+          `Lifestyle: ${Math.round(Number(lifestyleScore || 0))}% + ` +
+          `Humor/Openness: ${Math.round(Number(compatibilityResult.humorOpenScore ?? 0))}% + ` +
+          `Communication: ${Math.round(Number(communicationScore || 0))}% + ` +
+          `Intent: ${Math.round(Number(compatibilityResult.intentScore ?? 0))}%` +
+          (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
+          (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
+
         const matchRecord = {
           match_id,
           event_id: eventId,
           participant_a_number: p1.assigned_number,
           participant_b_number: p2.assigned_number,
           compatibility_score: totalCompatibility,
+          reason: reasonStr,
           mbti_compatibility_score: mbtiScore,
           attachment_compatibility_score: attachmentScore,
           communication_compatibility_score: communicationScore,
@@ -4069,17 +4080,54 @@ export default async function handler(req, res) {
           const p1Data = participants.find(p => p.assigned_number === participant1)
           const p2Data = participants.find(p => p.assigned_number === participant2)
           
+          // If we couldn't find precomputed compatibility data (due to gates/filters), compute fresh for UI consistency
+          let calc = compatibilityData
+          if (!calc) {
+            try {
+              const fresh = await calculateFullCompatibilityWithCache(p1Data, p2Data, skipAI, true)
+              // Normalize a minimal object matching fields we use below
+              calc = {
+                score: Math.round(fresh.totalScore),
+                synergyScore: fresh.synergyScore ?? 0,
+                humorOpenScore: fresh.humorOpenScore ?? 0,
+                intentScore: fresh.intentScore ?? 0,
+                vibeScore: fresh.vibeScore ?? 0,
+                lifestyleScore: fresh.lifestyleScore ?? 0,
+                communicationScore: fresh.communicationScore ?? 0,
+                attachmentPenaltyApplied: !!fresh.attachmentPenaltyApplied,
+                capApplied: fresh.capApplied ?? null,
+              }
+            } catch (e) {
+              // Fallback to minimal structure; reason will use original score text
+              calc = null
+            }
+          }
+
           used.add(participant1)
           used.add(participant2)
           
           const key = `${Math.min(participant1, participant2)}-${Math.max(participant1, participant2)}`
           matchedPairs.add(key)
           
+          // Build a new-model reason string when we have calc (precomputed or fresh)
+          const reasonStr = calc
+            ? (
+                `Synergy: ${Math.round(Number(calc.synergyScore || 0))}% + ` +
+                `Vibe: ${Math.round(Number(calc.vibeScore || 0))}% + ` +
+                `Lifestyle: ${Math.round(Number(calc.lifestyleScore || 0))}% + ` +
+                `Humor/Openness: ${Math.round(Number(calc.humorOpenScore || 0))}% + ` +
+                `Communication: ${Math.round(Number(calc.communicationScore || 0))}% + ` +
+                `Intent: ${Math.round(Number(calc.intentScore || 0))}%` +
+                (calc.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
+                (calc.capApplied ? ` (capped @ ${calc.capApplied}%)` : '')
+              )
+            : `🔒 Locked Match (Original: ${lockedMatch.original_compatibility_score}%)`
+
           roundMatches.push({
             participant_a_number: participant1,
             participant_b_number: participant2,
-            compatibility_score: compatibilityData ? Math.round(compatibilityData.score) : (lockedMatch.original_compatibility_score || 85),
-            reason: compatibilityData ? compatibilityData.reason : `🔒 Locked Match (Original: ${lockedMatch.original_compatibility_score}%)`,
+            compatibility_score: compatibilityData ? Math.round(compatibilityData.score) : (calc?.score ?? lockedMatch.original_compatibility_score ?? 85),
+            reason: reasonStr,
             match_id,
             event_id: eventId,
             round,
@@ -4109,9 +4157,9 @@ export default async function handler(req, res) {
             core_values_compatibility_score: compatibilityData?.coreValuesScore || 15,
             vibe_compatibility_score: compatibilityData?.vibeScore || 10,
             // New-model persisted fields
-            synergy_score: compatibilityData?.synergyScore ?? 0,
-            humor_open_score: compatibilityData?.humorOpenScore ?? 0,
-            intent_score: compatibilityData?.intentScore ?? 0,
+            synergy_score: (compatibilityData?.synergyScore ?? calc?.synergyScore) ?? 0,
+            humor_open_score: (compatibilityData?.humorOpenScore ?? calc?.humorOpenScore) ?? 0,
+            intent_score: (compatibilityData?.intentScore ?? calc?.intentScore) ?? 0,
             humor_multiplier: compatibilityData?.humorMultiplier ?? 1.0,
             attachment_penalty_applied: !!compatibilityData?.attachmentPenaltyApplied,
             intent_boost_applied: !!compatibilityData?.intentBoostApplied,

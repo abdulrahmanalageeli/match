@@ -1398,19 +1398,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         continue
       }
       
-      // Hard gates before soft compatibility
-      if (!checkNationalityHardGate(a, b)) {
-        constraintViolations.nationality.push(`${a.assigned_number}×${b.assigned_number}`)
-        continue
-      }
-      if (!checkAgeRangeHardGate(a, b)) {
-        constraintViolations.ageRange.push(`${a.assigned_number}×${b.assigned_number}`)
-        continue
-      }
-      if (!checkIntentHardGate(a, b)) {
-        constraintViolations.ageRange.push(`${a.assigned_number}×${b.assigned_number}`)
-        continue
-      }
+      // Note: Nationality, preferred age-range, and intent hard gates are DISABLED for groups.
+      // Keep these hard gates for individual matching flows only.
       
       // Check age compatibility
       if (!checkAgeCompatibility(a, b)) {
@@ -1439,17 +1428,26 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
       
-      // Total compatibility (0-75% without AI vibe)
-      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore
+      // Add Interaction Synergy (Q35..41) and Humor & Openness into group pair score
+      // Synergy raw: 0..35 → scale to 0..20; Humor/Openness raw: 0..15 → scale to 0..10 (veto sets humor to 0)
+      const synergyRaw = calculateInteractionSynergyScore(a, b)
+      const { score: humorOpenRaw, vetoClash } = calculateHumorOpennessScore(a, b)
+      const synergyScore = Math.max(0, Math.min(20, (synergyRaw / 35) * 20))
+      const humorOpenScore = vetoClash ? 0 : Math.max(0, Math.min(10, (humorOpenRaw / 15) * 10))
+      
+      // Total compatibility (0-85% without AI vibe)
+      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + synergyScore + humorOpenScore
       
       pairScores.push({
         participants: [a.assigned_number, b.assigned_number],
-        score: totalScore, // Use total score instead of just MBTI
+        score: totalScore, // Use total score with synergy & humor/open
         mbtiScore,
         attachmentScore,
         communicationScore,
         lifestyleScore,
-        coreValuesScore
+        coreValuesScore,
+        synergyScore,
+        humorOpenScore
       })
     }
   }
@@ -1479,9 +1477,9 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     }
   }
   
-  console.log(`\n📊 Top compatibility pairs for groups (0-75% without AI):`)
+  console.log(`\n📊 Top compatibility pairs for groups (0-85% without AI):`)
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (MBTI: ${pair.mbtiScore}%, Attach: ${pair.attachmentScore}%, Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${pair.coreValuesScore}%)`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (MBTI: ${pair.mbtiScore}%, Attach: ${pair.attachmentScore}%, Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${pair.coreValuesScore}%, Interact: ${Math.round(pair.synergyScore)}%, Humor/Open: ${Math.round(pair.humorOpenScore)}%)`)
   })
 
   // Enhanced group formation algorithm with fallback support
@@ -1696,7 +1694,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       participant_numbers: group, // Array of participant numbers
       participant_names: participantNames, // Array of participant names
       compatibility_score: Math.round(groupScore),
-      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 75%)`,
+      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 85%)`,
       table_number: tableNumber,
       event_id: eventId,
       conversation_status: 'pending'
@@ -1803,10 +1801,10 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         continue
       }
 
-      // 5) Base score from pairwise compatibility (0-75%)
+      // 5) Base score from pairwise compatibility (0-85%)
       let score = calculateGroupCompatibilityScore(combination, pairScores)
 
-      // Bonuses/Penalties (unchanged)
+      // Bonuses/Penalties (extended with synergy group bonuses)
       if (ages.length === combination.length) {
         const ageRange = Math.max(...ages) - Math.min(...ages)
         if (ageRange <= 3) {
@@ -1821,19 +1819,69 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
           console.log(`   ✨ I/E balance bonus: +3% (${introvertCount}I, ${extrovertCount}E)`) 
         }
       }
-      const humorStyles = combination.map(participantNum => {
+      // Humor/Banter style dynamics (use survey answers: humor_banter_style A/B/C/D)
+      const banterStyles = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.survey_data?.humorStyle
+        return (
+          participant?.humor_banter_style ||
+          participant?.survey_data?.humor_banter_style ||
+          participant?.survey_data?.answers?.humor_banter_style
+        )
       }).filter(Boolean)
-      if (humorStyles.length >= 2) {
-        if (humorStyles.includes('dark') && humorStyles.includes('wholesome')) {
+      if (banterStyles.length >= 2) {
+        // Clash: presence of both A (خفة دم وضحك) and D (المباشرة والجدية)
+        if (banterStyles.includes('A') && banterStyles.includes('D')) {
           score -= 5
-          console.log(`   ⚠️ Humor clash penalty: -5% (dark + wholesome)`) 
+          console.log(`   ⚠️ Humor clash penalty: -5% (A + D styles present)`) 
         }
-        const uniqueHumor = new Set(humorStyles).size
-        if (uniqueHumor <= 2) {
+        const uniqueBanter = new Set(banterStyles).size
+        if (uniqueBanter <= 2) {
           score += 3
-          console.log(`   ✨ Humor compatibility bonus: +3% (${uniqueHumor} styles)`) 
+          console.log(`   ✨ Humor compatibility bonus: +3% (${uniqueBanter} styles)`) 
+        }
+      }
+
+      // Synergy group bonus 1: Role coverage (Q35 conversational_role A/B/C)
+      const roles = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return (
+          participant?.survey_data?.answers?.conversational_role ||
+          participant?.conversational_role ||
+          participant?.survey_data?.conversational_role
+        )
+      }).filter(Boolean).map(v => String(v).toUpperCase())
+      if (roles.length >= 2) {
+        const uniqueRoles = new Set(roles)
+        if (uniqueRoles.size >= 2) {
+          score += 3
+          console.log(`   ✨ Role coverage bonus: +3% (≥2 roles: ${Array.from(uniqueRoles).join('/')})`)
+        }
+        if (uniqueRoles.size === 3) {
+          score += 3
+          console.log(`   ✨ Full role trio bonus: +3% (A/B/C present)`) 
+        }
+      }
+
+      // Synergy group bonus 2: Curiosity/flow fit (Q39 curiosity_style A/B/C)
+      const curiosity = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return (
+          participant?.survey_data?.answers?.curiosity_style ||
+          participant?.curiosity_style ||
+          participant?.survey_data?.curiosity_style
+        )
+      }).filter(Boolean).map(v => String(v).toUpperCase())
+      if (curiosity.length >= 2) {
+        const hasA = curiosity.includes('A')
+        const hasB = curiosity.includes('B')
+        const hasC = curiosity.includes('C')
+        if (hasA && hasB) {
+          score += 4
+          console.log(`   ✨ Curiosity pairing bonus: +4% (A asks × B likes being asked)`) 
+        }
+        if (hasC) {
+          score += 2
+          console.log(`   ✨ Flow/banter bonus: +2% (C present)`) 
         }
       }
       if (targetSize === 4) {
@@ -2053,6 +2101,44 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       
       // Bonus for conversation depth compatibility
       if (hasConversationCompatibility) adjustedScore += 3
+
+      // Synergy group bonus 1: Role coverage (Q35)
+      if (eligibleParticipants) {
+        const roles = combination.map(participantNum => {
+          const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+          return (
+            participant?.survey_data?.answers?.conversational_role ||
+            participant?.conversational_role ||
+            participant?.survey_data?.conversational_role
+          )
+        }).filter(Boolean).map(v => String(v).toUpperCase())
+        if (roles.length >= 2) {
+          const uniqueRoles = new Set(roles)
+          if (uniqueRoles.size >= 2) {
+            adjustedScore += 3
+          }
+          if (uniqueRoles.size === 3) {
+            adjustedScore += 3
+          }
+        }
+
+        // Synergy group bonus 2: Curiosity/flow fit (Q39)
+        const curiosity = combination.map(participantNum => {
+          const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+          return (
+            participant?.survey_data?.answers?.curiosity_style ||
+            participant?.curiosity_style ||
+            participant?.survey_data?.curiosity_style
+          )
+        }).filter(Boolean).map(v => String(v).toUpperCase())
+        if (curiosity.length >= 2) {
+          const hasA = curiosity.includes('A')
+          const hasB = curiosity.includes('B')
+          const hasC = curiosity.includes('C')
+          if (hasA && hasB) adjustedScore += 4
+          if (hasC) adjustedScore += 2
+        }
+      }
       
       if (adjustedScore > bestScore) {
         bestScore = adjustedScore
@@ -2135,7 +2221,7 @@ function calculateParticipantGroupCompatibility(participant, group, pairScores) 
   return pairCount > 0 ? totalScore / pairCount : 0
 }
 
-// Helper function to calculate group compatibility score (0-75% without AI vibe)
+// Helper function to calculate group compatibility score (0-85% without AI vibe)
 function calculateGroupCompatibilityScore(group, pairScores) {
   let totalScore = 0
   let pairCount = 0
@@ -2154,7 +2240,7 @@ function calculateGroupCompatibilityScore(group, pairScores) {
     }
   }
   
-  // Return average compatibility score (0-75% without AI vibe)
+  // Return average compatibility score (0-85% without AI vibe)
   const averageScore = pairCount > 0 ? totalScore / pairCount : 0
   return averageScore
 }

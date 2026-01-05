@@ -408,6 +408,10 @@ export default function ParticipantResultsModal({
                                    otherParticipantFromData?.survey_data?.answers?.name ||
                                    `المشارك #${otherParticipantNumber}`
       
+      // Intent letters from backend mapping
+      const intentSelf = pair.participant_a === participantNumber ? (pair.intent_a || null) : (pair.intent_b || null)
+      const intentOther = pair.participant_a === participantNumber ? (pair.intent_b || null) : (pair.intent_a || null)
+
       return {
         participant_number: otherParticipantNumber,
         participant_name: otherParticipantName,
@@ -422,6 +426,10 @@ export default function ParticipantResultsModal({
         synergy_score: pair.synergy_score,
         humor_open_score: pair.humor_open_score,
         intent_score: pair.intent_score,
+        intent_a: pair.intent_a,
+        intent_b: pair.intent_b,
+        intent_self: intentSelf,
+        intent_other: intentOther,
         // Gates & bonuses
         attachment_penalty_applied: pair.attachment_penalty_applied,
         intent_boost_applied: pair.intent_boost_applied,
@@ -714,7 +722,21 @@ export default function ParticipantResultsModal({
                             participant.is_organizer_match 
                               ? 'bg-gradient-to-r from-red-500/10 to-transparent border-red-500/20' 
                               : index < 3 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent' : ''
-                          }`}
+                          } ${(() => {
+                            // Highlight when viewer intent is B and partner intent is non-B
+                            const x = participant.assigned_number
+                            const y = participant.partner_assigned_number
+                            if (!y) return ''
+                            const pair = (calculatedPairs || []).find((p: any) => {
+                              const a = p.participant_a
+                              const b = p.participant_b
+                              return (a === x && b === y) || (a === y && b === x)
+                            })
+                            if (!pair) return ''
+                            const own = pair.participant_a === x ? (pair.intent_a || '') : (pair.intent_b || '')
+                            const other = pair.participant_a === x ? (pair.intent_b || '') : (pair.intent_a || '')
+                            return own === 'B' && other && other !== 'B' ? 'bg-red-500/10 border-red-400/20' : ''
+                          })()}`}
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-2">
@@ -1297,6 +1319,25 @@ export default function ParticipantResultsModal({
                                       <Tooltip.Portal>
                                         <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
                                           <div className="space-y-1">
+                                            {(() => {
+                                              const x = participant.assigned_number
+                                              const y = participant.partner_assigned_number
+                                              if (!y) return null
+                                              const pair = (calculatedPairs || []).find((p: any) => {
+                                                const a = p.participant_a
+                                                const b = p.participant_b
+                                                return (a === x && b === y) || (a === y && b === x)
+                                              })
+                                              if (!pair) return null
+                                              const own = pair.participant_a === x ? (pair.intent_a || '') : (pair.intent_b || '')
+                                              const other = pair.participant_a === x ? (pair.intent_b || '') : (pair.intent_a || '')
+                                              if (own === 'B' && other && other !== 'B') {
+                                                return (
+                                                  <div className="text-red-300">• اختلاف الهدف: B × {other}</div>
+                                                )
+                                              }
+                                              return null
+                                            })()}
                                             {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
                                               <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {pair.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
                                               </div>

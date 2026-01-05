@@ -2496,10 +2496,9 @@ export default async function handler(req, res) {
           continue
         }
         
-        // Hard gates
+        // Hard gates (intent no longer hard-gated)
         if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
         if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
-        if (!checkIntentHardGate(p1, p2)) { skipped++; continue }
 
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
@@ -2783,11 +2782,6 @@ export default async function handler(req, res) {
           skipped++
           continue
         }
-        if (!checkIntentHardGate(p1, p2)) {
-          console.log(`   🚫 SKIPPED: Intent hard gate failed`)
-          skipped++
-          continue
-        }
 
         // Check age compatibility
         if (!checkAgeCompatibility(p1, p2)) {
@@ -3060,13 +3054,12 @@ export default async function handler(req, res) {
       // Filter potential matches by gender compatibility
       const genderCompatibleMatches = potentialMatches.filter(potentialMatch => checkGenderCompatibility(targetParticipant, potentialMatch))
       console.log(`🎯 Gender filtering: ${potentialMatches.length} total → ${genderCompatibleMatches.length} gender-compatible matches`)
-      // Apply hard gates (nationality + age range + intent)
+      // Apply hard gates (nationality + age range). Intent is no longer a hard gate.
       const hardGateCompatibleMatches = genderCompatibleMatches.filter(p =>
         checkNationalityHardGate(targetParticipant, p) &&
-        checkAgeRangeHardGate(targetParticipant, p) &&
-        checkIntentHardGate(targetParticipant, p)
+        checkAgeRangeHardGate(targetParticipant, p)
       )
-      console.log(`🎯 Hard-gate filtering: ${genderCompatibleMatches.length} → ${hardGateCompatibleMatches.length}`)
+      console.log(`🎯 Hard-gate filtering (no intent): ${genderCompatibleMatches.length} → ${hardGateCompatibleMatches.length}`)
       
       if (genderCompatibleMatches.length === 0) {
         return res.status(400).json({ 
@@ -3212,6 +3205,8 @@ export default async function handler(req, res) {
           
           const totalCompatibility = Math.round(compatibilityResult.totalScore)
           
+          const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
+          const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
           calculatedPairs.push({
             participant_a: targetParticipant.assigned_number,
             participant_b: potentialMatch.assigned_number,
@@ -3229,6 +3224,8 @@ export default async function handler(req, res) {
             synergy_score: compatibilityResult.synergyScore,                 // 0-35
             humor_open_score: compatibilityResult.humorOpenScore,           // 0-15
             intent_score: compatibilityResult.intentScore,                  // 0-5 (Goal & Values)
+            intent_a: intentA,
+            intent_b: intentB,
             attachment_penalty_applied: compatibilityResult.attachmentPenaltyApplied || false,
             intent_boost_applied: compatibilityResult.intentBoostApplied || false,
             dead_air_veto_applied: compatibilityResult.deadAirVetoApplied || false,
@@ -3853,10 +3850,7 @@ export default async function handler(req, res) {
           skippedAge++
           continue
         }
-        if (!checkIntentHardGate(a, b)) {
-          skippedAge++
-          continue
-        }
+        // Intent is no longer a hard gate; keep scoring-only preference
         
         // Check interaction style compatibility (matching determinants)
         if (!checkInteractionStyleCompatibility(a, b)) {
@@ -4016,6 +4010,10 @@ export default async function handler(req, res) {
           reason += ` × مضاعف الدعابة المتشابهة: (×${humorMultiplier})`
         }
         
+        // Capture intent letters for UI highlighting
+        const aIntent = String((a?.survey_data?.answers?.intent_goal ?? a?.intent_goal ?? '')).toUpperCase()
+        const bIntent = String((b?.survey_data?.answers?.intent_goal ?? b?.intent_goal ?? '')).toUpperCase()
+
         compatibilityScores.push({
           a: a.assigned_number,
           b: b.assigned_number,
@@ -4038,6 +4036,9 @@ export default async function handler(req, res) {
           deadAirVetoApplied: deadAirVetoApplied,
           humorClashVetoApplied: humorClashVetoApplied,
           capApplied: capApplied,
+          // Intent letters for admin UI
+          aIntent: aIntent,
+          bIntent: bIntent,
           // Store personality data for later use
           aMBTI: aMBTI,
           bMBTI: bMBTI,
@@ -4544,6 +4545,8 @@ export default async function handler(req, res) {
       synergy_score: pair.synergyScore ?? 0,
       humor_open_score: pair.humorOpenScore ?? 0,
       intent_score: pair.intentScore ?? 0,
+      intent_a: pair.aIntent || null,
+      intent_b: pair.bIntent || null,
       attachment_penalty_applied: !!pair.attachmentPenaltyApplied,
       intent_boost_applied: !!pair.intentBoostApplied,
       dead_air_veto_applied: !!pair.deadAirVetoApplied,

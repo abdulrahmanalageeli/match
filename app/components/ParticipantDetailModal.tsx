@@ -19,6 +19,8 @@ interface ParticipantMatch {
   synergy_score?: number
   humor_open_score?: number
   intent_score?: number
+  intent_self?: string
+  intent_other?: string
   // Gates & bonuses flags (optional)
   attachment_penalty_applied?: boolean
   intent_boost_applied?: boolean
@@ -277,7 +279,9 @@ export default function ParticipantDetailModal({
                             match.is_actual_match ? 'bg-gradient-to-r from-green-500/10 to-transparent' : ''
                           } ${
                             index < 3 && !match.is_actual_match ? 'bg-gradient-to-r from-blue-500/5 to-transparent' : ''
-                          }`}
+                          } ${(
+                            match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B'
+                          ) ? 'bg-red-500/10 border-red-400/20' : ''}`}
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-2">
@@ -614,6 +618,9 @@ export default function ParticipantDetailModal({
                                       <Tooltip.Portal>
                                         <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
                                           <div className="space-y-1">
+                                            {match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B' && (
+                                              <div className="text-red-300">• اختلاف الهدف: B × {match.intent_other}</div>
+                                            )}
                                             {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
                                               <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {match.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
                                               </div>

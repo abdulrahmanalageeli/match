@@ -45,6 +45,85 @@ const SYNERGY_QUESTIONS: Record<string, string> = {
   silence_comfort: "لو صار فيه هدوء مفاجئ في الجلسة، وش يكون شعورك؟",
 }
 
+// Option label mappings (aligned with SurveyComponent.tsx)
+const SYNERGY_OPTIONS: Record<string, Record<string, string>> = {
+  conversational_role: {
+    A: "أ. المبادر: أنا اللي أفتح المواضيع وأحرك الجو.",
+    B: "ب. المتفاعل: أشارك بحماس وأرد على اللي ينقال.",
+    C: "ج. المستمع: أحب أسمع أكثر من إني أتكلم وأركز في التفاصيل.",
+  },
+  conversation_depth_pref: {
+    A: "أ. العميقة: أحب نحلل \"ليه وكيف\" ونغوص في الفلسفة والأسباب.",
+    B: "ب. الواقعية: أحب نتكلم عن \"وش صار ومتى\" وأخبار اليوم والأشياء الملموسة.",
+  },
+  social_battery: {
+    A: "أ. تزيد: أحس إني نشطت وأبي أكمل السهرة.",
+    B: "ب. تقل: استمتعت بس أحس \"بطاريتي\" بدت تخلص وأحتاج هدوء.",
+  },
+  humor_subtype: {
+    A: "أ. الذبّات والسرعة: الذكاء في الرد والسخرية الخفيفة.",
+    B: "ب. المواقف العفوية: الأشياء اللي تصير فجأة وبدون تخطيط.",
+    C: "ج. القصص والسرد: طريقة حكي السالفة وتفاصيلها المضحكة.",
+  },
+  curiosity_style: {
+    A: "أ. إنه يسألني أسئلة عميقة عن نفسي وتجاربي.",
+    B: "ب. إني أنا اللي أسأله وأكتشف تفاصيل حياته.",
+    C: "ج. \"الأخذ والعطاء\" السريع والمزح بدون رسميات.",
+  },
+  silence_comfort: {
+    A: "أ. قلق: أحس لازم أقول أي شيء عشان أكسر الصمت.",
+    B: "ب. راحة: عادي عندي، الهدوء جزء من السالفة ولا يوترني.",
+  },
+}
+
+const LIFESTYLE_OPTIONS: Record<number, Record<string, string>> = {
+  1: {
+    'أ': "أ. في الصباح – أكون نشيطًا ومنتجًا في الساعات الأولى",
+    'ب': "ب. بعد الظهر أو المغرب – أبدأ أرتاح وأتفاعل أكثر في هذا الوقت",
+    'ج': "ج. في الليل – أفضّل السهر وأكون أكثر تفاعلًا في المساء",
+  },
+  2: {
+    'أ': "أ. أحب التواصل اليومي أو شبه اليومي",
+    'ب': "ب. يكفيني التواصل كل يومين أو ثلاثة",
+    'ج': "ج. أرتاح إذا كان التواصل متباعد بدون ضغط أو التزام",
+  },
+  3: {
+    'أ': "أ. أحتاج وقتًا لنفسي كل يوم، حتى مع أقرب الناس",
+    'ب': "ب. أحب قضاء وقت طويل مع صديقي لكن أقدّر المساحة أحيانًا",
+    'ج': "ج. أرتاح أكثر إذا كنا دائمًا متواصلين أو متشاركين في الأنشطة",
+  },
+  4: {
+    'أ': "أ. أحب التنظيم والتخطيط المسبق، حتى في اللقاءات مع الأصدقاء",
+    'ب': "ب. أُفضل وجود فكرة عامة، لكن أحب التفاعل بعفوية",
+    'ج': "ج. لا أحب التخطيط، أترك الأمور تمشي بطبيعتها",
+  },
+  5: {
+    'أ': "أ. أخرج كثيرًا، أحب النشاطات والجلسات الاجتماعية",
+    'ب': "ب. أُفضل الجلسات الهادئة مع شخص أو اثنين",
+    'ج': "ج. أُحب البقاء وحدي أو تقليل التواصل خلال نهاية الأسبوع",
+  },
+}
+
+const HUMOR_BANTER_OPTIONS: Record<string, string> = {
+  A: "أ. خفة دم وضحك",
+  B: "ب. كلام لطيف ومجاملة",
+  C: "ج. هدوء وصدق",
+  D: "د. المباشرة والجدية",
+}
+
+const EARLY_OPENNESS_LABELS: Record<number, string> = {
+  0: "أ. أحتفظ بالأمور الشخصية حتى أتعرف عليهم جيداً",
+  1: "ب. أفضل الحديث السطحي في البداية",
+  2: "ج. أحب المشاركة المتوازنة - مزيج من الخفيف والحقيقي",
+  3: "د. أنفتح بسرعة وأشارك القصص الشخصية",
+}
+
+const INTENT_GOAL_OPTIONS: Record<string, string> = {
+  A: "أ. ودي أوسع دائرة معارفي وأكون صداقات جديدة ورهيبة.",
+  B: "ب. أبحث عن شيء أعمق: شخص يفهمني فكرياً ونكون على \"نفس الموجة\" تماماً.",
+  C: "ج. جاي أجرب تجربة اجتماعية جديدة وأغير جو.",
+}
+
 const VALUE_LABELS: Record<string, string> = { A: 'أ', B: 'ب', C: 'ج', D: 'د' }
 
 const MBTI_QUESTIONS: Record<string, { label: string, options: Record<string, string> }> = {
@@ -191,6 +270,95 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return out
   }
 
+  // Compute detailed Lifestyle scoring per question (Q14-18) with bonus/penalty
+  const computeLifestyleDetails = (listA: string[], listB: string[]) => {
+    const items: Array<{ idx: number, label: string, aVal: string, bVal: string, points: number, max: number }> = []
+    let q14Match = false
+    let q18Match = false
+    let total = 0
+
+    // Helpers mirror trigger-match logic
+    const bucket16 = (v: string) => (v === 'ج' ? 'close' : 'space')
+
+    // Q14 (index 0): exact match → 3 pts
+    {
+      const a = listA[0] || ''
+      const b = listB[0] || ''
+      const pts = a && b && a === b ? 3 : 0
+      if (pts === 3) q14Match = true
+      total += pts
+      items.push({ idx: 1, label: LIFESTYLE_QUESTIONS[1], aVal: a, bVal: b, points: pts, max: 3 })
+    }
+
+    // Q15 (index 1): exact match → 3 pts
+    {
+      const a = listA[1] || ''
+      const b = listB[1] || ''
+      const pts = a && b && a === b ? 3 : 0
+      total += pts
+      items.push({ idx: 2, label: LIFESTYLE_QUESTIONS[2], aVal: a, bVal: b, points: pts, max: 3 })
+    }
+
+    // Q16 (index 2): same bucket → 3 pts
+    {
+      const a = listA[2] || ''
+      const b = listB[2] || ''
+      const pts = (a && b && bucket16(a) === bucket16(b)) ? 3 : 0
+      total += pts
+      items.push({ idx: 3, label: LIFESTYLE_QUESTIONS[3], aVal: a, bVal: b, points: pts, max: 3 })
+    }
+
+    // Q17 (index 3): exact match → 3 pts
+    {
+      const a = listA[3] || ''
+      const b = listB[3] || ''
+      const pts = a && b && a === b ? 3 : 0
+      total += pts
+      items.push({ idx: 4, label: LIFESTYLE_QUESTIONS[4], aVal: a, bVal: b, points: pts, max: 3 })
+    }
+
+    // Q18 (index 4): exact match → 3 pts (plus special rules)
+    {
+      const a = listA[4] || ''
+      const b = listB[4] || ''
+      const pts = a && b && a === b ? 3 : 0
+      if (pts === 3) q18Match = true
+      total += pts
+      items.push({ idx: 5, label: LIFESTYLE_QUESTIONS[5], aVal: a, bVal: b, points: pts, max: 3 })
+    }
+
+    // Shared Context bonus: if Q14 & Q18 matched → +2
+    const bonus = (q14Match && q18Match) ? 2 : 0
+    // Clash penalty: A vs C on Q18 → -7
+    const a18 = listA[4] || ''
+    const b18 = listB[4] || ''
+    const penalty = ((a18 === 'أ' && b18 === 'ج') || (a18 === 'ج' && b18 === 'أ')) ? -7 : 0
+
+    const computed = Math.max(0, Math.min(15, total + bonus + penalty))
+    return { items, bonus, penalty, computed }
+  }
+
+  // Compute Core Values per-question points (0..4) based on adjacent/identical rules
+  const computeCoreValuesDetails = (ansA: any, ansB: any) => {
+    const keys = ['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5']
+    const items: Array<{ key: string, label: string, aVal: string, bVal: string, points: number, max: number }> = []
+    let total = 0
+    for (const k of keys) {
+      const meta = CORE_VALUES_QUESTIONS[k]
+      const a = String(ansA[k] || '')
+      const b = String(ansB[k] || '')
+      let pts = 0
+      if (a && b) {
+        if (a === b) pts = 4
+        else if ((a === 'ب' && (b === 'أ' || b === 'ج')) || (b === 'ب' && (a === 'أ' || a === 'ج'))) pts = 2
+        else pts = 0
+      }
+      total += pts
+      items.push({ key: k, label: meta?.label || k, aVal: a, bVal: b, points: pts, max: 4 })
+    }
+    return { items, total } // total out of 20
+  }
+
   const deriveLifestyleList = (p: any, survey: any, ans: any): string[] => {
     const fromRow = typeof p?.lifestylePreferences === 'string' ? p.lifestylePreferences : undefined
     const fromSurvey = typeof survey?.lifestylePreferences === 'string' ? survey.lifestylePreferences : undefined
@@ -286,6 +454,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   }, [a, b])
 
   const synergyDetails = useMemo(() => computeSynergyDetails(a, b), [a, b])
+  const lifestyleDetails = useMemo(() => computeLifestyleDetails(lifestyleA, lifestyleB), [lifestyleA, lifestyleB])
+  const coreValuesDetails = useMemo(() => computeCoreValuesDetails(aAns, bAns), [aAns, bAns])
   const aAI = a?.ai_personality_analysis || aSurvey?.ai_personality_analysis
   const bAI = b?.ai_personality_analysis || bSurvey?.ai_personality_analysis
   const hasAi = !!(aAI || bAI)
@@ -473,9 +643,9 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                   {Object.entries(SYNERGY_QUESTIONS).map(([key, label]) => (
                     <div key={key} className="bg-slate-900/70 border border-white/20 rounded-lg p-3">
                       <div className="text-slate-300 mb-1">{label}</div>
-                      <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {VALUE_LABELS[String(aAns[key] || '').toUpperCase()] || String(aAns[key] || '—')}</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {VALUE_LABELS[String(bAns[key] || '').toUpperCase()] || String(bAns[key] || '—')}</span>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {(SYNERGY_OPTIONS[key] || {})[String(aAns[key] || '').toUpperCase()] || String(aAns[key] || '—')}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {(SYNERGY_OPTIONS[key] || {})[String(bAns[key] || '').toUpperCase()] || String(bAns[key] || '—')}</span>
                       </div>
                     </div>
                   ))}
@@ -486,9 +656,9 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     {synergyDetails.map(item => (
                       <div key={item.key} className={`bg-slate-900/70 border rounded-lg p-3 ${item.raw > 0 ? 'border-green-400/30' : 'border-white/20'}`}>
                         <div className="text-slate-300 mb-1">{item.label}</div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}: {VALUE_LABELS[item.aVal] || item.aVal || '—'}</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}: {VALUE_LABELS[item.bVal] || item.bVal || '—'}</span>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 mb-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}: {(SYNERGY_OPTIONS[item.key] || {})[item.aVal] || item.aVal || '—'}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}: {(SYNERGY_OPTIONS[item.key] || {})[item.bVal] || item.bVal || '—'}</span>
                         </div>
                         <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                           <div className="h-full bg-cyan-500" style={{ width: `${Math.min(100, (item.raw / item.maxRaw) * 100)}%` }} />
@@ -514,17 +684,31 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             {/* Lifestyle */}
             <TabsContent value="lifestyle">
               <div className="bg-white/10 border border-white/20 rounded-xl p-4 mt-3">
-                <div className="text-slate-200 font-semibold mb-3">نمط الحياة (تأثير حتى 15 نقطة)</div>
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
-                  {[1,2,3,4,5].map(i => (
-                    <div key={i} className="bg-slate-900/70 border border-white/20 rounded-lg p-3">
-                      <div className="text-slate-300 mb-1">{LIFESTYLE_QUESTIONS[i]}</div>
-                      <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {lifestyleA[i-1] || '—'}</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {lifestyleB[i-1] || '—'}</span>
+                <div className="text-slate-200 font-semibold mb-1">نمط الحياة — {scores.lifestyle.toFixed(1)} / 15</div>
+                <div className="text-slate-400 text-xs mb-3">تفصيل الأسئلة (لكل سؤال حتى 3 نقاط)</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                  {lifestyleDetails.items.map((row) => (
+                    <div key={row.idx} className="bg-slate-900/70 border border-white/20 rounded-lg p-3">
+                      <div className="text-slate-300 mb-1">{row.label}</div>
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 mb-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {LIFESTYLE_OPTIONS[row.idx]?.[String(row.aVal || '')] || String(row.aVal || '—')}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {LIFESTYLE_OPTIONS[row.idx]?.[String(row.bVal || '')] || String(row.bVal || '—')}</span>
                       </div>
+                      <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500" style={{ width: `${Math.min(100, (row.points / row.max) * 100)}%` }} />
+                      </div>
+                      <div className="mt-1 text-slate-200">+{row.points} / {row.max}</div>
                     </div>
                   ))}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                  {lifestyleDetails.bonus > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-200">+{lifestyleDetails.bonus} مكافأة سياق مشترك (س14 وس18)</span>
+                  )}
+                  {lifestyleDetails.penalty < 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200">{lifestyleDetails.penalty} تعارض (س18: أ مقابل ج)</span>
+                  )}
+                  <span className="ml-auto text-slate-300">الإجمالي: <span className="text-white font-semibold">{lifestyleDetails.computed}</span> / 15</span>
                 </div>
               </div>
             </TabsContent>
@@ -532,7 +716,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             {/* Communication */}
             <TabsContent value="communication">
               <div className="bg-white/10 border border-white/20 rounded-xl p-4 mt-3">
-                <div className="text-slate-200 font-semibold mb-3">التواصل (حتى 10 نقاط)</div>
+                <div className="text-slate-200 font-semibold mb-1">التواصل — {scores.communication.toFixed(1)} / 10</div>
+                <div className="text-slate-400 text-xs mb-3">يعرض اختيارات الأسئلة، والحساب يتم على نمط التواصل النهائي</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                   {['communication_1','communication_2','communication_3','communication_4','communication_5'].map((k) => {
                     const meta = COMMUNICATION_QUESTIONS[k]
@@ -542,7 +727,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     return (
                       <div key={k} className={`bg-slate-900/70 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/20'}`}>
                         <div className="text-slate-300 mb-1">{meta?.label || k}</div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}</span>
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}</span>
                         </div>
@@ -556,32 +741,40 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             {/* Values */}
             <TabsContent value="values">
               <div className="bg-white/10 border border-white/20 rounded-xl p-4 mt-3">
-                <div className="text-slate-200 font-semibold mb-3">القيم الأساسية (حتى 20 نقطة)</div>
+                <div className="text-slate-200 font-semibold mb-1">القيم الأساسية — {(scores.coreValues).toFixed(1)} / 20</div>
+                <div className="text-slate-400 text-xs mb-3">تفصيل الأسئلة (لكل سؤال حتى 4 نقاط)</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  {['core_values_1','core_values_2','core_values_3','core_values_4','core_values_5'].map((k) => {
-                    const meta = CORE_VALUES_QUESTIONS[k]
-                    const aVal = String(aAns[k] || '')
-                    const bVal = String(bAns[k] || '')
-                    const same = aVal && bVal && aVal === bVal
+                  {coreValuesDetails.items.map((row) => {
+                    const meta = CORE_VALUES_QUESTIONS[row.key]
                     return (
-                      <div key={k} className={`bg-slate-900/70 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/20'}`}>
-                        <div className="text-slate-300 mb-1">{meta?.label || k}</div>
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}</span>
+                      <div key={row.key} className={`bg-slate-900/70 border rounded-lg p-3 ${row.points === row.max ? 'border-green-400/30' : 'border-white/20'}`}>
+                        <div className="text-slate-300 mb-1">{meta?.label || row.key}</div>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1 mb-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {meta?.options?.[row.aVal] || row.aVal || '—'}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {meta?.options?.[row.bVal] || row.bVal || '—'}</span>
                         </div>
+                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-pink-500" style={{ width: `${Math.min(100, (row.points / row.max) * 100)}%` }} />
+                        </div>
+                        <div className="mt-1 text-slate-200">+{row.points} / {row.max}</div>
                       </div>
                     )
                   })}
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs">
+                  <span className="text-slate-300">الإجمالي: <span className="text-white font-semibold">{coreValuesDetails.total}</span> / 20</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs mt-4">
                   <div className="bg-slate-900/70 border border-white/20 rounded-lg p-3">
                     <div className="text-slate-300 mb-1">الهدف من الحضور (حتى 5 نقاط)</div>
                     {(() => { const getAns = (p: any, key: string) => p?.survey_data?.answers?.[key] ?? p?.[key] ?? ''; const a40 = String(getAns(a, 'intent_goal') || '').toUpperCase(); const b40 = String(getAns(b, 'intent_goal') || '').toUpperCase(); let score = 0; if (!a40 || !b40) score = 0; else if ((a40 === 'A' && b40 === 'A') || (a40 === 'B' && b40 === 'B')) score = 5; else if (a40 === 'C' && b40 === 'C') score = 3; else if ((a40 === 'A' && b40 === 'B') || (a40 === 'B' && b40 === 'A')) score = 1; else if ((a40 === 'A' && b40 === 'C') || (a40 === 'C' && b40 === 'A')) score = 3; else if ((a40 === 'B' && b40 === 'C') || (a40 === 'C' && b40 === 'B')) score = 1; return (
                       <>
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {String(a40 || '—')}</span>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {String(b40 || '—')}</span>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {a40 ? (INTENT_GOAL_OPTIONS[a40] || a40) : '—'}</span>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {b40 ? (INTENT_GOAL_OPTIONS[b40] || b40) : '—'}</span>
+                        </div>
+                        <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-500" style={{ width: `${(Math.min(5, Math.max(0, score)) / 5) * 100}%` }} />
                         </div>
                         <div className="mt-2 text-slate-300">النقاط المحسوبة: <span className="text-emerald-300 font-semibold">{score}</span> / 5</div>
                       </>
@@ -615,16 +808,22 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     <div className="bg-slate-900/70 border border-white/20 rounded-lg p-3">
                       <div className="text-slate-300 mb-1">أسلوب الدعابة/المزاح</div>
                       <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.hA || '—'}</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.hB || '—'}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.hA ? (HUMOR_BANTER_OPTIONS[hb.hA] || hb.hA) : '—'}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.hB ? (HUMOR_BANTER_OPTIONS[hb.hB] || hb.hB) : '—'}</span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, (hb.humorScore / 10) * 100)}%` }} />
                       </div>
                       <div className="mt-2 text-slate-300">نقاط الدعابة: <span className="text-amber-300 font-semibold">{hb.humorScore}</span> / 10 {hb.vetoClash ? '— تعارض قوي (A↔D)' : ''}</div>
                     </div>
                     <div className="bg-slate-900/70 border border-white/20 rounded-lg p-3">
                       <div className="text-slate-300 mb-1">الراحة مع الانفتاح المبكر</div>
                       <div className="flex items-center justify-between">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {hb.oA ?? '—'}</span>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {hb.oB ?? '—'}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {(hb.oA !== undefined && hb.oA !== null) ? (EARLY_OPENNESS_LABELS[hb.oA] || String(hb.oA)) : '—'}</span>
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {(hb.oB !== undefined && hb.oB !== null) ? (EARLY_OPENNESS_LABELS[hb.oB] || String(hb.oB)) : '—'}</span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500" style={{ width: `${Math.min(100, (hb.openScore / 5) * 100)}%` }} />
                       </div>
                       <div className="mt-2 text-slate-300">نقاط الانفتاح: <span className="text-amber-300 font-semibold">{hb.openScore}</span> / 5</div>
                     </div>
@@ -636,12 +835,13 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             {/* MBTI */}
             <TabsContent value="mbti">
               <div className="bg-white/10 border border-white/20 rounded-xl p-4 mt-3">
-                <div className="text-slate-200 font-semibold mb-3">MBTI (توضيحي فقط)</div>
+                <div className="text-slate-200 font-semibold mb-1">MBTI (توضيحي فقط)</div>
+                <div className="text-slate-400 text-xs mb-3">لا يُحسب كنقاط مباشرة، لكنه قد يؤثر على التوافق العام</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
                   {['mbti_1','mbti_2','mbti_3','mbti_4'].map((k) => { const meta = MBTI_QUESTIONS[k]; const aVal = String(aAns[k] || ''); const bVal = String(bAns[k] || ''); const same = aVal && bVal && aVal === bVal; return (
                     <div key={k} className={`bg-slate-900/70 border rounded-lg p-3 ${same ? 'border-green-400/30' : 'border-white/20'}`}>
                       <div className="text-slate-300 mb-1">{meta?.label || k}</div>
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-1">
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/30">{aNameLabel}:  {meta?.options?.[aVal] || aVal || '—'}</span>
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-300 border border-purple-400/30">{bNameLabel}:  {meta?.options?.[bVal] || bVal || '—'}</span>
                       </div>

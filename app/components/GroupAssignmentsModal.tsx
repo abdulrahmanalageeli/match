@@ -57,6 +57,8 @@ export default function GroupAssignmentsModal({
   }> | null>(null)
   const [activeArrangement, setActiveArrangement] = useState(0)
   const [finalizing, setFinalizing] = useState(false)
+  // Dual view modes: modify vs seating (host view)
+  const [viewMode, setViewMode] = useState<'modify' | 'seating'>('modify')
   // Structured confirmation state for clearer warning display
   const [showConfirm, setShowConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -166,12 +168,12 @@ export default function GroupAssignmentsModal({
   })()
 
   return (
-    <div className={`fixed inset-0 ${cohostTheme ? 'bg-rose-900/40' : 'bg-black/50'} backdrop-blur-sm flex items-center justify-center p-4 z-50`}>
-      <div className={`${cohostTheme ? 'bg-gradient-to-br from-rose-950 via-slate-900 to-rose-950 border-4 border-rose-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
+    <div className={`fixed inset-0 ${cohostTheme ? 'bg-violet-900/40' : 'bg-black/50'} backdrop-blur-sm flex items-center justify-center p-4 z-50`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-violet-950 via-slate-900 to-violet-950 border-4 border-violet-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
         {/* Header */}
-        <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-rose-400/20' : 'border-white/10'}`}>
+        <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'}`}>
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-rose-500 to-pink-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-violet-600 to-indigo-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'}`}>
               <Users className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -181,14 +183,32 @@ export default function GroupAssignmentsModal({
           </div>
           <button
             onClick={onClose}
-            className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'}`}
+            className={`w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors ${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-white/10 hover:bg-white/20'}`}
           >
             <X className="w-4 h-4" />
           </button>
         </div>
+        {/* View mode toggle */}
+        <div className={`px-4 py-3 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'} bg-white/5`}>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setViewMode('modify')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'modify' ? (cohostTheme ? 'bg-violet-500/30 text-white' : 'bg-white/15 text-white') : (cohostTheme ? 'bg-violet-500/10 text-slate-300 hover:bg-violet-500/20' : 'bg-white/5 text-slate-300 hover:bg-white/10')}`}
+            >
+              تعديل المجموعات
+            </button>
+            <button
+              onClick={() => setViewMode('seating')}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${viewMode === 'seating' ? (cohostTheme ? 'bg-violet-500/30 text-white' : 'bg-white/15 text-white') : (cohostTheme ? 'bg-violet-500/10 text-slate-300 hover:bg-violet-500/20' : 'bg-white/5 text-slate-300 hover:bg-white/10')}`}
+            >
+              عرض المقاعد (للمضيف)
+            </button>
+          </div>
+        </div>
 
         {/* Content */}
         <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div className={`${viewMode === 'modify' ? '' : 'hidden'}`}>
           {/* Preview Top 3 Controls */}
           <div className="mb-4 flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
@@ -276,7 +296,7 @@ export default function GroupAssignmentsModal({
                   <button
                     key={idx}
                     onClick={() => setActiveArrangement(idx)}
-                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${activeArrangement === idx ? (cohostTheme ? 'bg-rose-500/20 border-rose-400/40 text-white' : 'bg-white/10 border-white/30 text-white') : 'bg-transparent border-white/10 text-slate-300 hover:bg-white/5'}`}
+                    className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${activeArrangement === idx ? (cohostTheme ? 'bg-violet-500/20 border-violet-400/40 text-white' : 'bg-white/10 border-white/30 text-white') : 'bg-transparent border-white/10 text-slate-300 hover:bg-white/5'}`}
                   >
                     {idx === 0 ? 'الأفضل' : idx === 1 ? 'الثاني' : 'الثالث'}
                   </button>
@@ -295,7 +315,7 @@ export default function GroupAssignmentsModal({
               </span>
             )}
             {swapping && (
-              <span className={`inline-flex items-center gap-1 ${cohostTheme ? 'text-rose-200' : 'text-cyan-300'}`}>
+              <span className={`inline-flex items-center gap-1 ${cohostTheme ? 'text-violet-200' : 'text-cyan-300'}`}>
                 <Loader2 className="w-3 h-3 animate-spin" /> جاري الحفظ...
               </span>
             )}
@@ -368,11 +388,11 @@ export default function GroupAssignmentsModal({
               {computedDisplayGroups.map((group) => (
                 <div
                   key={group.group_number}
-                  className={`rounded-xl overflow-hidden ${cohostTheme ? 'bg-rose-500/10 border border-rose-400/20' : 'bg-white/5 border border-white/10'}`}
+                  className={`rounded-xl overflow-hidden ${cohostTheme ? 'bg-violet-500/10 border border-violet-400/20' : 'bg-white/5 border border-white/10'}`}
                 >
-                  <div className={`p-3 sm:p-4 border-b flex items-center justify-between ${cohostTheme ? 'border-rose-400/20' : 'border-white/10'}`}>
+                  <div className={`p-3 sm:p-4 border-b flex items-center justify-between ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'}`}>
                     <div className="flex items-center gap-2 sm:gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-rose-500 to-pink-600' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-violet-600 to-indigo-600' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
                         <MapPin className="w-4 h-4 text-white" />
                       </div>
                       <div className="space-y-1">
@@ -381,13 +401,13 @@ export default function GroupAssignmentsModal({
                             <input
                               type="number"
                               inputMode="numeric"
-                              className={`w-20 px-2 py-1 rounded-md text-right text-sm bg-slate-900/60 border ${cohostTheme ? 'border-rose-400/30 focus:ring-rose-400/40' : 'border-white/10 focus:ring-cyan-400/40'} text-white focus:outline-none focus:ring-2`}
+                              className={`w-20 px-2 py-1 rounded-md text-right text-sm bg-slate-900/60 border ${cohostTheme ? 'border-violet-400/30 focus:ring-violet-400/40' : 'border-white/10 focus:ring-cyan-400/40'} text-white focus:outline-none focus:ring-2`}
                               value={editingGroupNums[group.group_number]}
                               onChange={(e) => setEditingGroupNums(prev => ({ ...prev, [group.group_number]: e.target.value }))}
                               disabled={savingGroupNum === group.group_number || swapping}
                             />
                             <button
-                              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-emerald-500/20 hover:bg-emerald-500/30'} text-white`}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-emerald-500/20 hover:bg-emerald-500/30'} text-white`}
                               title="حفظ رقم المجموعة"
                               disabled={savingGroupNum === group.group_number || swapping}
                               onClick={async () => {
@@ -420,7 +440,7 @@ export default function GroupAssignmentsModal({
                               {savingGroupNum === group.group_number ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                             </button>
                             <button
-                              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'} text-white`}
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-white/10 hover:bg-white/20'} text-white`}
                               title="إلغاء"
                               onClick={() => setEditingGroupNums(prev => { const cp = { ...prev }; delete cp[group.group_number]; return cp })}
                               disabled={savingGroupNum === group.group_number}
@@ -432,7 +452,7 @@ export default function GroupAssignmentsModal({
                           <div className="flex items-center gap-1.5">
                             <div className="text-white text-sm sm:text-base font-semibold">المجموعة {group.group_number}</div>
                             <button
-                              className={`inline-flex items-center justify-center w-7 h-7 rounded-md ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'} text-white`}
+                              className={`inline-flex items-center justify-center w-7 h-7 rounded-md ${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-white/10 hover:bg-white/20'} text-white`}
                               title="تعديل رقم المجموعة"
                               disabled={swapping}
                               onClick={() => setEditingGroupNums(prev => ({ ...prev, [group.group_number]: String(group.group_number) }))}
@@ -461,10 +481,10 @@ export default function GroupAssignmentsModal({
                         <div
                           key={participant.number}
                           onClick={() => !swapping && !isPreviewActive && attemptSwap({ group: group.group_number, participant: participant.number })}
-                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-rose-500/10 to-rose-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
+                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-violet-500/10 to-violet-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
                             selected && selected.group === group.group_number && selected.participant === participant.number
-                              ? `${cohostTheme ? 'border-rose-300 ring-2 ring-rose-400/40' : 'border-cyan-300 ring-2 ring-cyan-400/40'}`
-                              : `${cohostTheme ? 'border-rose-400/20 hover:border-rose-300/40' : 'border-white/20 hover:border-cyan-400/40'}`
+                              ? `${cohostTheme ? 'border-violet-300 ring-2 ring-violet-400/40' : 'border-cyan-300 ring-2 ring-cyan-400/40'}`
+                              : `${cohostTheme ? 'border-violet-400/20 hover:border-violet-300/40' : 'border-white/20 hover:border-cyan-400/40'}`
                           }`}
                         >
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
@@ -522,10 +542,40 @@ export default function GroupAssignmentsModal({
               ))}
             </div>
           )}
+          </div>
+
+          {/* Seating view (host-friendly) */}
+          <div className={`${viewMode === 'seating' ? '' : 'hidden'} space-y-4`}>
+            <div className="text-slate-300 text-sm">عرض مبسط للمضيفين: أرقام الطاولات، المجموعات، وأسماء المشاركين</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {computedDisplayGroups
+                .slice()
+                .sort((a, b) => (a.table_number || a.group_number) - (b.table_number || b.group_number))
+                .map(group => (
+                <div key={`seat-${group.group_number}`} className={`rounded-xl border ${cohostTheme ? 'border-violet-400/30 bg-violet-500/10' : 'border-white/10 bg-white/5'} p-4`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${cohostTheme ? 'bg-violet-500/20 text-violet-200' : 'bg-slate-700/50 text-slate-200'}`}>مجموعة {group.group_number}</span>
+                      <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${cohostTheme ? 'bg-indigo-500/20 text-indigo-200' : 'bg-slate-700/50 text-slate-200'}`}>الطاولة #{group.table_number || '—'}</span>
+                    </div>
+                    <span className="text-xs text-slate-400">{group.participant_count} أشخاص</span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.participants.map(p => (
+                      <div key={`p-${group.group_number}-${p.number}`} className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white">#{p.number}</div>
+                        <div className="text-white text-sm truncate">{p.name}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         {/* Footer */}
-        {computedDisplayGroups.length > 0 && (
+        {viewMode === 'modify' && computedDisplayGroups.length > 0 && (
           <div className="border-t border-white/10 p-3 sm:p-4 bg-white/5">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0 text-sm">
               <div className="text-slate-400 text-xs sm:text-sm">

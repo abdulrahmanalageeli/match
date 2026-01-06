@@ -584,10 +584,11 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: "Failed to fetch group" })
           }
 
-          // Update group_matches
+          // Update group_matches (group_number, group_id, and table_number)
+          const newGroupId = `group_${newNum}`
           const { error: up1 } = await supabase
             .from("group_matches")
-            .update({ group_number: newNum })
+            .update({ group_number: newNum, group_id: newGroupId, table_number: newNum })
             .eq("id", targetGroup.id)
 
           if (up1) {
@@ -595,21 +596,10 @@ export default async function handler(req, res) {
             return res.status(500).json({ error: "Failed to update group number (groups)" })
           }
 
-          // Update match_results (round=0) so chat/group views reflect new number
-          const { error: up2 } = await supabase
-            .from("match_results")
-            .update({ group_number: newNum })
-            .eq("match_id", STATIC_MATCH_ID)
-            .eq("event_id", currentEvent)
-            .eq("round", 0)
-            .eq("group_number", oldNum)
+          // Per requirement: do NOT modify match_results when adjusting group numbers.
+          // Group renumbering only affects group_matches (group_id, group_number, table_number).
 
-          if (up2) {
-            console.error("update match_results error:", up2)
-            return res.status(500).json({ error: "Failed to update group number (matches)" })
-          }
-
-          return res.status(200).json({ success: true, old_group_number: oldNum, new_group_number: newNum })
+          return res.status(200).json({ success: true, old_group_number: oldNum, new_group_number: newNum, new_group_id: newGroupId, new_table_number: newNum })
         } catch (e) {
           console.error("update-group-number exception:", e)
           return res.status(500).json({ error: "Failed to update group number" })

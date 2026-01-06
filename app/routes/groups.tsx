@@ -2396,14 +2396,14 @@ export default function GroupsPage() {
               {selectedGameId ? (
                 <button
                   onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
-                  className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700/40 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 transition-all"
+                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-700/40 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 transition-all"
                   aria-label="عودة"
                   title="عودة"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <span className="w-10" />
+                <span className="w-7" />
               )}
 
               {/* Center cluster: timer + current game badge */}
@@ -2428,11 +2428,11 @@ export default function GroupsPage() {
               {/* Help (compact) */}
               <button
                 onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all"
+                className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all"
                 aria-label="شرح الدخول للجولة الفردية"
                 title="شرح الدخول للجولة الفردية"
               >
-                <HelpCircle className="w-4 h-4" />
+                <HelpCircle className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (

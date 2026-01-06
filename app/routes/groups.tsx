@@ -1319,6 +1319,12 @@ export default function GroupsPage() {
     }
   };
 
+  // Header collapse: collapse when a game is selected, expand on return
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
+  useEffect(() => {
+    setHeaderCollapsed(!!selectedGameId);
+  }, [selectedGameId]);
+
   // Charades helper functions
   const getRandomCharadesWord = () => {
     const randomWord = allCharadesWords[Math.floor(Math.random() * allCharadesWords.length)];
@@ -2350,9 +2356,9 @@ export default function GroupsPage() {
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
-        {/* Professional Sticky Header with Glassmorphism */}
-        <div className="sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl mb-4 p-4 animate-in slide-in-from-top duration-300">
-          <div className="relative flex items-center justify-center mb-4">
+        {/* Professional Sticky Header with Glassmorphism (collapsible) */}
+        <div className={`sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl ${headerCollapsed ? 'mb-2 p-2' : 'mb-4 p-4'} animate-in slide-in-from-top duration-300 transition-all`}>
+          <div className={`relative flex items-center justify-center ${headerCollapsed ? 'mb-2' : 'mb-4'}`}>
             {/* Logo with hover effect - centered */}
             <button 
               onClick={() => window.location.href = "/welcome"}
@@ -2361,7 +2367,7 @@ export default function GroupsPage() {
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-10 h-10 object-contain drop-shadow-lg" 
+                className={`${headerCollapsed ? 'w-8 h-8' : 'w-10 h-10'} object-contain drop-shadow-lg`} 
               />
             </button>
 
@@ -2382,16 +2388,16 @@ export default function GroupsPage() {
           </div>
 
           {/* Beautiful Google-Quality Timer */}
-          <div className="space-y-3">
+          <div className={`${headerCollapsed ? 'space-y-2' : 'space-y-3'} transition-all`}>
             {/* Elegant Timer Display */}
             <div className="relative">
-              <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-4 px-6 transition-all duration-500 ${
+              <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl ${headerCollapsed ? 'py-2 px-4' : 'py-4 px-6'} transition-all duration-500 ${
                 timeRemaining <= 300 ? 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent' : 
                 timeRemaining <= 600 ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 
                 'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent'
               }`}>
                 <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-light tabular-nums tracking-tight ${
+                  <span className={`${headerCollapsed ? 'text-2xl' : 'text-4xl'} font-light tabular-nums tracking-tight ${
                     timeRemaining <= 300 ? 'text-red-400' : 
                     timeRemaining <= 600 ? 'text-amber-400' : 
                     'text-emerald-400'
@@ -2400,7 +2406,7 @@ export default function GroupsPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <Clock className={`w-3.5 h-3.5 ${
+                  <Clock className={`${headerCollapsed ? 'w-3 h-3' : 'w-3.5 h-3.5'} ${
                     timeRemaining <= 300 ? 'text-red-400/60' : 
                     timeRemaining <= 600 ? 'text-amber-400/60' : 
                     'text-emerald-400/60'
@@ -2418,24 +2424,36 @@ export default function GroupsPage() {
 
             {/* How-To button: centered under the timer */}
             <div className="flex flex-col items-center justify-center">
-              <button
-                onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
-                title="اضغط بعد انتهاء وقت الأنشطة"
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span className="font-semibold">شرح الدخول للجولة الفردية</span>
-              </button>
-              <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
+              {headerCollapsed ? (
+                <button
+                  onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
+                  title="شرح الدخول للجولة الفردية"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+                    title="اضغط بعد انتهاء وقت الأنشطة"
+                  >
+                    <HelpCircle className="w-4 h-4" />
+                    <span className="font-semibold">شرح الدخول للجولة الفردية</span>
+                  </button>
+                  <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
+                </>
+              )}
             </div>
 
             {/* Current Game Badge - Themed */}
             {selectedGameId && (
-              <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder}`}>
-                <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
+              <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full ${headerCollapsed ? 'py-1.5 px-3' : 'py-2 px-4'} border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} transition-all`}>
+                <div className={`${headerCollapsed ? 'w-4 h-4' : 'w-5 h-5'} rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
                   {games.find(g => g.id === selectedGameId)?.icon}
                 </div>
-                <span className="text-sm font-medium text-white/90">
+                <span className={`${headerCollapsed ? 'text-xs' : 'text-sm'} font-medium text-white/90`}>
                   {games.find(g => g.id === selectedGameId)?.nameAr}
                 </span>
               </div>

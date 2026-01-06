@@ -7,6 +7,7 @@ import {
   SkipForward, 
   ChevronRight, 
   ChevronLeft,
+  ChevronDown,
   HelpCircle,
   Trophy,
   Star,
@@ -820,25 +821,25 @@ const charadesTopics = {
 // Flatten all topics for random selection
 const allCharadesWords = Object.values(charadesTopics).flat();
 
-// Imposter categories (Arabic-influenced + famous global pop culture)
+// Imposter categories — broad, simple, adult-friendly
 const imposterCategories: Record<string, string[]> = {
   "أطعمة": [
-    "كبسة", "شاورما", "مندي", "فلافل", "مقلوبة", "برياني", "جريش", "سوشي", "بيتزا", "قهوة عربية"
+    "كبسة", "شاورما", "مقلوبة", "مندي", "بيتزا", "سوشي", "برجر", "فتوش", "تبولة", "لازانيا", "محشي", "برياني"
   ],
-  "أماكن": [
-    "الرياض", "جدة", "الدرعية", "الكورنيش", "المطار", "الجامعة", "المول", "البيت", "المطعم", "المتجر"
+  "مشروبات": [
+    "قهوة عربية", "قهوة تركية", "لاتيه", "سبانيش لاتيه", "أمريكانو", "شاي نعناع", "شاي كرك", "عصير مانجو", "سموذي", "موهيتو", "ماء غازي", "كاكاو ساخن"
   ],
-  "وظائف": [
-    "طبيب", "مهندس", "محاسب", "معلم", "مصور", "مبرمج", "مصمم", "محامي", "طيار", "صيدلي"
+  "مسلسلات": [
+    "Friends", "Breaking Bad", "Game of Thrones", "La Casa de Papel", "The Office", "Suits", "Diriliş Ertuğrul", "الهيبة", "طاش ما طاش", "الكبير أوي"
   ],
-  "أفلام ومشاهير": [
-    "جاكي شان", "Rush Hour", "هاري بوتر", "شريك", "Lion King", "عادل إمام", "محمد هنيدي", "الهيبة", "فروزن", "سبايدرمان"
+  "أفلام": [
+    "Titanic", "Spider-Man", "Batman", "Avengers", "Jurassic Park", "Mission Impossible", "The Lion King", "Harry Potter", "Fast & Furious", "The Matrix"
   ],
-  "رياضة": [
-    "كرة القدم", "كرة السلة", "التنس", "السباحة", "الجري", "الكاراتيه", "ركوب الدراجات", "اليوغا"
+  "تجارب ومواقف": [
+    "مقابلة عمل", "أول يوم عمل", "نقل سكن", "زحمة مرور", "انقطاع كهرباء", "تعطل الجوال", "نسيان المحفظة", "ضياع المفاتيح", "طلب أونلاين تأخر", "خلاف بسيط مع صديق"
   ],
-  "تقنية": [
-    "آيفون", "أندرويد", "روبوت", "ذكاء اصطناعي", "حوسبة سحابية", "واي فاي", "بلوتوث", "إنترنت"
+  "مشاهير": [
+    "عادل إمام", "محمد صلاح", "كريستيانو رونالدو", "ليونيل ميسي", "محمد هنيدي", "أحمد حلمي", "عمرو دياب", "أصالة", "راشد الماجد", "إليسا", "Elon Musk", "Bill Gates"
   ],
 };
 
@@ -2147,15 +2148,19 @@ export default function GroupsPage() {
                   {/* Category */}
                   <div className={`${(gameThemes['imposter'] || gameThemes.default).instruction} space-y-4`}>
                     <h4 className="text-white font-bold mb-3">الفئة</h4>
-                    <select
-                      className="w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
-                      value={imposterSelectedCategory}
-                      onChange={(e) => { setImposterSelectedCategory(e.target.value); setImposterError(null); }}
-                    >
-                      {Object.keys(imposterCategories).map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <ChevronDown className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-fuchsia-300 pointer-events-none" />
+                      <select
+                        className="w-full appearance-none pl-9 pr-3 py-2.5 rounded-xl bg-slate-800/70 border-2 border-fuchsia-400/30 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-400/60 shadow-inner"
+                        value={imposterSelectedCategory}
+                        onChange={(e) => { setImposterSelectedCategory(e.target.value); setImposterError(null); }}
+                      >
+                        {Object.keys(imposterCategories).map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="text-xs text-slate-300">اختر فئة بكلمات يومية سهلة للتحدي الممتع</div>
                   </div>
 
                   <div className="text-center">

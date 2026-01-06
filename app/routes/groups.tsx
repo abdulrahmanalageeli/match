@@ -915,6 +915,7 @@ const fiveSecondRuleCategories = [
 
 export default function GroupsPage() {
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
+  const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
   const [gameStarted, setGameStarted] = useState(false);
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
@@ -948,6 +949,10 @@ export default function GroupsPage() {
   // Q&A pairs before voting
   const [qaPairs, setQAPairs] = useState<Array<{ asker: number; target: number }>>([]);
   const [qaIndex, setQAIndex] = useState<number>(0);
+  // Imposter UX helpers
+  const [imposterError, setImposterError] = useState<string | null>(null);
+  const [imposterShowTutorial, setImposterShowTutorial] = useState(false);
+  const [imposterTutorialSlide, setImposterTutorialSlide] = useState(0);
   
   // 5-Second Rule game state
   const [currentCategory, setCurrentCategory] = useState<string>("");
@@ -1010,9 +1015,10 @@ export default function GroupsPage() {
   const startImposterRound = () => {
     const names = imposterPlayers.map(n => n.trim()).filter(Boolean);
     if (names.length < 4 || names.length > 6) {
-      alert("أدخل 4 إلى 6 أسماء لاعبين");
+      setImposterError("يرجى إدخال 4 إلى 6 أسماء لاعبين");
       return;
     }
+    setImposterError(null);
     // Random secret word
     const words = imposterCategories[imposterSelectedCategory] || [];
     const secret = words[Math.floor(Math.random() * words.length)] || "كلمة";
@@ -1480,6 +1486,13 @@ export default function GroupsPage() {
     } else if (gameId === "5-second-rule") {
       setShuffledCategories(shuffleArray(fiveSecondRuleCategories));
       setCategoryIndex(0);
+    } else if (gameId === "imposter") {
+      // Show tutorial the first time only
+      setImposterError(null);
+      try {
+        const seen = localStorage.getItem(IMPOSTER_TUTORIAL_KEY);
+        if (!seen) setImposterShowTutorial(true);
+      } catch {}
     }
   };
 
@@ -2040,6 +2053,38 @@ export default function GroupsPage() {
         {currentGame.id === "imposter" && (
           <Card className="bg-slate-900/60 border-fuchsia-600/30">
             <CardContent className="p-6">
+              {/* Phase indicator + actions */}
+              {(() => {
+                const steps = [
+                  { key: 'setup', label: 'إعداد' },
+                  { key: 'reveal', label: 'كشف' },
+                  { key: 'discussion', label: 'أسئلة' },
+                  { key: 'voting', label: 'تصويت' },
+                  { key: 'result', label: 'نتيجة' },
+                ] as const;
+                const activeIdx = steps.findIndex(s => s.key === imposterPhase);
+                return (
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2 overflow-x-auto">
+                      {steps.map((s, i) => (
+                        <div
+                          key={s.key}
+                          className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${i <= activeIdx ? 'bg-fuchsia-500/20 border-fuchsia-400/40 text-fuchsia-100' : 'bg-white/5 border-white/10 text-slate-300'}`}
+                        >
+                          {s.label}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => setImposterShowTutorial(true)}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                      تعليمات
+                    </button>
+                  </div>
+                );
+              })()}
               {imposterPhase === "setup" && (
                 <div className="space-y-6">
                   <div className="text-center mb-2">
@@ -2062,12 +2107,12 @@ export default function GroupsPage() {
                             placeholder={`اللاعب ${i+1}`}
                             value={n}
                             onChange={e => {
-                              const arr = [...imposterPlayers]; arr[i] = e.target.value; setImposterPlayers(arr);
+                              const arr = [...imposterPlayers]; arr[i] = e.target.value; setImposterPlayers(arr); setImposterError(null);
                             }}
                           />
                           {imposterPlayers.length > 4 && (
                             <button
-                              onClick={() => setImposterPlayers(prev => prev.filter((_, idx) => idx !== i))}
+                              onClick={() => { setImposterPlayers(prev => prev.filter((_, idx) => idx !== i)); setImposterError(null); }}
                               className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-rose-500/20 text-rose-200 border border-rose-400/30 hover:bg-rose-500/30"
                               title="حذف"
                             >
@@ -2079,7 +2124,7 @@ export default function GroupsPage() {
                     </div>
                     <div className="flex items-center justify-between mt-3">
                       <button
-                        onClick={() => imposterPlayers.length < 6 && setImposterPlayers(prev => [...prev, ""])}
+                        onClick={() => { if (imposterPlayers.length < 6) setImposterPlayers(prev => [...prev, ""]); setImposterError(null); }}
                         disabled={imposterPlayers.length >= 6}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50"
                       >
@@ -2090,13 +2135,20 @@ export default function GroupsPage() {
                     </div>
                   </div>
 
+                  {/* Inline validation */}
+                  {imposterError && (
+                    <div className="-mt-2 mb-2 text-sm text-rose-300 bg-rose-500/10 border border-rose-400/30 rounded-lg px-3 py-2">
+                      {imposterError}
+                    </div>
+                  )}
+
                   {/* Category */}
                   <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
                     <h4 className="text-white font-bold mb-3">الفئة</h4>
                     <select
                       className="w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
                       value={imposterSelectedCategory}
-                      onChange={(e) => setImposterSelectedCategory(e.target.value)}
+                      onChange={(e) => { setImposterSelectedCategory(e.target.value); setImposterError(null); }}
                     >
                       {Object.keys(imposterCategories).map(cat => (
                         <option key={cat} value={cat}>{cat}</option>
@@ -2255,6 +2307,90 @@ export default function GroupsPage() {
               )}
             </CardContent>
           </Card>
+        )}
+
+        {/* Imposter Tutorial Overlay */}
+        {selectedGameId === 'imposter' && imposterShowTutorial && (
+          <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 }}
+          >
+            <div className="w-full max-w-sm bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl border border-slate-700 shadow-2xl p-5 text-white" dir="rtl">
+              <div className="flex items-center justify-between mb-2">
+                <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 text-xs text-fuchsia-100">
+                  <HelpCircle className="w-3.5 h-3.5" /> دليل اللعبة
+                </div>
+                <button onClick={() => setImposterShowTutorial(false)} className="text-slate-300 hover:text-white">✕</button>
+              </div>
+              <div className="mb-3 font-extrabold text-lg">المحتال — كيف نلعب؟</div>
+              <div className="text-slate-200 text-sm min-h-[130px] space-y-2">
+                {imposterTutorialSlide === 0 && (
+                  <div>
+                    <p>لعبة جماعية على هاتف واحد. توجد <span className="text-fuchsia-300 font-semibold">كلمة سرية</span> للجميع، وشخص واحد هو <span className="text-rose-300 font-semibold">المحتال</span> لا يعرفها.</p>
+                    <p>هدف المدنيين: اكتشاف المحتال. هدف المحتال: الاندماج دون انكشاف.</p>
+                  </div>
+                )}
+                {imposterTutorialSlide === 1 && (
+                  <div>
+                    <p className="font-semibold">الإعداد</p>
+                    <ul className="list-disc list-inside text-slate-300 space-y-1">
+                      <li>أدخلوا أسماء <span className="text-white">4–6 لاعبين</span>.</li>
+                      <li>اختاروا <span className="text-white">فئة</span> للكلمة السرية.</li>
+                      <li>ابدؤوا الجولة.</li>
+                    </ul>
+                  </div>
+                )}
+                {imposterTutorialSlide === 2 && (
+                  <div>
+                    <p className="font-semibold">كشف الأدوار</p>
+                    <ul className="list-disc list-inside text-slate-300 space-y-1">
+                      <li>يمسك كل لاعب الهاتف ويضغط لكشف دوره سراً.</li>
+                      <li>المدني يرى الكلمة. المحتال يرى أنه محتال ولا يعرف الكلمة.</li>
+                      <li>سلّم الهاتف للاعب التالي حتى ينتهي الجميع.</li>
+                    </ul>
+                  </div>
+                )}
+                {imposterTutorialSlide === 3 && (
+                  <div>
+                    <p className="font-semibold">أسئلة ثم تصويت</p>
+                    <ul className="list-disc list-inside text-slate-300 space-y-1">
+                      <li>الجولة توجه <span className="text-white">أسئلة نعم/لا</span> بين لاعبين عشوائياً.</li>
+                      <li>بعد عدة أدوار، <span className="text-white">تصويت سري</span> لاختيار المشتبه.</li>
+                      <li>تظهر النتيجة والأدوار، ويمكن بدء جولة جديدة.</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center justify-between mt-4">
+                <div className="flex items-center gap-1">
+                  {[0,1,2,3].map(i => (
+                    <span key={i} className={`w-2 h-2 rounded-full ${imposterTutorialSlide === i ? 'bg-fuchsia-400' : 'bg-white/25'}`}></span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  {imposterTutorialSlide > 0 && (
+                    <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide - 1)} className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg border border-white/15">
+                      السابق
+                    </Button>
+                  )}
+                  {imposterTutorialSlide < 3 ? (
+                    <Button onClick={() => setImposterTutorialSlide(imposterTutorialSlide + 1)} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-3 py-1 rounded-lg">
+                      التالي
+                    </Button>
+                  ) : (
+                    <>
+                      <Button onClick={() => { setImposterShowTutorial(false); }} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-3 py-1 rounded-lg">
+                        فهمت
+                      </Button>
+                      <Button onClick={() => { try { localStorage.setItem('imposter_tutorial_seen', '1'); } catch {}; setImposterShowTutorial(false); }} className="bg-white/10 hover:bg-white/20 text-white px-3 py-1 rounded-lg border border-white/15">
+                        لا تظهر مرة أخرى
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {currentGame.id === "would-you-rather" && (

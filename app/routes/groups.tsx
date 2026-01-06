@@ -2181,7 +2181,7 @@ export default function GroupsPage() {
             </p>
             <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-500/30 animate-in zoom-in duration-500" style={{animationDelay: '500ms'}}>
               <Clock className="w-4 h-4 text-cyan-400" />
-              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 5 ألعاب</span>
+              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 6 ألعاب</span>
             </div>
           </div>
 

@@ -533,6 +533,89 @@ export default async function handler(req, res) {
         return res.status(200).json({ message: "Table updated" })
       }
 
+      // 🔹 Update a group's display number (renumber group)
+      if (action === "update-group-number") {
+        try {
+          const { event_id = 1, old_group_number, new_group_number } = req.body
+          const currentEvent = Number(event_id) || 1
+          const oldNum = Number(old_group_number)
+          const newNum = Number(new_group_number)
+
+          if (!Number.isFinite(oldNum) || !Number.isFinite(newNum)) {
+            return res.status(400).json({ error: "Invalid group numbers" })
+          }
+          if (newNum <= 0) {
+            return res.status(400).json({ error: "New group number must be positive" })
+          }
+          if (oldNum === newNum) {
+            return res.status(200).json({ success: true, message: "No change" })
+          }
+
+          // Ensure target number not already used by another group in this event
+          const { data: existsRows, error: existsErr } = await supabase
+            .from("group_matches")
+            .select("id, group_number")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEvent)
+            .eq("group_number", newNum)
+
+          if (existsErr) {
+            console.error("exists check error:", existsErr)
+            return res.status(500).json({ error: "Failed to validate new group number" })
+          }
+          if (Array.isArray(existsRows) && existsRows.length > 0) {
+            return res.status(400).json({ error: `Group number ${newNum} is already in use` })
+          }
+
+          // Fetch target group row by old number
+          const { data: targetGroup, error: fetchErr } = await supabase
+            .from("group_matches")
+            .select("id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEvent)
+            .eq("group_number", oldNum)
+            .single()
+
+          if (fetchErr) {
+            if (fetchErr.code === 'PGRST116') {
+              return res.status(404).json({ error: `Group ${oldNum} not found` })
+            }
+            console.error("fetch target group error:", fetchErr)
+            return res.status(500).json({ error: "Failed to fetch group" })
+          }
+
+          // Update group_matches
+          const { error: up1 } = await supabase
+            .from("group_matches")
+            .update({ group_number: newNum })
+            .eq("id", targetGroup.id)
+
+          if (up1) {
+            console.error("update group_matches error:", up1)
+            return res.status(500).json({ error: "Failed to update group number (groups)" })
+          }
+
+          // Update match_results (round=0) so chat/group views reflect new number
+          const { error: up2 } = await supabase
+            .from("match_results")
+            .update({ group_number: newNum })
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", currentEvent)
+            .eq("round", 0)
+            .eq("group_number", oldNum)
+
+          if (up2) {
+            console.error("update match_results error:", up2)
+            return res.status(500).json({ error: "Failed to update group number (matches)" })
+          }
+
+          return res.status(200).json({ success: true, old_group_number: oldNum, new_group_number: newNum })
+        } catch (e) {
+          console.error("update-group-number exception:", e)
+          return res.status(500).json({ error: "Failed to update group number" })
+        }
+      }
+
       if (action === "toggle-auto-signup") {
         const { assigned_number, auto_signup } = req.body
         console.log(`Toggling auto signup for participant ${assigned_number} to ${auto_signup}`)

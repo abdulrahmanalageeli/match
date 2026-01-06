@@ -1,4 +1,4 @@
-import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2 } from "lucide-react"
+import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check } from "lucide-react"
 import { useState } from "react"
 
 interface GroupAssignment {
@@ -40,6 +40,8 @@ export default function GroupAssignmentsModal({
   const [swapping, setSwapping] = useState(false)
   const [autoPlacing, setAutoPlacing] = useState(false)
   const [autoPlaceNumber, setAutoPlaceNumber] = useState<string>("")
+  const [editingGroupNums, setEditingGroupNums] = useState<Record<number, string>>({})
+  const [savingGroupNum, setSavingGroupNum] = useState<number | null>(null)
   // Preview alternatives (Top 3) and finalize
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewArrangements, setPreviewArrangements] = useState<Array<{
@@ -373,8 +375,72 @@ export default function GroupAssignmentsModal({
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cohostTheme ? 'bg-gradient-to-br from-rose-500 to-pink-600' : 'bg-gradient-to-br from-purple-500 to-indigo-600'}`}>
                         <MapPin className="w-4 h-4 text-white" />
                       </div>
-                      <div>
-                        <div className="text-white text-sm sm:text-base font-semibold">المجموعة {group.group_number}</div>
+                      <div className="space-y-1">
+                        {editingGroupNums[group.group_number] !== undefined ? (
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="number"
+                              inputMode="numeric"
+                              className={`w-20 px-2 py-1 rounded-md text-right text-sm bg-slate-900/60 border ${cohostTheme ? 'border-rose-400/30 focus:ring-rose-400/40' : 'border-white/10 focus:ring-cyan-400/40'} text-white focus:outline-none focus:ring-2`}
+                              value={editingGroupNums[group.group_number]}
+                              onChange={(e) => setEditingGroupNums(prev => ({ ...prev, [group.group_number]: e.target.value }))}
+                              disabled={savingGroupNum === group.group_number || swapping}
+                            />
+                            <button
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-emerald-500/20 hover:bg-emerald-500/30'} text-white`}
+                              title="حفظ رقم المجموعة"
+                              disabled={savingGroupNum === group.group_number || swapping}
+                              onClick={async () => {
+                                const raw = editingGroupNums[group.group_number]
+                                const newNum = parseInt((raw || '').trim(), 10)
+                                if (!Number.isFinite(newNum) || newNum <= 0) { alert('رقم مجموعة غير صالح'); return }
+                                setSavingGroupNum(group.group_number)
+                                try {
+                                  const res = await fetch('/api/admin', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'update-group-number', event_id: eventId, old_group_number: group.group_number, new_group_number: newNum })
+                                  })
+                                  const data = await res.json()
+                                  if (!res.ok || data?.success !== true) {
+                                    alert(data?.error || 'لم يتم تحديث رقم المجموعة')
+                                  } else {
+                                    // Refresh from parent
+                                    if (onSwapApplied) await onSwapApplied()
+                                    setEditingGroupNums(prev => { const cp = { ...prev }; delete cp[group.group_number]; return cp })
+                                  }
+                                } catch (e) {
+                                  console.error('update-group-number error', e)
+                                  alert('حدث خطأ أثناء التحديث')
+                                } finally {
+                                  setSavingGroupNum(null)
+                                }
+                              }}
+                            >
+                              {savingGroupNum === group.group_number ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                            </button>
+                            <button
+                              className={`inline-flex items-center justify-center w-8 h-8 rounded-md ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'} text-white`}
+                              title="إلغاء"
+                              onClick={() => setEditingGroupNums(prev => { const cp = { ...prev }; delete cp[group.group_number]; return cp })}
+                              disabled={savingGroupNum === group.group_number}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <div className="text-white text-sm sm:text-base font-semibold">المجموعة {group.group_number}</div>
+                            <button
+                              className={`inline-flex items-center justify-center w-7 h-7 rounded-md ${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'} text-white`}
+                              title="تعديل رقم المجموعة"
+                              disabled={swapping}
+                              onClick={() => setEditingGroupNums(prev => ({ ...prev, [group.group_number]: String(group.group_number) }))}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                         <div className="text-slate-400 text-xs">الطاولة #{group.table_number || '—'}</div>
                       </div>
                     </div>

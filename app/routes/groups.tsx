@@ -2357,7 +2357,7 @@ export default function GroupsPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism (collapsible) */}
-        <div className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-1 p-0.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
+        <div className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
           {!headerCollapsed && (
           <div className={"relative flex items-center justify-center mb-4"}>
             {/* Logo with hover effect - centered */}
@@ -2391,34 +2391,34 @@ export default function GroupsPage() {
           {/* Header content */}
           {headerCollapsed ? (
             // Single sleek row when collapsed
-            <div className="flex items-center justify-between gap-1 min-h-[30px]">
+            <div className="flex items-center justify-between gap-2 min-h-[44px]">
               {/* Back (compact) */}
               {selectedGameId ? (
                 <button
                   onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
-                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-700/40 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 transition-all"
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-slate-700/40 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 transition-all"
                   aria-label="عودة"
                   title="عودة"
                 >
-                  <ChevronLeft className="w-3.5 h-3.5" />
+                  <ChevronLeft className="w-4 h-4" />
                 </button>
               ) : (
-                <span className="w-7" />
+                <span className="w-10" />
               )}
 
               {/* Center cluster: timer + current game badge */}
-              <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
-                <div className={`inline-flex items-center rounded-full px-2.5 py-0.5 bg-white/5 backdrop-blur-sm shadow-sm ring-1 ring-white/5 transition-colors ${
+              <div className="flex items-center gap-2 flex-1 min-w-0 justify-center">
+                <div className={`inline-flex items-center rounded-full px-3.5 py-1 bg-white/5 backdrop-blur-sm shadow-sm ring-1 ring-white/5 transition-colors ${
                   timeRemaining <= 300 ? 'text-red-100' :
                   timeRemaining <= 600 ? 'text-amber-100' :
                   'text-emerald-100'
                 }`}>
-                  <span className="text-[10px] font-semibold tabular-nums tracking-tight">{formatTime(timeRemaining)}</span>
+                  <span className="text-sm font-semibold tabular-nums tracking-tight">{formatTime(timeRemaining)}</span>
                 </div>
 
                 {selectedGameId && (
-                  <div className={`inline-flex items-center bg-white/5 backdrop-blur-sm rounded-full py-0.5 px-2 ring-1 ring-white/5 shadow-sm max-w-[55%] overflow-hidden`}>
-                    <span className="text-[10px] text-white/90 font-semibold truncate tracking-tight" title={games.find(g => g.id === selectedGameId)?.nameAr}>
+                  <div className={`inline-flex items-center bg-white/5 backdrop-blur-sm rounded-full py-1 px-3 ring-1 ring-white/5 shadow-sm max-w-[55%] overflow-hidden`}>
+                    <span className="text-sm text-white/90 font-semibold truncate tracking-tight" title={games.find(g => g.id === selectedGameId)?.nameAr}>
                       {games.find(g => g.id === selectedGameId)?.nameAr}
                     </span>
                   </div>
@@ -2428,11 +2428,11 @@ export default function GroupsPage() {
               {/* Help (compact) */}
               <button
                 onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all"
+                className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all"
                 aria-label="شرح الدخول للجولة الفردية"
                 title="شرح الدخول للجولة الفردية"
               >
-                <HelpCircle className="w-3.5 h-3.5" />
+                <HelpCircle className="w-4 h-4" />
               </button>
             </div>
           ) : (

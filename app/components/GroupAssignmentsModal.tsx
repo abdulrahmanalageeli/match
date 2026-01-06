@@ -1,5 +1,5 @@
-import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check } from "lucide-react"
-import { useState, useEffect } from "react"
+import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check, RefreshCcw } from "lucide-react"
+import { useState } from "react"
 
 interface GroupAssignment {
   group_number: number
@@ -62,6 +62,8 @@ export default function GroupAssignmentsModal({
   const [viewMode, setViewMode] = useState<'modify' | 'seating'>('modify')
   // Attendance saving states (by participant number)
   const [attendanceSaving, setAttendanceSaving] = useState<Record<number, boolean>>({})
+  // Manual refresh state for seating view
+  const [viewRefreshing, setViewRefreshing] = useState(false)
   // Structured confirmation state for clearer warning display
   const [showConfirm, setShowConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -193,16 +195,11 @@ export default function GroupAssignmentsModal({
     }
   }
 
-  // Lightweight polling so multiple hosts stay in sync in seating view
-  useEffect(() => {
-    if (!isOpen || viewMode !== 'seating' || !onSwapApplied) return
-    const id = setInterval(() => { onSwapApplied() }, 5000)
-    return () => clearInterval(id)
-  }, [isOpen, viewMode, onSwapApplied])
+  // Auto-refresh removed per request; hosts will use a manual refresh button instead
 
   return (
     <div className={`fixed inset-0 ${cohostTheme ? 'bg-violet-900/40' : 'bg-black/50'} backdrop-blur-sm flex items-center justify-center p-4 z-50`}>
-      <div className={`${cohostTheme ? 'bg-gradient-to-br from-violet-950 via-slate-900 to-violet-950 border-4 border-violet-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden`}>
+      <div className={`${cohostTheme ? 'bg-gradient-to-br from-violet-950 via-slate-900 to-violet-950 border-4 border-violet-400/30 rounded-3xl' : 'bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/20 rounded-2xl'} shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col min-h-0`}>
         {/* Header */}
         <div className={`flex items-center justify-between p-6 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'}`}>
           <div className="flex items-center gap-3">
@@ -240,7 +237,7 @@ export default function GroupAssignmentsModal({
         </div>
 
         {/* Content */}
-        <div className="p-3 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-3 sm:p-6 pb-10 overflow-y-auto flex-1 min-h-0">
           <div className={`${viewMode === 'modify' ? '' : 'hidden'}`}>
           {/* Preview Top 3 Controls */}
           <div className="mb-4 flex flex-col gap-2">
@@ -579,50 +576,73 @@ export default function GroupAssignmentsModal({
 
           {/* Seating view (host-friendly) */}
           <div className={`${viewMode === 'seating' ? '' : 'hidden'} space-y-4`}>
-            <div className="text-slate-300 text-sm">عرض مبسط للمضيفين: أرقام الطاولات، المجموعات، وأسماء المشاركين</div>
+            <div className={`flex items-center justify-between ${cohostTheme ? 'bg-violet-500/10 border-violet-400/30' : 'bg-white/5 border-white/10'} border rounded-xl p-3`}>
+              <div className="flex items-center gap-2">
+                <span className="text-white font-semibold text-sm">عرض المقاعد للمضيفين</span>
+                <span className="text-slate-300 text-xs">أرقام الطاولات، المجموعات، وأسماء المشاركين مع حالة الحضور</span>
+              </div>
+              <button
+                onClick={async () => { if (!onSwapApplied) return; setViewRefreshing(true); try { await onSwapApplied() } finally { setViewRefreshing(false) } }}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium border transition-colors ${viewRefreshing ? (cohostTheme ? 'bg-violet-500/20 text-violet-200 border-violet-400/40 cursor-wait' : 'bg-cyan-500/20 text-cyan-200 border-cyan-400/40 cursor-wait') : (cohostTheme ? 'bg-violet-500/10 text-violet-200 border-violet-400/30 hover:bg-violet-500/20' : 'bg-white/5 text-slate-200 border-white/10 hover:bg-white/10')}`}
+                disabled={viewRefreshing}
+                title="تحديث القائمة"
+              >
+                <RefreshCcw className={`w-3.5 h-3.5 ${viewRefreshing ? 'animate-spin' : ''}`} />
+                <span>{viewRefreshing ? 'جار التحديث...' : 'تحديث'}</span>
+              </button>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {computedDisplayGroups
                 .slice()
                 .sort((a, b) => (a.table_number || a.group_number) - (b.table_number || b.group_number))
-                .map(group => (
-                <div key={`seat-${group.group_number}`} className={`rounded-xl border ${cohostTheme ? 'border-violet-400/30 bg-violet-500/10' : 'border-white/10 bg-white/5'} p-4`}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${cohostTheme ? 'bg-violet-500/20 text-violet-200' : 'bg-slate-700/50 text-slate-200'}`}>مجموعة {group.group_number}</span>
-                      <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${cohostTheme ? 'bg-indigo-500/20 text-indigo-200' : 'bg-slate-700/50 text-slate-200'}`}>الطاولة #{group.table_number || '—'}</span>
-                    </div>
-                    <span className="text-xs text-slate-400">{group.participant_count} أشخاص</span>
-                  </div>
-                  <div className="space-y-2">
-                    {group.participants.map(p => (
-                      <div key={`p-${group.group_number}-${p.number}`} className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white">#{p.number}</div>
-                        <div className="text-white text-sm truncate flex-1">{p.name}</div>
-                        <button
-                          className={`${p.attended ? (cohostTheme ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30') : (cohostTheme ? 'bg-slate-700/60 text-slate-300 border-white/10' : 'bg-slate-700/50 text-slate-200 border-white/10')} inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border transition-colors`}
-                          title={p.attended ? 'حاضر - اضغط للتبديل' : 'غير حاضر - اضغط للتبديل'}
-                          onClick={() => toggleAttendance(p.number, !!p.attended)}
-                          disabled={!!attendanceSaving[p.number]}
-                        >
-                          {attendanceSaving[p.number] ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : p.attended ? (
-                            <>
-                              <CheckCircle2 className="w-3.5 h-3.5" />
-                              <span>حاضر</span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                              <span>غير حاضر</span>
-                            </>
-                          )}
-                        </button>
+                .map(group => {
+                  const presentCount = group.participants.filter(p => p.attended).length
+                  return (
+                    <div key={`seat-${group.group_number}`} className={`rounded-2xl border ${cohostTheme ? 'border-violet-400/30 bg-violet-500/10' : 'border-white/10 bg-white/5'} p-4`}> 
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${cohostTheme ? 'bg-violet-500/20 text-violet-200' : 'bg-slate-700/50 text-slate-200'}`}>مجموعة {group.group_number}</span>
+                          <span className={`inline-flex items-center justify-center rounded-lg px-2.5 py-1 text-xs font-semibold ${cohostTheme ? 'bg-indigo-500/20 text-indigo-200' : 'bg-slate-700/50 text-slate-200'}`}>الطاولة #{group.table_number || '—'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-300">حضور:</span>
+                          <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-full text-xs font-semibold ${presentCount > 0 ? 'bg-emerald-500/20 text-emerald-200' : 'bg-slate-700/60 text-slate-300'}`}>{presentCount}/{group.participant_count}</span>
+                        </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+                      <div className="space-y-2">
+                        {group.participants.map(p => (
+                          <div key={`p-${group.group_number}-${p.number}`} className={`relative flex items-center gap-3 p-2.5 rounded-xl border ${p.attended ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-white/10 bg-white/5'}`}>
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${p.attended ? 'bg-emerald-400/70' : 'bg-slate-600/40'}`}></div>
+                            <div className="w-10 h-10 rounded-xl ring-2 ring-white/20 shadow-sm bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
+                              <span className="text-white text-base font-extrabold tabular-nums">#{p.number}</span>
+                            </div>
+                            <div className="text-white text-sm truncate flex-1">{p.name}</div>
+                            <button
+                              className={`${p.attended ? (cohostTheme ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30') : (cohostTheme ? 'bg-slate-700/60 text-slate-300 border-white/10' : 'bg-slate-700/50 text-slate-200 border-white/10')} inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors`}
+                              title={p.attended ? 'حاضر - اضغط للتبديل' : 'غير حاضر - اضغط للتبديل'}
+                              onClick={() => toggleAttendance(p.number, !!p.attended)}
+                              disabled={!!attendanceSaving[p.number]}
+                            >
+                              {attendanceSaving[p.number] ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : p.attended ? (
+                                <>
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>حاضر</span>
+                                </>
+                              ) : (
+                                <>
+                                  <AlertTriangle className="w-3.5 h-3.5" />
+                                  <span>غير حاضر</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
             </div>
           </div>
         </div>

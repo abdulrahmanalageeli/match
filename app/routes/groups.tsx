@@ -1609,226 +1609,6 @@ export default function GroupsPage() {
                       </div>
                     </div>
                   )}
-
-        {currentGame.id === "imposter" && (
-          <Card className="bg-slate-900/60 border-fuchsia-600/30">
-            <CardContent className="p-6">
-              {imposterPhase === "setup" && (
-                <div className="space-y-6">
-                  <div className="text-center mb-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 mb-3">
-                      <HelpCircle className="w-4 h-4 text-fuchsia-300" />
-                      <span className="text-fuchsia-200 text-xs font-bold">لعبة تخمين</span>
-                    </div>
-                    <h3 className="text-3xl font-extrabold text-white mb-1">المحتال</h3>
-                    <p className="text-fuchsia-100/90">أدخل الأسماء (4–6)، اختر فئة، ثم ابدأ الجولة</p>
-                  </div>
-
-                  {/* Names input */}
-                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
-                    <h4 className="text-white font-bold mb-3">أسماء اللاعبين</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {imposterPlayers.map((n, i) => (
-                        <div key={`name-${i}`} className="flex items-center gap-2">
-                          <input
-                            className="flex-1 px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
-                            placeholder={`اللاعب ${i+1}`}
-                            value={n}
-                            onChange={e => {
-                              const arr = [...imposterPlayers]; arr[i] = e.target.value; setImposterPlayers(arr);
-                            }}
-                          />
-                          {imposterPlayers.length > 4 && (
-                            <button
-                              onClick={() => setImposterPlayers(prev => prev.filter((_, idx) => idx !== i))}
-                              className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-rose-500/20 text-rose-200 border border-rose-400/30 hover:bg-rose-500/30"
-                              title="حذف"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between mt-3">
-                      <button
-                        onClick={() => imposterPlayers.length < 6 && setImposterPlayers(prev => [...prev, ""])}
-                        disabled={imposterPlayers.length >= 6}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50"
-                      >
-                        <Plus className="w-4 h-4" />
-                        أضف لاعباً
-                      </button>
-                      <span className="text-slate-300 text-xs">الحد: 4–6 لاعبين</span>
-                    </div>
-                  </div>
-
-                  {/* Category */}
-                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
-                    <h4 className="text-white font-bold mb-3">الفئة</h4>
-                    <select
-                      className="w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
-                      value={imposterSelectedCategory}
-                      onChange={(e) => setImposterSelectedCategory(e.target.value)}
-                    >
-                      {Object.keys(imposterCategories).map(cat => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="text-center">
-                    <Button onClick={startImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                      ابدأ الجولة
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {imposterPhase === "reveal" && (
-                <div className="space-y-6">
-                  <div className="text-center mb-2">
-                    <h3 className="text-2xl font-extrabold text-white mb-1">كشف الأدوار</h3>
-                    <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[revealIndex]}</span></p>
-                  </div>
-
-                  <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
-                    {!revealShown ? (
-                      <div className="space-y-4">
-                        <p className="text-fuchsia-100/90">اضغط للكشف. لا تري أحداً غيرك 🤫</p>
-                        <Button onClick={nextReveal} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">
-                          اكشف الآن
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {revealIndex === imposterIndex ? (
-                          <>
-                            <div className="text-4xl font-black text-rose-300">أنت المحتال</div>
-                            <p className="text-rose-200">لا تعرف الكلمة. حاول الاندماج!</p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-3xl font-extrabold text-white">كلمتك:</div>
-                            <div className="text-4xl font-black text-fuchsia-200">{imposterSecretWord}</div>
-                            <p className="text-fuchsia-100/90">قل كلمة ذات صلة بدون كشف مباشر</p>
-                          </>
-                        )}
-                        <Button onClick={nextReveal} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
-                          إخفاء وتسليم الهاتف ↗
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {imposterPhase === "discussion" && (
-                <div className="space-y-6">
-                  <div className="text-center">
-                    <h3 className="text-2xl font-extrabold text-white mb-2">أسئلة نعم/لا</h3>
-                    <p className="text-fuchsia-100/90">في كل دور: لاعب يسأل لاعباً آخر سؤالاً بنعم/لا عن الكلمة</p>
-                  </div>
-
-                  {qaPairs.length > 0 && (
-                    <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
-                      <div className="flex items-center justify-center gap-3 mb-3">
-                        <Badge className="bg-fuchsia-500/25 border-fuchsia-400/40 text-fuchsia-100 border">
-                          السائل: {imposterPlayers[qaPairs[qaIndex].asker]}
-                        </Badge>
-                        <ChevronLeft className="w-4 h-4 text-slate-300" />
-                        <Badge className="bg-purple-500/25 border-purple-400/40 text-purple-100 border">
-                          الهدف: {imposterPlayers[qaPairs[qaIndex].target]}
-                        </Badge>
-                      </div>
-                      <div className="text-slate-200 mb-4">اطرح سؤالاً قصيراً بنعم/لا دون كشف مباشر</div>
-                      <div className="text-center">
-                        {qaIndex < qaPairs.length - 1 ? (
-                          <Button onClick={() => setQAIndex(qaIndex + 1)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
-                            بعد الإجابة • التالي
-                          </Button>
-                        ) : (
-                          <Button onClick={startVoting} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-bold">
-                            ابدأ التصويت
-                          </Button>
-                        )}
-                      </div>
-                      <div className="mt-3 text-xs text-slate-300">دور {qaIndex + 1} من {qaPairs.length}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {imposterPhase === "voting" && (
-                <div className="space-y-6">
-                  <div className="text-center mb-2">
-                    <h3 className="text-2xl font-extrabold text-white mb-1">تصويت سري</h3>
-                    <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[voteTurn]}</span> لاختيار المشتبه</p>
-                  </div>
-                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {imposterPlayers.map((n, idx) => (
-                        idx === voteTurn ? null : (
-                          <button
-                            key={`vote-${idx}`}
-                            onClick={() => castVote(idx)}
-                            className="w-full text-left px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors"
-                          >
-                            {n || `لاعب ${idx+1}`}
-                          </button>
-                        )
-                      ))}
-                    </div>
-                  </div>
-                  <div className="text-center text-slate-300 text-sm">المصوّت {voteTurn + 1} من {imposterPlayers.length}</div>
-                </div>
-              )}
-
-              {imposterPhase === "result" && accusedIndex !== null && (
-                <div className="space-y-6 text-center">
-                  {accusedIndex === imposterIndex ? (
-                    <>
-                      <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-xl">
-                        <CheckCircle className="w-10 h-10" />
-                      </div>
-                      <h3 className="text-3xl font-extrabold text-white">أحسنتم! اكتشفتم المحتال</h3>
-                      <p className="text-fuchsia-100/90">الكلمة كانت: <span className="text-white font-bold">{imposterSecretWord}</span></p>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-rose-500 to-red-600 flex items-center justify-center text-white shadow-xl">
-                        <XCircle className="w-10 h-10" />
-                      </div>
-                      <h3 className="text-3xl font-extrabold text-white">فاز المحتال هذه الجولة</h3>
-                      <p className="text-fuchsia-100/90">كان المحتال: <span className="text-white font-bold">{imposterPlayers[imposterIndex]}</span> • الكلمة: <span className="text-white font-bold">{imposterSecretWord}</span></p>
-                    </>
-                  )}
-
-                  {/* Reveal all roles */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
-                    {imposterPlayers.map((n, idx) => (
-                      <div key={`rev-${idx}`} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white flex items-center justify-between">
-                        <span>{n || `لاعب ${idx+1}`}</span>
-                        <Badge className={`${idx === imposterIndex ? 'bg-rose-500/30 border-rose-400/40 text-rose-100' : 'bg-emerald-500/30 border-emerald-400/40 text-emerald-100'} border` }>
-                          {idx === imposterIndex ? 'المحتال' : 'مدني'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-center gap-3 mt-4">
-                    <Button onClick={newImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">
-                      جولة جديدة
-                    </Button>
-                    <Button onClick={resetImposter} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
-                      تعديل الأسماء/الفئة
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
                   {game.id === 'what-would-you-do' && (
                     <div className="absolute top-2 left-2 z-10">
                       <div className="bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
@@ -2253,6 +2033,226 @@ export default function GroupsPage() {
                   )}
                 </div>
               ) : null}
+            </CardContent>
+          </Card>
+        )}
+
+        {currentGame.id === "imposter" && (
+          <Card className="bg-slate-900/60 border-fuchsia-600/30">
+            <CardContent className="p-6">
+              {imposterPhase === "setup" && (
+                <div className="space-y-6">
+                  <div className="text-center mb-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 mb-3">
+                      <HelpCircle className="w-4 h-4 text-fuchsia-300" />
+                      <span className="text-fuchsia-200 text-xs font-bold">لعبة تخمين</span>
+                    </div>
+                    <h3 className="text-3xl font-extrabold text-white mb-1">المحتال</h3>
+                    <p className="text-fuchsia-100/90">أدخل الأسماء (4–6)، اختر فئة، ثم ابدأ الجولة</p>
+                  </div>
+
+                  {/* Names input */}
+                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
+                    <h4 className="text-white font-bold mb-3">أسماء اللاعبين</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {imposterPlayers.map((n, i) => (
+                        <div key={`name-${i}`} className="flex items-center gap-2">
+                          <input
+                            className="flex-1 px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+                            placeholder={`اللاعب ${i+1}`}
+                            value={n}
+                            onChange={e => {
+                              const arr = [...imposterPlayers]; arr[i] = e.target.value; setImposterPlayers(arr);
+                            }}
+                          />
+                          {imposterPlayers.length > 4 && (
+                            <button
+                              onClick={() => setImposterPlayers(prev => prev.filter((_, idx) => idx !== i))}
+                              className="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-rose-500/20 text-rose-200 border border-rose-400/30 hover:bg-rose-500/30"
+                              title="حذف"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <button
+                        onClick={() => imposterPlayers.length < 6 && setImposterPlayers(prev => [...prev, ""])}
+                        disabled={imposterPlayers.length >= 6}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50"
+                      >
+                        <Plus className="w-4 h-4" />
+                        أضف لاعباً
+                      </button>
+                      <span className="text-slate-300 text-xs">الحد: 4–6 لاعبين</span>
+                    </div>
+                  </div>
+
+                  {/* Category */}
+                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
+                    <h4 className="text-white font-bold mb-3">الفئة</h4>
+                    <select
+                      className="w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+                      value={imposterSelectedCategory}
+                      onChange={(e) => setImposterSelectedCategory(e.target.value)}
+                    >
+                      {Object.keys(imposterCategories).map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="text-center">
+                    <Button onClick={startImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                      ابدأ الجولة
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {imposterPhase === "reveal" && (
+                <div className="space-y-6">
+                  <div className="text-center mb-2">
+                    <h3 className="text-2xl font-extrabold text-white mb-1">كشف الأدوار</h3>
+                    <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[revealIndex]}</span></p>
+                  </div>
+
+                  <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
+                    {!revealShown ? (
+                      <div className="space-y-4">
+                        <p className="text-fuchsia-100/90">اضغط للكشف. لا تري أحداً غيرك 🤫</p>
+                        <Button onClick={nextReveal} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">
+                          اكشف الآن
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {revealIndex === imposterIndex ? (
+                          <>
+                            <div className="text-4xl font-black text-rose-300">أنت المحتال</div>
+                            <p className="text-rose-200">لا تعرف الكلمة. حاول الاندماج!</p>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-3xl font-extrabold text-white">كلمتك:</div>
+                            <div className="text-4xl font-black text-fuchsia-200">{imposterSecretWord}</div>
+                            <p className="text-fuchsia-100/90">قل كلمة ذات صلة بدون كشف مباشر</p>
+                          </>
+                        )}
+                        <Button onClick={nextReveal} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
+                          إخفاء وتسليم الهاتف ↗
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {imposterPhase === "discussion" && (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-2xl font-extrabold text-white mb-2">أسئلة نعم/لا</h3>
+                    <p className="text-fuchsia-100/90">في كل دور: لاعب يسأل لاعباً آخر سؤالاً بنعم/لا عن الكلمة</p>
+                  </div>
+
+                  {qaPairs.length > 0 && (
+                    <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
+                      <div className="flex items-center justify-center gap-3 mb-3">
+                        <Badge className="bg-fuchsia-500/25 border-fuchsia-400/40 text-fuchsia-100 border">
+                          السائل: {imposterPlayers[qaPairs[qaIndex].asker]}
+                        </Badge>
+                        <ChevronLeft className="w-4 h-4 text-slate-300" />
+                        <Badge className="bg-purple-500/25 border-purple-400/40 text-purple-100 border">
+                          الهدف: {imposterPlayers[qaPairs[qaIndex].target]}
+                        </Badge>
+                      </div>
+                      <div className="text-slate-200 mb-4">اطرح سؤالاً قصيراً بنعم/لا دون كشف مباشر</div>
+                      <div className="text-center">
+                        {qaIndex < qaPairs.length - 1 ? (
+                          <Button onClick={() => setQAIndex(qaIndex + 1)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
+                            بعد الإجابة • التالي
+                          </Button>
+                        ) : (
+                          <Button onClick={startVoting} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-bold">
+                            ابدأ التصويت
+                          </Button>
+                        )}
+                      </div>
+                      <div className="mt-3 text-xs text-slate-300">دور {qaIndex + 1} من {qaPairs.length}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {imposterPhase === "voting" && (
+                <div className="space-y-6">
+                  <div className="text-center mb-2">
+                    <h3 className="text-2xl font-extrabold text-white mb-1">تصويت سري</h3>
+                    <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[voteTurn]}</span> لاختيار المشتبه</p>
+                  </div>
+                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {imposterPlayers.map((n, idx) => (
+                        idx === voteTurn ? null : (
+                          <button
+                            key={`vote-${idx}`}
+                            onClick={() => castVote(idx)}
+                            className="w-full text-left px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-colors"
+                          >
+                            {n || `لاعب ${idx+1}`}
+                          </button>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-center text-slate-300 text-sm">المصوّت {voteTurn + 1} من {imposterPlayers.length}</div>
+                </div>
+              )}
+
+              {imposterPhase === "result" && accusedIndex !== null && (
+                <div className="space-y-6 text-center">
+                  {accusedIndex === imposterIndex ? (
+                    <>
+                      <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-xl">
+                        <CheckCircle className="w-10 h-10" />
+                      </div>
+                      <h3 className="text-3xl font-extrabold text-white">أحسنتم! اكتشفتم المحتال</h3>
+                      <p className="text-fuchsia-100/90">الكلمة كانت: <span className="text-white font-bold">{imposterSecretWord}</span></p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-rose-500 to-red-600 flex items-center justify-center text-white shadow-xl">
+                        <XCircle className="w-10 h-10" />
+                      </div>
+                      <h3 className="text-3xl font-extrabold text-white">فاز المحتال هذه الجولة</h3>
+                      <p className="text-fuchsia-100/90">كان المحتال: <span className="text-white font-bold">{imposterPlayers[imposterIndex]}</span> • الكلمة: <span className="text-white font-bold">{imposterSecretWord}</span></p>
+                    </>
+                  )}
+
+                  {/* Reveal all roles */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                    {imposterPlayers.map((n, idx) => (
+                      <div key={`rev-${idx}`} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white flex items-center justify-between">
+                        <span>{n || `لاعب ${idx+1}`}</span>
+                        <Badge className={`${idx === imposterIndex ? 'bg-rose-500/30 border-rose-400/40 text-rose-100' : 'bg-emerald-500/30 border-emerald-400/40 text-emerald-100'} border` }>
+                          {idx === imposterIndex ? 'المحتال' : 'مدني'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center justify-center gap-3 mt-4">
+                    <Button onClick={newImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">
+                      جولة جديدة
+                    </Button>
+                    <Button onClick={resetImposter} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
+                      تعديل الأسماء/الفئة
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

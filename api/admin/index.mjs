@@ -4293,10 +4293,40 @@ export default async function handler(req, res) {
           console.log(`ℹ️ No groups found for event ${event_id}`)
         }
         
+        // Also clear attendance records for this event (and current match)
+        let attendanceCount = 0
+        const { data: attendanceToDelete, error: attendanceFetchError } = await supabase
+          .from("event_attendance")
+          .select("id")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+        
+        if (attendanceFetchError) {
+          console.error("Error fetching attendance to delete:", attendanceFetchError)
+          return res.status(500).json({ error: "Failed to fetch attendance to delete" })
+        }
+        
+        attendanceCount = attendanceToDelete ? attendanceToDelete.length : 0
+        if (attendanceCount > 0) {
+          const { error: attendanceDeleteError } = await supabase
+            .from("event_attendance")
+            .delete()
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", event_id)
+          if (attendanceDeleteError) {
+            console.error("Error deleting attendance:", attendanceDeleteError)
+            return res.status(500).json({ error: "Failed to clear attendance" })
+          }
+          console.log(`🧹 Cleared ${attendanceCount} attendance record(s) for event ${event_id}`)
+        } else {
+          console.log(`ℹ️ No attendance found for event ${event_id}`)
+        }
+        
         return res.status(200).json({ 
           success: true,
           message: "Groups reset successfully",
           groupsRemoved: groupCount,
+          attendanceCleared: attendanceCount,
           event_id
         })
         

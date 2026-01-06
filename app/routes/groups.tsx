@@ -2285,7 +2285,7 @@ export default function GroupsPage() {
                   <Sparkles className="w-6 h-6 text-purple-400" />
                   الألعاب المتاحة
                 </h2>
-                <p className="text-center text-slate-300 text-xs mt-2">5 ألعاب متنوعة ومبتكرة</p>
+                <p className="text-center text-slate-300 text-xs mt-2">6 ألعاب متنوعة ومبتكرة</p>
               </div>
               <div className="p-5 grid grid-cols-2 gap-4">
                 {games.map((game, index) => (
@@ -2408,21 +2408,27 @@ export default function GroupsPage() {
 
               {/* Center cluster: timer + current game badge */}
               <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
-                <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 border ${
-                  timeRemaining <= 300 ? 'border-red-400/40 bg-red-500/10 text-red-200' :
-                  timeRemaining <= 600 ? 'border-amber-400/40 bg-amber-500/10 text-amber-200' :
-                  'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+                <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 border ring-1 ring-white/10 backdrop-blur-sm shadow-sm transition-colors ${
+                  timeRemaining <= 300 ? 'border-red-400/30 bg-red-500/10 text-red-100' :
+                  timeRemaining <= 600 ? 'border-amber-400/30 bg-amber-500/10 text-amber-100' :
+                  'border-emerald-400/30 bg-emerald-500/10 text-emerald-100'
                 }`}>
-                  <Clock className="w-3 h-3" />
-                  <span className="text-[10px] font-semibold tabular-nums">{formatTime(timeRemaining)}</span>
+                  <span className={`inline-flex items-center justify-center w-4 h-4 rounded-full ring-1 ring-white/15 shadow-sm ${
+                    timeRemaining <= 300 ? 'bg-red-500/25 text-red-100' :
+                    timeRemaining <= 600 ? 'bg-amber-500/25 text-amber-100' :
+                    'bg-emerald-500/25 text-emerald-100'
+                  }`}>
+                    <Clock className="w-2.5 h-2.5" />
+                  </span>
+                  <span className="text-[10px] font-semibold tabular-nums tracking-tight">{formatTime(timeRemaining)}</span>
                 </div>
 
                 {selectedGameId && (
-                  <div className={`inline-flex items-center gap-1 bg-white/5 backdrop-blur-0 rounded-full py-0.5 px-1.5 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} max-w-[50%] overflow-hidden`}>
-                    <div className={`w-3 h-3 rounded-md bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
+                  <div className={`inline-flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full py-0.5 px-2 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} ring-1 ring-white/10 shadow-sm max-w-[55%] overflow-hidden`}>
+                    <div className={`w-4 h-4 rounded-md bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing} shadow`} aria-hidden="true">
                       {games.find(g => g.id === selectedGameId)?.icon}
                     </div>
-                    <span className="text-[10px] text-white/90 font-medium truncate">
+                    <span className="text-[10px] text-white/90 font-semibold truncate tracking-tight" title={games.find(g => g.id === selectedGameId)?.nameAr}>
                       {games.find(g => g.id === selectedGameId)?.nameAr}
                     </span>
                   </div>

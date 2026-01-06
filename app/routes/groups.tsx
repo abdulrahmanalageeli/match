@@ -2357,8 +2357,9 @@ export default function GroupsPage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism (collapsible) */}
-        <div className={`sticky top-0 z-40 bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-3xl shadow-2xl ${headerCollapsed ? 'mb-2 p-2' : 'mb-4 p-4'} animate-in slide-in-from-top duration-300 transition-all`}>
-          <div className={`relative flex items-center justify-center ${headerCollapsed ? 'mb-2' : 'mb-4'}`}>
+        <div className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-1 p-0.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
+          {!headerCollapsed && (
+          <div className={"relative flex items-center justify-center mb-4"}>
             {/* Logo with hover effect - centered */}
             <button 
               onClick={() => window.location.href = "/welcome"}
@@ -2371,8 +2372,8 @@ export default function GroupsPage() {
               />
             </button>
 
-            {/* Back Button with smooth transition - positioned absolutely on left */}
-            {selectedGameId && (
+            {/* Back Button with smooth transition - positioned absolutely on left (only when expanded) */}
+            {selectedGameId && !headerCollapsed && (
               <button
                 onClick={() => {
                   setSelectedGameId(null);
@@ -2384,81 +2385,122 @@ export default function GroupsPage() {
                 <span>عودة</span>
               </button>
             )}
-            
           </div>
+          )}
 
-          {/* Beautiful Google-Quality Timer */}
-          <div className={`${headerCollapsed ? 'space-y-2' : 'space-y-3'} transition-all`}>
-            {/* Elegant Timer Display */}
-            <div className="relative">
-              <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl ${headerCollapsed ? 'py-2 px-4' : 'py-4 px-6'} transition-all duration-500 ${
-                timeRemaining <= 300 ? 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent' : 
-                timeRemaining <= 600 ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 
-                'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent'
-              }`}>
-                <div className="flex items-baseline gap-1">
-                  <span className={`${headerCollapsed ? 'text-2xl' : 'text-4xl'} font-light tabular-nums tracking-tight ${
-                    timeRemaining <= 300 ? 'text-red-400' : 
-                    timeRemaining <= 600 ? 'text-amber-400' : 
-                    'text-emerald-400'
-                  }`}>
-                    {formatTime(timeRemaining)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Clock className={`${headerCollapsed ? 'w-3 h-3' : 'w-3.5 h-3.5'} ${
-                    timeRemaining <= 300 ? 'text-red-400/60' : 
-                    timeRemaining <= 600 ? 'text-amber-400/60' : 
-                    'text-emerald-400/60'
-                  }`} />
-                  <span className={`text-xs font-medium ${
-                    timeRemaining <= 300 ? 'text-red-400/80' : 
-                    timeRemaining <= 600 ? 'text-amber-400/80' : 
-                    'text-emerald-400/80'
-                  }`}>
-                    {timeRemaining <= 300 ? 'انتهى الوقت قريباً!' : timeRemaining <= 600 ? 'الوقت ينفد' : 'الوقت المتبقي'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* How-To button: centered under the timer */}
-            <div className="flex flex-col items-center justify-center">
-              {headerCollapsed ? (
+          {/* Header content */}
+          {headerCollapsed ? (
+            // Single sleek row when collapsed
+            <div className="flex items-center justify-between gap-1 min-h-[30px]">
+              {/* Back (compact) */}
+              {selectedGameId ? (
                 <button
-                  onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
-                  title="شرح الدخول للجولة الفردية"
+                  onClick={() => { setSelectedGameId(null); setGamePhase('intro'); }}
+                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-slate-700/40 border border-slate-600/50 hover:border-cyan-400/50 hover:bg-cyan-400/10 text-slate-300 hover:text-cyan-300 transition-all"
+                  aria-label="عودة"
+                  title="عودة"
                 >
-                  <HelpCircle className="w-4 h-4" />
+                  <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
               ) : (
-                <>
-                  <button
-                    onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
-                    title="اضغط بعد انتهاء وقت الأنشطة"
-                  >
-                    <HelpCircle className="w-4 h-4" />
-                    <span className="font-semibold">شرح الدخول للجولة الفردية</span>
-                  </button>
-                  <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
-                </>
+                <span className="w-7" />
+              )}
+
+              {/* Center cluster: timer + current game badge */}
+              <div className="flex items-center gap-1 flex-1 min-w-0 justify-center">
+                <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 border ${
+                  timeRemaining <= 300 ? 'border-red-400/40 bg-red-500/10 text-red-200' :
+                  timeRemaining <= 600 ? 'border-amber-400/40 bg-amber-500/10 text-amber-200' :
+                  'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'
+                }`}>
+                  <Clock className="w-3 h-3" />
+                  <span className="text-[10px] font-semibold tabular-nums">{formatTime(timeRemaining)}</span>
+                </div>
+
+                {selectedGameId && (
+                  <div className={`inline-flex items-center gap-1 bg-white/5 backdrop-blur-0 rounded-full py-0.5 px-1.5 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} max-w-[50%] overflow-hidden`}>
+                    <div className={`w-3 h-3 rounded-md bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
+                      {games.find(g => g.id === selectedGameId)?.icon}
+                    </div>
+                    <span className="text-[10px] text-white/90 font-medium truncate">
+                      {games.find(g => g.id === selectedGameId)?.nameAr}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Help (compact) */}
+              <button
+                onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
+                className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all"
+                aria-label="شرح الدخول للجولة الفردية"
+                title="شرح الدخول للجولة الفردية"
+              >
+                <HelpCircle className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            // Expanded stacked content
+            <div className={`space-y-3 transition-all`}>
+              {/* Elegant Timer Display */}
+              <div className="relative">
+                <div className={`flex flex-col items-center justify-center gap-1 rounded-2xl py-4 px-6 transition-all duration-500 ${
+                  timeRemaining <= 300 ? 'bg-gradient-to-br from-red-500/10 via-red-500/5 to-transparent' : 
+                  timeRemaining <= 600 ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent' : 
+                  'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent'
+                }`}>
+                  <div className="flex items-baseline gap-1">
+                    <span className={`text-4xl font-light tabular-nums tracking-tight ${
+                      timeRemaining <= 300 ? 'text-red-400' : 
+                      timeRemaining <= 600 ? 'text-amber-400' : 
+                      'text-emerald-400'
+                    }`}>
+                      {formatTime(timeRemaining)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <Clock className={`w-3.5 h-3.5 ${
+                      timeRemaining <= 300 ? 'text-red-400/60' : 
+                      timeRemaining <= 600 ? 'text-amber-400/60' : 
+                      'text-emerald-400/60'
+                    }`} />
+                    <span className={`text-xs font-medium ${
+                      timeRemaining <= 300 ? 'text-red-400/80' : 
+                      timeRemaining <= 600 ? 'text-amber-400/80' : 
+                      'text-emerald-400/80'
+                    }`}>
+                      {timeRemaining <= 300 ? 'انتهى الوقت قريباً!' : timeRemaining <= 600 ? 'الوقت ينفد' : 'الوقت المتبقي'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* How-To button */}
+              <div className="flex flex-col items-center justify-center">
+                <button
+                  onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
+                  title="اضغط بعد انتهاء وقت الأنشطة"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span className="font-semibold">شرح الدخول للجولة الفردية</span>
+                </button>
+                <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
+              </div>
+
+              {/* Current Game Badge - Themed */}
+              {selectedGameId && (
+                <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} transition-all`}>
+                  <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
+                    {games.find(g => g.id === selectedGameId)?.icon}
+                  </div>
+                  <span className="text-sm font-medium text-white/90">
+                    {games.find(g => g.id === selectedGameId)?.nameAr}
+                  </span>
+                </div>
               )}
             </div>
-
-            {/* Current Game Badge - Themed */}
-            {selectedGameId && (
-              <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full ${headerCollapsed ? 'py-1.5 px-3' : 'py-2 px-4'} border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} transition-all`}>
-                <div className={`${headerCollapsed ? 'w-4 h-4' : 'w-5 h-5'} rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
-                  {games.find(g => g.id === selectedGameId)?.icon}
-                </div>
-                <span className={`${headerCollapsed ? 'text-xs' : 'text-sm'} font-medium text-white/90`}>
-                  {games.find(g => g.id === selectedGameId)?.nameAr}
-                </span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
 
         {/* Mobile Game Content */}

@@ -2064,24 +2064,26 @@ export default function GroupsPage() {
                 ] as const;
                 const activeIdx = steps.findIndex(s => s.key === imposterPhase);
                 return (
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2 overflow-x-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {steps.map((s, i) => (
                         <div
                           key={s.key}
-                          className={`px-2.5 py-1 rounded-full text-xs font-semibold border whitespace-nowrap ${i <= activeIdx ? 'bg-fuchsia-500/20 border-fuchsia-400/40 text-fuchsia-100' : 'bg-white/5 border-white/10 text-slate-300'}`}
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border whitespace-nowrap ${i <= activeIdx ? 'bg-fuchsia-500/20 border-fuchsia-400/40 text-fuchsia-100' : 'bg-white/5 border-white/10 text-slate-300'}`}
                         >
                           {s.label}
                         </div>
                       ))}
                     </div>
-                    <button
-                      onClick={() => setImposterShowTutorial(true)}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white"
-                    >
-                      <BookOpen className="w-4 h-4" />
-                      تعليمات
-                    </button>
+                    <div className="flex sm:justify-end">
+                      <button
+                        onClick={() => setImposterShowTutorial(true)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs shrink-0"
+                      >
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">تعليمات</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -2097,13 +2099,13 @@ export default function GroupsPage() {
                   </div>
 
                   {/* Names input */}
-                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
+                  <div className={`${(gameThemes['imposter'] || gameThemes.default).instruction} space-y-4`}>
                     <h4 className="text-white font-bold mb-3">أسماء اللاعبين</h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {imposterPlayers.map((n, i) => (
-                        <div key={`name-${i}`} className="flex items-center gap-2">
+                        <div key={`name-${i}`} className="flex items-center gap-2 min-w-0">
                           <input
-                            className="flex-1 px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+                            className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
                             placeholder={`اللاعب ${i+1}`}
                             value={n}
                             onChange={e => {
@@ -2122,11 +2124,11 @@ export default function GroupsPage() {
                         </div>
                       ))}
                     </div>
-                    <div className="flex items-center justify-between mt-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-3">
                       <button
                         onClick={() => { if (imposterPlayers.length < 6) setImposterPlayers(prev => [...prev, ""]); setImposterError(null); }}
                         disabled={imposterPlayers.length >= 6}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-fuchsia-500/20 text-fuchsia-100 border border-fuchsia-400/30 hover:bg-fuchsia-500/30 disabled:opacity-50 w-full sm:w-auto"
                       >
                         <Plus className="w-4 h-4" />
                         أضف لاعباً
@@ -2143,7 +2145,7 @@ export default function GroupsPage() {
                   )}
 
                   {/* Category */}
-                  <div className={(gameThemes['imposter'] || gameThemes.default).instruction}>
+                  <div className={`${(gameThemes['imposter'] || gameThemes.default).instruction} space-y-4`}>
                     <h4 className="text-white font-bold mb-3">الفئة</h4>
                     <select
                       className="w-full px-3 py-2 rounded-lg bg-slate-800/70 border border-white/10 text-white focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"

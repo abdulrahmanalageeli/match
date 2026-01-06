@@ -2476,6 +2476,25 @@ export default async function handler(req, res) {
           }
         }
 
+        // Fetch attendance status per participant for this event
+        let attendanceMap = new Map()
+        if (allParticipantNumbers.length > 0) {
+          const { data: attendanceRows, error: attendanceError } = await supabase
+            .from("event_attendance")
+            .select("participant_number, attended")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("event_id", event_id)
+            .in("participant_number", allParticipantNumbers)
+
+          if (attendanceError) {
+            console.error("Error fetching attendance:", attendanceError)
+          } else if (attendanceRows) {
+            attendanceRows.forEach(row => {
+              attendanceMap.set(row.participant_number, !!row.attended)
+            })
+          }
+        }
+
         // Format group assignments (participant_names are already stored in the table)
         const groupAssignments = groupMatches.map(match => {
           const participantNumbers = match.participant_numbers || []
@@ -2486,7 +2505,8 @@ export default async function handler(req, res) {
             return {
               number: num,
               name: details?.name || participantNames[index] || `المشارك #${num}`,
-              age: details?.age
+              age: details?.age,
+              attended: attendanceMap.get(num) === true
             }
           })
 
@@ -2512,6 +2532,43 @@ export default async function handler(req, res) {
       } catch (error) {
         console.error("Error in get-group-assignments:", error)
         return res.status(500).json({ error: "Failed to fetch group assignments" })
+      }
+    }
+
+    // 🔹 SET ATTENDANCE (per participant, per event) for host live check-in
+    if (action === "set-attendance") {
+      try {
+        const { event_id = 1, participant_number, attended, updated_by } = req.body
+        const currentEvent = Number(event_id) || 1
+        const pNum = Number(participant_number)
+        if (!Number.isFinite(pNum) || pNum <= 0 || pNum === 9999) {
+          return res.status(400).json({ error: "Invalid participant_number" })
+        }
+
+        const now = new Date().toISOString()
+
+        const { data, error } = await supabase
+          .from("event_attendance")
+          .upsert({
+            match_id: STATIC_MATCH_ID,
+            event_id: currentEvent,
+            participant_number: pNum,
+            attended: !!attended,
+            updated_at: now,
+            updated_by: updated_by || 'admin'
+          }, { onConflict: "match_id, event_id, participant_number" })
+          .select("participant_number, attended")
+          .single()
+
+        if (error) {
+          console.error("set-attendance upsert error:", error)
+          return res.status(500).json({ error: error.message || "Failed to set attendance" })
+        }
+
+        return res.status(200).json({ success: true, participant_number: data?.participant_number || pNum, attended: data?.attended ?? !!attended })
+      } catch (e) {
+        console.error("Error in set-attendance:", e)
+        return res.status(500).json({ error: "Failed to set attendance" })
       }
     }
 

@@ -1,5 +1,5 @@
 import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 
 interface GroupAssignment {
   group_number: number
@@ -8,6 +8,7 @@ interface GroupAssignment {
     number: number
     name: string
     age?: number
+    attended?: boolean
   }>
   compatibility_score: number
   participant_count: number
@@ -59,6 +60,8 @@ export default function GroupAssignmentsModal({
   const [finalizing, setFinalizing] = useState(false)
   // Dual view modes: modify vs seating (host view)
   const [viewMode, setViewMode] = useState<'modify' | 'seating'>('modify')
+  // Attendance saving states (by participant number)
+  const [attendanceSaving, setAttendanceSaving] = useState<Record<number, boolean>>({})
   // Structured confirmation state for clearer warning display
   const [showConfirm, setShowConfirm] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -154,7 +157,8 @@ export default function GroupAssignmentsModal({
     const mapped = gm.map((match) => {
       const participants = (match.participant_numbers || []).map((num, i) => ({
         number: num,
-        name: match.participant_names?.[i] || `المشارك #${num}`
+        name: match.participant_names?.[i] || `المشارك #${num}`,
+        attended: false
       }))
       return {
         group_number: match.group_number,
@@ -166,6 +170,35 @@ export default function GroupAssignmentsModal({
     })
     return mapped
   })()
+
+  async function toggleAttendance(pNumber: number, current: boolean) {
+    try {
+      setAttendanceSaving(prev => ({ ...prev, [pNumber]: true }))
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set-attendance', event_id: eventId, participant_number: pNumber, attended: !current })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) {
+        alert(data?.error || 'تعذر حفظ الحضور')
+        return
+      }
+      if (onSwapApplied) await onSwapApplied()
+    } catch (e) {
+      console.error('toggle attendance error', e)
+      alert('حدث خطأ أثناء حفظ الحضور')
+    } finally {
+      setAttendanceSaving(prev => { const cp = { ...prev }; delete cp[pNumber]; return cp })
+    }
+  }
+
+  // Lightweight polling so multiple hosts stay in sync in seating view
+  useEffect(() => {
+    if (!isOpen || viewMode !== 'seating' || !onSwapApplied) return
+    const id = setInterval(() => { onSwapApplied() }, 5000)
+    return () => clearInterval(id)
+  }, [isOpen, viewMode, onSwapApplied])
 
   return (
     <div className={`fixed inset-0 ${cohostTheme ? 'bg-violet-900/40' : 'bg-black/50'} backdrop-blur-sm flex items-center justify-center p-4 z-50`}>
@@ -564,7 +597,27 @@ export default function GroupAssignmentsModal({
                     {group.participants.map(p => (
                       <div key={`p-${group.group_number}-${p.number}`} className="flex items-center gap-2 p-2 rounded-lg bg-white/5 border border-white/10">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-xs font-bold text-white">#{p.number}</div>
-                        <div className="text-white text-sm truncate">{p.name}</div>
+                        <div className="text-white text-sm truncate flex-1">{p.name}</div>
+                        <button
+                          className={`${p.attended ? (cohostTheme ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30') : (cohostTheme ? 'bg-slate-700/60 text-slate-300 border-white/10' : 'bg-slate-700/50 text-slate-200 border-white/10')} inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs border transition-colors`}
+                          title={p.attended ? 'حاضر - اضغط للتبديل' : 'غير حاضر - اضغط للتبديل'}
+                          onClick={() => toggleAttendance(p.number, !!p.attended)}
+                          disabled={!!attendanceSaving[p.number]}
+                        >
+                          {attendanceSaving[p.number] ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : p.attended ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>حاضر</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              <span>غير حاضر</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     ))}
                   </div>

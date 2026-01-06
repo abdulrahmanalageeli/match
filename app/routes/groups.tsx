@@ -112,6 +112,100 @@ const games: Game[] = [
   }
 ];
 
+// Premium visual themes per game for selection cards + gameplay surfaces
+const gameThemes: Record<string, {
+  // Selection card accents
+  cardBorder: string;
+  cardBorderHover: string;
+  cardOverlay: string;
+  iconRing: string;
+  chip: string;
+  metaText: string;
+  cta: string;
+  // Gameplay accents
+  instruction: string;
+  promptCard?: string;
+  optionA?: string;
+  optionB?: string;
+  scorePill?: string;
+}> = {
+  default: {
+    cardBorder: "border-slate-700/50",
+    cardBorderHover: "hover:border-slate-500/60",
+    cardOverlay: "from-white/5 via-transparent to-transparent",
+    iconRing: "ring-1 ring-white/10",
+    chip: "bg-slate-700/40 border border-white/10 text-slate-200",
+    metaText: "text-slate-300",
+    cta: "from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800",
+    instruction: "bg-slate-700/30 rounded-xl p-6 border border-slate-600/50",
+  },
+  'what-would-you-do': {
+    cardBorder: "border-indigo-600/30",
+    cardBorderHover: "hover:border-indigo-400/60",
+    cardOverlay: "from-indigo-500/15 via-blue-500/10 to-transparent",
+    iconRing: "ring-2 ring-indigo-400/40",
+    chip: "bg-indigo-500/20 border border-indigo-400/30 text-indigo-100",
+    metaText: "text-indigo-200",
+    cta: "from-indigo-600 to-blue-700 hover:from-indigo-700 hover:to-blue-800",
+    instruction: "bg-gradient-to-r from-indigo-700/40 to-blue-700/40 rounded-xl p-6 border border-indigo-600/50",
+    promptCard: "bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border-2 border-indigo-500/40 rounded-2xl p-8 text-center shadow-2xl",
+  },
+  '5-second-rule': {
+    cardBorder: "border-orange-600/30",
+    cardBorderHover: "hover:border-orange-400/60",
+    cardOverlay: "from-orange-500/15 via-red-500/10 to-transparent",
+    iconRing: "ring-2 ring-orange-400/40",
+    chip: "bg-orange-500/20 border border-orange-400/30 text-orange-100",
+    metaText: "text-orange-200",
+    cta: "from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700",
+    instruction: "bg-gradient-to-r from-orange-700/40 to-red-700/40 rounded-xl p-6 border border-orange-600/50",
+    scorePill: "bg-gradient-to-r from-orange-700/50 to-red-700/50 rounded-xl px-6 py-3 border border-orange-500/30",
+  },
+  'charades': {
+    cardBorder: "border-emerald-600/30",
+    cardBorderHover: "hover:border-emerald-400/60",
+    cardOverlay: "from-emerald-500/15 via-teal-500/10 to-transparent",
+    iconRing: "ring-2 ring-emerald-400/40",
+    chip: "bg-emerald-500/20 border border-emerald-400/30 text-emerald-100",
+    metaText: "text-emerald-200",
+    cta: "from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700",
+    instruction: "bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 border border-slate-600/50",
+  },
+  'never-have-i-ever': {
+    cardBorder: "border-violet-600/30",
+    cardBorderHover: "hover:border-violet-400/60",
+    cardOverlay: "from-violet-500/15 via-fuchsia-500/10 to-transparent",
+    iconRing: "ring-2 ring-violet-400/40",
+    chip: "bg-violet-500/20 border border-violet-400/30 text-violet-100",
+    metaText: "text-violet-200",
+    cta: "from-violet-600 to-fuchsia-600 hover:from-violet-700 hover:to-fuchsia-700",
+    instruction: "bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 border border-slate-600/50",
+    promptCard: "bg-slate-700/50 rounded-2xl p-6 text-center border border-slate-600/60",
+  },
+  'would-you-rather': {
+    cardBorder: "border-rose-600/30",
+    cardBorderHover: "hover:border-rose-400/60",
+    cardOverlay: "from-rose-500/15 via-blue-500/10 to-transparent",
+    iconRing: "ring-2 ring-rose-400/40",
+    chip: "bg-rose-500/20 border border-rose-400/30 text-rose-100",
+    metaText: "text-rose-200",
+    cta: "from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800",
+    instruction: "bg-slate-700/30 rounded-xl p-6 border border-slate-600/50",
+    optionA: "bg-gradient-to-br from-rose-500/15 to-red-600/10 border-2 border-rose-500/40 rounded-xl p-5 text-center shadow-lg",
+    optionB: "bg-gradient-to-br from-sky-500/15 to-blue-600/10 border-2 border-sky-500/40 rounded-xl p-5 text-center shadow-lg",
+  },
+  'discussion-questions': {
+    cardBorder: "border-cyan-600/30",
+    cardBorderHover: "hover:border-cyan-400/60",
+    cardOverlay: "from-cyan-500/15 via-blue-500/10 to-transparent",
+    iconRing: "ring-2 ring-cyan-400/40",
+    chip: "bg-cyan-500/20 border border-cyan-400/30 text-cyan-100",
+    metaText: "text-cyan-200",
+    cta: "from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800",
+    instruction: "bg-slate-700/30 rounded-xl p-6 border border-slate-600/50",
+  },
+};
+
 
 const neverHaveIEverQuestions = [
   // Original 50 questions
@@ -1303,82 +1397,91 @@ export default function GroupsPage() {
           </p>
         </div>
 
-        {/* Professional game cards with stagger animation */}
+        {/* Premium, themed game cards with stagger animation */}
         <div className="grid grid-cols-1 gap-4">
-          {games.map((game, index) => (
-            <div 
-              key={game.id}
-              className="animate-in slide-in-from-right duration-300"
-              style={{animationDelay: `${index * 100}ms`}}
-            >
+          {games.map((game, index) => {
+            const theme = gameThemes[game.id] || gameThemes.default;
+            return (
               <div 
-                className="group relative bg-gradient-to-br from-slate-800/90 to-slate-900/90 backdrop-blur-xl rounded-2xl p-5 border border-slate-700/50 hover:border-cyan-500/50 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-2xl transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] overflow-hidden" 
-                onClick={() => startGame(game.id)}
+                key={game.id}
+                className="animate-in slide-in-from-right duration-300"
+                style={{animationDelay: `${index * 100}ms`}}
               >
-                {/* Background gradient effect */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
-                
-                {/* Decorative circles */}
-                <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl"></div>
-                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-gradient-to-tr from-white/5 to-transparent rounded-full blur-2xl"></div>
+                <div 
+                  className={`group relative bg-gradient-to-br from-slate-900/90 to-slate-900/80 backdrop-blur-xl rounded-2xl p-5 border ${theme.cardBorder} ${theme.cardBorderHover} transition-all duration-500 cursor-pointer shadow-xl hover:shadow-2xl transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] overflow-hidden`} 
+                  onClick={() => startGame(game.id)}
+                >
+                  {/* Background gradient effect */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-500`}></div>
+                  {/* Themed overlay tint */}
+                  <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${theme.cardOverlay} opacity-80 mix-blend-screen`}></div>
+                  
+                  {/* Decorative soft lights */}
+                  <div className="absolute -top-14 -right-14 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
+                  <div className="absolute -bottom-16 -left-16 w-44 h-44 bg-white/5 rounded-full blur-3xl"></div>
 
-                {/* Recommended badge for first game */}
-                {index === 0 && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5 fill-current" />
-                      <span>موصى به</span>
-                    </div>
-                  </div>
-                )}
-
-                {/* NEW badge for the 'what-would-you-do' game (left corner, same style as recommended) */}
-                {game.id === 'what-would-you-do' && (
-                  <div className="absolute top-2 left-2 z-10">
-                    <div className="bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5 fill-current" />
-                      <span>لعبة جديدة</span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="relative z-10 flex items-start gap-4">
-                  {/* Enhanced icon with rotation on hover */}
-                  <div className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3`}>
-                    {game.icon}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-xl font-bold text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-cyan-400 group-hover:to-blue-400 transition-all duration-300">
-                      {game.nameAr}
-                    </h3>
-                    <p className="text-slate-300 text-sm leading-relaxed mb-3">
-                      {game.descriptionAr}
-                    </p>
-
-                    {/* Meta information */}
-                    <div className="flex items-center gap-4 text-slate-400 text-xs mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span>{game.duration} دقائق</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>3-6 أشخاص</span>
+                  {/* Recommended / New badges */}
+                  {index === 0 && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5 fill-current" />
+                        <span>موصى به</span>
                       </div>
                     </div>
+                  )}
+                  {game.id === 'what-would-you-do' && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <div className="bg-gradient-to-r from-cyan-400 to-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-white/20 animate-pulse flex items-center gap-1">
+                        <Star className="w-2.5 h-2.5 fill-current" />
+                        <span>لعبة جديدة</span>
+                      </div>
+                    </div>
+                  )}
 
-                    {/* Play button hint with smooth animation */}
-                    <div className="flex items-center gap-2 text-cyan-400 text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
-                      <span>ابدأ اللعبة</span>
-                      <ChevronLeft className="w-4 h-4" />
+                  <div className="relative z-10 flex items-start gap-4">
+                    {/* Icon with aura */}
+                    <div className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 ${theme.iconRing}`}>
+                      {game.icon}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-xl font-bold text-white mb-2 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-white group-hover:to-white/80 transition-all duration-300">
+                        {game.nameAr}
+                      </h3>
+                      <p className="text-slate-300 text-sm leading-relaxed mb-3">
+                        {game.descriptionAr}
+                      </p>
+
+                      {/* Meta chips */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${theme.chip}`}>
+                          <Clock className="w-3.5 h-3.5" />
+                          <span className="text-xs font-medium">{game.duration} دقائق</span>
+                        </div>
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${theme.chip}`}>
+                          <Users className="w-3.5 h-3.5" />
+                          <span className="text-xs font-medium">3-6 أشخاص</span>
+                        </div>
+                      </div>
+
+                      {/* CTA */}
+                      <div className="flex items-center justify-end">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); startGame(game.id); }}
+                          className={`inline-flex items-center gap-2 bg-gradient-to-r ${theme.cta} text-white px-4 py-2 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 border border-white/10`}
+                          aria-label="ابدأ اللعبة"
+                        >
+                          <span className="text-sm font-bold">ابدأ اللعبة</span>
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Bottom help text with fade-in animation */}
@@ -1481,19 +1584,24 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "never-have-i-ever" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-slate-900/60 border-violet-600/30">
             <CardContent className="p-6">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-4">لم أفعل من قبل</h3>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/20 border border-violet-400/30 mb-3">
+                  <Target className="w-4 h-4 text-violet-300" />
+                  <span className="text-violet-200 text-xs font-bold">تجارب شخصية</span>
+                </div>
+                <h3 className="text-3xl font-extrabold text-white mb-2">لم أفعل من قبل</h3>
+                <p className="text-slate-300">شاركوا تجاربكم الشخصية العميقة</p>
               </div>
 
               {/* Enhanced Game Instructions */}
-              <div className="bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
+              <div className="bg-gradient-to-r from-violet-700/30 to-fuchsia-700/30 rounded-xl p-6 mb-8 border border-violet-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-yellow-400" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-violet-300" />
                   كيفية اللعب:
                 </h4>
-                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                <ol className="text-violet-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">اقرؤوا العبارة بصوت عالٍ</span>
                   </li>
@@ -1512,8 +1620,8 @@ export default function GroupsPage() {
                 </ol>
               </div>
 
-              <div className="bg-slate-700/50 rounded-lg p-4 mb-6 text-center">
-                <p className="text-white text-lg font-semibold">
+              <div className="bg-gradient-to-br from-violet-500/15 to-fuchsia-600/15 rounded-2xl p-6 mb-6 text-center border border-violet-500/30 shadow-xl">
+                <p className="text-white text-xl font-semibold leading-relaxed">
                   {shuffledNeverHaveIEver.length > 0 
                     ? shuffledNeverHaveIEver[currentPromptIndex % shuffledNeverHaveIEver.length]
                     : neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]
@@ -1524,7 +1632,7 @@ export default function GroupsPage() {
               <div className="flex justify-center space-x-3 mt-8">
                 <Button 
                   onClick={() => setCurrentPromptIndex(prev => (prev + 1) % (shuffledNeverHaveIEver.length || neverHaveIEverQuestions.length))} 
-                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  className="bg-gradient-to-r from-violet-600 to-fuchsia-700 hover:from-violet-700 hover:to-fuchsia-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ChevronRight className="w-5 h-5 mr-2" />
                   السؤال التالي
@@ -1535,11 +1643,15 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "what-would-you-do" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-slate-900/60 border-indigo-600/30">
             <CardContent className="p-6">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-2">ماذا تفعل لو؟</h3>
-                <p className="text-slate-400">سيناريوهات متوسطة إلى عميقة لتحفيز نقاش قيَمي وقرارات واعية</p>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30 mb-3">
+                  <MessageSquare className="w-4 h-4 text-indigo-300" />
+                  <span className="text-indigo-200 text-xs font-bold">سيناريو</span>
+                </div>
+                <h3 className="text-3xl font-extrabold text-white mb-2">ماذا تفعل لو؟</h3>
+                <p className="text-indigo-100/90">سيناريوهات متوسطة إلى عميقة لتحفيز نقاش قيَمي وقرارات واعية</p>
               </div>
 
               {/* Game Instructions */}
@@ -1548,7 +1660,7 @@ export default function GroupsPage() {
                   <Lightbulb className="w-5 h-5 ml-3 text-indigo-300" />
                   كيفية اللعب:
                 </h4>
-                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                <ol className="text-indigo-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">اقرؤوا السيناريو بصوت عالٍ. لا توجد إجابة صحيحة/خاطئة.</span>
                   </li>
@@ -1565,11 +1677,7 @@ export default function GroupsPage() {
               </div>
 
               <div className="bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border-2 border-indigo-500/40 rounded-2xl p-8 text-center shadow-2xl">
-                <div className="mb-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/30">
-                  <MessageSquare className="w-4 h-4 text-indigo-300" />
-                  <span className="text-indigo-200 text-xs font-bold">سيناريو</span>
-                </div>
-                <p className="text-white text-lg font-semibold leading-relaxed">
+                <p className="text-white text-xl font-semibold leading-relaxed">
                   {shuffledWhatWouldYouDo.length > 0
                     ? shuffledWhatWouldYouDo[currentPromptIndex % shuffledWhatWouldYouDo.length]
                     : whatWouldYouDoScenarios[currentPromptIndex % whatWouldYouDoScenarios.length]}
@@ -1609,11 +1717,15 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "5-second-rule" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-slate-900/60 border-orange-600/30">
             <CardContent className="p-6">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-4">قاعدة الخمس ثواني</h3>
-                <p className="text-slate-400">سمّ 3 أشياء قبل انتهاء الوقت!</p>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-500/20 border border-orange-400/30 mb-3">
+                  <Timer className="w-4 h-4 text-orange-300" />
+                  <span className="text-orange-200 text-xs font-bold">تحدي السرعة</span>
+                </div>
+                <h3 className="text-3xl font-extrabold text-white mb-1">قاعدة الخمس ثواني</h3>
+                <p className="text-orange-100/90">سمّ 3 أشياء قبل انتهاء الوقت!</p>
               </div>
 
               {/* Game Instructions */}
@@ -1643,7 +1755,7 @@ export default function GroupsPage() {
 
               {/* Score Display */}
               <div className="flex justify-center mb-6">
-                <div className="bg-gradient-to-r from-orange-700/50 to-red-700/50 rounded-xl px-6 py-3 border border-orange-500/30">
+                <div className="bg-gradient-to-r from-orange-700/50 to-red-700/50 rounded-xl px-6 py-3 border border-orange-500/30 shadow-lg">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-orange-300">
                       {fiveSecondScore.success}/{fiveSecondScore.total}
@@ -1673,7 +1785,7 @@ export default function GroupsPage() {
                       {isReadingPhase ? (
                         // Reading phase timer
                         <>
-                          <div className="text-6xl font-black text-blue-400 mb-2">
+                          <div className="text-6xl font-black text-blue-400 mb-2 drop-shadow-[0_0_10px_rgba(59,130,246,0.35)]">
                             {readingTimer}
                           </div>
                           <p className="text-blue-300 text-sm mb-2">ثانية للقراءة</p>
@@ -1685,7 +1797,7 @@ export default function GroupsPage() {
                       ) : (
                         // Game timer
                         <>
-                          <div className={`text-8xl font-black transition-all duration-300 ${
+                          <div className={`text-8xl font-black transition-all duration-300 drop-shadow-[0_0_12px_rgba(255,255,255,0.2)] ${
                             fiveSecondTimer <= 2 ? 'text-red-400 animate-pulse scale-110' : 
                             fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
                           }`}>
@@ -1746,14 +1858,18 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "would-you-rather" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-slate-900/60 border-rose-600/30">
             <CardContent className="p-6">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-4">ماذا تفضل؟</h3>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-500/20 border border-rose-400/30 mb-3">
+                  <Heart className="w-4 h-4 text-rose-300" />
+                  <span className="text-rose-200 text-xs font-bold">مفاضلة</span>
+                </div>
+                <h3 className="text-3xl font-extrabold text-white mb-1">ماذا تفضل؟</h3>
               </div>
 
               {/* Game Instructions */}
-              <div className="bg-slate-700/30 rounded-lg p-4 mb-6">
+              <div className="bg-slate-700/30 rounded-xl p-6 mb-6 border border-slate-600/50">
                 <h4 className="text-white font-semibold mb-3 flex items-center">
                   <Lightbulb className="w-4 h-4 ml-2" />
                   كيفية اللعب:
@@ -1768,18 +1884,18 @@ export default function GroupsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 text-center">
-                  <div className="text-red-400 font-bold mb-2">الخيار أ</div>
-                  <p className="text-white font-semibold">
+                <div className="bg-gradient-to-br from-rose-500/15 to-red-600/10 border-2 border-rose-500/40 rounded-xl p-5 text-center shadow-lg">
+                  <div className="text-rose-300 font-bold mb-2">الخيار أ</div>
+                  <p className="text-white font-semibold leading-relaxed">
                     {(shuffledWouldYouRather.length > 0 
                       ? shuffledWouldYouRather[currentPromptIndex]
                       : wouldYouRatherQuestions[currentPromptIndex]
                     )?.optionA}
                   </p>
                 </div>
-                <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4 text-center">
-                  <div className="text-blue-400 font-bold mb-2">الخيار ب</div>
-                  <p className="text-white font-semibold">
+                <div className="bg-gradient-to-br from-sky-500/15 to-blue-600/10 border-2 border-sky-500/40 rounded-xl p-5 text-center shadow-lg">
+                  <div className="text-sky-300 font-bold mb-2">الخيار ب</div>
+                  <p className="text-white font-semibold leading-relaxed">
                     {(shuffledWouldYouRather.length > 0 
                       ? shuffledWouldYouRather[currentPromptIndex]
                       : wouldYouRatherQuestions[currentPromptIndex]
@@ -1791,7 +1907,7 @@ export default function GroupsPage() {
               <div className="text-center">
                 <Button 
                   onClick={nextPrompt} 
-                  className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ChevronRight className="w-5 h-5 mr-2" />
                   السؤال التالي
@@ -1802,19 +1918,23 @@ export default function GroupsPage() {
         )}
 
         {currentGame.id === "charades" && (
-          <Card className="bg-slate-800/50 border-slate-700">
+          <Card className="bg-slate-900/60 border-emerald-600/30">
             <CardContent className="p-6">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-white mb-4">ولا كلمة</h3>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 mb-3">
+                  <ThumbsUp className="w-4 h-4 text-emerald-300" />
+                  <span className="text-emerald-200 text-xs font-bold">تمثيل</span>
+                </div>
+                <h3 className="text-3xl font-extrabold text-white mb-1">ولا كلمة</h3>
               </div>
 
               {/* Game Instructions */}
               <div className="bg-gradient-to-r from-slate-700/40 to-slate-600/40 rounded-xl p-6 mb-8 border border-slate-600/50">
                 <h4 className="text-white font-bold text-lg mb-4 flex items-center">
-                  <Lightbulb className="w-5 h-5 ml-3 text-yellow-400" />
+                  <Lightbulb className="w-5 h-5 ml-3 text-emerald-300" />
                   كيفية اللعب:
                 </h4>
-                <ol className="text-slate-200 space-y-3 list-decimal list-inside">
+                <ol className="text-emerald-100/90 space-y-3 list-decimal list-inside">
                   <li className="flex items-start">
                     <span className="font-medium">شخص واحد يقرأ الكلمة سراً (لا يقولها بصوت عالٍ)</span>
                   </li>
@@ -1835,9 +1955,9 @@ export default function GroupsPage() {
 
               {/* Score Display */}
               <div className="flex justify-center mb-6">
-                <div className="bg-slate-700/50 rounded-lg px-6 py-3">
+                <div className="bg-slate-700/50 rounded-lg px-6 py-3 border border-emerald-500/30 shadow-lg">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-green-400">
+                    <div className="text-2xl font-bold text-emerald-400">
                       {charadesScore.correct}/{charadesScore.total}
                     </div>
                     <div className="text-slate-300 text-sm">نقاط صحيحة</div>
@@ -1848,9 +1968,9 @@ export default function GroupsPage() {
               {/* Current Word Display */}
               {currentCharadesWord && (
                 <div className="mb-8">
-                  <div className="bg-gradient-to-r from-green-500/20 to-teal-500/20 border border-green-500/30 rounded-xl p-6 text-center">
+                  <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6 text-center shadow-xl">
                     <div className="mb-2">
-                      <span className="text-green-400 text-sm font-medium bg-green-500/20 px-3 py-1 rounded-full">
+                      <span className="text-emerald-300 text-sm font-medium bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-400/30">
                         {currentCharadesCategory}
                       </span>
                     </div>
@@ -1861,8 +1981,8 @@ export default function GroupsPage() {
                     {/* Timer */}
                     <div className="mb-4">
                       <div className={`text-2xl font-bold ${
-                        charadesTimer <= 15 ? 'text-red-400 animate-pulse' : 
-                        charadesTimer <= 45 ? 'text-yellow-400' : 'text-green-400'
+                        charadesTimer <= 15 ? 'text-red-400 animate-pulse drop-shadow-[0_0_8px_rgba(248,113,113,0.35)]' : 
+                        charadesTimer <= 45 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.35)]' : 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.35)]'
                       }`}>
                         {Math.floor(charadesTimer / 60)}:{(charadesTimer % 60).toString().padStart(2, '0')}
                       </div>
@@ -1877,7 +1997,7 @@ export default function GroupsPage() {
                       <Button 
                         onClick={charadesCorrect}
                         disabled={charadesTimer === 0}
-                        className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                       >
                         <ThumbsUp className="w-5 h-5 mr-2" />
                         صحيح!
@@ -2309,10 +2429,10 @@ export default function GroupsPage() {
               <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
             </div>
 
-            {/* Current Game Badge - Sleek Design */}
+            {/* Current Game Badge - Themed */}
             {selectedGameId && (
-              <div className="flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border border-white/10">
-                <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg`}>
+              <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder}`}>
+                <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
                   {games.find(g => g.id === selectedGameId)?.icon}
                 </div>
                 <span className="text-sm font-medium text-white/90">

@@ -47,6 +47,9 @@ export default function GroupAssignmentsModal({
   const contentRef = useRef<HTMLDivElement | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [highlightedParticipant, setHighlightedParticipant] = useState<number | null>(null)
+  const [searchMatches, setSearchMatches] = useState<number[]>([])
+  const [searchIndex, setSearchIndex] = useState(0)
+  const [lastSearchTerm, setLastSearchTerm] = useState("")
   // Preview alternatives (Top 3) and finalize
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewArrangements, setPreviewArrangements] = useState<Array<{
@@ -248,17 +251,35 @@ export default function GroupAssignmentsModal({
               if (!q) return
               const lowered = q.toLowerCase()
               let targetNumber: number | null = null
-              // Try parse number like 123 or #123
+              // Numeric search goes directly to that participant
               if (/^#?\d+$/.test(lowered)) {
                 const num = parseInt(lowered.replace('#', ''), 10)
-                if (Number.isFinite(num)) targetNumber = num
+                if (Number.isFinite(num)) {
+                  targetNumber = num
+                  // reset cycling for numeric queries
+                  setSearchMatches([num])
+                  setSearchIndex(0)
+                  setLastSearchTerm(lowered)
+                }
               } else {
-                // Find by name in current displayed groups (preview or current)
-                outer: for (const g of computedDisplayGroups) {
+                // Name search: build all matches then cycle index on repeated submits
+                const matches: number[] = []
+                for (const g of computedDisplayGroups) {
                   for (const p of g.participants) {
-                    if ((p.name || '').toLowerCase().includes(lowered)) { targetNumber = p.number; break outer }
+                    if ((p.name || '').toLowerCase().includes(lowered)) matches.push(p.number)
                   }
                 }
+                if (matches.length === 0) {
+                  alert('لم يتم العثور على المشارك')
+                  return
+                }
+                const nextIndex = (lastSearchTerm === lowered && searchMatches.length > 0)
+                  ? (searchIndex + 1) % matches.length
+                  : 0
+                targetNumber = matches[nextIndex]
+                setSearchMatches(matches)
+                setSearchIndex(nextIndex)
+                setLastSearchTerm(lowered)
               }
               if (targetNumber == null) {
                 alert('لم يتم العثور على المشارك')

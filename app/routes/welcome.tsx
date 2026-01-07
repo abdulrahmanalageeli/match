@@ -2455,8 +2455,8 @@ export default function WelcomePage() {
               </>
             )}
 
-            {/* Global Timer - Show only when accessing via token URL AND in round phase */}
-            {isTokenAndRoundPhase && (
+            {/* Global Timer - Show only when accessing via token URL AND in round phase; hide when integrated round timer is visible */}
+            {isTokenAndRoundPhase && !round1TimerStarted && (
               <>
                 <div className="w-px h-4 bg-slate-600"></div>
                 <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 border border-blue-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-blue-300 flex items-center gap-1.5">
@@ -8188,7 +8188,84 @@ export default function WelcomePage() {
                 </>
               ) : (
                 <>
-                  
+                  {/* Integrated Round 1 Timer (in-page, prominent) */}
+                  {currentRound === 1 && round1TimerStarted && (
+                    <div className="mb-6">
+                      <div className={`p-4 rounded-2xl border shadow-lg backdrop-blur-sm flex items-center justify-between gap-4 ${
+                        round1LocalTimer <= 0
+                          ? (dark ? "bg-green-500/10 border-green-400/30" : "bg-green-50 border-green-300")
+                          : round1LocalTimer <= 900
+                            ? (dark ? "bg-rose-500/10 border-rose-400/30" : "bg-rose-50 border-rose-300")
+                            : round1LocalTimer <= 1800
+                              ? (dark ? "bg-amber-500/10 border-amber-400/30" : "bg-amber-50 border-amber-300")
+                              : (dark ? "bg-cyan-500/10 border-cyan-400/30" : "bg-cyan-50 border-cyan-300")
+                      }`}>
+                        {/* Time text */}
+                        <div className="flex items-center gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
+                            round1LocalTimer <= 0
+                              ? (dark ? "bg-green-500/20 border-green-400/40" : "bg-green-100 border-green-300")
+                              : round1LocalTimer <= 900
+                                ? (dark ? "bg-rose-500/20 border-rose-400/40" : "bg-rose-100 border-rose-300")
+                                : round1LocalTimer <= 1800
+                                  ? (dark ? "bg-amber-500/20 border-amber-400/40" : "bg-amber-100 border-amber-300")
+                                  : (dark ? "bg-cyan-500/20 border-cyan-400/40" : "bg-cyan-100 border-cyan-300")
+                          }`}>
+                            <Clock className={`w-5 h-5 ${
+                              round1LocalTimer <= 0
+                                ? (dark ? "text-green-300" : "text-green-700")
+                                : round1LocalTimer <= 900
+                                  ? (dark ? "text-rose-300" : "text-rose-700")
+                                  : round1LocalTimer <= 1800
+                                    ? (dark ? "text-amber-300" : "text-amber-700")
+                                    : (dark ? "text-cyan-300" : "text-cyan-700")
+                            }`} />
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-3xl font-black tracking-wider tabular-nums ${
+                              round1LocalTimer <= 0
+                                ? (dark ? "text-green-300" : "text-green-700")
+                                : round1LocalTimer <= 900
+                                  ? (dark ? "text-rose-300" : "text-rose-700")
+                                  : round1LocalTimer <= 1800
+                                    ? (dark ? "text-amber-300" : "text-amber-700")
+                                    : (dark ? "text-cyan-200" : "text-cyan-800")
+                            }`}>
+                              {round1LocalTimer <= 0
+                                ? "انتهى!"
+                                : `${Math.floor(round1LocalTimer / 60)}:${(round1LocalTimer % 60).toString().padStart(2, '0')}`}
+                            </div>
+                            <div className={`${dark ? "text-slate-400" : "text-gray-600"} text-[11px] font-medium`}>
+                              الوقت الموصى به 45 دقيقة • الحد الأدنى 30 دقيقة
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Progress bar */}
+                        <div className="flex-1">
+                          <div className={`h-3 rounded-full overflow-hidden ${dark ? "bg-slate-700/60" : "bg-gray-200"}`}>
+                            <div
+                              className={`h-3 rounded-full transition-all duration-500 ${
+                                round1LocalTimer <= 0
+                                  ? "bg-gradient-to-r from-green-500 to-emerald-500"
+                                  : round1LocalTimer <= 900
+                                    ? "bg-gradient-to-r from-rose-500 to-red-500"
+                                    : round1LocalTimer <= 1800
+                                      ? "bg-gradient-to-r from-amber-500 to-yellow-500"
+                                      : "bg-gradient-to-r from-cyan-500 to-blue-600"
+                              }`}
+                              style={{ width: `${Math.max(0, Math.min(100, (round1LocalTimer / 2700) * 100))}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between mt-1 text-[10px]">
+                            <span className={dark ? "text-slate-400" : "text-gray-600"}>45:00</span>
+                            <span className={dark ? "text-slate-400" : "text-gray-600"}>00:00</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Match Info Card - Compact - Same design as timer not active */}
                   <div className={`mb-6 p-4 rounded-xl border shadow-md ${
                     dark 
@@ -8518,8 +8595,8 @@ export default function WelcomePage() {
                   )}
 
 
-                  {/* Round 1 Recommended Time Message - Shows every 2 minutes for 15 seconds */}
-                  {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
+                  {/* Legacy banner: keep only before timer starts to avoid distraction */}
+                  {currentRound === 1 && !round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
                     <div className={`mb-4 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
                       dark 
                         ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"
@@ -8627,8 +8704,8 @@ export default function WelcomePage() {
                 انتهت الجولة {currentRound}
     </h3>
 
-              {/* Round 1 Recommended Time Message - Shows in feedback too */}
-              {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
+              {/* Legacy banner (feedback): suppress when integrated timer has run */}
+              {currentRound === 1 && !round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
                 <div className={`mb-4 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 mx-auto max-w-md ${
                   dark 
                     ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"

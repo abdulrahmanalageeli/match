@@ -2493,6 +2493,74 @@ export default function WelcomePage() {
   };
 
 
+  // Ring Aura timer backdrop — GPU-friendly conic-gradient with CSS vars
+  const TimerBackdrop = () => {
+    // Visible only in round mode while global 30-min timer is active and not paused
+    const isRoundPhase = typeof phase === 'string' && phase.startsWith('round_');
+    const isRoundStep = step === 4;
+    const active = globalTimerActive && (isRoundPhase || isRoundStep) && !emergencyPaused;
+    if (!active) return null;
+
+    const duration = Math.max(1, globalTimerDuration || 1800);
+    const remaining = Math.max(0, conversationTimer);
+    const progress = Math.max(0, Math.min(1, remaining / duration));
+    const angle = 360 * progress;
+
+    const critical = remaining <= 60;
+    const warning = !critical && remaining <= 300;
+    const ended = remaining <= 0;
+
+    const styleVars: CSSProperties = {
+      ['--angle' as any]: `${angle}deg`,
+      ['--ringSize' as any]: '120vmin',
+      ['--ringThickness' as any]: '8vmin',
+      ['--colorA' as any]: critical
+        ? 'rgba(239,68,68,0.45)'
+        : warning
+        ? 'rgba(245,158,11,0.45)'
+        : 'rgba(56,189,248,0.45)', // cyan
+      ['--glow' as any]: critical
+        ? 'rgba(248,113,113,0.22)'
+        : warning
+        ? 'rgba(251,191,36,0.18)'
+        : 'rgba(125,211,252,0.18)',
+      opacity: ended ? 0 : 1,
+    };
+
+    return (
+      <div className="pointer-events-none absolute inset-0 z-0" style={styleVars}>
+        {/* Ambient glow (no blur for perf) */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{
+            width: 'var(--ringSize)',
+            height: 'var(--ringSize)',
+            background: 'radial-gradient(closest-side at 50% 50%, var(--glow), transparent 70%)',
+            opacity: styleVars.opacity as number | undefined,
+            transition: 'opacity 300ms ease',
+          }}
+        />
+        {/* Progress ring (conic-gradient) with mask to create thickness */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+          style={{
+            width: 'var(--ringSize)',
+            height: 'var(--ringSize)',
+            backgroundImage:
+              'conic-gradient(var(--colorA) 0deg, var(--colorA) var(--angle), transparent var(--angle) 360deg)',
+            WebkitMaskImage:
+              'radial-gradient(circle at 50% 50%, transparent calc(50% - var(--ringThickness)), black calc(50% - var(--ringThickness) + 1px))',
+            maskImage:
+              'radial-gradient(circle at 50% 50%, transparent calc(50% - var(--ringThickness)), black calc(50% - var(--ringThickness) + 1px))',
+            willChange: 'opacity, transform',
+            opacity: styleVars.opacity as number | undefined,
+            transition: 'opacity 300ms ease',
+          }}
+        />
+      </div>
+    );
+  };
+
   // Reusable Logo Component for non-saved users
   const LogoHeader = () => {
     // Hide logo during loading screen and if NavigationBar is showing
@@ -7125,6 +7193,7 @@ export default function WelcomePage() {
 
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
+        <TimerBackdrop />
         <div className={`absolute -top-40 -right-40 w-80 h-80 rounded-full blur-3xl animate-pulse ${
           dark ? "bg-slate-500/10" : "bg-blue-400/20"
         }`}></div>

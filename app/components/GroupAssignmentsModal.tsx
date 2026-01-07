@@ -719,7 +719,12 @@ export default function GroupAssignmentsModal({
                             <div className="w-10 h-10 rounded-xl ring-2 ring-white/20 shadow-sm bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                               <span className="text-white text-base font-extrabold tabular-nums">#{p.number}</span>
                             </div>
-                            <div className="text-white text-sm truncate flex-1">{p.name}</div>
+                            <div className="text-white text-sm truncate flex-1 flex items-center gap-2">
+                              <span className="truncate">{p.name}</span>
+                              {p.age && (
+                                <span className="text-slate-300 text-xs shrink-0">({p.age})</span>
+                              )}
+                            </div>
                             <button
                               className={`${p.attended ? (cohostTheme ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30') : (cohostTheme ? 'bg-slate-700/60 text-slate-300 border-white/10' : 'bg-slate-700/50 text-slate-200 border-white/10')} inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors`}
                               title={p.attended ? 'حاضر - اضغط للتبديل' : 'غير حاضر - اضغط للتبديل'}

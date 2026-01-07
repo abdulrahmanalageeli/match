@@ -117,7 +117,7 @@ const games: Game[] = [
 games.push({
   id: "imposter",
   name: "Imposter",
-  nameAr: "المحتال",
+  nameAr: "الأمبوستر",
   description: "Social deduction party game on one phone",
   descriptionAr: "لعبة تخمين جماعية على هاتف واحد: كلمة سرية ومحتال يحاول التخفي",
   duration: 12,
@@ -2256,7 +2256,7 @@ export default function GroupsPage() {
                       <HelpCircle className="w-4 h-4 text-fuchsia-300" />
                       <span className="text-fuchsia-200 text-xs font-bold">لعبة تخمين</span>
                     </div>
-                    <h3 className="text-3xl font-extrabold text-white mb-1">المحتال</h3>
+                    <h3 className="text-3xl font-extrabold text-white mb-1">الأمبوستر</h3>
                     <p className="text-fuchsia-100/90">أدخل الأسماء (4–6)، اختر فئة، ثم ابدأ الجولة</p>
                   </div>
 
@@ -2351,7 +2351,7 @@ export default function GroupsPage() {
                       <div className="space-y-4">
                         {revealIndex === imposterIndex ? (
                           <>
-                            <div className="text-4xl font-black text-rose-300">أنت المحتال</div>
+                            <div className="text-4xl font-black text-rose-300">أنت الأمبوستر</div>
                             <p className="text-rose-200">لا تعرف الكلمة. حاول الاندماج!</p>
                           </>
                         ) : (
@@ -2456,7 +2456,7 @@ export default function GroupsPage() {
                       <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-xl">
                         <CheckCircle className="w-10 h-10" />
                       </div>
-                      <h3 className="text-3xl font-extrabold text-white">أحسنتم! اكتشفتم المحتال</h3>
+                      <h3 className="text-3xl font-extrabold text-white">أحسنتم! اكتشفتم الأمبوستر</h3>
                       <p className="text-fuchsia-100/90">الكلمة كانت: <span className="text-white font-bold">{imposterSecretWord}</span></p>
                     </>
                   ) : (
@@ -2464,8 +2464,8 @@ export default function GroupsPage() {
                       <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-rose-500 to-red-600 flex items-center justify-center text-white shadow-xl">
                         <XCircle className="w-10 h-10" />
                       </div>
-                      <h3 className="text-3xl font-extrabold text-white">فاز المحتال هذه الجولة</h3>
-                      <p className="text-fuchsia-100/90">كان المحتال: <span className="text-white font-bold">{imposterPlayers[imposterIndex]}</span> • الكلمة: <span className="text-white font-bold">{imposterSecretWord}</span></p>
+                      <h3 className="text-3xl font-extrabold text-white">فاز الأمبوستر هذه الجولة</h3>
+                      <p className="text-fuchsia-100/90">كان الأمبوستر: <span className="text-white font-bold">{imposterPlayers[imposterIndex]}</span> • الكلمة: <span className="text-white font-bold">{imposterSecretWord}</span></p>
                     </>
                   )}
 
@@ -2475,7 +2475,7 @@ export default function GroupsPage() {
                       <div key={`rev-${idx}`} className="px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white flex items-center justify-between">
                         <span>{n || `لاعب ${idx+1}`}</span>
                         <Badge className={`${idx === imposterIndex ? 'bg-rose-500/30 border-rose-400/40 text-rose-100' : 'bg-emerald-500/30 border-emerald-400/40 text-emerald-100'} border` }>
-                          {idx === imposterIndex ? 'المحتال' : 'مدني'}
+                          {idx === imposterIndex ? 'الأمبوستر' : 'مدني'}
                         </Badge>
                       </div>
                     ))}
@@ -2508,12 +2508,12 @@ export default function GroupsPage() {
                 </div>
                 <button onClick={() => setImposterShowTutorial(false)} className="text-slate-300 hover:text-white">✕</button>
               </div>
-              <div className="mb-3 font-extrabold text-lg">المحتال — كيف نلعب؟</div>
+              <div className="mb-3 font-extrabold text-lg">الأمبوستر — كيف نلعب؟</div>
               <div className="text-slate-200 text-sm min-h-[130px] space-y-2">
                 {imposterTutorialSlide === 0 && (
                   <div>
-                    <p>لعبة جماعية على هاتف واحد. توجد <span className="text-fuchsia-300 font-semibold">كلمة سرية</span> للجميع، وشخص واحد هو <span className="text-rose-300 font-semibold">المحتال</span> لا يعرفها.</p>
-                    <p>هدف المدنيين: اكتشاف المحتال. هدف المحتال: الاندماج دون انكشاف.</p>
+                    <p>لعبة جماعية على هاتف واحد. توجد <span className="text-fuchsia-300 font-semibold">كلمة سرية</span> للجميع، وشخص واحد هو <span className="text-rose-300 font-semibold">الأمبوستر</span> لا يعرفها.</p>
+                    <p>هدف المدنيين: اكتشاف الأمبوستر. هدف الأمبوستر: الاندماج دون انكشاف.</p>
                   </div>
                 )}
                 {imposterTutorialSlide === 1 && (
@@ -2531,7 +2531,7 @@ export default function GroupsPage() {
                     <p className="font-semibold">كشف الأدوار</p>
                     <ul className="list-disc list-inside text-slate-300 space-y-1">
                       <li>يمسك كل لاعب الهاتف ويضغط لكشف دوره سراً.</li>
-                      <li>المدني يرى الكلمة. المحتال يرى أنه محتال ولا يعرف الكلمة.</li>
+                      <li>المدني يرى الكلمة. الأمبوستر يرى أنه محتال ولا يعرف الكلمة.</li>
                       <li>سلّم الهاتف للاعب التالي حتى ينتهي الجميع.</li>
                     </ul>
                   </div>

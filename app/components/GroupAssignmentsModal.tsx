@@ -265,13 +265,27 @@ export default function GroupAssignmentsModal({
                 return
               }
               setHighlightedParticipant(targetNumber)
-              setTimeout(() => {
-                const container = contentRef.current
-                const sel = `[data-view="${viewMode}"] [data-participant="${targetNumber}"]`
-                const el = container ? (container.querySelector(sel) as HTMLElement | null) : null
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-              }, 30)
-              setTimeout(() => setHighlightedParticipant(null), 2200)
+              const container = contentRef.current
+              const doScroll = (targetEl: HTMLElement, cont?: HTMLElement | null) => {
+                if (cont) {
+                  try {
+                    const contRect = cont.getBoundingClientRect()
+                    const elRect = targetEl.getBoundingClientRect()
+                    const offset = elRect.top - contRect.top
+                    const targetTop = cont.scrollTop + offset - Math.max((cont.clientHeight - targetEl.clientHeight) / 2, 0)
+                    cont.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' })
+                    return
+                  } catch {}
+                }
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+              }
+              if (container) {
+                const nodes = Array.from(container.querySelectorAll(`[data-participant="${targetNumber}"]`)) as HTMLElement[]
+                const el = nodes.find(n => n.closest('[data-view]')?.getAttribute('data-view') === viewMode && n.offsetParent !== null)
+                  || nodes.find(n => n.offsetParent !== null)
+                if (el) doScroll(el, container)
+              }
+              setTimeout(() => setHighlightedParticipant(null), 1800)
             }}
             className="flex items-center gap-2"
           >
@@ -297,7 +311,7 @@ export default function GroupAssignmentsModal({
 
         {/* Content */}
         <div ref={contentRef} className="p-3 sm:p-6 pb-10 overflow-y-auto flex-1 min-h-0">
-          <div className={`${viewMode === 'modify' ? '' : 'hidden'}`}>
+          <div data-view="modify" className={`${viewMode === 'modify' ? '' : 'hidden'}`}>
           {/* Preview Top 3 Controls */}
           <div className="mb-4 flex flex-col gap-2">
             <div className="flex items-center justify-between gap-3">
@@ -573,18 +587,18 @@ export default function GroupAssignmentsModal({
                           data-participant={participant.number}
                           data-group={group.group_number}
                           onClick={() => !swapping && !isPreviewActive && attemptSwap({ group: group.group_number, participant: participant.number })}
-                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-violet-500/10 to-violet-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
+                          className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-colors cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-violet-500/10 to-violet-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
                             selected && selected.group === group.group_number && selected.participant === participant.number
                               ? `${cohostTheme ? 'border-violet-300 ring-2 ring-violet-400/40' : 'border-cyan-300 ring-2 ring-cyan-400/40'}`
                               : `${cohostTheme ? 'border-violet-400/20 hover:border-violet-300/40' : 'border-white/20 hover:border-cyan-400/40'}`
-                          } ${highlightedParticipant === participant.number ? `${cohostTheme ? 'ring-4 ring-amber-300 ring-offset-2 ring-offset-violet-950 animate-pulse' : 'ring-4 ring-amber-300 ring-offset-2 ring-offset-slate-900 animate-pulse'}` : ''}`}
+                          } ${highlightedParticipant === participant.number ? `${cohostTheme ? 'ring-2 ring-white/40 bg-white/10' : 'ring-2 ring-white/40 bg-white/10'}` : ''}`}
                         >
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
                             <span className="text-white text-xs font-bold">#{participant.number}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className={`text-white text-xs sm:text-sm font-medium truncate transition-transform duration-300 ${highlightedParticipant === participant.number ? 'scale-110' : ''}`}>{participant.name}</span>
+                              <span className={`text-white text-xs sm:text-sm font-medium truncate`}>{participant.name}</span>
                               {participant.age && (
                                 <span className="text-slate-400 text-xs shrink-0">({participant.age})</span>
                               )}
@@ -637,7 +651,7 @@ export default function GroupAssignmentsModal({
           </div>
 
           {/* Seating view (host-friendly) */}
-          <div className={`${viewMode === 'seating' ? '' : 'hidden'} space-y-4`}>
+          <div data-view="seating" className={`${viewMode === 'seating' ? '' : 'hidden'} space-y-4`}>
             <div className={`flex items-center justify-between ${cohostTheme ? 'bg-violet-500/10 border-violet-400/30' : 'bg-white/5 border-white/10'} border rounded-xl p-3`}>
               <div className="flex items-center gap-2">
                 <span className="text-white font-semibold text-sm">عرض المقاعد للمضيفين</span>
@@ -678,15 +692,13 @@ export default function GroupAssignmentsModal({
                             data-view="seating"
                             data-participant={p.number}
                             data-group={group.group_number}
-                            className={`relative flex items-center gap-3 p-2.5 rounded-xl border ${p.attended ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-white/10 bg-white/5'} ${highlightedParticipant === p.number ? `${cohostTheme ? 'ring-4 ring-amber-300 ring-offset-2 ring-offset-violet-950 animate-pulse' : 'ring-4 ring-amber-300 ring-offset-2 ring-offset-slate-900 animate-pulse'}` : ''}`}
+                            className={`relative flex items-center gap-3 p-2.5 rounded-xl border transition-colors ${p.attended ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-white/10 bg-white/5'} ${highlightedParticipant === p.number ? `${cohostTheme ? 'ring-2 ring-white/40 bg-white/10' : 'ring-2 ring-white/40 bg-white/10'}` : ''}`}
                           >
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${p.attended ? 'bg-emerald-400/70' : 'bg-slate-600/40'}`}></div>
                             <div className="w-10 h-10 rounded-xl ring-2 ring-white/20 shadow-sm bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                               <span className="text-white text-base font-extrabold tabular-nums">#{p.number}</span>
                             </div>
-                            <div className="text-white text-sm truncate flex-1">
-                              <span className={`inline-block transition-transform duration-300 ${highlightedParticipant === p.number ? 'scale-110' : ''}`}>{p.name}</span>
-                            </div>
+                            <div className="text-white text-sm truncate flex-1">{p.name}</div>
                             <button
                               className={`${p.attended ? (cohostTheme ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30') : (cohostTheme ? 'bg-slate-700/60 text-slate-300 border-white/10' : 'bg-slate-700/50 text-slate-200 border-white/10')} inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors`}
                               title={p.attended ? 'حاضر - اضغط للتبديل' : 'غير حاضر - اضغط للتبديل'}

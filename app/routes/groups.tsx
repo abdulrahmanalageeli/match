@@ -27,7 +27,8 @@ import {
   CheckCircle,
   XCircle,
   Rocket,
-  PartyPopper
+  PartyPopper,
+  Ghost
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -121,7 +122,7 @@ games.push({
   description: "Social deduction party game on one phone",
   descriptionAr: "لعبة تخمين جماعية على هاتف واحد: كلمة سرية ومحتال يحاول التخفي",
   duration: 12,
-  icon: <HelpCircle className="w-6 h-6" />,
+  icon: <Ghost className="w-6 h-6" />,
   color: "from-fuchsia-600 to-purple-700"
 })
 
@@ -1404,7 +1405,15 @@ export default function GroupsPage() {
                 console.log(`✅ Found group assignment:`, userGroup);
                 console.log(`Setting table number to: ${userGroup.table_number}`);
                 setTableNumber(userGroup.table_number);
-                setGroupMembers(userGroup.participant_names || []);
+                // Combine names with ages if provided by API
+                const names: string[] = Array.isArray(userGroup.participant_names) ? userGroup.participant_names : [];
+                const ages: Array<number | null | undefined> = Array.isArray(userGroup.participant_ages) ? userGroup.participant_ages : [];
+                const combined = names.map((name: string, idx: number) => {
+                  const age = ages[idx];
+                  const ageNumber = typeof age === 'string' ? parseInt(age as any, 10) : age;
+                  return Number.isFinite(ageNumber) && ageNumber ? `${name} (${ageNumber})` : name;
+                });
+                setGroupMembers(combined);
                 console.log(`✅ Table number set - Table #${userGroup.table_number} (Event ${currentEventId})`);
               } else {
                 console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
@@ -2253,7 +2262,7 @@ export default function GroupsPage() {
                 <div className="space-y-6">
                   <div className="text-center mb-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 mb-3">
-                      <HelpCircle className="w-4 h-4 text-fuchsia-300" />
+                      <Ghost className="w-4 h-4 text-fuchsia-300" />
                       <span className="text-fuchsia-200 text-xs font-bold">لعبة تخمين</span>
                     </div>
                     <h3 className="text-3xl font-extrabold text-white mb-1">الأمبوستر</h3>

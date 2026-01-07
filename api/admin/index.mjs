@@ -2960,14 +2960,50 @@ export default async function handler(req, res) {
           console.error("Error fetching group matches:", groupError)
           return res.status(500).json({ error: groupError.message })
         }
+        // Build a set of all participant numbers across groups to fetch ages once
+        const allParticipantNumbers = new Set()
+        for (const gm of groupMatches || []) {
+          const nums = Array.isArray(gm.participant_numbers) ? gm.participant_numbers : []
+          for (const n of nums) {
+            if (n && n !== 9999) {
+              const parsed = typeof n === 'string' ? parseInt(n, 10) : n
+              if (Number.isFinite(parsed)) allParticipantNumbers.add(parsed)
+            }
+          }
+        }
 
-        // Format for participant view
+        // Fetch ages for these participants (prefer column age; fallback to survey_data.age)
+        const { data: participantRows, error: prErr } = await supabase
+          .from("participants")
+          .select("assigned_number, age, survey_data")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", Array.from(allParticipantNumbers))
+
+        if (prErr) {
+          console.error("Error fetching participant ages for groups:", prErr)
+        }
+
+        const ageMap = new Map()
+        for (const row of participantRows || []) {
+          const directAge = typeof row.age === 'number' ? row.age : (row?.age ? parseInt(row.age, 10) : undefined)
+          const fallbackAge = (row?.survey_data && (typeof row.survey_data.age === 'number' || typeof row.survey_data.age === 'string'))
+            ? parseInt(row.survey_data.age, 10)
+            : undefined
+          const ageVal = Number.isFinite(directAge) ? directAge : (Number.isFinite(fallbackAge) ? fallbackAge : null)
+          ageMap.set(row.assigned_number, ageVal)
+        }
+
+        // Format for participant view with ages aligned to participant_numbers
         const groups = groupMatches.map(match => ({
           group_id: match.group_id,
           group_number: match.group_number,
           table_number: match.table_number,
           participant_numbers: match.participant_numbers || [],
           participant_names: match.participant_names || [],
+          participant_ages: (Array.isArray(match.participant_numbers) ? match.participant_numbers : []).map(n => {
+            const parsed = typeof n === 'string' ? parseInt(n, 10) : n
+            return ageMap.get(parsed) ?? null
+          }),
           compatibility_score: match.compatibility_score,
           conversation_status: match.conversation_status,
           conversation_start_time: match.conversation_start_time,

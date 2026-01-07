@@ -46,7 +46,7 @@ interface Game {
   description: string;
   descriptionAr: string;
   duration: number; // in minutes
-  icon: React.ReactNode;
+  icon: JSX.Element;
   color: string;
 }
 
@@ -1163,21 +1163,15 @@ export default function GroupsPage() {
     // Hide and move to next
     setRevealShown(false);
     if (revealIndex >= imposterPlayers.length - 1) {
-      // Build Q&A pairs (random asker -> random target, no self)
+      // Build Q&A pairs as a single cycle so everyone asks once and is asked once
       const n = imposterPlayers.length;
-      const turns = Math.min(8, n * 2);
-      const pairs: Array<{asker:number; target:number}> = [];
-      const rand = (max: number) => Math.floor(Math.random() * max);
-      let guard = 0;
-      while (pairs.length < turns && guard < 500) {
-        guard++;
-        const a = rand(n);
-        let t = rand(n);
-        if (t === a) continue;
-        const last = pairs[pairs.length - 1];
-        if (last && last.asker === a && last.target === t) continue;
-        pairs.push({ asker: a, target: t });
-      }
+      const indices = Array.from({ length: n }, (_, i) => i);
+      const order = shuffleArray(indices); // randomize order while ensuring a single cycle
+      const pairs: Array<{ asker: number; target: number }>= order.map((askIdx, i) => ({
+        asker: askIdx,
+        target: order[(i + 1) % n],
+      }));
+
       setQAPairs(pairs);
       setQAIndex(0);
       setImposterPhase("discussion");
@@ -2332,34 +2326,52 @@ export default function GroupsPage() {
                 <div className="space-y-6">
                   <div className="text-center">
                     <h3 className="text-2xl font-extrabold text-white mb-2">أسئلة نعم/لا</h3>
-                    <p className="text-fuchsia-100/90">في كل دور: لاعب يسأل لاعباً آخر سؤالاً بنعم/لا عن الكلمة</p>
+                    <p className="text-fuchsia-100/90">كل لاعب يسأل مرة ويُسأل مرة — بالتتابع وبترتيب عشوائي عادل</p>
                   </div>
 
                   {qaPairs.length > 0 && (
-                    <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
-                      <div className="flex items-center justify-center gap-3 mb-3">
-                        <Badge className="bg-fuchsia-500/25 border-fuchsia-400/40 text-fuchsia-100 border">
-                          السائل: {imposterPlayers[qaPairs[qaIndex].asker]}
-                        </Badge>
-                        <ChevronLeft className="w-4 h-4 text-slate-300" />
-                        <Badge className="bg-purple-500/25 border-purple-400/40 text-purple-100 border">
-                          الهدف: {imposterPlayers[qaPairs[qaIndex].target]}
-                        </Badge>
+                    <>
+                      {/* Handover banner: who holds the phone */}
+                      <div className="flex items-center justify-center mb-2">
+                        <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 text-xs text-fuchsia-100">
+                          <Smartphone className="w-4 h-4" />
+                          سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[qaPairs[qaIndex].asker] || `لاعب ${qaPairs[qaIndex].asker + 1}`}</span>
+                        </span>
                       </div>
-                      <div className="text-slate-200 mb-4">اطرح سؤالاً قصيراً بنعم/لا دون كشف مباشر</div>
-                      <div className="text-center">
-                        {qaIndex < qaPairs.length - 1 ? (
-                          <Button onClick={() => setQAIndex(qaIndex + 1)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
-                            بعد الإجابة • التالي
-                          </Button>
-                        ) : (
-                          <Button onClick={startVoting} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-bold">
-                            ابدأ التصويت
-                          </Button>
-                        )}
+
+                      <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
+                        {/* Clear direction: A asks B */}
+                        <div className="text-center text-lg font-extrabold text-white mb-2">
+                          <span className="text-fuchsia-300">{imposterPlayers[qaPairs[qaIndex].asker]}</span>
+                          <span className="mx-2 text-slate-300">يسأل</span>
+                          <span className="text-purple-300">{imposterPlayers[qaPairs[qaIndex].target]}</span>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-3 mb-3">
+                          <Badge className="bg-fuchsia-500/25 border-fuchsia-400/40 text-fuchsia-100 border">
+                            السائل: {imposterPlayers[qaPairs[qaIndex].asker]}
+                          </Badge>
+                          <ChevronLeft className="w-4 h-4 text-slate-300" />
+                          <Badge className="bg-purple-500/25 border-purple-400/40 text-purple-100 border">
+                            الهدف: {imposterPlayers[qaPairs[qaIndex].target]}
+                          </Badge>
+                        </div>
+
+                        <div className="text-slate-200 mb-4">اطرح سؤالاً قصيراً بنعم/لا دون كشف مباشر</div>
+                        <div className="text-center">
+                          {qaIndex < qaPairs.length - 1 ? (
+                            <Button onClick={() => setQAIndex(qaIndex + 1)} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
+                              بعد الإجابة • التالي
+                            </Button>
+                          ) : (
+                            <Button onClick={startVoting} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-3 rounded-xl font-bold">
+                              ابدأ التصويت
+                            </Button>
+                          )}
+                        </div>
+                        <div className="mt-3 text-xs text-slate-300">دور {qaIndex + 1} من {qaPairs.length}</div>
                       </div>
-                      <div className="mt-3 text-xs text-slate-300">دور {qaIndex + 1} من {qaPairs.length}</div>
-                    </div>
+                    </>
                   )}
                 </div>
               )}

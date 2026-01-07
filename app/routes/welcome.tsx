@@ -1742,7 +1742,7 @@ export default function WelcomePage() {
   useEffect(() => {
     // Don't start polling until initial resolution is complete
     // Poll for all steps except the initial welcome screen (step -1)
-    if (isResolving || step === -1) return
+    if (isResolving || step === -1 || step === 0) return
     
     // If force_round is set, don't let phase changes affect the view
     if (forceRound === '1') return

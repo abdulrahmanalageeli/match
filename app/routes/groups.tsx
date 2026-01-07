@@ -1132,6 +1132,60 @@ export default function GroupsPage() {
     setQAIndex(0);
   };
 
+  // Build directed round-robin Q&A pairs so that each player asks every other player exactly once.
+  // The schedule is randomized in appearance by shuffling the base order, the round offsets, and the per-round asker order.
+  // Additionally, we bias the very first question to avoid targeting the imposter 95% of the time (5% chance allowed).
+  const generateImposterQAPairs = (playerCount: number, impIdx: number): Array<{ asker: number; target: number }> => {
+    if (playerCount <= 1) return [];
+
+    const base = Array.from({ length: playerCount }, (_, i) => i);
+    const order = shuffleArray(base); // random base permutation
+    const offsets = shuffleArray(Array.from({ length: playerCount - 1 }, (_, k) => k + 1)); // 1..N-1 in random order
+
+    const pairs: Array<{ asker: number; target: number }> = [];
+
+    // For each offset (round), every player i asks player (i+offset) mod N
+    for (const offset of offsets) {
+      // Randomize the order of askers within this round for a more organic feel
+      const askersIdx = shuffleArray(base);
+      for (const i of askersIdx) {
+        const asker = order[i];
+        const target = order[(i + offset) % playerCount];
+        if (asker !== target) {
+          pairs.push({ asker, target });
+        }
+      }
+    }
+
+    // Bias the first question away from targeting the imposter (only 5% chance to target imposter first)
+    if (pairs.length > 0) {
+      const firstTargetsImposter = pairs[0].target === impIdx;
+      if (firstTargetsImposter) {
+        // With 95% probability, swap with a non-imposter-target pair
+        if (Math.random() >= 0.05) {
+          const swapIndex = pairs.findIndex(p => p.target !== impIdx);
+          if (swapIndex > 0) {
+            const tmp = pairs[0];
+            pairs[0] = pairs[swapIndex];
+            pairs[swapIndex] = tmp;
+          }
+        }
+      } else {
+        // With 5% probability, move an imposter-targeting pair to the front (to allow occasional first-hit)
+        if (Math.random() < 0.05) {
+          const swapIndex = pairs.findIndex(p => p.target === impIdx);
+          if (swapIndex > 0) {
+            const tmp = pairs[0];
+            pairs[0] = pairs[swapIndex];
+            pairs[swapIndex] = tmp;
+          }
+        }
+      }
+    }
+
+    return pairs;
+  };
+
   const startImposterRound = () => {
     const names = imposterPlayers.map(n => n.trim()).filter(Boolean);
     if (names.length < 4 || names.length > 6) {
@@ -1163,15 +1217,9 @@ export default function GroupsPage() {
     // Hide and move to next
     setRevealShown(false);
     if (revealIndex >= imposterPlayers.length - 1) {
-      // Build Q&A pairs as a single cycle so everyone asks once and is asked once
+      // Build a full directed round-robin schedule (each player asks every other player once)
       const n = imposterPlayers.length;
-      const indices = Array.from({ length: n }, (_, i) => i);
-      const order = shuffleArray(indices); // randomize order while ensuring a single cycle
-      const pairs: Array<{ asker: number; target: number }>= order.map((askIdx, i) => ({
-        asker: askIdx,
-        target: order[(i + 1) % n],
-      }));
-
+      const pairs = generateImposterQAPairs(n, imposterIndex);
       setQAPairs(pairs);
       setQAIndex(0);
       setImposterPhase("discussion");
@@ -2849,7 +2897,7 @@ export default function GroupsPage() {
             </p>
             <div className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/20 border border-cyan-500/30 animate-in zoom-in duration-500" style={{animationDelay: '500ms'}}>
               <Clock className="w-4 h-4 text-cyan-400" />
-              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 6 ألعاب</span>
+              <span className="text-cyan-300 text-sm font-medium">جلسة واحدة • 7 ألعاب</span>
             </div>
           </div>
 
@@ -2953,7 +3001,7 @@ export default function GroupsPage() {
                   <Sparkles className="w-6 h-6 text-purple-400" />
                   الألعاب المتاحة
                 </h2>
-                <p className="text-center text-slate-300 text-xs mt-2">6 ألعاب متنوعة ومبتكرة</p>
+                <p className="text-center text-slate-300 text-xs mt-2">7 ألعاب متنوعة ومبتكرة</p>
               </div>
               <div className="p-5 grid grid-cols-2 gap-4">
                 {games.map((game, index) => (

@@ -1,5 +1,5 @@
-import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check, RefreshCcw } from "lucide-react"
-import { useState } from "react"
+import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check, RefreshCcw, Search } from "lucide-react"
+import { useRef, useState } from "react"
 
 interface GroupAssignment {
   group_number: number
@@ -43,6 +43,10 @@ export default function GroupAssignmentsModal({
   const [autoPlaceNumber, setAutoPlaceNumber] = useState<string>("")
   const [editingGroupNums, setEditingGroupNums] = useState<Record<number, string>>({})
   const [savingGroupNum, setSavingGroupNum] = useState<number | null>(null)
+  // Search & focus state
+  const contentRef = useRef<HTMLDivElement | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [highlightedParticipant, setHighlightedParticipant] = useState<number | null>(null)
   // Preview alternatives (Top 3) and finalize
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewArrangements, setPreviewArrangements] = useState<Array<{
@@ -235,9 +239,64 @@ export default function GroupAssignmentsModal({
             </button>
           </div>
         </div>
+        {/* Search bar */}
+        <div className={`px-4 py-3 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'} bg-white/5`}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const q = (searchQuery || '').trim()
+              if (!q) return
+              const lowered = q.toLowerCase()
+              let targetNumber: number | null = null
+              // Try parse number like 123 or #123
+              if (/^#?\d+$/.test(lowered)) {
+                const num = parseInt(lowered.replace('#', ''), 10)
+                if (Number.isFinite(num)) targetNumber = num
+              } else {
+                // Find by name in current displayed groups (preview or current)
+                outer: for (const g of computedDisplayGroups) {
+                  for (const p of g.participants) {
+                    if ((p.name || '').toLowerCase().includes(lowered)) { targetNumber = p.number; break outer }
+                  }
+                }
+              }
+              if (targetNumber == null) {
+                alert('لم يتم العثور على المشارك')
+                return
+              }
+              setHighlightedParticipant(targetNumber)
+              setTimeout(() => {
+                const container = contentRef.current
+                const sel = `[data-view="${viewMode}"] [data-participant="${targetNumber}"]`
+                const el = container ? (container.querySelector(sel) as HTMLElement | null) : null
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }, 30)
+              setTimeout(() => setHighlightedParticipant(null), 2200)
+            }}
+            className="flex items-center gap-2"
+          >
+            <div className="relative w-full max-w-sm">
+              <Search className="w-4 h-4 text-slate-400 absolute left-2 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث بالاسم أو الرقم (مثال: مريم أو #123)"
+                className={`${cohostTheme ? 'bg-violet-950/40 border border-violet-400/20 focus:ring-violet-400/40 text-white placeholder:text-violet-200/60' : 'bg-slate-900/60 border border-white/10 focus:ring-cyan-400/40 text-white placeholder:text-slate-300/60'} w-full pl-8 pr-3 py-1.5 rounded-md text-sm focus:outline-none focus:ring-2`}
+              />
+            </div>
+            <button
+              type="submit"
+              className={`${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30 text-white' : 'bg-white/10 hover:bg-white/20 text-white'} inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors`}
+            >
+              <Search className="w-4 h-4" />
+              بحث
+            </button>
+          </form>
+        </div>
 
         {/* Content */}
-        <div className="p-3 sm:p-6 pb-10 overflow-y-auto flex-1 min-h-0">
+        <div ref={contentRef} className="p-3 sm:p-6 pb-10 overflow-y-auto flex-1 min-h-0">
           <div className={`${viewMode === 'modify' ? '' : 'hidden'}`}>
           {/* Preview Top 3 Controls */}
           <div className="mb-4 flex flex-col gap-2">
@@ -510,19 +569,22 @@ export default function GroupAssignmentsModal({
                       {group.participants.map((participant) => (
                         <div
                           key={participant.number}
+                          data-view="modify"
+                          data-participant={participant.number}
+                          data-group={group.group_number}
                           onClick={() => !swapping && !isPreviewActive && attemptSwap({ group: group.group_number, participant: participant.number })}
                           className={`flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg border transition-all cursor-pointer ${cohostTheme ? 'bg-gradient-to-r from-violet-500/10 to-violet-500/5' : 'bg-gradient-to-r from-white/10 to-white/5'} ${
                             selected && selected.group === group.group_number && selected.participant === participant.number
                               ? `${cohostTheme ? 'border-violet-300 ring-2 ring-violet-400/40' : 'border-cyan-300 ring-2 ring-cyan-400/40'}`
                               : `${cohostTheme ? 'border-violet-400/20 hover:border-violet-300/40' : 'border-white/20 hover:border-cyan-400/40'}`
-                          }`}
+                          } ${highlightedParticipant === participant.number ? `${cohostTheme ? 'ring-4 ring-amber-300 ring-offset-2 ring-offset-violet-950 animate-pulse' : 'ring-4 ring-amber-300 ring-offset-2 ring-offset-slate-900 animate-pulse'}` : ''}`}
                         >
                           <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shrink-0">
                             <span className="text-white text-xs font-bold">#{participant.number}</span>
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <span className="text-white text-xs sm:text-sm font-medium truncate">{participant.name}</span>
+                              <span className={`text-white text-xs sm:text-sm font-medium truncate transition-transform duration-300 ${highlightedParticipant === participant.number ? 'scale-110' : ''}`}>{participant.name}</span>
                               {participant.age && (
                                 <span className="text-slate-400 text-xs shrink-0">({participant.age})</span>
                               )}
@@ -611,12 +673,20 @@ export default function GroupAssignmentsModal({
                       </div>
                       <div className="space-y-2">
                         {group.participants.map(p => (
-                          <div key={`p-${group.group_number}-${p.number}`} className={`relative flex items-center gap-3 p-2.5 rounded-xl border ${p.attended ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-white/10 bg-white/5'}`}>
+                          <div
+                            key={`p-${group.group_number}-${p.number}`}
+                            data-view="seating"
+                            data-participant={p.number}
+                            data-group={group.group_number}
+                            className={`relative flex items-center gap-3 p-2.5 rounded-xl border ${p.attended ? 'border-emerald-400/30 bg-emerald-500/5' : 'border-white/10 bg-white/5'} ${highlightedParticipant === p.number ? `${cohostTheme ? 'ring-4 ring-amber-300 ring-offset-2 ring-offset-violet-950 animate-pulse' : 'ring-4 ring-amber-300 ring-offset-2 ring-offset-slate-900 animate-pulse'}` : ''}`}
+                          >
                             <div className={`absolute left-0 top-0 bottom-0 w-1 ${p.attended ? 'bg-emerald-400/70' : 'bg-slate-600/40'}`}></div>
                             <div className="w-10 h-10 rounded-xl ring-2 ring-white/20 shadow-sm bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0">
                               <span className="text-white text-base font-extrabold tabular-nums">#{p.number}</span>
                             </div>
-                            <div className="text-white text-sm truncate flex-1">{p.name}</div>
+                            <div className="text-white text-sm truncate flex-1">
+                              <span className={`inline-block transition-transform duration-300 ${highlightedParticipant === p.number ? 'scale-110' : ''}`}>{p.name}</span>
+                            </div>
                             <button
                               className={`${p.attended ? (cohostTheme ? 'bg-emerald-500/25 text-emerald-200 border-emerald-400/30' : 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30') : (cohostTheme ? 'bg-slate-700/60 text-slate-300 border-white/10' : 'bg-slate-700/50 text-slate-200 border-white/10')} inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors`}
                               title={p.attended ? 'حاضر - اضغط للتبديل' : 'غير حاضر - اضغط للتبديل'}

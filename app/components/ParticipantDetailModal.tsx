@@ -43,7 +43,6 @@ interface ParticipantDetailModalProps {
   onSwapSelect?: (newPartnerNumber: number) => Promise<void>
   lockedMatches?: Array<{ participant1_number: number; participant2_number: number; original_compatibility_score?: number }>
   cohostTheme?: boolean
-  oppositesSort?: boolean
 }
 
 export default function ParticipantDetailModal({ 
@@ -55,8 +54,7 @@ export default function ParticipantDetailModal({
   swapMode = false,
   onSwapSelect,
   lockedMatches = [],
-  cohostTheme = false,
-  oppositesSort = false
+  cohostTheme = false
 }: ParticipantDetailModalProps) {
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
 
@@ -110,29 +108,8 @@ export default function ParticipantDetailModal({
 
   if (!isOpen || !participant) return null
 
-  // Sort matches. In opposites mode: synergy desc, others asc, total desc
-  const sortedMatches = useMemo(() => {
-    const arr = [...matches]
-    if (!oppositesSort) return arr.sort((a, b) => (b.compatibility_score || 0) - (a.compatibility_score || 0))
-    const calcOthers = (m: ParticipantMatch) => {
-      const coreScaled5 = Math.max(0, Math.min(5, (((m.core_values_compatibility_score as number) || 0) / 20) * 5))
-      let others = ((m.vibe_compatibility_score as number) || 0)
-        + ((m.lifestyle_compatibility_score as number) || 0)
-        + ((m.humor_open_score as number) || 0)
-        + ((m.communication_compatibility_score as number) || 0)
-        + coreScaled5
-      if (m.humor_clash_veto_applied) others += 100
-      if (m.dead_air_veto_applied) others += 100
-      return others
-    }
-    return arr.sort((a, b) => {
-      const synB = Number(b.synergy_score || 0), synA = Number(a.synergy_score || 0)
-      if (synB !== synA) return synB - synA
-      const othA = calcOthers(a), othB = calcOthers(b)
-      if (othA !== othB) return othA - othB
-      return (Number(b.compatibility_score) || 0) - (Number(a.compatibility_score) || 0)
-    })
-  }, [matches, oppositesSort])
+  // Sort matches by compatibility score (descending)
+  const sortedMatches = [...matches].sort((a, b) => b.compatibility_score - a.compatibility_score)
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return "text-green-400"

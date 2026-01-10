@@ -4568,7 +4568,27 @@ export default async function handler(req, res) {
       avgTimePerPair: totalCalculations > 0 ? Math.round(totalTime / totalCalculations) : 0
     }
 
-    const calculatedPairs = compatibilityScores.map(pair => ({
+    // Build response calculatedPairs with sorting reflecting selected profile
+    let pairsForReturn = [...compatibilityScores]
+    if (oppositesSort) {
+      pairsForReturn.forEach(p => {
+        const coreScaled5 = Math.max(0, Math.min(5, ((Number(p.coreValuesScore) || 0) / 20) * 5))
+        let others = (Number(p.vibeScore) || 0) + (Number(p.lifestyleScore) || 0) + (Number(p.humorOpenScore) || 0) + (Number(p.communicationScore) || 0) + coreScaled5
+        if (p.humorClashVetoApplied) others += 100
+        if (p.deadAirVetoApplied) others += 100
+        p.__synergy = Number(p.synergyScore) || 0
+        p.__others = others
+      })
+      pairsForReturn.sort((a, b) => {
+        if ((b.__synergy || 0) !== (a.__synergy || 0)) return (b.__synergy || 0) - (a.__synergy || 0)
+        if ((a.__others || 0) !== (b.__others || 0)) return (a.__others || 0) - (b.__others || 0)
+        return (b.score || 0) - (a.score || 0)
+      })
+    } else {
+      pairsForReturn.sort((a, b) => (b.score || 0) - (a.score || 0))
+    }
+
+    const calculatedPairs = pairsForReturn.map(pair => ({
       participant_a: pair.a,
       participant_b: pair.b,
       compatibility_score: Math.round(pair.score),

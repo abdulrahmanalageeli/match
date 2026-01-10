@@ -5773,6 +5773,7 @@ Proceed?`
         matchHistory={participantMatchHistory}
         currentEventId={currentEventId}
         cohostTheme={isCohost}
+        oppositesSort={oppositesSort}
       />
 
       {/* Group Assignments Modal */}

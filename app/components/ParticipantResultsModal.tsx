@@ -56,6 +56,7 @@ interface ParticipantResultsModalProps {
   isFreshData?: boolean // NEW: Indicates if this is fresh database data (post-swap)
   matchHistory?: Record<number, any[]>
   cohostTheme?: boolean
+  oppositesSort?: boolean
 }
 
 export default function ParticipantResultsModal({ 
@@ -72,7 +73,8 @@ export default function ParticipantResultsModal({
   currentEventId = 1,
   isFreshData = false,
   matchHistory = {},
-  cohostTheme = false
+  cohostTheme = false,
+  oppositesSort = false
 }: ParticipantResultsModalProps) {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedParticipant, setSelectedParticipant] = useState<{assigned_number: number, name: string} | null>(null)
@@ -1438,6 +1440,7 @@ export default function ParticipantResultsModal({
         onSwapSelect={async () => {}}
         lockedMatches={lockedMatches}
         cohostTheme={cohostTheme}
+        oppositesSort={oppositesSort}
       />
 
       {/* WhatsApp Message Modal */}

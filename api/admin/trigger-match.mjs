@@ -2412,7 +2412,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesSort = false } = req.body || {}
   
   // Preview mode: disable all DB writes (no inserts/updates/RPC)
   SKIP_DB_WRITES = !!preview
@@ -3243,8 +3243,26 @@ export default async function handler(req, res) {
         }
       }
       
-      // Sort by compatibility score (descending)
-      calculatedPairs.sort((a, b) => b.compatibility_score - a.compatibility_score)
+      // Sort results
+      if (oppositesSort) {
+        // High synergy first; among equals, prefer lower sum of other components
+        calculatedPairs.forEach(p => {
+          const coreScaled5 = Math.max(0, Math.min(5, ((Number(p.core_values_compatibility_score) || 0) / 20) * 5))
+          let others = (Number(p.vibe_compatibility_score) || 0) + (Number(p.lifestyle_compatibility_score) || 0) + (Number(p.humor_open_score) || 0) + (Number(p.communication_compatibility_score) || 0) + coreScaled5
+          if (p.humor_clash_veto_applied) others += 100
+          if (p.dead_air_veto_applied) others += 100
+          p.__synergy = Number(p.synergy_score) || 0
+          p.__others = others
+        })
+        calculatedPairs.sort((a, b) => {
+          if ((b.__synergy || 0) !== (a.__synergy || 0)) return (b.__synergy || 0) - (a.__synergy || 0)
+          if ((a.__others || 0) !== (b.__others || 0)) return (a.__others || 0) - (b.__others || 0)
+          return (b.compatibility_score || 0) - (a.compatibility_score || 0)
+        })
+      } else {
+        // Default: by total compatibility (descending)
+        calculatedPairs.sort((a, b) => b.compatibility_score - a.compatibility_score)
+      }
       
       console.log(`✅ Calculated ${calculatedPairs.length} compatibility scores for participant #${participantNumber}`)
       console.log(`   - Filtered by gender preferences: ${genderCompatibleMatches.length} matches`)
@@ -4265,7 +4283,26 @@ export default async function handler(req, res) {
       }
       
       // STEP 2: Process remaining pairs using global optimization in preview, greedy otherwise
-      const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
+      let sortedPairs = []
+      if (oppositesSort) {
+        // High synergy, low others
+        sortedPairs = [...compatibilityScores]
+        sortedPairs.forEach(p => {
+          const coreScaled5 = Math.max(0, Math.min(5, ((Number(p.coreValuesScore) || 0) / 20) * 5))
+          let others = (Number(p.vibeScore) || 0) + (Number(p.lifestyleScore) || 0) + (Number(p.humorOpenScore) || 0) + (Number(p.communicationScore) || 0) + coreScaled5
+          if (p.humorClashVetoApplied) others += 100
+          if (p.deadAirVetoApplied) others += 100
+          p.__synergy = Number(p.synergyScore) || 0
+          p.__others = others
+        })
+        sortedPairs.sort((a, b) => {
+          if ((b.__synergy || 0) !== (a.__synergy || 0)) return (b.__synergy || 0) - (a.__synergy || 0)
+          if ((a.__others || 0) !== (b.__others || 0)) return (a.__others || 0) - (b.__others || 0)
+          return (b.score || 0) - (a.score || 0)
+        })
+      } else {
+        sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
+      }
       console.log(`📊 Processing remaining ${sortedPairs.length} calculated pairs...`)
 
       if (SKIP_DB_WRITES) {

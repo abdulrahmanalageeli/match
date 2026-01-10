@@ -192,6 +192,8 @@ export default function AdminPage() {
   const [prevUnmatchedSelected, setPrevUnmatchedSelected] = useState<Set<number>>(new Set());
   const [prevEventId, setPrevEventId] = useState<number | null>(null);
   const [prevModalMode, setPrevModalMode] = useState<'prev' | 'never'>('prev');
+  // Opposites-attract sorting toggle
+  const [oppositesSort, setOppositesSort] = useState(false);
 
   // Open modal and fetch candidates from previous event (N-1)
   const openPrevUnmatchedModal = async () => {
@@ -2037,7 +2039,8 @@ const fetchParticipants = async () => {
             viewAllMatches: {
               participantNumber: participant1,
               bypassEligibility: bypassEligibility
-            }
+            },
+            oppositesSort: oppositesSort
           }),
         })
         
@@ -3336,6 +3339,17 @@ Proceed?`
                   placeholder="رقم المشارك"
                   className="w-32 px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/50 transition-all duration-300"
                 />
+                {/* Opposites attract (sort) toggle */}
+                <label className="flex items-center gap-1.5 px-2 py-1 bg-slate-800/70 border border-slate-700 rounded-md text-xs text-slate-200">
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5"
+                    checked={oppositesSort}
+                    onChange={(e) => setOppositesSort(e.target.checked)}
+                  />
+                  Opposites attract (sort)
+                </label>
+
                 <button
                   onClick={async () => {
                     setLoading(true)
@@ -3455,7 +3469,8 @@ Proceed?`
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ 
                         eventId: currentEventId,
-                        excludedPairs: excludedPairs
+                        excludedPairs: excludedPairs,
+                        oppositesSort: oppositesSort
                       }),
                     })
                     const data = await res.json()
@@ -3519,7 +3534,8 @@ Proceed?`
                           preview: true,
                           paidOnly: true,
                           ignoreLocked: true,
-                          excludedPairs: excludedPairs
+                          excludedPairs: excludedPairs,
+                          oppositesSort: oppositesSort
                         }),
                       })
                       const data = await res.json()
@@ -4508,7 +4524,7 @@ Proceed?`
                     const res = await fetch("/api/admin/trigger-match", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ skipAI: true }),
+                      body: JSON.stringify({ skipAI: true, oppositesSort: oppositesSort }),
                     })
                     const data = await res.json()
                     if (res.ok) {

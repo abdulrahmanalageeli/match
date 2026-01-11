@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, ArrowLeftRight, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
+import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
 import PairAnalysisModal from "./PairAnalysisModalPro"
@@ -90,9 +90,6 @@ export default function ParticipantResultsModal({
   const [analysisA, setAnalysisA] = useState<any | null>(null)
   const [analysisB, setAnalysisB] = useState<any | null>(null)
   const [analysisPair, setAnalysisPair] = useState<any | null>(null)
-
-  // Sorting mode: default vs "Opposites Attract"
-  const [sortMode, setSortMode] = useState<'default' | 'opposites'>('default')
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -386,45 +383,8 @@ export default function ParticipantResultsModal({
     processedResults = Array.from(participantMap.values())
   }
 
-  // Opposites Attract ranking helper
-  // Prioritize high interaction synergy while preferring low alignment in other dimensions (values/lifestyle/vibe/part of MBTI),
-  // and push down unsafe/vetoed pairs (humor clash, dead air) or organizer pseudo-matches.
-  const computeOppositesScore = (r: ParticipantResult) => {
-    // Synergy normalization (0..1)
-    const comm = r.communication_compatibility_score ?? 0
-    const humor = r.humor_open_score ?? 0
-    const mbti = r.mbti_compatibility_score ?? 0
-    let synergyRaw = typeof r.synergy_score === 'number'
-      ? r.synergy_score
-      : Math.min(35, comm + humor + (mbti * 0.5))
-    const synergyNorm = Math.max(0, Math.min(1, synergyRaw / 35))
-
-    // "Everything else" (we want it low): lifestyle, core values, vibe, a lightweight MBTI component
-    const parts: { v: number; m: number }[] = []
-    if (typeof r.core_values_compatibility_score === 'number') parts.push({ v: r.core_values_compatibility_score, m: 20 })
-    if (typeof r.lifestyle_compatibility_score === 'number') parts.push({ v: r.lifestyle_compatibility_score, m: 15 })
-    if (typeof r.vibe_compatibility_score === 'number') parts.push({ v: r.vibe_compatibility_score, m: 20 })
-    if (typeof r.mbti_compatibility_score === 'number') parts.push({ v: r.mbti_compatibility_score * 0.5, m: 2.5 })
-    const otherSum = parts.reduce((s, p) => s + p.v, 0)
-    const otherMax = parts.reduce((s, p) => s + p.m, 0) || 1
-    const otherNorm = Math.max(0, Math.min(1, otherSum / otherMax))
-
-    // Penalize clearly uncivil/veto combinations and organizer pseudo-matches
-    const civilPenalty = (r.dead_air_veto_applied || r.humor_clash_veto_applied) ? -2 : 0
-    const organizerPenalty = r.is_organizer_match ? -2 : 0
-
-    // Weighted combination: emphasize synergy, de-emphasize high alignment elsewhere
-    // OppositesScore = 0.7*synergy + 0.3*(1 - other)
-    return (0.7 * synergyNorm) + (0.3 * (1 - otherNorm)) + civilPenalty + organizerPenalty
-  }
-
   // Default order (compatibility desc)
-  const defaultSorted = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
-
-  // Conditional order based on selected mode
-  const sortedResults = sortMode === 'opposites'
-    ? [...processedResults].sort((a, b) => computeOppositesScore(b) - computeOppositesScore(a))
-    : defaultSorted
+  const sortedResults = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
 
   const fetchParticipantDetails = (participantNumber: number, participantName: string) => {
     setLoadingDetails(true)
@@ -601,23 +561,7 @@ export default function ParticipantResultsModal({
           </button>
         </div>
         
-        {/* View mode toggle */}
-        <div className="mx-6 mt-4 mb-1 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSortMode(sortMode === 'opposites' ? 'default' : 'opposites')}
-              className={`${cohostTheme ? 'bg-rose-500/20 hover:bg-rose-500/30' : 'bg-white/10 hover:bg-white/20'} text-white px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all`}
-            >
-              <ArrowLeftRight className="w-4 h-4" />
-              <span>{sortMode === 'opposites' ? 'الفرز الافتراضي' : 'الأضداد يجذبون (فرز)'}</span>
-            </button>
-            {sortMode === 'opposites' && (
-              <span className="text-xs text-emerald-300">
-                ترتيب مرئي: تفاعل أعلى + اختلاف أكبر (مع الحفاظ على اللياقة)
-              </span>
-            )}
-          </div>
-        </div>
+        
 
         {/* Weights Legend */}
         {matchType !== "group" && (

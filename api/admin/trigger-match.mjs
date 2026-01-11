@@ -31,6 +31,34 @@ if (LOG_LEVEL === "silent") {
   console.error = () => {}
 }
 
+// Helper: compute Opposites Attract percentage (0..100) from available sub-scores
+// Emphasize high interaction synergy and low alignment in other dimensions.
+// Uses only provided components; if a component/max is unavailable, it is skipped from the denominator.
+function computeOppositesPercent(components) {
+  const synergy = Number(components.synergyScore ?? 0) // max 35
+  const synergyMax = 35
+  const synergyNorm = Math.max(0, Math.min(1, synergyMax > 0 ? synergy / synergyMax : 0))
+
+  const otherParts = []
+  // Push tuples of [value, max]
+  if (components.coreValuesScore != null) otherParts.push([Number(components.coreValuesScore), 20])
+  if (components.lifestyleScore != null)   otherParts.push([Number(components.lifestyleScore), 15])
+  if (components.vibeScore != null)        otherParts.push([Number(components.vibeScore), 20])
+  if (components.communicationScore != null) otherParts.push([Number(components.communicationScore), 10])
+  if (components.mbtiScore != null)        otherParts.push([Number(components.mbtiScore), 5])
+
+  let otherVal = 0
+  let otherMax = 0
+  for (const [v, m] of otherParts) {
+    otherVal += Math.max(0, v)
+    otherMax += m
+  }
+  const otherNorm = otherMax > 0 ? Math.max(0, Math.min(1, otherVal / otherMax)) : 0
+
+  const oppNorm = (0.7 * synergyNorm) + (0.3 * (1 - otherNorm))
+  return Math.max(0, Math.min(100, Math.round(oppNorm * 100)))
+}
+
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
 
@@ -2412,7 +2440,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Only POST allowed" })
   }
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesMode = false } = req.body || {}
   
   // Preview mode: disable all DB writes (no inserts/updates/RPC)
   SKIP_DB_WRITES = !!preview
@@ -3203,7 +3231,18 @@ export default async function handler(req, res) {
               .catch(err => console.error('Cache store error:', err))
           }
           
-          const totalCompatibility = Math.round(compatibilityResult.totalScore)
+          // Choose final score based on mode
+      const totalCompatibility = oppositesMode
+        ? computeOppositesPercent({
+            synergyScore: compatibilityResult.synergyScore,
+            // Prefer low elsewhere
+            coreValuesScore: compatibilityResult.coreValuesScore,
+            lifestyleScore: compatibilityResult.lifestyleScore,
+            vibeScore: compatibilityResult.vibeScore,
+            communicationScore: compatibilityResult.communicationScore,
+            mbtiScore: compatibilityResult.mbtiScore,
+          })
+        : Math.round(compatibilityResult.totalScore)
           
           const intentA = String((targetParticipant?.survey_data?.answers?.intent_goal ?? targetParticipant?.intent_goal ?? '')).toUpperCase()
           const intentB = String((potentialMatch?.survey_data?.answers?.intent_goal ?? potentialMatch?.intent_goal ?? '')).toUpperCase()
@@ -4014,10 +4053,21 @@ export default async function handler(req, res) {
         const aIntent = String((a?.survey_data?.answers?.intent_goal ?? a?.intent_goal ?? '')).toUpperCase()
         const bIntent = String((b?.survey_data?.answers?.intent_goal ?? b?.intent_goal ?? '')).toUpperCase()
 
+        const finalScore = oppositesMode
+          ? computeOppositesPercent({
+              synergyScore,
+              coreValuesScore,
+              lifestyleScore,
+              vibeScore,
+              communicationScore,
+              mbtiScore,
+            })
+          : Math.round(totalScore)
+
         compatibilityScores.push({
           a: a.assigned_number,
           b: b.assigned_number,
-          score: totalScore,
+          score: finalScore,
           reason: reason,
           mbtiScore: mbtiScore,
           attachmentScore: attachmentScore,
@@ -4173,8 +4223,19 @@ export default async function handler(req, res) {
             try {
               const fresh = await calculateFullCompatibilityWithCache(p1Data, p2Data, skipAI, true)
               // Normalize a minimal object matching fields we use below
+              const calcOppScore = oppositesMode
+                ? computeOppositesPercent({
+                    synergyScore: fresh.synergyScore ?? 0,
+                    // We may not have core values / mbti here; compute with available parts
+                    coreValuesScore: fresh.coreValuesScore,
+                    lifestyleScore: fresh.lifestyleScore,
+                    vibeScore: fresh.vibeScore,
+                    communicationScore: fresh.communicationScore,
+                    mbtiScore: fresh.mbtiScore,
+                  })
+                : Math.round(fresh.totalScore)
               calc = {
-                score: Math.round(fresh.totalScore),
+                score: calcOppScore,
                 synergyScore: fresh.synergyScore ?? 0,
                 humorOpenScore: fresh.humorOpenScore ?? 0,
                 intentScore: fresh.intentScore ?? 0,

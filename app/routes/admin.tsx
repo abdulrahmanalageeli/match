@@ -3501,6 +3501,60 @@ Proceed?`
                   Generate Matches
                 </button>
 
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `Are you sure you want to generate matches (Opposites Attract) for Event ${currentEventId}?\n\nThis will recompute final percentages using the opposites formula while reusing cached sub-scores.`
+                    if (excludedPairs.length > 0) {
+                      confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced:\n${excludedPairs.map(p => `#${p.participant1_number} ↔ #${p.participant2_number}`).join('\n')}`
+                    }
+                    if (excludedParticipants.length > 0) {
+                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                    }
+                    if (!confirm(confirmMessage)) return
+                    setLoading(true)
+                    const res = await fetch("/api/admin/trigger-match", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ 
+                        eventId: currentEventId,
+                        excludedPairs: excludedPairs,
+                        oppositesMode: true
+                      }),
+                    })
+                    const data = await res.json()
+                    setLoading(false)
+
+                    if (res.ok) {
+                      let successMessage = `✅ Opposites Attract generation complete.\n\nMatches created: ${data.count}\nEvent ID: ${currentEventId}`
+                      if (excludedPairs.length > 0) {
+                        successMessage += `\nExcluded pairs enforced: ${excludedPairs.length}`
+                      }
+                      if (excludedParticipants.length > 0) {
+                        successMessage += `\nParticipants excluded from all matching: ${excludedParticipants.length}`
+                      }
+
+                      if (data.performance) {
+                        successMessage += `\n\n⚡ Performance Metrics:`
+                        successMessage += `\nTotal time: ${data.performance.totalTimeSeconds}s`
+                        successMessage += `\nCache hits: ${data.performance.cacheHits} (${data.performance.cacheHitRate}%)`
+                        successMessage += `\nAI calls: ${data.performance.aiCalls}`
+                        successMessage += `\nAvg time per pair: ${data.performance.avgTimePerPair}ms`
+                      }
+
+                      alert(successMessage)
+                      fetchParticipants()
+                      await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
+                    } else {
+                      alert(`❌ Failed to generate opposites matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-fuchsia-600 to-pink-700 hover:from-fuchsia-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  title="Generate matches using the Opposites Attract formula"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                  Generate Matches (Opposites)
+                </button>
+
                 {/* Paid-Only Preview (No DB Writes, Ignore Locked) */}
                 <button
                   onClick={async () => {

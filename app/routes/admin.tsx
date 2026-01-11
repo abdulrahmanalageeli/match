@@ -143,6 +143,9 @@ export default function AdminPage() {
   // Gender preference update state
   const [updatingGenderPref, setUpdatingGenderPref] = useState<number | null>(null);
   
+  // Next event signup (per-card) loading state
+  const [signingUpNext, setSigningUpNext] = useState<number | null>(null);
+  
   // Full profile modal state
   const [profileModalParticipant, setProfileModalParticipant] = useState<any | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -783,6 +786,31 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       toast.error('Error updating gender preference');
     } finally {
       setUpdatingGenderPref(null);
+    }
+  }
+
+  // Sign up a single participant for the next event
+  const signupParticipantForNextEvent = async (participantNumber: number) => {
+    setSigningUpNext(participantNumber)
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'signup-participants-next-event', participantNumbers: [participantNumber] })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || `Failed to sign up #${participantNumber} for next event`)
+        return
+      }
+      toast.success(`Participant #${participantNumber} signed up for next event`)
+      // Refresh to reflect new badge/state
+      fetchParticipants()
+    } catch (e: any) {
+      console.error('Error signing up for next event:', e)
+      toast.error(e?.message || 'Network error while signing up')
+    } finally {
+      setSigningUpNext(null)
     }
   }
 
@@ -5541,6 +5569,24 @@ Proceed?`
                           title="Click to remove auto signup"
                         >
                           Auto Signup
+                        </button>
+                      )}
+                      {/* Quick action: Sign up for Next Event (only if not already signed up and no auto signup) */}
+                      {!p.signup_for_next_event && !p.auto_signup_next_event && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); signupParticipantForNextEvent(p.assigned_number); }}
+                          disabled={signingUpNext === p.assigned_number}
+                          className="px-2 py-1 text-xs rounded-full border transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-60 bg-green-500/20 text-green-300 border-green-400/30 hover:bg-green-500/30"
+                          title="Sign up this participant for the next event"
+                        >
+                          {signingUpNext === p.assigned_number ? (
+                            <span className="flex items-center gap-1">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Signing...</span>
+                            </span>
+                          ) : (
+                            <span>Sign up Next</span>
+                          )}
                         </button>
                       )}
                     </div>

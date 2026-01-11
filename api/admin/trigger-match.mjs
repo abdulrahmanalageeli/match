@@ -59,6 +59,30 @@ function computeOppositesPercent(components) {
   return Math.max(0, Math.min(100, Math.round(oppNorm * 100)))
 }
 
+// New opposites-mode formula (no cache changes):
+// final = synergy(0-35) + values(0-5) + communication(0-10)
+//       + (15 - lifestyle) + (20 - vibe) + (15 - humorOpen)
+function computeOppositesFlippedScore(components) {
+  const synergy = Number(components.synergyScore ?? 0)
+  // Accept either pre-scaled 0..5 or raw 0..20 for core values
+  const values5 = components.coreValuesScaled5 != null
+    ? Number(components.coreValuesScaled5)
+    : (components.coreValuesScore != null
+        ? Math.max(0, Math.min(5, (Number(components.coreValuesScore) / 20) * 5))
+        : 0)
+  const comm = Number(components.communicationScore ?? 0)
+  const lifestyle = Number(components.lifestyleScore ?? 0)
+  const vibe = Number(components.vibeScore ?? 0)
+  const humor = Number(components.humorOpenScore ?? 0)
+
+  const flippedLifestyle = Math.max(0, 15 - lifestyle)
+  const flippedVibe = Math.max(0, 20 - vibe)
+  const flippedHumor = Math.max(0, 15 - humor)
+
+  const total = synergy + values5 + comm + flippedLifestyle + flippedVibe + flippedHumor
+  return Math.max(0, Math.min(100, Math.round(total)))
+}
+
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
 
@@ -3233,14 +3257,17 @@ export default async function handler(req, res) {
           
           // Choose final score based on mode
       const totalCompatibility = oppositesMode
-        ? computeOppositesPercent({
-            synergyScore: compatibilityResult.synergyScore,
-            // Prefer low elsewhere
-            coreValuesScore: compatibilityResult.coreValuesScore,
-            lifestyleScore: compatibilityResult.lifestyleScore,
-            vibeScore: compatibilityResult.vibeScore,
-            communicationScore: compatibilityResult.communicationScore,
-            mbtiScore: compatibilityResult.mbtiScore,
+        ? computeOppositesFlippedScore({
+            synergyScore: Number(compatibilityResult.synergyScore ?? 0),
+            coreValuesScaled5: (
+              compatibilityResult.coreValuesScaled5 != null
+                ? Number(compatibilityResult.coreValuesScaled5)
+                : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5))
+            ),
+            communicationScore: Number(compatibilityResult.communicationScore ?? 0),
+            lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),
+            vibeScore: Number(compatibilityResult.vibeScore ?? 0),
+            humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
           })
         : Math.round(compatibilityResult.totalScore)
           
@@ -3475,7 +3502,20 @@ export default async function handler(req, res) {
       const coreValuesScore = compatibilityResult.coreValuesScore
       const vibeScore = compatibilityResult.vibeScore
       const humorMultiplier = compatibilityResult.humorMultiplier
-      const totalCompatibility = Math.round(compatibilityResult.totalScore)
+      const totalCompatibility = oppositesMode
+        ? computeOppositesFlippedScore({
+            synergyScore: Number(compatibilityResult.synergyScore ?? 0),
+            coreValuesScaled5: (
+              compatibilityResult.coreValuesScaled5 != null
+                ? Number(compatibilityResult.coreValuesScaled5)
+                : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5))
+            ),
+            communicationScore: Number(compatibilityResult.communicationScore ?? 0),
+            lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),
+            vibeScore: Number(compatibilityResult.vibeScore ?? 0),
+            humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),
+          })
+        : Math.round(compatibilityResult.totalScore)
       
       if (compatibilityResult.cached && !manualMatch.testModeOnly) {
         console.log(`🎯 Manual match used cached result for #${p1.assigned_number}-#${p2.assigned_number}`)
@@ -4054,13 +4094,17 @@ export default async function handler(req, res) {
         const bIntent = String((b?.survey_data?.answers?.intent_goal ?? b?.intent_goal ?? '')).toUpperCase()
 
         const finalScore = oppositesMode
-          ? computeOppositesPercent({
-              synergyScore,
-              coreValuesScore,
-              lifestyleScore,
-              vibeScore,
-              communicationScore,
-              mbtiScore,
+          ? computeOppositesFlippedScore({
+              synergyScore: Number(synergyScore ?? 0),
+              coreValuesScaled5: (
+                typeof coreValuesScore === 'number'
+                  ? Math.max(0, Math.min(5, (Number(coreValuesScore) / 20) * 5))
+                  : 0
+              ),
+              communicationScore: Number(communicationScore ?? 0),
+              lifestyleScore: Number(lifestyleScore ?? 0),
+              vibeScore: Number(vibeScore ?? 0),
+              humorOpenScore: Number(humorOpenScore ?? 0),
             })
           : Math.round(totalScore)
 
@@ -4224,14 +4268,17 @@ export default async function handler(req, res) {
               const fresh = await calculateFullCompatibilityWithCache(p1Data, p2Data, skipAI, true)
               // Normalize a minimal object matching fields we use below
               const calcOppScore = oppositesMode
-                ? computeOppositesPercent({
-                    synergyScore: fresh.synergyScore ?? 0,
-                    // We may not have core values / mbti here; compute with available parts
-                    coreValuesScore: fresh.coreValuesScore,
-                    lifestyleScore: fresh.lifestyleScore,
-                    vibeScore: fresh.vibeScore,
-                    communicationScore: fresh.communicationScore,
-                    mbtiScore: fresh.mbtiScore,
+                ? computeOppositesFlippedScore({
+                    synergyScore: Number(fresh.synergyScore ?? 0),
+                    coreValuesScaled5: (
+                      fresh.coreValuesScaled5 != null
+                        ? Number(fresh.coreValuesScaled5)
+                        : Math.max(0, Math.min(5, (Number(fresh.coreValuesScore || 0) / 20) * 5))
+                    ),
+                    communicationScore: Number(fresh.communicationScore ?? 0),
+                    lifestyleScore: Number(fresh.lifestyleScore ?? 0),
+                    vibeScore: Number(fresh.vibeScore ?? 0),
+                    humorOpenScore: Number(fresh.humorOpenScore ?? 0),
                   })
                 : Math.round(fresh.totalScore)
               calc = {

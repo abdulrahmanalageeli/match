@@ -1462,7 +1462,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       
       constraintViolations.compatible_pairs++
       
-      // Calculate ALL compatibility scores (except AI vibe)
+      // Calculate ALL compatibility scores (include cached AI vibe if available; no new AI calls)
       const aMBTI = a.mbti_personality_type || a.survey_data?.mbtiType
       const bMBTI = b.mbti_personality_type || b.survey_data?.mbtiType
       const aAttachment = a.attachment_style || a.survey_data?.attachmentStyle
@@ -1481,25 +1481,48 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues)
       
       // Add Interaction Synergy (Q35..41) and Humor & Openness into group pair score
-      // Synergy raw: 0..35 → scale to 0..20; Humor/Openness raw: 0..15 → scale to 0..10 (veto sets humor to 0)
+      // Mimic individual regular mode weights:
+      //   Synergy 0–35 (no downscale), Humor/Openness 0–15 (veto sets to 0)
       const synergyRaw = calculateInteractionSynergyScore(a, b)
       const { score: humorOpenRaw, vetoClash } = calculateHumorOpennessScore(a, b)
-      const synergyScore = Math.max(0, Math.min(20, (synergyRaw / 35) * 20))
-      const humorOpenScore = vetoClash ? 0 : Math.max(0, Math.min(10, (humorOpenRaw / 15) * 10))
+      const synergyScore = Math.max(0, Math.min(35, synergyRaw))
+      const humorOpenScore = vetoClash ? 0 : Math.max(0, Math.min(15, humorOpenRaw))
+
+      // Core values: scale raw 0–20 to 0–10
+      const coreValuesScaled10 = Math.max(0, Math.min(10, (coreValuesScore / 20) * 10))
+
+      // Vibe: read from cache if present, otherwise use 12 (0–20 scale)
+      let vibeScore = 12
+      try {
+        const cached = await getCachedCompatibility(a, b)
+        if (cached && Number.isFinite(cached.vibeScore)) {
+          vibeScore = Math.max(0, Math.min(20, Number(cached.vibeScore)))
+        }
+      } catch (e) {
+        // ignore cache errors
+      }
       
-      // Total compatibility (0-85% without AI vibe)
-      const totalScore = mbtiScore + attachmentScore + communicationScore + lifestyleScore + coreValuesScore + synergyScore + humorOpenScore
+      // Totals
+      // Regular (0–105): 35 (synergy) + 20 (vibe) + 15 (lifestyle) + 15 (humor) + 10 (communication) + 10 (values)
+      const regularTotal = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled10
+      // Opposites (0–105): flip lifestyle/vibe/humor, keep synergy/values/comm positive
+      const flippedLifestyle = Math.max(0, 15 - lifestyleScore)
+      const flippedVibe = Math.max(0, 20 - vibeScore)
+      const flippedHumor = Math.max(0, 15 - humorOpenScore)
+      const oppositesTotal = synergyScore + coreValuesScaled10 + communicationScore + flippedLifestyle + flippedVibe + flippedHumor
+      const totalScore = (options?.oppositesMode === true) ? oppositesTotal : regularTotal
       
       pairScores.push({
         participants: [a.assigned_number, b.assigned_number],
-        score: totalScore, // Use total score with synergy & humor/open
+        score: totalScore, // Use total score (regular or opposites)
         mbtiScore,
         attachmentScore,
         communicationScore,
         lifestyleScore,
-        coreValuesScore,
+        coreValuesScore: coreValuesScaled10,
         synergyScore,
-        humorOpenScore
+        humorOpenScore,
+        vibeScore
       })
     }
   }
@@ -1529,9 +1552,9 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     }
   }
   
-  console.log(`\n📊 Top compatibility pairs for groups (0-85% without AI):`)
+  console.log(`\n📊 Top compatibility pairs for groups (0-105% with cached AI vibe):`)
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (MBTI: ${pair.mbtiScore}%, Attach: ${pair.attachmentScore}%, Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${pair.coreValuesScore}%, Interact: ${Math.round(pair.synergyScore)}%, Humor/Open: ${Math.round(pair.humorOpenScore)}%)`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${Math.round(pair.coreValuesScore)}%, Interact: ${Math.round(pair.synergyScore)}%, Humor/Open: ${Math.round(pair.humorOpenScore)}%, Vibe: ${Math.round(pair.vibeScore)}%)`)
   })
 
   // Enhanced group formation algorithm with fallback support
@@ -1746,7 +1769,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       participant_numbers: group, // Array of participant numbers
       participant_names: participantNames, // Array of participant names
       compatibility_score: Math.round(groupScore),
-      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 85%)`,
+      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 105%)`,
       table_number: tableNumber,
       event_id: eventId,
       conversation_status: 'pending'
@@ -1853,7 +1876,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         continue
       }
 
-      // 5) Base score from pairwise compatibility (0-85%)
+      // 5) Base score from pairwise compatibility (0-105% with cached AI vibe)
       let score = calculateGroupCompatibilityScore(combination, pairScores)
 
       // Bonuses/Penalties (extended with synergy group bonuses)
@@ -2273,7 +2296,7 @@ function calculateParticipantGroupCompatibility(participant, group, pairScores) 
   return pairCount > 0 ? totalScore / pairCount : 0
 }
 
-// Helper function to calculate group compatibility score (0-85% without AI vibe)
+// Helper function to calculate group compatibility score (0-105% with cached AI vibe)
 function calculateGroupCompatibilityScore(group, pairScores) {
   let totalScore = 0
   let pairCount = 0
@@ -2292,7 +2315,7 @@ function calculateGroupCompatibilityScore(group, pairScores) {
     }
   }
   
-  // Return average compatibility score (0-85% without AI vibe)
+  // Return average compatibility score (0-105% with cached AI vibe)
   const averageScore = pairCount > 0 ? totalScore / pairCount : 0
   return averageScore
 }
@@ -3686,7 +3709,7 @@ export default async function handler(req, res) {
           }
 
           for (let i = 0; i < topK; i++) {
-            const gm = await generateGroupMatches(eligibleParticipants, match_id, eventId, { bannedCombos })
+            const gm = await generateGroupMatches(eligibleParticipants, match_id, eventId, { bannedCombos, oppositesMode })
             arrangements.push(gm)
             const sig = pickSignature(gm)
             if (sig) bannedCombos.add(sig)
@@ -3761,7 +3784,7 @@ export default async function handler(req, res) {
         }
       }
 
-      const groupMatches = await generateGroupMatches(eligibleParticipants, match_id, eventId)
+      const groupMatches = await generateGroupMatches(eligibleParticipants, match_id, eventId, { oppositesMode })
 
       // Insert new group matches
       console.log("💾 Inserting", groupMatches.length, "group matches into group_matches table")

@@ -3693,6 +3693,41 @@ Proceed?`
                   </button>
                   
                   <button
+                    onClick={async () => {
+                      let confirmMessage = `Generate group matches (Opposites) for Event ${currentEventId}?\n\nThis will compute group scores using the opposites formula (flipped lifestyle, vibe, humor) while keeping synergy, values, and communication positive.`
+                      if (excludedParticipants.length > 0) {
+                        confirmMessage += `\n\n🚫 ${excludedParticipants.length} participant(s) will be excluded from ALL matching:\n${excludedParticipants.map(p => `#${p.participant_number}`).join(', ')}`
+                      }
+                      if (!confirm(confirmMessage)) return
+                      setLoading(true)
+                      const res = await fetch("/api/admin/trigger-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          matchType: "group",
+                          eventId: currentEventId,
+                          oppositesMode: true
+                        }),
+                      })
+                      const data = await res.json()
+                      if (res.ok) {
+                        toast.success(`${data.message}. Groups created: ${data.count}`, { duration: 4000 })
+                        fetchParticipants()
+                        // Show results modal (groups don't have calculated pairs)
+                        await showParticipantResults(data.results || [], data.count || 0, "group", [])
+                      } else {
+                        toast.error("Failed to generate opposites group matches: " + (data.error || "Unknown error"))
+                      }
+                      setLoading(false)
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-fuchsia-600 to-pink-700 hover:from-fuchsia-700 hover:to-pink-800 text-white rounded-lg transition-all duration-300 text-sm"
+                    title="Generate group matches using the Opposites formula"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    Generate Groups (Opposites)
+                  </button>
+                  
+                  <button
                     onClick={debugGroupEligibility}
                     disabled={loadingGroupDebug}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"

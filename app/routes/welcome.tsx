@@ -2500,7 +2500,7 @@ export default function WelcomePage() {
       return null;
     }
     
-    // Check localStorage safely (client-side only)
+    // cCheck localStorage safely (client-side only)
     const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
     const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
     

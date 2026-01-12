@@ -2800,8 +2800,8 @@ export default function GroupsPage() {
     );
   };
 
-  // If groups page is locked and user is not confirmed, show a friendly locked page
-  if (groupsLocked && dataLoaded && !isConfirmed) {
+  // If groups page is locked, show a friendly locked page for everyone
+  if (groupsLocked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
         <div className="max-w-md w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center">

@@ -1259,6 +1259,61 @@ export default async function handler(req, res) {
     }
   }
 
+  // PHONE LOGIN BRIDGE (session-scoped, least privilege)
+  if (action === "phone-login-bridge") {
+    const { phone_number } = req.body
+    if (!phone_number) {
+      return res.status(400).json({ error: "يرجى إدخال رقم الهاتف" })
+    }
+
+    try {
+      const normalized = phone_number.replace(/\D/g, '')
+      if (normalized.length < 6) {
+        return res.status(400).json({ error: "رقم الهاتف يجب أن يحتوي على 6 أرقام على الأقل" })
+      }
+      const lastSix = normalized.slice(-6)
+
+      const matchId = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      let currentEventId = 1
+      try {
+        const { data: evt, error: evtErr } = await supabase
+          .from("event_state")
+          .select("current_event_id")
+          .eq("match_id", matchId)
+          .single()
+        if (!evtErr && evt?.current_event_id) currentEventId = evt.current_event_id
+      } catch {}
+
+      const { data: participants, error: searchError } = await supabase
+        .from("participants")
+        .select("id, assigned_number, secure_token, phone_number, event_id, created_at")
+        .eq("match_id", matchId)
+        .ilike("phone_number", `%${lastSix}`)
+        .order("created_at", { ascending: false })
+
+      if (searchError) {
+        console.error("phone-login-bridge search error:", searchError)
+        return res.status(500).json({ error: "خطأ في البحث عن المشارك" })
+      }
+
+      if (!participants || participants.length === 0) {
+        return res.status(404).json({ error: "لم يتم العثور على مشارك بهذا الرقم" })
+      }
+
+      // Prefer current event participant if available
+      const preferred = participants.find(p => p.event_id === currentEventId) || participants[0]
+
+      return res.status(200).json({
+        success: true,
+        secure_token: preferred.secure_token,
+        assigned_number: preferred.assigned_number,
+      })
+    } catch (err) {
+      console.error("phone-login-bridge error:", err)
+      return res.status(500).json({ error: "حدث خطأ في النظام" })
+    }
+  }
+
   // PHONE LOOKUP FOR RETURNING PARTICIPANTS
   if (action === "phone-lookup-signup") {
     const { phone_number, gender_preference, humor_banter_style, early_openness_comfort, auto_signup_next_event } = req.body

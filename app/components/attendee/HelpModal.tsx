@@ -1,5 +1,5 @@
 import React from "react";
-import { X, Info, Users, Clock, Sparkles, HeartHandshake, CheckCircle } from "lucide-react";
+import { X, Info, Users, Clock, Sparkles, Handshake, CheckCircle } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import type { AttendeeStage } from "./SlideShell";
 
@@ -57,7 +57,7 @@ export function HelpModal({ isOpen, onClose, currentStage }: HelpModalProps) {
               <div className="space-y-3">
                 <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
                   <p className="text-white font-semibold flex items-center gap-2 mb-1">
-                    <HeartHandshake className="w-4 h-4 text-emerald-400" />
+                    <Handshake className="w-4 h-4 text-emerald-400" />
                     الترحيب
                   </p>
                   <p className="text-slate-300 text-sm">تأكيد الدخول باستخدام الرمز الخاص بك، ومعرفة الخطوات القادمة بإيجاز.</p>

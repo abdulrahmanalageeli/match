@@ -5260,17 +5260,23 @@ Proceed?`
                 {isCohost && p.next_event_signup_timestamp && (() => {
                   const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
                   const signedAt = new Date(p.next_event_signup_timestamp)
-                  const isLate = signedAt.getTime() > cutoffDate.getTime()
+                  const diffMs = signedAt.getTime() - cutoffDate.getTime()
+                  const isLate = diffMs > 0
                   if (!isLate) return null
+                  const hoursLate = diffMs / 3600000
                   return (
-                    <div className="absolute top-2 left-3 z-20 pointer-events-none select-none">
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none">
                       <div className="flex flex-col items-center">
+                        <div className="w-2 h-2 rounded-full bg-rose-300/90 ring-1 ring-white/40 shadow mb-1"></div>
                         <div className="h-4 w-0.5 bg-rose-300/60"></div>
-                        <div className="transform -rotate-6 group-hover:-rotate-3 transition-transform duration-300">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-rose-500/80 to-orange-500/80 text-white shadow-xl border border-white/20">
+                        <div className="transform -rotate-6 group-hover:-rotate-3 transition-transform duration-300 mt-1">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-rose-500/85 to-orange-500/85 text-white shadow-xl border border-white/20 ring-1 ring-rose-300/30">
                             <Zap className="w-3 h-3" />
                             LATE
                           </span>
+                        </div>
+                        <div className="mt-1 text-[10px] italic text-rose-100/90 drop-shadow-sm">
+                          Late by {hoursLate.toFixed(1)}h (KSA)
                         </div>
                       </div>
                     </div>

@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button";
 import { ChevronRight, Users, Sparkles, Clock, PlayCircle } from "lucide-react";
 import { HelpModal } from "../components/attendee/HelpModal";
 
-// Lightweight helpers consistent with existing token behavior
+// Lightweight helpers consisttent with existing token behavior
 function getSavedToken(): string | null {
   try {
     const a = localStorage.getItem("blindmatch_result_token");

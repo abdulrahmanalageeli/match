@@ -2168,5 +2168,93 @@ Please respond in JSON format:
     }
   }
 
+  // 🔹 GET MY GROUP (participant-scoped, read-only)
+  if (action === "get-my-group") {
+    try {
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      const { secure_token } = req.body || {}
+      if (!secure_token || typeof secure_token !== 'string') {
+        return res.status(400).json({ error: "Missing secure_token" })
+      }
+
+      // Resolve participant to get assigned_number and event_id
+      const { data: participant, error: pErr } = await supabase
+        .from("participants")
+        .select("assigned_number, event_id, name, table_number")
+        .eq("match_id", match_id)
+        .eq("secure_token", secure_token)
+        .single()
+
+      if (pErr) {
+        if (pErr.code === 'PGRST116') {
+          return res.status(404).json({ error: "Participant not found" })
+        }
+        console.error("get-my-group participant error:", pErr)
+        return res.status(500).json({ error: "Failed to fetch participant" })
+      }
+
+      if (!participant?.assigned_number) {
+        return res.status(404).json({ error: "Participant has no assigned number yet" })
+      }
+
+      const currentEvent = Number(participant.event_id) || 1
+
+      // Find the group that contains this participant (array contains)
+      const { data: groupRows, error: gErr } = await supabase
+        .from("group_matches")
+        .select("id, group_id, group_number, participant_numbers, participant_names, table_number, compatibility_score, conversation_status, conversation_start_time, conversation_duration")
+        .eq("match_id", match_id)
+        .eq("event_id", currentEvent)
+        .contains("participant_numbers", [participant.assigned_number])
+        .limit(1)
+
+      if (gErr) {
+        console.error("get-my-group query error:", gErr)
+        return res.status(500).json({ error: "Failed to load group info" })
+      }
+
+      const group = Array.isArray(groupRows) && groupRows.length > 0 ? groupRows[0] : null
+
+      if (!group) {
+        return res.status(200).json({
+          success: true,
+          in_group: false,
+          participant: {
+            assigned_number: participant.assigned_number,
+            name: participant.name || null,
+            event_id: currentEvent,
+            table_number: participant.table_number || null
+          }
+        })
+      }
+
+      return res.status(200).json({
+        success: true,
+        in_group: true,
+        participant: {
+          assigned_number: participant.assigned_number,
+          name: participant.name || null,
+          event_id: currentEvent,
+          table_number: participant.table_number || null
+        },
+        group: {
+          id: group.id,
+          group_id: group.group_id,
+          group_number: group.group_number,
+          table_number: group.table_number,
+          compatibility_score: group.compatibility_score,
+          conversation_status: group.conversation_status,
+          conversation_start_time: group.conversation_start_time,
+          conversation_duration: group.conversation_duration,
+          participant_numbers: group.participant_numbers || [],
+          participant_names: group.participant_names || []
+        }
+      })
+    } catch (error) {
+      console.error("Error in get-my-group:", error)
+      return res.status(500).json({ error: "Unexpected error in get-my-group" })
+    }
+  }
+
   return res.status(400).json({ error: 'Invalid action' })
 }

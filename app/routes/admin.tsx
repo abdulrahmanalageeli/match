@@ -5256,6 +5256,26 @@ Proceed?`
                     setShowProfileModal(true);
                   }}
                 >
+                {/* Cohost hanging LATE tag overlay — visible within card bounds (no negative offset) */}
+                {isCohost && p.next_event_signup_timestamp && (() => {
+                  const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
+                  const signedAt = new Date(p.next_event_signup_timestamp)
+                  const isLate = signedAt.getTime() > cutoffDate.getTime()
+                  if (!isLate) return null
+                  return (
+                    <div className="absolute top-2 left-3 z-20 pointer-events-none select-none">
+                      <div className="flex flex-col items-center">
+                        <div className="h-4 w-0.5 bg-rose-300/60"></div>
+                        <div className="transform -rotate-6 group-hover:-rotate-3 transition-transform duration-300">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold bg-gradient-to-r from-rose-500/80 to-orange-500/80 text-white shadow-xl border border-white/20">
+                            <Zap className="w-3 h-3" />
+                            LATE
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })()}
                 {/* Top-right Exclude Button (Both admin and co-host) */}
                 <div className="absolute top-3 right-3 md:top-2 md:right-2 z-10">
                   <button
@@ -5364,69 +5384,11 @@ Proceed?`
                       </div>
                     )}
 
-                    {/* Co-host: Late signup tag (based on next_event_signup_timestamp after cutoff) */}
-                    {isCohost && p.next_event_signup_timestamp && (() => {
-                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                      const signedAt = new Date(p.next_event_signup_timestamp)
-                      const isLate = signedAt.getTime() > cutoffDate.getTime()
-                      if (!isLate) return null
-                      return (
-                        <div className="mt-2">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-gradient-to-r from-rose-500/20 to-orange-500/20 border border-rose-400/40 text-rose-100 shadow-sm">
-                            <Zap className="w-3 h-3 mr-1" />
-                            Late Signup
-                          </span>
-                        </div>
-                      )
-                    })()}
+                    
 
-                    {/* Co-host: Minimal badges row (Next Event + LATE) */}
-                    {isCohost && (
-                      <div className="mt-2 flex items-center justify-center gap-1">
-                        {(p.signup_for_next_event || p.auto_signup_next_event) && (
-                          <span className="px-2 py-0.5 text-[11px] bg-green-500/20 text-green-200 rounded-full border border-green-400/30">
-                            Next Event
-                          </span>
-                        )}
-                        {p.next_event_signup_timestamp && (() => {
-                          const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                          const signedAt = new Date(p.next_event_signup_timestamp)
-                          const isLate = signedAt.getTime() > cutoffDate.getTime()
-                          if (!isLate) return null
-                          return (
-                            <span className="px-2 py-0.5 text-[10px] bg-orange-500/20 text-orange-200 rounded-full border border-orange-400/30 font-bold">
-                              LATE
-                            </span>
-                          )
-                        })()}
-                      </div>
-                    )}
+                    
 
-                    {/* Co-host: Next Event Signup Time (with LATE indicator) */}
-                    {isCohost && p.next_event_signup_timestamp && (() => {
-                      const signedAt = new Date(p.next_event_signup_timestamp)
-                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                      const isLate = signedAt.getTime() > cutoffDate.getTime()
-                      const dateTimeStr = signedAt.toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Riyadh'
-                      })
-                      return (
-                        <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-200' : 'text-green-200'}`}>
-                          <CalendarCheck className="w-3 h-3" />
-                          <span>Next: {dateTimeStr}</span>
-                          {isLate && (
-                            <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-200 rounded text-[10px] font-bold border border-orange-400/30">
-                              LATE
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })()}
+                    
 
                     
 

@@ -2809,20 +2809,20 @@ export default function GroupsPage() {
             <Lock className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-3">الأنشطة الجماعية مقفلة الآن</h1>
-          <p className="text-slate-300 mb-6">هذه الصفحة متاحة فقط للحضور المؤكدين. أكمل تأكيد حضورك لتفتح لك الأنشطة الممتعة والتعارف! ✨</p>
+          <p className="text-slate-300 mb-6">هذه الصفحة متاحة فقط للمشاركين الذين يختارهم المنظّم بناءً على نسبة التوافق. سيتم إشعار المختارين برسالة من المنظّم (غالبًا عبر واتساب) قبل بدء الأنشطة. ✨</p>
 
           <div className="grid grid-cols-1 gap-3 text-right mb-6">
             <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-400/20">
               <CheckCircle className="w-4 h-4 text-emerald-400" />
-              <span className="text-emerald-200 text-sm">تجربة ترفيهية تفاعلية لمدة 45 دقيقة</span>
+              <span className="text-emerald-200 text-sm">تجربة تفاعلية ممتعة لمدة 45 دقيقة</span>
             </div>
             <div className="flex items-center gap-2 p-3 rounded-xl bg-cyan-500/10 border border-cyan-400/20">
               <CheckCircle className="w-4 h-4 text-cyan-400" />
-              <span className="text-cyan-200 text-sm">تعرف على مجموعتك وابدأ الألعاب فوراً</span>
+              <span className="text-cyan-200 text-sm">رسالة دعوة ستصلك من المنظّم إذا تم اختيارك</span>
             </div>
             <div className="flex items-center gap-2 p-3 rounded-xl bg-purple-500/10 border border-purple-400/20">
               <CheckCircle className="w-4 h-4 text-purple-400" />
-              <span className="text-purple-200 text-sm">فرصة رائعة لبناء علاقات ومعارف جديدة</span>
+              <span className="text-purple-200 text-sm">لزيادة فرص اختيارك: أكمل بياناتك وتأكد من صحة رقمك</span>
             </div>
           </div>
 
@@ -2831,18 +2831,18 @@ export default function GroupsPage() {
               onClick={() => (window.location.href = "/welcome")}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
             >
-              أكمل تأكيد حضورك الآن
+              العودة لصفحة الترحيب
             </button>
             <button
-              onClick={() => (window.location.href = "/welcome")}
+              onClick={() => window.location.reload()}
               className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 transition-all"
             >
-              لدي رمز/تأكيد — انتقل لصفحة الترحيب
+              تحديث الصفحة لاحقًا
             </button>
           </div>
 
           <div className="mt-6 text-xs text-slate-400">
-            Groups page is currently locked for non-confirmed attendees. Confirm to unlock.
+            المجموعات ستفتح فقط للمشاركين الذين يرسل لهم المنظّم دعوة مباشرة. شكرًا لتفهمك.
           </div>
         </div>
       </div>

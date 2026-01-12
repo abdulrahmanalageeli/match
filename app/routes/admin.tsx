@@ -5364,6 +5364,23 @@ Proceed?`
                       </div>
                     )}
 
+                    {/* Co-host: Late signup tag (next_event_signup_timestamp after KSA cutoff) */}
+                    {isCohost && p.next_event_signup_timestamp && (() => {
+                      const signedAt = new Date(p.next_event_signup_timestamp)
+                      // Cutoff: Jan 12, 2026 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
+                      const isLate = signedAt.getTime() > cutoffDate.getTime()
+                      if (!isLate) return null
+                      return (
+                        <div className="mt-2">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-gradient-to-r from-rose-500/20 to-orange-500/20 border border-rose-400/40 text-rose-100 shadow-sm">
+                            <Zap className="w-3 h-3 mr-1" />
+                            Late Signup
+                          </span>
+                        </div>
+                      )
+                    })()}
+
                     {/* Co-host centered actions */}
                     {isCohost && (
                       <div className={`mt-2 pt-3 border-t border-white/10 ${isCohost ? 'bg-white/5 rounded-2xl p-3 md:p-0' : ''}`}> 
@@ -5447,8 +5464,8 @@ Proceed?`
                     {/* Registration Time (created_at) */}
                     {!isCohost && p.created_at && (() => {
                       const createdAt = new Date(p.created_at);
-                      // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
-                      const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
+                      // Cutoff: Jan 12, 2026 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00');
                       const isLate = createdAt.getTime() > cutoffDate.getTime();
 
                       const dateTimeStr = createdAt.toLocaleString('en-GB', {
@@ -5477,8 +5494,8 @@ Proceed?`
                     {/* Next Event Signup Time */}
                     {!isCohost && p.next_event_signup_timestamp && (() => {
                       const signedAt = new Date(p.next_event_signup_timestamp);
-                      // Cutoff: Nov 14, 2025 3:00 PM Riyadh time
-                      const cutoffDate = new Date('2025-11-14T15:00:00+03:00');
+                      // Cutoff: Jan 12, 2026 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00');
                       const isLate = signedAt.getTime() > cutoffDate.getTime();
 
                       const dateTimeStr = signedAt.toLocaleString('en-GB', {

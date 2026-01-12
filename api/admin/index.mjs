@@ -784,7 +784,7 @@ export default async function handler(req, res) {
         console.log("Fetching event state for match_id:", STATIC_MATCH_ID);
         const { data, error } = await supabase
           .from("event_state")
-          .select("phase, announcement, announcement_type, announcement_time, emergency_paused, pause_time, current_round, total_rounds, current_event_id, global_timer_active, global_timer_start_time, global_timer_duration, global_timer_round")
+          .select("phase, announcement, announcement_type, announcement_time, emergency_paused, pause_time, current_round, total_rounds, current_event_id, global_timer_active, global_timer_start_time, global_timer_duration, global_timer_round, groups_locked")
           .eq("match_id", STATIC_MATCH_ID)
           .single()
 
@@ -806,7 +806,8 @@ export default async function handler(req, res) {
               global_timer_active: false,
               global_timer_start_time: null,
               global_timer_duration: 1800,
-              global_timer_round: null
+              global_timer_round: null,
+              groups_locked: false
             })
           }
           return res.status(500).json({ error: error.message })
@@ -825,7 +826,8 @@ export default async function handler(req, res) {
           global_timer_active: data.global_timer_active || false,
           global_timer_start_time: data.global_timer_start_time,
           global_timer_duration: data.global_timer_duration || 1800,
-          global_timer_round: data.global_timer_round
+          global_timer_round: data.global_timer_round,
+          groups_locked: data.groups_locked === true
         })
       }
 
@@ -1170,6 +1172,68 @@ export default async function handler(req, res) {
       } catch (err) {
         console.error("Error getting results visibility:", err)
         return res.status(500).json({ error: "Failed to get results visibility" })
+      }
+    }
+
+    // 🔹 Set Groups Page Lock
+    if (action === "set-groups-locked") {
+      try {
+        const { locked } = req.body
+        console.log(`Setting groups page locked to: ${locked} for match_id: ${STATIC_MATCH_ID}`)
+
+        const { data: updateData, error: updateError } = await supabase
+          .from("event_state")
+          .update({ groups_locked: !!locked })
+          .eq("match_id", STATIC_MATCH_ID)
+          .select()
+
+        if (updateError) {
+          console.error("Error updating groups_locked:", updateError)
+          console.log("Update failed, trying to insert new record...")
+          const { data: insertData, error: insertError } = await supabase
+            .from("event_state")
+            .insert({ match_id: STATIC_MATCH_ID, groups_locked: !!locked, phase: 'waiting' })
+            .select()
+
+          if (insertError) {
+            console.error("Error inserting event_state record (groups_locked):", insertError)
+            return res.status(500).json({ error: `Database error: ${insertError.message}` })
+          }
+          console.log("Successfully inserted new event_state record (groups_locked):", insertData)
+        } else {
+          console.log("Successfully updated groups_locked:", updateData)
+        }
+
+        return res.status(200).json({ message: `Groups page ${locked ? 'locked' : 'unlocked'}` })
+      } catch (err) {
+        console.error("Error setting groups_locked:", err)
+        return res.status(500).json({ error: "Failed to set groups lock" })
+      }
+    }
+
+    // 🔹 Get Groups Page Lock
+    if (action === "get-groups-locked") {
+      try {
+        console.log(`Getting groups page locked for match_id: ${STATIC_MATCH_ID}`)
+        const { data, error } = await supabase
+          .from("event_state")
+          .select("groups_locked")
+          .eq("match_id", STATIC_MATCH_ID)
+          .single()
+
+        if (error) {
+          console.error("Error getting groups_locked:", error)
+          if (error.code === 'PGRST116') {
+            return res.status(200).json({ locked: false })
+          }
+          return res.status(500).json({ error: error.message })
+        }
+
+        const locked = data?.groups_locked === true
+        return res.status(200).json({ locked })
+      } catch (err) {
+        console.error("Error getting groups lock:", err)
+        return res.status(500).json({ error: "Failed to get groups lock" })
       }
     }
 

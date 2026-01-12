@@ -28,7 +28,8 @@ import {
   XCircle,
   Rocket,
   PartyPopper,
-  Ghost
+  Ghost,
+  Lock
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
@@ -1043,6 +1044,9 @@ export default function GroupsPage() {
   const [currentPromptIndex, setCurrentPromptIndex] = useState(0);
   const [gamePhase, setGamePhase] = useState<"intro" | "playing" | "completed">("intro");
   const [showPromptTopicsModal, setShowPromptTopicsModal] = useState(false);
+  // Groups page lock
+  const [groupsLocked, setGroupsLocked] = useState(false);
+  const [isConfirmed, setIsConfirmed] = useState(false);
   
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
@@ -1326,12 +1330,27 @@ export default function GroupsPage() {
   useEffect(() => {
     const loadParticipantData = async () => {
       try {
+        // Fetch event state to check if groups page is locked
+        try {
+          const stateRes = await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "get-event-state" }),
+          });
+          if (stateRes.ok) {
+            const stateData = await stateRes.json();
+            setGroupsLocked(stateData.groups_locked === true);
+          }
+        } catch (e) {
+          console.warn("Could not fetch event state for groups lock:", e);
+        }
         // Get saved token from localStorage
         const savedToken = localStorage.getItem('blindmatch_result_token') || 
                           localStorage.getItem('blindmatch_returning_token');
         
         if (!savedToken) {
           console.log('No saved token found');
+          setIsConfirmed(false);
           setDataLoaded(true);
           return;
         }
@@ -1355,6 +1374,7 @@ export default function GroupsPage() {
         const participantData = await participantRes.json();
         
         if (participantData.success && participantData.assigned_number) {
+          setIsConfirmed(true);
           const name = participantData.name || participantData.survey_data?.name || `المشارك #${participantData.assigned_number}`;
           setParticipantName(name);
           setParticipantNumber(participantData.assigned_number);
@@ -2779,6 +2799,55 @@ export default function GroupsPage() {
       </div>
     );
   };
+
+  // If groups page is locked and user is not confirmed, show a friendly locked page
+  if (groupsLocked && dataLoaded && !isConfirmed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
+        <div className="max-w-md w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
+            <Lock className="w-10 h-10 text-white" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white mb-3">الأنشطة الجماعية مقفلة الآن</h1>
+          <p className="text-slate-300 mb-6">هذه الصفحة متاحة فقط للحضور المؤكدين. أكمل تأكيد حضورك لتفتح لك الأنشطة الممتعة والتعارف! ✨</p>
+
+          <div className="grid grid-cols-1 gap-3 text-right mb-6">
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-400/20">
+              <CheckCircle className="w-4 h-4 text-emerald-400" />
+              <span className="text-emerald-200 text-sm">تجربة ترفيهية تفاعلية لمدة 45 دقيقة</span>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-cyan-500/10 border border-cyan-400/20">
+              <CheckCircle className="w-4 h-4 text-cyan-400" />
+              <span className="text-cyan-200 text-sm">تعرف على مجموعتك وابدأ الألعاب فوراً</span>
+            </div>
+            <div className="flex items-center gap-2 p-3 rounded-xl bg-purple-500/10 border border-purple-400/20">
+              <CheckCircle className="w-4 h-4 text-purple-400" />
+              <span className="text-purple-200 text-sm">فرصة رائعة لبناء علاقات ومعارف جديدة</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            <button
+              onClick={() => (window.location.href = "/welcome")}
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              أكمل تأكيد حضورك الآن
+            </button>
+            <button
+              onClick={() => (window.location.href = "/welcome")}
+              className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-slate-200 transition-all"
+            >
+              لدي رمز/تأكيد — انتقل لصفحة الترحيب
+            </button>
+          </div>
+
+          <div className="mt-6 text-xs text-slate-400">
+            Groups page is currently locked for non-confirmed attendees. Confirm to unlock.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!gameStarted) {
     return (

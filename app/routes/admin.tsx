@@ -88,6 +88,7 @@ export default function AdminPage() {
   const [currentEventId, setCurrentEventId] = useState(1)
   const [maxEventId, setMaxEventId] = useState(1)
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
+  const [groupsLocked, setGroupsLocked] = useState(false)
   const [eventFinished, setEventFinished] = useState(false)
   
   const [showResultsModal, setShowResultsModal] = useState(false)
@@ -211,6 +212,32 @@ export default function AdminPage() {
         toast.error(data?.error || 'Failed to fetch previous event candidates')
         return
       }
+
+  const toggleGroupsLocked = async () => {
+    try {
+      const newLocked = !groupsLocked
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "set-groups-locked", 
+          locked: newLocked 
+        }),
+      })
+
+      if (res.ok) {
+        setGroupsLocked(newLocked)
+        toast.success(`Groups page is now ${newLocked ? 'locked' : 'unlocked'}`)
+      } else {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        console.error("API Error:", errorData)
+        toast.error(`Failed to update groups lock: ${errorData.error || 'Unknown error'}`)
+      }
+    } catch (err) {
+      console.error("Error toggling groups lock:", err)
+      toast.error("Error updating groups lock")
+    }
+  }
       setPrevUnmatched(data.participants || [])
       setPrevEventId(typeof data.prev_event_id === 'number' ? data.prev_event_id : (currentEventId - 1))
       setPrevUnmatchedSelected(new Set())
@@ -1173,6 +1200,15 @@ const fetchParticipants = async () => {
       })
       const visibilityData = await visibilityRes.json()
       setResultsVisible(visibilityData.visible !== false) // Default to true if not set
+      
+      // Fetch groups lock state
+      const groupsLockRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-groups-locked" }),
+      })
+      const groupsLockData = await groupsLockRes.json()
+      setGroupsLocked(groupsLockData.locked === true)
       
       // Fetch maximum event ID
       const eventRes = await fetch("/api/admin", {
@@ -3958,6 +3994,48 @@ Proceed?`
                       <>
                         <Eye className="w-3.5 h-3.5" />
                         Show Results
+                      </>
+                    )}
+                  </button>
+
+                  {/* Groups Page Lock Control */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        const newLocked = !groupsLocked
+                        const res = await fetch("/api/admin", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ action: "set-groups-locked", locked: newLocked }),
+                        })
+                        if (res.ok) {
+                          setGroupsLocked(newLocked)
+                          toast.success(`Groups page is now ${newLocked ? 'locked' : 'unlocked'}`)
+                        } else {
+                          const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+                          console.error("API Error:", errorData)
+                          toast.error(`Failed to update groups lock: ${errorData.error || 'Unknown error'}`)
+                        }
+                      } catch (err) {
+                        console.error("Error toggling groups lock:", err)
+                        toast.error("Error updating groups lock")
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-300 text-sm ${
+                      groupsLocked 
+                        ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white' 
+                        : 'bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white'
+                    }`}
+                  >
+                    {groupsLocked ? (
+                      <>
+                        <LockKeyhole className="w-3.5 h-3.5" />
+                        Unlock Groups
+                      </>
+                    ) : (
+                      <>
+                        <LockKeyhole className="w-3.5 h-3.5" />
+                        Lock Groups
                       </>
                     )}
                   </button>

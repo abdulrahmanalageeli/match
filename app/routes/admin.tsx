@@ -5364,12 +5364,11 @@ Proceed?`
                       </div>
                     )}
 
-                    {/* Co-host: Late signup tag (global late mode after cutoff) */}
-                    {isCohost && (() => {
+                    {/* Co-host: Late signup tag (based on next_event_signup_timestamp after cutoff) */}
+                    {isCohost && p.next_event_signup_timestamp && (() => {
                       const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                      const now = new Date()
-                      const isNext = p.signup_for_next_event === true || p.auto_signup_next_event === true
-                      const isLate = isNext && now.getTime() > cutoffDate.getTime()
+                      const signedAt = new Date(p.next_event_signup_timestamp)
+                      const isLate = signedAt.getTime() > cutoffDate.getTime()
                       if (!isLate) return null
                       return (
                         <div className="mt-2">
@@ -5389,11 +5388,10 @@ Proceed?`
                             Next Event
                           </span>
                         )}
-                        {(() => {
+                        {p.next_event_signup_timestamp && (() => {
                           const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                          const now = new Date()
-                          const isNext = p.signup_for_next_event === true || p.auto_signup_next_event === true
-                          const isLate = isNext && now.getTime() > cutoffDate.getTime()
+                          const signedAt = new Date(p.next_event_signup_timestamp)
+                          const isLate = signedAt.getTime() > cutoffDate.getTime()
                           if (!isLate) return null
                           return (
                             <span className="px-2 py-0.5 text-[10px] bg-orange-500/20 text-orange-200 rounded-full border border-orange-400/30 font-bold">
@@ -5405,21 +5403,18 @@ Proceed?`
                     )}
 
                     {/* Co-host: Next Event Signup Time (with LATE indicator) */}
-                    {isCohost && (() => {
+                    {isCohost && p.next_event_signup_timestamp && (() => {
+                      const signedAt = new Date(p.next_event_signup_timestamp)
                       const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                      const now = new Date()
-                      const isNext = p.signup_for_next_event === true || p.auto_signup_next_event === true
-                      const isLate = isNext && now.getTime() > cutoffDate.getTime()
-                      const hasTs = !!p.next_event_signup_timestamp
-                      const signedAt = hasTs ? new Date(p.next_event_signup_timestamp) : null
-                      const dateTimeStr = hasTs ? signedAt!.toLocaleString('en-GB', {
+                      const isLate = signedAt.getTime() > cutoffDate.getTime()
+                      const dateTimeStr = signedAt.toLocaleString('en-GB', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
                         minute: '2-digit',
                         hour12: true,
                         timeZone: 'Asia/Riyadh'
-                      }) : '—'
+                      })
                       return (
                         <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-200' : 'text-green-200'}`}>
                           <CalendarCheck className="w-3 h-3" />
@@ -5433,32 +5428,7 @@ Proceed?`
                       )
                     })()}
 
-                    {/* Co-host: Registration Time (created_at) with LATE indicator */}
-                    {isCohost && p.created_at && (() => {
-                      const createdAt = new Date(p.created_at)
-                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
-                      const isLate = createdAt.getTime() > cutoffDate.getTime()
-                      const dateTimeStr = createdAt.toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true,
-                        timeZone: 'Asia/Riyadh'
-                      })
-                      return (
-                        <div className={`text-xs mb-2 flex items-center justify-center gap-1 font-medium ${isLate ? 'text-orange-200' : 'text-blue-200'}`}>
-                          <Calendar className="w-3 h-3" />
-                          <span>{dateTimeStr}</span>
-                          {isLate && (
-                            <span className="ml-1 px-1.5 py-0.5 bg-orange-500/20 text-orange-200 rounded text-[10px] font-bold border border-orange-400/30">
-                              LATE
-                            </span>
-                          )}
-                        </div>
-                      )
-                    })()}
+                    
 
                     {/* Co-host centered actions */}
                     {isCohost && (

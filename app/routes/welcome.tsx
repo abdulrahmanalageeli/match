@@ -7770,6 +7770,22 @@ export default function WelcomePage() {
               <BottomLeftContactButton />
             </div>
             
+            {/* Reverse Compatibility Mode Tag */}
+            <div className="flex justify-center -mt-6 mb-2">
+              <span
+                className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-bold border shadow-lg tracking-wide ${
+                  dark
+                    ? 'bg-gradient-to-r from-purple-600/30 via-pink-600/30 to-rose-600/30 text-pink-100 border-pink-400/40 shadow-pink-500/20'
+                    : 'bg-gradient-to-r from-purple-100 via-pink-100 to-rose-100 text-pink-700 border-pink-300 shadow-pink-300/30'
+                }`}
+                title="وضع التوافق العكسي"
+                aria-label="وضع التوافق العكسي"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>التوافق العكسي</span>
+              </span>
+            </div>
+            
             <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>

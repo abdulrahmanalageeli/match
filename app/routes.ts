@@ -8,5 +8,4 @@ export default [
   route("matrix", "routes/matrix.tsx"),
   route("results", "routes/results.tsx"), // ✅ Results page
   route("groups", "routes/groups.tsx"), // ✅ Groups games page
-  route("attendee", "routes/attendee.tsx"), // ✅ Guided attendee flow
 ] satisfies RouteConfig;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Smartphone, Lock, Sparkles, ArrowRight, CheckCircle, AlertCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 
 export default function AttendeeBridgePage() {
   const navigate = useNavigate();

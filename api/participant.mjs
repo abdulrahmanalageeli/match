@@ -179,6 +179,193 @@ export default async function handler(req, res) {
     }
   }
 
+  // GROUP PHONE LOGIN: semi-login for groups by phone number
+  if (action === "group-phone-login") {
+    try {
+      const { phone_number } = req.body
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+      if (!phone_number || typeof phone_number !== 'string') {
+        return res.status(400).json({ success: false, error: "Missing or invalid phone_number" })
+      }
+
+      // Normalize: use last 6 digits (consistent with other phone lookup flows)
+      const normalized = phone_number.replace(/\D/g, '')
+      if (normalized.length < 6) {
+        return res.status(400).json({ success: false, error: "رقم الهاتف يجب أن يحتوي على 6 أرقام على الأقل" })
+      }
+      const lastSix = normalized.slice(-6)
+
+      // Determine current event id
+      let currentEventId = 1
+      try {
+        const { data: eventRow, error: eventErr } = await supabase
+          .from("event_state")
+          .select("current_event_id")
+          .eq("match_id", match_id)
+          .single()
+
+        if (!eventErr && eventRow?.current_event_id) {
+          currentEventId = eventRow.current_event_id
+        } else if (eventErr && eventErr.code === 'PGRST116') {
+          // Fallback: use maximum event_id from participants or match_results
+          const [maxP, maxM] = await Promise.all([
+            supabase.from("participants").select("event_id").order("event_id", { ascending: false }).limit(1).single(),
+            supabase.from("match_results").select("event_id").order("event_id", { ascending: false }).limit(1).single(),
+          ])
+          let maxId = 1
+          if (!maxP.error && maxP.data?.event_id) maxId = Math.max(maxId, maxP.data.event_id)
+          if (!maxM.error && maxM.data?.event_id) maxId = Math.max(maxId, maxM.data.event_id)
+          currentEventId = maxId
+        }
+      } catch (e) {
+        // keep default 1
+      }
+
+      // Find participant(s) in current event by phone last 6 digits
+      const { data: candidates, error: searchErr } = await supabase
+        .from("participants")
+        .select("id, assigned_number, name, survey_data, phone_number, event_id, created_at")
+        .eq("match_id", match_id)
+        .eq("event_id", currentEventId)
+        .not("phone_number", "is", null)
+        .ilike("phone_number", `%${lastSix}`)
+
+      if (searchErr) {
+        logError("group-phone-login: participant search error", searchErr)
+        return res.status(500).json({ success: false, error: "فشل البحث عن المشارك" })
+      }
+
+      if (!candidates || candidates.length === 0) {
+        return res.status(404).json({ success: false, error: "لم يتم العثور على مشارك برقم الهاتف هذا في الحدث الحالي" })
+      }
+
+      // If multiple candidates share the same ending, try to pick one that has a group assignment
+      // Sort by created_at desc as secondary heuristic
+      const sorted = [...candidates].sort((a, b) => {
+        const at = a.created_at ? new Date(a.created_at).getTime() : 0
+        const bt = b.created_at ? new Date(b.created_at).getTime() : 0
+        return bt - at
+      })
+
+      let chosen = null
+      let groupInfo = null
+
+      // Helper to resolve group info from group_matches first, then match_results round 0
+      const resolveGroupInfo = async (assignedNumber) => {
+        // Try group_matches
+        const { data: groups, error: groupErr } = await supabase
+          .from("group_matches")
+          .select("group_id, group_number, table_number, participant_numbers, participant_names")
+          .eq("match_id", match_id)
+          .eq("event_id", currentEventId)
+
+        if (!groupErr && groups && groups.length > 0) {
+          const found = groups.find(g => {
+            const nums = Array.isArray(g.participant_numbers) ? g.participant_numbers : []
+            const parsed = nums.map(n => (typeof n === 'string' ? parseInt(n, 10) : n))
+            return parsed.includes(assignedNumber)
+          })
+          if (found) {
+            // Build members: prefer provided names, fallback to numbered labels
+            const nums = Array.isArray(found.participant_numbers) ? found.participant_numbers : []
+            const names = Array.isArray(found.participant_names) ? found.participant_names : []
+            const members = nums.map((n, idx) => {
+              const num = typeof n === 'string' ? parseInt(n, 10) : n
+              const baseName = names[idx] || `المشارك #${num}`
+              return baseName
+            })
+            return {
+              table_number: found.table_number ?? null,
+              group_number: found.group_number ?? null,
+              participant_numbers: nums,
+              participant_names: names,
+              group_members: members,
+              source: 'group_matches'
+            }
+          }
+        }
+
+        // Fallback: match_results round 0
+        const { data: groupRound, error: roundErr } = await supabase
+          .from("match_results")
+          .select("participant_a_number, participant_b_number, participant_c_number, participant_d_number, participant_e_number, participant_f_number, table_number, group_number")
+          .eq("match_id", match_id)
+          .eq("event_id", currentEventId)
+          .eq("round", 0)
+          .or(`participant_a_number.eq.${assignedNumber},participant_b_number.eq.${assignedNumber},participant_c_number.eq.${assignedNumber},participant_d_number.eq.${assignedNumber},participant_e_number.eq.${assignedNumber},participant_f_number.eq.${assignedNumber}`)
+          .limit(1)
+          .single()
+
+        if (!roundErr && groupRound) {
+          const nums = [
+            groupRound.participant_a_number,
+            groupRound.participant_b_number,
+            groupRound.participant_c_number,
+            groupRound.participant_d_number,
+            groupRound.participant_e_number,
+            groupRound.participant_f_number
+          ].filter(n => !!n && n !== 9999)
+
+          // Fetch names for these numbers
+          let names = []
+          try {
+            const { data: rows } = await supabase
+              .from("participants")
+              .select("assigned_number, name, survey_data")
+              .eq("match_id", match_id)
+              .eq("event_id", currentEventId)
+              .in("assigned_number", nums)
+            names = (rows || []).map(r => ({ num: r.assigned_number, name: r.name || r?.survey_data?.name || `المشارك #${r.assigned_number}` }))
+          } catch (_) {}
+          const memberNames = nums.map(num => names.find(n => n.num === num)?.name || `المشارك #${num}`)
+          return {
+            table_number: groupRound.table_number ?? null,
+            group_number: groupRound.group_number ?? null,
+            participant_numbers: nums,
+            participant_names: memberNames,
+            group_members: memberNames,
+            source: 'match_results'
+          }
+        }
+
+        return null
+      }
+
+      for (const cand of sorted) {
+        const info = await resolveGroupInfo(cand.assigned_number)
+        if (info) {
+          chosen = cand
+          groupInfo = info
+          break
+        }
+      }
+
+      // If none of the candidates have a group, try the first one anyway (will fail)
+      if (!chosen) {
+        return res.status(403).json({ success: false, error: "لم يتم العثور على مجموعة لك في الحدث الحالي" })
+      }
+
+      const name = chosen.name || chosen?.survey_data?.name || chosen?.survey_data?.answers?.name || `المشارك #${chosen.assigned_number}`
+
+      return res.status(200).json({
+        success: true,
+        event_id: currentEventId,
+        assigned_number: chosen.assigned_number,
+        name,
+        table_number: groupInfo?.table_number ?? null,
+        group_number: groupInfo?.group_number ?? null,
+        group_members: groupInfo?.group_members || [],
+        participant_numbers: groupInfo?.participant_numbers || [],
+        participant_names: groupInfo?.participant_names || []
+      })
+
+    } catch (error) {
+      console.error("Error in group-phone-login:", error)
+      return res.status(500).json({ success: false, error: "حدث خطأ أثناء تسجيل الدخول" })
+    }
+  }
+
   if (action === "resolve-token") {
     console.log("[API] Action: resolve-token started for token:", req.body.secure_token);
     if (!req.body.secure_token) {

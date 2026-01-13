@@ -37,6 +37,7 @@ import { Badge } from "../../components/ui/badge";
 import { Progress } from "../../components/ui/progress";
 import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
+import { OnboardingModal } from "../components/groups/OnboardingModal";
 import logoPng from "../welcome/blindmatch.png";
 
 // Logo Component for Groups Page - Removed (now integrated into header)
@@ -1047,6 +1048,14 @@ export default function GroupsPage() {
   // Groups page lock
   const [groupsLocked, setGroupsLocked] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
+  // Semi-login by phone state
+  const [phoneNumber, setPhoneNumber] = useState<string>("");
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [savedAuthToken, setSavedAuthToken] = useState<string | null>(null);
+  const [eventPhase, setEventPhase] = useState<string | null>(null);
+  const [eventCurrentRound, setEventCurrentRound] = useState<number | null>(null);
   
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
@@ -1347,8 +1356,29 @@ export default function GroupsPage() {
         // Get saved token from localStorage
         const savedToken = localStorage.getItem('blindmatch_result_token') || 
                           localStorage.getItem('blindmatch_returning_token');
-        
+        setSavedAuthToken(savedToken);
+
         if (!savedToken) {
+          // Try restoring semi-login session for groups
+          try {
+            const cached = sessionStorage.getItem('groups_semi_login');
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed && parsed.assigned_number) {
+                setIsConfirmed(true);
+                setParticipantNumber(parsed.assigned_number);
+                setParticipantName(parsed.name || `المشارك #${parsed.assigned_number}`);
+                if (Number.isFinite(parsed.table_number)) setTableNumber(parsed.table_number);
+                if (Array.isArray(parsed.group_members)) setGroupMembers(parsed.group_members);
+                setDataLoaded(true);
+                const seen = localStorage.getItem('groups_onboarding_seen');
+                if (!seen) setShowOnboarding(true);
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('Failed to restore semi-login session', e);
+          }
           console.log('No saved token found');
           setIsConfirmed(false);
           setDataLoaded(true);
@@ -1459,6 +1489,89 @@ export default function GroupsPage() {
 
     loadParticipantData();
   }, []);
+
+  // Poll event state: if admin switches to rounds, redirect or show instructions
+  useEffect(() => {
+    let mounted = true;
+    let interval: any;
+    const poll = async () => {
+      try {
+        const res = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-event-state" })
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const phase = data?.phase || null;
+        const round = data?.current_round || null;
+        const locked = data?.groups_locked === true;
+        if (mounted) {
+          if (typeof locked === 'boolean') setGroupsLocked(locked);
+          setEventPhase(phase);
+          if (Number.isFinite(round)) setEventCurrentRound(round);
+          if (phase && /^round_/i.test(phase)) {
+            // If user has a token, send them to welcome with forced round
+            if (savedAuthToken) {
+              const q = round ? `&force_round=${round}` : "";
+              window.location.href = `/welcome?token=${encodeURIComponent(savedAuthToken)}${q}`;
+            } else {
+              // No token (semi-login). Show how-to modal to instruct opening personal link
+              setShowHowToModal(true);
+            }
+          }
+        }
+      } catch (_) {}
+    };
+    interval = setInterval(poll, 5000);
+    poll();
+    return () => { mounted = false; clearInterval(interval); };
+  }, [savedAuthToken]);
+
+  // Phone login handler for semi-login flow
+  const handlePhoneLogin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setPhoneError(null);
+    const raw = phoneNumber || "";
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length < 6) {
+      setPhoneError("رقم الهاتف يجب أن يحتوي على 6 أرقام على الأقل");
+      return;
+    }
+    setPhoneLoading(true);
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "group-phone-login", phone_number: raw })
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setPhoneError(data?.error || "فشل تسجيل الدخول. حاول مرة أخرى");
+        return;
+      }
+      setIsConfirmed(true);
+      setParticipantNumber(data.assigned_number || null);
+      setParticipantName(data.name || `المشارك #${data.assigned_number}`);
+      setTableNumber(Number.isFinite(data.table_number) ? data.table_number : null);
+      if (Array.isArray(data.group_members)) setGroupMembers(data.group_members);
+      try {
+        sessionStorage.setItem('groups_semi_login', JSON.stringify({
+          assigned_number: data.assigned_number,
+          name: data.name,
+          table_number: data.table_number ?? null,
+          group_members: data.group_members || []
+        }));
+      } catch (_) {}
+      setDataLoaded(true);
+      const seen = localStorage.getItem('groups_onboarding_seen');
+      if (!seen) setShowOnboarding(true);
+    } catch (err) {
+      setPhoneError("تعذر الاتصال بالخادم. حاول لاحقاً");
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
 
   // Main timer useEffect with session sync
   useEffect(() => {
@@ -2849,6 +2962,49 @@ export default function GroupsPage() {
     );
   }
 
+  // If user isn't confirmed (no token and no restored semi-login), show phone login screen
+  if (dataLoaded && !isConfirmed) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
+        <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+          <div className="text-center mb-6">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+              <Smartphone className="w-10 h-10 text-white" />
+            </div>
+            <h1 className="text-2xl font-extrabold text-white mb-2">دخول الأنشطة الجماعية</h1>
+            <p className="text-slate-300 text-sm">أدخل رقم هاتفك للتحقق من دعوتك للمجموعة الحالية</p>
+          </div>
+
+          <form onSubmit={handlePhoneLogin} className="space-y-4">
+            <div>
+              <label className="block text-slate-300 text-sm mb-2">رقم الهاتف</label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
+                placeholder="05xxxxxxxx"
+                inputMode="tel"
+                className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                dir="ltr"
+              />
+              {phoneError && (
+                <p className="text-red-400 text-sm mt-2">{phoneError}</p>
+              )}
+            </div>
+
+            <Button type="submit" disabled={phoneLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white py-3 text-base font-bold rounded-xl shadow-lg">
+              {phoneLoading ? 'جار التحقق...' : 'دخول'}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center text-slate-400 text-xs">
+            إذا كنت مسجلاً مسبقاً عبر الرابط الخاص بك، سيتم إدخالك تلقائياً
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!gameStarted) {
     return (
       <>
@@ -2857,6 +3013,15 @@ export default function GroupsPage() {
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
       />
+      {/* Personalized onboarding after successful login */}
+      {showOnboarding && (
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          groupMembers={groupMembers}
+          tableNumber={tableNumber}
+        />
+      )}
 
       {/* Group Guide Popup - Render FIRST to ensure it's on top */}
         {showGroupGuide && (
@@ -3147,6 +3312,14 @@ export default function GroupsPage() {
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
       />
+      {showOnboarding && (
+        <OnboardingModal
+          isOpen={showOnboarding}
+          onClose={() => setShowOnboarding(false)}
+          groupMembers={groupMembers}
+          tableNumber={tableNumber}
+        />
+      )}
 
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
       <div className="max-w-md mx-auto px-4 py-4">

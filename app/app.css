@@ -39,6 +39,34 @@
   --toast-border: oklch(0.922 0 0);
 }
 
+/* ----------------------------- */
+/* Embedded mode (inside attendee shell) */
+/* ----------------------------- */
+body[data-embedded='1'] {
+  background: transparent !important;
+}
+body[data-embedded='1'] .min-h-screen {
+  min-height: 100% !important;
+}
+/* Neutralize large page gradients to blend with shell */
+body[data-embedded='1'] .bg-gradient-to-br,
+body[data-embedded='1'] .bg-gradient-to-tr,
+body[data-embedded='1'] .bg-gradient-to-b,
+body[data-embedded='1'] .bg-gradient-to-t,
+body[data-embedded='1'] .bg-gradient-to-r,
+body[data-embedded='1'] .bg-gradient-to-l {
+  background: transparent !important;
+  background-image: none !important;
+}
+/* Slightly soften heavy shadows and borders in embeds */
+body[data-embedded='1'] .shadow-2xl {
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.45) !important;
+}
+body[data-embedded='1'] .backdrop-blur-xl,
+body[data-embedded='1'] .backdrop-blur-2xl {
+  backdrop-filter: blur(14px) saturate(110%);
+}
+
 :root.dark {
   --background: oklch(0.141 0.005 285.823);
   --foreground: oklch(0.985 0 0);

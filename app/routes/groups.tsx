@@ -2979,19 +2979,16 @@ export default function GroupsPage() {
           <form onSubmit={handlePhoneLogin} className="space-y-4">
             <div>
               <label className="block text-slate-300 text-sm mb-2">رقم الهاتف</label>
-              <div className="flex items-stretch gap-2">
-                <span className="px-3 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-slate-300 text-sm select-none">+966</span>
-                <input
-                  type="tel"
-                  value={phoneNumber}
-                  onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
-                  placeholder="5xxxxxxxx"
-                  inputMode="tel"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-                  dir="ltr"
-                  aria-label="أدخل رقم هاتفك"
-                />
-              </div>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
+                placeholder="05xxxxxxxx"
+                inputMode="tel"
+                className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                dir="ltr"
+                aria-label="أدخل رقم هاتفك"
+              />
               <p className="text-slate-400 text-xs mt-2">نستخدم آخر <span className="font-semibold text-white/90">7</span> أرقام فقط للتحقق</p>
               {phoneError && (
                 <p className="text-red-400 text-sm mt-2">{phoneError}</p>

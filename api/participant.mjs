@@ -222,14 +222,14 @@ export default async function handler(req, res) {
         // keep default 1
       }
 
-      // Find participant(s) in current event by phone last 7 digits
+      // Find participant(s) by phone last 7 digits (across all events for this match)
       const { data: candidates, error: searchErr } = await supabase
         .from("participants")
         .select("id, assigned_number, name, survey_data, phone_number, event_id, created_at")
         .eq("match_id", match_id)
-        .eq("event_id", currentEventId)
         .not("phone_number", "is", null)
         .ilike("phone_number", `%${lastSeven}`)
+        .order("created_at", { ascending: false })
 
       if (searchErr) {
         logError("group-phone-login: participant search error", searchErr)
@@ -237,7 +237,7 @@ export default async function handler(req, res) {
       }
 
       if (!candidates || candidates.length === 0) {
-        return res.status(404).json({ success: false, error: "لم يتم العثور على مشارك برقم الهاتف هذا في الحدث الحالي" })
+        return res.status(404).json({ success: false, error: "لم يتم العثور على مشارك برقم الهاتف هذا" })
       }
 
       // If multiple candidates share the same ending, try to pick one that has a group assignment

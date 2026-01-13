@@ -255,17 +255,18 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
       }
     };
 
-    // After building the message, append a disable-auto link after the account link
+    // After building the message, optionally append a disable-auto link safely (no duplication or URL mixing)
     const accountLink = `https://match-omega.vercel.app/welcome?token=${secureToken}`;
     const disableLine = `${e('🛑 ')}${bold('إيقاف التسجيل التلقائي:')}` + "\n" + `${accountLink}&disableauto=1`;
 
     let msg = build();
     try {
-      // Only add if not already present; match account link not followed by &disableauto
-      const escaped = accountLink.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const re = new RegExp(`${escaped}(?!&disableauto)`, 'g');
-      // Add an extra blank line before the disable section
-      msg = msg.replace(re, `${accountLink}\n\n${disableLine}`);
+      // If the message already includes a disable-auto section (by link or label), do nothing
+      const hasDisable = /disableauto=1|إيقاف التسجيل التلقائي/.test(msg);
+      if (!hasDisable) {
+        // Append as a separate block at the end to avoid mutating existing URLs (e.g., ...&redo=1)
+        msg = `${msg}\n\n${disableLine}`;
+      }
     } catch (_) {}
     return msg;
   }, [participant, urgencyLevel, templateType, config]);

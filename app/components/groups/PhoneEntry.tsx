@@ -90,11 +90,11 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
   }, [wipe]);
 
   return (
-    <div className="relative min-h-dvh overflow-hidden" dir="rtl">
+    <div className="relative min-h-screen overflow-hidden" dir="rtl">
       {/* Animated gradient background */}
-      <div className="absolute inset-0 -z-20 bg-linear-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
       {/* Subtle moving dots overlay */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
+      <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute top-10 right-10 w-36 h-36 rounded-full bg-white/5 blur-3xl animate-float-particle" />
         <div className="absolute bottom-20 left-12 w-44 h-44 rounded-full bg-white/5 blur-3xl animate-float-particle-reverse" />
       </div>
@@ -102,7 +102,7 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
       {/* Screen wipe overlay */}
       {wipe && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div ref={wipeRef} className="bg-linear-to-r from-indigo-600 to-violet-600 rounded-full w-12 h-12" style={{ transform: 'scale(0)' }} />
+          <div ref={wipeRef} className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full w-12 h-12" style={{ transform: 'scale(0)' }} />
         </div>
       )}
 
@@ -114,7 +114,7 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
 
           <div ref={cardRef} className="rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl ring-1 ring-white/10 p-7">
             <div className="text-center mb-6">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-linear-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg ring-4 ring-white/10">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg ring-4 ring-white/10">
                 <Smartphone className="w-10 h-10 text-white" />
               </div>
               <h1 className="text-2xl font-extrabold text-white mb-1">ادخل بوابتك إلى المجموعة</h1>
@@ -159,7 +159,7 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
                     morph ? "w-11 right-1/2 translate-x-1/2" : "w-full"
                   } ${
                     (!valid || loading) ? "opacity-50 cursor-not-allowed" : ""
-                  } bg-linear-to-r from-indigo-500 to-violet-500 hover:scale-105 hover:brightness-110`}
+                  } bg-gradient-to-r from-indigo-500 to-violet-500 hover:scale-105 hover:brightness-110`}
                   ref={buttonRef}
                 >
                   {/* Spinner when morphing/loading */}

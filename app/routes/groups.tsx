@@ -38,6 +38,7 @@ import { Progress } from "../../components/ui/progress";
 import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
 import { OnboardingModal } from "../components/groups/OnboardingModal";
+import PhoneEntry from "../components/groups/PhoneEntry";
 import logoPng from "../welcome/blindmatch.png";
 
 // Logo Component for Groups Page - Removed (now integrated into header)
@@ -1574,6 +1575,53 @@ export default function GroupsPage() {
     }
   };
 
+  // Digits-based submit for the immersive PhoneEntry component
+  const submitPhoneDigits = async (digits: string) => {
+    setPhoneError(null);
+    const d = (digits || "").replace(/\D/g, "");
+    if (d.length < 7) {
+      setPhoneError("رقم الهاتف يجب أن يحتوي على 7 أرقام على الأقل");
+      throw new Error("invalid-phone");
+    }
+    setPhoneLoading(true);
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "group-phone-login", phone_number: d })
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        setPhoneError(data?.error || "فشل تسجيل الدخول. حاول مرة أخرى");
+        throw new Error(data?.error || "login-failed");
+      }
+      setIsConfirmed(true);
+      setParticipantNumber(data.assigned_number || null);
+      setParticipantName(data.name || `المشارك #${data.assigned_number}`);
+      setTableNumber(Number.isFinite(data.table_number) ? data.table_number : null);
+      if (Array.isArray(data.group_members)) setGroupMembers(data.group_members);
+      try {
+        if (data?.name) localStorage.setItem('blindmatch_participant_name', data.name);
+      } catch (_) {}
+      try {
+        sessionStorage.setItem('groups_semi_login', JSON.stringify({
+          assigned_number: data.assigned_number,
+          name: data.name,
+          table_number: data.table_number ?? null,
+          group_members: data.group_members || []
+        }));
+      } catch (_) {}
+      setDataLoaded(true);
+      const seen = localStorage.getItem('groups_onboarding_seen');
+      if (!seen) setShowOnboarding(true);
+    } catch (err) {
+      // Re-throw to let the PhoneEntry component cancel success animation
+      throw err;
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
+
   // Main timer useEffect with session sync
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -2966,45 +3014,7 @@ export default function GroupsPage() {
   // If user isn't confirmed (no token and no restored semi-login), show phone login screen
   if (dataLoaded && !isConfirmed) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
-        <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl ring-1 ring-cyan-500/20">
-          <div className="text-center mb-6">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg ring-4 ring-white/10">
-              <Smartphone className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-2xl font-extrabold text-white mb-2">دخول الأنشطة الجماعية</h1>
-            <p className="text-slate-300 text-sm">أدخل رقم هاتفك للتحقق من دعوتك للمجموعة الحالية</p>
-          </div>
-
-          <form onSubmit={handlePhoneLogin} className="space-y-4">
-            <div>
-              <label className="block text-slate-300 text-sm mb-2">رقم الهاتف</label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
-                placeholder="05xxxxxxxx"
-                inputMode="tel"
-                className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-                dir="ltr"
-                aria-label="أدخل رقم هاتفك"
-              />
-              <p className="text-slate-400 text-xs mt-2">نستخدم آخر <span className="font-semibold text-white/90">7</span> أرقام فقط للتحقق</p>
-              {phoneError && (
-                <p className="text-red-400 text-sm mt-2">{phoneError}</p>
-              )}
-            </div>
-
-            <Button type="submit" disabled={phoneLoading} className="w-full bg-gradient-to-r from-cyan-600 via-blue-700 to-indigo-700 hover:from-cyan-700 hover:via-blue-800 hover:to-indigo-800 text-white py-3 text-base font-bold rounded-xl shadow-lg hover:scale-[1.01] transition-transform">
-              {phoneLoading ? 'جار التحقق...' : 'دخول'}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-slate-400 text-xs">
-            إذا كنت مسجلاً مسبقاً عبر الرابط الخاص بك، سيتم إدخالك تلقائياً
-          </div>
-        </div>
-      </div>
+      <PhoneEntry onSubmit={submitPhoneDigits} loading={phoneLoading} error={phoneError} />
     );
   }
 

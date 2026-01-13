@@ -262,6 +262,27 @@
   .backdrop-blur-xl {
     backdrop-filter: blur(24px);
   }
+  /* Custom background pan (for immersive entry) */
+  @keyframes bg-pan {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-bg-pan {
+    background-size: 200% 200%;
+    animation: bg-pan 16s ease-in-out infinite;
+  }
+
+  /* Slower pulse helper */
+  .animate-pulse-slow {
+    animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-bg-pan, .animate-pulse-slow, .animate-float-particle, .animate-float-particle-reverse {
+      animation: none !important;
+    }
+  }
 }
 
 @theme {

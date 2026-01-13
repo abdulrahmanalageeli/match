@@ -189,12 +189,12 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, error: "Missing or invalid phone_number" })
       }
 
-      // Normalize: use last 6 digits (consistent with other phone lookup flows)
+      // Normalize: use last 7 digits (for higher uniqueness)
       const normalized = phone_number.replace(/\D/g, '')
-      if (normalized.length < 6) {
-        return res.status(400).json({ success: false, error: "رقم الهاتف يجب أن يحتوي على 6 أرقام على الأقل" })
+      if (normalized.length < 7) {
+        return res.status(400).json({ success: false, error: "رقم الهاتف يجب أن يحتوي على 7 أرقام على الأقل" })
       }
-      const lastSix = normalized.slice(-6)
+      const lastSeven = normalized.slice(-7)
 
       // Determine current event id
       let currentEventId = 1
@@ -222,14 +222,14 @@ export default async function handler(req, res) {
         // keep default 1
       }
 
-      // Find participant(s) in current event by phone last 6 digits
+      // Find participant(s) in current event by phone last 7 digits
       const { data: candidates, error: searchErr } = await supabase
         .from("participants")
         .select("id, assigned_number, name, survey_data, phone_number, event_id, created_at")
         .eq("match_id", match_id)
         .eq("event_id", currentEventId)
         .not("phone_number", "is", null)
-        .ilike("phone_number", `%${lastSix}`)
+        .ilike("phone_number", `%${lastSeven}`)
 
       if (searchErr) {
         logError("group-phone-login: participant search error", searchErr)
@@ -1455,49 +1455,32 @@ export default async function handler(req, res) {
     }
 
     try {
-      // Normalize phone number - extract last 6 digits
+      // Normalize phone number - extract last 7 digits for higher uniqueness
       const normalizedPhone = phone_number.replace(/\D/g, '') // Remove all non-digits
-      if (normalizedPhone.length < 6) {
-        return res.status(400).json({ error: "رقم الهاتف قصير جداً" })
+      if (normalizedPhone.length < 7) {
+        return res.status(400).json({ error: "رقم الهاتف قصير جداً (نحتاج آخر 7 أرقام)" })
       }
-      
-      const lastSixDigits = normalizedPhone.slice(-6) // Get last 6 digits
-      console.log(`🔍 Looking up phone ending with: ${lastSixDigits}`)
+      const lastSevenDigits = normalizedPhone.slice(-7)
+      console.log(`🔍 Looking up phone ending with: ${lastSevenDigits}`)
 
-      // Search for participants with phone numbers ending with these 6 digits
-      // Look in ALL events (including current) to find previous participants
-      const { data: participants, error: searchError } = await supabase
+      // Query by ending digits directly (case-insensitive) and same match_id
+      const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      const { data: matchingParticipants, error: searchError } = await supabase
         .from("participants")
         .select("id, assigned_number, name, phone_number, survey_data, signup_for_next_event, match_id, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .eq("match_id", match_id)
         .not("phone_number", "is", null)
-        .order("created_at", { ascending: false }) // Get most recent first
-
-      if (searchError) {
-        console.error("Search Error:", searchError)
-        return res.status(500).json({ error: "Database search failed" })
-      }
-
-      console.log(`📊 Found ${participants.length} total participants with phone numbers`)
-      
-      // Filter participants whose phone ends with the same 6 digits
-      const matchingParticipants = participants.filter(participant => {
-        if (!participant.phone_number) return false
-        const participantPhone = participant.phone_number.replace(/\D/g, '')
-        const participantLastSix = participantPhone.slice(-6)
-        console.log(`🔍 Checking participant #${participant.assigned_number}: ${participantPhone} (last 6: ${participantLastSix})`)
-        return participantLastSix === lastSixDigits
-      })
+        .ilike("phone_number", `%${lastSevenDigits}`)
+        .order("created_at", { ascending: false })
 
       console.log(`🎯 Found ${matchingParticipants.length} matching participants`)
 
       if (matchingParticipants.length === 0) {
         return res.status(404).json({ 
           error: "لم يتم العثور على مشارك بهذا الرقم",
-          message: `تأكد من الرقم أو قم بالتسجيل كمشارك جديد. البحث عن: ${lastSixDigits}`,
+          message: `تأكد من الرقم أو قم بالتسجيل كمشارك جديد. البحث عن: ${lastSevenDigits}`,
           debug: {
-            searchedDigits: lastSixDigits,
-            totalParticipants: participants.length,
-            participantsWithPhones: participants.filter(p => p.phone_number).length
+            searchedDigits: lastSevenDigits
           }
         })
       }

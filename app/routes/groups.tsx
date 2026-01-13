@@ -1328,12 +1328,13 @@ export default function GroupsPage() {
 
   // Show group guide on first load
   useEffect(() => {
+    // Show the guide after the user is confirmed (so it actually renders)
+    if (!isConfirmed) return;
     const hasSeenGroupGuide = localStorage.getItem('blindmatch_group_guide_seen');
     if (!hasSeenGroupGuide) {
       setShowGroupGuide(true);
-      localStorage.setItem('blindmatch_group_guide_seen', 'true');
     }
-  }, []);
+  }, [isConfirmed]);
 
   // Load participant data and group assignment on component mount
   useEffect(() => {
@@ -1534,8 +1535,8 @@ export default function GroupsPage() {
     setPhoneError(null);
     const raw = phoneNumber || "";
     const digits = raw.replace(/\D/g, "");
-    if (digits.length < 6) {
-      setPhoneError("رقم الهاتف يجب أن يحتوي على 6 أرقام على الأقل");
+    if (digits.length < 7) {
+      setPhoneError("رقم الهاتف يجب أن يحتوي على 7 أرقام على الأقل");
       return;
     }
     setPhoneLoading(true);
@@ -2966,9 +2967,9 @@ export default function GroupsPage() {
   if (dataLoaded && !isConfirmed) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
-        <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl">
+        <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-2xl ring-1 ring-cyan-500/20">
           <div className="text-center mb-6">
-            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg ring-4 ring-white/10">
               <Smartphone className="w-10 h-10 text-white" />
             </div>
             <h1 className="text-2xl font-extrabold text-white mb-2">دخول الأنشطة الجماعية</h1>
@@ -2978,21 +2979,26 @@ export default function GroupsPage() {
           <form onSubmit={handlePhoneLogin} className="space-y-4">
             <div>
               <label className="block text-slate-300 text-sm mb-2">رقم الهاتف</label>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
-                placeholder="05xxxxxxxx"
-                inputMode="tel"
-                className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-                dir="ltr"
-              />
+              <div className="flex items-stretch gap-2">
+                <span className="px-3 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-slate-300 text-sm select-none">+966</span>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => { setPhoneNumber(e.target.value); setPhoneError(null); }}
+                  placeholder="5xxxxxxxx"
+                  inputMode="tel"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-700 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
+                  dir="ltr"
+                  aria-label="أدخل رقم هاتفك"
+                />
+              </div>
+              <p className="text-slate-400 text-xs mt-2">نستخدم آخر <span className="font-semibold text-white/90">7</span> أرقام فقط للتحقق</p>
               {phoneError && (
                 <p className="text-red-400 text-sm mt-2">{phoneError}</p>
               )}
             </div>
 
-            <Button type="submit" disabled={phoneLoading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white py-3 text-base font-bold rounded-xl shadow-lg">
+            <Button type="submit" disabled={phoneLoading} className="w-full bg-gradient-to-r from-cyan-600 via-blue-700 to-indigo-700 hover:from-cyan-700 hover:via-blue-800 hover:to-indigo-800 text-white py-3 text-base font-bold rounded-xl shadow-lg hover:scale-[1.01] transition-transform">
               {phoneLoading ? 'جار التحقق...' : 'دخول'}
             </Button>
           </form>
@@ -3106,7 +3112,7 @@ export default function GroupsPage() {
 
               {/* Action button */}
               <button
-                onClick={() => setShowGroupGuide(false)}
+                onClick={() => { localStorage.setItem('blindmatch_group_guide_seen', 'true'); setShowGroupGuide(false); }}
                 className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
               >
                 <span className="flex items-center justify-center gap-2">

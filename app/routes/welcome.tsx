@@ -1,4 +1,3 @@
- 
 import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react"
 import type { MouseEvent, FormEvent, CSSProperties } from "react"
 import { useSearchParams } from "react-router"
@@ -175,20 +174,6 @@ export default function WelcomePage() {
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
   const forceRound = searchParams.get("force_round")
-  const embedded = searchParams.get("embedded") === "1"
-  // Embedded mode: make page backgrounds transparent and adjust layout via CSS
-  useEffect(() => {
-    if (embedded) {
-      try {
-        document.body.setAttribute('data-embedded', '1')
-      } catch {}
-    }
-    return () => {
-      if (embedded) {
-        try { document.body.removeAttribute('data-embedded') } catch {}
-      }
-    }
-  }, [embedded])
   const [typewriterText, setTypewriterText] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)

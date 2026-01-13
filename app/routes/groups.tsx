@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
 import { 
   Clock, 
   Users, 
@@ -1037,12 +1036,6 @@ const fiveSecondRuleCategories = [
 ];
 
 export default function GroupsPage() {
-  const [searchParams] = useSearchParams();
-  const embedded = searchParams.get("embedded") === "1";
-  const outerClass = embedded
-    ? "min-h-full w-full bg-transparent"
-    : "min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900";
-  const pagePadding = embedded ? "px-0" : "px-4";
   const SESSION_TOTAL_DURATION = 45 * 60; // 45 minutes in seconds
   const IMPOSTER_TUTORIAL_KEY = "imposter_tutorial_seen";
   const [currentGameIndex, setCurrentGameIndex] = useState(0);
@@ -1054,8 +1047,6 @@ export default function GroupsPage() {
   // Groups page lock
   const [groupsLocked, setGroupsLocked] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
-  const [bridgeActive, setBridgeActive] = useState(false);
-  const [hasNavigatedToRound, setHasNavigatedToRound] = useState(false);
   
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
@@ -1353,13 +1344,11 @@ export default function GroupsPage() {
         } catch (e) {
           console.warn("Could not fetch event state for groups lock:", e);
         }
-        // Get saved token from localStorage or session-scoped bridge token
-        const savedLocalToken = localStorage.getItem('blindmatch_result_token') || 
-                                localStorage.getItem('blindmatch_returning_token');
-        const bridgeToken = typeof window !== 'undefined' ? sessionStorage.getItem('blindmatch_bridge_token') : null;
-        const tokenToResolve = savedLocalToken || bridgeToken;
+        // Get saved token from localStorage
+        const savedToken = localStorage.getItem('blindmatch_result_token') || 
+                          localStorage.getItem('blindmatch_returning_token');
         
-        if (!tokenToResolve) {
+        if (!savedToken) {
           console.log('No saved token found');
           setIsConfirmed(false);
           setDataLoaded(true);
@@ -1372,7 +1361,7 @@ export default function GroupsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             action: "resolve-token", 
-            secure_token: tokenToResolve 
+            secure_token: savedToken 
           }),
         });
 
@@ -1389,7 +1378,6 @@ export default function GroupsPage() {
           const name = participantData.name || participantData.survey_data?.name || `المشارك #${participantData.assigned_number}`;
           setParticipantName(name);
           setParticipantNumber(participantData.assigned_number);
-          setBridgeActive(!!bridgeToken && !savedLocalToken);
 
           // Try to fetch group assignment (fallback gracefully if fails)
           try {
@@ -1714,36 +1702,6 @@ export default function GroupsPage() {
   useEffect(() => {
     setHeaderCollapsed(!!selectedGameId);
   }, [selectedGameId]);
-
-  // Bridge polling: when bridgeActive, watch for admin switching to round and forward to welcome
-  useEffect(() => {
-    if (!bridgeActive || hasNavigatedToRound) return;
-    let interval: NodeJS.Timeout | null = null;
-    const poll = async () => {
-      try {
-        const res = await fetch('/api/admin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'get-event-state' })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.phase && typeof data.phase === 'string' && data.phase.startsWith('round_')) {
-            const bridgeToken = typeof window !== 'undefined' ? sessionStorage.getItem('blindmatch_bridge_token') : null;
-            if (bridgeToken) {
-              setHasNavigatedToRound(true);
-              window.location.href = `/welcome?token=${encodeURIComponent(bridgeToken)}&force_round=1`;
-            }
-          }
-        }
-      } catch {
-        // ignore network errors
-      }
-    };
-    poll();
-    interval = setInterval(poll, 5000);
-    return () => { if (interval) clearInterval(interval); };
-  }, [bridgeActive, hasNavigatedToRound]);
 
   // Charades helper functions
   const getRandomCharadesWord = () => {
@@ -2842,10 +2800,10 @@ export default function GroupsPage() {
     );
   };
 
-  // If groups page is locked, show a friendly locked page (bridge can bypass)
-  if (groupsLocked && !bridgeActive) {
+  // If groups page is locked, show a friendly locked page for everyone
+  if (groupsLocked) {
     return (
-      <div className={`${outerClass} flex items-center justify-center ${pagePadding}`} dir="rtl">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4" dir="rtl">
         <div className="max-w-md w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl text-center">
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
             <Lock className="w-10 h-10 text-white" />
@@ -2995,8 +2953,8 @@ export default function GroupsPage() {
           </div>
         )}
 
-        <div className={`${outerClass}`} dir="rtl">
-        <div className={`max-w-md mx-auto ${embedded ? "px-0 py-2" : "px-4 py-6"}`}>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        <div className="max-w-md mx-auto px-4 py-6">
           {/* Enhanced Mobile-First Header with Animations */}
           <div className="text-center mb-6 animate-in fade-in duration-500">
             <div className="relative inline-block mb-4 animate-in zoom-in duration-500" style={{animationDelay: '200ms'}}>
@@ -3056,17 +3014,6 @@ export default function GroupsPage() {
                         <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-400/30 rounded-full px-3 py-1.5 text-xs font-medium text-green-300 flex items-center gap-1.5">
                           <Target className="w-3 h-3" />
                           <span>طاولة {tableNumber}</span>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Bridge Active pill */}
-                    {bridgeActive && (
-                      <>
-                        <div className="w-px h-4 bg-slate-600"></div>
-                        <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-fuchsia-500/20 border border-fuchsia-400/30 text-fuchsia-200">
-                          <Smartphone className="w-3 h-3" />
-                          <span>وضع التحويل</span>
                         </div>
                       </>
                     )}
@@ -3201,8 +3148,8 @@ export default function GroupsPage() {
         onClose={() => setShowPromptTopicsModal(false)}
       />
 
-      <div className={`${outerClass}`} dir="rtl">
-      <div className={`max-w-md mx-auto ${embedded ? "px-0 py-2" : "px-4 py-4"}`}>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <div className="max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism (collapsible) */}
         <div className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
           {!headerCollapsed && (

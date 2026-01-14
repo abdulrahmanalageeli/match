@@ -23,8 +23,6 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const wipeRef = useRef<HTMLDivElement | null>(null);
-  const clickSound = useRef<HTMLAudioElement | null>(null);
-  const successSound = useRef<HTMLAudioElement | null>(null);
 
   // Autofocus and load cached name
   useEffect(() => {
@@ -32,11 +30,6 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     try {
       const name = localStorage.getItem("blindmatch_participant_name");
       if (name && name.trim()) setWelcomeName(name);
-    } catch {}
-    // Prepare optional sounds if available
-    try {
-      clickSound.current = new Audio("/sounds/click.mp3");
-      successSound.current = new Audio("/sounds/success.mp3");
     } catch {}
   }, []);
 
@@ -70,7 +63,6 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     if (!valid || loading) return;
     try {
       setMorph(true);
-      clickSound.current?.play().catch(() => {});
       // subtle press feedback
       if (buttonRef.current) {
         await animate(buttonRef.current!, { transform: 'scale(0.98)' } as any, { duration: 0.12 } as any).finished;
@@ -78,15 +70,11 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
       }
       await onSubmit(digits);
       // Success
-      successSound.current?.play().catch(() => {});
       // fade/shift the card slightly for a premium feel
       if (cardRef.current) {
         animate(
           cardRef.current!,
-          [
-            { opacity: 1, transform: 'translateY(0px)' },
-            { opacity: 0.92, transform: 'translateY(-6px)' }
-          ] as any,
+          { opacity: [1, 0.92], transform: ['translateY(0px)', 'translateY(-6px)'] } as any,
           { duration: 0.25, easing: 'ease-out' } as any
         );
       }
@@ -111,10 +99,7 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     if (cardRef.current) {
       animate(
         cardRef.current!,
-        [
-          { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
-          { opacity: 1, transform: 'translateY(0px) scale(1)' }
-        ] as any,
+        { opacity: [0, 1], transform: ['translateY(14px) scale(0.98)', 'translateY(0px) scale(1)'] } as any,
         { duration: 0.38, easing: 'cubic-bezier(.22,.61,.36,1)' } as any
       );
     }

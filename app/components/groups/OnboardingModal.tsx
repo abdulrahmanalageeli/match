@@ -124,10 +124,11 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     } else {
       // Animate slide out, switch, then slide in
       if (slideAreaRef.current) {
-        await animate(slideAreaRef.current!, [
-          { opacity: 1, transform: 'translateX(0px)' },
-          { opacity: 0, transform: 'translateX(-18px)' }
-        ] as any, { duration: 0.22, easing: 'ease-in' } as any).finished;
+        await animate(
+          slideAreaRef.current!,
+          { opacity: [1, 0], transform: ['translateX(0px)', 'translateX(-18px)'] } as any,
+          { duration: 0.22, easing: 'ease-in' } as any
+        ).finished;
       }
       const next = currentSlide + 1;
       setCurrentSlide(next);
@@ -137,10 +138,11 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       }
       // Animate slide in
       if (slideAreaRef.current) {
-        await animate(slideAreaRef.current!, [
-          { opacity: 0, transform: 'translateX(18px)' },
-          { opacity: 1, transform: 'translateX(0px)' }
-        ] as any, { duration: 0.28, easing: 'ease-out' } as any).finished;
+        await animate(
+          slideAreaRef.current!,
+          { opacity: [0, 1], transform: ['translateX(18px)', 'translateX(0px)'] } as any,
+          { duration: 0.28, easing: 'ease-out' } as any
+        ).finished;
       }
     }
   };
@@ -155,34 +157,34 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     if (!isOpen) return;
     // Overlay fade
     if (overlayRef.current) {
-      animate(overlayRef.current!, [
-        { opacity: 0 },
-        { opacity: 1 }
-      ] as any, { duration: 0.25, easing: 'ease-out' } as any);
+      animate(overlayRef.current!, { opacity: [0, 1] } as any, { duration: 0.25, easing: 'ease-out' } as any);
     }
     // Card spring-in
     if (cardRef.current) {
-      animate(cardRef.current!, [
-        { opacity: 0, transform: 'translateY(16px) scale(0.98)' },
-        { opacity: 1, transform: 'translateY(0px) scale(1)' }
-      ] as any, { duration: 0.32, easing: 'cubic-bezier(.22,.61,.36,1)' } as any);
+      animate(
+        cardRef.current!,
+        { opacity: [0, 1], transform: ['translateY(16px) scale(0.98)', 'translateY(0px) scale(1)'] } as any,
+        { duration: 0.32, easing: 'cubic-bezier(.22,.61,.36,1)' } as any
+      );
     }
     // Slide initial fade-in
     if (slideAreaRef.current) {
-      animate(slideAreaRef.current!, [
-        { opacity: 0, transform: 'translateY(10px)' },
-        { opacity: 1, transform: 'translateY(0px)' }
-      ] as any, { duration: 0.32, easing: 'ease-out' } as any);
+      animate(
+        slideAreaRef.current!,
+        { opacity: [0, 1], transform: ['translateY(10px)', 'translateY(0px)'] } as any,
+        { duration: 0.32, easing: 'ease-out' } as any
+      );
     }
   }, [isOpen]);
 
   // Icon micro-bounce on slide change
   useEffect(() => {
     if (iconRef.current) {
-      animate(iconRef.current!, [
-        { transform: 'scale(0.92)' },
-        { transform: 'scale(1)' }
-      ] as any, { duration: 0.24, easing: 'cubic-bezier(.22,.61,.36,1)' } as any);
+      animate(
+        iconRef.current!,
+        { transform: ['scale(0.92)', 'scale(1)'] } as any,
+        { duration: 0.24, easing: 'cubic-bezier(.22,.61,.36,1)' } as any
+      );
     }
   }, [currentSlide]);
 

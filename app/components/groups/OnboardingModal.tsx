@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { X, Magnet, Clock, Gamepad2, Sparkles, ChevronRight, Play, Target } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { animate } from "motion";
@@ -9,11 +9,12 @@ interface OnboardingModalProps {
   groupMembers: string[];
   tableNumber: number | null;
   participantNumbers?: number[];           // Prefer numbers instead of names for display
+  participantGenders?: ("male" | "female" | null)[]; // Aligned with participantNumbers
   selfParticipantNumber?: number | null;   // Highlight this participant
   games?: { id: string; nameAr: string; color: string; icon?: JSX.Element }[]; // Optional games to show
 }
 
-export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, participantNumbers, selfParticipantNumber, games }: OnboardingModalProps) {
+export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, participantNumbers, participantGenders, selfParticipantNumber, games }: OnboardingModalProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const progress = ((currentSlide + 1) / 4) * 100;
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -46,13 +47,12 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     return null;
   }, [selfParticipantNumber]);
 
-  // Cohesive: determine numbers to show without names
+  // Determine numbers list (for seat mapping) from props or heuristics
   const numbersToShow = useMemo(() => {
     let base: number[] = [];
     if (participantNumbers && participantNumbers.length) {
       base = [...participantNumbers];
     } else if (groupMembers && groupMembers.length) {
-      // Try to parse explicit numbers from strings like "المشارك #123" or "#45"
       const parsed: number[] = [];
       for (const gm of groupMembers) {
         if (typeof gm === 'string') {
@@ -66,8 +66,44 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       base = parsed.length ? parsed : groupMembers.map((_, i) => i + 1);
     }
     if (derivedSelfNumber != null && !base.includes(derivedSelfNumber)) base.unshift(derivedSelfNumber);
-    return base.slice(0, 3);
+    return base; // full list (3–6)
   }, [participantNumbers, groupMembers, derivedSelfNumber]);
+
+  // Derive aligned genders for seats (fallback nulls)
+  const seatGenders = useMemo(() => {
+    const count = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
+    const arr: ("male" | "female" | null)[] = new Array(count).fill(null);
+    if (participantGenders && participantGenders.length) {
+      for (let i = 0; i < Math.min(count, participantGenders.length); i++) {
+        const g = participantGenders[i];
+        arr[i] = g === 'male' || g === 'female' ? g : null;
+      }
+    }
+    return arr;
+  }, [participantGenders, numbersToShow.length, groupMembers.length]);
+
+  // Seating positions around a circle
+  const seatPositions = useMemo(() => {
+    const count = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
+    const positions: { top: string; left: string }[] = [];
+    const radius = 38; // percent-based radius inside container
+    const center = { x: 50, y: 50 };
+    // Start from top (-90deg) and distribute clockwise
+    for (let i = 0; i < count; i++) {
+      const angle = (-90 + (360 / count) * i) * (Math.PI / 180);
+      const x = center.x + radius * Math.cos(angle);
+      const y = center.y + radius * Math.sin(angle);
+      positions.push({ top: `${y}%`, left: `${x}%` });
+    }
+    return positions;
+  }, [numbersToShow.length, groupMembers.length]);
+
+  const seatCount = useMemo(() => Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3)), [numbersToShow.length, groupMembers.length]);
+  const selfIndex = useMemo(() => {
+    if (derivedSelfNumber == null) return 0;
+    const idx = numbersToShow.findIndex(n => n === derivedSelfNumber);
+    return idx >= 0 ? idx : 0;
+  }, [numbersToShow, derivedSelfNumber]);
 
   if (!isOpen) return null;
 
@@ -303,20 +339,53 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                     </div>
                   )}
                 </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {(numbersToShow.length ? numbersToShow : [101,102,103]).map((num, i) => {
-                    const isSelf = derivedSelfNumber != null && num === derivedSelfNumber;
+
+                {/* Table & chairs visualization */}
+                <div className="relative w-full max-w-sm aspect-square mt-2">
+                  {/* Table */}
+                  <div className="absolute inset-[14%] rounded-full bg-gradient-to-br from-slate-700/60 to-slate-800/60 border border-white/10 flex items-center justify-center text-white/90">
+                    <div className="text-center">
+                      <div className="text-xs text-white/70">طاولتك</div>
+                      <div className="text-xl font-extrabold">{typeof tableNumber === 'number' ? tableNumber : '—'}</div>
+                    </div>
+                  </div>
+
+                  {/* Seats */}
+                  {Array.from({ length: seatCount }).map((_, idx) => {
+                    const isSelf = idx === selfIndex;
+                    const style = {
+                      top: seatPositions[idx]?.top || '50%',
+                      left: seatPositions[idx]?.left || '50%',
+                      transform: 'translate(-50%, -50%)'
+                    } as CSSProperties;
+                    const g = seatGenders[idx];
+                    const genderLabel = g === 'male' ? 'ذكر' : g === 'female' ? 'أنثى' : '—';
+                    const baseCls = isSelf
+                      ? 'bg-gradient-to-br from-amber-400 to-pink-400 text-slate-900 border-amber-200 shadow-[0_0_24px_rgba(251,191,36,0.45)]'
+                      : (g === 'male'
+                          ? 'bg-blue-500/25 text-blue-100 border-blue-300/40'
+                          : g === 'female'
+                            ? 'bg-pink-500/25 text-pink-100 border-pink-300/40'
+                            : 'bg-white/15 text-white/80 border-white/25');
                     return (
-                      <div
-                        key={i}
-                        className={`px-3 py-1 rounded-full bg-white/10 border ${isSelf ? 'border-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.35)]' : 'border-white/20'} text-white/90 text-sm`}
-                        title={`مشارك #${num}`}
-                      >
-                        #{num}
+                      <div key={idx} className="absolute" style={style}>
+                        <div className={`w-16 h-16 rounded-full border backdrop-blur-sm flex items-center justify-center text-sm font-bold ${baseCls}`}>
+                          {isSelf ? (
+                            <div className="flex flex-col items-center leading-tight">
+                              <div className="text-[10px] font-semibold opacity-80">أنت</div>
+                              <div>#{derivedSelfNumber ?? '—'}</div>
+                            </div>
+                          ) : (
+                            <span className="text-xs">{genderLabel}</span>
+                          )}
+                        </div>
                       </div>
-                    );
+                    )
                   })}
                 </div>
+
+                {/* Hint */}
+                <div className="text-xs text-white/60 mt-1">لن نعرض أرقام بقية المشاركين — فقط نوع الجنس لكل مقعد</div>
               </div>
             )}
 

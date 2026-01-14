@@ -1108,6 +1108,9 @@ export default function GroupsPage() {
   const [participantNumber, setParticipantNumber] = useState<number | null>(null);
   const [tableNumber, setTableNumber] = useState<number | null>(null);
   const [groupMembers, setGroupMembers] = useState<string[]>([]);
+  // Group meta for onboarding visualization
+  const [groupParticipantNumbers, setGroupParticipantNumbers] = useState<number[]>([]);
+  const [groupParticipantGenders, setGroupParticipantGenders] = useState<("male" | "female" | null)[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
   // How-to tutorial modal
   const [showHowToModal, setShowHowToModal] = useState(false);
@@ -1399,6 +1402,43 @@ export default function GroupsPage() {
                 if (Number.isFinite(parsed.table_number)) setTableNumber(parsed.table_number);
                 if (Array.isArray(parsed.group_members)) setGroupMembers(parsed.group_members);
                 setDataLoaded(true);
+                // Enrich onboarding visualization with numbers/genders
+                try {
+                  const eventStateRes = await fetch("/api/admin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "get-current-event-id" })
+                  });
+                  let currentEventId = 1;
+                  if (eventStateRes.ok) {
+                    const eventState = await eventStateRes.json();
+                    currentEventId = eventState.current_event_id || 1;
+                  }
+                  const groupRes = await fetch("/api/admin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "get-group-matches", event_id: currentEventId })
+                  });
+                  if (groupRes.ok) {
+                    const groupData = await groupRes.json();
+                    const userGroup = groupData.groups?.find((group: any) => {
+                      const nums = group.participant_numbers || [];
+                      return nums.includes(parsed.assigned_number) ||
+                             nums.includes(String(parsed.assigned_number)) ||
+                             nums.map(String).includes(String(parsed.assigned_number));
+                    });
+                    if (userGroup) {
+                      const nums: number[] = Array.isArray(userGroup.participant_numbers)
+                        ? userGroup.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
+                        : [];
+                      setGroupParticipantNumbers(nums);
+                      const gens: ("male"|"female"|null)[] = Array.isArray(userGroup.participant_genders)
+                        ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
+                        : [];
+                      setGroupParticipantGenders(gens);
+                    }
+                  }
+                } catch(_) {}
                 const seen = localStorage.getItem('groups_onboarding_seen');
                 if (!seen) setShowOnboarding(true);
                 return;
@@ -1492,6 +1532,15 @@ export default function GroupsPage() {
                   return Number.isFinite(ageNumber) && ageNumber ? `${name} (${ageNumber})` : name;
                 });
                 setGroupMembers(combined);
+                // Save participant numbers and genders for onboarding visualization
+                const nums: number[] = Array.isArray(userGroup.participant_numbers)
+                  ? userGroup.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
+                  : [];
+                setGroupParticipantNumbers(nums);
+                const gens: ("male"|"female"|null)[] = Array.isArray(userGroup.participant_genders)
+                  ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
+                  : [];
+                setGroupParticipantGenders(gens);
                 console.log(`✅ Table number set - Table #${userGroup.table_number} (Event ${currentEventId})`);
               } else {
                 console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
@@ -1591,6 +1640,14 @@ export default function GroupsPage() {
       setParticipantName(data.name || `المشارك #${data.assigned_number}`);
       setTableNumber(Number.isFinite(data.table_number) ? data.table_number : null);
       if (Array.isArray(data.group_members)) setGroupMembers(data.group_members);
+      // Save returned secure token (enables auto-redirect to rounds)
+      try {
+        if (data?.secure_token) {
+          localStorage.setItem('blindmatch_result_token', data.secure_token);
+          localStorage.setItem('blindmatch_returning_token', data.secure_token);
+          setSavedAuthToken(data.secure_token);
+        }
+      } catch(_) {}
       try {
         sessionStorage.setItem('groups_semi_login', JSON.stringify({
           assigned_number: data.assigned_number,
@@ -1600,8 +1657,62 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
+      // Fetch group genders/numbers for onboarding visualization
+      try {
+        const eventStateRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-current-event-id" })
+        });
+        let currentEventId = 1;
+        if (eventStateRes.ok) {
+          const eventState = await eventStateRes.json();
+          currentEventId = eventState.current_event_id || 1;
+        }
+        const groupRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-group-matches", event_id: currentEventId })
+        });
+        if (groupRes.ok) {
+          const groupData = await groupRes.json();
+          const userGroup = groupData.groups?.find((group: any) => {
+            const participantNumbers = group.participant_numbers || [];
+            return participantNumbers.includes(data.assigned_number) || 
+                   participantNumbers.includes(String(data.assigned_number)) ||
+                   participantNumbers.map(String).includes(String(data.assigned_number));
+          });
+          if (userGroup) {
+            const nums: number[] = Array.isArray(userGroup.participant_numbers)
+              ? userGroup.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
+              : [];
+            setGroupParticipantNumbers(nums);
+            const gens: ("male"|"female"|null)[] = Array.isArray(userGroup.participant_genders)
+              ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
+              : [];
+            setGroupParticipantGenders(gens);
+          }
+        }
+      } catch(_) {}
       const seen = localStorage.getItem('groups_onboarding_seen');
       if (!seen) setShowOnboarding(true);
+      // If rounds already active, redirect immediately using the saved token
+      try {
+        const stateRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-event-state" })
+        });
+        if (stateRes.ok) {
+          const s = await stateRes.json();
+          const phaseNow = s?.phase || null;
+          const roundNow = s?.current_round || null;
+          if (phaseNow && /^round_/i.test(phaseNow) && data?.secure_token) {
+            const q = Number.isFinite(roundNow) ? `&force_round=${roundNow}` : "";
+            window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}${q}`;
+          }
+        }
+      } catch(_) {}
     } catch (err) {
       setPhoneError("تعذر الاتصال بالخادم. حاول لاحقاً");
     } finally {
@@ -1636,6 +1747,14 @@ export default function GroupsPage() {
       try {
         if (data?.name) localStorage.setItem('blindmatch_participant_name', data.name);
       } catch (_) {}
+      // Save returned secure token so polling can auto-redirect when rounds start
+      try {
+        if (data?.secure_token) {
+          localStorage.setItem('blindmatch_result_token', data.secure_token);
+          localStorage.setItem('blindmatch_returning_token', data.secure_token);
+          setSavedAuthToken(data.secure_token);
+        }
+      } catch(_) {}
       try {
         sessionStorage.setItem('groups_semi_login', JSON.stringify({
           assigned_number: data.assigned_number,
@@ -1655,6 +1774,23 @@ export default function GroupsPage() {
           if (!seen) setShowOnboarding(true);
         } catch {}
       }, 720);
+      // If rounds already active, redirect immediately using the saved token
+      try {
+        const stateRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-event-state" })
+        });
+        if (stateRes.ok) {
+          const s = await stateRes.json();
+          const phaseNow = s?.phase || null;
+          const roundNow = s?.current_round || null;
+          if (phaseNow && /^round_/i.test(phaseNow) && data?.secure_token) {
+            const q = Number.isFinite(roundNow) ? `&force_round=${roundNow}` : "";
+            window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}${q}`;
+          }
+        }
+      } catch(_) {}
     } catch (err) {
       // Re-throw to let the PhoneEntry component cancel success animation
       throw err;
@@ -3087,6 +3223,9 @@ export default function GroupsPage() {
           onClose={() => setShowOnboarding(false)}
           groupMembers={groupMembers}
           tableNumber={tableNumber}
+          participantNumbers={groupParticipantNumbers.length ? groupParticipantNumbers : participantNumbersList}
+          participantGenders={groupParticipantGenders}
+          selfParticipantNumber={participantNumber ?? undefined as any}
           games={games.map(g => ({ id: g.id, nameAr: g.nameAr, color: g.color, icon: g.icon }))}
         />
       )}
@@ -3356,6 +3495,9 @@ export default function GroupsPage() {
           onClose={() => setShowOnboarding(false)}
           groupMembers={groupMembers}
           tableNumber={tableNumber}
+          participantNumbers={groupParticipantNumbers.length ? groupParticipantNumbers : participantNumbersList}
+          participantGenders={groupParticipantGenders}
+          selfParticipantNumber={participantNumber ?? undefined as any}
         />
       )}
 

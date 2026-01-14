@@ -3036,10 +3036,10 @@ export default async function handler(req, res) {
           }
         }
 
-        // Fetch ages for these participants (prefer column age; fallback to survey_data.age)
+        // Fetch ages and genders for these participants (prefer columns; fallback to survey_data)
         const { data: participantRows, error: prErr } = await supabase
           .from("participants")
-          .select("assigned_number, age, survey_data")
+          .select("assigned_number, age, gender, survey_data")
           .eq("match_id", STATIC_MATCH_ID)
           .in("assigned_number", Array.from(allParticipantNumbers))
 
@@ -3048,6 +3048,7 @@ export default async function handler(req, res) {
         }
 
         const ageMap = new Map()
+        const genderMap = new Map()
         for (const row of participantRows || []) {
           const directAge = typeof row.age === 'number' ? row.age : (row?.age ? parseInt(row.age, 10) : undefined)
           const fallbackAge = (row?.survey_data && (typeof row.survey_data.age === 'number' || typeof row.survey_data.age === 'string'))
@@ -3055,6 +3056,19 @@ export default async function handler(req, res) {
             : undefined
           const ageVal = Number.isFinite(directAge) ? directAge : (Number.isFinite(fallbackAge) ? fallbackAge : null)
           ageMap.set(row.assigned_number, ageVal)
+
+          // Gender: prefer column, fallback to survey_data.answers.gender
+          let g = null
+          if (row?.gender && typeof row.gender === 'string') {
+            g = String(row.gender).toLowerCase()
+          } else if (row?.survey_data?.answers?.gender && typeof row.survey_data.answers.gender === 'string') {
+            g = String(row.survey_data.answers.gender).toLowerCase()
+          } else if (row?.survey_data?.gender && typeof row.survey_data.gender === 'string') {
+            g = String(row.survey_data.gender).toLowerCase()
+          }
+          if (g === 'male' || g === 'm' || g === 'ذكر') genderMap.set(row.assigned_number, 'male')
+          else if (g === 'female' || g === 'f' || g === 'أنثى') genderMap.set(row.assigned_number, 'female')
+          else genderMap.set(row.assigned_number, null)
         }
 
         // Format for participant view with ages aligned to participant_numbers
@@ -3067,6 +3081,10 @@ export default async function handler(req, res) {
           participant_ages: (Array.isArray(match.participant_numbers) ? match.participant_numbers : []).map(n => {
             const parsed = typeof n === 'string' ? parseInt(n, 10) : n
             return ageMap.get(parsed) ?? null
+          }),
+          participant_genders: (Array.isArray(match.participant_numbers) ? match.participant_numbers : []).map(n => {
+            const parsed = typeof n === 'string' ? parseInt(n, 10) : n
+            return genderMap.get(parsed) ?? null
           }),
           compatibility_score: match.compatibility_score,
           conversation_status: match.conversation_status,

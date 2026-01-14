@@ -225,7 +225,7 @@ export default async function handler(req, res) {
       // Find participant(s) by phone last 7 digits (across all events for this match)
       const { data: candidates, error: searchErr } = await supabase
         .from("participants")
-        .select("id, assigned_number, name, survey_data, phone_number, event_id, created_at")
+        .select("id, assigned_number, secure_token, name, survey_data, phone_number, event_id, created_at")
         .eq("match_id", match_id)
         .not("phone_number", "is", null)
         .ilike("phone_number", `%${lastSeven}`)
@@ -352,6 +352,7 @@ export default async function handler(req, res) {
         success: true,
         event_id: currentEventId,
         assigned_number: chosen.assigned_number,
+        secure_token: chosen.secure_token,
         name,
         table_number: groupInfo?.table_number ?? null,
         group_number: groupInfo?.group_number ?? null,

@@ -1562,16 +1562,16 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   const usedParticipants = new Set()
   const participantNumbers = eligibleParticipants.map(p => p.assigned_number)
   
-  // Phase 1: Form core groups of 4 first (avoiding matched pairs and ensuring gender balance)
+  // Phase 1: Form core groups of 4 first (strictly avoid matched pairs and ensure gender balance)
   console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs, ensuring gender balance)")
   while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
     const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
     let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants, bannedCombos)
     
-    // Fallback: if no group can be formed avoiding matches, try with matches allowed
+    // Fallback (still strict on matched pairs): relax non-hard constraints but NEVER allow matched pairs
     if (!group && availableParticipants.length >= 4) {
-      console.log("⚠️ No groups of 4 possible without matched pairs/gender balance - using fallback")
-      group = findBestGroup(availableParticipants, pairScores, 4, eligibleParticipants)
+      console.log("⚠️ No groups of 4 possible under strict constraints - using strict fallback (no matched pairs)")
+      group = findBestGroup(availableParticipants, pairScores, 4, eligibleParticipants, areMatched)
     }
     
     if (group) {
@@ -1591,128 +1591,143 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     // Perfect groups of 4
     console.log("✅ Perfect grouping achieved with groups of 4")
   } else if (remainingParticipants.length >= 4) {
-    // 4+ extra people - split into valid chunks (sizes 3..6). Prefer larger groups.
-    const rem = [...remainingParticipants]
+    // 4+ extra people - split into valid chunks (sizes 3..5 preferred). Avoid 6 unless unavoidable.
+    const rem = new Set(remainingParticipants)
     const created = []
-    const sizes = []
-    let n = rem.length
-    while (n > 0) {
-      if (n >= 13) { sizes.push(6); n -= 6; }
-      else if (n >= 12) { sizes.push(6, 6); n = 0; }
-      else if (n === 11) { sizes.push(6, 5); n = 0; }
-      else if (n === 10) { sizes.push(6, 4); n = 0; }
-      else if (n === 9) { sizes.push(5, 4); n = 0; }
-      else if (n === 8) { sizes.push(4, 4); n = 0; }
-      else if (n === 7) { sizes.push(4, 3); n = 0; }
-      else if (n >= 3 && n <= 6) { sizes.push(n); n = 0; }
-      else {
-        // n is 1 or 2: adjust by moving one from the last size if possible
-        if (sizes.length > 0 && sizes[sizes.length - 1] > 3) {
-          sizes[sizes.length - 1] -= 1
-          sizes.push(n + 1)
-          n = 0
-        } else {
-          // Fallback: merge into last (should be rare)
-          if (sizes.length > 0) {
-            sizes[sizes.length - 1] += n
-          }
-          n = 0
-        }
+    const sizes = (() => {
+      const res = []
+      let n = remainingParticipants.length
+      while (n > 0) {
+        if (n === 6) { res.push(3, 3); n = 0; break; }
+        if (n === 5) { res.push(5); n = 0; break; }
+        if (n === 7) { res.push(4, 3); n = 0; break; }
+        if (n % 4 === 0) { res.push(4); n -= 4; continue; }
+        if (n % 4 === 1) { res.push(5); n -= 5; continue; }
+        if (n % 4 === 2) { res.push(3); n -= 3; continue; }
+        if (n % 4 === 3) { res.push(3); n -= 3; continue; }
       }
-    }
+      return res
+    })()
     for (const size of sizes) {
-      const chunk = rem.splice(0, size)
+      const pool = Array.from(rem)
+      let chunk = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
+      if (!chunk) {
+        console.log(`⚠️ Could not find strict (no matched pairs) group of size ${size} from remaining pool; skipping this size`)
+        continue
+      }
+      // Place selected chunk
+      chunk.forEach(p => rem.delete(p))
       groups.push([...chunk])
       chunk.forEach(p => usedParticipants.add(p))
       created.push(chunk)
     }
     console.log(`✅ Created ${created.length} new group(s) from remaining participants (sizes: ${created.map(c => c.length).join(', ')})`)
   } else if (remainingParticipants.length === 1) {
-    // 1 extra person - add to most compatible group if space exists (max 6)
+    // 1 extra person - add to most compatible group without creating matched pairs.
     const extraParticipant = remainingParticipants[0]
-    const bestGroupIndex = findMostCompatibleGroupForParticipant(extraParticipant, groups, pairScores)
-    if (groups[bestGroupIndex] && groups[bestGroupIndex].length < 6) {
-      groups[bestGroupIndex].push(extraParticipant)
-      console.log(`✅ Added participant ${extraParticipant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
+    // Prefer placing into groups with size <= 3 first (to make 4), then <= 4 (to make 5). Avoid 6 unless no alternative.
+    const candidateIndices = groups
+      .map((g, i) => ({ i, size: g.length }))
+      .filter(({ i }) => groups[i].every(m => !areMatched(m, extraParticipant)))
+    const pickByCapacity = (maxSize) =>
+      candidateIndices
+        .filter(({ size }) => size < maxSize)
+        .map(({ i }) => i)
+        .sort((a, b) => calculateParticipantGroupCompatibility(extraParticipant, groups[b], pairScores) - calculateParticipantGroupCompatibility(extraParticipant, groups[a], pairScores))
+        [0]
+    let idx = pickByCapacity(4) // up to 3 -> 4
+    if (idx === undefined) idx = pickByCapacity(5) // up to 4 -> 5
+    if (idx === undefined) idx = pickByCapacity(6) // last resort to 6
+    if (idx !== undefined) {
+      groups[idx].push(extraParticipant)
+      console.log(`✅ Added participant ${extraParticipant} to group ${idx + 1}: [${groups[idx].join(', ')}]`)
     } else {
-      const altIdx = groups.findIndex(g => g.length < 6)
-      if (altIdx !== -1) {
-        groups[altIdx].push(extraParticipant)
-        console.log(`✅ Added participant ${extraParticipant} to alternative group ${altIdx + 1}: [${groups[altIdx].join(', ')}]`)
-      } else {
-        console.log(`⚠️ No space to place ${extraParticipant} without exceeding 6; leaving unplaced`)
-      }
+      console.log(`⚠️ No safe group to place ${extraParticipant} without creating matched pair; leaving unplaced`)
     }
   } else if (remainingParticipants.length === 2) {
-    // 2 extra people - add both to most compatible group OR split between two groups
+    // 2 extra people - add both safely without creating matched pairs, preferring groups <= 4 final size
     const [extra1, extra2] = remainingParticipants
     
-    // Check if we can add both to the same group (up to 6 people)
-    const bestGroupForBoth = findMostCompatibleGroupForParticipants([extra1, extra2], groups, pairScores)
-    
-    if (groups[bestGroupForBoth].length <= 4) {
-      // Add both to the same group
-      groups[bestGroupForBoth].push(extra1, extra2)
-      console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${bestGroupForBoth + 1}: [${groups[bestGroupForBoth].join(', ')}]`)
+    // Check joint placement (avoid matched between themselves and with group)
+    const jointCandidates = groups
+      .map((g, i) => i)
+      .filter(i => groups[i].length <= 4) // allow up to 4 -> 6 only as last resort; we'll try <=4 first
+      .filter(i => !areMatched(extra1, extra2) && groups[i].every(m => !areMatched(m, extra1) && !areMatched(m, extra2)))
+      .sort((a, b) => {
+        const sa = (calculateParticipantGroupCompatibility(extra1, groups[a], pairScores) + calculateParticipantGroupCompatibility(extra2, groups[a], pairScores)) / 2
+        const sb = (calculateParticipantGroupCompatibility(extra1, groups[b], pairScores) + calculateParticipantGroupCompatibility(extra2, groups[b], pairScores)) / 2
+        return sb - sa
+      })
+    if (jointCandidates.length > 0) {
+      const idx = jointCandidates[0]
+      groups[idx].push(extra1, extra2)
+      console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${idx + 1}: [${groups[idx].join(', ')}]`)
     } else {
-      // Split between two different groups
-      const group1Index = findMostCompatibleGroupForParticipant(extra1, groups, pairScores)
-      if (groups[group1Index] && groups[group1Index].length < 6) {
-        groups[group1Index].push(extra1)
+      // Split across two groups (avoid matched pairs and prefer groups <= 4 then <= 5)
+      const pickSafe = (p, maxSize) => groups
+        .map((g, i) => ({ i, size: g.length, score: calculateParticipantGroupCompatibility(p, g, pairScores) }))
+        .filter(({ i, size }) => size < maxSize && groups[i].every(m => !areMatched(m, p)))
+        .sort((a, b) => b.score - a.score)[0]?.i
+
+      let g1 = pickSafe(extra1, 4) ?? pickSafe(extra1, 5) ?? pickSafe(extra1, 6)
+      if (g1 != null) {
+        groups[g1].push(extra1)
       } else {
-        console.log(`⚠️ No space to place ${extra1} without exceeding 6; leaving unplaced`)
+        console.log(`⚠️ No safe group to place ${extra1}; leaving unplaced`)
       }
 
-      const group2Index = findMostCompatibleGroupForParticipant(extra2, groups.map((g, i) => i === group1Index ? [...g] : g), pairScores)
-      if (groups[group2Index] && groups[group2Index].length < 6) {
-        groups[group2Index].push(extra2)
+      let g2 = pickSafe(extra2, 4) ?? pickSafe(extra2, 5) ?? pickSafe(extra2, 6)
+      if (g2 != null) {
+        groups[g2].push(extra2)
       } else {
-        console.log(`⚠️ No space to place ${extra2} without exceeding 6; leaving unplaced`)
+        console.log(`⚠️ No safe group to place ${extra2}; leaving unplaced`)
       }
-      console.log(`✅ Attempted split for two participants across groups (respecting max size 6)`)
+      console.log(`✅ Attempted split for two participants across groups (avoiding matched pairs, preferring <=4/5)`)
     }
   } else if (remainingParticipants.length === 3) {
-    // 3 extra people - create a new group OR distribute among existing groups
+    // 3 extra people - create a new group OR distribute among existing groups (hard-gate matched pairs)
     if (groups.length === 0) {
-      // No existing groups, try to create a gender-balanced group of 3
+      // No existing groups, try to create a gender-balanced group of 3, strictly avoiding matched pairs
       const group3 = findBestGroupAvoidingMatches(remainingParticipants, pairScores, 3, areMatched, eligibleParticipants, bannedCombos)
       if (group3) {
         groups.push([...group3])
         console.log(`✅ Created new gender-balanced group of 3: [${group3.join(', ')}]`)
       } else {
-        // Fallback: create group without gender balance requirement
-        groups.push([...remainingParticipants])
-        console.log(`⚠️ Created new group of 3 (no gender balance possible): [${remainingParticipants.join(', ')}]`)
+        console.log(`⚠️ Could not create a safe group of 3 without matched pairs; leaving these 3 unplaced: [${remainingParticipants.join(', ')}]`)
       }
     } else {
-      // Distribute among existing groups (up to 2 per group to max 6). If no space for all, make a new group of 3.
-      const sortedByCompatibility = remainingParticipants.map(p => ({
-        participant: p,
-        bestGroupIndex: findMostCompatibleGroupForParticipant(p, groups, pairScores),
-        score: calculateParticipantGroupCompatibility(p, groups[findMostCompatibleGroupForParticipant(p, groups, pairScores)], pairScores)
-      })).sort((a, b) => b.score - a.score)
-
+      // Distribute among existing groups (avoid matched pairs, prefer making 4 or 5, avoid 6 if possible)
+      const prefOrder = [4, 5, 6]
       const unplaced = []
-      for (const { participant, bestGroupIndex } of sortedByCompatibility) {
-        if (groups[bestGroupIndex] && groups[bestGroupIndex].length < 6) {
-          groups[bestGroupIndex].push(participant)
-          console.log(`✅ Added participant ${participant} to group ${bestGroupIndex + 1}: [${groups[bestGroupIndex].join(', ')}]`)
-        } else {
-          const alternativeGroupIndex = groups.findIndex(g => g.length < 6)
-          if (alternativeGroupIndex !== -1) {
-            groups[alternativeGroupIndex].push(participant)
-            console.log(`✅ Added participant ${participant} to alternative group ${alternativeGroupIndex + 1}: [${groups[alternativeGroupIndex].join(', ')}]`)
-          } else {
-            unplaced.push(participant)
+      for (const p of remainingParticipants) {
+        let placed = false
+        for (const cap of prefOrder) {
+          // Find best safe group under this capacity cap
+          const idx = groups
+            .map((g, i) => ({ i, size: g.length, score: calculateParticipantGroupCompatibility(p, g, pairScores) }))
+            .filter(({ i, size }) => size < cap && groups[i].every(m => !areMatched(m, p)))
+            .sort((a, b) => b.score - a.score)[0]?.i
+          if (idx != null) {
+            groups[idx].push(p)
+            console.log(`✅ Added participant ${p} to group ${idx + 1}: [${groups[idx].join(', ')}]`)
+            placed = true
+            break
           }
         }
+        if (!placed) unplaced.push(p)
       }
 
       if (unplaced.length === 3) {
-        groups.push([...unplaced])
-        console.log(`✅ No space in existing groups; created new group of 3: [${unplaced.join(', ')}]`)
+        // Try to form a safe 3-person group among unplaced
+        const group3 = findBestGroupAvoidingMatches(unplaced, pairScores, 3, areMatched, eligibleParticipants, bannedCombos)
+        if (group3) {
+          groups.push([...group3])
+          console.log(`✅ Created new safe group of 3 from unplaced: [${group3.join(', ')}]`)
+        } else {
+          console.log(`⚠️ Could not safely group last 3 without matched pairs; they remain unplaced: [${unplaced.join(', ')}]`)
+        }
       } else if (unplaced.length > 0) {
-        console.log(`⚠️ Could not place ${unplaced.length} participant(s) without exceeding size 6; they will be excluded from groups: [${unplaced.join(', ')}]`)
+        console.log(`⚠️ Could not place ${unplaced.length} participant(s) without creating matched pairs or exceeding size; excluded: [${unplaced.join(', ')}]`)
       }
     }
   }
@@ -2096,7 +2111,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
 }
 
 // Helper function to find the best group of specified size (fallback version - allows matched pairs if needed)
-function findBestGroup(availableParticipants, pairScores, targetSize, eligibleParticipants = null) {
+function findBestGroup(availableParticipants, pairScores, targetSize, eligibleParticipants = null, areMatched = null) {
   if (availableParticipants.length < targetSize) return null
   
   // For groups of 3 or 4, we want to maximize the sum of MBTI compatibility scores
@@ -2107,6 +2122,19 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
   const combinations = getCombinations(availableParticipants, targetSize)
   
   for (const combination of combinations) {
+    // Strictly avoid any previously matched pairs inside the same group if checker provided
+    if (typeof areMatched === 'function') {
+      let hasMatchedPair = false
+      for (let i = 0; i < combination.length && !hasMatchedPair; i++) {
+        for (let j = i + 1; j < combination.length; j++) {
+          if (areMatched(combination[i], combination[j])) { hasMatchedPair = true; break }
+        }
+      }
+      if (hasMatchedPair) {
+        // console.log(`🚫 Fallback(strict): Skipping [${combination.join(', ')}] - contains matched pair`)
+        continue
+      }
+    }
     // If we have participant data, enforce gender balance and prefer conversation compatibility
     if (eligibleParticipants) {
       const genders = combination.map(participantNum => {

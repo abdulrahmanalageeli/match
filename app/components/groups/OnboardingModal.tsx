@@ -24,6 +24,21 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   const iconRef = useRef<HTMLDivElement | null>(null);
   const wipeRef = useRef<HTMLDivElement | null>(null);
   const [wipe, setWipe] = useState(false);
+  // Compact modes for short screens to avoid header/content being cut
+  const [compact, setCompact] = useState(false);
+  const [superCompact, setSuperCompact] = useState(false);
+  useEffect(() => {
+    const check = () => {
+      try {
+        const h = window.innerHeight;
+        setCompact(h < 700);
+        setSuperCompact(h < 600);
+      } catch {}
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  }, []);
 
   // Welcome name for personalization
   const [welcomeName, setWelcomeName] = useState<string | null>(null);
@@ -303,19 +318,19 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         </button>
 
         {/* Main card */}
-        <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[80vh]">
+        <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[80vh] min-h-0">
           {/* Header with animated gradient */}
-          <div className={`bg-gradient-to-r ${currentSlideData.color} p-6 sm:p-8 text-center relative overflow-hidden`}>
+          <div className={`bg-gradient-to-r ${currentSlideData.color} ${superCompact ? 'p-2' : compact ? 'p-3' : 'p-6 sm:p-8'} text-center relative overflow-hidden`}>
             <div className="absolute inset-0 bg-black/10"></div>
             {/* Top progress bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
               <div ref={progressRef} className="h-full bg-white/80" style={{ width: `${progress}%` }} />
             </div>
-            <div className="relative z-10 flex flex-col items-center space-y-4">
-              <div ref={iconRef} className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white animate-heartbeat">
+            <div className="relative z-10 flex flex-col items-center space-y-3">
+              <div ref={iconRef} className={`${superCompact ? 'w-12 h-12' : compact ? 'w-16 h-16' : 'w-24 h-24'} rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white animate-heartbeat ${compact ? 'scale-95' : ''}`}>
                 {currentSlideData.icon}
               </div>
-              <h2 className="text-3xl font-extrabold text-white leading-tight">
+              <h2 className={`${superCompact ? 'text-xl' : compact ? 'text-2xl' : 'text-3xl'} font-extrabold text-white leading-tight`}>
                 {currentSlideData.title}
               </h2>
             </div>
@@ -326,7 +341,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
           </div>
 
           {/* Content */}
-          <div ref={slideAreaRef} className="p-5 sm:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
+          <div ref={slideAreaRef} className={`${superCompact ? 'p-3' : compact ? 'p-4' : 'p-5 sm:p-8'} ${compact ? 'space-y-4' : 'space-y-6'} flex-1 overflow-y-auto custom-scrollbar min-h-0`}> 
             {/* Opposites Attract banner */}
             <div className="flex items-center justify-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
@@ -348,7 +363,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
               </div>
             )}
 
-            <p className="text-slate-200 text-center text-lg leading-relaxed animate-slide-in-up">
+            <p className={`text-slate-200 text-center ${superCompact ? 'text-sm' : compact ? 'text-base' : 'text-lg'} leading-relaxed animate-slide-in-up`}>
               {currentSlideData.description}
             </p>
 
@@ -393,7 +408,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                 </div>
 
                 {/* Table & chairs visualization */}
-                <div className="relative w-full max-w-sm aspect-square mt-2">
+                <div className={`relative w-full max-w-sm ${superCompact ? 'aspect-3/4' : compact ? 'aspect-5/6' : 'aspect-square'} mt-2`}>
                   {/* Table */}
                   <div className="absolute inset-[14%] rounded-full bg-gradient-to-br from-slate-700/60 to-slate-800/60 border border-white/10 flex items-center justify-center text-white/90">
                     <div className="text-center">
@@ -421,7 +436,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                             : 'bg-white/15 text-white/80 border-white/25');
                     return (
                       <div key={idx} className="absolute" style={style}>
-                        <div className={`w-16 h-16 rounded-full border backdrop-blur-sm flex items-center justify-center text-sm font-bold ${baseCls}`}>
+                        <div className={`${superCompact ? 'w-12 h-12' : compact ? 'w-14 h-14' : 'w-16 h-16'} rounded-full border backdrop-blur-sm flex items-center justify-center text-sm font-bold ${baseCls}`}>
                           {isSelf ? (
                             <div className="flex flex-col items-center leading-tight">
                               <div className="text-[10px] font-semibold opacity-80">أنت</div>

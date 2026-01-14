@@ -164,7 +164,7 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
                 {/* Underline track and fill */}
                 <div className="relative h-[3px]">
                   <div className="absolute inset-0 bg-white/15 rounded-full" />
-                  <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-600 via-pink-500 to-orange-400 rounded-full" style={{ width: `${progressPct}%` }} />
+                  <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 via-pink-500 to-orange-400 rounded-full" style={{ width: `${progressPct}%` }} />
                 </div>
                 {error && (
                   <p className="text-red-400 text-sm mt-2 text-center">{error}</p>

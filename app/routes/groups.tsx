@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Clock, 
   Users, 
@@ -40,6 +40,7 @@ import PromptTopicsModal from "../components/PromptTopicsModal";
 import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
 import logoPng from "../welcome/blindmatch.png";
+import { animate } from "motion";
 
 // Logo Component for Groups Page - Removed (now integrated into header)
 
@@ -1057,6 +1058,8 @@ export default function GroupsPage() {
   const [savedAuthToken, setSavedAuthToken] = useState<string | null>(null);
   const [eventPhase, setEventPhase] = useState<string | null>(null);
   const [eventCurrentRound, setEventCurrentRound] = useState<number | null>(null);
+  const [joiningTransition, setJoiningTransition] = useState(false);
+  const preGameRef = useRef<HTMLDivElement | null>(null);
   
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
@@ -1613,7 +1616,6 @@ export default function GroupsPage() {
         setPhoneError(data?.error || "فشل تسجيل الدخول. حاول مرة أخرى");
         throw new Error(data?.error || "login-failed");
       }
-      setIsConfirmed(true);
       setParticipantNumber(data.assigned_number || null);
       setParticipantName(data.name || `المشارك #${data.assigned_number}`);
       setTableNumber(Number.isFinite(data.table_number) ? data.table_number : null);
@@ -1630,8 +1632,16 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
-      const seen = localStorage.getItem('groups_onboarding_seen');
-      if (!seen) setShowOnboarding(true);
+      // Allow PhoneEntry screen-wipe to play smoothly before swapping pages
+      setJoiningTransition(true);
+      setTimeout(() => {
+        setIsConfirmed(true);
+        setJoiningTransition(false);
+        try {
+          const seen = localStorage.getItem('groups_onboarding_seen');
+          if (!seen) setShowOnboarding(true);
+        } catch {}
+      }, 720);
     } catch (err) {
       // Re-throw to let the PhoneEntry component cancel success animation
       throw err;
@@ -1762,6 +1772,19 @@ export default function GroupsPage() {
       if (interval) clearInterval(interval);
     };
   }, [fiveSecondTimerActive, fiveSecondTimer]);
+
+  // Entry animation for pre-game container (mirrors PhoneEntry feel)
+  useEffect(() => {
+    if (preGameRef.current) {
+      try {
+        animate(
+          preGameRef.current!,
+          { opacity: [0, 1], transform: ['translateY(16px) scale(0.98)', 'translateY(0px) scale(1)'] } as any,
+          { duration: 0.38, easing: 'cubic-bezier(.22,.61,.36,1)' } as any
+        );
+      } catch {}
+    }
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -3149,8 +3172,15 @@ export default function GroupsPage() {
           </div>
         )}
 
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
-        <div className="max-w-md mx-auto px-4 py-6">
+        <div className="relative min-h-screen overflow-hidden" dir="rtl">
+          {/* Animated gradient + orbs background (match PhoneEntry) */}
+          <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
+          <div className="pointer-events-none absolute inset-0 z-0">
+            <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
+            <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
+            <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
+          </div>
+        <div ref={preGameRef} className="relative z-10 max-w-md mx-auto px-4 py-6">
           {/* Enhanced Mobile-First Header with Animations */}
           <div className="text-center mb-6 animate-in fade-in duration-500">
             <div className="relative inline-block mb-4 animate-in zoom-in duration-500" style={{animationDelay: '200ms'}}>
@@ -3352,8 +3382,15 @@ export default function GroupsPage() {
         />
       )}
 
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
-      <div className="max-w-md mx-auto px-4 py-4">
+      <div className="relative min-h-screen overflow-hidden" dir="rtl">
+      {/* Animated gradient + orbs background (match PhoneEntry) */}
+      <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
+      <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
+        <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
+        <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
+      </div>
+      <div className="relative z-10 max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism (collapsible) */}
         <div className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
           {!headerCollapsed && (

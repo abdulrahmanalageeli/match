@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Magnet, Clock, Gamepad2, Sparkles, ChevronRight, Play } from "lucide-react";
+import { X, Magnet, Clock, Gamepad2, Sparkles, ChevronRight, Play, Target } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { animate } from "motion";
 
@@ -20,6 +20,8 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   const slideAreaRef = useRef<HTMLDivElement | null>(null);
   const progressRef = useRef<HTMLDivElement | null>(null);
   const iconRef = useRef<HTMLDivElement | null>(null);
+  const wipeRef = useRef<HTMLDivElement | null>(null);
+  const [wipe, setWipe] = useState(false);
 
   // Welcome name for personalization
   const [welcomeName, setWelcomeName] = useState<string | null>(null);
@@ -130,8 +132,12 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         const confetti = mod?.default || mod;
         confetti({ particleCount: 80, spread: 60, startVelocity: 45, scalar: 0.9 });
       } catch {}
-      localStorage.setItem('groups_onboarding_seen', 'true');
-      onClose();
+      // Play a stylish screen wipe then close
+      setTimeout(() => setWipe(true), 120);
+      setTimeout(() => {
+        localStorage.setItem('groups_onboarding_seen', 'true');
+        onClose();
+      }, 820);
     } else {
       // Animate slide out, switch, then slide in
       if (slideAreaRef.current) {
@@ -199,6 +205,13 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     }
   }, [currentSlide]);
 
+  // Wipe exit animation
+  useEffect(() => {
+    if (wipe && wipeRef.current) {
+      animate(wipeRef.current!, { transform: 'scale(120)' } as any, { duration: 0.7, easing: 'cubic-bezier(.22,.61,.36,1)' } as any);
+    }
+  }, [wipe]);
+
   return (
     <div ref={overlayRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xl p-4">
       {/* Cohesive background accents (like PhoneEntry) */}
@@ -207,6 +220,12 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
         <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
       </div>
+      {/* Screen wipe overlay */}
+      {wipe && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div ref={wipeRef} className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full w-12 h-12" style={{ transform: 'scale(0)' }} />
+        </div>
+      )}
       <div className="relative z-10 w-full max-w-md">
         {/* Close button */}
         <button
@@ -217,7 +236,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         </button>
 
         {/* Main card */}
-        <div ref={cardRef} className="bg-black/40 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden">
+        <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden">
           {/* Header with animated gradient */}
           <div className={`bg-gradient-to-r ${currentSlideData.color} p-8 text-center relative overflow-hidden`}>
             <div className="absolute inset-0 bg-black/10"></div>
@@ -241,6 +260,13 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
 
           {/* Content */}
           <div ref={slideAreaRef} className="p-8 space-y-6">
+            {/* Opposites Attract banner */}
+            <div className="flex items-center justify-center">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span className="text-amber-200 text-xs font-bold">Opposites Attract</span>
+              </div>
+            </div>
             {/* Greeting on first slide */}
             {currentSlide === 0 && (
               <div className="text-center mb-1">
@@ -256,7 +282,21 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
 
             {/* Slide-specific content */}
             {currentSlide === 0 && (
-              <div className="flex items-center justify-center gap-4">
+              <div className="flex flex-col items-center justify-center gap-4">
+                {/* Identity chips */}
+                <div className="flex items-center gap-2">
+                  {typeof tableNumber === 'number' && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-100 text-xs">
+                      <Target className="w-3.5 h-3.5" />
+                      طاولة {tableNumber}
+                    </div>
+                  )}
+                  {derivedSelfNumber != null && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-100 text-xs">
+                      <span>#{derivedSelfNumber}</span>
+                    </div>
+                  )}
+                </div>
                 {(numbersToShow.length ? numbersToShow : [101,102,103]).map((num, i) => {
                   const isSelf = derivedSelfNumber != null && num === derivedSelfNumber;
                   return (

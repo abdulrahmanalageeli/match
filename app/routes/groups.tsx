@@ -1348,15 +1348,20 @@ export default function GroupsPage() {
     console.log('🔍 tableNumber state changed:', tableNumber);
   }, [tableNumber]);
 
-  // Show group guide on first load
+  // Show group guide only AFTER onboarding is finished
   useEffect(() => {
-    // Show the guide after the user is confirmed (so it actually renders)
     if (!isConfirmed) return;
+    // Wait until onboarding has been completed (localStorage flag set by OnboardingModal)
+    let onboardingSeen = false;
+    try {
+      onboardingSeen = localStorage.getItem('groups_onboarding_seen') === 'true';
+    } catch {}
+    if (!onboardingSeen) return;
     const hasSeenGroupGuide = localStorage.getItem('blindmatch_group_guide_seen');
     if (!hasSeenGroupGuide) {
       setShowGroupGuide(true);
     }
-  }, [isConfirmed]);
+  }, [isConfirmed, showOnboarding]);
 
   // Load participant data and group assignment on component mount
   useEffect(() => {
@@ -1539,8 +1544,16 @@ export default function GroupsPage() {
               const q = round ? `&force_round=${round}` : "";
               window.location.href = `/welcome?token=${encodeURIComponent(savedAuthToken)}${q}`;
             } else {
-              // No token (semi-login). Show how-to modal to instruct opening personal link
-              setShowHowToModal(true);
+              // No token (semi-login). Only show how-to AFTER onboarding is finished
+              let onboardingSeen = false;
+              try {
+                onboardingSeen = localStorage.getItem('groups_onboarding_seen') === 'true';
+              } catch {}
+              if (!showOnboarding && onboardingSeen) {
+                setShowHowToModal(true);
+              } else {
+                setShowHowToModal(false);
+              }
             }
           }
         }
@@ -3077,8 +3090,8 @@ export default function GroupsPage() {
         />
       )}
 
-      {/* Group Guide Popup - Render FIRST to ensure it's on top */}
-        {showGroupGuide && (
+      {/* Group Guide Popup - only show after onboarding closes */}
+        {showGroupGuide && !showOnboarding && (
           <div 
             className="fixed z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', zIndex: 9999 }}

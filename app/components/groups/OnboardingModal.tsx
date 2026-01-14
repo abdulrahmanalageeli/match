@@ -213,7 +213,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   }, [wipe]);
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xl p-4">
+    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xl p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       {/* Cohesive background accents (like PhoneEntry) */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
@@ -236,9 +236,9 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         </button>
 
         {/* Main card */}
-        <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden">
+        <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[80vh]">
           {/* Header with animated gradient */}
-          <div className={`bg-gradient-to-r ${currentSlideData.color} p-8 text-center relative overflow-hidden`}>
+          <div className={`bg-gradient-to-r ${currentSlideData.color} p-6 sm:p-8 text-center relative overflow-hidden`}>
             <div className="absolute inset-0 bg-black/10"></div>
             {/* Top progress bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
@@ -259,7 +259,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
           </div>
 
           {/* Content */}
-          <div ref={slideAreaRef} className="p-8 space-y-6">
+          <div ref={slideAreaRef} className="p-5 sm:p-8 space-y-6 flex-1 overflow-y-auto custom-scrollbar">
             {/* Opposites Attract banner */}
             <div className="flex items-center justify-center">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">

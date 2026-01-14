@@ -3087,6 +3087,7 @@ export default function GroupsPage() {
           onClose={() => setShowOnboarding(false)}
           groupMembers={groupMembers}
           tableNumber={tableNumber}
+          games={games.map(g => ({ id: g.id, nameAr: g.nameAr, color: g.color, icon: g.icon }))}
         />
       )}
 
@@ -3097,84 +3098,47 @@ export default function GroupsPage() {
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', zIndex: 9999 }}
             dir="rtl"
           >
-            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-2xl max-w-md w-full border border-slate-700 relative overflow-hidden p-6 animate-in zoom-in-95 duration-300">
+            <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl shadow-2xl max-w-sm w-full border border-slate-700 relative overflow-hidden p-4 sm:p-6 animate-in zoom-in-95 duration-300 max-h-[80vh] sm:max-h-[75vh] overflow-y-auto custom-scrollbar">
               {/* Header */}
-              <div className="text-center mb-6">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
-                  <Users className="w-8 h-8 text-white" />
+              <div className="text-center mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                  <Users className="w-6 h-6 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-2">
+                <h2 className="text-lg font-bold text-white mb-1 flex items-center justify-center gap-2">
                   مرحباً بك في الأنشطة الجماعية!
                   <PartyPopper className="w-6 h-6 text-yellow-400" />
                 </h2>
-                <p className="text-slate-300 text-sm">
-                  استعد لتجربة ممتعة مع مجموعتك
+                <p className="text-slate-300 text-xs">
+                  تجربة سريعة وممتعة مع مجموعتك
                 </p>
               </div>
 
               {/* Instructions */}
-              <div className="space-y-4 mb-6">
-                <div className="flex items-start gap-3 p-4 bg-purple-500/10 border border-purple-400/30 rounded-xl">
-                  <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-purple-300 font-bold">1</span>
-                  </div>
-                  <div>
-                    <p className="text-purple-100 font-semibold mb-1">
-                      اذهب إلى طاولتك
-                    </p>
-                    <p className="text-slate-300 text-sm">
-                      {tableNumber ? `طاولة رقم ${tableNumber}` : 'ستظهر لك طاولتك عند تخصيص المجموعات'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-blue-500/10 border border-blue-400/30 rounded-xl">
-                  <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-blue-300 font-bold">2</span>
-                  </div>
-                  <div>
-                    <p className="text-blue-100 font-semibold mb-1">
-                      تعرف على مجموعتك
-                    </p>
-                    <p className="text-slate-300 text-sm">
-                      ستكون مع 3-5 أشخاص آخرين - رحب بهم وابدأ بالتعارف
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-green-500/10 border border-green-400/30 rounded-xl">
-                  <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-green-300 font-bold">3</span>
-                  </div>
-                  <div>
-                    <p className="text-green-100 font-semibold mb-1">
-                      اختر نشاطاً وابدأ
-                    </p>
-                    <p className="text-slate-300 text-sm">
-                      اختاروا من الأنشطة المتاحة واستمتعوا بوقتكم معاً
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-4 bg-orange-500/10 border border-orange-400/30 rounded-xl">
-                  <div className="w-8 h-8 bg-orange-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="w-5 h-5 text-orange-300" />
-                  </div>
-                  <div>
-                    <p className="text-orange-100 font-semibold mb-1">
-                      استمتع وكن منفتحاً
-                    </p>
-                    <p className="text-slate-300 text-sm">
-                      هذه فرصة رائعة لتكوين صداقات جديدة وتبادل الأفكار
-                    </p>
-                  </div>
+              <div className="space-y-3 mb-4">
+                <ul className="space-y-2 text-slate-200 text-sm">
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex w-5 h-5 items-center justify-center rounded-full bg-purple-500/20 text-purple-300 text-[11px] font-bold">1</span>
+                    <span>اذهب إلى طاولتك {tableNumber ? `رقم ${tableNumber}` : 'عند التخصيص'}</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex w-5 h-5 items-center justify-center rounded-full bg-blue-500/20 text-blue-300 text-[11px] font-bold">2</span>
+                    <span>تعرف على مجموعتك (٣–٥ أشخاص) وابدأوا بالتعارف</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex w-5 h-5 items-center justify-center rounded-full bg-green-500/20 text-green-300 text-[11px] font-bold">3</span>
+                    <span>اختروا نشاطاً من القائمة وابدأوا</span>
+                  </li>
+                </ul>
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-400/20 text-amber-100 text-xs">
+                  <Clock className="w-4 h-4" />
+                  <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 30 دقيقة على الأقل</span>
                 </div>
               </div>
 
               {/* Action button */}
               <button
                 onClick={() => { localStorage.setItem('blindmatch_group_guide_seen', 'true'); setShowGroupGuide(false); }}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                className="w-full py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-pink-700 hover:from-purple-700 hover:to-pink-800 text-white font-semibold text-sm shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
               >
                 <span className="flex items-center justify-center gap-2">
                   فهمت، لنبدأ!

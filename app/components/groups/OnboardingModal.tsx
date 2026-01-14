@@ -10,9 +10,10 @@ interface OnboardingModalProps {
   tableNumber: number | null;
   participantNumbers?: number[];           // Prefer numbers instead of names for display
   selfParticipantNumber?: number | null;   // Highlight this participant
+  games?: { id: string; nameAr: string; color: string; icon?: JSX.Element }[]; // Optional games to show
 }
 
-export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, participantNumbers, selfParticipantNumber }: OnboardingModalProps) {
+export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, participantNumbers, selfParticipantNumber, games }: OnboardingModalProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const progress = ((currentSlide + 1) / 4) * 100;
   const overlayRef = useRef<HTMLDivElement | null>(null);
@@ -213,7 +214,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   }, [wipe]);
 
   return (
-    <div ref={overlayRef} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xl p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
+    <div ref={overlayRef} dir="rtl" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xl p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       {/* Cohesive background accents (like PhoneEntry) */}
       <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
@@ -267,6 +268,11 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                 <span className="text-amber-200 text-xs font-bold">Opposites Attract</span>
               </div>
             </div>
+            {/* One-on-one explanation callout */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-400/20 text-blue-100 text-xs sm:text-sm justify-center">
+              <Clock className="w-4 h-4" />
+              <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 30 دقيقة على الأقل</span>
+            </div>
             {/* Greeting on first slide */}
             {currentSlide === 0 && (
               <div className="text-center mb-1">
@@ -297,26 +303,36 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                     </div>
                   )}
                 </div>
-                {(numbersToShow.length ? numbersToShow : [101,102,103]).map((num, i) => {
-                  const isSelf = derivedSelfNumber != null && num === derivedSelfNumber;
-                  return (
-                    <div
-                      key={i}
-                      className={`w-12 h-12 rounded-full bg-white/15 border ${isSelf ? 'border-amber-300 ring-4 ring-amber-300/60 shadow-[0_0_22px_rgba(251,191,36,0.45)] scale-110' : 'border-white/20'} flex items-center justify-center text-white font-bold transition-transform`}
-                      title={`مشارك #${num}`}
-                    >
-                      #{num}
-                    </div>
-                  );
-                })}
+                <div className="flex flex-wrap justify-center gap-2">
+                  {(numbersToShow.length ? numbersToShow : [101,102,103]).map((num, i) => {
+                    const isSelf = derivedSelfNumber != null && num === derivedSelfNumber;
+                    return (
+                      <div
+                        key={i}
+                        className={`px-3 py-1 rounded-full bg-white/10 border ${isSelf ? 'border-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.35)]' : 'border-white/20'} text-white/90 text-sm`}
+                        title={`مشارك #${num}`}
+                      >
+                        #{num}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
             {currentSlide === 1 && (
-              <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
-                {slides[1].details.map((label, i) => (
-                  <div key={i} className="rounded-xl bg-white/10 border border-white/15 p-3 text-center text-white/90 text-sm shadow hover:shadow-lg transition-all">
-                    {label}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {(games && games.length ? games : [
+                  { id: 'discussion-questions', nameAr: 'أسئلة للنقاش', color: 'from-purple-500 to-pink-500' },
+                  { id: 'what-would-you-do', nameAr: 'ماذا تفعل لو', color: 'from-indigo-500 to-blue-600' },
+                  { id: '5-second-rule', nameAr: 'قاعدة الخمس ثواني', color: 'from-orange-500 to-red-500' },
+                  { id: 'charades', nameAr: 'ولا كلمة', color: 'from-green-500 to-teal-500' },
+                  { id: 'never-have-i-ever', nameAr: 'لم أفعل من قبل', color: 'from-blue-500 to-cyan-500' },
+                  { id: 'would-you-rather', nameAr: 'ماذا تفضل', color: 'from-red-500 to-orange-500' }
+                ]).map((g, i) => (
+                  <div key={g.id || i} className="rounded-xl bg-white/10 border border-white/15 p-3 text-center text-white/90 text-sm shadow hover:shadow-lg transition-all">
+                    <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-gradient-to-br ${g.color} flex items-center justify-center text-white`}> {g.icon ?? null} </div>
+                    <div className="font-semibold">{g.nameAr}</div>
                   </div>
                 ))}
               </div>

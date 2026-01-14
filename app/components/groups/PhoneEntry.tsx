@@ -106,6 +106,20 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     }
   }, [wipe]);
 
+  // Entry animation for card
+  useEffect(() => {
+    if (cardRef.current) {
+      animate(
+        cardRef.current!,
+        [
+          { opacity: 0, transform: 'translateY(14px) scale(0.98)' },
+          { opacity: 1, transform: 'translateY(0px) scale(1)' }
+        ] as any,
+        { duration: 0.38, easing: 'cubic-bezier(.22,.61,.36,1)' } as any
+      );
+    }
+  }, []);
+
   return (
     <div className="relative min-h-screen overflow-hidden" dir="rtl">
       {/* Animated gradient background */}

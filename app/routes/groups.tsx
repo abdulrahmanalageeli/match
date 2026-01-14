@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { 
   Clock, 
   Users, 
@@ -1109,6 +1109,24 @@ export default function GroupsPage() {
   // How-to tutorial modal
   const [showHowToModal, setShowHowToModal] = useState(false);
   const [howToSlide, setHowToSlide] = useState(0);
+
+  // Derive participant numbers for the onboarding modal (avoid names)
+  const participantNumbersList = useMemo(() => {
+    const nums: number[] = [];
+    try {
+      for (const gm of groupMembers || []) {
+        if (typeof gm === 'string') {
+          const m = gm.match(/#(\d{1,4})/);
+          if (m && m[1]) {
+            const n = parseInt(m[1], 10);
+            if (Number.isFinite(n)) nums.push(n);
+          }
+        }
+      }
+    } catch {}
+    if (participantNumber && !nums.includes(participantNumber)) nums.unshift(participantNumber);
+    return nums;
+  }, [groupMembers, participantNumber]);
   
   // Timer state
   const [timeRemaining, setTimeRemaining] = useState(SESSION_TOTAL_DURATION);

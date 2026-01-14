@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Smartphone, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { sanitizeToDigits, formatSaudiMobileDisplay, isValidSaudiMobile } from "../../lib/phone";
 import { animate } from "motion";
+import logoPng from "../../welcome/blindmatch.png";
 
 interface PhoneEntryProps {
   onSubmit: (digitsOnly: string) => Promise<void> | void;
@@ -47,6 +48,20 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     setValid(isValidSaudiMobile(d));
   }, []);
 
+  // Progress for underline fill (0..100)
+  const progressPct = useMemo(() => Math.min(digits.length, 10) / 10 * 100, [digits]);
+
+  // Confetti on success
+  const fireConfetti = useCallback(async () => {
+    try {
+      const mod: any = await import("canvas-confetti");
+      const confetti = mod?.default || mod;
+      confetti({ particleCount: 120, spread: 70, startVelocity: 45, ticks: 150, scalar: 0.9, origin: { y: 0.7 } });
+    } catch (_) {
+      // no-op if module not available
+    }
+  }, []);
+
   // Welcome message only when valid and name exists
   const showWelcome = useMemo(() => valid && !!welcomeName, [valid, welcomeName]);
 
@@ -75,7 +90,9 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
           { duration: 0.25, easing: 'ease-out' } as any
         );
       }
-      setTimeout(() => setWipe(true), 120); // small delay then wipe
+      // confetti celebration, then wipe
+      await fireConfetti();
+      setTimeout(() => setWipe(true), 180);
     } catch (err) {
       // Revert on error
       setMorph(false);
@@ -93,10 +110,14 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     <div className="relative min-h-screen overflow-hidden" dir="rtl">
       {/* Animated gradient background */}
       <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
-      {/* Subtle moving dots overlay */}
+      {/* Opposites Attract: Duality orbs */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute top-10 right-10 w-36 h-36 rounded-full bg-white/5 blur-3xl animate-float-particle" />
-        <div className="absolute bottom-20 left-12 w-44 h-44 rounded-full bg-white/5 blur-3xl animate-float-particle-reverse" />
+        {/* Warm orb - top left */}
+        <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-70 animate-orb mix-blend-screen" />
+        {/* Cool orb - bottom right */}
+        <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-70 animate-orb-alt mix-blend-screen" />
+        {/* Premium grain overlay */}
+        <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
       </div>
 
       {/* Screen wipe overlay */}
@@ -112,13 +133,13 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
           {/* Aura behind card */}
           <div className="absolute -inset-8 -z-10 rounded-[28px] bg-[radial-gradient(ellipse_at_center,rgba(99,102,241,0.35),transparent_60%)] animate-pulse-slow" />
 
-          <div ref={cardRef} className="rounded-3xl bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl ring-1 ring-white/10 p-7">
+          <div ref={cardRef} className="rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/15 shadow-2xl ring-1 ring-white/10 p-7">
             <div className="text-center mb-6">
-              <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg ring-4 ring-white/10">
-                <Smartphone className="w-10 h-10 text-white" />
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-white/10 border border-white/20 flex items-center justify-center shadow-lg ring-4 ring-white/5 animate-heartbeat overflow-hidden">
+                <img src={logoPng} alt="Blindmatch" className="w-11 h-11 object-contain" />
               </div>
-              <h1 className="text-2xl font-extrabold text-white mb-1">ادخل بوابتك إلى المجموعة</h1>
-              <p className="text-slate-300 text-sm">أدخل رقم هاتفك للوصول إلى الأنشطة الجماعية</p>
+              <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">أهلاً بك في التوافق الأعمى</h1>
+              <p className="text-slate-200/90 text-sm">أدخل رقمك لنعثر على مجموعتك</p>
               {showWelcome && (
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30">
                   <Sparkles className="w-4 h-4 text-emerald-300" />
@@ -127,26 +148,28 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
               )}
             </div>
 
-            {/* Floating label input */}
-            <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
-              <div className="relative text-right">
+            {/* Friendly underline input */}
+            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+              <div className="relative">
                 <input
                   ref={inputRef}
                   type="tel"
                   inputMode="tel"
-                  placeholder=" "
+                  placeholder="05x xxx xxxx"
                   value={display}
                   onChange={(e) => onChange(e.target.value)}
                   dir="ltr"
                   aria-label="رقم الهاتف"
-                  className="peer w-full rounded-2xl bg-white/5 border border-white/20 focus:border-indigo-400/60 focus:ring-2 focus:ring-indigo-400/30 py-4 pr-4 pl-4 text-white placeholder-transparent outline-none transition-all"
+                  className="w-full bg-transparent border-none outline-none text-white text-center text-3xl tracking-widest placeholder:text-white/30 caret-white selection:bg-white/20 py-3"
                 />
-                <label className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-white/60 transition-all peer-focus:top-2 peer-focus:text-xs peer-focus:text-white/80 peer-placeholder-shown:top-1/2 peer-placeholder-shown:text-base">
-                  رقم الهاتف (05x xxx xxxx)
-                </label>
-                <p className="mt-2 text-slate-400 text-xs">نستخدم آخر <span className="font-semibold text-white/90">7</span> أرقام فقط للتحقق</p>
+                {/* Underline track and fill */}
+                <div className="relative h-[3px]">
+                  <div className="absolute inset-0 bg-white/15 rounded-full" />
+                  <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-600 via-pink-500 to-orange-400 rounded-full" style={{ width: `${progressPct}%` }} />
+                </div>
+                <p className="mt-2 text-slate-300 text-xs text-center">نستخدم آخر <span className="font-semibold text-white/90">7</span> أرقام فقط للتحقق</p>
                 {error && (
-                  <p className="text-red-400 text-sm mt-2">{error}</p>
+                  <p className="text-red-400 text-sm mt-2 text-center">{error}</p>
                 )}
               </div>
 
@@ -159,14 +182,14 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
                     morph ? "w-11 right-1/2 translate-x-1/2" : "w-full"
                   } ${
                     (!valid || loading) ? "opacity-50 cursor-not-allowed" : ""
-                  } bg-gradient-to-r from-indigo-500 to-violet-500 hover:scale-105 hover:brightness-110`}
+                  } bg-gradient-to-r from-orange-400 via-pink-500 to-blue-600 hover:scale-105 hover:brightness-110`}
                   ref={buttonRef}
                 >
                   {/* Spinner when morphing/loading */}
                   {(morph || loading) ? (
                     <span className="inline-block w-5 h-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
                   ) : (
-                    <span>ادخل</span>
+                    <span>انضم</span>
                   )}
                 </button>
               </div>

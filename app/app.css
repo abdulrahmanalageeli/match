@@ -278,6 +278,40 @@
     animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }
 
+  /* Premium grain overlay */
+  .grain-overlay {
+    pointer-events: none;
+    background-image:
+      radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      radial-gradient(rgba(0,0,0,0.02) 1px, transparent 1px);
+    background-size: 3px 3px, 4px 4px;
+    background-position: 0 0, 10px 10px;
+    mix-blend-mode: overlay;
+  }
+
+  /* Orb breathing/float animations for Opposites theme */
+  @keyframes orb-breathe {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(10px, -8px) scale(1.04); }
+    100% { transform: translate(0, 0) scale(1); }
+  }
+  @keyframes orb-breathe-alt {
+    0%   { transform: translate(0, 0) scale(1); }
+    50%  { transform: translate(-8px, 10px) scale(0.98); }
+    100% { transform: translate(0, 0) scale(1); }
+  }
+  .animate-orb { animation: orb-breathe 12s ease-in-out infinite; }
+  .animate-orb-alt { animation: orb-breathe-alt 14s ease-in-out infinite; }
+
+  /* Heartbeat for logo/icon */
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    25%      { transform: scale(1.08); }
+    40%      { transform: scale(1); }
+    60%      { transform: scale(1.06); }
+  }
+  .animate-heartbeat { animation: heartbeat 2.6s ease-in-out infinite; }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-bg-pan, .animate-pulse-slow, .animate-float-particle, .animate-float-particle-reverse {
       animation: none !important;

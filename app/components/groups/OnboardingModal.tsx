@@ -73,14 +73,36 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   const seatGenders = useMemo(() => {
     const count = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
     const arr: ("male" | "female" | null)[] = new Array(count).fill(null);
-    if (participantGenders && participantGenders.length) {
+    // Prefer robust alignment using participantNumbers -> participantGenders mapping
+    if (participantNumbers && participantNumbers.length && participantGenders && participantGenders.length) {
+      const map = new Map<number, "male" | "female" | null>();
+      for (let i = 0; i < participantNumbers.length; i++) {
+        const num = participantNumbers[i];
+        const g = participantGenders[i];
+        map.set(num, g === 'male' || g === 'female' ? g : null);
+      }
+      for (let i = 0; i < count; i++) {
+        const n = numbersToShow[i];
+        if (Number.isFinite(n)) arr[i] = map.get(n) ?? null;
+      }
+    } else if (participantGenders && participantGenders.length) {
+      // Fallback: align by index if numbers not provided
       for (let i = 0; i < Math.min(count, participantGenders.length); i++) {
         const g = participantGenders[i];
         arr[i] = g === 'male' || g === 'female' ? g : null;
       }
     }
     return arr;
-  }, [participantGenders, numbersToShow.length, groupMembers.length]);
+  }, [participantNumbers, participantGenders, numbersToShow.length, groupMembers.length]);
+
+  // Gender summary for display (total/male/female/unknown)
+  const genderSummary = useMemo(() => {
+    const total = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
+    const male = seatGenders.filter(g => g === 'male').length;
+    const female = seatGenders.filter(g => g === 'female').length;
+    const unknown = Math.max(0, total - male - female);
+    return { total, male, female, unknown };
+  }, [seatGenders, numbersToShow.length, groupMembers.length]);
 
   // Seating positions around a circle
   const seatPositions = useMemo(() => {
@@ -336,6 +358,28 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                   {derivedSelfNumber != null && (
                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-100 text-xs">
                       <span>#{derivedSelfNumber}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Gender breakdown chips */}
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs">
+                    <span>عدد المشاركين</span>
+                    <span className="font-bold">{genderSummary.total}</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-100 text-xs">
+                    <span>ذكور</span>
+                    <span className="font-bold">{genderSummary.male}</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-500/20 border border-pink-400/30 text-pink-100 text-xs">
+                    <span>إناث</span>
+                    <span className="font-bold">{genderSummary.female}</span>
+                  </div>
+                  {genderSummary.unknown > 0 && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/20 border border-slate-400/30 text-slate-100 text-xs">
+                      <span>غير محدد</span>
+                      <span className="font-bold">{genderSummary.unknown}</span>
                     </div>
                   )}
                 </div>

@@ -42,6 +42,56 @@ export default async function handler(req, res) {
         console.error("Database error:", error);
         return res.status(500).json({ error: error.message })
       }
+
+    // 🔹 GET GROUP-EXCLUDED PARTICIPANTS (participant2_number = -2)
+    if (action === "get-group-excluded-participants") {
+      try {
+        const { data, error } = await supabase
+          .from("excluded_pairs")
+          .select("id, participant1_number, created_at, reason")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("participant2_number", -2)
+          .order("created_at", { ascending: false })
+
+        if (error) {
+          console.error("Error fetching group-excluded participants:", error)
+          return res.status(500).json({ error: error.message })
+        }
+
+        // Fetch participant names
+        const participantNumbers = (data || []).map(item => item.participant1_number)
+        const { data: participantData, error: participantError } = await supabase
+          .from("participants")
+          .select("assigned_number, name, survey_data")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", participantNumbers)
+
+        if (participantError) {
+          console.error("Error fetching participant names:", participantError)
+        }
+
+        const participantNameMap = new Map()
+        if (participantData) {
+          participantData.forEach(p => {
+            const name = p.name || p.survey_data?.name || p.survey_data?.answers?.name || `المشارك #${p.assigned_number}`
+            participantNameMap.set(p.assigned_number, name)
+          })
+        }
+
+        const groupExcluded = (data || []).map(item => ({
+          id: item.id,
+          participant_number: item.participant1_number,
+          participant_name: participantNameMap.get(item.participant1_number) || `المشارك #${item.participant1_number}`,
+          created_at: item.created_at,
+          reason: item.reason
+        }))
+
+        return res.status(200).json({ groupExcludedParticipants: groupExcluded })
+      } catch (error) {
+        console.error("Error in get-group-excluded-participants:", error)
+        return res.status(500).json({ error: "Failed to fetch group-excluded participants" })
+      }
+    }
       return res.status(200).json({ participants: data })
     }
 
@@ -49,6 +99,55 @@ export default async function handler(req, res) {
     if (method === "POST") {
       if (!action) {
         return res.status(400).json({ error: "Missing action parameter" });
+      }
+
+      // 🔹 GET GROUP-EXCLUDED PARTICIPANTS (participant2_number = -2) via POST
+      if (action === "get-group-excluded-participants") {
+        try {
+          const { data, error } = await supabase
+            .from("excluded_pairs")
+            .select("id, participant1_number, created_at, reason")
+            .eq("match_id", STATIC_MATCH_ID)
+            .eq("participant2_number", -2)
+            .order("created_at", { ascending: false })
+
+          if (error) {
+            console.error("Error fetching group-excluded participants:", error)
+            return res.status(500).json({ error: error.message })
+          }
+
+          const participantNumbers = (data || []).map(item => item.participant1_number)
+          const { data: participantData, error: participantError } = await supabase
+            .from("participants")
+            .select("assigned_number, name, survey_data")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", participantNumbers)
+
+          if (participantError) {
+            console.error("Error fetching participant names:", participantError)
+          }
+
+          const participantNameMap = new Map()
+          if (participantData) {
+            participantData.forEach(p => {
+              const name = p.name || p.survey_data?.name || p.survey_data?.answers?.name || `المشارك #${p.assigned_number}`
+              participantNameMap.set(p.assigned_number, name)
+            })
+          }
+
+          const groupExcluded = (data || []).map(item => ({
+            id: item.id,
+            participant_number: item.participant1_number,
+            participant_name: participantNameMap.get(item.participant1_number) || `المشارك #${item.participant1_number}`,
+            created_at: item.created_at,
+            reason: item.reason
+          }))
+
+          return res.status(200).json({ groupExcludedParticipants: groupExcluded })
+        } catch (error) {
+          console.error("Error in get-group-excluded-participants (POST):", error)
+          return res.status(500).json({ error: "Failed to fetch group-excluded participants" })
+        }
       }
 
       // 🔹 AUTO-PLACE PARTICIPANT INTO BEST GROUP (fills an empty seat)
@@ -3527,10 +3626,10 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 ADD EXCLUDED PARTICIPANT (using excluded_pairs with -1)
+    // 🔹 ADD EXCLUDED PARTICIPANT (using excluded_pairs with -1 / -2 / -10)
     if (action === "add-excluded-participant") {
       try {
-        const { participantNumber, reason = "Admin exclusion - participant excluded from all matching", banPermanently = false } = req.body
+        const { participantNumber, reason = "Admin exclusion - participant excluded from all matching", banPermanently = false, groupOnly = false } = req.body
 
         if (!participantNumber || participantNumber <= 0) {
           return res.status(400).json({ error: "Valid participant number is required" })
@@ -3552,9 +3651,9 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Participant number doesn't exist" })
         }
 
-        // Use -10 for banned participants, -1 for regular exclusions
-        const exclusionCode = banPermanently ? -10 : -1
-        const exclusionType = banPermanently ? "PERMANENTLY BANNED" : "excluded"
+        // Codes: -10 banned, -1 exclude all matching, -2 exclude from group generation only
+        const exclusionCode = groupOnly ? -2 : (banPermanently ? -10 : -1)
+        const exclusionType = groupOnly ? "GROUP-ONLY EXCLUDED" : (banPermanently ? "PERMANENTLY BANNED" : "excluded")
 
         // Insert excluded participant using excluded_pairs table
         const { data, error } = await supabase
@@ -3576,7 +3675,7 @@ export default async function handler(req, res) {
           return res.status(500).json({ error: error.message })
         }
 
-        console.log(`✅ Added ${exclusionType} participant: #${participantNumber} (using ${exclusionCode} in excluded_pairs)`)
+        console.log(`✅ Added ${exclusionType} participant: #${participantNumber} (code ${exclusionCode} in excluded_pairs)`)
         return res.status(200).json({ 
           success: true, 
           excludedParticipant: { 
@@ -3584,9 +3683,12 @@ export default async function handler(req, res) {
             participant_number: participantNumber, 
             created_at: data.created_at, 
             reason: data.reason,
-            is_banned: banPermanently
+            is_banned: banPermanently,
+            group_only: groupOnly
           },
-          message: `Participant #${participantNumber} ${banPermanently ? 'permanently banned' : 'excluded'} from all matching` 
+          message: groupOnly 
+            ? `Participant #${participantNumber} excluded from group generation` 
+            : `Participant #${participantNumber} ${banPermanently ? 'permanently banned' : 'excluded'} from all matching` 
         })
 
       } catch (error) {
@@ -3595,7 +3697,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 🔹 REMOVE EXCLUDED PARTICIPANT (from excluded_pairs with -1 or -10)
+    // 🔹 REMOVE EXCLUDED PARTICIPANT (from excluded_pairs with -1 / -2 / -10)
     if (action === "remove-excluded-participant") {
       try {
         const { id } = req.body
@@ -3604,13 +3706,13 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: "Excluded participant ID is required" })
         }
 
-        // First, get the participant number from the exclusion record
+        // First, get the participant number from the exclusion record (allow -1, -2, -10)
         const { data: exclusionRecord, error: fetchError } = await supabase
           .from("excluded_pairs")
-          .select("participant1_number")
+          .select("participant1_number, participant2_number")
           .eq("id", id)
           .eq("match_id", STATIC_MATCH_ID)
-          .in("participant2_number", [-1, -10])
+          .in("participant2_number", [-1, -2, -10])
           .single()
 
         if (fetchError || !exclusionRecord) {
@@ -3620,7 +3722,7 @@ export default async function handler(req, res) {
 
         const participantNumber = exclusionRecord.participant1_number
 
-        // Delete the exclusion record (participant2_number = -1 or -10)
+        // Delete the exclusion record (participant2_number in {-1, -2, -10})
         const { error: deleteExclusionError } = await supabase
           .from("excluded_pairs")
           .delete()
@@ -3646,7 +3748,7 @@ export default async function handler(req, res) {
         }
 
         const pairsRemoved = deletedPairs?.length || 0
-        console.log(`✅ Removed excluded participant #${participantNumber} and ${pairsRemoved} associated pair(s)`)
+        console.log(`✅ Removed excluded participant #${participantNumber} (code ${exclusionRecord.participant2_number}) and ${pairsRemoved} associated pair(s)`)
         
         return res.status(200).json({ 
           success: true,

@@ -298,14 +298,14 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     <div ref={overlayRef} dir="rtl" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-2xl p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       {/* Cohesive background accents (like PhoneEntry) */}
       <div className="pointer-events-none absolute inset-0 z-0">
-        <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
-        <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
+        <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-linear-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-60 animate-orb mix-blend-screen" />
+        <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-linear-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
         <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
       </div>
       {/* Screen wipe overlay */}
       {wipe && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center">
-          <div ref={wipeRef} className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-full w-12 h-12" style={{ transform: 'scale(0)' }} />
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div ref={wipeRef} className="bg-linear-to-r from-indigo-600 to-violet-600 rounded-full w-12 h-12" style={{ transform: 'scale(0)' }} />
         </div>
       )}
       <div className="relative z-10 w-full max-w-md">
@@ -320,7 +320,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         {/* Main card */}
         <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[80vh] min-h-0">
           {/* Header with animated gradient */}
-          <div className={`bg-gradient-to-r ${currentSlideData.color} ${superCompact ? 'p-2' : compact ? 'p-3' : 'p-6 sm:p-8'} text-center relative overflow-hidden`}>
+          <div className={`bg-linear-to-r ${currentSlideData.color} ${superCompact ? 'p-2' : compact ? 'p-3' : 'p-6 sm:p-8'} text-center relative overflow-hidden`}>
             <div className="absolute inset-0 bg-black/10"></div>
             {/* Top progress bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-white/20">
@@ -410,7 +410,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                 {/* Table & chairs visualization */}
                 <div className={`relative w-full max-w-sm ${superCompact ? 'aspect-3/4' : compact ? 'aspect-5/6' : 'aspect-square'} mt-2`}>
                   {/* Table */}
-                  <div className="absolute inset-[14%] rounded-full bg-gradient-to-br from-slate-700/60 to-slate-800/60 border border-white/10 flex items-center justify-center text-white/90">
+                  <div className="absolute inset-[14%] rounded-full bg-linear-to-br from-slate-700/60 to-slate-800/60 border border-white/10 flex items-center justify-center text-white/90">
                     <div className="text-center">
                       <div className="text-xs text-white/70">طاولتك</div>
                       <div className="text-xl font-extrabold">{typeof tableNumber === 'number' ? tableNumber : '—'}</div>
@@ -428,7 +428,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                     const g = seatGenders[idx];
                     const genderLabel = g === 'male' ? 'ذكر' : g === 'female' ? 'أنثى' : '—';
                     const baseCls = isSelf
-                      ? 'bg-gradient-to-br from-amber-400 to-pink-400 text-slate-900 border-amber-200 shadow-[0_0_24px_rgba(251,191,36,0.45)]'
+                      ? 'bg-linear-to-br from-amber-400 to-pink-400 text-slate-900 border-amber-200 shadow-[0_0_24px_rgba(251,191,36,0.45)]'
                       : (g === 'male'
                           ? 'bg-blue-500/25 text-blue-100 border-blue-300/40'
                           : g === 'female'
@@ -467,7 +467,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                   { id: 'would-you-rather', nameAr: 'ماذا تفضل', color: 'from-red-500 to-orange-500' }
                 ]).map((g, i) => (
                   <div key={g.id || i} className="rounded-xl bg-white/10 border border-white/15 p-3 text-center text-white/90 text-sm shadow hover:shadow-lg transition-all">
-                    <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-gradient-to-br ${g.color} flex items-center justify-center text-white`}> {g.icon ?? null} </div>
+                    <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-linear-to-br ${g.color} flex items-center justify-center text-white`}> {g.icon ?? null} </div>
                     <div className="font-semibold">{g.nameAr}</div>
                   </div>
                 ))}
@@ -508,7 +508,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
               )}
               <Button
                 onClick={handleNext}
-                className={`flex-1 ${isLastSlide ? 'animate-pulse shadow-[0_0_32px_rgba(255,255,255,0.25)]' : ''} bg-gradient-to-r ${currentSlideData.color} hover:opacity-90 text-white font-extrabold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]`}
+                className={`flex-1 ${isLastSlide ? 'animate-pulse shadow-[0_0_32px_rgba(255,255,255,0.25)]' : ''} bg-linear-to-r ${currentSlideData.color} hover:opacity-90 text-white font-extrabold shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]`}
               >
                 {isLastSlide ? (
                   <>

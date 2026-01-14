@@ -3023,6 +3023,8 @@ export default async function handler(req, res) {
 
     // Fetch excluded participants from database (prefer new excluded_participants table; fallback to legacy excluded_pairs)
     let excludedParticipants = []
+    // Group-only exclusions (legacy: excluded_pairs with participant2_number = -2)
+    let groupOnlyExcluded = []
     try {
       // New table
       const { data: exclNew, error: exclNewErr } = await supabase
@@ -3043,6 +3045,21 @@ export default async function handler(req, res) {
         } else {
           excludedParticipants = (exclLegacy || []).map(item => ({ participant_number: item.participant1_number }))
         }
+      }
+      // Group-only exclusions from legacy table (-2)
+      try {
+        const { data: exclGroupOnly, error: exclGroupErr } = await supabase
+          .from("excluded_pairs")
+          .select("participant1_number")
+          .eq("match_id", match_id)
+          .eq("participant2_number", -2)
+        if (exclGroupErr) {
+          console.error("Error fetching group-only excluded participants:", exclGroupErr)
+        } else {
+          groupOnlyExcluded = (exclGroupOnly || []).map(row => ({ participant_number: row.participant1_number }))
+        }
+      } catch (e) {
+        console.error("Error in group-only exclusion fetch:", e)
       }
     } catch (excludedParticipantsError) {
       console.error("Error fetching excluded participants:", excludedParticipantsError)
@@ -3102,6 +3119,18 @@ export default async function handler(req, res) {
       const before = eligibleParticipants.length
       eligibleParticipants = eligibleParticipants.filter(p => p.PAID_DONE)
       console.log(`💰 Paid-only filter: ${eligibleParticipants.length}/${before} participants (PAID_DONE=true)`)
+    }
+
+    // Apply group-only exclusions only for group generation
+    if (matchType === "group" && groupOnlyExcluded && groupOnlyExcluded.length > 0) {
+      const before = eligibleParticipants.length
+      const groupOnlyNums = new Set(groupOnlyExcluded.map(x => x.participant_number))
+      eligibleParticipants = eligibleParticipants.filter(p => !groupOnlyNums.has(p.assigned_number))
+      const removed = before - eligibleParticipants.length
+      console.log(`🚫 Group-only exclusions active: removed ${removed} participant(s) from group generation (${eligibleParticipants.length}/${before} remain)`) 
+      if (removed > 0) {
+        console.log("   Group-only excluded numbers:", Array.from(groupOnlyNums).join(", "))
+      }
     }
 
     // Handle view all matches for a single participant

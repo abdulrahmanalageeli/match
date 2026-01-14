@@ -113,6 +113,26 @@ export default function AdminPage() {
   const [excludedParticipants, setExcludedParticipants] = useState<Array<{id: string, participant_number: number, participant_name?: string, created_at: string, reason: string, is_banned?: boolean}>>([])
   const [newExcludedParticipant, setNewExcludedParticipant] = useState('')
   const [banPermanently, setBanPermanently] = useState(false)
+  const [groupOnlyExclude, setGroupOnlyExclude] = useState(false)
+  const [groupExcludedParticipants, setGroupExcludedParticipants] = useState<Array<{id: string, participant_number: number, participant_name?: string, created_at: string, reason: string}>>([])
+
+  const fetchGroupExcludedParticipants = async () => {
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "get-group-excluded-participants" }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setGroupExcludedParticipants(data.groupExcludedParticipants || [])
+      } else {
+        console.error("Failed to fetch group-excluded participants:", data.error)
+      }
+    } catch (error) {
+      console.error("Error fetching group-excluded participants:", error)
+    }
+  }
   
   // Delta cache count
   const [deltaCacheCount, setDeltaCacheCount] = useState(0)
@@ -212,6 +232,8 @@ export default function AdminPage() {
         toast.error(data?.error || 'Failed to fetch previous event candidates')
         return
       }
+
+  
 
   const toggleGroupsLocked = async () => {
     try {
@@ -1748,6 +1770,7 @@ const fetchParticipants = async () => {
       fetchParticipants()
       fetchExcludedPairs()
       fetchExcludedParticipants()
+      fetchGroupExcludedParticipants()
     }
   }, [])
 
@@ -2022,10 +2045,13 @@ const fetchParticipants = async () => {
         body: JSON.stringify({ 
           action: "add-excluded-participant",
           participantNumber: participantNumber,
-          reason: banPermanently 
-            ? "Admin exclusion - PERMANENTLY BANNED from all matching" 
-            : "Admin exclusion - participant excluded from all matching",
-          banPermanently: banPermanently
+          reason: groupOnlyExclude
+            ? "Admin exclusion - participant excluded from group generation only"
+            : (banPermanently 
+                ? "Admin exclusion - PERMANENTLY BANNED from all matching" 
+                : "Admin exclusion - participant excluded from all matching"),
+          banPermanently: groupOnlyExclude ? false : banPermanently,
+          groupOnly: groupOnlyExclude
         }),
       })
       const data = await res.json()
@@ -2033,7 +2059,9 @@ const fetchParticipants = async () => {
       if (res.ok) {
         setNewExcludedParticipant('')
         setBanPermanently(false) // Reset checkbox
+        setGroupOnlyExclude(false)
         await fetchExcludedParticipants() // Refresh the list
+        await fetchGroupExcludedParticipants()
         toast.success(data.message)
       } else {
         toast.error(data.error)
@@ -2058,6 +2086,7 @@ const fetchParticipants = async () => {
       
       if (res.ok) {
         await fetchExcludedParticipants() // Refresh the excluded participants list
+        await fetchGroupExcludedParticipants() // Refresh the group-only list
         await fetchExcludedPairs() // Refresh the excluded pairs list since we deleted associated pairs
         
         // Show success message with details about removed pairs
@@ -4213,6 +4242,32 @@ Proceed?`
                 )}
               </div>
             </div>
+
+            {/* Group-only Excluded Participants */}
+            <div className="space-y-4">
+              <h4 className="text-white font-medium">Group-only Excluded ({groupExcludedParticipants.length})</h4>
+              <div className="space-y-2 max-h-32 overflow-y-auto">
+                {groupExcludedParticipants.length === 0 ? (
+                  <p className="text-slate-400 text-sm">No group-only exclusions</p>
+                ) : (
+                  groupExcludedParticipants.map((participant: any) => (
+                    <div key={participant.id} className="flex items-center justify-between bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg px-3 py-2">
+                      <div className="flex flex-col">
+                        <span className="text-white text-sm">#{participant.participant_number} - {participant.participant_name || `المشارك #${participant.participant_number}`}</span>
+                        <span className="text-xs text-slate-400">Excluded from group generation only</span>
+                      </div>
+                      <button
+                        onClick={() => removeExcludedParticipant(participant.id)}
+                        className="text-cyan-300 hover:text-cyan-200 transition-colors"
+                        title="Remove group-only exclusion"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -4268,11 +4323,33 @@ Proceed?`
                     Ban permanently (uses -10 instead of -1)
                   </label>
                 </div>
+
+                {/* Group-only Exclusion Checkbox */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="groupOnlyExclude"
+                    checked={groupOnlyExclude}
+                    onChange={(e) => { setGroupOnlyExclude(e.target.checked); if (e.target.checked) setBanPermanently(false) }}
+                    className="w-4 h-4 text-cyan-600 bg-white/10 border-white/20 rounded focus:ring-cyan-500 focus:ring-2"
+                  />
+                  <label htmlFor="groupOnlyExclude" className="text-cyan-300 text-sm font-medium cursor-pointer">
+                    Exclude from group generation only (uses -2)
+                  </label>
+                </div>
               </div>
               
               <p className="text-slate-400 text-xs">
-                ⚠️ This participant will be excluded from ALL matching (individual and group)
-                {banPermanently && (
+                {groupOnlyExclude ? (
+                  <span>
+                    ⚠️ This participant will be excluded from <span className="text-cyan-300 font-semibold">group generation only</span> (still eligible for individual matching)
+                  </span>
+                ) : (
+                  <span>
+                    ⚠️ This participant will be excluded from <span className="font-semibold">ALL matching</span> (individual and group)
+                  </span>
+                )}
+                {banPermanently && !groupOnlyExclude && (
                   <span className="block text-red-300 font-medium mt-1">
                     🚫 PERMANENT BAN: This participant will be marked with -10 for permanent exclusion
                   </span>

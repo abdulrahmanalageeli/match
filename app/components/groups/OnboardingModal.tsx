@@ -328,11 +328,11 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
             <div className={`absolute top-0 left-0 right-0 ${ultraCompact ? 'h-0.5' : 'h-1'} bg-white/20`}>
               <div ref={progressRef} className="h-full bg-white/80" style={{ width: `${progress}%` }} />
             </div>
-            <div className={`relative z-10 flex flex-col items-center ${ultraCompact ? 'space-y-2' : 'space-y-2'}`}>
-              <div ref={iconRef} className={`${ultraCompact ? 'w-10 h-10 [&_svg]:w-6 [&_svg]:h-6' : superCompact ? 'w-12 h-12 [&_svg]:w-8 [&_svg]:h-8' : compact ? 'w-14 h-14 [&_svg]:w-9 [&_svg]:h-9' : 'w-14 h-14 [&_svg]:w-9 [&_svg]:h-9'} rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white ${compact || superCompact || ultraCompact ? '' : 'animate-heartbeat'} ${compact ? 'scale-95' : ''}`}>
+            <div className={`relative z-10 flex flex-col items-center ${ultraCompact ? 'space-y-1' : 'space-y-1'}`}>
+              <div ref={iconRef} className={`${ultraCompact ? 'w-9 h-9 [&_svg]:w-5 [&_svg]:h-5' : superCompact ? 'w-10 h-10 [&_svg]:w-6 [&_svg]:h-6' : compact ? 'w-12 h-12 [&_svg]:w-8 [&_svg]:h-8' : 'w-12 h-12 [&_svg]:w-8 [&_svg]:h-8'} rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white ${compact || superCompact || ultraCompact ? '' : 'animate-heartbeat'} ${compact ? 'scale-95' : ''}`}>
                 {currentSlideData.icon}
               </div>
-              <h2 className={`${ultraCompact ? 'text-lg' : superCompact ? 'text-xl' : compact ? 'text-xl' : 'text-2xl'} font-extrabold text-white leading-tight`}>
+              <h2 className={`${ultraCompact ? 'text-base' : superCompact ? 'text-lg' : compact ? 'text-lg' : 'text-xl'} font-extrabold text-white leading-none`}>
                 {currentSlideData.title}
               </h2>
             </div>

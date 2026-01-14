@@ -166,7 +166,6 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
                   <div className="absolute inset-0 bg-white/15 rounded-full" />
                   <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-blue-600 via-pink-500 to-orange-400 rounded-full" style={{ width: `${progressPct}%` }} />
                 </div>
-                <p className="mt-2 text-slate-300 text-xs text-center">نستخدم آخر <span className="font-semibold text-white/90">7</span> أرقام فقط للتحقق</p>
                 {error && (
                   <p className="text-red-400 text-sm mt-2 text-center">{error}</p>
                 )}

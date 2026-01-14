@@ -322,7 +322,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         {/* Main card */}
         <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[80vh] min-h-0">
           {/* Header with animated gradient */}
-          <div className={`bg-linear-to-r ${currentSlideData.color} ${ultraCompact ? 'p-2' : superCompact ? 'p-3' : compact ? 'p-4' : 'py-10 px-6 sm:py-12 sm:px-8'} text-center relative overflow-hidden`}>
+          <div className={`bg-linear-to-r ${currentSlideData.color} ${ultraCompact ? 'p-2' : superCompact ? 'p-3' : compact ? 'p-4' : 'py-12 px-6 sm:py-16 sm:px-8'} text-center relative overflow-hidden`}>
             <div className="absolute inset-0 bg-black/10"></div>
             {/* Top progress bar */}
             <div className={`absolute top-0 left-0 right-0 ${ultraCompact ? 'h-0.5' : 'h-1'} bg-white/20`}>

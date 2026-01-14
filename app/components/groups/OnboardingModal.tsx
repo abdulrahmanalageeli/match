@@ -69,9 +69,17 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     return base; // full list (3–6)
   }, [participantNumbers, groupMembers, derivedSelfNumber]);
 
+  // Desired seat count: prefer participantNumbers length, else groupMembers length, clamped to [3,6]
+  const desiredSeatCount = useMemo(() => {
+    const numbersLen = Array.isArray(participantNumbers) ? participantNumbers.length : 0;
+    const membersLen = Array.isArray(groupMembers) ? groupMembers.length : 0;
+    const len = numbersLen >= 3 ? numbersLen : membersLen;
+    return Math.max(3, Math.min(6, len || 3));
+  }, [participantNumbers, groupMembers.length]);
+
   // Derive aligned genders for seats (fallback nulls)
   const seatGenders = useMemo(() => {
-    const count = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
+    const count = desiredSeatCount;
     const arr: ("male" | "female" | null)[] = new Array(count).fill(null);
     // Prefer robust alignment using participantNumbers -> participantGenders mapping
     if (participantNumbers && participantNumbers.length && participantGenders && participantGenders.length) {
@@ -93,20 +101,20 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       }
     }
     return arr;
-  }, [participantNumbers, participantGenders, numbersToShow.length, groupMembers.length]);
+  }, [participantNumbers, participantGenders, numbersToShow, desiredSeatCount]);
 
   // Gender summary for display (total/male/female/unknown)
   const genderSummary = useMemo(() => {
-    const total = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
+    const total = desiredSeatCount;
     const male = seatGenders.filter(g => g === 'male').length;
     const female = seatGenders.filter(g => g === 'female').length;
     const unknown = Math.max(0, total - male - female);
     return { total, male, female, unknown };
-  }, [seatGenders, numbersToShow.length, groupMembers.length]);
+  }, [seatGenders, desiredSeatCount]);
 
   // Seating positions around a circle
   const seatPositions = useMemo(() => {
-    const count = Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3));
+    const count = desiredSeatCount;
     const positions: { top: string; left: string }[] = [];
     const radius = 38; // percent-based radius inside container
     const center = { x: 50, y: 50 };
@@ -118,9 +126,9 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       positions.push({ top: `${y}%`, left: `${x}%` });
     }
     return positions;
-  }, [numbersToShow.length, groupMembers.length]);
+  }, [desiredSeatCount]);
 
-  const seatCount = useMemo(() => Math.max(3, Math.min(6, numbersToShow.length || groupMembers.length || 3)), [numbersToShow.length, groupMembers.length]);
+  const seatCount = useMemo(() => desiredSeatCount, [desiredSeatCount]);
   const selfIndex = useMemo(() => {
     if (derivedSelfNumber == null) return 0;
     const idx = numbersToShow.findIndex(n => n === derivedSelfNumber);

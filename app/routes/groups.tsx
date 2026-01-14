@@ -1764,6 +1764,44 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
+      // Fetch group genders/numbers for onboarding visualization (digits flow)
+      try {
+        const eventStateRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-current-event-id" })
+        });
+        let currentEventId = 1;
+        if (eventStateRes.ok) {
+          const eventState = await eventStateRes.json();
+          currentEventId = eventState.current_event_id || 1;
+        }
+        const groupRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-group-matches", event_id: currentEventId })
+        });
+        if (groupRes.ok) {
+          const groupData = await groupRes.json();
+          const userGroup = groupData.groups?.find((group: any) => {
+            const participantNumbers = group.participant_numbers || [];
+            return participantNumbers.includes(data.assigned_number) || 
+                   participantNumbers.includes(String(data.assigned_number)) ||
+                   participantNumbers.map(String).includes(String(data.assigned_number));
+          });
+          if (userGroup) {
+            const nums: number[] = Array.isArray(userGroup.participant_numbers)
+              ? userGroup.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
+              : [];
+            setGroupParticipantNumbers(nums);
+            const gens: ("male"|"female"|null)[] = Array.isArray(userGroup.participant_genders)
+              ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
+              : [];
+            setGroupParticipantGenders(gens);
+          }
+        }
+      } catch(_) {}
+
       // Allow PhoneEntry screen-wipe to play smoothly before swapping pages
       setJoiningTransition(true);
       setTimeout(() => {
@@ -3217,7 +3255,7 @@ export default function GroupsPage() {
         onClose={() => setShowPromptTopicsModal(false)}
       />
       {/* Personalized onboarding after successful login */}
-      {showOnboarding && (
+      {showOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
         <OnboardingModal
           isOpen={showOnboarding}
           onClose={() => setShowOnboarding(false)}
@@ -3489,7 +3527,7 @@ export default function GroupsPage() {
         open={showPromptTopicsModal}
         onClose={() => setShowPromptTopicsModal(false)}
       />
-      {showOnboarding && (
+      {showOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
         <OnboardingModal
           isOpen={showOnboarding}
           onClose={() => setShowOnboarding(false)}

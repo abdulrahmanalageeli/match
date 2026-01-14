@@ -208,14 +208,16 @@ export default async function handler(req, res) {
         if (!eventErr && eventRow?.current_event_id) {
           currentEventId = eventRow.current_event_id
         } else if (eventErr && eventErr.code === 'PGRST116') {
-          // Fallback: use maximum event_id from participants or match_results
-          const [maxP, maxM] = await Promise.all([
+          // Fallback: use maximum event_id from participants, match_results, or group_matches
+          const [maxP, maxM, maxG] = await Promise.all([
             supabase.from("participants").select("event_id").order("event_id", { ascending: false }).limit(1).single(),
             supabase.from("match_results").select("event_id").order("event_id", { ascending: false }).limit(1).single(),
+            supabase.from("group_matches").select("event_id").order("event_id", { ascending: false }).limit(1).single(),
           ])
           let maxId = 1
           if (!maxP.error && maxP.data?.event_id) maxId = Math.max(maxId, maxP.data.event_id)
           if (!maxM.error && maxM.data?.event_id) maxId = Math.max(maxId, maxM.data.event_id)
+          if (!maxG.error && maxG.data?.event_id) maxId = Math.max(maxId, maxG.data.event_id)
           currentEventId = maxId
         }
       } catch (e) {

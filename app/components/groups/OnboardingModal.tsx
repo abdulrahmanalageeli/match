@@ -322,24 +322,20 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         {/* Main card */}
         <div ref={cardRef} className="bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[82dvh] sm:max-h-[80vh] min-h-0">
           {/* Header with animated gradient */}
-          <div className={`bg-linear-to-r ${currentSlideData.color} ${ultraCompact ? 'p-1.5' : superCompact ? 'p-2' : compact ? 'p-3' : 'p-6 sm:p-8'} text-center relative overflow-hidden`}>
+          <div className={`bg-linear-to-r ${currentSlideData.color} p-2 text-center relative overflow-hidden`}>
             <div className="absolute inset-0 bg-black/10"></div>
             {/* Top progress bar */}
-            <div className={`absolute top-0 left-0 right-0 ${ultraCompact ? 'h-0.5' : 'h-1'} bg-white/20`}>
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-white/20">
               <div ref={progressRef} className="h-full bg-white/80" style={{ width: `${progress}%` }} />
             </div>
-            <div className={`relative z-10 flex flex-col items-center ${ultraCompact ? 'space-y-2' : 'space-y-3'}`}>
-              <div ref={iconRef} className={`${ultraCompact ? 'w-10 h-10 [&_svg]:w-6 [&_svg]:h-6' : superCompact ? 'w-12 h-12 [&_svg]:w-8 [&_svg]:h-8' : compact ? 'w-16 h-16 [&_svg]:w-10 [&_svg]:h-10' : 'w-20 h-20 [&_svg]:w-12 [&_svg]:h-12'} rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white ${compact || superCompact || ultraCompact ? '' : 'animate-heartbeat'} ${compact ? 'scale-95' : ''}`}>
+            <div className="relative z-10 flex flex-col items-center space-y-1">
+              <div ref={iconRef} className="w-8 h-8 [&_svg]:w-4 [&_svg]:h-4 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
                 {currentSlideData.icon}
               </div>
-              <h2 className={`${ultraCompact ? 'text-lg' : superCompact ? 'text-xl' : compact ? 'text-2xl' : 'text-3xl'} font-extrabold text-white leading-tight`}>
+              <h2 className="text-sm font-bold text-white leading-tight px-2">
                 {currentSlideData.title}
               </h2>
             </div>
-
-            {/* Decorative elements */}
-            <div className="absolute top-4 right-4 w-20 h-20 bg-white/5 rounded-full blur-2xl"></div>
-            <div className="absolute bottom-4 left-4 w-16 h-16 bg-white/5 rounded-full blur-xl"></div>
           </div>
 
           {/* Content */}

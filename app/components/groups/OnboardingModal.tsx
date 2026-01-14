@@ -21,6 +21,15 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   const progressRef = useRef<HTMLDivElement | null>(null);
   const iconRef = useRef<HTMLDivElement | null>(null);
 
+  // Welcome name for personalization
+  const [welcomeName, setWelcomeName] = useState<string | null>(null);
+  useEffect(() => {
+    try {
+      const name = localStorage.getItem('blindmatch_participant_name');
+      if (name && name.trim()) setWelcomeName(name);
+    } catch {}
+  }, []);
+
   // Derive self participant number if not provided via props
   const derivedSelfNumber = useMemo(() => {
     if (selfParticipantNumber != null) return selfParticipantNumber;
@@ -87,7 +96,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     {
       icon: <Clock className="w-16 h-16" />,
       title: "الوقت المتاح",
-      description: " لديك 30 دقيقة من المتعة والترابط",
+      description: " لديك 45 دقيقة من المتعة والترابط",
       color: "from-rose-500 to-pink-600",
       details: ["جاهز؟ العداد ممتلئ للبداية!"]
     },
@@ -99,11 +108,13 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         : "أنت جاهز للبدء",
       color: "from-orange-500 to-purple-600",
       details: groupMembers.length > 0 ? [
-        "تأكد أن جميع أعضاء المجموعة حاضرون",
-        "اختاروا لعبة معاً للبدء",
+        "تأكد أن جميع أعضاء المجموعة حاضرون (٣-٦ مشاركين)",
+        "يمكنكم التبديل بين الألعاب في أي وقت",
+        "بعد الأنشطة الجماعية ستنتقل إلى جلسات فردية 1-ل-1 لمدة 30 دقيقة على الأقل",
         "استمتعوا ولا تنسوا التفاعل مع بعض!"
       ] : [
         "انتظر تنسيق المجموعة",
+        "بعد الأنشطة الجماعية ستنتقل إلى جلسات فردية 1-ل-1 لمدة 30 دقيقة على الأقل",
         "أو ابدأ التصفح الآن"
       ]
     }
@@ -230,6 +241,15 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
 
           {/* Content */}
           <div ref={slideAreaRef} className="p-8 space-y-6">
+            {/* Greeting on first slide */}
+            {currentSlide === 0 && (
+              <div className="text-center mb-1">
+                <div className="text-white/90 text-xl font-extrabold animate-in fade-in duration-300">
+                  {`مرحباً${welcomeName ? `، ${welcomeName}` : ''}!`}
+                </div>
+              </div>
+            )}
+
             <p className="text-slate-200 text-center text-lg leading-relaxed animate-slide-in-up">
               {currentSlideData.description}
             </p>
@@ -275,7 +295,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
                   <circle cx="60" cy="60" r="50" stroke="#ffffff22" strokeWidth="10" fill="none" />
                   <circle cx="60" cy="60" r="50" stroke="url(#gradPink)" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="314" strokeDashoffset="0" />
                 </svg>
-                <div className="text-4xl font-extrabold text-white">30 دقيقة</div>
+                <div className="text-4xl font-extrabold text-white">45 دقيقة</div>
                 <div className="text-sm text-white/80">انطلقوا الآن — الوقت يبدأ عند البدء</div>
               </div>
             )}

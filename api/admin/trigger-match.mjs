@@ -1612,7 +1612,11 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       const pool = Array.from(rem)
       let chunk = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
       if (!chunk) {
-        console.log(`⚠️ Could not find strict (no matched pairs) group of size ${size} from remaining pool; skipping this size`)
+        console.log(`⚠️ Could not find strict (no matched pairs) group of size ${size} from remaining pool — trying RELAXED fallback`)
+        chunk = findBestGroup(pool, pairScores, size, eligibleParticipants, areMatched)
+      }
+      if (!chunk) {
+        console.log(`❌ Even relaxed fallback failed for size ${size}; will revisit in final inclusion pass`)
         continue
       }
       // Place selected chunk
@@ -1638,11 +1642,24 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     let idx = pickByCapacity(4) // up to 3 -> 4
     if (idx === undefined) idx = pickByCapacity(5) // up to 4 -> 5
     if (idx === undefined) idx = pickByCapacity(6) // last resort to 6
+    if (idx === undefined) {
+      // Relaxed placement (ignore matched-pair constraint) to ensure inclusion
+      const allGroups = groups.map((g, i) => ({ i, size: g.length }))
+      const pickRelaxed = (maxSize) =>
+        allGroups
+          .filter(({ size }) => size < maxSize)
+          .map(({ i }) => i)
+          .sort((a, b) => calculateParticipantGroupCompatibility(extraParticipant, groups[b], pairScores) - calculateParticipantGroupCompatibility(extraParticipant, groups[a], pairScores))[0]
+      idx = pickRelaxed(4) ?? pickRelaxed(5) ?? pickRelaxed(6)
+      if (idx !== undefined) {
+        console.log(`🟠 Relaxed placement: placing #${extraParticipant} into group ${idx + 1} (ignoring matched-pair constraint as a last resort)`) 
+      }
+    }
     if (idx !== undefined) {
       groups[idx].push(extraParticipant)
       console.log(`✅ Added participant ${extraParticipant} to group ${idx + 1}: [${groups[idx].join(', ')}]`)
     } else {
-      console.log(`⚠️ No safe group to place ${extraParticipant} without creating matched pair; leaving unplaced`)
+      console.log(`⚠️ No group with capacity to place ${extraParticipant}; will handle in final inclusion pass`)
     }
   } else if (remainingParticipants.length === 2) {
     // 2 extra people - add both safely without creating matched pairs, preferring groups <= 4 final size
@@ -1670,17 +1687,39 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         .sort((a, b) => b.score - a.score)[0]?.i
 
       let g1 = pickSafe(extra1, 4) ?? pickSafe(extra1, 5) ?? pickSafe(extra1, 6)
+      if (g1 == null) {
+        // Relaxed placement for extra1
+        const allGroups = groups.map((g, i) => ({ i, size: g.length }))
+        const pickRelaxed = (p, maxSize) =>
+          allGroups
+            .filter(({ size }) => size < maxSize)
+            .map(({ i }) => i)
+            .sort((a, b) => calculateParticipantGroupCompatibility(p, groups[b], pairScores) - calculateParticipantGroupCompatibility(p, groups[a], pairScores))[0]
+        g1 = pickRelaxed(extra1, 4) ?? pickRelaxed(extra1, 5) ?? pickRelaxed(extra1, 6)
+        if (g1 != null) console.log(`🟠 Relaxed placement: placing #${extra1} into group ${g1 + 1}`)
+      }
       if (g1 != null) {
         groups[g1].push(extra1)
       } else {
-        console.log(`⚠️ No safe group to place ${extra1}; leaving unplaced`)
+        console.log(`⚠️ No group with capacity to place ${extra1}; will handle in final inclusion pass`)
       }
 
       let g2 = pickSafe(extra2, 4) ?? pickSafe(extra2, 5) ?? pickSafe(extra2, 6)
+      if (g2 == null) {
+        // Relaxed placement for extra2
+        const allGroups = groups.map((g, i) => ({ i, size: g.length }))
+        const pickRelaxed = (p, maxSize) =>
+          allGroups
+            .filter(({ size }) => size < maxSize)
+            .map(({ i }) => i)
+            .sort((a, b) => calculateParticipantGroupCompatibility(p, groups[b], pairScores) - calculateParticipantGroupCompatibility(p, groups[a], pairScores))[0]
+        g2 = pickRelaxed(extra2, 4) ?? pickRelaxed(extra2, 5) ?? pickRelaxed(extra2, 6)
+        if (g2 != null) console.log(`🟠 Relaxed placement: placing #${extra2} into group ${g2 + 1}`)
+      }
       if (g2 != null) {
         groups[g2].push(extra2)
       } else {
-        console.log(`⚠️ No safe group to place ${extra2}; leaving unplaced`)
+        console.log(`⚠️ No group with capacity to place ${extra2}; will handle in final inclusion pass`)
       }
       console.log(`✅ Attempted split for two participants across groups (avoiding matched pairs, preferring <=4/5)`)
     }
@@ -1693,7 +1732,14 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         groups.push([...group3])
         console.log(`✅ Created new gender-balanced group of 3: [${group3.join(', ')}]`)
       } else {
-        console.log(`⚠️ Could not create a safe group of 3 without matched pairs; leaving these 3 unplaced: [${remainingParticipants.join(', ')}]`)
+        console.log(`⚠️ Could not create a safe group of 3 without matched pairs; trying RELAXED 3-person fallback`)
+        const relaxed3 = findBestGroup(remainingParticipants, pairScores, 3, eligibleParticipants, areMatched)
+        if (relaxed3) {
+          groups.push([...relaxed3])
+          console.log(`🟠 Relaxed 3-person group created: [${relaxed3.join(', ')}]`)
+        } else {
+          console.log(`❌ Could not create any 3-person group even with relaxed fallback; deferring to final inclusion pass: [${remainingParticipants.join(', ')}]`)
+        }
       }
     } else {
       // Distribute among existing groups (avoid matched pairs, prefer making 4 or 5, avoid 6 if possible)
@@ -1724,7 +1770,19 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
           groups.push([...group3])
           console.log(`✅ Created new safe group of 3 from unplaced: [${group3.join(', ')}]`)
         } else {
-          console.log(`⚠️ Could not safely group last 3 without matched pairs; they remain unplaced: [${unplaced.join(', ')}]`)
+          console.log(`⚠️ Could not safely group last 3 without matched pairs; trying RELAXED 3-person fallback`)
+          const relaxed3 = findBestGroup(unplaced, pairScores, 3, eligibleParticipants, areMatched)
+          if (relaxed3) {
+            groups.push([...relaxed3])
+            console.log(`🟠 Relaxed 3-person group created from unplaced: [${relaxed3.join(', ')}]`)
+            // Remove placed from unplaced set
+            for (const p of relaxed3) {
+              const idx = unplaced.indexOf(p)
+              if (idx >= 0) unplaced.splice(idx, 1)
+            }
+          } else {
+            console.log(`❌ Could not form 3-person group even with relaxed fallback; leaving these for final inclusion: [${unplaced.join(', ')}]`)
+          }
         }
       } else if (unplaced.length > 0) {
         console.log(`⚠️ Could not place ${unplaced.length} participant(s) without creating matched pairs or exceeding size; excluded: [${unplaced.join(', ')}]`)
@@ -1743,9 +1801,28 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   console.log(`   Participants in groups: ${participantsInGroups.size}/${eligibleParticipants.length}`)
   console.log(`   Participants NOT in groups: ${participantsNotInGroups.length}`)
   
+  // Final inclusion pass: force place any remaining participants into groups (prefer filling to 5, then to 6)
   if (participantsNotInGroups.length > 0) {
-    console.log(`\n   ⚠️ PARTICIPANTS EXCLUDED FROM GROUPS: [${participantsNotInGroups.join(', ')}]`)
-    console.log(`   ⚠️ This means ${participantsNotInGroups.length} eligible participants couldn't be placed in groups!`)
+    console.log(`\n🛠 Final inclusion pass to place ALL remaining participants...`)
+    const unplaced = [...participantsNotInGroups]
+    const tryPlace = (p, maxSize) => {
+      const candidates = groups
+        .map((g, i) => ({ i, size: g.length }))
+        .filter(({ size }) => size < maxSize)
+        .map(({ i }) => i)
+        .sort((a, b) => calculateParticipantGroupCompatibility(p, groups[b], pairScores) - calculateParticipantGroupCompatibility(p, groups[a], pairScores))
+      if (candidates[0] !== undefined) {
+        groups[candidates[0]].push(p)
+        console.log(`🧩 Final-pass: placed #${p} into group ${candidates[0] + 1} (size now ${groups[candidates[0]].length})`)
+        return true
+      }
+      return false
+    }
+    for (const p of unplaced) {
+      if (tryPlace(p, 5)) continue
+      if (tryPlace(p, 6)) continue
+      console.log(`❌ No capacity found for #${p} even in final pass (all groups at 6). Consider manual redistribution if this occurs.`)
+    }
   }
   
   console.log(`\n📋 Group Details:`)

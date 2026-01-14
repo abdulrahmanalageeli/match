@@ -1284,7 +1284,7 @@ export default async function handler(req, res) {
           if (error.code === 'PGRST116') {
             console.log("No event_state record found, getting max event ID as fallback")
             
-            const [participantsResult, matchResultsResult] = await Promise.all([
+            const [participantsResult, matchResultsResult, groupMatchesResult] = await Promise.all([
               supabase
                 .from("participants")
                 .select("event_id")
@@ -1293,6 +1293,12 @@ export default async function handler(req, res) {
                 .single(),
               supabase
                 .from("match_results")
+                .select("event_id")
+                .order("event_id", { ascending: false })
+                .limit(1)
+                .single(),
+              supabase
+                .from("group_matches")
                 .select("event_id")
                 .order("event_id", { ascending: false })
                 .limit(1)
@@ -1305,6 +1311,9 @@ export default async function handler(req, res) {
             }
             if (!matchResultsResult.error && matchResultsResult.data?.event_id) {
               maxEventId = Math.max(maxEventId, matchResultsResult.data.event_id)
+            }
+            if (!groupMatchesResult.error && groupMatchesResult.data?.event_id) {
+              maxEventId = Math.max(maxEventId, groupMatchesResult.data.event_id)
             }
 
             return res.status(200).json({ current_event_id: maxEventId })
@@ -3010,21 +3019,52 @@ export default async function handler(req, res) {
     // 🔹 GET GROUP MATCHES (for participant view)
     if (action === "get-group-matches") {
       try {
-        const { event_id = 1 } = req.body
+        let { event_id } = req.body
 
-        // Get group matches from group_matches table
-        const { data: groupMatches, error: groupError } = await supabase
+        // First try with provided event_id (if any). If none or empty result, fallback to latest event in group_matches
+        const baseQuery = () => supabase
           .from("group_matches")
           .select("*")
           .eq("match_id", STATIC_MATCH_ID)
-          .eq("event_id", event_id)
           .order("group_number", { ascending: true })
 
-        if (groupError) {
-          console.error("Error fetching group matches:", groupError)
-          return res.status(500).json({ error: groupError.message })
+        let groupMatches = []
+        if (event_id) {
+          const { data, error } = await baseQuery().eq("event_id", event_id)
+          if (error) {
+            console.error("Error fetching group matches:", error)
+            return res.status(500).json({ error: error.message })
+          }
+          groupMatches = data || []
         }
-        // Build a set of all participant numbers across groups to fetch ages once
+
+        // Fallback if no event_id provided OR no groups for that event
+        if (!event_id || groupMatches.length === 0) {
+          const { data: latestEvent, error: latestErr } = await supabase
+            .from("group_matches")
+            .select("event_id")
+            .eq("match_id", STATIC_MATCH_ID)
+            .order("event_id", { ascending: false })
+            .limit(1)
+            .single()
+
+          if (!latestErr && latestEvent?.event_id) {
+            event_id = latestEvent.event_id
+            const { data: fallbackGroups, error: fallbackErr } = await baseQuery().eq("event_id", event_id)
+            if (fallbackErr) {
+              console.error("Error fetching fallback group matches:", fallbackErr)
+              return res.status(500).json({ error: fallbackErr.message })
+            }
+            groupMatches = fallbackGroups || []
+          }
+        }
+
+        // If still empty, return empty groups
+        if (!groupMatches || groupMatches.length === 0) {
+          return res.status(200).json({ success: true, groups: [] })
+        }
+
+        // Build a set of all participant numbers across groups to fetch once
         const allParticipantNumbers = new Set()
         for (const gm of groupMatches || []) {
           const nums = Array.isArray(gm.participant_numbers) ? gm.participant_numbers : []
@@ -3037,14 +3077,18 @@ export default async function handler(req, res) {
         }
 
         // Fetch ages and genders for these participants (prefer columns; fallback to survey_data)
-        const { data: participantRows, error: prErr } = await supabase
-          .from("participants")
-          .select("assigned_number, age, gender, survey_data")
-          .eq("match_id", STATIC_MATCH_ID)
-          .in("assigned_number", Array.from(allParticipantNumbers))
+        let participantRows = []
+        if (allParticipantNumbers.size > 0) {
+          const { data: rows, error: prErr } = await supabase
+            .from("participants")
+            .select("assigned_number, age, gender, survey_data")
+            .eq("match_id", STATIC_MATCH_ID)
+            .in("assigned_number", Array.from(allParticipantNumbers))
 
-        if (prErr) {
-          console.error("Error fetching participant ages for groups:", prErr)
+          if (prErr) {
+            console.error("Error fetching participant ages/genders for groups:", prErr)
+          }
+          participantRows = rows || []
         }
 
         const ageMap = new Map()
@@ -3071,7 +3115,7 @@ export default async function handler(req, res) {
           else genderMap.set(row.assigned_number, null)
         }
 
-        // Format for participant view with ages aligned to participant_numbers
+        // Format for participant view with ages/genders aligned to participant_numbers
         const groups = groupMatches.map(match => ({
           group_id: match.group_id,
           group_number: match.group_number,
@@ -3092,7 +3136,7 @@ export default async function handler(req, res) {
           conversation_duration: match.conversation_duration
         }))
 
-        console.log(`✅ Fetched ${groups.length} group matches for participant view`)
+        console.log(`✅ Fetched ${groups.length} group matches for participant view (event_id=${event_id})`)
         return res.status(200).json({ 
           success: true,
           groups: groups

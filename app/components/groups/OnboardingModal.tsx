@@ -156,7 +156,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
 
   const slides = [
     {
-      icon: <Magnet className="w-16 h-16" />,
+      icon: <Magnet className="w-12 h-12" />,
       title: "كشف التوافق",
       description: "لقد انضممت إلى مجموعتك — استعد لتجربة " + "Opposites Attract" + "!",
       color: "from-indigo-500 to-violet-600",
@@ -167,7 +167,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       ]
     },
     {
-      icon: <Gamepad2 className="w-16 h-16" />,
+      icon: <Gamepad2 className="w-12 h-12" />,
       title: "بطاقات التعارف",
       description: "اختروا أدوات كسر الجليد المناسبة لكم",
       color: "from-teal-500 to-cyan-600",
@@ -180,14 +180,14 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       ]
     },
     {
-      icon: <Clock className="w-16 h-16" />,
+      icon: <Clock className="w-12 h-12" />,
       title: "الوقت المتاح",
       description: " لديك 45 دقيقة من المتعة والترابط",
       color: "from-rose-500 to-pink-600",
       details: ["جاهز؟ العداد ممتلئ للبداية!"]
     },
     {
-      icon: <Sparkles className="w-16 h-16" />,
+      icon: <Sparkles className="w-12 h-12" />,
       title: "لحظة الإقلاع",
       description: groupMembers.length > 0 
         ? `أنت في المجموعة ${tableNumber ? `رقم ${tableNumber}` : ''} مع ${groupMembers.length} مشاركين`
@@ -329,10 +329,10 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
               <div ref={progressRef} className="h-full bg-white/80" style={{ width: `${progress}%` }} />
             </div>
             <div className={`relative z-10 flex flex-col items-center ${ultraCompact ? 'space-y-2' : 'space-y-3'}`}>
-              <div ref={iconRef} className={`${ultraCompact ? 'w-10 h-10 [&_svg]:w-6 [&_svg]:h-6' : superCompact ? 'w-12 h-12 [&_svg]:w-8 [&_svg]:h-8' : compact ? 'w-16 h-16 [&_svg]:w-10 [&_svg]:h-10' : 'w-20 h-20 [&_svg]:w-12 [&_svg]:h-12'} rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white ${compact || superCompact || ultraCompact ? '' : 'animate-heartbeat'} ${compact ? 'scale-95' : ''}`}>
+              <div ref={iconRef} className={`${ultraCompact ? 'w-10 h-10 [&_svg]:w-6 [&_svg]:h-6' : superCompact ? 'w-12 h-12 [&_svg]:w-8 [&_svg]:h-8' : compact ? 'w-16 h-16 [&_svg]:w-10 [&_svg]:h-10' : 'w-16 h-16 [&_svg]:w-10 [&_svg]:h-10'} rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white ${compact || superCompact || ultraCompact ? '' : 'animate-heartbeat'} ${compact ? 'scale-95' : ''}`}>
                 {currentSlideData.icon}
               </div>
-              <h2 className={`${ultraCompact ? 'text-lg' : superCompact ? 'text-xl' : compact ? 'text-2xl' : 'text-3xl'} font-extrabold text-white leading-tight`}>
+              <h2 className={`${ultraCompact ? 'text-lg' : superCompact ? 'text-xl' : compact ? 'text-2xl' : 'text-2xl'} font-extrabold text-white leading-tight`}>
                 {currentSlideData.title}
               </h2>
             </div>

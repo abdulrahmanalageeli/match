@@ -1588,10 +1588,9 @@ export default function GroupsPage() {
           setEventPhase(phase);
           if (Number.isFinite(round)) setEventCurrentRound(round);
           if (phase && /^round_/i.test(phase)) {
-            // If user has a token, send them to welcome with forced round
+            // If user has a token, send them to welcome (no forced round param)
             if (savedAuthToken) {
-              const q = round ? `&force_round=${round}` : "";
-              window.location.href = `/welcome?token=${encodeURIComponent(savedAuthToken)}${q}`;
+              window.location.href = `/welcome?token=${encodeURIComponent(savedAuthToken)}`;
             } else {
               // No token (semi-login). Only show how-to AFTER onboarding is finished
               let onboardingSeen = false;
@@ -1708,8 +1707,7 @@ export default function GroupsPage() {
           const phaseNow = s?.phase || null;
           const roundNow = s?.current_round || null;
           if (phaseNow && /^round_/i.test(phaseNow) && data?.secure_token) {
-            const q = Number.isFinite(roundNow) ? `&force_round=${roundNow}` : "";
-            window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}${q}`;
+            window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}`;
           }
         }
       } catch(_) {}
@@ -1824,8 +1822,7 @@ export default function GroupsPage() {
           const phaseNow = s?.phase || null;
           const roundNow = s?.current_round || null;
           if (phaseNow && /^round_/i.test(phaseNow) && data?.secure_token) {
-            const q = Number.isFinite(roundNow) ? `&force_round=${roundNow}` : "";
-            window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}${q}`;
+            window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}`;
           }
         }
       } catch(_) {}

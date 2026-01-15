@@ -158,7 +158,7 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
     {
       icon: <Magnet className="w-12 h-12" />,
       title: "كشف التوافق",
-      description: "لقد انضممت إلى مجموعتك — استعد لتجربة " + "Opposites Attract" + "!",
+      description: "لقد انضممت إلى مجموعتك — استعد لتجربة جماعية ممتعة!",
       color: "from-indigo-500 to-violet-600",
       details: [
         "تعرف على أعضاء مجموعتك",
@@ -344,13 +344,15 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
 
           {/* Content */}
           <div ref={slideAreaRef} className={`${ultraCompact ? 'p-2' : superCompact ? 'p-3' : compact ? 'p-4' : 'p-5 sm:p-8'} ${ultraCompact ? 'space-y-3' : compact ? 'space-y-4' : 'space-y-6'} flex-1 overflow-y-auto custom-scrollbar min-h-0`}> 
-            {/* Opposites Attract banner */}
-            <div className="flex items-center justify-center">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
-                <Sparkles className="w-4 h-4 text-amber-300" />
-                <span className="text-amber-200 text-xs font-bold">Opposites Attract</span>
+            {/* Opposites Attract banner (disabled for this event) */}
+            {false && (
+              <div className="flex items-center justify-center">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/15">
+                  <Sparkles className="w-4 h-4 text-amber-300" />
+                  <span className="text-amber-200 text-xs font-bold">Opposites Attract</span>
+                </div>
               </div>
-            </div>
+            )}
             {/* One-on-one explanation callout */}
             <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-400/20 text-blue-100 text-xs sm:text-sm justify-center">
               <Clock className="w-4 h-4" />

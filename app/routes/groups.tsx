@@ -1405,7 +1405,7 @@ export default function GroupsPage() {
                   const groupRes = await fetch("/api/admin", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ action: "get-group-matches", event_id: currentEventId })
+                    body: JSON.stringify({ action: "get-group-matches", event_id: currentEventId, strict: true })
                   });
                   if (groupRes.ok) {
                     const groupData = await groupRes.json();
@@ -1445,6 +1445,8 @@ export default function GroupsPage() {
                 } catch(_) {}
                 // No group assignment found: stay on PhoneEntry with message
                 setIsConfirmed(false);
+                setTableNumber(null);
+                setGroupMembers([]);
                 setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
                 setDataLoaded(true);
                 return;
@@ -1508,7 +1510,8 @@ export default function GroupsPage() {
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 action: "get-group-matches",
-                event_id: currentEventId
+                event_id: currentEventId,
+                strict: true
               }),
             });
 
@@ -1562,6 +1565,8 @@ export default function GroupsPage() {
                 })));
                 // Gating: do not confirm; show message on PhoneEntry
                 setIsConfirmed(false);
+                setTableNumber(null);
+                setGroupMembers([]);
                 setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
               }
             }
@@ -1639,7 +1644,6 @@ export default function GroupsPage() {
         setPhoneError(data?.error || "فشل تسجيل الدخول. حاول مرة أخرى");
         return;
       }
-      setIsConfirmed(true);
       setParticipantNumber(data.assigned_number || null);
       setParticipantName(data.name || `المشارك #${data.assigned_number}`);
       setTableNumber(Number.isFinite(data.table_number) ? data.table_number : null);
@@ -1661,7 +1665,7 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
-      // Fetch group genders/numbers for onboarding visualization
+      // Fetch group data for gating (must belong to current event group)
       try {
         const eventStateRes = await fetch("/api/admin", {
           method: "POST",
@@ -1695,11 +1699,20 @@ export default function GroupsPage() {
               ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
               : [];
             setGroupParticipantGenders(gens);
+            // Gate passed: confirm and optionally show onboarding
+            setIsConfirmed(true);
+            try {
+              const seen = localStorage.getItem('groups_onboarding_seen');
+              if (!seen) setShowOnboarding(true);
+            } catch {}
+          } else {
+            // No group assigned for CURRENT event -> stay on PhoneEntry
+            setIsConfirmed(false);
+            setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+            return;
           }
         }
       } catch(_) {}
-      const seen = localStorage.getItem('groups_onboarding_seen');
-      if (!seen) setShowOnboarding(true);
       // If rounds already active, redirect immediately using the saved token
       try {
         const stateRes = await fetch("/api/admin", {
@@ -1767,7 +1780,8 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
-      // Fetch group genders/numbers for onboarding visualization (digits flow)
+      // Fetch group genders/numbers for onboarding visualization (digits flow) and gate access
+      let hasGroup = false;
       try {
         const eventStateRes = await fetch("/api/admin", {
           method: "POST",
@@ -1793,6 +1807,7 @@ export default function GroupsPage() {
                    participantNumbers.map(String).includes(String(data.assigned_number));
           });
           if (userGroup) {
+            hasGroup = true;
             const nums: number[] = Array.isArray(userGroup.participant_numbers)
               ? userGroup.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
               : [];
@@ -1801,13 +1816,17 @@ export default function GroupsPage() {
               ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
               : [];
             setGroupParticipantGenders(gens);
-          } else {
-            // No group yet -> abort flow and show error on PhoneEntry
-            setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
-            throw new Error('no-group-assigned');
           }
         }
       } catch(_) {}
+      // Gate: require a group assignment in current event
+      if (!hasGroup) {
+        // Clear any stale data from previous events
+        setTableNumber(null);
+        setGroupMembers([]);
+        setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+        return;
+      }
       // Only transition into groups when group is assigned
       setJoiningTransition(true);
       setTimeout(() => {

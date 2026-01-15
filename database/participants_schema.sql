@@ -41,6 +41,7 @@ create table public.participants (
   preferred_age_min integer null,
   preferred_age_max integer null,
   open_age_preference boolean null,
+  open_intent_goal_mismatch boolean not null default false,
   constraint participants_pkey primary key (id),
   constraint participants_assigned_number_key unique (assigned_number),
   constraint unique_participant_number_per_match unique (assigned_number, match_id),
@@ -295,6 +296,10 @@ create index IF not exists idx_participants_core_values on public.participants u
 create index IF not exists idx_participants_auto_signup on public.participants using btree (auto_signup_next_event) TABLESPACE pg_default
 where
   (auto_signup_next_event = true);
+
+create index IF not exists idx_participants_open_intent_goal_mismatch on public.participants using btree (open_intent_goal_mismatch) TABLESPACE pg_default
+where
+  (open_intent_goal_mismatch = true);
 
 create index IF not exists idx_participants_event_survey_updated on public.participants using btree (event_id, survey_data_updated_at desc) TABLESPACE pg_default
 where

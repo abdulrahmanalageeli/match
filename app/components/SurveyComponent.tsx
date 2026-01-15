@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { Progress } from "../../components/ui/progress"
-import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus, Sparkles } from "lucide-react"
+import { ChevronLeft, ChevronRight, Shield, AlertTriangle, CheckCircle, Loader2, Star, FileText, X, ListPlus, Sparkles, Info } from "lucide-react"
 import HobbiesPickerModal from "./HobbiesPickerModal"
 
 interface SurveyData {
@@ -1524,10 +1524,17 @@ const SurveyComponent = memo(function SurveyComponent({
                 </div>
               </div>
             ))}
-            {/* Extra preference: Open to different goal */}
+            {/* Extra preference (optional): Open to different goal */}
             {question.id === 'intent_goal' && (
-              <div className="mt-3">
-                <div className={`group rounded-xl border-2 transition p-3 bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-400/50`}>
+              <div className="mt-3" role="region" aria-label="تفضيل إضافي مرتبط بهدف المشاركة">
+                <div className="rounded-xl border-2 border-dashed transition p-3 bg-amber-50/70 dark:bg-amber-900/10 border-amber-300/70 dark:border-amber-400/40">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                      <Info className="w-4 h-4" />
+                      <span className="text-xs font-semibold">تفضيل إضافي</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-200/70 dark:bg-amber-800/40 text-amber-900 dark:text-amber-200">اختياري</span>
+                  </div>
                   <div className="flex flex-row-reverse items-center gap-3">
                     {(() => {
                       const raw = surveyData.answers['open_intent_goal_mismatch'] as any
@@ -1548,6 +1555,9 @@ const SurveyComponent = memo(function SurveyComponent({
                       ما عندي مشكلة لو كان هدف الطرف الآخر مختلف عن هدفي
                     </Label>
                   </div>
+                  <p className="mt-2 text-[12px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">
+                    هذا الاختيار لا يغني عن تحديد هدفك بالأعلى — يجب اختيار أحد الخيارات قبل المتابعة.
+                  </p>
                 </div>
               </div>
             )}

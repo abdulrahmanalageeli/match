@@ -3125,7 +3125,7 @@ export default async function handler(req, res) {
     // 🔹 GET GROUP MATCHES (for participant view)
     if (action === "get-group-matches") {
       try {
-        let { event_id } = req.body
+        let { event_id, strict } = req.body
 
         // First try with provided event_id (if any). If none or empty result, fallback to latest event in group_matches
         const baseQuery = () => supabase
@@ -3145,7 +3145,8 @@ export default async function handler(req, res) {
         }
 
         // Fallback if no event_id provided OR no groups for that event
-        if (!event_id || groupMatches.length === 0) {
+        // When strict=true, DO NOT fallback. Return empty groups instead.
+        if ((!event_id || groupMatches.length === 0) && !strict) {
           const { data: latestEvent, error: latestErr } = await supabase
             .from("group_matches")
             .select("event_id")
@@ -3242,7 +3243,7 @@ export default async function handler(req, res) {
           conversation_duration: match.conversation_duration
         }))
 
-        console.log(`✅ Fetched ${groups.length} group matches for participant view (event_id=${event_id})`)
+        console.log(`✅ Fetched ${groups.length} group matches for participant view (event_id=${event_id}, strict=${!!strict})`)
         return res.status(200).json({ 
           success: true,
           groups: groups

@@ -1060,14 +1060,7 @@ export default function GroupsPage() {
   const [eventCurrentRound, setEventCurrentRound] = useState<number | null>(null);
   const [joiningTransition, setJoiningTransition] = useState(false);
   const preGameRef = useRef<HTMLDivElement | null>(null);
-
-  // Always show onboarding first (once per device) regardless of sign-in status
-  useEffect(() => {
-    try {
-      const seen = localStorage.getItem('groups_onboarding_seen') === 'true';
-      if (!seen) setShowOnboarding(true);
-    } catch {}
-  }, []);
+  
   
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
@@ -1394,13 +1387,10 @@ export default function GroupsPage() {
             if (cached) {
               const parsed = JSON.parse(cached);
               if (parsed && parsed.assigned_number) {
-                setIsConfirmed(true);
+                // Load basic identity for messaging
                 setParticipantNumber(parsed.assigned_number);
                 setParticipantName(parsed.name || `المشارك #${parsed.assigned_number}`);
-                if (Number.isFinite(parsed.table_number)) setTableNumber(parsed.table_number);
-                if (Array.isArray(parsed.group_members)) setGroupMembers(parsed.group_members);
-                setDataLoaded(true);
-                // Enrich onboarding visualization with numbers/genders
+                // Verify group assignment in CURRENT event before confirming
                 try {
                   const eventStateRes = await fetch("/api/admin", {
                     method: "POST",
@@ -1426,6 +1416,15 @@ export default function GroupsPage() {
                              nums.map(String).includes(String(parsed.assigned_number));
                     });
                     if (userGroup) {
+                      setTableNumber(userGroup.table_number ?? null);
+                      const names: string[] = Array.isArray(userGroup.participant_names) ? userGroup.participant_names : [];
+                      const ages: Array<number | null | undefined> = Array.isArray(userGroup.participant_ages) ? userGroup.participant_ages : [];
+                      const combined = names.map((name: string, idx: number) => {
+                        const age = ages[idx];
+                        const ageNumber = typeof age === 'string' ? parseInt(age as any, 10) : age;
+                        return Number.isFinite(ageNumber) && ageNumber ? `${name} (${ageNumber})` : name;
+                      });
+                      if (combined.length) setGroupMembers(combined);
                       const nums: number[] = Array.isArray(userGroup.participant_numbers)
                         ? userGroup.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
                         : [];
@@ -1434,11 +1433,20 @@ export default function GroupsPage() {
                         ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
                         : [];
                       setGroupParticipantGenders(gens);
+                      setIsConfirmed(true);
+                      try {
+                        const seen = localStorage.getItem('groups_onboarding_seen');
+                        if (!seen) setShowOnboarding(true);
+                      } catch {}
+                      setDataLoaded(true);
+                      return;
                     }
                   }
                 } catch(_) {}
-                const seen = localStorage.getItem('groups_onboarding_seen');
-                if (!seen) setShowOnboarding(true);
+                // No group assignment found: stay on PhoneEntry with message
+                setIsConfirmed(false);
+                setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+                setDataLoaded(true);
                 return;
               }
             }
@@ -1470,7 +1478,6 @@ export default function GroupsPage() {
         const participantData = await participantRes.json();
         
         if (participantData.success && participantData.assigned_number) {
-          setIsConfirmed(true);
           const name = participantData.name || participantData.survey_data?.name || `المشارك #${participantData.assigned_number}`;
           setParticipantName(name);
           setParticipantNumber(participantData.assigned_number);
@@ -1540,6 +1547,11 @@ export default function GroupsPage() {
                   : [];
                 setGroupParticipantGenders(gens);
                 console.log(`✅ Table number set - Table #${userGroup.table_number} (Event ${currentEventId})`);
+                setIsConfirmed(true);
+                try {
+                  const seen = localStorage.getItem('groups_onboarding_seen');
+                  if (!seen) setShowOnboarding(true);
+                } catch {}
               } else {
                 console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
                 console.log('Participant assigned_number type:', typeof participantData.assigned_number, participantData.assigned_number);
@@ -1548,6 +1560,9 @@ export default function GroupsPage() {
                   participants: g.participant_numbers,
                   participantTypes: g.participant_numbers?.map((p: any) => typeof p)
                 })));
+                // Gating: do not confirm; show message on PhoneEntry
+                setIsConfirmed(false);
+                setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
               }
             }
           } catch (groupError) {
@@ -1786,11 +1801,14 @@ export default function GroupsPage() {
               ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
               : [];
             setGroupParticipantGenders(gens);
+          } else {
+            // No group yet -> abort flow and show error on PhoneEntry
+            setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+            throw new Error('no-group-assigned');
           }
         }
       } catch(_) {}
-
-      // Allow PhoneEntry screen-wipe to play smoothly before swapping pages
+      // Only transition into groups when group is assigned
       setJoiningTransition(true);
       setTimeout(() => {
         setIsConfirmed(true);

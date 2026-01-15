@@ -9,9 +9,12 @@ interface PhoneEntryProps {
   loading?: boolean;
   error?: string | null;
   enableParticles?: boolean;
+  // If provided, hides the phone input and shows a friendly message instead
+  showNoGroupMessage?: boolean;
+  signedInName?: string | null;
 }
 
-export default function PhoneEntry({ onSubmit, loading = false, error, enableParticles = false }: PhoneEntryProps) {
+export default function PhoneEntry({ onSubmit, loading = false, error, enableParticles = false, showNoGroupMessage = false, signedInName = null }: PhoneEntryProps) {
   const [digits, setDigits] = useState("");
   const [display, setDisplay] = useState("");
   const [valid, setValid] = useState(false);
@@ -28,8 +31,20 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
   useEffect(() => {
     inputRef.current?.focus();
     try {
-      const name = localStorage.getItem("blindmatch_participant_name");
-      if (name && name.trim()) setWelcomeName(name);
+      let name = localStorage.getItem("blindmatch_participant_name");
+      if (name && name.trim()) {
+        setWelcomeName(name);
+      } else {
+        // Fallback: read from groups semi-login session
+        try {
+          const raw = sessionStorage.getItem('groups_semi_login');
+          if (raw) {
+            const j = JSON.parse(raw);
+            const nm = j?.name;
+            if (typeof nm === 'string' && nm.trim()) setWelcomeName(nm);
+          }
+        } catch {}
+      }
     } catch {}
   }, []);
 
@@ -105,6 +120,16 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
     }
   }, []);
 
+  // Derive whether to show the no-group message automatically from error text
+  const autoNoGroup = useMemo(() => {
+    try {
+      return typeof error === 'string' && /لا توجد مجموعة مخصصة/i.test(error);
+    } catch { return false; }
+  }, [error]);
+
+  const computedNoGroup = showNoGroupMessage || autoNoGroup;
+  const displayName = signedInName || welcomeName;
+
   return (
     <div className="relative min-h-screen overflow-hidden" dir="rtl">
       {/* Animated gradient background */}
@@ -147,51 +172,62 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
               )}
             </div>
 
-            {/* Friendly underline input */}
-            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
-              <div className="relative">
-                <input
-                  ref={inputRef}
-                  type="tel"
-                  inputMode="tel"
-                  placeholder="05x xxx xxxx"
-                  value={display}
-                  onChange={(e) => onChange(e.target.value)}
-                  dir="ltr"
-                  aria-label="رقم الهاتف"
-                  className="w-full bg-transparent border-none outline-none text-white text-center text-3xl tracking-widest placeholder:text-white/30 caret-white selection:bg-white/20 py-3"
-                />
-                {/* Underline track and fill */}
-                <div className="relative h-[3px]">
-                  <div className="absolute inset-0 bg-white/15 rounded-full" />
-                  <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 via-pink-500 to-orange-400 rounded-full" style={{ width: `${progressPct}%` }} />
+            {/* Friendly underline input or No-Group message */}
+            {computedNoGroup ? (
+              <div className="space-y-6">
+                <div className="relative">
+                  <div className="w-full text-center text-white text-lg sm:text-xl leading-relaxed">
+                    {`مرحباً${displayName ? `، ${displayName}` : ''}!`}<br />
+                    <span className="text-white/80">للأسف لم يتم تعيينك إلى مجموعة في هذا الحدث الحالي.</span>
+                  </div>
                 </div>
-                {error && (
-                  <p className="text-red-400 text-sm mt-2 text-center">{error}</p>
-                )}
               </div>
-
-              {/* Magic button */}
-              <div className="relative h-12">
-                <button
-                  type="submit"
-                  disabled={!valid || loading}
-                  className={`absolute inset-0 overflow-hidden inline-flex items-center justify-center rounded-full font-semibold text-white transition-all duration-300 shadow-[0_0_40px_-10px_rgba(109,40,217,0.7)] ${
-                    morph ? "w-11 right-1/2 translate-x-1/2" : "w-full"
-                  } ${
-                    (!valid || loading) ? "opacity-50 cursor-not-allowed" : ""
-                  } bg-gradient-to-r from-orange-400 via-pink-500 to-blue-600 hover:scale-105 hover:brightness-110`}
-                  ref={buttonRef}
-                >
-                  {/* Spinner when morphing/loading */}
-                  {(morph || loading) ? (
-                    <span className="inline-block w-5 h-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
-                  ) : (
-                    <span>انضم</span>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+                <div className="relative">
+                  <input
+                    ref={inputRef}
+                    type="tel"
+                    inputMode="tel"
+                    placeholder="05x xxx xxxx"
+                    value={display}
+                    onChange={(e) => onChange(e.target.value)}
+                    dir="ltr"
+                    aria-label="رقم الهاتف"
+                    className="w-full bg-transparent border-none outline-none text-white text-center text-3xl tracking-widest placeholder:text-white/30 caret-white selection:bg-white/20 py-3"
+                  />
+                  {/* Underline track and fill */}
+                  <div className="relative h-[3px]">
+                    <div className="absolute inset-0 bg-white/15 rounded-full" />
+                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-600 via-pink-500 to-orange-400 rounded-full" style={{ width: `${progressPct}%` }} />
+                  </div>
+                  {error && (
+                    <p className="text-red-400 text-sm mt-2 text-center">{error}</p>
                   )}
-                </button>
-              </div>
-            </form>
+                </div>
+
+                {/* Magic button */}
+                <div className="relative h-12">
+                  <button
+                    type="submit"
+                    disabled={!valid || loading}
+                    className={`absolute inset-0 overflow-hidden inline-flex items-center justify-center rounded-full font-semibold text-white transition-all duration-300 shadow-[0_0_40px_-10px_rgba(109,40,217,0.7)] ${
+                      morph ? "w-11 right-1/2 translate-x-1/2" : "w-full"
+                    } ${
+                      (!valid || loading) ? "opacity-50 cursor-not-allowed" : ""
+                    } bg-gradient-to-r from-orange-400 via-pink-500 to-blue-600 hover:scale-105 hover:brightness-110`}
+                    ref={buttonRef}
+                  >
+                    {/* Spinner when morphing/loading */}
+                    {(morph || loading) ? (
+                      <span className="inline-block w-5 h-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+                    ) : (
+                      <span>انضم</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
 
             {/* Footer note */}
             <div className="mt-5 text-center text-slate-400 text-xs">

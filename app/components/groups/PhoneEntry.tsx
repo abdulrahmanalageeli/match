@@ -180,7 +180,7 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
                 <div className="relative">
                   <div className="w-full text-center text-white text-lg sm:text-xl leading-relaxed">
                     {`مرحباً${displayName ? `، ${displayName}` : ''}!`}<br />
-                    <span className="text-white/80">للأسف لم يتم تعيينك إلى مجموعة في هذا الحدث الحالي.</span>
+                    <span className="text-white/80">لم يتم العثور على مجموعة لك في الحدث الحالي</span>
                   </div>
                 </div>
               </div>

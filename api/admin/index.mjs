@@ -3331,23 +3331,10 @@ export default async function handler(req, res) {
             lifestyle_compatibility_score,
             core_values_compatibility_score,
             vibe_compatibility_score,
-            -- New-model fields
-            synergy_score,
-            humor_open_score,
-            intent_score,
-            humor_multiplier,
-            attachment_penalty_applied,
-            intent_boost_applied,
-            dead_air_veto_applied,
-            humor_clash_veto_applied,
-            cap_applied,
-            reason,
-            humor_early_openness_bonus,
             round,
             table_number,
             match_type,
             mutual_match,
-            is_repeat_match,
             event_id,
             created_at
           `)

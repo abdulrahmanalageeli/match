@@ -1060,6 +1060,14 @@ export default function GroupsPage() {
   const [eventCurrentRound, setEventCurrentRound] = useState<number | null>(null);
   const [joiningTransition, setJoiningTransition] = useState(false);
   const preGameRef = useRef<HTMLDivElement | null>(null);
+
+  // Always show onboarding first (once per device) regardless of sign-in status
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem('groups_onboarding_seen') === 'true';
+      if (!seen) setShowOnboarding(true);
+    } catch {}
+  }, []);
   
   // Shuffled questions state
   const [shuffledNeverHaveIEver, setShuffledNeverHaveIEver] = useState<string[]>([]);
@@ -1351,19 +1359,9 @@ export default function GroupsPage() {
     console.log('🔍 tableNumber state changed:', tableNumber);
   }, [tableNumber]);
 
-  // Show group guide only AFTER onboarding is finished
+  // Disable group guide tutorial popup
   useEffect(() => {
-    if (!isConfirmed) return;
-    // Wait until onboarding has been completed (localStorage flag set by OnboardingModal)
-    let onboardingSeen = false;
-    try {
-      onboardingSeen = localStorage.getItem('groups_onboarding_seen') === 'true';
-    } catch {}
-    if (!onboardingSeen) return;
-    const hasSeenGroupGuide = localStorage.getItem('blindmatch_group_guide_seen');
-    if (!hasSeenGroupGuide) {
-      setShowGroupGuide(true);
-    }
+    setShowGroupGuide(false);
   }, [isConfirmed, showOnboarding]);
 
   // Load participant data and group assignment on component mount
@@ -1592,16 +1590,8 @@ export default function GroupsPage() {
             if (savedAuthToken) {
               window.location.href = `/welcome?token=${encodeURIComponent(savedAuthToken)}`;
             } else {
-              // No token (semi-login). Only show how-to AFTER onboarding is finished
-              let onboardingSeen = false;
-              try {
-                onboardingSeen = localStorage.getItem('groups_onboarding_seen') === 'true';
-              } catch {}
-              if (!showOnboarding && onboardingSeen) {
-                setShowHowToModal(true);
-              } else {
-                setShowHowToModal(false);
-              }
+              // No token (semi-login). How-To tutorial disabled
+              setShowHowToModal(false);
             }
           }
         }
@@ -3252,7 +3242,7 @@ export default function GroupsPage() {
         onClose={() => setShowPromptTopicsModal(false)}
       />
       {/* Personalized onboarding after successful login */}
-      {showOnboarding && (groupParticipantNumbers.length > 0 || groupMembers.length > 0) && (
+      {showOnboarding && (
         <OnboardingModal
           isOpen={showOnboarding}
           onClose={() => setShowOnboarding(false)}
@@ -3265,8 +3255,8 @@ export default function GroupsPage() {
         />
       )}
 
-      {/* Group Guide Popup - only show after onboarding closes */}
-        {showGroupGuide && !showOnboarding && (
+      {/* Group Guide Popup removed */}
+        {false && (
           <div 
             className="fixed z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300"
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, width: '100vw', height: '100vh', zIndex: 9999 }}
@@ -3615,14 +3605,7 @@ export default function GroupsPage() {
               </div>
 
               {/* Help (compact) */}
-              <button
-                onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                className="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white transition-all"
-                aria-label="شرح الدخول للجولة الفردية"
-                title="شرح الدخول للجولة الفردية"
-              >
-                <HelpCircle className="w-4 h-4" />
-              </button>
+              {/* Tutorial help button removed */}
             </div>
           ) : (
             // Expanded stacked content
@@ -3661,17 +3644,7 @@ export default function GroupsPage() {
               </div>
 
               {/* How-To button */}
-              <div className="flex flex-col items-center justify-center">
-                <button
-                  onClick={() => { setShowHowToModal(true); setHowToSlide(0); }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 text-sm"
-                  title="اضغط بعد انتهاء وقت الأنشطة"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                  <span className="font-semibold">شرح الدخول للجولة الفردية</span>
-                </button>
-                <span className="mt-1 text-[11px] text-white/70">اضغط بعد انتهاء وقت الأنشطة الجماعية</span>
-              </div>
+              {/* Tutorial how-to button removed */}
 
               {/* Current Game Badge - Themed */}
               {selectedGameId && (
@@ -3719,8 +3692,8 @@ export default function GroupsPage() {
         </div>
       )}
 
-      {/* How-To Tutorial Modal (slideshow) */}
-      {showHowToModal && (
+      {/* How-To Tutorial Modal removed */}
+      {false && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div dir="rtl" className="relative w-full max-w-lg bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
             {/* Header */}

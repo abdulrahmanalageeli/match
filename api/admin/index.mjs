@@ -1450,28 +1450,17 @@ export default async function handler(req, res) {
             participant_e_number,
             participant_f_number,
             compatibility_score,
-            mbti_compatibility_score,
-            attachment_compatibility_score,
-            communication_compatibility_score,
-            lifestyle_compatibility_score,
-            core_values_compatibility_score,
-            vibe_compatibility_score,
-            -- New-model fields
             synergy_score,
             humor_open_score,
             intent_score,
-            humor_multiplier,
-            attachment_penalty_applied,
-            intent_boost_applied,
-            dead_air_veto_applied,
-            humor_clash_veto_applied,
-            cap_applied,
+            vibe_compatibility_score,
+            lifestyle_compatibility_score,
+            communication_compatibility_score,
             humor_early_openness_bonus,
             round,
             table_number,
             match_type,
             mutual_match,
-            is_repeat_match,
             event_id,
             created_at
           `)
@@ -1496,7 +1485,7 @@ export default async function handler(req, res) {
         // Fetch participant info for names and demographics
         const { data: participants, error: participantError } = await supabase
           .from("participants")
-          .select("assigned_number, name, gender, age, mbti_personality_type")
+          .select("assigned_number, name, gender, age, mbti_personality_type, survey_data")
           .eq("match_id", STATIC_MATCH_ID)
           .neq("assigned_number", 9999)
 
@@ -1566,6 +1555,14 @@ export default async function handler(req, res) {
           const aFb = feedbackMap.get(pA)?.get(roundNo) || null
           const bFb = feedbackMap.get(pB)?.get(roundNo) || null
 
+          // Compute fallback 100-pt fields if DB has zeros/missing
+          const syn = Number(m.synergy_score ?? 0)
+          const hum = Number(m.humor_open_score ?? 0)
+          const inten = Number(m.intent_score ?? 0)
+          const synergyVal = syn > 0 ? syn : (aInfo && bInfo ? computeSynergyScore(aInfo, bInfo) : 0)
+          const humorOpenVal = hum > 0 ? hum : (aInfo && bInfo ? computeHumorOpenScore(aInfo, bInfo) : 0)
+          const intentVal = inten > 0 ? inten : (aInfo && bInfo ? computeIntentScore(aInfo, bInfo) : 0)
+
           rows.push({
             match_result_id: m.id,
             event_id: m.event_id,
@@ -1576,9 +1573,9 @@ export default async function handler(req, res) {
             bonus_type: m.humor_early_openness_bonus || 'none',
             mutual_match: m.mutual_match || false,
             // New-model scoring fields for 100-pt breakdown
-            synergy_score: m.synergy_score || 0,
-            humor_open_score: m.humor_open_score || 0,
-            intent_score: m.intent_score || 0,
+            synergy_score: synergyVal,
+            humor_open_score: humorOpenVal,
+            intent_score: intentVal,
             vibe_compatibility_score: m.vibe_compatibility_score || 0,
             lifestyle_compatibility_score: m.lifestyle_compatibility_score || 0,
             communication_compatibility_score: m.communication_compatibility_score || 0,
@@ -3325,6 +3322,10 @@ export default async function handler(req, res) {
             participant_e_number,
             participant_f_number,
             compatibility_score,
+            synergy_score,
+            humor_open_score,
+            intent_score,
+            humor_early_openness_bonus,
             mbti_compatibility_score,
             attachment_compatibility_score,
             communication_compatibility_score,
@@ -3374,6 +3375,83 @@ export default async function handler(req, res) {
           })
         })
 
+        // Helpers to derive scores if missing/zero in DB
+        const getAnswer = (participant, key) => {
+          try {
+            let sd = participant?.survey_data
+            if (typeof sd === 'string') { try { sd = JSON.parse(sd) } catch { sd = {} } }
+            const ans = sd?.answers || {}
+            return ans[key] ?? sd?.[key] ?? participant?.[key] ?? ''
+          } catch {
+            return ''
+          }
+        }
+        const computeSynergyScore = (pa, pb) => {
+          const toU = (v) => String(v || '').toUpperCase()
+          const a35 = toU(getAnswer(pa, 'conversational_role'))
+          const b35 = toU(getAnswer(pb, 'conversational_role'))
+          const a36 = toU(getAnswer(pa, 'conversation_depth_pref'))
+          const b36 = toU(getAnswer(pb, 'conversation_depth_pref'))
+          const a37 = toU(getAnswer(pa, 'social_battery'))
+          const b37 = toU(getAnswer(pb, 'social_battery'))
+          const a38 = toU(getAnswer(pa, 'humor_subtype'))
+          const b38 = toU(getAnswer(pb, 'humor_subtype'))
+          const a39 = toU(getAnswer(pa, 'curiosity_style'))
+          const b39 = toU(getAnswer(pb, 'curiosity_style'))
+          const a41 = toU(getAnswer(pa, 'silence_comfort'))
+          const b41 = toU(getAnswer(pb, 'silence_comfort'))
+          let total = 0
+          if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) total += 7
+          else if (a35 === 'B' && b35 === 'B') total += 4
+          else if (a35 === 'A' && b35 === 'A') total += 2
+          else if (a35 === 'C' && b35 === 'C') total += 0
+          else if (a35 && b35) total += 3
+          if (a36 && b36) total += (a36 === b36 ? 5 : 1)
+          if (a37 && b37) { if (a37 === 'A' && b37 === 'A') total += 4; else if (a37 === 'B' && b37 === 'B') total += 3; else total += 1 }
+          if (a38 && b38) total += (a38 === b38 ? 4 : 1)
+          if (a39 && b39) { if ((a39 === 'A' && b39 === 'B') || (a39 === 'B' && b39 === 'A')) total += 5; else if (a39 === 'C' && b39 === 'C') total += 5; else if ((a39 === 'A' && b39 === 'A') || (a39 === 'B' && b39 === 'B')) total += 0; else total += 3 }
+          if (a41 && b41) { if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5; else if (a41 === 'A' && b41 === 'A') total += 3; else if (a41 === 'B' && b41 === 'B') total += 0 }
+          return Math.min(35, (total * (35 / 30)))
+        }
+        const computeHumorOpenScore = (pa, pb) => {
+          const toU = (v) => String(v || '').toUpperCase()
+          const hA = toU(getAnswer(pa, 'humor_banter_style'))
+          const hB = toU(getAnswer(pb, 'humor_banter_style'))
+          const oAraw = getAnswer(pa, 'early_openness_comfort')
+          const oBraw = getAnswer(pb, 'early_openness_comfort')
+          const oA = oAraw !== '' && oAraw !== undefined && oAraw !== null ? parseInt(oAraw) : undefined
+          const oB = oBraw !== '' && oBraw !== undefined && oBraw !== null ? parseInt(oBraw) : undefined
+          let humor = 0
+          if (hA && hB) {
+            if (hA === hB) humor = 10
+            else if ((hA === 'A' && hB === 'B') || (hA === 'B' && hB === 'A')) humor = 8
+            else if ((hA === 'B' && hB === 'C') || (hA === 'C' && hB === 'B') || (hA === 'C' && hB === 'D') || (hA === 'D' && hB === 'C')) humor = 5
+            else if ((hA === 'A' && hB === 'D') || (hA === 'D' && hB === 'A')) humor = 0
+            else humor = 5
+          }
+          let open = 0
+          if (oA !== undefined && oB !== undefined) {
+            const dist = Math.abs(oA - oB)
+            if (dist === 0) open = 5
+            else if (dist === 1) open = 3
+            else if (dist === 2) open = 1
+            else open = 0
+          }
+          return humor + open // 0..15
+        }
+        const computeIntentScore = (pa, pb) => {
+          const toU = (v) => String(v || '').toUpperCase()
+          const a40 = toU(getAnswer(pa, 'intent_goal'))
+          const b40 = toU(getAnswer(pb, 'intent_goal'))
+          if (!a40 || !b40) return 0
+          if ((a40 === 'A' && b40 === 'A') || (a40 === 'B' && b40 === 'B')) return 5
+          if (a40 === 'C' && b40 === 'C') return 3
+          if ((a40 === 'A' && b40 === 'B') || (a40 === 'B' && b40 === 'A')) return 1
+          if ((a40 === 'A' && b40 === 'C') || (a40 === 'C' && b40 === 'A')) return 3
+          if ((a40 === 'B' && b40 === 'C') || (a40 === 'C' && b40 === 'B')) return 1
+          return 0
+        }
+
         // Process match results into structured format - NO DUPLICATES
         const processedMatches = []
         const seenPairs = new Set() // Track processed pairs to avoid duplicates
@@ -3407,6 +3485,12 @@ export default async function handler(req, res) {
             if (participantA && participantB) {
               // Always put smaller number as participant_a for consistency
               const [firstParticipant, secondParticipant] = pA < pB ? [participantA, participantB] : [participantB, participantA]
+              const syn = Number(match.synergy_score ?? 0)
+              const hum = Number(match.humor_open_score ?? 0)
+              const inten = Number(match.intent_score ?? 0)
+              const synergyVal = syn > 0 ? syn : computeSynergyScore(firstParticipant, secondParticipant)
+              const humorOpenVal = hum > 0 ? hum : computeHumorOpenScore(firstParticipant, secondParticipant)
+              const intentVal = inten > 0 ? inten : computeIntentScore(firstParticipant, secondParticipant)
               
               processedMatches.push({
                 id: `${match.id}-individual`,
@@ -3414,9 +3498,9 @@ export default async function handler(req, res) {
                 participant_b: secondParticipant,
                 compatibility_score: match.compatibility_score || 0,
                 // Top-level access for UI
-                synergy_score: match.synergy_score || 0,
-                humor_open_score: match.humor_open_score || 0,
-                intent_score: match.intent_score || 0,
+                synergy_score: synergyVal,
+                humor_open_score: humorOpenVal,
+                intent_score: intentVal,
                 detailed_scores: {
                   mbti: match.mbti_compatibility_score || 0,
                   attachment: match.attachment_compatibility_score || 0,
@@ -3424,9 +3508,9 @@ export default async function handler(req, res) {
                   lifestyle: match.lifestyle_compatibility_score || 0,
                   core_values: match.core_values_compatibility_score || 0,
                   vibe: match.vibe_compatibility_score || 0,
-                  synergy: match.synergy_score || 0,
-                  humor_open: match.humor_open_score || 0,
-                  intent: match.intent_score || 0
+                  synergy: synergyVal,
+                  humor_open: humorOpenVal,
+                  intent: intentVal
                 },
                 humor_multiplier: match.humor_multiplier || 1.0,
                 bonus_type: match.humor_early_openness_bonus || 'none',
@@ -3464,6 +3548,12 @@ export default async function handler(req, res) {
                 if (participantA && participantB) {
                   // Always put smaller number as participant_a for consistency
                   const [firstParticipant, secondParticipant] = pA < pB ? [participantA, participantB] : [participantB, participantA]
+                  const syn = Number(match.synergy_score ?? 0)
+                  const hum = Number(match.humor_open_score ?? 0)
+                  const inten = Number(match.intent_score ?? 0)
+                  const synergyVal = syn > 0 ? syn : computeSynergyScore(firstParticipant, secondParticipant)
+                  const humorOpenVal = hum > 0 ? hum : computeHumorOpenScore(firstParticipant, secondParticipant)
+                  const intentVal = inten > 0 ? inten : computeIntentScore(firstParticipant, secondParticipant)
                   
                   processedMatches.push({
                     id: `${match.id}-group-${pA}-${pB}`,
@@ -3471,9 +3561,9 @@ export default async function handler(req, res) {
                     participant_b: secondParticipant,
                     compatibility_score: match.compatibility_score || 0,
                     // Top-level access for UI
-                    synergy_score: match.synergy_score || 0,
-                    humor_open_score: match.humor_open_score || 0,
-                    intent_score: match.intent_score || 0,
+                    synergy_score: synergyVal,
+                    humor_open_score: humorOpenVal,
+                    intent_score: intentVal,
                     detailed_scores: {
                       mbti: match.mbti_compatibility_score || 0,
                       attachment: match.attachment_compatibility_score || 0,
@@ -3481,9 +3571,9 @@ export default async function handler(req, res) {
                       lifestyle: match.lifestyle_compatibility_score || 0,
                       core_values: match.core_values_compatibility_score || 0,
                       vibe: match.vibe_compatibility_score || 0,
-                      synergy: match.synergy_score || 0,
-                      humor_open: match.humor_open_score || 0,
-                      intent: match.intent_score || 0
+                      synergy: synergyVal,
+                      humor_open: humorOpenVal,
+                      intent: intentVal
                     },
                     humor_multiplier: match.humor_multiplier || 1.0,
                     bonus_type: match.humor_early_openness_bonus || 'none',

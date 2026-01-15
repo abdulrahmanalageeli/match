@@ -1524,6 +1524,33 @@ const SurveyComponent = memo(function SurveyComponent({
                 </div>
               </div>
             ))}
+            {/* Extra preference: Open to different goal */}
+            {question.id === 'intent_goal' && (
+              <div className="mt-3">
+                <div className={`group rounded-xl border-2 transition p-3 bg-white dark:bg-slate-800/40 border-gray-200 dark:border-slate-600 hover:border-emerald-300 dark:hover:border-emerald-400/50`}>
+                  <div className="flex flex-row-reverse items-center gap-3">
+                    {(() => {
+                      const raw = surveyData.answers['open_intent_goal_mismatch'] as any
+                      const checked = raw === true || raw === 'true'
+                      return (
+                        <Checkbox
+                          id={`intent_goal-open_mismatch`}
+                          checked={!!checked}
+                          onCheckedChange={(c: boolean) => handleInputChange('open_intent_goal_mismatch', c ? 'true' : 'false')}
+                          className="w-5 h-5 rounded-md border-2 border-gray-300 dark:border-slate-500 text-emerald-600 focus:outline-none focus:ring-0 focus-visible:ring-0 focus-visible:outline-none ring-0 overflow-hidden data-[state=checked]:border-emerald-600 data-[state=checked]:bg-emerald-600 flex-shrink-0"
+                        />
+                      )
+                    })()}
+                    <Label
+                      htmlFor={`intent_goal-open_mismatch`}
+                      className="text-right cursor-pointer text-sm font-medium text-gray-700 dark:text-gray-200 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors duration-200 flex-1 leading-relaxed"
+                    >
+                      ما عندي مشكلة لو كان هدف الطرف الآخر مختلف عن هدفي
+                    </Label>
+                  </div>
+                </div>
+              </div>
+            )}
           </RadioGroup>
         )
 

@@ -38,6 +38,13 @@ interface FeedbackPairRow {
   feedback_a: FeedbackEntry | null
   feedback_b: FeedbackEntry | null
   avg_compatibility_rate: number | null
+  // New model fields (optional, 100-pt system)
+  synergy_score?: number | null
+  humor_open_score?: number | null
+  intent_score?: number | null
+  vibe_compatibility_score?: number | null
+  lifestyle_compatibility_score?: number | null
+  communication_compatibility_score?: number | null
 }
 
 export default function FeedbackPairsModal({ eventId, onClose }: { eventId: number, onClose: () => void }) {
@@ -146,6 +153,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                   <th className="p-3 text-right">المشارك أ</th>
                   <th className="p-3 text-right">المشارك ب</th>
                   <th className="p-3 text-right">توافق النظام</th>
+                  <th className="p-3 text-right whitespace-nowrap">تفصيل 100</th>
                   <th className="p-3 text-right">تقييم A</th>
                   <th className="p-3 text-right">تقييم B</th>
                   <th className="p-3 text-right">متوسط التقييم</th>
@@ -167,6 +175,15 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                   const anyMsg = aFb?.participant_message || bFb?.participant_message || ''
                   const sentAt = aFb?.submitted_at || bFb?.submitted_at || null
 
+                  // Helper to colorize by percent
+                  const pctColor = (score: number, max: number) => {
+                    const pct = Math.round((Math.max(0, score) / (max || 1)) * 100)
+                    if (pct >= 80) return 'text-emerald-400'
+                    if (pct >= 60) return 'text-green-400'
+                    if (pct >= 40) return 'text-yellow-400'
+                    return 'text-red-400'
+                  }
+
                   return (
                     <tr key={`${row.match_result_id}`} className="border-t border-slate-800 text-slate-300">
                       <td className="p-3 whitespace-nowrap">{row.round}</td>
@@ -184,6 +201,46 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                       </td>
                       <td className="p-3 font-bold whitespace-nowrap">
                         <span className={getRateColor(row.compatibility_score)}>{row.compatibility_score}%</span>
+                      </td>
+                      {/* 100-pt breakdown (compact) */}
+                      <td className="p-3 align-top">
+                        {(
+                          row.synergy_score != null ||
+                          row.vibe_compatibility_score != null ||
+                          row.lifestyle_compatibility_score != null ||
+                          row.humor_open_score != null ||
+                          row.communication_compatibility_score != null ||
+                          row.intent_score != null
+                        ) ? (
+                          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
+                            <div>
+                              <span className="text-slate-400">التفاعل:</span>{' '}
+                              <span className={pctColor(row.synergy_score ?? 0, 35)}>{Math.round(row.synergy_score ?? 0)}/35</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">الطاقة:</span>{' '}
+                              <span className={pctColor(row.vibe_compatibility_score ?? 0, 20)}>{Math.round(row.vibe_compatibility_score ?? 0)}/20</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">الحياة:</span>{' '}
+                              <span className={pctColor(row.lifestyle_compatibility_score ?? 0, 15)}>{Math.round(row.lifestyle_compatibility_score ?? 0)}/15</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">الدعابة/الانفتاح:</span>{' '}
+                              <span className={pctColor(row.humor_open_score ?? 0, 15)}>{Math.round(row.humor_open_score ?? 0)}/15</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">التواصل:</span>{' '}
+                              <span className={pctColor(row.communication_compatibility_score ?? 0, 10)}>{Math.round(row.communication_compatibility_score ?? 0)}/10</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">الأهداف:</span>{' '}
+                              <span className={pctColor(row.intent_score ?? 0, 5)}>{Math.round(row.intent_score ?? 0)}/5</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
                       </td>
                       <td className="p-3">
                         {aFb ? (

@@ -38,12 +38,17 @@ interface ParticipantMatch {
   }
   compatibility_score: number
   detailed_scores: {
+    // Legacy fields (old model) - keep required for compatibility with FeedbackStatsModal
     mbti: number
     attachment: number
     communication: number
     lifestyle: number
     core_values: number
     vibe: number
+    // New model fields (100-pt system)
+    synergy?: number // 0..35
+    humor_open?: number // 0..15
+    intent?: number // 0..5
   }
   bonus_type: 'none' | 'partial' | 'full'
   round: number
@@ -740,40 +745,60 @@ export default function MatrixPage() {
                                 <Info className="w-4 h-4 text-cyan-400" /> تفاصيل التوافق
                               </summary>
                               <div className="mt-3 space-y-2">
-                                {[
-                                  { name: "MBTI", score: match.detailed_scores.mbti, max: 10 },
-                                  { name: "التعلق", score: match.detailed_scores.attachment, max: 15 },
-                                  { name: "التواصل", score: match.detailed_scores.communication, max: 25 },
-                                  { name: "نمط الحياة", score: match.detailed_scores.lifestyle, max: 15 },
-                                  { name: "القيم", score: match.detailed_scores.core_values, max: 20 },
-                                  { name: "الطاقة", score: match.detailed_scores.vibe, max: 15 }
-                                ].map(({ name, score, max }) => {
-                                  const percentage = Math.round((score / max) * 100)
-                                  const barColor = percentage >= 80 ? 'bg-emerald-400' : 
-                                                 percentage >= 70 ? 'bg-green-400' : 
-                                                 percentage >= 60 ? 'bg-yellow-400' : 
-                                                 percentage >= 40 ? 'bg-orange-400' : 'bg-red-400'
-                                  
-                                  return (
-                                    <div key={name} className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg">
-                                      <span className="text-xs font-semibold text-slate-300">{name}</span>
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-20 h-3 bg-slate-700 rounded-full overflow-hidden">
-                                          <div
-                                            className={`h-full transition-all duration-300 ${barColor}`}
-                                            style={{ width: `${percentage}%` }}
-                                          />
-                                        </div>
-                                        <span className="text-xs font-mono w-12 text-right text-white font-bold">
-                                          {score}/{max}
-                                        </span>
-                                        <span className="text-xs text-cyan-300 w-8">
-                                          {percentage}%
-                                        </span>
-                                      </div>
-                                    </div>
+                                {(() => {
+                                  // Detect new model if synergy/humor_open/intent are present (0 is valid)
+                                  const hasNew = (
+                                    typeof match.detailed_scores?.synergy === 'number' ||
+                                    typeof match.detailed_scores?.humor_open === 'number' ||
+                                    typeof match.detailed_scores?.intent === 'number'
                                   )
-                                })}
+
+                                  const items = hasNew
+                                    ? [
+                                        { name: "التفاعل", score: match.detailed_scores.synergy || 0, max: 35 },
+                                        { name: "الطاقة", score: match.detailed_scores.vibe || 0, max: 20 },
+                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle || 0, max: 15 },
+                                        { name: "الدعابة/الانفتاح", score: match.detailed_scores.humor_open || 0, max: 15 },
+                                        { name: "التواصل", score: match.detailed_scores.communication || 0, max: 10 },
+                                        { name: "الأهداف", score: match.detailed_scores.intent || 0, max: 5 }
+                                      ]
+                                    : [
+                                        { name: "MBTI", score: match.detailed_scores.mbti || 0, max: 10 },
+                                        { name: "التعلق", score: match.detailed_scores.attachment || 0, max: 15 },
+                                        { name: "التواصل", score: match.detailed_scores.communication || 0, max: 25 },
+                                        { name: "نمط الحياة", score: match.detailed_scores.lifestyle || 0, max: 15 },
+                                        { name: "القيم", score: match.detailed_scores.core_values || 0, max: 20 },
+                                        { name: "الطاقة", score: match.detailed_scores.vibe || 0, max: 15 }
+                                      ]
+
+                                  return items.map(({ name, score, max }) => {
+                                    const safeMax = max || 1
+                                    const percentage = Math.max(0, Math.min(100, Math.round((score / safeMax) * 100)))
+                                    const barColor = percentage >= 80 ? 'bg-emerald-400' : 
+                                                    percentage >= 70 ? 'bg-green-400' : 
+                                                    percentage >= 60 ? 'bg-yellow-400' : 
+                                                    percentage >= 40 ? 'bg-orange-400' : 'bg-red-400'
+                                    return (
+                                      <div key={name} className="flex items-center justify-between p-2 bg-slate-900/50 rounded-lg">
+                                        <span className="text-xs font-semibold text-slate-300">{name}</span>
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-20 h-3 bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                              className={`h-full transition-all duration-300 ${barColor}`}
+                                              style={{ width: `${percentage}%` }}
+                                            />
+                                          </div>
+                                          <span className="text-xs font-mono w-14 text-right text-white font-bold">
+                                            {Math.round(score)}/{safeMax}
+                                          </span>
+                                          <span className="text-xs text-cyan-300 w-10 text-right">
+                                            {percentage}%
+                                          </span>
+                                        </div>
+                                      </div>
+                                    )
+                                  })
+                                })()}
                               </div>
                             </details>
 

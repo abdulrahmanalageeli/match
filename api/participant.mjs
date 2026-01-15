@@ -936,6 +936,14 @@ export default async function handler(req, res) {
           console.log('🎯 Intent Goal:', intentGoal)
         }
 
+        // Persist openness to different goal (checkbox)
+        const openIntentMismatchRaw = answers.open_intent_goal_mismatch
+        if (openIntentMismatchRaw !== undefined) {
+          const openIntentMismatch = (openIntentMismatchRaw === true || String(openIntentMismatchRaw).toLowerCase() === 'true')
+          updateFields.open_intent_goal_mismatch = openIntentMismatch
+          console.log('✅ Open to different goal:', openIntentMismatch)
+        }
+
         const conversationalRole = answers.conversational_role
         if (typeof conversationalRole === 'string' && ['A','B','C'].includes(conversationalRole)) {
           updateFields.conversational_role = conversationalRole

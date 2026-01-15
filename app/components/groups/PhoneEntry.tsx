@@ -163,7 +163,9 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
                 <img src={logoPng} alt="Blindmatch" className="w-11 h-11 object-contain" />
               </div>
               <h1 className="text-3xl sm:text-4xl font-extrabold mb-2 bg-gradient-to-b from-white to-white/70 bg-clip-text text-transparent">أهلاً بك في التوافق الأعمى</h1>
-              <p className="text-slate-200/90 text-sm">أدخل رقمك لنعثر على مجموعتك</p>
+              {!computedNoGroup && (
+                <p className="text-slate-200/90 text-sm">أدخل رقمك لنعثر على مجموعتك</p>
+              )}
               {showWelcome && (
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30">
                   <Sparkles className="w-4 h-4 text-emerald-300" />

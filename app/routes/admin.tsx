@@ -598,7 +598,6 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
     }
 
     return `*التوافق الأعمى* ✨
-*نسخة التوافق العكسي* — حين يُكمل الاختلاف الصورة
 
 السلام عليكم *${name}*،
 

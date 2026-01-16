@@ -465,7 +465,10 @@ export default function MatrixPage() {
 
   const selectAllVisible = () => {
     const next = new Set<string>()
-    filteredMatches.forEach(m => next.add(m.id))
+    filteredMatches.forEach(m => {
+      const bothFeedback = !!(m.feedback?.participant_a && m.feedback?.participant_b)
+      if (bothFeedback) next.add(m.id)
+    })
     setSelectedMatches(next)
   }
 

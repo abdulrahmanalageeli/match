@@ -1144,6 +1144,9 @@ export default function GroupsPage() {
   // Group guide popup state
   const [showGroupGuide, setShowGroupGuide] = useState(false);
 
+  // Explanation collapsible (hidden by default)
+  const [showExplanation, setShowExplanation] = useState(false);
+
   const currentGame = games[currentGameIndex];
 
   // Shuffle array function
@@ -1390,6 +1393,23 @@ export default function GroupsPage() {
                 // Load basic identity for messaging
                 setParticipantNumber(parsed.assigned_number);
                 setParticipantName(parsed.name || `المشارك #${parsed.assigned_number}`);
+                // Admin bypass: skip gating and use cached fake group directly
+                if (parsed.admin_bypass === true) {
+                  setTableNumber(parsed.table_number ?? 99);
+                  try {
+                    const gm = Array.isArray(parsed.group_members) ? parsed.group_members : [];
+                    setGroupMembers(gm);
+                  } catch {}
+                  try {
+                    const nums: number[] = Array.isArray(parsed.participant_numbers)
+                      ? parsed.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
+                      : [];
+                    setGroupParticipantNumbers(nums);
+                  } catch {}
+                  setIsConfirmed(true);
+                  setDataLoaded(true);
+                  return;
+                }
                 // Verify group assignment in CURRENT event before confirming
                 try {
                   const eventStateRes = await fetch("/api/admin", {
@@ -1661,10 +1681,18 @@ export default function GroupsPage() {
           assigned_number: data.assigned_number,
           name: data.name,
           table_number: data.table_number ?? null,
-          group_members: data.group_members || []
+          group_members: data.group_members || [],
+          participant_numbers: Array.isArray(data.participant_numbers) ? data.participant_numbers : [],
+          admin_bypass: !!data.admin_bypass
         }));
       } catch (_) {}
       setDataLoaded(true);
+      // If admin bypass, confirm immediately and skip gating
+      if (data.admin_bypass === true) {
+        setIsConfirmed(true);
+        setShowOnboarding(false);
+        return;
+      }
       // Fetch group data for gating (must belong to current event group)
       try {
         const eventStateRes = await fetch("/api/admin", {
@@ -1776,10 +1804,28 @@ export default function GroupsPage() {
           assigned_number: data.assigned_number,
           name: data.name,
           table_number: data.table_number ?? null,
-          group_members: data.group_members || []
+          group_members: data.group_members || [],
+          participant_numbers: Array.isArray(data.participant_numbers) ? data.participant_numbers : [],
+          admin_bypass: !!data.admin_bypass
         }));
       } catch (_) {}
       setDataLoaded(true);
+      // If admin bypass, confirm immediately (skip gating)
+      if (data.admin_bypass === true) {
+        // If participant_numbers provided, keep for onboarding visuals
+        if (Array.isArray(data.participant_numbers)) {
+          const nums: number[] = data.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n));
+          setGroupParticipantNumbers(nums);
+        }
+        setJoiningTransition(true);
+        setTimeout(() => {
+          setIsConfirmed(true);
+          setJoiningTransition(false);
+        }, 720);
+        setShowOnboarding(false);
+        // No need to fetch group matches
+        return;
+      }
       // Fetch group genders/numbers for onboarding visualization (digits flow) and gate access
       let hasGroup = false;
       try {
@@ -3427,53 +3473,64 @@ export default function GroupsPage() {
             </div>
           )}
 
-          {/* Enhanced Instructions Card with Professional Design */}
-          <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '600ms'}}>
-            <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
-              <div className="bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 p-5 border-b border-slate-600/50">
-                <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
-                  <BookOpen className="w-6 h-6 text-cyan-400" />
-                  كيف نلعب؟
-                </h2>
-              </div>
-              <div className="p-5 space-y-4">
-                {/* Enhanced Steps with Icons */}
-                <div className="space-y-3">
-                  {[
-                    { icon: <Users className="w-4 h-4" />, text: "اجلسوا في دائرة واختاروا من يبدأ", color: "from-cyan-500 to-blue-500" },
-                    { icon: <Sparkles className="w-4 h-4" />, text: "اتبعوا قواعد كل لعبة واستمتعوا", color: "from-purple-500 to-pink-500" },
-                    { icon: <Trophy className="w-4 h-4" />, text: "احترموا بعضكم واستمعوا بإنصات", color: "from-emerald-500 to-teal-500" }
-                  ].map((step, index) => (
-                    <div 
-                      key={index}
-                      className="flex items-start gap-3 bg-slate-700/40 rounded-xl p-4 border border-slate-600/30 hover:border-cyan-500/50 transition-all duration-300 hover:scale-[1.02]"
-                    >
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${step.color} flex items-center justify-center text-white shadow-lg shrink-0`}>
-                        {step.icon}
-                      </div>
-                      <div className="flex-1 pt-1.5">
-                        <p className="text-white text-sm font-medium leading-relaxed">{step.text}</p>
-                      </div>
-                    </div>
-                  ))}
+          {/* Explanation Toggle and Collapsible Instructions (collapsed by default) */}
+          <div className="mb-3 flex justify-center">
+            <button
+              onClick={() => setShowExplanation(prev => !prev)}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm"
+            >
+              <BookOpen className="w-4 h-4 text-cyan-300" />
+              {showExplanation ? 'إخفاء الشرح' : 'عرض الشرح'}
+            </button>
+          </div>
+          {showExplanation && (
+            <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '600ms'}}>
+              <div className="bg-slate-800/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl overflow-hidden shadow-2xl">
+                <div className="bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 p-5 border-b border-slate-600/50">
+                  <h2 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+                    <BookOpen className="w-6 h-6 text-cyan-400" />
+                    كيف نلعب؟
+                  </h2>
                 </div>
+                <div className="p-5 space-y-4">
+                  {/* Enhanced Steps with Icons */}
+                  <div className="space-y-3">
+                    {[
+                      { icon: <Users className="w-4 h-4" />, text: "اجلسوا في دائرة واختاروا من يبدأ", color: "from-cyan-500 to-blue-500" },
+                      { icon: <Sparkles className="w-4 h-4" />, text: "اتبعوا قواعد كل لعبة واستمتعوا", color: "from-purple-500 to-pink-500" },
+                      { icon: <Trophy className="w-4 h-4" />, text: "احترموا بعضكم واستمعوا بإنصات", color: "from-emerald-500 to-teal-500" }
+                    ].map((step, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-start gap-3 bg-slate-700/40 rounded-xl p-4 border border-slate-600/30 hover:border-cyan-500/50 transition-all duration-300 hover:scale-[1.02]"
+                      >
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-r ${step.color} flex items-center justify-center text-white shadow-lg shrink-0`}>
+                          {step.icon}
+                        </div>
+                        <div className="flex-1 pt-1.5">
+                          <p className="text-white text-sm font-medium leading-relaxed">{step.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-                {/* Enhanced Timer Info with Pulse Animation */}
-                <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-2 border-cyan-400/40 rounded-xl p-4 mt-5 overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 animate-pulse"></div>
-                  <div className="relative flex items-center justify-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-cyan-500/30 flex items-center justify-center animate-pulse">
-                      <Clock className="w-5 h-5 text-cyan-300" />
-                    </div>
-                    <div className="text-center">
-                      <p className="text-cyan-100 font-bold text-base">45 دقيقة للأنشطة</p>
-                      <p className="text-cyan-300/80 text-xs">ثم تبدأ الجولات الفردية</p>
+                  {/* Enhanced Timer Info with Pulse Animation */}
+                  <div className="relative bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-2 border-cyan-400/40 rounded-xl p-4 mt-5 overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-400/0 via-cyan-400/10 to-cyan-400/0 animate-pulse"></div>
+                    <div className="relative flex items-center justify-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-cyan-500/30 flex items-center justify-center animate-pulse">
+                        <Clock className="w-5 h-5 text-cyan-300" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-cyan-100 font-bold text-base">45 دقيقة للأنشطة</p>
+                        <p className="text-cyan-300/80 text-xs">ثم تبدأ الجولات الفردية</p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Enhanced Games Preview with Professional Grid */}
           <div className="mb-6 animate-in slide-in-from-bottom duration-500" style={{animationDelay: '700ms'}}>

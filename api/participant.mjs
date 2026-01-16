@@ -224,6 +224,49 @@ export default async function handler(req, res) {
         // keep default 1
       }
 
+      // Special-case admin bypass: participant #7 (phone 0560899666) always allowed into groups with a fake group
+      try {
+        const isAdminByPhone = normalized === '0560899666' || lastSeven === '0899666'
+        if (isAdminByPhone) {
+          // Try to fetch existing participant #7 for token/name; otherwise use sensible defaults
+          let adminRow = null
+          try {
+            const { data: row, error: rowErr } = await supabase
+              .from("participants")
+              .select("assigned_number, secure_token, name")
+              .eq("match_id", match_id)
+              .eq("assigned_number", 7)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .single()
+            if (!rowErr && row) adminRow = row
+          } catch (_) {}
+
+          const adminName = adminRow?.name || 'أدمن'
+          const adminToken = adminRow?.secure_token || null
+
+          return res.status(200).json({
+            success: true,
+            admin_bypass: true,
+            event_id: currentEventId,
+            assigned_number: 7,
+            secure_token: adminToken,
+            name: adminName,
+            // Provide a stable fake group so UI can render without hitting gating checks
+            table_number: 99,
+            group_number: 99,
+            group_members: [
+              `أدمن #7`,
+              `عضو #101`,
+              `عضو #102`,
+              `عضو #103`
+            ],
+            participant_numbers: [7, 101, 102, 103],
+            participant_names: [adminName, 'عضو #101', 'عضو #102', 'عضو #103']
+          })
+        }
+      } catch (_) {}
+
       // Find participant(s) by phone last 7 digits (across all events for this match)
       const { data: candidates, error: searchErr } = await supabase
         .from("participants")

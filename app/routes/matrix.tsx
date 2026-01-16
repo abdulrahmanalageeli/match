@@ -507,7 +507,7 @@ export default function MatrixPage() {
       'event_id',
       'participant_a_number','participant_a_name','participant_a_gender','participant_a_age','participant_a_mbti',
       'participant_b_number','participant_b_name','participant_b_gender','participant_b_age','participant_b_mbti',
-      'compatibility_score','synergy_score','humor_open_score','intent_score',
+      'compatibility_score','تقييم المشاركين (18%)','synergy_score','humor_open_score','intent_score',
       'mbti_score','attachment_score','communication_score','lifestyle_score','core_values_score','vibe_score',
       'mutual_match','match_type','table_number'
     ]
@@ -522,11 +522,15 @@ export default function MatrixPage() {
     for (const m of selectedList) {
       const a = m.participant_a
       const b = m.participant_b
+      const fa = m.feedback?.participant_a?.compatibility_rate
+      const fb = m.feedback?.participant_b?.compatibility_rate
+      const feedbackBoth = typeof fa === 'number' && typeof fb === 'number'
+      const feedbackVal = feedbackBoth ? Math.round(((fa as number) + (fb as number)) / 2) : ''
       const rowCore = [
         escapeCSV(m.round ?? ''),
         escapeCSV(a?.number ?? ''), escapeCSV(a?.name ?? ''), escapeCSV(a?.gender ?? ''), escapeCSV(a?.age ?? ''), escapeCSV(a?.mbti ?? ''),
         escapeCSV(b?.number ?? ''), escapeCSV(b?.name ?? ''), escapeCSV(b?.gender ?? ''), escapeCSV(b?.age ?? ''), escapeCSV(b?.mbti ?? ''),
-        escapeCSV(m.compatibility_score ?? 0), escapeCSV((m.detailed_scores?.synergy ?? (m as any).synergy_score) ?? 0), escapeCSV((m.detailed_scores?.humor_open ?? (m as any).humor_open_score) ?? 0), escapeCSV((m.detailed_scores?.intent ?? (m as any).intent_score) ?? 0),
+        escapeCSV(m.compatibility_score ?? 0), escapeCSV(feedbackVal), escapeCSV((m.detailed_scores?.synergy ?? (m as any).synergy_score) ?? 0), escapeCSV((m.detailed_scores?.humor_open ?? (m as any).humor_open_score) ?? 0), escapeCSV((m.detailed_scores?.intent ?? (m as any).intent_score) ?? 0),
         escapeCSV(m.detailed_scores?.mbti ?? 0), escapeCSV(m.detailed_scores?.attachment ?? 0), escapeCSV(m.detailed_scores?.communication ?? 0), escapeCSV(m.detailed_scores?.lifestyle ?? 0), escapeCSV(m.detailed_scores?.core_values ?? 0), escapeCSV(m.detailed_scores?.vibe ?? 0),
         escapeCSV(m.mutual_match ? 'yes' : 'no'), escapeCSV(m.match_type ?? ''), escapeCSV(m.table_number ?? '')
       ]

@@ -5335,7 +5335,7 @@ Proceed?`
                 >
                 {/* Cohost hanging LATE tag overlay — visible within card bounds (no negative offset) */}
                 {isCohost && p.next_event_signup_timestamp && (() => {
-                  const cutoffDate = new Date('2026-01-12T15:00:00+03:00')
+                  const cutoffDate = new Date('2026-01-17T15:00:00+03:00')
                   const signedAt = new Date(p.next_event_signup_timestamp)
                   const diffMs = signedAt.getTime() - cutoffDate.getTime()
                   const isLate = diffMs > 0
@@ -5558,8 +5558,8 @@ Proceed?`
                     {/* Registration Time (created_at) */}
                     {!isCohost && p.created_at && (() => {
                       const createdAt = new Date(p.created_at);
-                      // Cutoff: Jan 12, 2026 3:00 PM Riyadh time
-                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00');
+                      // Cutoff: Jan 17, 2026 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2026-01-17T15:00:00+03:00');
                       const isLate = createdAt.getTime() > cutoffDate.getTime();
 
                       const dateTimeStr = createdAt.toLocaleString('en-GB', {
@@ -5588,8 +5588,8 @@ Proceed?`
                     {/* Next Event Signup Time */}
                     {!isCohost && p.next_event_signup_timestamp && (() => {
                       const signedAt = new Date(p.next_event_signup_timestamp);
-                      // Cutoff: Jan 12, 2026 3:00 PM Riyadh time
-                      const cutoffDate = new Date('2026-01-12T15:00:00+03:00');
+                      // Cutoff: Jan 17, 2026 3:00 PM Riyadh time
+                      const cutoffDate = new Date('2026-01-17T15:00:00+03:00');
                       const isLate = signedAt.getTime() > cutoffDate.getTime();
 
                       const dateTimeStr = signedAt.toLocaleString('en-GB', {

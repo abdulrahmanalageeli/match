@@ -277,7 +277,7 @@ export default function FeedbackPairsModal({ eventId, onClose }: { eventId: numb
                         )}
                       </td>
                       <td className="p-3 max-w-[260px]">
-                        <span className="text-slate-300 line-clamp-2">{anyMsg || '—'}</span>
+                        <span className="text-slate-300 whitespace-pre-line break-words">{anyMsg || '—'}</span>
                       </td>
                       <td className="p-3 whitespace-nowrap text-slate-400 text-xs">{sentAt ? new Date(sentAt).toLocaleString() : '—'}</td>
                     </tr>

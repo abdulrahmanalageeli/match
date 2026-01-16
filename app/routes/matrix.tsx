@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown, BarChart, X } from "lucide-react"
+import { UserRound, Info, Gauge, Search, Star, Heart, Users, Trophy, Filter, RefreshCw, ChevronDown, ChevronUp, Trash2, AlertTriangle, MessageSquare, ThumbsUp, ThumbsDown, BarChart, X, Download } from "lucide-react"
 import FeedbackStatsModal from "~/components/FeedbackStatsModal"
 import FeedbackPairsModal from "~/components/FeedbackPairsModal"
 
@@ -77,6 +77,10 @@ export default function MatrixPage() {
   const [deletingMatch, setDeletingMatch] = useState<string | null>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [showFeedbackPairsModal, setShowFeedbackPairsModal] = useState(false)
+
+  // Selection and export state
+  const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set())
+  const [includeAnswersJson, setIncludeAnswersJson] = useState(false)
 
   useEffect(() => {
     fetchAllMatches()
@@ -450,6 +454,102 @@ export default function MatrixPage() {
     )
   }
 
+  // --- Selection & Export helpers ---
+  const toggleSelectMatch = (id: string) => {
+    setSelectedMatches(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const selectAllVisible = () => {
+    const next = new Set<string>()
+    filteredMatches.forEach(m => next.add(m.id))
+    setSelectedMatches(next)
+  }
+
+  const clearSelection = () => setSelectedMatches(new Set())
+
+  const escapeCSV = (val: any) => {
+    const s = (val === null || val === undefined) ? '' : String(val)
+    return '"' + s.replace(/"/g, '""') + '"'
+  }
+
+  const extractAnswersJSON = (surveyData: any): string => {
+    try {
+      let sd = surveyData
+      if (typeof sd === 'string') { try { sd = JSON.parse(sd) } catch { sd = {} } }
+      const answers = sd?.answers ?? sd ?? null
+      if (!answers || typeof answers !== 'object') return ''
+      return JSON.stringify(answers)
+    } catch {
+      return ''
+    }
+  }
+
+  const exportSelectedMatchesCSV = () => {
+    if (selectedMatches.size === 0) {
+      alert('يرجى اختيار بطاقات للمطابقات أولاً')
+      return
+    }
+    // Respect current filters by intersecting with filteredMatches
+    const selectedList = filteredMatches.filter(m => selectedMatches.has(m.id))
+    if (selectedList.length === 0) {
+      alert('لا توجد نتائج مطابقة للاختيار الحالي')
+      return
+    }
+
+    const headers = [
+      'event_id',
+      'participant_a_number','participant_a_name','participant_a_gender','participant_a_age','participant_a_mbti',
+      'participant_b_number','participant_b_name','participant_b_gender','participant_b_age','participant_b_mbti',
+      'compatibility_score','synergy_score','humor_open_score','intent_score',
+      'mbti_score','attachment_score','communication_score','lifestyle_score','core_values_score','vibe_score',
+      'mutual_match','match_type','table_number'
+    ]
+
+    const headersWithJSON = includeAnswersJson
+      ? [...headers, 'participant_a_answers_json','participant_b_answers_json']
+      : headers
+
+    const rows: string[] = []
+    rows.push(headersWithJSON.join(','))
+
+    for (const m of selectedList) {
+      const a = m.participant_a
+      const b = m.participant_b
+      const rowCore = [
+        escapeCSV(m.round ?? ''),
+        escapeCSV(a?.number ?? ''), escapeCSV(a?.name ?? ''), escapeCSV(a?.gender ?? ''), escapeCSV(a?.age ?? ''), escapeCSV(a?.mbti ?? ''),
+        escapeCSV(b?.number ?? ''), escapeCSV(b?.name ?? ''), escapeCSV(b?.gender ?? ''), escapeCSV(b?.age ?? ''), escapeCSV(b?.mbti ?? ''),
+        escapeCSV(m.compatibility_score ?? 0), escapeCSV((m.detailed_scores?.synergy ?? (m as any).synergy_score) ?? 0), escapeCSV((m.detailed_scores?.humor_open ?? (m as any).humor_open_score) ?? 0), escapeCSV((m.detailed_scores?.intent ?? (m as any).intent_score) ?? 0),
+        escapeCSV(m.detailed_scores?.mbti ?? 0), escapeCSV(m.detailed_scores?.attachment ?? 0), escapeCSV(m.detailed_scores?.communication ?? 0), escapeCSV(m.detailed_scores?.lifestyle ?? 0), escapeCSV(m.detailed_scores?.core_values ?? 0), escapeCSV(m.detailed_scores?.vibe ?? 0),
+        escapeCSV(m.mutual_match ? 'yes' : 'no'), escapeCSV(m.match_type ?? ''), escapeCSV(m.table_number ?? '')
+      ]
+
+      if (includeAnswersJson) {
+        const aJson = extractAnswersJSON(a?.survey_data)
+        const bJson = extractAnswersJSON(b?.survey_data)
+        rows.push([...rowCore, escapeCSV(aJson), escapeCSV(bJson)].join(','))
+      } else {
+        rows.push(rowCore.join(','))
+      }
+    }
+
+    const csvContent = rows.join('\n')
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.href = url
+    const ev = (eventFilter !== null ? `event_${eventFilter}` : 'all_events')
+    link.download = `matrix_${ev}_${Date.now()}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div dir="rtl" className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-10 px-4 font-sans">
       {showStatsModal && <FeedbackStatsModal matches={matches} onClose={() => setShowStatsModal(false)} />}
@@ -600,6 +700,42 @@ export default function MatrixPage() {
               <MessageSquare className="w-4 h-4" />
               أزواج التقييم (الحدث {activeEventId})
             </button>
+            {/* Include answers JSON toggle */}
+            <label className="flex items-center gap-2 ml-4 px-3 py-2 bg-slate-700/40 rounded-lg text-slate-200 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeAnswersJson}
+                onChange={(e) => setIncludeAnswersJson(e.target.checked)}
+                className="accent-cyan-400"
+              />
+              <span className="text-sm">تضمين إجابات الاستبيان (JSON)</span>
+            </label>
+
+            {/* Export & selection controls */}
+            <button
+              onClick={exportSelectedMatchesCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 rounded-lg transition ml-2"
+              title="تصدير المطابقات المحددة إلى Excel (CSV)"
+            >
+              <Download className="w-4 h-4" />
+              تصدير المحدد ({selectedMatches.size})
+            </button>
+
+            <button
+              onClick={selectAllVisible}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600/20 hover:bg-slate-600/30 text-slate-200 rounded-lg transition ml-2"
+              title="تحديد كل النتائج الظاهرة"
+            >
+              تحديد الكل (الظاهر)
+            </button>
+
+            <button
+              onClick={clearSelection}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-600/20 hover:bg-slate-600/30 text-slate-200 rounded-lg transition ml-2"
+              title="مسح الاختيارات"
+            >
+              إلغاء التحديد
+            </button>
           </div>
         </div>
 
@@ -672,6 +808,18 @@ export default function MatrixPage() {
                           
                           {/* Bonus Type Badge */}
                           <BonusBadge match={match} />
+
+                          {/* Selection checkbox */}
+                          <div className="absolute bottom-2 right-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedMatches.has(match.id)}
+                              onChange={() => toggleSelectMatch(match.id)}
+                              className="w-4 h-4 accent-cyan-400"
+                              aria-label="تحديد هذه البطاقة"
+                              title="تحديد هذه البطاقة"
+                            />
+                          </div>
 
                           {/* Participants Info */}
                           <div className="space-y-4">

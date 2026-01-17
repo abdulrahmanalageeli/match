@@ -232,6 +232,14 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       }
       const next = currentSlide + 1;
       setCurrentSlide(next);
+      // Ensure the content scroll area resets to top for the new slide
+      if (slideAreaRef.current) {
+        try {
+          slideAreaRef.current.scrollTop = 0;
+          // Some browsers honor scrollTo options; fall back is scrollTop above
+          slideAreaRef.current.scrollTo({ top: 0, behavior: 'auto' });
+        } catch {}
+      }
       // Progress bar animation
       if (progressRef.current) {
         await animate(progressRef.current!, { width: `${((next + 1) / 4) * 100}%` } as any, { duration: 0.35, easing: 'ease-out' } as any).finished;

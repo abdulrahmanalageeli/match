@@ -1361,90 +1361,100 @@ export default function ParticipantResultsModal({
                               return (a === x && b === y) || (a === y && b === x)
                             })
                             const hasAny = pair && (pair.intent_boost_applied || pair.attachment_penalty_applied || pair.dead_air_veto_applied || pair.humor_clash_veto_applied || pair.cap_applied != null || (pair.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none'))
+                            const tolerated = !!(pair && typeof pair.reason === 'string' && pair.reason.includes('±1y'))
                             return (
                               <td className="p-4 text-center">
-                                {hasAny ? (
-                                  <Tooltip.Provider delayDuration={200}>
-                                    <Tooltip.Root>
-                                      <Tooltip.Trigger asChild>
-                                        <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-help">
-                                          <Info className="w-4 h-4" />
-                                        </div>
-                                      </Tooltip.Trigger>
-                                      <Tooltip.Portal>
-                                        <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
-                                          <div className="space-y-1">
-                                            {(() => {
-                                              const x = participant.assigned_number
-                                              const y = participant.partner_assigned_number
-                                              if (!y) return null
-                                              const pair = (calculatedPairs || []).find((p: any) => {
-                                                const a = p.participant_a
-                                                const b = p.participant_b
-                                                return (a === x && b === y) || (a === y && b === x)
-                                              })
-                                              if (!pair) return null
-                                              const own = pair.participant_a === x ? (pair.intent_a || '') : (pair.intent_b || '')
-                                              const other = pair.participant_a === x ? (pair.intent_b || '') : (pair.intent_a || '')
-                                              if (own === 'B' && other && other !== 'B') {
-                                                return (
-                                                  <div className="text-red-300">• اختلاف الهدف: B × {other}</div>
-                                                )
-                                              }
-                                              return null
-                                            })()}
-                                            {(() => {
-                                              // Add openness 0×0 penalty line inside constraints tooltip when both are 0
-                                              const x = participant.assigned_number
-                                              const y = participant.partner_assigned_number
-                                              if (!y) return null
-                                              const pair = (calculatedPairs || []).find((p: any) => {
-                                                const a = p.participant_a
-                                                const b = p.participant_b
-                                                return (a === x && b === y) || (a === y && b === x)
-                                              })
-                                              if (!pair) return null
-                                              const aData = participantData.get(x)
-                                              const bData = participantData.get(y)
-                                              const oa = aData?.early_openness_comfort ?? aData?.survey_data?.answers?.early_openness_comfort
-                                              const ob = bData?.early_openness_comfort ?? bData?.survey_data?.answers?.early_openness_comfort
-                                              const oaNum = Number.parseInt(String(oa ?? ''), 10)
-                                              const obNum = Number.parseInt(String(ob ?? ''), 10)
-                                              if (oaNum === 0 && obNum === 0) {
-                                                return (
-                                                  <div className="text-red-300">• عقوبة الانفتاح 0×0 −5</div>
-                                                )
-                                              }
-                                              return null
-                                            })()}
-                                            {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
-                                              <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {pair.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
+                                {(hasAny || tolerated) ? (
+                                  <div className="inline-flex items-center gap-2 justify-center">
+                                    {hasAny && (
+                                      <Tooltip.Provider delayDuration={200}>
+                                        <Tooltip.Root>
+                                          <Tooltip.Trigger asChild>
+                                            <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-help">
+                                              <Info className="w-4 h-4" />
+                                            </div>
+                                          </Tooltip.Trigger>
+                                          <Tooltip.Portal>
+                                            <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
+                                              <div className="space-y-1">
+                                                {(() => {
+                                                  const x = participant.assigned_number
+                                                  const y = participant.partner_assigned_number
+                                                  if (!y) return null
+                                                  const pair = (calculatedPairs || []).find((p: any) => {
+                                                    const a = p.participant_a
+                                                    const b = p.participant_b
+                                                    return (a === x && b === y) || (a === y && b === x)
+                                                  })
+                                                  if (!pair) return null
+                                                  const own = pair.participant_a === x ? (pair.intent_a || '') : (pair.intent_b || '')
+                                                  const other = pair.participant_a === x ? (pair.intent_b || '') : (pair.intent_a || '')
+                                                  if (own === 'B' && other && other !== 'B') {
+                                                    return (
+                                                      <div className="text-red-300">• اختلاف الهدف: B × {other}</div>
+                                                    )
+                                                  }
+                                                  return null
+                                                })()}
+                                                {(() => {
+                                                  // Add openness 0×0 penalty line inside constraints tooltip when both are 0
+                                                  const x = participant.assigned_number
+                                                  const y = participant.partner_assigned_number
+                                                  if (!y) return null
+                                                  const pair = (calculatedPairs || []).find((p: any) => {
+                                                    const a = p.participant_a
+                                                    const b = p.participant_b
+                                                    return (a === x && b === y) || (a === y && b === x)
+                                                  })
+                                                  if (!pair) return null
+                                                  const aData = participantData.get(x)
+                                                  const bData = participantData.get(y)
+                                                  const oa = aData?.early_openness_comfort ?? aData?.survey_data?.answers?.early_openness_comfort
+                                                  const ob = bData?.early_openness_comfort ?? bData?.survey_data?.answers?.early_openness_comfort
+                                                  const oaNum = Number.parseInt(String(oa ?? ''), 10)
+                                                  const obNum = Number.parseInt(String(ob ?? ''), 10)
+                                                  if (oaNum === 0 && obNum === 0) {
+                                                    return (
+                                                      <div className="text-red-300">• عقوبة الانفتاح 0×0 −5</div>
+                                                    )
+                                                  }
+                                                  return null
+                                                })()}
+                                                {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
+                                                  <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {pair.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
+                                                  </div>
+                                                )}
+                                                {pair?.intent_boost_applied && (
+                                                  <div className="text-emerald-300">• مضاعف الهدف (×1.1) مطبق</div>
+                                                )}
+                                                {pair?.attachment_penalty_applied && (
+                                                  <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
+                                                )}
+                                                {pair?.dead_air_veto_applied && (
+                                                  <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
+                                                )}
+                                                {pair?.humor_clash_veto_applied && (
+                                                  <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
+                                                )}
+                                                {pair?.cap_applied != null && (
+                                                  <div className="text-yellow-300">• تقييد نهائي: {pair.cap_applied}%</div>
+                                                )}
+                                                {pair?.reason && (
+                                                  <div className="text-slate-300 border-t border-slate-700 pt-1 mt-1">{pair.reason}</div>
+                                                )}
                                               </div>
-                                            )}
-                                            {pair?.intent_boost_applied && (
-                                              <div className="text-emerald-300">• مضاعف الهدف (×1.1) مطبق</div>
-                                            )}
-                                            {pair?.attachment_penalty_applied && (
-                                              <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
-                                            )}
-                                            {pair?.dead_air_veto_applied && (
-                                              <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
-                                            )}
-                                            {pair?.humor_clash_veto_applied && (
-                                              <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
-                                            )}
-                                            {pair?.cap_applied != null && (
-                                              <div className="text-yellow-300">• تقييد نهائي: {pair.cap_applied}%</div>
-                                            )}
-                                            {pair?.reason && (
-                                              <div className="text-slate-300 border-t border-slate-700 pt-1 mt-1">{pair.reason}</div>
-                                            )}
-                                          </div>
-                                          <Tooltip.Arrow className="fill-slate-900" />
-                                        </Tooltip.Content>
-                                      </Tooltip.Portal>
-                                    </Tooltip.Root>
-                                  </Tooltip.Provider>
+                                              <Tooltip.Arrow className="fill-slate-900" />
+                                            </Tooltip.Content>
+                                          </Tooltip.Portal>
+                                        </Tooltip.Root>
+                                      </Tooltip.Provider>
+                                    )}
+                                    {tolerated && (
+                                      <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
+                                        <span className="text-yellow-300 text-[11px] font-bold">±1</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 ) : (
                                   <span className="text-slate-500 text-xs">—</span>
                                 )}

@@ -566,7 +566,14 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
 
                 <div className="space-y-4">
                   <div className="bg-white/10 border border-white/20 rounded-xl p-4">
-                    <div className="text-slate-300 text-xs mb-2">القيود والمكافآت</div>
+                    <div className="text-slate-300 text-xs mb-2 flex items-center gap-2">
+                      <span>القيود والمكافآت</span>
+                      {pair?.reason && String(pair.reason).includes('±1y') && (
+                        <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
+                          <span className="text-yellow-300 text-[10px] font-bold">±1</span>
+                        </div>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2 text-xs md:text-sm">
                       {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200" title="تطابق أسلوب الدعابة يمنح مضاعفًا ×1.05 للنتيجة">

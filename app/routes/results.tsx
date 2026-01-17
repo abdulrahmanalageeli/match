@@ -94,7 +94,7 @@ export default function ResultsPage() {
       const lifestyleNewMatch = reason.match(/(?:Lifestyle|نمط الحياة):\s*(\d+)%/)
       const humorOpenMatch = reason.match(/(?:Humor\/Openness|الدعابة\/الانفتاح):\s*(\d+)%/)
       const communicationNewMatch = reason.match(/(?:Communication|التواصل):\s*(\d+)%/)
-      const intentValuesMatch = reason.match(/(?:Goal&Values|الأهداف\/القيم):\s*(\d+)%/)
+      const intentValuesMatch = reason.match(/(?:Intent|Goal&Values|Goals|الأهداف(?:\/القيم)?):\s*(\d+)%/)
 
       const synergyScore = synergyMatch ? parseInt(synergyMatch[1]) || 0 : 0 // max 35
       const vibeNewScore = vibeNewMatch ? parseInt(vibeNewMatch[1]) || 0 : 0   // max 20

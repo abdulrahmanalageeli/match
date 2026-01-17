@@ -1393,23 +1393,6 @@ export default function GroupsPage() {
                 // Load basic identity for messaging
                 setParticipantNumber(parsed.assigned_number);
                 setParticipantName(parsed.name || `المشارك #${parsed.assigned_number}`);
-                // Admin bypass: skip gating and use cached fake group directly
-                if (parsed.admin_bypass === true) {
-                  setTableNumber(parsed.table_number ?? 99);
-                  try {
-                    const gm = Array.isArray(parsed.group_members) ? parsed.group_members : [];
-                    setGroupMembers(gm);
-                  } catch {}
-                  try {
-                    const nums: number[] = Array.isArray(parsed.participant_numbers)
-                      ? parsed.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
-                      : [];
-                    setGroupParticipantNumbers(nums);
-                  } catch {}
-                  setIsConfirmed(true);
-                  setDataLoaded(true);
-                  return;
-                }
                 // Verify group assignment in CURRENT event before confirming
                 try {
                   const eventStateRes = await fetch("/api/admin", {
@@ -1454,10 +1437,7 @@ export default function GroupsPage() {
                         : [];
                       setGroupParticipantGenders(gens);
                       setIsConfirmed(true);
-                      try {
-                        const seen = localStorage.getItem('groups_onboarding_seen');
-                        if (!seen) setShowOnboarding(true);
-                      } catch {}
+                      setShowOnboarding(true);
                       setDataLoaded(true);
                       return;
                     }
@@ -1571,10 +1551,7 @@ export default function GroupsPage() {
                 setGroupParticipantGenders(gens);
                 console.log(`✅ Table number set - Table #${userGroup.table_number} (Event ${currentEventId})`);
                 setIsConfirmed(true);
-                try {
-                  const seen = localStorage.getItem('groups_onboarding_seen');
-                  if (!seen) setShowOnboarding(true);
-                } catch {}
+                setShowOnboarding(true);
               } else {
                 console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
                 console.log('Participant assigned_number type:', typeof participantData.assigned_number, participantData.assigned_number);
@@ -1687,12 +1664,6 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
-      // If admin bypass, confirm immediately and skip gating
-      if (data.admin_bypass === true) {
-        setIsConfirmed(true);
-        setShowOnboarding(false);
-        return;
-      }
       // Fetch group data for gating (must belong to current event group)
       try {
         const eventStateRes = await fetch("/api/admin", {
@@ -1727,12 +1698,9 @@ export default function GroupsPage() {
               ? userGroup.participant_genders.map((g: any) => (g === 'male' || g === 'female' ? g : null))
               : [];
             setGroupParticipantGenders(gens);
-            // Gate passed: confirm and optionally show onboarding
+            // Gate passed: confirm and show onboarding
             setIsConfirmed(true);
-            try {
-              const seen = localStorage.getItem('groups_onboarding_seen');
-              if (!seen) setShowOnboarding(true);
-            } catch {}
+            setShowOnboarding(true);
           } else {
             // No group assigned for CURRENT event -> stay on PhoneEntry
             setIsConfirmed(false);
@@ -1810,22 +1778,6 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
-      // If admin bypass, confirm immediately (skip gating)
-      if (data.admin_bypass === true) {
-        // If participant_numbers provided, keep for onboarding visuals
-        if (Array.isArray(data.participant_numbers)) {
-          const nums: number[] = data.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n));
-          setGroupParticipantNumbers(nums);
-        }
-        setJoiningTransition(true);
-        setTimeout(() => {
-          setIsConfirmed(true);
-          setJoiningTransition(false);
-        }, 720);
-        setShowOnboarding(false);
-        // No need to fetch group matches
-        return;
-      }
       // Fetch group genders/numbers for onboarding visualization (digits flow) and gate access
       let hasGroup = false;
       try {
@@ -1878,10 +1830,7 @@ export default function GroupsPage() {
       setTimeout(() => {
         setIsConfirmed(true);
         setJoiningTransition(false);
-        try {
-          const seen = localStorage.getItem('groups_onboarding_seen');
-          if (!seen) setShowOnboarding(true);
-        } catch {}
+        setShowOnboarding(true);
       }, 720);
       // If rounds already active, redirect immediately using the saved token
       try {

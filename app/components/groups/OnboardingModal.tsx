@@ -219,7 +219,6 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       // Play a stylish screen wipe then close
       setTimeout(() => setWipe(true), 120);
       setTimeout(() => {
-        localStorage.setItem('groups_onboarding_seen', 'true');
         onClose();
       }, 820);
     } else {
@@ -249,7 +248,6 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
   };
 
   const handleSkip = () => {
-    localStorage.setItem('groups_onboarding_seen', 'true');
     onClose();
   };
 

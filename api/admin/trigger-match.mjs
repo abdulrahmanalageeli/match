@@ -804,13 +804,13 @@ function calculateHumorOpennessScore(participantA, participantB) {
 // Helper function to check early openness compatibility
 function checkOpennessCompatibility(opennessA, opennessB) {
   // Allowed combinations:
-  // 0↔1, 0↔2
+  // 0↔0, 0↔1, 0↔2
   // 1↔1, 1↔2, 1↔3
   // 2↔0, 2↔1, 2↔2, 2↔3
   // 3↔1, 3↔2, 3↔3
-  // Blocked: 0↔0, 0↔3
+  // Blocked: 0↔3
   
-  if (opennessA === 0) return [1, 2].includes(opennessB)
+  if (opennessA === 0) return [0, 1, 2].includes(opennessB)
   if (opennessA === 1) return [1, 2, 3].includes(opennessB)
   if (opennessA === 2) return [0, 1, 2, 3].includes(opennessB)
   if (opennessA === 3) return [1, 2, 3].includes(opennessB)
@@ -1151,6 +1151,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   let deadAirVetoApplied = false
   let humorClashVetoApplied = false
   let capApplied = null
+  let opennessZeroZeroPenaltyApplied = false
 
   // Attachment penalty: Anxious × Avoidant → -5 (apply before veto and caps)
   const anxiousAvoidant = ((participantA.attachment_style || participantA.survey_data?.attachmentStyle) === 'Anxious' && (participantB.attachment_style || participantB.survey_data?.attachmentStyle) === 'Avoidant') ||
@@ -1160,6 +1161,22 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     console.log(`⚠️ Attachment penalty applied: Anxious×Avoidant → -5`)
     attachmentPenaltyApplied = true
   }
+  // Early openness 0×0 penalty (apply before multipliers and caps)
+  try {
+    const openAraw = (participantA.early_openness_comfort !== undefined && participantA.early_openness_comfort !== null)
+      ? participantA.early_openness_comfort
+      : participantA?.survey_data?.answers?.early_openness_comfort
+    const openBraw = (participantB.early_openness_comfort !== undefined && participantB.early_openness_comfort !== null)
+      ? participantB.early_openness_comfort
+      : participantB?.survey_data?.answers?.early_openness_comfort
+    const oA = openAraw !== undefined && openAraw !== null ? parseInt(openAraw) : undefined
+    const oB = openBraw !== undefined && openBraw !== null ? parseInt(openBraw) : undefined
+    if (oA === 0 && oB === 0) {
+      totalScore -= 5
+      opennessZeroZeroPenaltyApplied = true
+      console.log(`⚠️ Early openness penalty applied: 0×0 → -5`)
+    }
+  } catch (_) {}
   if (totalScore < 0) totalScore = 0
 
   // Apply multipliers before veto caps
@@ -1218,6 +1235,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
     deadAirVetoApplied,
     humorClashVetoApplied,
     capApplied,
+    opennessZeroZeroPenaltyApplied,
     cached: false
   }
   
@@ -3447,6 +3465,7 @@ export default async function handler(req, res) {
             synergy_score: compatibilityResult.synergyScore,                 // 0-35
             humor_open_score: compatibilityResult.humorOpenScore,           // 0-15
             intent_score: compatibilityResult.intentScore,                  // 0-5 (Goal & Values)
+            openness_zero_zero_penalty_applied: compatibilityResult.opennessZeroZeroPenaltyApplied || false,
             intent_a: intentA,
             intent_b: intentB,
             attachment_penalty_applied: compatibilityResult.attachmentPenaltyApplied || false,
@@ -3456,6 +3475,7 @@ export default async function handler(req, res) {
             cap_applied: compatibilityResult.capApplied || null,
             reason: `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Intent: ${Math.round(compatibilityResult.intentScore)}%` +
               (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
+              (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : ''),
             is_actual_match: false, // These are potential matches, not actual matches
             is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
@@ -3810,6 +3830,7 @@ export default async function handler(req, res) {
           `Communication: ${Math.round(Number(communicationScore || 0))}% + ` +
           `Intent: ${Math.round(Number(compatibilityResult.intentScore ?? 0))}%` +
           (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
+          (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
 
         const matchRecord = {

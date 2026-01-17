@@ -904,6 +904,32 @@ export default function ParticipantResultsModal({
                                   </Tooltip.Portal>
                                 </Tooltip.Root>
                               </Tooltip.Provider>
+                              {(() => {
+                                // Show yellow alert icon next to the participant name if openness is 0×0 for this pair
+                                const x = participant.assigned_number
+                                const y = participant.partner_assigned_number
+                                if (!y || y === 9999) return null
+                                const pair = (calculatedPairs || []).find((p: any) => {
+                                  const a = p.participant_a
+                                  const b = p.participant_b
+                                  return (a === x && b === y) || (a === y && b === x)
+                                })
+                                if (!pair) return null
+                                const aData = participantData.get(x)
+                                const bData = participantData.get(y)
+                                const oa = aData?.early_openness_comfort ?? aData?.survey_data?.answers?.early_openness_comfort
+                                const ob = bData?.early_openness_comfort ?? bData?.survey_data?.answers?.early_openness_comfort
+                                const oaNum = Number.parseInt(String(oa ?? ''), 10)
+                                const obNum = Number.parseInt(String(ob ?? ''), 10)
+                                if (oaNum === 0 && obNum === 0) {
+                                  return (
+                                    <div title="عقوبة الانفتاح 0×0">
+                                      <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                                    </div>
+                                  )
+                                }
+                                return null
+                              })()}
                               {/* Payment indicator */}
                               {participant.paid_done ? (
                                 <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center" title="دفع مكتمل">
@@ -1106,6 +1132,32 @@ export default function ParticipantResultsModal({
                                         </Tooltip.Provider>
                                       )}
                                     </div>
+                                    {(() => {
+                                      // Show yellow alert icon next to the partner name if openness is 0×0 for this pair
+                                      const x = participant.assigned_number
+                                      const y = participant.partner_assigned_number
+                                      if (!y || y === 9999) return null
+                                      const pair = (calculatedPairs || []).find((p: any) => {
+                                        const a = p.participant_a
+                                        const b = p.participant_b
+                                        return (a === x && b === y) || (a === y && b === x)
+                                      })
+                                      if (!pair) return null
+                                      const aData = participantData.get(x)
+                                      const bData = participantData.get(y)
+                                      const oa = aData?.early_openness_comfort ?? aData?.survey_data?.answers?.early_openness_comfort
+                                      const ob = bData?.early_openness_comfort ?? bData?.survey_data?.answers?.early_openness_comfort
+                                      const oaNum = Number.parseInt(String(oa ?? ''), 10)
+                                      const obNum = Number.parseInt(String(ob ?? ''), 10)
+                                      if (oaNum === 0 && obNum === 0) {
+                                        return (
+                                          <div title="عقوبة الانفتاح 0×0">
+                                            <AlertTriangle className="w-4 h-4 text-yellow-400" />
+                                          </div>
+                                        )
+                                      }
+                                      return null
+                                    })()}
                                     {/* Partner payment indicator */}
                                     {participant.partner_paid_done ? (
                                       <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center" title="الشريك دفع">
@@ -1337,6 +1389,30 @@ export default function ParticipantResultsModal({
                                               if (own === 'B' && other && other !== 'B') {
                                                 return (
                                                   <div className="text-red-300">• اختلاف الهدف: B × {other}</div>
+                                                )
+                                              }
+                                              return null
+                                            })()}
+                                            {(() => {
+                                              // Add openness 0×0 penalty line inside constraints tooltip when both are 0
+                                              const x = participant.assigned_number
+                                              const y = participant.partner_assigned_number
+                                              if (!y) return null
+                                              const pair = (calculatedPairs || []).find((p: any) => {
+                                                const a = p.participant_a
+                                                const b = p.participant_b
+                                                return (a === x && b === y) || (a === y && b === x)
+                                              })
+                                              if (!pair) return null
+                                              const aData = participantData.get(x)
+                                              const bData = participantData.get(y)
+                                              const oa = aData?.early_openness_comfort ?? aData?.survey_data?.answers?.early_openness_comfort
+                                              const ob = bData?.early_openness_comfort ?? bData?.survey_data?.answers?.early_openness_comfort
+                                              const oaNum = Number.parseInt(String(oa ?? ''), 10)
+                                              const obNum = Number.parseInt(String(ob ?? ''), 10)
+                                              if (oaNum === 0 && obNum === 0) {
+                                                return (
+                                                  <div className="text-red-300">• عقوبة الانفتاح 0×0 −5</div>
                                                 )
                                               }
                                               return null

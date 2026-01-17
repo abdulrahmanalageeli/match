@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react"
-import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown, Info } from "lucide-react"
+import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown, Info, AlertTriangle } from "lucide-react"
 import * as Tooltip from "@radix-ui/react-tooltip"
 
 interface ParticipantMatch {
@@ -28,6 +28,7 @@ interface ParticipantMatch {
   humor_clash_veto_applied?: boolean
   cap_applied?: number | null
   reason?: string
+  openness_zero_zero_penalty_applied?: boolean
 }
 
 interface ParticipantDetailModalProps {
@@ -80,6 +81,10 @@ export default function ParticipantDetailModal({
         matches.forEach(m => {
           participantNumbers.add(m.participant_number)
         })
+        // Include selected participant to compute pair openness flags
+        if (participant?.assigned_number) {
+          participantNumbers.add(participant.assigned_number)
+        }
 
         // Fetch all participants data using POST with action
         const response = await fetch("/api/admin", {
@@ -471,6 +476,37 @@ export default function ParticipantDetailModal({
                                 </Tooltip.Root>
                               </Tooltip.Provider>
                               {(() => {
+                                // Show openness 0×0 penalty icon next to potential partner name
+                                const pA = participantData.get(participant.assigned_number)
+                                const pB = participantData.get(match.participant_number)
+                                const ansA = pA?.survey_data?.answers || {}
+                                const ansB = pB?.survey_data?.answers || {}
+                                const oaRaw = (pA?.early_openness_comfort ?? ansA.early_openness_comfort)
+                                const obRaw = (pB?.early_openness_comfort ?? ansB.early_openness_comfort)
+                                const oa = oaRaw !== undefined && oaRaw !== null ? parseInt(oaRaw) : undefined
+                                const ob = obRaw !== undefined && obRaw !== null ? parseInt(obRaw) : undefined
+                                if (oa === 0 && ob === 0) {
+                                  return (
+                                    <Tooltip.Provider delayDuration={150}>
+                                      <Tooltip.Root>
+                                        <Tooltip.Trigger asChild>
+                                          <div className="w-5 h-5 rounded-full bg-yellow-500/20 border border-yellow-400/30 flex items-center justify-center" title="عقوبة الانفتاح 0×0 −5">
+                                            <AlertTriangle className="w-3 h-3 text-yellow-300" />
+                                          </div>
+                                        </Tooltip.Trigger>
+                                        <Tooltip.Portal>
+                                          <Tooltip.Content sideOffset={6} className="z-[101] px-2 py-1 text-xs text-white bg-slate-900 border border-slate-700 rounded">
+                                            عقوبة الانفتاح 0×0 −5
+                                            <Tooltip.Arrow className="fill-slate-900" />
+                                          </Tooltip.Content>
+                                        </Tooltip.Portal>
+                                      </Tooltip.Root>
+                                    </Tooltip.Provider>
+                                  )
+                                }
+                                return null
+                              })()}
+                              {(() => {
                                 const locked = lockedByParticipant.get(match.participant_number)
                                 if (!locked) return null
                                 const isLockedWithSelected = participant && locked.with === participant.assigned_number
@@ -642,6 +678,22 @@ export default function ParticipantDetailModal({
                                             {match.dead_air_veto_applied && (
                                               <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
                                             )}
+                                            {(() => {
+                                              const pA = participantData.get(participant.assigned_number)
+                                              const pB = participantData.get(match.participant_number)
+                                              const ansA = pA?.survey_data?.answers || {}
+                                              const ansB = pB?.survey_data?.answers || {}
+                                              const oaRaw = (pA?.early_openness_comfort ?? ansA.early_openness_comfort)
+                                              const obRaw = (pB?.early_openness_comfort ?? ansB.early_openness_comfort)
+                                              const oa = oaRaw !== undefined && oaRaw !== null ? parseInt(oaRaw) : undefined
+                                              const ob = obRaw !== undefined && obRaw !== null ? parseInt(obRaw) : undefined
+                                              if (oa === 0 && ob === 0) {
+                                                return (
+                                                  <div className="text-yellow-300">• عقوبة الانفتاح 0×0 −5</div>
+                                                )
+                                              }
+                                              return null
+                                            })()}
                                             {match.humor_clash_veto_applied && (
                                               <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
                                             )}

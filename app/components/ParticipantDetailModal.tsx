@@ -650,65 +650,78 @@ export default function ParticipantDetailModal({
                                   match.cap_applied != null ||
                                   (match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none')
                                 )
-                                if (!hasAny) return <span className="text-slate-500 text-xs">—</span>
+                                const tolerated = !!(match && typeof match.reason === 'string' && match.reason.includes('±1y'))
+                                if (!hasAny && !tolerated) return <span className="text-slate-500 text-xs">—</span>
                                 return (
-                                  <Tooltip.Provider delayDuration={200}>
-                                    <Tooltip.Root>
-                                      <Tooltip.Trigger asChild>
-                                        <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-help">
-                                          <Info className="w-4 h-4" />
-                                        </div>
-                                      </Tooltip.Trigger>
-                                      <Tooltip.Portal>
-                                        <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
-                                          <div className="space-y-1">
-                                            {match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B' && (
-                                              <div className="text-red-300">• اختلاف الهدف: B × {match.intent_other}</div>
-                                            )}
-                                            {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
-                                              <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {match.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
+                                  <div className="inline-flex items-center gap-2 justify-center">
+                                    {hasAny && (
+                                      <Tooltip.Provider delayDuration={200}>
+                                        <Tooltip.Root>
+                                          <Tooltip.Trigger asChild>
+                                            <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 text-slate-200 cursor-help">
+                                              <Info className="w-4 h-4" />
+                                            </div>
+                                          </Tooltip.Trigger>
+                                          <Tooltip.Portal>
+                                            <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
+                                              <div className="space-y-1">
+                                                {match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B' && (
+                                                  <div className="text-red-300">• اختلاف الهدف: B × {match.intent_other}</div>
+                                                )}
+                                                {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
+                                                  <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {match.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
+                                                  </div>
+                                                )}
+                                                {match.intent_boost_applied && (
+                                                  <div className="text-emerald-300">• مضاعف الهدف (×1.1) مطبق</div>
+                                                )}
+                                                {match.attachment_penalty_applied && (
+                                                  <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
+                                                )}
+                                                {match.dead_air_veto_applied && (
+                                                  <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
+                                                )}
+                                                {(() => {
+                                                  const pA = participantData.get(participant.assigned_number)
+                                                  const pB = participantData.get(match.participant_number)
+                                                  const ansA = pA?.survey_data?.answers || {}
+                                                  const ansB = pB?.survey_data?.answers || {}
+                                                  const oaRaw = (pA?.early_openness_comfort ?? ansA.early_openness_comfort)
+                                                  const obRaw = (pB?.early_openness_comfort ?? ansB.early_openness_comfort)
+                                                  const oa = oaRaw !== undefined && oaRaw !== null ? parseInt(oaRaw) : undefined
+                                                  const ob = obRaw !== undefined && obRaw !== null ? parseInt(obRaw) : undefined
+                                                  if (oa === 0 && ob === 0) {
+                                                    return (
+                                                      <div className="text-yellow-300">• عقوبة الانفتاح 0×0 −5</div>
+                                                    )
+                                                  }
+                                                  return null
+                                                })()}
+                                                {tolerated && (
+                                                  <div className="text-yellow-300">• تسامح العمر: خارج النطاق ضمن ±1 سنة</div>
+                                                )}
+                                                {match.humor_clash_veto_applied && (
+                                                  <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
+                                                )}
+                                                {match.cap_applied != null && (
+                                                  <div className="text-yellow-300">• تقييد نهائي: {match.cap_applied}%</div>
+                                                )}
+                                                {match.reason && (
+                                                  <div className="text-slate-300 border-t border-slate-700 pt-1 mt-1">{match.reason}</div>
+                                                )}
                                               </div>
-                                            )}
-                                            {match.intent_boost_applied && (
-                                              <div className="text-emerald-300">• مضاعف الهدف (×1.1) مطبق</div>
-                                            )}
-                                            {match.attachment_penalty_applied && (
-                                              <div className="text-red-300">• عقوبة تعلق (قلق × تجنُّب) −5</div>
-                                            )}
-                                            {match.dead_air_veto_applied && (
-                                              <div className="text-red-300">• قيد الصمت: تم تقييد الدرجة إلى 40%</div>
-                                            )}
-                                            {(() => {
-                                              const pA = participantData.get(participant.assigned_number)
-                                              const pB = participantData.get(match.participant_number)
-                                              const ansA = pA?.survey_data?.answers || {}
-                                              const ansB = pB?.survey_data?.answers || {}
-                                              const oaRaw = (pA?.early_openness_comfort ?? ansA.early_openness_comfort)
-                                              const obRaw = (pB?.early_openness_comfort ?? ansB.early_openness_comfort)
-                                              const oa = oaRaw !== undefined && oaRaw !== null ? parseInt(oaRaw) : undefined
-                                              const ob = obRaw !== undefined && obRaw !== null ? parseInt(obRaw) : undefined
-                                              if (oa === 0 && ob === 0) {
-                                                return (
-                                                  <div className="text-yellow-300">• عقوبة الانفتاح 0×0 −5</div>
-                                                )
-                                              }
-                                              return null
-                                            })()}
-                                            {match.humor_clash_veto_applied && (
-                                              <div className="text-red-300">• تعارض الدعابة: تم تقييد الدرجة إلى 50%</div>
-                                            )}
-                                            {match.cap_applied != null && (
-                                              <div className="text-yellow-300">• تقييد نهائي: {match.cap_applied}%</div>
-                                            )}
-                                            {match.reason && (
-                                              <div className="text-slate-300 border-t border-slate-700 pt-1 mt-1">{match.reason}</div>
-                                            )}
-                                          </div>
-                                          <Tooltip.Arrow className="fill-slate-900" />
-                                        </Tooltip.Content>
-                                      </Tooltip.Portal>
-                                    </Tooltip.Root>
-                                  </Tooltip.Provider>
+                                              <Tooltip.Arrow className="fill-slate-900" />
+                                            </Tooltip.Content>
+                                          </Tooltip.Portal>
+                                        </Tooltip.Root>
+                                      </Tooltip.Provider>
+                                    )}
+                                    {tolerated && (
+                                      <div className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
+                                        <span className="text-yellow-300 text-[11px] font-bold">±1</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 )
                               })()}
                             </td>

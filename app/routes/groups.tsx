@@ -1393,6 +1393,24 @@ export default function GroupsPage() {
                 // Load basic identity for messaging
                 setParticipantNumber(parsed.assigned_number);
                 setParticipantName(parsed.name || `المشارك #${parsed.assigned_number}`);
+                // Admin bypass: use cached fake group directly and show onboarding
+                if (parsed.admin_bypass === true) {
+                  setTableNumber(parsed.table_number ?? 99);
+                  try {
+                    const gm = Array.isArray(parsed.group_members) ? parsed.group_members : [];
+                    setGroupMembers(gm);
+                  } catch {}
+                  try {
+                    const nums: number[] = Array.isArray(parsed.participant_numbers)
+                      ? parsed.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n))
+                      : [];
+                    setGroupParticipantNumbers(nums);
+                  } catch {}
+                  setIsConfirmed(true);
+                  setShowOnboarding(true);
+                  setDataLoaded(true);
+                  return;
+                }
                 // Verify group assignment in CURRENT event before confirming
                 try {
                   const eventStateRes = await fetch("/api/admin", {
@@ -1664,6 +1682,20 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
+      // If admin bypass, confirm immediately and show onboarding
+      if (data.admin_bypass === true) {
+        if (Array.isArray(data.participant_numbers)) {
+          const nums: number[] = data.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n));
+          setGroupParticipantNumbers(nums);
+        }
+        setJoiningTransition(true);
+        setTimeout(() => {
+          setIsConfirmed(true);
+          setJoiningTransition(false);
+          setShowOnboarding(true);
+        }, 720);
+        return;
+      }
       // Fetch group data for gating (must belong to current event group)
       try {
         const eventStateRes = await fetch("/api/admin", {

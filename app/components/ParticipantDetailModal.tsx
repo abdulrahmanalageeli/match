@@ -279,9 +279,17 @@ export default function ParticipantDetailModal({
                             match.is_actual_match ? 'bg-gradient-to-r from-green-500/10 to-transparent' : ''
                           } ${
                             index < 3 && !match.is_actual_match ? 'bg-gradient-to-r from-blue-500/5 to-transparent' : ''
-                          } ${(
-                            match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B'
-                          ) ? 'bg-red-500/10 border-red-400/20' : ''}`}
+                          } ${(() => {
+                            const seriousness = match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B'
+                            if (!seriousness) return ''
+                            const pA = participantData.get(participant.assigned_number)
+                            const pB = participantData.get(match.participant_number)
+                            const ansA = pA?.survey_data?.answers || {}
+                            const ansB = pB?.survey_data?.answers || {}
+                            const openA = (pA?.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === 'true')
+                            const openB = (pB?.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === 'true')
+                            return (openA || openB) ? 'bg-yellow-500/10 border-yellow-400/20' : 'bg-red-500/10 border-red-400/20'
+                          })()}`}
                         >
                           <td className="p-4">
                             <div className="flex items-center gap-2">

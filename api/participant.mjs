@@ -245,6 +245,28 @@ export default async function handler(req, res) {
           const adminName = adminRow?.name || 'أدمن'
           const adminToken = adminRow?.secure_token || null
 
+          // Build a randomized fake group (3–6 participants including admin #7)
+          const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min
+          const groupSize = randInt(3, 6)
+          const candidatePool = []
+          // Create pool of candidate numbers (avoid 7 and 9999)
+          for (let n = 50; n <= 250; n++) {
+            if (n !== 7 && n !== 9999) candidatePool.push(n)
+          }
+          // Shuffle and pick (groupSize - 1) others
+          for (let i = candidatePool.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            const tmp = candidatePool[i]
+            candidatePool[i] = candidatePool[j]
+            candidatePool[j] = tmp
+          }
+          const others = candidatePool.slice(0, Math.max(0, groupSize - 1))
+          const participant_numbers = [7, ...others]
+          const participant_names = participant_numbers.map((num, idx) => idx === 0 ? (adminName || `أدمن #7`) : `عضو #${num}`)
+          const group_members = participant_names
+          const table_number = randInt(1, 30)
+          const group_number = randInt(1, 50)
+
           return res.status(200).json({
             success: true,
             admin_bypass: true,
@@ -252,17 +274,11 @@ export default async function handler(req, res) {
             assigned_number: 7,
             secure_token: adminToken,
             name: adminName,
-            // Provide a stable fake group so UI can render without hitting gating checks
-            table_number: 99,
-            group_number: 99,
-            group_members: [
-              `أدمن #7`,
-              `عضو #101`,
-              `عضو #102`,
-              `عضو #103`
-            ],
-            participant_numbers: [7, 101, 102, 103],
-            participant_names: [adminName, 'عضو #101', 'عضو #102', 'عضو #103']
+            table_number,
+            group_number,
+            group_members,
+            participant_numbers,
+            participant_names
           })
         }
       } catch (_) {}

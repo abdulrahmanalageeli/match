@@ -62,13 +62,9 @@ export default function ResultsPage() {
   const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
   
-  // Helper function to calculate original score (before bonus)
+  // Helper: show the final score exactly as stored (matches matrix)
   const getOriginalScore = (match: MatchResult): number => {
-    if (!match.humor_early_openness_bonus || match.humor_early_openness_bonus === 'none') {
-      return match.score
-    }
-    const multiplier = match.humor_early_openness_bonus === 'full' ? 1.15 : 1.05
-    return Math.round(match.score / multiplier)
+    return Math.round(match.score)
   }
 
   // Function to convert technical compatibility reason to natural Arabic description
@@ -640,25 +636,39 @@ export default function ResultsPage() {
                                 <div className="space-y-3">
                                   {m?.newModel && (
                                     <div className={`rounded-lg p-3 ${dark ? 'bg-slate-800/50 border border-slate-700/40' : 'bg-gray-50 border border-gray-200'}`}>
-                                      <div className="flex items-center justify-between mb-2">
-                                        <span className={`text-xs font-bold ${dark ? 'text-slate-100' : 'text-gray-900'}`}>مؤشر الانسجام العام</span>
-                                        <span className={`text-xs font-extrabold ${m.synergyPercent >= 70 ? 'text-emerald-400' : m.synergyPercent >= 50 ? 'text-yellow-600' : 'text-orange-500'}`}>{m.synergyPercent}%</span>
-                                      </div>
-                                      <div className={`w-full h-2 rounded-full ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                                        <div className={`h-full rounded-full bg-gradient-to-r ${m.synergyPercent >= 70 ? 'from-emerald-500 to-teal-500' : m.synergyPercent >= 50 ? 'from-amber-500 to-yellow-500' : 'from-orange-500 to-red-500'}`} style={{ width: `${m.synergyPercent}%` }} />
-                                      </div>
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
-                                        {dims.map((d, i) => (
-                                          <div key={i} className={`rounded-md p-2 ${dark ? 'bg-slate-900/40 border border-slate-700/40' : 'bg-white border border-gray-200'}`}>
-                                            <div className="flex items-center justify-between mb-1">
-                                              <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{d.label}</span>
-                                              <span className={`text-[11px] font-bold ${dark ? 'text-slate-300' : 'text-gray-700'}`}>{percent(d.value, d.max)}%</span>
-                                            </div>
-                                            <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
-                                              <div className={`h-full rounded-full bg-gradient-to-r ${d.bar}`} style={{ width: `${percent(d.value, d.max)}%` }} />
-                                            </div>
-                                          </div>
-                                        ))}
+                                      {/* Matrix-like detailed criteria with value/max and % */}
+                                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {(() => {
+                                          const items = [
+                                            { label: 'التفاعل', value: m.synergyScore, max: m.synergyMax, bar: 'from-emerald-500 to-teal-500' },
+                                            { label: 'الطاقة', value: m.vibe, max: 20, bar: 'from-purple-500 to-pink-500' },
+                                            { label: 'نمط الحياة', value: m.lifestyle, max: 15, bar: 'from-cyan-500 to-blue-500' },
+                                            { label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
+                                            { label: 'التواصل', value: m.communication, max: 10, bar: 'from-indigo-500 to-sky-500' },
+                                            { label: 'الأهداف', value: m.intentValues, max: 5, bar: 'from-emerald-500 to-teal-500' }
+                                          ]
+                                          return items.map(({ label, value, max, bar }, i) => {
+                                            const safeMax = max || 1
+                                            const raw = typeof value === 'number' ? value : 0
+                                            const score = Math.round(raw)
+                                            const pct = Math.max(0, Math.min(100, Math.round((score / safeMax) * 100)))
+                                            const pctColor = pct >= 80 ? 'text-emerald-400' : pct >= 70 ? 'text-green-400' : pct >= 60 ? 'text-yellow-400' : pct >= 40 ? 'text-orange-400' : 'text-red-400'
+                                            return (
+                                              <div key={i} className={`rounded-md p-2 ${dark ? 'bg-slate-900/40 border border-slate-700/40' : 'bg-white border border-gray-200'}`}>
+                                                <div className="flex items-center justify-between mb-1">
+                                                  <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{label}</span>
+                                                  <div className="flex items-center gap-2">
+                                                    <span className={`text-[11px] font-mono font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{score}/{safeMax}</span>
+                                                    <span className={`text-[11px] font-bold ${pctColor}`}>{pct}%</span>
+                                                  </div>
+                                                </div>
+                                                <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
+                                                  <div className={`h-full rounded-full bg-gradient-to-r ${bar}`} style={{ width: `${pct}%` }} />
+                                                </div>
+                                              </div>
+                                            )
+                                          })
+                                        })()}
                                       </div>
                                     </div>
                                   )}

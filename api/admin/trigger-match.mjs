@@ -3549,6 +3549,115 @@ export default async function handler(req, res) {
         console.log(`✅ Standard eligibility: Both participants are eligible for matching`)
       }
       
+      // If debug mode is requested, analyze constraints and return reasons (no DB writes)
+      if (manualMatch.debugPair) {
+        const reasons = []
+        const info = []
+        try {
+          // Ensure both participants exist (respect bypass)
+          if (!p1 || !p2) {
+            if (!p1) reasons.push(`Participant #${manualMatch.participant1} not found ${manualMatch.bypassEligibility ? 'in database' : 'or not eligible'}`)
+            if (!p2) reasons.push(`Participant #${manualMatch.participant2} not found ${manualMatch.bypassEligibility ? 'in database' : 'or not eligible'}`)
+          } else {
+            // Excluded participants
+            const isExcluded1 = excludedParticipants?.some(ep => ep.participant_number === p1.assigned_number)
+            const isExcluded2 = excludedParticipants?.some(ep => ep.participant_number === p2.assigned_number)
+            if (isExcluded1) reasons.push(`Participant #${p1.assigned_number} is excluded from all matching by admin`)
+            if (isExcluded2) reasons.push(`Participant #${p2.assigned_number} is excluded from all matching by admin`)
+
+            // Excluded pair (admin)
+            let excludedPairsDb = []
+            try {
+              const { data: exclPairs } = await supabase
+                .from("excluded_pairs")
+                .select("participant1_number, participant2_number")
+                .eq("match_id", match_id)
+              excludedPairsDb = exclPairs || []
+            } catch (_) {}
+            if (isPairExcluded(p1.assigned_number, p2.assigned_number, excludedPairsDb)) {
+              reasons.push(`Admin excluded pair: #${p1.assigned_number} × #${p2.assigned_number}`)
+            }
+
+            // Locked matches
+            let lockedPairs = []
+            try {
+              const { data: locked } = await supabase
+                .from("locked_matches")
+                .select("participant1_number, participant2_number, original_compatibility_score")
+                .eq("match_id", match_id)
+              lockedPairs = locked || []
+            } catch (_) {}
+            if (isPairLocked(p1.assigned_number, p2.assigned_number, lockedPairs)) {
+              reasons.push(`Locked match exists for this pair (🔒) – already fixed by admin`)
+            } else {
+              const lockedWithP1 = lockedPairs.find(l => l.participant1_number === p1.assigned_number || l.participant2_number === p1.assigned_number)
+              const lockedWithP2 = lockedPairs.find(l => l.participant1_number === p2.assigned_number || l.participant2_number === p2.assigned_number)
+              if (lockedWithP1) reasons.push(`Participant #${p1.assigned_number} locked with #${lockedWithP1.participant1_number === p1.assigned_number ? lockedWithP1.participant2_number : lockedWithP1.participant1_number}`)
+              if (lockedWithP2) reasons.push(`Participant #${p2.assigned_number} locked with #${lockedWithP2.participant1_number === p2.assigned_number ? lockedWithP2.participant2_number : lockedWithP2.participant1_number}`)
+            }
+
+            // Gender compatibility
+            if (!checkGenderCompatibility(p1, p2)) {
+              reasons.push(`Gender preference mismatch (requires opposite or explicit same-gender preference)`)
+            }
+
+            // Nationality hard gate
+            if (!checkNationalityHardGate(p1, p2)) {
+              const natA = p1.nationality || p1?.survey_data?.answers?.nationality || 'unknown'
+              const natB = p2.nationality || p2?.survey_data?.answers?.nationality || 'unknown'
+              reasons.push(`Nationality hard gate: #${p1.assigned_number} (${natA}) × #${p2.assigned_number} (${natB}) require same nationality`)
+            }
+
+            // Age range hard gate
+            if (!checkAgeRangeHardGate(p1, p2)) {
+              const ageA = p1.age || p1?.survey_data?.age
+              const ageB = p2.age || p2?.survey_data?.age
+              const aMin = p1.preferred_age_min ?? p1?.survey_data?.answers?.preferred_age_min
+              const aMax = p1.preferred_age_max ?? p1?.survey_data?.answers?.preferred_age_max
+              const bMin = p2.preferred_age_min ?? p2?.survey_data?.answers?.preferred_age_min
+              const bMax = p2.preferred_age_max ?? p2?.survey_data?.answers?.preferred_age_max
+              reasons.push(`Age range hard gate: ages ${ageA}×${ageB}, ranges A[${aMin}-${aMax}] B[${bMin}-${bMax}]`)
+            }
+
+            // Interaction style compatibility (humor/openness veto like A↔D or 0↔0)
+            if (!checkInteractionStyleCompatibility(p1, p2)) {
+              const hA = p1.humor_banter_style || p1?.survey_data?.answers?.humor_banter_style
+              const hB = p2.humor_banter_style || p2?.survey_data?.answers?.humor_banter_style
+              const oA = p1.early_openness_comfort ?? p1?.survey_data?.answers?.early_openness_comfort
+              const oB = p2.early_openness_comfort ?? p2?.survey_data?.answers?.early_openness_comfort
+              reasons.push(`Interaction style veto: Humor ${hA || '?'}×${hB || '?'} or Openness ${oA ?? '?'}×${oB ?? '?'} blocked`)
+            }
+
+            // Data completeness
+            if (!isParticipantComplete(p1)) reasons.push(`Participant #${p1.assigned_number} missing required survey fields`)
+            if (!isParticipantComplete(p2)) reasons.push(`Participant #${p2.assigned_number} missing required survey fields`)
+
+            // Intent note (not a hard gate for individuals)
+            const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()
+            const intentA = getAns(p1, 'intent_goal')
+            const intentB = getAns(p2, 'intent_goal')
+            if ((intentA === 'B' && intentB !== 'B') || (intentB === 'B' && intentA !== 'B')) {
+              info.push(`Intent mismatch: 'B' pairs ideally with 'B' (not hard-gated here, but penalizes score)`)
+            }
+          }
+
+          // Compute potential compatibility score (no DB writes)
+          let potential = null
+          if (p1 && p2) {
+            const comp = await calculateFullCompatibilityWithCache(p1, p2, false, true)
+            potential = Math.round(Number(comp?.totalScore ?? 0))
+          }
+
+          return res.status(200).json({
+            success: true,
+            debug: { reasons: reasons.concat(info) },
+            compatibility_score: potential
+          })
+        } catch (err) {
+          return res.status(200).json({ success: true, debug: { reasons: [String(err?.message || err) || 'Unknown error during debug'] } })
+        }
+      }
+
       // Check if match already exists for this event (skip in test mode)
       if (!manualMatch.testModeOnly) {
         const { data: existingMatch, error: existingError } = await supabase

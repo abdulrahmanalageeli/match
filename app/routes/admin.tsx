@@ -42,7 +42,8 @@ import {
   Download,
   Zap,
   Calendar,
-  CalendarCheck
+  CalendarCheck,
+  AlertTriangle
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
@@ -142,6 +143,7 @@ export default function AdminPage() {
   const [bypassEligibility, setBypassEligibility] = useState(false)
   const [testModeOnly, setTestModeOnly] = useState(false)
   const [showAllMatches, setShowAllMatches] = useState(false)
+  const [debugPair, setDebugPair] = useState(false)
   const [viewAllMatchesLoading, setViewAllMatchesLoading] = useState(false)
   
   // Group assignments modal state
@@ -2233,17 +2235,35 @@ const fetchParticipants = async () => {
             participant1: participant1, 
             participant2: participant2, 
             bypassEligibility: bypassEligibility,
-            testModeOnly: testModeOnly
+            testModeOnly: testModeOnly,
+            debugPair: debugPair
           }
         }),
       })
       const data = await res.json()
       
       if (res.ok) {
-        setNewManualMatch({participant1: '', participant2: ''})
+        if (!debugPair) {
+          setNewManualMatch({participant1: '', participant2: ''})
+        }
         
         // Extract detailed scores from the response
         const result = data.results?.[0]
+        if (data.debug) {
+          const lines: string[] = []
+          lines.push(`🕵️ Debug Pair: #${participant1} ↔ #${participant2}`)
+          if (Array.isArray(data.debug.reasons) && data.debug.reasons.length > 0) {
+            lines.push('')
+            data.debug.reasons.forEach((r: string) => lines.push(`• ${r}`))
+          } else {
+            lines.push('No blocking constraints found. Likely not paired due to global selection, locks, or optimization ordering.')
+          }
+          if (typeof data.compatibility_score === 'number') {
+            lines.push('', `📊 Potential Score (if allowed): ${data.compatibility_score}%`)
+          }
+          toast[data.debug.reasons?.length ? 'error' : 'success'](lines.join('\n'), { duration: 7000 })
+          return
+        }
         let detailedMessage = testModeOnly 
           ? `🧪 TEST MODE: ${data.message}\n\n🎯 COMPATIBILITY BREAKDOWN:\n`
           : `✅ ${data.message}\n\n🎯 COMPATIBILITY BREAKDOWN:\n`
@@ -4442,6 +4462,8 @@ Proceed?`
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 ${
                   showAllMatches
                     ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
+                    : debugPair
+                    ? 'bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-700 hover:to-yellow-800 text-white'
                     : testModeOnly 
                     ? 'bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white'
                     : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
@@ -4456,6 +4478,11 @@ Proceed?`
                   <>
                     <Eye className="w-4 h-4" />
                     View All Matches
+                  </>
+                ) : debugPair ? (
+                  <>
+                    <AlertTriangle className="w-4 h-4" />
+                    Debug Pair
                   </>
                 ) : testModeOnly ? (
                   <>
@@ -4518,6 +4545,22 @@ Proceed?`
                   showAllMatches ? 'text-purple-300' : 'text-slate-400'
                 }`}>
                   👁️ Show All Possible Matches
+                </span>
+              </label>
+            </div>
+            {/* Debug Pair Checkbox */}
+            <div className="flex items-center gap-3 mt-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={debugPair}
+                  onChange={(e) => setDebugPair(e.target.checked)}
+                  className="w-4 h-4 text-yellow-500 bg-white/10 border-white/20 rounded focus:ring-yellow-400/50 focus:ring-2"
+                />
+                <span className={`text-sm font-medium transition-colors ${
+                  debugPair ? 'text-yellow-300' : 'text-slate-400'
+                }`}>
+                  🕵️ Debug Pair (Explain why not matched)
                 </span>
               </label>
             </div>

@@ -1236,7 +1236,14 @@ export default async function handler(req, res) {
           ai_personality_analysis: match.ai_personality_analysis || null,
           event_id: match.event_id,
           partner_message: partnerMessage,
-          humor_early_openness_bonus: match.humor_early_openness_bonus || 'none'
+          humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+          // New model numeric fields (if available in DB)
+          synergy_score: match.synergy_score ?? null,
+          humor_open_score: match.humor_open_score ?? null,
+          intent_score: match.intent_score ?? null,
+          communication_compatibility_score: match.communication_compatibility_score ?? null,
+          lifestyle_compatibility_score: match.lifestyle_compatibility_score ?? null,
+          vibe_compatibility_score: match.vibe_compatibility_score ?? null
         }
       }));
 

@@ -42,6 +42,13 @@ interface MatchResult {
   event_id?: number
   partner_message?: string | null
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
+  // New model numeric fields (optional, returned by API if available)
+  synergy_score?: number | null
+  humor_open_score?: number | null
+  intent_score?: number | null
+  communication_compatibility_score?: number | null
+  lifestyle_compatibility_score?: number | null
+  vibe_compatibility_score?: number | null
 }
 
 interface ResultsData {
@@ -634,18 +641,35 @@ export default function ResultsPage() {
                               ]
                               return (
                                 <div className="space-y-3">
-                                  {m?.newModel && (
+                                  {(() => {
+                                    const hasNumeric = (
+                                      (typeof match.synergy_score === 'number' && match.synergy_score > 0) ||
+                                      (typeof match.humor_open_score === 'number' && match.humor_open_score > 0) ||
+                                      (typeof match.intent_score === 'number' && match.intent_score > 0) ||
+                                      (typeof match.communication_compatibility_score === 'number' && match.communication_compatibility_score > 0) ||
+                                      (typeof match.lifestyle_compatibility_score === 'number' && match.lifestyle_compatibility_score > 0) ||
+                                      (typeof match.vibe_compatibility_score === 'number' && match.vibe_compatibility_score > 0)
+                                    )
+                                    if (!(m?.newModel || hasNumeric)) return null
+                                    return (
                                     <div className={`rounded-lg p-3 ${dark ? 'bg-slate-800/50 border border-slate-700/40' : 'bg-gray-50 border border-gray-200'}`}>
                                       {/* Matrix-like detailed criteria with value/max and % */}
                                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                         {(() => {
+                                          const synergyVal = (typeof m.synergyScore === 'number' && m.synergyScore > 0) ? m.synergyScore : (typeof match.synergy_score === 'number' ? match.synergy_score : 0)
+                                          const vibeVal = (typeof m.vibe === 'number' && m.vibe > 0) ? m.vibe : (typeof match.vibe_compatibility_score === 'number' ? match.vibe_compatibility_score : 0)
+                                          const lifestyleVal = (typeof m.lifestyle === 'number' && m.lifestyle > 0) ? m.lifestyle : (typeof match.lifestyle_compatibility_score === 'number' ? match.lifestyle_compatibility_score : 0)
+                                          const humorOpenVal = (typeof m.humorOpen === 'number' && m.humorOpen > 0) ? m.humorOpen : (typeof match.humor_open_score === 'number' ? match.humor_open_score : 0)
+                                          const communicationVal = (typeof m.communication === 'number' && m.communication > 0) ? m.communication : (typeof match.communication_compatibility_score === 'number' ? match.communication_compatibility_score : 0)
+                                          const intentVal = (typeof m.intentValues === 'number' && m.intentValues > 0) ? m.intentValues : (typeof match.intent_score === 'number' ? match.intent_score : 0)
+                                          const synergyMax = m.synergyMax || 35
                                           const items = [
-                                            { label: 'التفاعل', value: m.synergyScore, max: m.synergyMax, bar: 'from-emerald-500 to-teal-500' },
-                                            { label: 'الطاقة', value: m.vibe, max: 20, bar: 'from-purple-500 to-pink-500' },
-                                            { label: 'نمط الحياة', value: m.lifestyle, max: 15, bar: 'from-cyan-500 to-blue-500' },
-                                            { label: 'الدعابة/الانفتاح', value: m.humorOpen, max: 15, bar: 'from-amber-500 to-orange-500' },
-                                            { label: 'التواصل', value: m.communication, max: 10, bar: 'from-indigo-500 to-sky-500' },
-                                            { label: 'الأهداف', value: m.intentValues, max: 5, bar: 'from-emerald-500 to-teal-500' }
+                                            { label: 'التفاعل', value: synergyVal, max: synergyMax, bar: 'from-emerald-500 to-teal-500' },
+                                            { label: 'الطاقة', value: vibeVal, max: 20, bar: 'from-purple-500 to-pink-500' },
+                                            { label: 'نمط الحياة', value: lifestyleVal, max: 15, bar: 'from-cyan-500 to-blue-500' },
+                                            { label: 'الدعابة/الانفتاح', value: humorOpenVal, max: 15, bar: 'from-amber-500 to-orange-500' },
+                                            { label: 'التواصل', value: communicationVal, max: 10, bar: 'from-indigo-500 to-sky-500' },
+                                            { label: 'الأهداف', value: intentVal, max: 5, bar: 'from-emerald-500 to-teal-500' }
                                           ]
                                           return items.map(({ label, value, max, bar }, i) => {
                                             const safeMax = max || 1
@@ -671,7 +695,8 @@ export default function ResultsPage() {
                                         })()}
                                       </div>
                                     </div>
-                                  )}
+                                    )
+                                  })()}
                                   <h4 className={`font-semibold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>تحليل التوافق</h4>
                                   <div className="grid grid-cols-1 gap-2">
                                     {formattedReason.components.map((component: { name: string; strength: string; color: string; bgColor: string; borderColor: string; description: string }, compIndex: number) => (

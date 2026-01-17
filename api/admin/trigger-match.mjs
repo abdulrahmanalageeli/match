@@ -86,6 +86,22 @@ function computeOppositesFlippedScore(components) {
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
 
+// Track age tolerance usage per invocation (key: "min-max")
+let AGE_TOLERANCE_MAP = new Map()
+function markAgeTolerance(aNum, bNum, usedA, usedB) {
+  try {
+    const key = `${Math.min(aNum, bNum)}-${Math.max(aNum, bNum)}`
+    const prev = AGE_TOLERANCE_MAP.get(key) || { usedA: false, usedB: false }
+    AGE_TOLERANCE_MAP.set(key, { usedA: prev.usedA || !!usedA, usedB: prev.usedB || !!usedB })
+  } catch (_) { /* noop */ }
+}
+function getAgeTolerance(aNum, bNum) {
+  try {
+    const key = `${Math.min(aNum, bNum)}-${Math.max(aNum, bNum)}`
+    return AGE_TOLERANCE_MAP.get(key) || { usedA: false, usedB: false }
+  } catch (_) { return { usedA: false, usedB: false } }
+}
+
 // Helper function to auto-save results to admin_results table
 async function autoSaveAdminResults(eventId, matchType, generationType, matchResults, calculatedPairs, participantResults, performance, skipAI, excludedPairs, excludedParticipants, lockedMatches) {
   try {
@@ -708,17 +724,39 @@ function checkAgeRangeHardGate(participantA, participantB) {
   const bMin = hasRangeB ? parseInt(minB) : null
   const bMax = hasRangeB ? parseInt(maxB) : null
 
-  // Enforce A's range on B, if A set one and is not open
-  if (hasRangeA && !(ageB >= aMin && ageB <= aMax)) {
-    console.log(`🚫 Age range hard gate (A): #${participantB.assigned_number} age ${ageB} not in [${aMin}, ${aMax}] preferred by #${participantA.assigned_number}`)
-    return false
+  // Strict checks
+  const withinAStrict = hasRangeA ? (ageB >= aMin && ageB <= aMax) : true
+  const withinBStrict = hasRangeB ? (ageA >= bMin && ageA <= bMax) : true
+
+  // ±1 year tolerance
+  const withinATol = hasRangeA ? (ageB >= (aMin - 1) && ageB <= (aMax + 1)) : true
+  const withinBTol = hasRangeB ? (ageA >= (bMin - 1) && ageA <= (bMax + 1)) : true
+
+  const ok = withinATol && withinBTol
+
+  // Record tolerance usage if applicable
+  if (ok && (hasRangeA || hasRangeB)) {
+    const usedA = hasRangeA ? (!withinAStrict && withinATol) : false
+    const usedB = hasRangeB ? (!withinBStrict && withinBTol) : false
+    if (usedA || usedB) {
+      markAgeTolerance(
+        participantA.assigned_number,
+        participantB.assigned_number,
+        usedA,
+        usedB
+      )
+    }
   }
-  // Enforce B's range on A, if B set one and is not open
-  if (hasRangeB && !(ageA >= bMin && ageA <= bMax)) {
-    console.log(`🚫 Age range hard gate (B): #${participantA.assigned_number} age ${ageA} not in [${bMin}, ${bMax}] preferred by #${participantB.assigned_number}`)
-    return false
+
+  if (!ok) {
+    if (hasRangeA && !withinATol) {
+      console.log(`🚫 Age range hard gate (A): #${participantB.assigned_number} age ${ageB} not in [${aMin}, ${aMax}]±1 preferred by #${participantA.assigned_number}`)
+    }
+    if (hasRangeB && !withinBTol) {
+      console.log(`🚫 Age range hard gate (B): #${participantA.assigned_number} age ${ageA} not in [${bMin}, ${bMax}]±1 preferred by #${participantB.assigned_number}`)
+    }
   }
-  return true
+  return ok
 }
 
 // Function to check interaction style compatibility (matching determinants)
@@ -2609,6 +2647,8 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" })
   }
+  // Reset per-request tolerance tracking
+  AGE_TOLERANCE_MAP = new Map()
 
   const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesMode = false } = req.body || {}
   
@@ -3473,10 +3513,12 @@ export default async function handler(req, res) {
             dead_air_veto_applied: compatibilityResult.deadAirVetoApplied || false,
             humor_clash_veto_applied: compatibilityResult.humorClashVetoApplied || false,
             cap_applied: compatibilityResult.capApplied || null,
-            reason: `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Intent: ${Math.round(compatibilityResult.intentScore)}%` +
+            reason: (
+              `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Intent: ${Math.round(compatibilityResult.intentScore)}%` +
               (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
               (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
-              (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : ''),
+              (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
+            ) + ((() => { const tol = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number); return (tol.usedA || tol.usedB) ? ' ⚠️±1y' : '' })()),
             is_actual_match: false, // These are potential matches, not actual matches
             is_repeated_match: isRepeatedMatch // Flag for pairs matched in previous events
           })
@@ -3822,7 +3864,7 @@ export default async function handler(req, res) {
       // Create and insert match record (skip in test mode)
       if (!manualMatch.testModeOnly) {
         // Build reason string (new-model) for consistent UI parsing
-        const reasonStr =
+        let reasonStr =
           `Synergy: ${Math.round(Number(compatibilityResult.synergyScore ?? 0))}% + ` +
           `Vibe: ${Math.round(Number(vibeScore || 0))}% + ` +
           `Lifestyle: ${Math.round(Number(lifestyleScore || 0))}% + ` +
@@ -3832,6 +3874,10 @@ export default async function handler(req, res) {
           (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
           (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
+        {
+          const tol = getAgeTolerance(p1.assigned_number, p2.assigned_number)
+          if (tol.usedA || tol.usedB) reasonStr += ' ⚠️±1y'
+        }
 
         const matchRecord = {
           match_id,
@@ -4362,6 +4408,12 @@ export default async function handler(req, res) {
         if (capApplied != null) {
           reason += ` — تم التقييد عند ${capApplied}%`
         }
+
+        // Append age tolerance indicator if used
+        {
+          const tol = getAgeTolerance(a.assigned_number, b.assigned_number)
+          if (tol.usedA || tol.usedB) reason += ' ⚠️±1y'
+        }
         
         // Determine bonus type based on humor multiplier
         let bonusType = 'none'
@@ -4592,7 +4644,7 @@ export default async function handler(req, res) {
           matchedPairs.add(key)
           
           // Build a new-model reason string when we have calc (precomputed or fresh)
-          const reasonStr = calc
+          let reasonStr = calc
             ? (
                 `Synergy: ${Math.round(Number(calc.synergyScore || 0))}% + ` +
                 `Vibe: ${Math.round(Number(calc.vibeScore || 0))}% + ` +
@@ -4604,6 +4656,10 @@ export default async function handler(req, res) {
                 (calc.capApplied ? ` (capped @ ${calc.capApplied}%)` : '')
               )
             : `🔒 Locked Match (Original: ${lockedMatch.original_compatibility_score}%)`
+          {
+            const tol = getAgeTolerance(participant1, participant2)
+            if (tol.usedA || tol.usedB) reasonStr += ' ⚠️±1y'
+          }
 
           roundMatches.push({
             participant_a_number: participant1,

@@ -41,6 +41,7 @@ import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
 import logoPng from "../welcome/blindmatch.png";
 import { animate } from "motion";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 // Logo Component for Groups Page - Removed (now integrated into header)
 
@@ -2227,10 +2228,11 @@ export default function GroupsPage() {
           {games.map((game, index) => {
             const theme = gameThemes[game.id] || gameThemes.default;
             return (
-              <div 
+              <motion.div 
                 key={game.id}
-                className="animate-in slide-in-from-right duration-300"
-                style={{animationDelay: `${index * 100}ms`}}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: index * 0.06 }}
               >
                 <div 
                   className={`group relative bg-gradient-to-br from-slate-900/90 to-slate-900/80 backdrop-blur-xl rounded-2xl p-5 border ${theme.cardBorder} ${theme.cardBorderHover} transition-all duration-500 cursor-pointer shadow-xl hover:shadow-2xl transform hover:scale-[1.02] hover:-translate-y-1 active:scale-[0.98] overflow-hidden`} 
@@ -2265,9 +2267,9 @@ export default function GroupsPage() {
 
                   <div className="relative z-10 flex items-start gap-4">
                     {/* Icon with aura */}
-                    <div className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 ${theme.iconRing}`}>
+                    <motion.div layoutId={`game-icon-${game.id}`} className={`w-16 h-16 flex-shrink-0 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-lg transition-all duration-300 group-hover:scale-110 group-hover:shadow-xl group-hover:rotate-3 ${theme.iconRing}`}>
                       {game.icon}
-                    </div>
+                    </motion.div>
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
@@ -2304,7 +2306,7 @@ export default function GroupsPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
@@ -3525,8 +3527,11 @@ export default function GroupsPage() {
               </div>
               <div className="p-5 grid grid-cols-2 gap-4">
                 {games.map((game, index) => (
-                  <div 
+                  <motion.div 
                     key={game.id} 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.25, delay: index * 0.05 }}
                     onClick={() => {
                       // Start session and directly select this game
                       setGameStarted(true);
@@ -3539,16 +3544,16 @@ export default function GroupsPage() {
                     <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
                     
                     <div className="relative z-10">
-                      <div className={`w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
+                      <motion.div layoutId={`game-icon-${game.id}`} className={`w-14 h-14 mx-auto mb-3 rounded-2xl bg-gradient-to-br ${game.color} flex items-center justify-center text-white shadow-xl transition-all duration-300 group-hover:scale-110 group-hover:rotate-6`}>
                         {game.icon}
-                      </div>
+                      </motion.div>
                       <h3 className="text-white font-bold text-sm mb-2 leading-tight group-hover:text-cyan-300 transition-colors">{game.nameAr}</h3>
                       <div className="flex items-center justify-center gap-1.5 text-slate-400 text-xs">
                         <Clock className="w-3 h-3" />
                         <span>{game.duration} دقائق</span>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
@@ -3609,9 +3614,10 @@ export default function GroupsPage() {
         <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
         <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
       </div>
+      <LayoutGroup>
       <div className="relative z-10 max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism (collapsible) */}
-        <div className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
+        <motion.div layout transition={{ duration: 0.25 }} className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
           {!headerCollapsed && (
           <div className={"relative flex items-center justify-center mb-4"}>
             {/* Logo with hover effect - centered */}
@@ -3724,9 +3730,9 @@ export default function GroupsPage() {
               {/* Current Game Badge - Themed */}
               {selectedGameId && (
                 <div className={`flex items-center justify-center gap-2 bg-white/5 backdrop-blur-sm rounded-full py-2 px-4 border ${(gameThemes[(selectedGameId as string)] || gameThemes.default).cardBorder} transition-all`}>
-                  <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
+                  <motion.div layoutId={`game-icon-${selectedGameId}`} className={`w-5 h-5 rounded-lg bg-gradient-to-r ${games.find(g => g.id === selectedGameId)?.color} flex items-center justify-center text-white shadow-lg ${(gameThemes[(selectedGameId as string)] || gameThemes.default).iconRing}`}>
                     {games.find(g => g.id === selectedGameId)?.icon}
-                  </div>
+                  </motion.div>
                   <span className="text-sm font-medium text-white/90">
                     {games.find(g => g.id === selectedGameId)?.nameAr}
                   </span>
@@ -3734,14 +3740,25 @@ export default function GroupsPage() {
               )}
             </div>
           )}
-        </div>
+        </motion.div>
 
         {/* Mobile Game Content */}
         <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-600/50 rounded-2xl p-4 shadow-xl overflow-hidden">
-          {renderGameContent()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedGameId ?? 'selection'}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.25 }}
+            >
+              {renderGameContent()}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
       </div>
+      </LayoutGroup>
 
       {/* Time Up Modal */}
       {showTimeUpModal && (

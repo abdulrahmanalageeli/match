@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { X, Magnet, Clock, Gamepad2, Sparkles, ChevronRight, Play, Target } from "lucide-react";
 import { Button } from "../../../components/ui/button";
 import { animate } from "motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -222,14 +223,6 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
         onClose();
       }, 820);
     } else {
-      // Animate slide out, switch, then slide in
-      if (slideAreaRef.current) {
-        await animate(
-          slideAreaRef.current!,
-          { opacity: [1, 0], transform: ['translateX(0px)', 'translateX(-18px)'] } as any,
-          { duration: 0.22, easing: 'ease-in' } as any
-        ).finished;
-      }
       const next = currentSlide + 1;
       setCurrentSlide(next);
       // Ensure the content scroll area resets to top for the new slide
@@ -243,14 +236,6 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
       // Progress bar animation
       if (progressRef.current) {
         await animate(progressRef.current!, { width: `${((next + 1) / 4) * 100}%` } as any, { duration: 0.35, easing: 'ease-out' } as any).finished;
-      }
-      // Animate slide in
-      if (slideAreaRef.current) {
-        await animate(
-          slideAreaRef.current!,
-          { opacity: [0, 1], transform: ['translateX(18px)', 'translateX(0px)'] } as any,
-          { duration: 0.28, easing: 'ease-out' } as any
-        ).finished;
       }
     }
   };
@@ -364,143 +349,153 @@ export function OnboardingModal({ isOpen, onClose, groupMembers, tableNumber, pa
               <Clock className="w-4 h-4" />
               <span>بعد الأنشطة الجماعية تبدأ جلسات 1-ل-1 لمدة 30 دقيقة على الأقل</span>
             </div>
-            {/* Greeting on first slide */}
-            {currentSlide === 0 && (
-              <div className="text-center mb-1">
-                <div className="text-white/90 text-xl font-extrabold animate-in fade-in duration-300">
-                  {`مرحباً${welcomeName ? `، ${welcomeName}` : ''}!`}
-                </div>
-              </div>
-            )}
-
-            <p className={`text-slate-200 text-center ${superCompact ? 'text-sm' : compact ? 'text-base' : 'text-lg'} leading-relaxed animate-slide-in-up`}>
-              {currentSlideData.description}
-            </p>
-
-            {/* Slide-specific content */}
-            {currentSlide === 0 && (
-              <div className="flex flex-col items-center justify-center gap-4">
-                {/* Identity chips */}
-                <div className="flex items-center gap-2">
-                  {typeof tableNumber === 'number' && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-100 text-xs">
-                      <Target className="w-3.5 h-3.5" />
-                      طاولة {tableNumber}
-                    </div>
-                  )}
-                  {derivedSelfNumber != null && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-100 text-xs">
-                      <span>#{derivedSelfNumber}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Gender breakdown chips */}
-                <div className="flex items-center gap-2 flex-wrap justify-center">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs">
-                    <span>عدد المشاركين</span>
-                    <span className="font-bold">{genderSummary.total}</span>
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-100 text-xs">
-                    <span>ذكور</span>
-                    <span className="font-bold">{genderSummary.male}</span>
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-500/20 border border-pink-400/30 text-pink-100 text-xs">
-                    <span>إناث</span>
-                    <span className="font-bold">{genderSummary.female}</span>
-                  </div>
-                  {genderSummary.unknown > 0 && (
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/20 border border-slate-400/30 text-slate-100 text-xs">
-                      <span>غير محدد</span>
-                      <span className="font-bold">{genderSummary.unknown}</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Table & chairs visualization */}
-                <div className={`relative w-full max-w-sm ${superCompact ? 'aspect-3/4' : compact ? 'aspect-5/6' : 'aspect-square'} mt-2`}>
-                  {/* Table */}
-                  <div className="absolute inset-[14%] rounded-full bg-linear-to-br from-slate-700/60 to-slate-800/60 border border-white/10 flex items-center justify-center text-white/90">
-                    <div className="text-center">
-                      <div className="text-xs text-white/70">طاولتك</div>
-                      <div className="text-xl font-extrabold">{typeof tableNumber === 'number' ? tableNumber : '—'}</div>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={currentSlide}
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.25 }}
+              >
+                {/* Greeting on first slide */}
+                {currentSlide === 0 && (
+                  <div className="text-center mb-1">
+                    <div className="text-white/90 text-xl font-extrabold">
+                      {`مرحباً${welcomeName ? `، ${welcomeName}` : ''}!`}
                     </div>
                   </div>
+                )}
 
-                  {/* Seats */}
-                  {Array.from({ length: seatCount }).map((_, idx) => {
-                    const isSelf = idx === selfIndex;
-                    const style = {
-                      top: seatPositions[idx]?.top || '50%',
-                      left: seatPositions[idx]?.left || '50%',
-                      transform: 'translate(-50%, -50%)'
-                    } as CSSProperties;
-                    const g = seatGenders[idx];
-                    const genderLabel = g === 'male' ? 'ذكر' : g === 'female' ? 'أنثى' : '—';
-                    const baseCls = isSelf
-                      ? 'bg-linear-to-br from-amber-400 to-pink-400 text-slate-900 border-amber-200 shadow-[0_0_24px_rgba(251,191,36,0.45)]'
-                      : (g === 'male'
-                          ? 'bg-blue-500/25 text-blue-100 border-blue-300/40'
-                          : g === 'female'
-                            ? 'bg-pink-500/25 text-pink-100 border-pink-300/40'
-                            : 'bg-white/15 text-white/80 border-white/25');
-                    return (
-                      <div key={idx} className="absolute" style={style}>
-                        <div className={`${superCompact ? 'w-12 h-12' : compact ? 'w-14 h-14' : 'w-16 h-16'} rounded-full border backdrop-blur-sm flex items-center justify-center text-sm font-bold ${baseCls}`}>
-                          {isSelf ? (
-                            <div className="flex flex-col items-center leading-tight">
-                              <div className="text-[10px] font-semibold opacity-80">أنت</div>
-                              <div>#{derivedSelfNumber ?? '—'}</div>
-                            </div>
-                          ) : (
-                            <span className="text-xs">{genderLabel}</span>
-                          )}
+                <p className={`text-slate-200 text-center ${superCompact ? 'text-sm' : compact ? 'text-base' : 'text-lg'} leading-relaxed`}>
+                  {currentSlideData.description}
+                </p>
+
+                {/* Slide-specific content */}
+                {currentSlide === 0 && (
+                  <div className="flex flex-col items-center justify-center gap-4">
+                    {/* Identity chips */}
+                    <div className="flex items-center gap-2">
+                      {typeof tableNumber === 'number' && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-100 text-xs">
+                          <Target className="w-3.5 h-3.5" />
+                          طاولة {tableNumber}
+                        </div>
+                      )}
+                      {derivedSelfNumber != null && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-100 text-xs">
+                          <span>#{derivedSelfNumber}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Gender breakdown chips */}
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/80 text-xs">
+                        <span>عدد المشاركين</span>
+                        <span className="font-bold">{genderSummary.total}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-100 text-xs">
+                        <span>ذكور</span>
+                        <span className="font-bold">{genderSummary.male}</span>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-pink-500/20 border border-pink-400/30 text-pink-100 text-xs">
+                        <span>إناث</span>
+                        <span className="font-bold">{genderSummary.female}</span>
+                      </div>
+                      {genderSummary.unknown > 0 && (
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-500/20 border border-slate-400/30 text-slate-100 text-xs">
+                          <span>غير محدد</span>
+                          <span className="font-bold">{genderSummary.unknown}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Table & chairs visualization */}
+                    <div className={`relative w-full max-w-sm ${superCompact ? 'aspect-3/4' : compact ? 'aspect-5/6' : 'aspect-square'} mt-2`}>
+                      {/* Table */}
+                      <div className="absolute inset-[14%] rounded-full bg-linear-to-br from-slate-700/60 to-slate-800/60 border border-white/10 flex items-center justify-center text-white/90">
+                        <div className="text-center">
+                          <div className="text-xs text-white/70">طاولتك</div>
+                          <div className="text-xl font-extrabold">{typeof tableNumber === 'number' ? tableNumber : '—'}</div>
                         </div>
                       </div>
-                    )
-                  })}
-                </div>
 
-                {/* Hint */}
-                <div className="text-xs text-white/60 mt-1">لن نعرض أرقام بقية المشاركين — فقط نوع الجنس لكل مقعد</div>
-              </div>
-            )}
+                      {/* Seats */}
+                      {Array.from({ length: seatCount }).map((_, idx) => {
+                        const isSelf = idx === selfIndex;
+                        const style = {
+                          top: seatPositions[idx]?.top || '50%',
+                          left: seatPositions[idx]?.left || '50%',
+                          transform: 'translate(-50%, -50%)'
+                        } as CSSProperties;
+                        const g = seatGenders[idx];
+                        const genderLabel = g === 'male' ? 'ذكر' : g === 'female' ? 'أنثى' : '—';
+                        const baseCls = isSelf
+                          ? 'bg-linear-to-br from-amber-400 to-pink-400 text-slate-900 border-amber-200 shadow-[0_0_24px_rgba(251,191,36,0.45)]'
+                          : (g === 'male'
+                              ? 'bg-blue-500/25 text-blue-100 border-blue-300/40'
+                              : g === 'female'
+                                ? 'bg-pink-500/25 text-pink-100 border-pink-300/40'
+                                : 'bg-white/15 text-white/80 border-white/25');
+                        return (
+                          <div key={idx} className="absolute" style={style}>
+                            <div className={`${superCompact ? 'w-12 h-12' : compact ? 'w-14 h-14' : 'w-16 h-16'} rounded-full border backdrop-blur-sm flex items-center justify-center text-sm font-bold ${baseCls}`}>
+                              {isSelf ? (
+                                <div className="flex flex-col items-center leading-tight">
+                                  <div className="text-[10px] font-semibold opacity-80">أنت</div>
+                                  <div>#{derivedSelfNumber ?? '—'}</div>
+                                </div>
+                              ) : (
+                                <span className="text-xs">{genderLabel}</span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
 
-            {currentSlide === 1 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {(games && games.length ? games : [
-                  { id: 'discussion-questions', nameAr: 'أسئلة للنقاش', color: 'from-purple-500 to-pink-500' },
-                  { id: 'what-would-you-do', nameAr: 'ماذا تفعل لو', color: 'from-indigo-500 to-blue-600' },
-                  { id: '5-second-rule', nameAr: 'قاعدة الخمس ثواني', color: 'from-orange-500 to-red-500' },
-                  { id: 'charades', nameAr: 'ولا كلمة', color: 'from-green-500 to-teal-500' },
-                  { id: 'never-have-i-ever', nameAr: 'لم أفعل من قبل', color: 'from-blue-500 to-cyan-500' },
-                  { id: 'would-you-rather', nameAr: 'ماذا تفضل', color: 'from-red-500 to-orange-500' }
-                ]).map((g, i) => (
-                  <div key={g.id || i} className="rounded-xl bg-white/10 border border-white/15 p-3 text-center text-white/90 text-sm shadow hover:shadow-lg transition-all">
-                    <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-linear-to-br ${g.color} flex items-center justify-center text-white`}> {g.icon ?? null} </div>
-                    <div className="font-semibold">{g.nameAr}</div>
+                    {/* Hint */}
+                    <div className="text-xs text-white/60 mt-1">لن نعرض أرقام بقية المشاركين — فقط نوع الجنس لكل مقعد</div>
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {currentSlide === 2 && (
-              <div className="flex flex-col items-center gap-4">
-                {/* Circular progress full */}
-                <svg width="120" height="120" viewBox="0 0 120 120" className="drop-shadow-[0_0_20px_rgba(244,63,94,0.35)]">
-                  <defs>
-                    <linearGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#f43f5e" />
-                      <stop offset="100%" stopColor="#ec4899" />
-                    </linearGradient>
-                  </defs>
-                  <circle cx="60" cy="60" r="50" stroke="#ffffff22" strokeWidth="10" fill="none" />
-                  <circle cx="60" cy="60" r="50" stroke="url(#gradPink)" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="314" strokeDashoffset="0" />
-                </svg>
-                <div className="text-4xl font-extrabold text-white">45 دقيقة</div>
-                <div className="text-sm text-white/80">انطلقوا الآن — الوقت يبدأ عند البدء</div>
-              </div>
-            )}
+                {currentSlide === 1 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {(games && games.length ? games : [
+                      { id: 'discussion-questions', nameAr: 'أسئلة للنقاش', color: 'from-purple-500 to-pink-500' },
+                      { id: 'what-would-you-do', nameAr: 'ماذا تفعل لو', color: 'from-indigo-500 to-blue-600' },
+                      { id: '5-second-rule', nameAr: 'قاعدة الخمس ثواني', color: 'from-orange-500 to-red-500' },
+                      { id: 'charades', nameAr: 'ولا كلمة', color: 'from-green-500 to-teal-500' },
+                      { id: 'never-have-i-ever', nameAr: 'لم أفعل من قبل', color: 'from-blue-500 to-cyan-500' },
+                      { id: 'would-you-rather', nameAr: 'ماذا تفضل', color: 'from-red-500 to-orange-500' }
+                    ]).map((g, i) => (
+                      <div key={g.id || i} className="rounded-xl bg-white/10 border border-white/15 p-3 text-center text-white/90 text-sm shadow hover:shadow-lg transition-all">
+                        <div className={`w-10 h-10 mx-auto mb-2 rounded-xl bg-linear-to-br ${g.color} flex items-center justify-center text-white`}> {g.icon ?? null} </div>
+                        <div className="font-semibold">{g.nameAr}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {currentSlide === 2 && (
+                  <div className="flex flex-col items-center gap-4">
+                    {/* Circular progress full */}
+                    <svg width="120" height="120" viewBox="0 0 120 120" className="drop-shadow-[0_0_20px_rgba(244,63,94,0.35)]">
+                      <defs>
+                        <linearGradient id="gradPink" x1="0%" y1="0%" x2="100%" y2="0%">
+                          <stop offset="0%" stopColor="#f43f5e" />
+                          <stop offset="100%" stopColor="#ec4899" />
+                        </linearGradient>
+                      </defs>
+                      <circle cx="60" cy="60" r="50" stroke="#ffffff22" strokeWidth="10" fill="none" />
+                      <circle cx="60" cy="60" r="50" stroke="url(#gradPink)" strokeWidth="10" fill="none" strokeLinecap="round" strokeDasharray="314" strokeDashoffset="0" />
+                    </svg>
+                    <div className="text-4xl font-extrabold text-white">45 دقيقة</div>
+                    <div className="text-sm text-white/80">انطلقوا الآن — الوقت يبدأ عند البدء</div>
+                  </div>
+                )}
+              </motion.div>
+            </AnimatePresence>
 
             {/* Spacer to keep consistent height */}
             <div className="pt-2" />

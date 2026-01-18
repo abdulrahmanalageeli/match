@@ -2448,12 +2448,21 @@ export default function GroupsPage() {
               </div>
 
               <div className="bg-gradient-to-br from-violet-500/15 to-fuchsia-600/15 rounded-2xl p-6 mb-6 text-center border border-violet-500/30 shadow-xl">
-                <p className="text-white text-xl font-semibold leading-relaxed">
-                  {shuffledNeverHaveIEver.length > 0 
-                    ? shuffledNeverHaveIEver[currentPromptIndex % shuffledNeverHaveIEver.length]
-                    : neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]
-                  }
-                </p>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={currentPromptIndex}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.25 }}
+                    className="text-white text-xl font-semibold leading-relaxed"
+                  >
+                    {shuffledNeverHaveIEver.length > 0 
+                      ? shuffledNeverHaveIEver[currentPromptIndex % shuffledNeverHaveIEver.length]
+                      : neverHaveIEverQuestions[currentPromptIndex % neverHaveIEverQuestions.length]
+                    }
+                  </motion.p>
+                </AnimatePresence>
               </div>
 
               <div className="flex justify-center space-x-3 mt-8">
@@ -2504,11 +2513,20 @@ export default function GroupsPage() {
               </div>
 
               <div className="bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border-2 border-indigo-500/40 rounded-2xl p-8 text-center shadow-2xl">
-                <p className="text-white text-xl font-semibold leading-relaxed">
-                  {shuffledWhatWouldYouDo.length > 0
-                    ? shuffledWhatWouldYouDo[currentPromptIndex % shuffledWhatWouldYouDo.length]
-                    : whatWouldYouDoScenarios[currentPromptIndex % whatWouldYouDoScenarios.length]}
-                </p>
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={currentPromptIndex}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.25 }}
+                    className="text-white text-xl font-semibold leading-relaxed"
+                  >
+                    {shuffledWhatWouldYouDo.length > 0
+                      ? shuffledWhatWouldYouDo[currentPromptIndex % shuffledWhatWouldYouDo.length]
+                      : whatWouldYouDoScenarios[currentPromptIndex % whatWouldYouDoScenarios.length]}
+                  </motion.p>
+                </AnimatePresence>
               </div>
 
               <div className="flex justify-center mt-8">
@@ -2612,9 +2630,18 @@ export default function GroupsPage() {
                       {isReadingPhase ? (
                         // Reading phase timer
                         <>
-                          <div className="text-6xl font-black text-blue-400 mb-2 drop-shadow-[0_0_10px_rgba(59,130,246,0.35)]">
-                            {readingTimer}
-                          </div>
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={readingTimer}
+                              initial={{ opacity: 0, scale: 0.9, y: 6 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, y: -6 }}
+                              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                              className="text-6xl font-black text-blue-400 mb-2 drop-shadow-[0_0_10px_rgba(59,130,246,0.35)]"
+                            >
+                              {readingTimer}
+                            </motion.div>
+                          </AnimatePresence>
                           <p className="text-blue-300 text-sm mb-2">ثانية للقراءة</p>
                           <Progress 
                             value={(readingTimer / 3) * 100} 
@@ -2624,12 +2651,21 @@ export default function GroupsPage() {
                       ) : (
                         // Game timer
                         <>
-                          <div className={`text-8xl font-black transition-all duration-300 drop-shadow-[0_0_12px_rgba(255,255,255,0.2)] ${
-                            fiveSecondTimer <= 2 ? 'text-red-400 animate-pulse scale-110' : 
-                            fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
-                          }`}>
-                            {fiveSecondTimer}
-                          </div>
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={fiveSecondTimer}
+                              initial={{ opacity: 0, scale: 0.9, y: 8 }}
+                              animate={{ opacity: 1, scale: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, y: -8 }}
+                              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+                              className={`text-8xl font-black drop-shadow-[0_0_12px_rgba(255,255,255,0.2)] ${
+                                fiveSecondTimer <= 2 ? 'text-red-400' : 
+                                fiveSecondTimer <= 3 ? 'text-orange-400' : 'text-green-400'
+                              }`}
+                            >
+                              {fiveSecondTimer}
+                            </motion.div>
+                          </AnimatePresence>
                           <Progress 
                             value={(fiveSecondTimer / 5) * 100} 
                             className="w-full mt-4 h-3"

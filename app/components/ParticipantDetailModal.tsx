@@ -58,6 +58,8 @@ export default function ParticipantDetailModal({
   cohostTheme = false
 }: ParticipantDetailModalProps) {
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
+  // Loading indicator for creating a manual match for a specific partner number
+  const [creatingManualFor, setCreatingManualFor] = useState<number | null>(null)
 
   // Build quick lookup for locked partners and their locked scores
   const lockedByParticipant = useMemo(() => {
@@ -110,6 +112,58 @@ export default function ParticipantDetailModal({
 
     fetchParticipantData()
   }, [isOpen, matches])
+
+  // Create a manual match using the same API used in admin.tsx (trigger-match with manualMatch)
+  const createManualMatch = async (partnerNumber: number) => {
+    if (!participant?.assigned_number || !partnerNumber) return
+    const p1 = participant.assigned_number
+    const p2 = partnerNumber
+    const confirmMessage = `سيتم إنشاء مطابقة فعلية بين:\n\n#${p1} ↔ #${p2}\n\nهل أنت متأكد؟`
+    if (!confirm(confirmMessage)) return
+    setCreatingManualFor(p2)
+    try {
+      // Fetch current event id (fallback to 1)
+      let currentEventId = 1
+      try {
+        const eidRes = await fetch("/api/admin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "get-current-event-id" })
+        })
+        if (eidRes.ok) {
+          const eid = await eidRes.json()
+          currentEventId = eid.current_event_id || 1
+        }
+      } catch (_) {}
+
+      const res = await fetch("/api/admin/trigger-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: currentEventId,
+          manualMatch: {
+            participant1: p1,
+            participant2: p2,
+            bypassEligibility: false,
+            testModeOnly: false
+          }
+        })
+      })
+      const data = await res.json()
+      if (res.ok) {
+        alert(`✅ تم إنشاء المطابقة بنجاح:\n#${p1} ↔ #${p2}`)
+        // Close details modal; parent can refresh if needed
+        onClose()
+      } else {
+        alert(`❌ فشل إنشاء المطابقة:\n${data?.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error("Error creating manual match:", error)
+      alert("❌ حدث خطأ أثناء إنشاء المطابقة")
+    } finally {
+      setCreatingManualFor(null)
+    }
+  }
 
   if (!isOpen || !participant) return null
 
@@ -651,7 +705,6 @@ export default function ParticipantDetailModal({
                                   (match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none')
                                 )
                                 const tolerated = !!(match && typeof match.reason === 'string' && match.reason.includes('±1y'))
-                                if (!hasAny && !tolerated) return <span className="text-slate-500 text-xs">—</span>
                                 return (
                                   <div className="inline-flex items-center gap-2 justify-center">
                                     {hasAny && (
@@ -721,6 +774,19 @@ export default function ParticipantDetailModal({
                                         <span className="text-yellow-300 text-[11px] font-bold">±1</span>
                                       </div>
                                     )}
+                                    {!hasAny && !tolerated && (
+                                      <span className="text-slate-500 text-xs">—</span>
+                                    )}
+                                    {/* Manual match creation button */}
+                                    <button
+                                      onClick={() => createManualMatch(match.participant_number)}
+                                      disabled={creatingManualFor === match.participant_number}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-linear-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white text-xs disabled:opacity-60 disabled:cursor-not-allowed"
+                                      title="إنشاء مطابقة فعلية لهذا الزوج"
+                                    >
+                                      <Heart className="w-3.5 h-3.5" />
+                                      {creatingManualFor === match.participant_number ? '...جارٍ' : 'إنشاء مطابقة'}
+                                    </button>
                                   </div>
                                 )
                               })()}

@@ -74,6 +74,7 @@ import "../../app/app.css"
 import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
 
+import { motion, AnimatePresence } from "framer-motion"
 // Performance: Lazy load heavy components to improve initial page load
 const AIQuestionsGenerator = lazy(() => import("../components/AIQuestionsGenerator"))
 const SurveyComponent = lazy(() => import("../components/SurveyComponent"))
@@ -8128,15 +8129,24 @@ export default function WelcomePage() {
                           </div>
                         </div>
 
-                        {/* Question Title */}
-                        <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                          {currentQuestions[currentQuestionIndex].title}
-                        </h5>
+                        {/* Question Title + Text (animated) */}
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={currentQuestionIndex}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                              {currentQuestions[currentQuestionIndex].title}
+                            </h5>
 
-                        {/* Question Text */}
-                        <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                          {currentQuestions[currentQuestionIndex].question}
-                        </p>
+                            <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                              {currentQuestions[currentQuestionIndex].question}
+                            </p>
+                          </motion.div>
+                        </AnimatePresence>
 
                         {/* 5-Minute Warning Notification */}
                         {showFiveMinuteWarning && (
@@ -9141,7 +9151,7 @@ export default function WelcomePage() {
               {modalStep === "feedback" ? (
                 <>
                   {/* Anonymous Privacy Header */}
-                  <div className={`mb-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border-indigo-400/40' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300/60'}`}>
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`mb-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border-indigo-400/40' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300/60'}`}>
                     <div className="text-center mb-4">
                       <div className={`inline-flex items-center gap-3 px-4 py-2 rounded-full ${dark ? 'bg-indigo-600/20 text-indigo-200' : 'bg-indigo-100 text-indigo-700'}`}>
                         <Shield className="w-6 h-6" />
@@ -9181,9 +9191,9 @@ export default function WelcomePage() {
                       </div>
                       <p className="text-xs opacity-80">تقييماتك الصادقة تساعدنا في تحسين خوارزمية التوافق</p>
                     </div>
-                  </div>
+                  </motion.div>
 
-                  <h3 className={`text-xl font-bold text-center mb-6 flex items-center justify-center gap-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                  <motion.h3 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`text-xl font-bold text-center mb-6 flex items-center justify-center gap-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
                       <MessageSquare className="w-4 h-4" />
                     </div>
@@ -9191,7 +9201,7 @@ export default function WelcomePage() {
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${dark ? 'bg-slate-700' : 'bg-gray-200'}`}>
                       <Star className="w-4 h-4" />
                     </div>
-                  </h3>
+                  </motion.h3>
                   <div className="space-y-6">
                     {/* Compatibility Rate Slider */}
                     <div className={`p-5 rounded-xl border-2 ${dark ? 'border-slate-600/30 bg-slate-800/20' : 'border-gray-200/50 bg-gray-50/30'}`}>

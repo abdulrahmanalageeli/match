@@ -41,7 +41,7 @@ import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
 import logoPng from "../welcome/blindmatch.png";
 import { animate } from "motion";
-import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 // Logo Component for Groups Page - Removed (now integrated into header)
 
@@ -2466,13 +2466,15 @@ export default function GroupsPage() {
               </div>
 
               <div className="flex justify-center space-x-3 mt-8">
-                <Button 
-                  onClick={() => setCurrentPromptIndex(prev => (prev + 1) % (shuffledNeverHaveIEver.length || neverHaveIEverQuestions.length))} 
-                  className="bg-gradient-to-r from-violet-600 to-fuchsia-700 hover:from-violet-700 hover:to-fuchsia-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  <ChevronRight className="w-5 h-5 mr-2" />
-                  السؤال التالي
-                </Button>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Button 
+                    onClick={() => setCurrentPromptIndex(prev => (prev + 1) % (shuffledNeverHaveIEver.length || neverHaveIEverQuestions.length))} 
+                    className="bg-gradient-to-r from-violet-600 to-fuchsia-700 hover:from-violet-700 hover:to-fuchsia-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  >
+                    <ChevronRight className="w-5 h-5 mr-2" />
+                    السؤال التالي
+                  </Button>
+                </motion.div>
               </div>
             </CardContent>
           </Card>
@@ -2757,8 +2759,9 @@ export default function GroupsPage() {
                   </div>
                 );
               })()}
+              <AnimatePresence mode="wait">
               {imposterPhase === "setup" && (
-                <div className="space-y-6">
+                <motion.div key="imposter-setup" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center mb-2">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/30 mb-3">
                       <Ghost className="w-4 h-4 text-fuchsia-300" />
@@ -2833,53 +2836,59 @@ export default function GroupsPage() {
                   </div>
 
                   <div className="text-center">
-                    <Button onClick={startImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all">
-                      ابدأ الجولة
-                    </Button>
+                    <motion.div whileTap={{ scale: 0.97 }}>
+                      <Button onClick={startImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-8 py-4 text-lg font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                        ابدأ الجولة
+                      </Button>
+                    </motion.div>
                   </div>
-                </div>
+                </motion.div>
               )}
 
               {imposterPhase === "reveal" && (
-                <div className="space-y-6">
+                <motion.div key="imposter-reveal" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center mb-2">
                     <h3 className="text-2xl font-extrabold text-white mb-1">كشف الأدوار</h3>
                     <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[revealIndex]}</span></p>
                   </div>
 
-                  <div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
-                    {!revealShown ? (
-                      <div className="space-y-4">
-                        <p className="text-fuchsia-100/90">اضغط للكشف. لا تري أحداً غيرك 🤫</p>
-                        <Button onClick={nextReveal} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">
-                          اكشف الآن
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {revealIndex === imposterIndex ? (
-                          <>
-                            <div className="text-4xl font-black text-rose-300">أنت الأمبوستر</div>
-                            <p className="text-rose-200">لا تعرف الكلمة. حاول الاندماج!</p>
-                          </>
+                  <div style={{ perspective: 1000 }}>
+                    <motion.div className={(gameThemes['imposter'] || gameThemes.default).promptCard}>
+                      <AnimatePresence mode="wait">
+                        {!revealShown ? (
+                          <motion.div key="reveal-front" initial={{ rotateX: -90, opacity: 0 }} animate={{ rotateX: 0, opacity: 1 }} exit={{ rotateX: 90, opacity: 0 }} transition={{ duration: 0.28 }} className="space-y-4">
+                            <p className="text-fuchsia-100/90">اضغط للكشف. لا تري أحداً غيرك 🤫</p>
+                            <motion.div whileTap={{ scale: 0.97 }}>
+                              <Button onClick={nextReveal} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">اكشف الآن</Button>
+                            </motion.div>
+                          </motion.div>
                         ) : (
-                          <>
-                            <div className="text-3xl font-extrabold text-white">كلمتك:</div>
-                            <div className="text-4xl font-black text-fuchsia-200">{imposterSecretWord}</div>
-                            <p className="text-fuchsia-100/90">قل كلمة ذات صلة بدون كشف مباشر</p>
-                          </>
+                          <motion.div key="reveal-back" initial={{ rotateX: -90, opacity: 0 }} animate={{ rotateX: 0, opacity: 1 }} exit={{ rotateX: 90, opacity: 0 }} transition={{ duration: 0.28 }} className="space-y-4">
+                            {revealIndex === imposterIndex ? (
+                              <>
+                                <div className="text-4xl font-black text-rose-300">أنت الأمبوستر</div>
+                                <p className="text-rose-200">لا تعرف الكلمة. حاول الاندماج!</p>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-3xl font-extrabold text-white">كلمتك:</div>
+                                <div className="text-4xl font-black text-fuchsia-200">{imposterSecretWord}</div>
+                                <p className="text-fuchsia-100/90">قل كلمة ذات صلة بدون كشف مباشر</p>
+                              </>
+                            )}
+                            <motion.div whileTap={{ scale: 0.97 }}>
+                              <Button onClick={nextReveal} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">إخفاء وتسليم الهاتف ↗</Button>
+                            </motion.div>
+                          </motion.div>
                         )}
-                        <Button onClick={nextReveal} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
-                          إخفاء وتسليم الهاتف ↗
-                        </Button>
-                      </div>
-                    )}
+                      </AnimatePresence>
+                    </motion.div>
                   </div>
-                </div>
+                </motion.div>
               )}
 
               {imposterPhase === "discussion" && (
-                <div className="space-y-6">
+                <motion.div key="imposter-discussion" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center">
                     <h3 className="text-2xl font-extrabold text-white mb-2">أسئلة نعم/لا</h3>
                     <p className="text-fuchsia-100/90">كل لاعب يسأل مرة ويُسأل مرة — بالتتابع وبترتيب عشوائي عادل</p>
@@ -2929,11 +2938,11 @@ export default function GroupsPage() {
                       </div>
                     </>
                   )}
-                </div>
+                </motion.div>
               )}
 
               {imposterPhase === "voting" && (
-                <div className="space-y-6">
+                <motion.div key="imposter-voting" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6">
                   <div className="text-center mb-2">
                     <h3 className="text-2xl font-extrabold text-white mb-1">تصويت سري</h3>
                     <p className="text-fuchsia-100/90">سلّم الهاتف إلى <span className="font-bold text-white">{imposterPlayers[voteTurn]}</span> لاختيار المشتبه</p>
@@ -2954,11 +2963,11 @@ export default function GroupsPage() {
                     </div>
                   </div>
                   <div className="text-center text-slate-300 text-sm">المصوّت {voteTurn + 1} من {imposterPlayers.length}</div>
-                </div>
+                </motion.div>
               )}
 
               {imposterPhase === "result" && accusedIndex !== null && (
-                <div className="space-y-6 text-center">
+                <motion.div key="imposter-result" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }} className="space-y-6 text-center">
                   {accusedIndex === imposterIndex ? (
                     <>
                       <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-r from-emerald-500 to-green-600 flex items-center justify-center text-white shadow-xl">
@@ -2990,15 +2999,16 @@ export default function GroupsPage() {
                   </div>
 
                   <div className="flex items-center justify-center gap-3 mt-4">
-                    <Button onClick={newImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">
-                      جولة جديدة
-                    </Button>
-                    <Button onClick={resetImposter} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">
-                      تعديل الأسماء/الفئة
-                    </Button>
+                    <motion.div whileTap={{ scale: 0.97 }}>
+                      <Button onClick={newImposterRound} className="bg-gradient-to-r from-fuchsia-600 to-purple-700 hover:from-fuchsia-700 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold">جولة جديدة</Button>
+                    </motion.div>
+                    <motion.div whileTap={{ scale: 0.97 }}>
+                      <Button onClick={resetImposter} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-xl font-semibold border border-white/15">تعديل الأسماء/الفئة</Button>
+                    </motion.div>
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </CardContent>
           </Card>
         )}
@@ -3114,34 +3124,54 @@ export default function GroupsPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="bg-gradient-to-br from-rose-500/15 to-red-600/10 border-2 border-rose-500/40 rounded-xl p-5 text-center shadow-lg">
+                <motion.div layout className="bg-gradient-to-br from-rose-500/15 to-red-600/10 border-2 border-rose-500/40 rounded-xl p-5 text-center shadow-lg">
                   <div className="text-rose-300 font-bold mb-2">الخيار أ</div>
-                  <p className="text-white font-semibold leading-relaxed">
-                    {(shuffledWouldYouRather.length > 0 
-                      ? shuffledWouldYouRather[currentPromptIndex]
-                      : wouldYouRatherQuestions[currentPromptIndex]
-                    )?.optionA}
-                  </p>
-                </div>
-                <div className="bg-gradient-to-br from-sky-500/15 to-blue-600/10 border-2 border-sky-500/40 rounded-xl p-5 text-center shadow-lg">
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={`wya-${currentPromptIndex}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-white font-semibold leading-relaxed"
+                    >
+                      {(shuffledWouldYouRather.length > 0 
+                        ? shuffledWouldYouRather[currentPromptIndex]
+                        : wouldYouRatherQuestions[currentPromptIndex]
+                      )?.optionA}
+                    </motion.p>
+                  </AnimatePresence>
+                </motion.div>
+                <motion.div layout className="bg-gradient-to-br from-sky-500/15 to-blue-600/10 border-2 border-sky-500/40 rounded-xl p-5 text-center shadow-lg">
                   <div className="text-sky-300 font-bold mb-2">الخيار ب</div>
-                  <p className="text-white font-semibold leading-relaxed">
-                    {(shuffledWouldYouRather.length > 0 
-                      ? shuffledWouldYouRather[currentPromptIndex]
-                      : wouldYouRatherQuestions[currentPromptIndex]
-                    )?.optionB}
-                  </p>
-                </div>
+                  <AnimatePresence mode="wait">
+                    <motion.p
+                      key={`wyb-${currentPromptIndex}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-white font-semibold leading-relaxed"
+                    >
+                      {(shuffledWouldYouRather.length > 0 
+                        ? shuffledWouldYouRather[currentPromptIndex]
+                        : wouldYouRatherQuestions[currentPromptIndex]
+                      )?.optionB}
+                    </motion.p>
+                  </AnimatePresence>
+                </motion.div>
               </div>
 
               <div className="text-center">
-                <Button 
-                  onClick={nextPrompt} 
-                  className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  <ChevronRight className="w-5 h-5 mr-2" />
-                  السؤال التالي
-                </Button>
+                <motion.div whileTap={{ scale: 0.97 }}>
+                  <Button 
+                    onClick={nextPrompt} 
+                    className="bg-gradient-to-r from-rose-600 to-red-700 hover:from-rose-700 hover:to-red-800 text-white px-6 py-3 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  >
+                    <ChevronRight className="w-5 h-5 mr-2" />
+                    السؤال التالي
+                  </Button>
+                </motion.div>
               </div>
             </CardContent>
           </Card>
@@ -3200,13 +3230,31 @@ export default function GroupsPage() {
                 <div className="mb-8">
                   <div className="bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-500/30 rounded-xl p-6 text-center shadow-xl">
                     <div className="mb-2">
-                      <span className="text-emerald-300 text-sm font-medium bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-400/30">
-                        {currentCharadesCategory}
-                      </span>
+                      <AnimatePresence mode="wait">
+                        <motion.span
+                          key={currentCharadesCategory}
+                          initial={{ scale: 0.95, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.95, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="text-emerald-300 text-sm font-medium bg-emerald-500/20 px-3 py-1 rounded-full border border-emerald-400/30"
+                        >
+                          {currentCharadesCategory}
+                        </motion.span>
+                      </AnimatePresence>
                     </div>
-                    <div className="text-3xl font-bold text-white mb-4">
-                      {currentCharadesWord}
-                    </div>
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={currentCharadesWord}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.25 }}
+                        className="text-3xl font-bold text-white mb-4"
+                      >
+                        {currentCharadesWord}
+                      </motion.div>
+                    </AnimatePresence>
                     
                     {/* Timer */}
                     <div className="mb-4">
@@ -3650,7 +3698,6 @@ export default function GroupsPage() {
         <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-60 animate-orb-alt mix-blend-screen" />
         <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
       </div>
-      <LayoutGroup>
       <div className="relative z-10 max-w-md mx-auto px-4 py-4">
         {/* Professional Sticky Header with Glassmorphism (collapsible) */}
         <motion.div layout transition={{ duration: 0.25 }} className={`sticky top-0 z-40 ${headerCollapsed ? 'bg-transparent border-transparent backdrop-blur-0 shadow-none mb-2 p-1.5' : 'bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-700/50 shadow-2xl mb-4 p-4'} rounded-3xl animate-in slide-in-from-top duration-300 transition-all`}>
@@ -3794,7 +3841,6 @@ export default function GroupsPage() {
         </div>
 
       </div>
-      </LayoutGroup>
 
       {/* Time Up Modal */}
       {showTimeUpModal && (

@@ -8103,8 +8103,10 @@ export default function WelcomePage() {
                       </div>
 
                       {/* Question Card */}
-                      <div 
-                        className={`relative p-6 rounded-xl border ${
+                      <motion.div
+                        layout
+                        transition={{ layout: { duration: 0.25 } }}
+                        className={`relative overflow-hidden p-6 rounded-xl border ${
                           dark 
                             ? "bg-slate-800/50 border-slate-600/50" 
                             : "bg-white/80 border-gray-200"
@@ -8303,7 +8305,7 @@ export default function WelcomePage() {
                             </span>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     </div>
                   ) : null}
 
@@ -8547,7 +8549,7 @@ export default function WelcomePage() {
                         </p>
                       </div>
 
-                      <div className="relative">
+                      <motion.div layout transition={{ layout: { duration: 0.25 } }} className="relative overflow-hidden">
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
@@ -8635,7 +8637,7 @@ export default function WelcomePage() {
                             </span>
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     </div>
                   )}
 

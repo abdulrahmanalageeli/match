@@ -2417,16 +2417,7 @@ export default function WelcomePage() {
   }
 
   // --- Round Tour: steps and positioning (selector-based) ---
-  const roundTourSteps = useMemo(() => [
-    { key: 'partner', title: 'شريكك', desc: 'هنا يظهر رقم شريكك في هذه الجولة.', selector: "[data-tour="partner"]" },
-    { key: 'table', title: 'رقم الطاولة', desc: 'توجه إلى هذه الطاولة لتبدأ الحوار مع شريكك.', selector: "[data-tour="table"]" },
-    { key: 'tabs', title: 'مجموعات الأسئلة', desc: '٣ مجموعات متنوعة من الأسئلة. يمكنك التبديل بينها بحرية.', selector: "[data-tour="tabs"]" },
-    { key: 'level', title: 'مستوى السؤال', desc: 'اللون والأيقونة يوضحان عمق السؤال ونوعه.', selector: "[data-tour="level"]" },
-    { key: 'question', title: 'السؤال الحالي', desc: 'اقرأ السؤال هنا وابدأ حواراً ممتعاً.', selector: "[data-tour="question"]" },
-    { key: 'nav', title: 'التنقل بين الأسئلة', desc: 'استخدم السابق/التالي للتنقل بسهولة.', selector: "[data-tour="nav"]" },
-    { key: 'progress', title: 'شريط التقدم', desc: 'يوضح عدد الأسئلة المتبقية.', selector: "[data-tour="progress"]" },
-    { key: 'discuss', title: 'أسئلة للنقاش', desc: 'مواضيع جاهزة لتوسيع الحوار عند الحاجة.', selector: "[data-tour="discuss"]" },
-  ], []);
+ 
 
   const updateTourPosition = () => {
     if (typeof window === 'undefined') return;

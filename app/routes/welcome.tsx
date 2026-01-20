@@ -2418,14 +2418,14 @@ export default function WelcomePage() {
 
   // --- Round Tour: steps and positioning (selector-based) ---
   const roundTourSteps = useMemo(() => [
-    { key: 'partner', title: 'شريكك', desc: 'هنا يظهر رقم شريكك في هذه الجولة.', selector: '[data-tour="partner"]' },
-    { key: 'table', title: 'رقم الطاولة', desc: 'توجه إلى هذه الطاولة لتبدأ الحوار مع شريكك.', selector: '[data-tour="table"]' },
-    { key: 'tabs', title: 'مجموعات الأسئلة', desc: '٣ مجموعات متنوعة من الأسئلة. يمكنك التبديل بينها بحرية.', selector: '[data-tour="tabs"]' },
-    { key: 'level', title: 'مستوى السؤال', desc: 'اللون والأيقونة يوضحان عمق السؤال ونوعه.', selector: '[data-tour="level"]' },
-    { key: 'question', title: 'السؤال الحالي', desc: 'اقرأ السؤال هنا وابدأ حواراً ممتعاً.', selector: '[data-tour="question"]' },
-    { key: 'nav', title: 'التنقل بين الأسئلة', desc: 'استخدم السابق/التالي للتنقل بسهولة.', selector: '[data-tour="nav"]' },
-    { key: 'progress', title: 'شريط التقدم', desc: 'يوضح عدد الأسئلة المتبقية.', selector: '[data-tour="progress"]' },
-    { key: 'discuss', title: 'أسئلة للنقاش', desc: 'مواضيع جاهزة لتوسيع الحوار عند الحاجة.', selector: '[data-tour="discuss"]' },
+    { key: 'partner', title: 'شريكك', desc: 'هنا يظهر رقم شريكك في هذه الجولة.', selector: "[data-tour="partner"]" },
+    { key: 'table', title: 'رقم الطاولة', desc: 'توجه إلى هذه الطاولة لتبدأ الحوار مع شريكك.', selector: "[data-tour="table"]" },
+    { key: 'tabs', title: 'مجموعات الأسئلة', desc: '٣ مجموعات متنوعة من الأسئلة. يمكنك التبديل بينها بحرية.', selector: "[data-tour="tabs"]" },
+    { key: 'level', title: 'مستوى السؤال', desc: 'اللون والأيقونة يوضحان عمق السؤال ونوعه.', selector: "[data-tour="level"]" },
+    { key: 'question', title: 'السؤال الحالي', desc: 'اقرأ السؤال هنا وابدأ حواراً ممتعاً.', selector: "[data-tour="question"]" },
+    { key: 'nav', title: 'التنقل بين الأسئلة', desc: 'استخدم السابق/التالي للتنقل بسهولة.', selector: "[data-tour="nav"]" },
+    { key: 'progress', title: 'شريط التقدم', desc: 'يوضح عدد الأسئلة المتبقية.', selector: "[data-tour="progress"]" },
+    { key: 'discuss', title: 'أسئلة للنقاش', desc: 'مواضيع جاهزة لتوسيع الحوار عند الحاجة.', selector: "[data-tour="discuss"]" },
   ], []);
 
   const updateTourPosition = () => {
@@ -8821,7 +8821,7 @@ onClick={() => {
 
                 {/* Guided Tour Overlay */}
         {step === 4 && showRoundTour && (
-          <div className="fixed inset-0 z-9999">
+          <div className="fixed inset-0 z-[9999]">
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowRoundTour(false)} />
             {tourRect && (
               <div className="absolute rounded-xl border-2 border-cyan-400" style={{ top: tourRect.top, left: tourRect.left, width: tourRect.width, height: tourRect.height, boxShadow: "0 0 0 4px rgba(34,211,238,0.35), 0 10px 25px rgba(0,0,0,0.35)", pointerEvents: "none" }} />

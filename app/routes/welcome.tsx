@@ -6220,6 +6220,23 @@ export default function WelcomePage() {
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B7280' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }}></div>
 
+        {/* Floating Particles Background (global, not affected by layout) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          {[...Array(12)].map((_, i) => (
+            <div
+              key={`fp-${i}`}
+              className="absolute rounded-full bg-cyan-400/70 w-1.5 h-1.5 animate-ping"
+              style={{
+                left: `${10 + ((i * 9) % 80)}%`,
+                top: `${15 + ((i * 13) % 70)}%`,
+                animationDelay: `${i * 0.15}s`,
+                animationDuration: '2.4s',
+                opacity: 0.5,
+              }}
+            />
+          ))}
+        </div>
+
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-4xl w-full">
@@ -6274,21 +6291,7 @@ export default function WelcomePage() {
                           <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
                         </div>
                         
-                        {/* Floating Particles */}
-                        <div className="absolute inset-0 overflow-hidden rounded-3xl">
-                          {[...Array(8)].map((_, i) => (
-                            <div
-                              key={i}
-                              className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-ping"
-                              style={{
-                                left: `${15 + (i * 12)}%`,
-                                top: `${25 + (i % 2) * 50}%`,
-                                animationDelay: `${i * 0.2}s`,
-                                animationDuration: '2s'
-                              }}
-                            />
-                          ))}
-                        </div>
+                        {/* Floating Particles moved to global background layer */}
                       </div>
                     </div>
                   </h1>

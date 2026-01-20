@@ -8131,7 +8131,7 @@ export default function WelcomePage() {
 
                         {/* Question Title + Text (animated) */}
                         {/* Fixed-height container to avoid layout shift; inner content scrolls if long */}
-                        <div className="h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
+                        <div className="h-24 sm:h-28 md:h-32 lg:h-36 overflow-hidden">
                           <AnimatePresence mode="wait">
                             <motion.div
                               key={currentQuestionIndex}
@@ -8141,11 +8141,11 @@ export default function WelcomePage() {
                               transition={{ duration: 0.2 }}
                               className="h-full overflow-y-auto pr-1"
                             >
-                              <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                              <h5 className={`text-lg md:text-xl font-bold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                                 {currentQuestions[currentQuestionIndex].title}
                               </h5>
 
-                              <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                              <p className={`text-base md:text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
                                 {currentQuestions[currentQuestionIndex].question}
                               </p>
                             </motion.div>
@@ -8570,15 +8570,15 @@ export default function WelcomePage() {
                         </div>
 
                         {/* Question Title + Text - fixed-height container to avoid layout shift */}
-                        <div className="h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
+                        <div className="h-24 sm:h-28 md:h-32 lg:h-36 overflow-hidden">
                           <div key={currentQuestionIndex} className="h-full overflow-y-auto pr-1">
                             {/* Question Title */}
-                            <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                            <h5 className={`text-lg md:text-xl font-bold mb-2 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                               {currentQuestions[currentQuestionIndex].title}
                             </h5>
 
                             {/* Question Text */}
-                            <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                            <p className={`text-base md:text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
                               {currentQuestions[currentQuestionIndex].question}
                             </p>
                           </div>

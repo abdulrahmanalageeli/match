@@ -8105,8 +8105,9 @@ export default function WelcomePage() {
                       {/* Question Card */}
                       <motion.div
                         layout
-                        transition={{ layout: { duration: 0.25 } }}
-                        className={`relative overflow-hidden p-6 rounded-xl border ${
+                        transition={{ layout: { duration: 0.6, type: 'spring', damping: 28, stiffness: 260 } }}
+                        style={{ willChange: 'height' }}
+                        className={`relative overflow-hidden min-h-[200px] sm:min-h-[220px] md:min-h-[240px] isolate z-10 p-6 rounded-xl border ${
                           dark 
                             ? "bg-slate-800/50 border-slate-600/50" 
                             : "bg-white/80 border-gray-200"
@@ -8135,10 +8136,11 @@ export default function WelcomePage() {
                         <AnimatePresence mode="wait">
                           <motion.div
                             key={currentQuestionIndex}
+                            layout
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.2 }}
+                            transition={{ layout: { duration: 0.6, type: 'spring', damping: 28, stiffness: 260 }, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
                           >
                             <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                               {currentQuestions[currentQuestionIndex].title}
@@ -8549,7 +8551,11 @@ export default function WelcomePage() {
                         </p>
                       </div>
 
-                      <motion.div layout transition={{ layout: { duration: 0.25 } }} className="relative overflow-hidden">
+                      <motion.div 
+                        layout 
+                        transition={{ layout: { duration: 0.6, type: 'spring', damping: 28, stiffness: 260 } }} 
+                        style={{ willChange: 'height' }}
+                        className="relative overflow-hidden min-h-[200px] sm:min-h-[220px] md:min-h-[240px] isolate z-10">
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${

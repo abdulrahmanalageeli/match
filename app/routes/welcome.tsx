@@ -6220,23 +6220,6 @@ export default function WelcomePage() {
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B7280' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
         }}></div>
 
-        {/* Floating Particles Background (global, not affected by layout) */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          {[...Array(12)].map((_, i) => (
-            <div
-              key={`fp-${i}`}
-              className="absolute rounded-full bg-cyan-400/70 w-1.5 h-1.5 animate-ping"
-              style={{
-                left: `${10 + ((i * 9) % 80)}%`,
-                top: `${15 + ((i * 13) % 70)}%`,
-                animationDelay: `${i * 0.15}s`,
-                animationDuration: '2.4s',
-                opacity: 0.5,
-              }}
-            />
-          ))}
-        </div>
-
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-4xl w-full">
@@ -6291,7 +6274,21 @@ export default function WelcomePage() {
                           <img src={logoPng} alt="BlindMatch" className="w-24 h-24 sm:w-36 sm:h-36 object-contain" />
                         </div>
                         
-                        {/* Floating Particles moved to global background layer */}
+                        {/* Floating Particles */}
+                        <div className="absolute inset-0 overflow-hidden rounded-3xl">
+                          {[...Array(8)].map((_, i) => (
+                            <div
+                              key={i}
+                              className="absolute w-1 h-1 bg-cyan-400 rounded-full animate-ping"
+                              style={{
+                                left: `${15 + (i * 12)}%`,
+                                top: `${25 + (i % 2) * 50}%`,
+                                animationDelay: `${i * 0.2}s`,
+                                animationDuration: '2s'
+                              }}
+                            />
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </h1>
@@ -7232,7 +7229,7 @@ export default function WelcomePage() {
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl animate-pulse delay-500 ${
           dark ? "bg-gradient-to-r from-slate-500/5 to-slate-400/5" : "bg-gradient-to-r from-blue-400/10 to-purple-400/10"
         }`}></div>
-        <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="pointer-events-none fixed inset-0 -z-10">
           {/* Floating particles */}
           {[...Array(8)].map((_, i) => (
             <div
@@ -7252,7 +7249,7 @@ export default function WelcomePage() {
                 top: `${10 + (i * 10) % 70}%`,
                 left: `${5 + (i * 13) % 85}%`,
                 animationDelay: `${i * 0.7}s`,
-                zIndex: 0,
+                zIndex: -1,
               }}
             />
           ))}

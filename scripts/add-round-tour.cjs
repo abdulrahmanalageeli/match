@@ -146,19 +146,30 @@ if (!src.includes('// --- Round Tour: steps and positioning')) {
   if (src !== before) { changed = true; console.log('✔ Normalized z-index class'); }
 }
 
-// 3) Help/Tour button before Player Avatar anchor (safe insertion point within container)
-if (!src.includes('aria-label="دليل سريع"')) {
+// 3) Help/Tour button: insert before each 'Player Avatar' anchor lacking a nearby help button
+{
   const helpAnchor = '\n              {/* Player Avatar - Right corner (original position) */}';
-  const button = '\n              {/* Help/Tour button */}\n' +
-    '              <button onClick={() => { setShowRoundTour(true); setRoundTourStep(0); setTimeout(() => updateTourPosition(), 0); }} className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg transition-all hover:scale-110 ${dark ? "bg-slate-700 border-slate-500 hover:bg-slate-600" : "bg-white border-gray-300 hover:bg-gray-50"}`} title="دليل سريع" aria-label="دليل سريع">\n' +
-    '                <HelpCircle className={`w-5 h-5 mx-auto ${dark ? "text-slate-300" : "text-gray-600"}`} />\n' +
-    '              </button>\n';
-  if (insertBefore(helpAnchor, button)) {
-    changed = true;
-    console.log('✔ Inserted Help/Tour button');
-  } else {
-    console.warn('✖ Could not locate Player Avatar anchor to insert Help/Tour button');
+  let inserted = 0;
+  let start = 0;
+  while (true) {
+    const idx = src.indexOf(helpAnchor, start);
+    if (idx === -1) break;
+    // If the preceding few hundred chars already include a help button, skip
+    const pre = src.slice(Math.max(0, idx - 300), idx);
+    if (!pre.includes('aria-label="دليل سريع"')) {
+      const button = '\n              {/* Help/Tour button */}\n'
+        + '              <button onClick={() => { setShowRoundTour(true); setRoundTourStep(0); setTimeout(() => updateTourPosition(), 0); }} className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg transition-all hover:scale-110 ${dark ? "bg-slate-700 border-slate-500 hover:bg-slate-600" : "bg-white border-gray-300 hover:bg-gray-50"}`} title="دليل سريع" aria-label="دليل سريع">\n'
+        + '                <HelpCircle className={`w-5 h-5 mx-auto ${dark ? "text-slate-300" : "text-gray-600"}`} />\n'
+        + '              </button>\n';
+      src = src.slice(0, idx) + button + src.slice(idx);
+      inserted++;
+      start = idx + button.length + helpAnchor.length;
+    } else {
+      start = idx + helpAnchor.length;
+    }
   }
+  if (inserted > 0) { changed = true; console.log(`✔ Inserted Help/Tour button at ${inserted} location(s)`); }
+  else { console.log('ℹ Help/Tour button already present near each Player Avatar anchor'); }
 }
 
 // 4) data-tour anchors

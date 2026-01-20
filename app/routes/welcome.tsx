@@ -8130,23 +8130,27 @@ export default function WelcomePage() {
                         </div>
 
                         {/* Question Title + Text (animated) */}
-                        <AnimatePresence mode="wait">
-                          <motion.div
-                            key={currentQuestionIndex}
-                            initial={{ opacity: 0, y: 6 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -6 }}
-                            transition={{ duration: 0.2 }}
-                          >
-                            <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                              {currentQuestions[currentQuestionIndex].title}
-                            </h5>
+                        {/* Fixed-height container to avoid layout shift; inner content scrolls if long */}
+                        <div className="h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
+                          <AnimatePresence mode="wait">
+                            <motion.div
+                              key={currentQuestionIndex}
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -6 }}
+                              transition={{ duration: 0.2 }}
+                              className="h-full overflow-y-auto pr-1"
+                            >
+                              <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                                {currentQuestions[currentQuestionIndex].title}
+                              </h5>
 
-                            <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                              {currentQuestions[currentQuestionIndex].question}
-                            </p>
-                          </motion.div>
-                        </AnimatePresence>
+                              <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                                {currentQuestions[currentQuestionIndex].question}
+                              </p>
+                            </motion.div>
+                          </AnimatePresence>
+                        </div>
 
                         {/* 5-Minute Warning Notification */}
                         {showFiveMinuteWarning && (
@@ -8565,15 +8569,20 @@ export default function WelcomePage() {
                           </div>
                         </div>
 
-                        {/* Question Title */}
-                        <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
-                          {currentQuestions[currentQuestionIndex].title}
-                        </h5>
+                        {/* Question Title + Text - fixed-height container to avoid layout shift */}
+                        <div className="h-48 sm:h-56 md:h-64 lg:h-72 overflow-hidden">
+                          <div key={currentQuestionIndex} className="h-full overflow-y-auto pr-1">
+                            {/* Question Title */}
+                            <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
+                              {currentQuestions[currentQuestionIndex].title}
+                            </h5>
 
-                        {/* Question Text */}
-                        <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                          {currentQuestions[currentQuestionIndex].question}
-                        </p>
+                            {/* Question Text */}
+                            <p className={`text-lg leading-relaxed ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                              {currentQuestions[currentQuestionIndex].question}
+                            </p>
+                          </div>
+                        </div>
 
                         {/* Navigation */}
                         <div className="flex justify-between items-center mt-6">

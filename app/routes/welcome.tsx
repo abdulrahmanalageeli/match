@@ -7229,7 +7229,7 @@ export default function WelcomePage() {
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl animate-pulse delay-500 ${
           dark ? "bg-gradient-to-r from-slate-500/5 to-slate-400/5" : "bg-gradient-to-r from-blue-400/10 to-purple-400/10"
         }`}></div>
-        <div className="pointer-events-none fixed inset-0 -z-1">
+        <div className="pointer-events-none absolute inset-0 z-0">
           {/* Floating particles */}
           {[...Array(8)].map((_, i) => (
             <div
@@ -7249,7 +7249,7 @@ export default function WelcomePage() {
                 top: `${10 + (i * 10) % 70}%`,
                 left: `${5 + (i * 13) % 85}%`,
                 animationDelay: `${i * 0.7}s`,
-                zIndex: -1,
+                zIndex: 0,
               }}
             />
           ))}
@@ -8103,11 +8103,8 @@ export default function WelcomePage() {
                       </div>
 
                       {/* Question Card */}
-                      <motion.div
-                        layout
-                        transition={{ layout: { duration: 0.6, type: 'spring', damping: 28, stiffness: 260 } }}
-                        style={{ willChange: 'height' }}
-                        className={`relative overflow-hidden min-h-[200px] sm:min-h-[220px] md:min-h-[240px] isolate z-10 p-6 rounded-xl border ${
+                      <div 
+                        className={`relative p-6 rounded-xl border ${
                           dark 
                             ? "bg-slate-800/50 border-slate-600/50" 
                             : "bg-white/80 border-gray-200"
@@ -8136,11 +8133,10 @@ export default function WelcomePage() {
                         <AnimatePresence mode="wait">
                           <motion.div
                             key={currentQuestionIndex}
-                            layout
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -6 }}
-                            transition={{ layout: { duration: 0.6, type: 'spring', damping: 28, stiffness: 260 }, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{ duration: 0.2 }}
                           >
                             <h5 className={`text-xl font-bold mb-4 ${dark ? "text-slate-200" : "text-gray-800"}`}>
                               {currentQuestions[currentQuestionIndex].title}
@@ -8307,7 +8303,7 @@ export default function WelcomePage() {
                             </span>
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     </div>
                   ) : null}
 
@@ -8551,11 +8547,7 @@ export default function WelcomePage() {
                         </p>
                       </div>
 
-                      <motion.div 
-                        layout 
-                        transition={{ layout: { duration: 0.6, type: 'spring', damping: 28, stiffness: 260 } }} 
-                        style={{ willChange: 'height' }}
-                        className="relative overflow-hidden min-h-[200px] sm:min-h-[220px] md:min-h-[240px] isolate z-10">
+                      <div className="relative">
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
@@ -8643,7 +8635,7 @@ export default function WelcomePage() {
                             </span>
                           </div>
                         </div>
-                      </motion.div>
+                      </div>
                     </div>
                   )}
 

@@ -365,13 +365,6 @@ export default function WelcomePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showRound1Guide, setShowRound1Guide] = useState(false);
   
-  // Interactive guide (tour) for Round mode
-  const [showRoundTour, setShowRoundTour] = useState(false);
-  const [roundTourStep, setRoundTourStep] = useState(0);
-  const [tourRect, setTourRect] = useState<{ top: number; left: number; width: number; height: number } | null>(null);
-  const [tourCalloutPos, setTourCalloutPos] = useState<{ top: number; left: number } | null>(null);
-
-  
   // Question pace tracking for gentle nudge
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [timeOnCurrentQuestion, setTimeOnCurrentQuestion] = useState(0);
@@ -2415,59 +2408,7 @@ export default function WelcomePage() {
         return <Layers {...iconProps} />
     }
   }
-
-  // --- Round Tour: steps and positioning (selector-based) ---
- 
-
-  const updateTourPosition = () => {
-    if (typeof window === 'undefined') return;
-    const stepObj = roundTourSteps[roundTourStep];
-    if (!stepObj) return;
-    const el = document.querySelector(stepObj.selector) as HTMLElement | null;
-    if (!el) {
-      for (let i = 1; i < roundTourSteps.length; i++) {
-        const idx = (roundTourStep + i) % roundTourSteps.length;
-        const cand = document.querySelector(roundTourSteps[idx].selector) as HTMLElement | null;
-        if (cand) { setRoundTourStep(idx); break; }
-      }
-      return;
-    }
-    const rect = el.getBoundingClientRect();
-    setTourRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-    const calloutWidth = 320;
-    const desiredTop = rect.top + rect.height + 12;
-    const altTop = Math.max(12, rect.top - 12 - 160);
-    const calloutTop = desiredTop + 160 < window.innerHeight ? desiredTop : altTop;
-    const maxLeft = window.innerWidth - calloutWidth - 12;
-    const calloutLeft = Math.min(rect.left, maxLeft);
-    setTourCalloutPos({ top: calloutTop, left: calloutLeft });
-  };
-
-  useEffect(() => {
-    if (!showRoundTour) return;
-    updateTourPosition();
-    const onResize = () => updateTourPosition();
-    const onScroll = () => updateTourPosition();
-    window.addEventListener('resize', onResize);
-    window.addEventListener('scroll', onScroll, { passive: true } as any);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('scroll', onScroll as any);
-    };
-  }, [showRoundTour, roundTourStep, currentQuestionIndex, activeQuestionSet, dark]);
-
-  useEffect(() => {
-    if (!showRoundTour) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setShowRoundTour(false);
-      if (e.key === 'ArrowRight') setRoundTourStep((s) => Math.min(s + 1, roundTourSteps.length - 1));
-      if (e.key === 'ArrowLeft') setRoundTourStep((s) => Math.max(s - 1, 0));
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [showRoundTour, roundTourSteps.length]);
-
-
+  
   // Check if user needs SURVEY RECOVERY (technical data loss):
   // Condition: has interaction fields (humor/openness) BUT missing name or survey_data answers
   const checkSurveyRecovery = async (tokenToCheck: string) => {
@@ -5318,7 +5259,7 @@ export default function WelcomePage() {
               </button>
               
               {/* Header with centered logo */}
-              <div data-tour="level" className="text-center mb-6">
+              <div className="text-center mb-6">
                 <div className="flex items-center justify-center mb-4">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
                     <UserPlus className="w-8 h-8 text-white" />
@@ -5396,7 +5337,7 @@ export default function WelcomePage() {
         {showInfoPopup && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="max-w-2xl w-full max-h-[90vh] p-4 sm:p-6 overflow-y-auto" dir="rtl">
-              <div data-tour="level" className="text-center mb-6">
+              <div className="text-center mb-6">
                 <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
                   <HelpCircle className="w-6 h-6 text-white" />
                 </div>
@@ -5535,7 +5476,7 @@ export default function WelcomePage() {
             <div className="max-w-4xl w-full max-h-[90vh] p-4 sm:p-6 overflow-y-auto" dir="rtl">
               <div className="bg-gradient-to-br from-slate-800/95 to-slate-900/95 backdrop-blur-xl border border-slate-600/50 rounded-2xl shadow-2xl p-6">
                 {/* Header */}
-                <div data-tour="level" className="text-center mb-6">
+                <div className="text-center mb-6">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
                     <HelpCircle className="w-6 h-6 text-white" />
                   </div>
@@ -6549,7 +6490,7 @@ export default function WelcomePage() {
                 {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}
                 {false && !(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div id="start-journey" className="max-w-4xl mx-auto px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-800">
-                    <div data-tour="level" className="text-center mb-6">
+                    <div className="text-center mb-6">
                       <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">انضم إلى الرحلة</h2>
                       <p className="text-cyan-200 text-sm">اختر الطريقة المناسبة للانضمام</p>
                     </div>
@@ -6675,7 +6616,7 @@ export default function WelcomePage() {
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-4 sm:p-6">
-                      <div data-tour="level" className="text-center mb-6">
+                      <div className="text-center mb-6">
                         <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الخدمات المتاحة</h3>
                         <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
                       </div>
@@ -7667,10 +7608,7 @@ export default function WelcomePage() {
                 </div>
               )}
 
-              {/* Help/Tour button */}
-              <button onClick={() => { setShowRoundTour(true); setRoundTourStep(0); setTimeout(() => updateTourPosition(), 0); }} className={`absolute -top-3 -left-3 z-10 w-10 h-10 rounded-full border-2 shadow-lg transition-all hover:scale-110 ${dark ? "bg-slate-700 border-slate-500 hover:bg-slate-600" : "bg-white border-gray-300 hover:bg-gray-50"}`} title="دليل سريع" aria-label="دليل سريع">
-                <HelpCircle className={`w-5 h-5 mx-auto ${dark ? "text-slate-300" : "text-gray-600"}`} />
-              </button>
+              
 
               {/* Player Avatar - Right corner (original position) */}
               <div className="absolute -top-3 -right-3 z-10">
@@ -7930,7 +7868,7 @@ export default function WelcomePage() {
                     {/* Partner & Table Info - Single Row */}
                     <div className="flex items-center justify-between gap-4">
                       {/* Partner Info */}
-                      <div data-tour="partner" className="flex flex-col items-center gap-2 flex-1">
+                      <div className="flex flex-col items-center gap-2 flex-1">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                           dark 
                             ? "bg-cyan-600/30 border border-cyan-500/50"
@@ -7960,7 +7898,7 @@ export default function WelcomePage() {
                       }`}></div>
 
                       {/* Table Info */}
-                      <div data-tour="table" className="flex flex-col items-center gap-2 flex-1">
+                      <div className="flex flex-col items-center gap-2 flex-1">
                         {tableNumber ? (
                           <>
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -8052,7 +7990,7 @@ export default function WelcomePage() {
                     }`}>
                       <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
                         <div
-                          data-tour="tabs" className={`inline-flex items-center p-1 rounded-full border ${
+                          className={`inline-flex items-center p-1 rounded-full border ${
                             dark
                               ? 'bg-slate-900/50 border-slate-700'
                               : 'bg-white/80 border-gray-200'
@@ -8112,7 +8050,7 @@ export default function WelcomePage() {
                         </div>
                         <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر أي مجموعة اسئلة</div>
                       </div>
-                      <div data-tour="level" className="text-center mb-6">
+                      <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                             currentQuestions[currentQuestionIndex].level === 0
@@ -8168,7 +8106,7 @@ export default function WelcomePage() {
 
                       {/* Question Card */}
                       <div 
-                        data-tour="question" className={`relative p-6 rounded-xl border ${
+                        className={`relative p-6 rounded-xl border ${
                           dark 
                             ? "bg-slate-800/50 border-slate-600/50" 
                             : "bg-white/80 border-gray-200"
@@ -8314,7 +8252,7 @@ export default function WelcomePage() {
                         )}
 
                         {/* Navigation */}
-                        <div data-tour="nav" className="flex items-center justify-between mt-6">
+                        <div className="flex items-center justify-between mt-6">
                           <button
 onClick={() => {
   setQuestionTransition('prev')
@@ -8359,7 +8297,7 @@ onClick={() => {
                         </div>
 
                         {/* Progress Bar */}
-                        <div data-tour="progress" className="mt-4">
+                        <div className="mt-4">
                           <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
                             <div 
                               className={`h-full rounded-full transition-all duration-500 ${
@@ -8402,7 +8340,7 @@ onClick={() => {
                     {/* Partner & Table Info - Single Row */}
                     <div className="flex items-center justify-between gap-4">
                       {/* Partner Info */}
-                      <div data-tour="partner" className="flex flex-col items-center gap-2 flex-1">
+                      <div className="flex flex-col items-center gap-2 flex-1">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                           dark 
                             ? "bg-cyan-600/30 border border-cyan-500/50"
@@ -8432,7 +8370,7 @@ onClick={() => {
                       }`}></div>
 
                       {/* Table Info */}
-                      <div data-tour="table" className="flex flex-col items-center gap-2 flex-1">
+                      <div className="flex flex-col items-center gap-2 flex-1">
                         {tableNumber ? (
                           <>
                             <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -8516,7 +8454,7 @@ onClick={() => {
                     }`}>
                       <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
                         <div
-                          data-tour="tabs" className={`inline-flex items-center p-1 rounded-full border ${
+                          className={`inline-flex items-center p-1 rounded-full border ${
                             dark
                               ? 'bg-slate-900/50 border-slate-700'
                               : 'bg-white/80 border-gray-200'
@@ -8576,7 +8514,7 @@ onClick={() => {
                         </div>
                         <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
                       </div>
-                      <div data-tour="level" className="text-center mb-6">
+                      <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                             currentQuestions[currentQuestionIndex].level === 0
@@ -8687,7 +8625,7 @@ onClick={() => {
   </AnimatePresence>
 </div>
                         {/* Navigation */}
-                        <div data-tour="nav" className="flex justify-between items-center mt-6">
+                        <div className="flex justify-between items-center mt-6">
                           <button
                             onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
                             disabled={currentQuestionIndex === 0}
@@ -8720,7 +8658,7 @@ onClick={() => {
                         </div>
 
                         {/* Progress indicator */}
-                        <div data-tour="progress" className="mt-4">
+                        <div className="mt-4">
                           <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
                             <div 
                               className={`h-2 rounded-full transition-all duration-300 ${
@@ -8810,40 +8748,7 @@ onClick={() => {
           </section>
         )}
 
-                {/* Guided Tour Overlay */}
-        {step === 4 && showRoundTour && (
-          <div className="fixed inset-0 z-[9999]">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowRoundTour(false)} />
-            {tourRect && (
-              <div className="absolute rounded-xl border-2 border-cyan-400" style={{ top: tourRect.top, left: tourRect.left, width: tourRect.width, height: tourRect.height, boxShadow: "0 0 0 4px rgba(34,211,238,0.35), 0 10px 25px rgba(0,0,0,0.35)", pointerEvents: "none" }} />
-            )}
-            {tourCalloutPos && (
-              <div className={`absolute max-w-[320px] p-4 rounded-xl shadow-xl border ${dark ? "bg-slate-800 border-slate-600 text-slate-100" : "bg-white border-gray-200 text-gray-800"}`} style={{ top: tourCalloutPos.top, left: tourCalloutPos.left }}>
-                <div className="flex items-start gap-2">
-                  <Info className="w-5 h-5 text-cyan-500 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold mb-1">{roundTourSteps[roundTourStep]?.title}</h4>
-                    <p className="text-sm opacity-90">{roundTourSteps[roundTourStep]?.desc}</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <button onClick={() => setShowRoundTour(false)} className={`${dark ? "bg-slate-700 hover:bg-slate-600" : "bg-gray-100 hover:bg-gray-200"} px-3 py-1.5 rounded-lg text-sm font-medium`}>
-                    تخطي
-                  </button>
-                  <div className="flex items-center gap-2">
-                    <button disabled={roundTourStep === 0} onClick={() => { setRoundTourStep(s => Math.max(0, s - 1)); setTimeout(() => updateTourPosition(), 0); }} className={`${dark ? "bg-slate-700 hover:bg-slate-600" : "bg-gray-100 hover:bg-gray-200"} px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50`}>
-                      السابق
-                    </button>
-                    <button onClick={() => { if (roundTourStep >= roundTourSteps.length - 1) { setShowRoundTour(false); } else { setRoundTourStep(s => Math.min(s + 1, roundTourSteps.length - 1)); setTimeout(() => updateTourPosition(), 0); } }} className="px-3 py-1.5 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800">
-                      {roundTourStep >= roundTourSteps.length - 1 ? "إنهاء" : "التالي"}
-                    </button>
-                  </div>
-                </div>
-                <div className="text-[11px] mt-2 opacity-70 text-right">{roundTourStep + 1} / {roundTourSteps.length}</div>
-              </div>
-            )}
-          </div>
-        )}
+                
 
         {step === 5 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">

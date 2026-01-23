@@ -7229,7 +7229,7 @@ export default function WelcomePage() {
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 rounded-full blur-3xl animate-pulse delay-500 ${
           dark ? "bg-gradient-to-r from-slate-500/5 to-slate-400/5" : "bg-gradient-to-r from-blue-400/10 to-purple-400/10"
         }`}></div>
-        <div className="pointer-events-none absolute inset-0 z-0">
+        <div className="pointer-events-none absolute inset-0 z-1">
           {/* Floating particles */}
           {[...Array(8)].map((_, i) => (
             <div

@@ -177,7 +177,7 @@ function ScoreBar({ label, value, max, color, icon }: { label: string, value: nu
           {icon && <span className="shrink-0">{icon}</span>}
           <span>{label}</span>
         </span>
-        <span className="text-slate-100 font-bold">{Math.round(pct)}%</span>
+        <span className="text-slate-100 font-bold">{value.toFixed(1)} / {max}</span>
       </div>
       <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden">
         <div className={`h-full ${color} brightness-110 shadow-[0_0_12px_rgba(255,255,255,0.10)]`} style={{ width: `${pct}%` }} />

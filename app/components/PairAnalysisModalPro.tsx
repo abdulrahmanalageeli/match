@@ -580,7 +580,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             {/* Summary */}
             <TabsContent value="summary">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
-                <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                <div className="bg-gradient-to-br from-cyan-500/10 via-slate-900/50 to-fuchsia-500/10 backdrop-blur-md border border-white/10 rounded-xl p-4 shadow-3xl">
                   <div className="hidden md:flex items-center justify-center mb-3">
                     <CircularProgressBar progress={overallPercent} size={148} strokeWidth={12} />
                   </div>
@@ -605,7 +605,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                  <div className="bg-gradient-to-br from-fuchsia-500/10 via-slate-900/50 to-cyan-500/10 backdrop-blur-md border border-white/10 rounded-xl p-4 shadow-3xl">
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-slate-300 text-xs">الملف التعريفي السريع</div>
                       {humorApplied && (
@@ -674,48 +674,80 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                     </div>
                   </div>
 
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                  <div className="bg-gradient-to-br from-cyan-500/10 via-slate-900/50 to-fuchsia-500/10 backdrop-blur-md border border-white/10 rounded-xl p-4 shadow-3xl">
                     <div className="text-slate-300 text-xs mb-2">الطاقة والشخصية</div>
-                    <ul className="space-y-1 text-xs text-slate-200 list-disc pr-4">
-                      {aAns?.vibe_1 && <li><span className="font-semibold text-white">{aNameLabel}</span> — {String(aAns.vibe_1)}</li>}
-                      {bAns?.vibe_1 && <li><span className="font-semibold text-white">{bNameLabel}</span> — {String(bAns.vibe_1)}</li>}
-                      {aAns?.vibe_2 && <li><span className="font-semibold text-white">{aNameLabel}</span> — {String(aAns.vibe_2)}</li>}
-                      {bAns?.vibe_2 && <li><span className="font-semibold text-white">{bNameLabel}</span> — {String(bAns.vibe_2)}</li>}
-                    </ul>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs text-slate-200">
+                        <thead className="text-slate-300/90">
+                          <tr>
+                            <th className="text-right py-2 pr-2 font-semibold">المحور</th>
+                            <th className="text-center py-2">{aNameLabel}</th>
+                            <th className="text-center py-2">{bNameLabel}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10">
+                          <tr>
+                            <td className="py-2 pr-2">نهاية الأسبوع</td>
+                            <td className="py-2 text-center">{aAns?.vibe_1 ? String(aAns.vibe_1) : '—'}</td>
+                            <td className="py-2 text-center">{bAns?.vibe_1 ? String(bAns.vibe_1) : '—'}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-2">الهوايات</td>
+                            <td className="py-2 text-center">{aAns?.vibe_2 ? String(aAns.vibe_2) : '—'}</td>
+                            <td className="py-2 text-center">{bAns?.vibe_2 ? String(bAns.vibe_2) : '—'}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-2">الموسيقى</td>
+                            <td className="py-2 text-center">{aAns?.vibe_3 ? String(aAns.vibe_3) : '—'}</td>
+                            <td className="py-2 text-center">{bAns?.vibe_3 ? String(bAns.vibe_3) : '—'}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-2">كيف يصفك الأصدقاء</td>
+                            <td className="py-2 text-center">{aAns?.vibe_5 ? String(aAns.vibe_5) : '—'}</td>
+                            <td className="py-2 text-center">{bAns?.vibe_5 ? String(bAns.vibe_5) : '—'}</td>
+                          </tr>
+                          <tr>
+                            <td className="py-2 pr-2">كيف تصف أصدقاءك</td>
+                            <td className="py-2 text-center">{aAns?.vibe_6 ? String(aAns.vibe_6) : '—'}</td>
+                            <td className="py-2 text-center">{bAns?.vibe_6 ? String(bAns.vibe_6) : '—'}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
 
-                <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                <div className="bg-gradient-to-br from-fuchsia-500/10 via-slate-900/50 to-cyan-500/10 backdrop-blur-md border border-white/10 rounded-xl p-4 shadow-3xl">
                   <div className="text-slate-300 text-xs mb-2">التفضيلات</div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs text-slate-200">
                       <thead className="text-slate-300/90">
                         <tr>
                           <th className="text-right py-2 pr-2 font-semibold">فئة التفضيل</th>
-                          <th className="text-right py-2">{aNameLabel}</th>
-                          <th className="text-right py-2">{bNameLabel}</th>
+                          <th className="text-center py-2">{aNameLabel}</th>
+                          <th className="text-center py-2">{bNameLabel}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/10">
                         <tr>
                           <td className="py-2 pr-2">الجنس المفضل {genderPrefAlign && (<CheckCircle className="inline w-3.5 h-3.5 text-emerald-400 mr-1" />)}</td>
-                          <td className="py-2">{aGenderPref}</td>
-                          <td className="py-2">{bGenderPref}</td>
+                          <td className="py-2 text-center">{aGenderPref}</td>
+                          <td className="py-2 text-center">{bGenderPref}</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-2">الفئة العمرية {agePrefAlign && (<CheckCircle className="inline w-3.5 h-3.5 text-emerald-400 mr-1" />)}</td>
-                          <td className="py-2">{aAgePref}</td>
-                          <td className="py-2">{bAgePref}</td>
+                          <td className="py-2 text-center">{aAgePref}</td>
+                          <td className="py-2 text-center">{bAgePref}</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-2">الجنسية {nationalityAlign && (<CheckCircle className="inline w-3.5 h-3.5 text-emerald-400 mr-1" />)}</td>
-                          <td className="py-2">{aNationality}</td>
-                          <td className="py-2">{bNationality}</td>
+                          <td className="py-2 text-center">{aNationality}</td>
+                          <td className="py-2 text-center">{bNationality}</td>
                         </tr>
                         <tr>
                           <td className="py-2 pr-2">تفضيل الجنسية</td>
-                          <td className="py-2">{mapNationalityPref(a)}</td>
-                          <td className="py-2">{mapNationalityPref(b)}</td>
+                          <td className="py-2 text-center">{mapNationalityPref(a)}</td>
+                          <td className="py-2 text-center">{mapNationalityPref(b)}</td>
                         </tr>
                       </tbody>
                     </table>

@@ -169,6 +169,7 @@ export default function WelcomePage() {
     wouldMeetAgain: 3, // 1-5 scale
     overallExperience: 3, // 1-5 scale
     recommendations: "",
+    organizerImpression: "", // Optional organizer-only general impression
     participantMessage: "" // Optional message to conversation partner
   })
   const [feedbackNextEventSignup, setFeedbackNextEventSignup] = useState(false)
@@ -1444,6 +1445,7 @@ export default function WelcomePage() {
             wouldMeetAgain: 3,
             overallExperience: 3,
             recommendations: "",
+            organizerImpression: "",
             participantMessage: ""
           });
           setShowFormFilledPrompt(false);
@@ -2082,6 +2084,7 @@ export default function WelcomePage() {
               wouldMeetAgain: 3,
               overallExperience: 3,
               recommendations: "",
+              organizerImpression: "",
               participantMessage: ""
             });
                 setTypewriterCompleted(false);
@@ -9725,6 +9728,49 @@ onClick={() => {
                       </div>
                     </div>
                   )}
+
+                    {/* Organizer-only general impression (Optional) */}
+                    <div className={`mt-6 p-4 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-pink-900/20 to-rose-900/20 border-pink-400/30' : 'bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200'} shadow-sm`}>
+                      <label className={`flex items-center gap-2 text-sm font-bold mb-2 ${dark ? 'text-pink-200' : 'text-rose-700'}`}>
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${dark ? 'bg-pink-600/20 text-pink-300' : 'bg-pink-100 text-pink-600'}`}>
+                          <Shield className="w-3 h-3" />
+                        </div>
+                        كيف كان شعورك/انطباعك عن الشخص أثناء الفعالية؟ شاركنا أي شيء أعجبك أو ما ارتحت له، لو حاب (اختياري — مخصص للتنظيم وبسرية تامة).
+                        <div className={`ml-auto flex items-center gap-1 px-2 py-1 rounded-full text-xs ${dark ? 'bg-pink-600/20 text-pink-200' : 'bg-pink-100 text-pink-700'}`}>
+                          <Shield className="w-3 h-3" />
+                          <span>سري للتنظيم</span>
+                        </div>
+                      </label>
+                      <textarea
+                        value={feedbackAnswers.organizerImpression}
+                        onChange={(e) => {
+                          const text = e.target.value
+                          if (text.length <= 500) {
+                            setFeedbackAnswers(prev => ({ ...prev, organizerImpression: text }))
+                          }
+                        }}
+                        placeholder="اكتب ملاحظتك العامة عن الشخص (اختياري — سري للتنظيم)..."
+                        rows={3}
+                        maxLength={500}
+                        className={`w-full rounded-xl border-2 backdrop-blur-sm p-3 transition-all duration-300 focus:outline-none focus:ring-4 resize-none ${
+                          dark
+                            ? 'border-pink-400/30 bg-white/10 text-white focus:ring-pink-400/20 focus:border-pink-400 placeholder-slate-400'
+                            : 'border-pink-300/50 bg-white/90 text-gray-800 focus:ring-pink-300/30 focus:border-pink-500 shadow-sm placeholder-gray-500'
+                        }`}
+                      />
+                      <div className="flex justify-between items-center mt-2">
+                        <span className={`text-xs ${dark ? 'text-pink-200/80' : 'text-rose-700/80'}`}>
+                          هذه الإجابة لا تُعرض للطرف الآخر
+                        </span>
+                        <span className={`text-xs ${
+                          feedbackAnswers.organizerImpression.length > 450
+                            ? 'text-red-500 font-bold'
+                            : dark ? 'text-pink-200/80' : 'text-rose-700/80'
+                        }`}>
+                          {feedbackAnswers.organizerImpression.length}/500
+                        </span>
+                      </div>
+                    </div>
 
                                          {/* Optional Recommendations */}
                      <div className={`p-4 rounded-xl border ${dark ? 'bg-slate-800/30 border-slate-600/30' : 'bg-gray-50/50 border-gray-200/50'}`}>

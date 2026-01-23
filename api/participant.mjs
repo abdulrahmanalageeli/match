@@ -679,6 +679,7 @@ export default async function handler(req, res) {
           wouldMeetAgain,
           overallExperience,
           recommendations,
+          organizerImpression,
           participantMessage
         } = feedback
 
@@ -711,6 +712,7 @@ export default async function handler(req, res) {
           would_meet_again: wouldMeetAgain,
           overall_experience: overallExperience,
           recommendations: recommendations || null,
+          organizer_impression: organizerImpression || null,
           participant_message: participantMessage || null,
           submitted_at: new Date().toISOString()
         }

@@ -1371,6 +1371,9 @@ export default function ParticipantResultsModal({
         a={analysisA}
         b={analysisB}
         pair={analysisPair}
+        historyA={analysisA?.assigned_number ? (localMatchHistory[analysisA.assigned_number] || []) : []}
+        historyB={analysisB?.assigned_number ? (localMatchHistory[analysisB.assigned_number] || []) : []}
+        currentEventId={currentEventId}
       />
     </div>
   )

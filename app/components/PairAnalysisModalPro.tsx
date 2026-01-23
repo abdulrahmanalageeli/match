@@ -26,6 +26,10 @@ interface PairAnalysisModalProps {
     cap_applied?: number | null
     reason?: string
   } | null
+  // Previous matches (like hover tooltips in Participant modal)
+  historyA?: Array<{ partner_number: number; partner_name?: string; event_id?: number }>
+  historyB?: Array<{ partner_number: number; partner_name?: string; event_id?: number }>
+  currentEventId?: number
 }
 
 const LIFESTYLE_QUESTIONS: Record<number, string> = {
@@ -186,7 +190,7 @@ function ScoreBar({ label, value, max, color, icon }: { label: string, value: nu
   )
 }
 
-export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: PairAnalysisModalProps) {
+export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, historyA = [], historyB = [], currentEventId = 1 }: PairAnalysisModalProps) {
   const parseJSON = (s: any) => { try { return typeof s === 'string' ? JSON.parse(s) : (s || {}) } catch { return {} } }
   const aSurvey = parseJSON(a?.survey_data)
   const bSurvey = parseJSON(b?.survey_data)
@@ -492,15 +496,119 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const bAI = b?.ai_personality_analysis || bSurvey?.ai_personality_analysis
   const hasAi = !!(aAI || bAI)
 
+  // Previous matches -> similarity/feedback enrichment state
+  const [allMatchesCache, setAllMatchesCache] = useState<any[] | null>(null)
+  const [loadingPrevKey, setLoadingPrevKey] = useState<string | null>(null)
+  const [prevMetaA, setPrevMetaA] = useState<Record<string, { similarity?: number, feedback?: number | null, compatibility?: number | null, vec?: any }>>({})
+  const [prevMetaB, setPrevMetaB] = useState<Record<string, { similarity?: number, feedback?: number | null, compatibility?: number | null, vec?: any }>>({})
+
+  // Build current pair vector (use API values if available, else computed fallbacks)
+  const currentVector = useMemo(() => {
+    const s = typeof pair?.synergy_score === 'number' ? pair!.synergy_score : computedSynergy
+    const l = typeof pair?.lifestyle_compatibility_score === 'number' ? pair!.lifestyle_compatibility_score : 0
+    const h = typeof pair?.humor_open_score === 'number' ? pair!.humor_open_score : hbForSummary.total
+    const c = typeof pair?.communication_compatibility_score === 'number' ? pair!.communication_compatibility_score : 0
+    const cv = typeof pair?.core_values_compatibility_score === 'number' ? pair!.core_values_compatibility_score : (scores.coreValues ? (scores.coreValues as number) : 0)
+    const v = typeof pair?.vibe_compatibility_score === 'number' ? pair!.vibe_compatibility_score : 0
+    return {
+      synergy: Number(s) || 0,           // 0..35
+      lifestyle: Number(l) || 0,         // 0..15
+      humor_open: Number(h) || 0,        // 0..15
+      communication: Number(c) || 0,     // 0..10
+      core_values: Number(cv) || 0,      // 0..20
+      vibe: Number(v) || 0               // 0..20
+    }
+  }, [pair, computedSynergy, hbForSummary.total, scores.coreValues])
+
+  const dimMax = { synergy: 35, lifestyle: 15, humor_open: 15, communication: 10, core_values: 20, vibe: 20 }
+
+  const computeSimilarityPct = (aVec: any, bVec: any) => {
+    const keys = Object.keys(dimMax) as Array<keyof typeof dimMax>
+    let acc = 0
+    let count = 0
+    keys.forEach(k => {
+      const max = dimMax[k]
+      const va = Math.max(0, Math.min(max, Number(aVec?.[k] ?? 0)))
+      const vb = Math.max(0, Math.min(max, Number(bVec?.[k] ?? 0)))
+      const diff = Math.abs(va - vb) / max
+      acc += (1 - diff)
+      count += 1
+    })
+    const mean = count > 0 ? acc / count : 0
+    return Math.round(mean * 100)
+  }
+
+  const ensureAllMatches = async () => {
+    if (allMatchesCache) return allMatchesCache
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'get-all-matches' })
+      })
+      const data = await res.json()
+      if (data?.success && Array.isArray(data.matches)) {
+        setAllMatchesCache(data.matches)
+        return data.matches
+      }
+    } catch (e) { /* ignore */ }
+    setAllMatchesCache([])
+    return []
+  }
+
+  const findMatchVector = (matches: any[], pNum1: number, pNum2: number, eventId?: number | null) => {
+    const hit = matches.find(m => {
+      const a = m.participant_a?.number
+      const b = m.participant_b?.number
+      const samePair = (a === pNum1 && b === pNum2) || (a === pNum2 && b === pNum1)
+      const ev = m.round // matrix uses round as event_id
+      return samePair && (eventId ? ev === eventId : true)
+    })
+    if (!hit) return { vec: null, feedback: null, comp: null }
+    const ds = hit?.detailed_scores || {}
+    const vec = {
+      synergy: Number(ds.synergy ?? 0),
+      lifestyle: Number(ds.lifestyle ?? 0),
+      humor_open: Number(ds.humor_open ?? 0),
+      communication: Number(ds.communication ?? 0),
+      core_values: Number(ds.core_values ?? 0),
+      vibe: Number(ds.vibe ?? 0),
+    }
+    // Average feedback compatibility if present
+    const fA = hit?.feedback?.participant_a?.compatibility_rate
+    const fB = hit?.feedback?.participant_b?.compatibility_rate
+    let feedbackPct: number | null = null
+    if (typeof fA === 'number' && typeof fB === 'number') feedbackPct = Math.round((fA + fB) / 2)
+    else if (typeof fA === 'number') feedbackPct = fA
+    else if (typeof fB === 'number') feedbackPct = fB
+    const compPct = Number(hit?.compatibility_score ?? 0)
+    return { vec, feedback: feedbackPct, comp: compPct }
+  }
+
+  const onClickPrevChip = async (who: 'A' | 'B', partnerNum: number, eventId?: number | null) => {
+    if (!currentVector || (!aNumber && who === 'A') || (!bNumber && who === 'B')) return
+    const key = `${partnerNum}:${eventId ?? 'any'}`
+    setLoadingPrevKey(key)
+    const matches = await ensureAllMatches()
+    const selfNum = who === 'A' ? aNumber : bNumber
+    const { vec, feedback, comp } = findMatchVector(matches, selfNum, partnerNum, eventId ?? null)
+    if (vec) {
+      const sim = computeSimilarityPct(currentVector, vec)
+      if (who === 'A') setPrevMetaA(prev => ({ ...prev, [key]: { similarity: sim, feedback, compatibility: comp, vec } }))
+      else setPrevMetaB(prev => ({ ...prev, [key]: { similarity: sim, feedback, compatibility: comp, vec } }))
+    } else {
+      if (who === 'A') setPrevMetaA(prev => ({ ...prev, [key]: { similarity: undefined, feedback: null, compatibility: null } }))
+      else setPrevMetaB(prev => ({ ...prev, [key]: { similarity: undefined, feedback: null, compatibility: null } }))
+    }
+    setLoadingPrevKey(null)
+  }
+
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
     try {
       const agesLine = `الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`
       const gendersLine = `النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`
       const main = `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
-      const text = pair?.reason
-        ? `السبب: ${pair.reason}\n${agesLine}\n${gendersLine}\n${main}`
-        : `${agesLine}\n${gendersLine}\n${main}`
+      const text = `${agesLine}\n${gendersLine}\n${main}`
       await navigator.clipboard.writeText(text)
       setCopied(true); setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -549,16 +657,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
               <Copy className="w-3.5 h-3.5" /> {copied ? 'تم النسخ' : 'نسخ الملخص'}
             </button>
           </div>
-          {pair?.reason && (
-            <div className="flex items-start justify-between gap-3">
-              <div className="text-xs md:text-sm text-slate-300/90 bg-white/5 border border-white/10 rounded-lg px-3 py-2 w-full">
-                <span className="text-slate-400">السبب:</span> {pair.reason}
-              </div>
-              <button onClick={handleCopy} className="md:hidden inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 transition self-stretch">
-                <Copy className="w-3.5 h-3.5" /> {copied ? 'تم النسخ' : 'نسخ'}
-              </button>
-            </div>
-          )}
+          {/* Removed 'السبب' section per request */}
         </div>
 
         {/* Body */}
@@ -752,6 +851,87 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                       </tbody>
                     </table>
                   </div>
+
+                  {/* Previous matches list (beneath preferences) */}
+                  {(historyA.length > 0 || historyB.length > 0) && (
+                    <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {/* A history */}
+                      {historyA.length > 0 && (
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-slate-300 text-xs">مطابقات سابقة — {aNameLabel}</div>
+                            <span className="text-[10px] text-slate-500">E{currentEventId}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {historyA.map((m, idx) => {
+                              const k = `${m.partner_number}:${m.event_id ?? 'any'}`
+                              const meta = prevMetaA[k]
+                              return (
+                                <button
+                                  type="button"
+                                  key={idx}
+                                  onClick={() => onClickPrevChip('A', m.partner_number, m.event_id ?? null)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-xs hover:bg-white/10 transition"
+                                  title="عرض التشابه والتقييم"
+                                >
+                                  <span className="text-cyan-300 font-mono">#{m.partner_number}</span>
+                                  {m.partner_name && <span className="text-slate-300 truncate max-w-[120px]">{m.partner_name}</span>}
+                                  {typeof m.event_id === 'number' && (
+                                    <span className={`text-[10px] ${m.event_id === currentEventId ? 'text-emerald-300' : 'text-purple-300'}`}>E{m.event_id}</span>
+                                  )}
+                                  {loadingPrevKey === k && <span className="text-[10px] text-slate-400">…</span>}
+                                  {meta?.similarity !== undefined && (
+                                    <span className="text-[10px] text-emerald-300">≈{meta.similarity}%</span>
+                                  )}
+                                  {typeof meta?.feedback === 'number' && (
+                                    <span className="text-[10px] text-blue-300">{meta.feedback}%</span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* B history */}
+                      {historyB.length > 0 && (
+                        <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-slate-300 text-xs">مطابقات سابقة — {bNameLabel}</div>
+                            <span className="text-[10px] text-slate-500">E{currentEventId}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {historyB.map((m, idx) => {
+                              const k = `${m.partner_number}:${m.event_id ?? 'any'}`
+                              const meta = prevMetaB[k]
+                              return (
+                                <button
+                                  type="button"
+                                  key={idx}
+                                  onClick={() => onClickPrevChip('B', m.partner_number, m.event_id ?? null)}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/5 border border-white/10 text-xs hover:bg-white/10 transition"
+                                  title="عرض التشابه والتقييم"
+                                >
+                                  <span className="text-cyan-300 font-mono">#{m.partner_number}</span>
+                                  {m.partner_name && <span className="text-slate-300 truncate max-w-[120px]">{m.partner_name}</span>}
+                                  {typeof m.event_id === 'number' && (
+                                    <span className={`text-[10px] ${m.event_id === currentEventId ? 'text-emerald-300' : 'text-purple-300'}`}>E{m.event_id}</span>
+                                  )}
+                                  {loadingPrevKey === k && <span className="text-[10px] text-slate-400">…</span>}
+                                  {meta?.similarity !== undefined && (
+                                    <span className="text-[10px] text-emerald-300">≈{meta.similarity}%</span>
+                                  )}
+                                  {typeof meta?.feedback === 'number' && (
+                                    <span className="text-[10px] text-blue-300">{meta.feedback}%</span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </TabsContent>

@@ -7854,8 +7854,10 @@ export default function WelcomePage() {
                         <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                         <span className="font-semibold">شريكك بدأ الحوار! جاري بدء المؤقت...</span>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
+
+                  </LayoutGroup>
                   
                   {partnerEndedTimer && (
                     <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
@@ -7976,7 +7978,7 @@ export default function WelcomePage() {
 
                   {/* Round Intro Overlay (covers questions until arrival confirmation) */}
                   <AnimatePresence>
-                    {step === 4 && !hasArrivedAtTable && (
+                    {false && step === 4 && !hasArrivedAtTable && (
                       <motion.div
                         key="round-intro-overlay"
                         initial={{ opacity: 0 }}
@@ -8041,9 +8043,67 @@ export default function WelcomePage() {
                     />
                   </Suspense>
                   
+                  {/* In-container arrival card (mimics question container) */}
+                  <LayoutGroup>
+                  {step === 4 && !hasArrivedAtTable && (
+                    <motion.div
+                      layoutId="round-card"
+                      layout
+                      transition={{ layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
+                      className={`mb-6 p-6 rounded-2xl border ${
+                      currentQuestions[currentQuestionIndex].level === 0
+                        ? dark 
+                          ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
+                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
+                        : currentQuestions[currentQuestionIndex].level === 1
+                          ? dark 
+                            ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
+                            : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                          : currentQuestions[currentQuestionIndex].level === 2
+                            ? dark
+                              ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
+                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+                            : currentQuestions[currentQuestionIndex].level === 3
+                              ? dark
+                                ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
+                                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                              : dark
+                                ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
+                                : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
+                    }`}>
+                      <div className="flex flex-col items-center gap-6 text-center">
+                        <motion.div layoutId="partner-number" className={`text-5xl md:text-6xl font-extrabold tracking-tight ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                          #{matchResult}
+                        </motion.div>
+                        {tableNumber ? (
+                          <motion.div layoutId="table-number" className={`text-4xl md:text-5xl font-extrabold ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                            طاولة #{tableNumber}
+                          </motion.div>
+                        ) : (
+                          <div className={`${dark ? "text-slate-300" : "text-gray-700"} text-base md:text-lg`}>
+                            سيتم إخبارك بالطاولة قريباً
+                          </div>
+                        )}
+                        <div className={`${dark ? "text-slate-300" : "text-gray-700"} text-sm md:text-base`}>
+                          توجه للطاولة الموضحة أعلاه، ثم اضغط الزر أدناه لبدء الأسئلة.
+                        </div>
+                        <button
+                          onClick={() => setHasArrivedAtTable(true)}
+                          className={`${dark ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"} px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors`}
+                        >
+                          أنا وصلت
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* Questions Slideshow - Round view; gate with arrival */}
                   {step === 4 && hasArrivedAtTable ? (
-                    <div className={`mb-6 p-6 rounded-2xl border ${
+                    <motion.div
+                      layoutId="round-card"
+                      layout
+                      transition={{ layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
+                      className={`mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
@@ -8400,8 +8460,10 @@ onClick={() => {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ) : null}
+
+                  </LayoutGroup>
 
                 </>
               ) : (
@@ -8489,7 +8551,7 @@ onClick={() => {
 
                   {/* Round Intro Overlay (covers questions until arrival confirmation) */}
                   <AnimatePresence>
-                    {step === 4 && !hasArrivedAtTable && (
+                    {false && step === 4 && !hasArrivedAtTable && (
                       <motion.div
                         key="round-intro-overlay-started"
                         initial={{ opacity: 0 }}
@@ -8546,9 +8608,67 @@ onClick={() => {
                     </div>
                   )}
 
+                  {/* In-container arrival card (mimics question container) */}
+                  <LayoutGroup>
+                  {step === 4 && !hasArrivedAtTable && (
+                    <motion.div
+                      layoutId="round-card"
+                      layout
+                      transition={{ layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
+                      className={`mb-6 p-6 rounded-2xl border ${
+                      currentQuestions[currentQuestionIndex].level === 0
+                        ? dark 
+                          ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
+                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
+                        : currentQuestions[currentQuestionIndex].level === 1
+                          ? dark 
+                            ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
+                            : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                          : currentQuestions[currentQuestionIndex].level === 2
+                            ? dark
+                              ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
+                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+                            : currentQuestions[currentQuestionIndex].level === 3
+                              ? dark
+                                ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
+                                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                              : dark
+                                ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
+                                : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
+                    }`}>
+                      <div className="flex flex-col items-center gap-6 text-center">
+                        <motion.div layoutId="partner-number" className={`text-5xl md:text-6xl font-extrabold tracking-tight ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                          #{matchResult}
+                        </motion.div>
+                        {tableNumber ? (
+                          <motion.div layoutId="table-number" className={`text-4xl md:text-5xl font-extrabold ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                            طاولة #{tableNumber}
+                          </motion.div>
+                        ) : (
+                          <div className={`${dark ? "text-slate-300" : "text-gray-700"} text-base md:text-lg`}>
+                            سيتم إخبارك بالطاولة قريباً
+                          </div>
+                        )}
+                        <div className={`${dark ? "text-slate-300" : "text-gray-700"} text-sm md:text-base`}>
+                          توجه للطاولة الموضحة أعلاه، ثم اضغط الزر أدناه لبدء الأسئلة.
+                        </div>
+                        <button
+                          onClick={() => setHasArrivedAtTable(true)}
+                          className={`${dark ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"} px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors`}
+                        >
+                          أنا وصلت
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
                   {/* Round view questions; gate with arrival */}
                   {step === 4 && hasArrivedAtTable && (
-                    <div className={`mb-6 p-6 rounded-2xl border ${
+                    <motion.div
+                      layoutId="round-card"
+                      layout
+                      transition={{ layout: { duration: 0.45, ease: [0.22, 1, 0.36, 1] } }}
+                      className={`mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 

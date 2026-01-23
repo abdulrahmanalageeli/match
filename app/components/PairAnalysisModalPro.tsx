@@ -391,6 +391,14 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
     return 'غير محدد'
   }
 
+  const mapGenderLabel = (p: any): string => {
+    const ans = p?.survey_data?.answers || {}
+    const raw = String(p?.gender ?? ans.gender ?? '').toLowerCase()
+    if (raw === 'male' || raw === 'm' || raw === 'ذكر') return 'ذكر'
+    if (raw === 'female' || raw === 'f' || raw === 'أنثى') return 'أنثى'
+    return 'غير محدد'
+  }
+
   const mapNationality = (p: any): string => p?.nationality || (p?.survey_data?.answers || {}).nationality || 'غير محدد'
   const mapNationalityPref = (p: any): string => {
     const ans = p?.survey_data?.answers || {}
@@ -410,6 +418,16 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const bNumber = b?.assigned_number
   const aMBTI = a?.mbti_personality_type || aSurvey?.mbtiType
   const bMBTI = b?.mbti_personality_type || bSurvey?.mbtiType
+
+  // Ages (robust extraction from row, survey root, or answers)
+  const getAgeNum = (val: any) => { const n = parseInt(String(val ?? ''), 10); return isNaN(n) ? null : n }
+  const aAgeVal = a?.age ?? aSurvey?.age ?? aAns?.age
+  const bAgeVal = b?.age ?? bSurvey?.age ?? bAns?.age
+  const aAgeNum = getAgeNum(aAgeVal)
+  const bAgeNum = getAgeNum(bAgeVal)
+  const aAgeLabel = aAgeNum !== null ? aAgeNum : (aAgeVal ?? null)
+  const bAgeLabel = bAgeNum !== null ? bAgeNum : (bAgeVal ?? null)
+  const ageDiff = (aAgeNum !== null && bAgeNum !== null) ? Math.abs(aAgeNum - bAgeNum) : null
 
   const overallPercent = (() => { const v = typeof pair?.compatibility_score === 'number' ? pair.compatibility_score : 0; return Math.round(v <= 1 ? v * 100 : v) })()
   // Show unbonused percentage (divide out multipliers) if any multiplier applied
@@ -463,9 +481,12 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const [copied, setCopied] = useState(false)
   const handleCopy = async () => {
     try {
+      const agesLine = `الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`
+      const gendersLine = `النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`
+      const main = `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
       const text = pair?.reason
-        ? `السبب: ${pair.reason}\nالتفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
-        : `التفاعل: ${scores.synergy.toFixed(1)}/35، الطاقة: ${scores.vibe.toFixed(1)}/20، نمط الحياة: ${scores.lifestyle.toFixed(1)}/15، الدعابة/الانفتاح: ${scores.humor.toFixed(1)}/15، التواصل: ${scores.communication.toFixed(1)}/10، القيم: ${scores.coreValues.toFixed(1)}/20، الأهداف: ${coreValues5 .toFixed(1)}/5`
+        ? `السبب: ${pair.reason}\n${agesLine}\n${gendersLine}\n${main}`
+        : `${agesLine}\n${gendersLine}\n${main}`
       await navigator.clipboard.writeText(text)
       setCopied(true); setTimeout(() => setCopied(false), 1200)
     } catch {}
@@ -497,6 +518,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 <span className="font-mono text-white">#{aNumber ?? '—'}</span>
                 <span className="text-slate-200 font-medium">{aNameLabel}</span>
                 {aMBTI && <span className="text-cyan-300">{String(aMBTI)}</span>}
+                {aAgeLabel != null && <span className="text-slate-500">•</span>}
+                {aAgeLabel != null && <span className="text-slate-300">العمر: {String(aAgeLabel)}</span>}
               </span>
               <span className="text-slate-500">↔</span>
               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-white/5 border border-white/15">
@@ -504,6 +527,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 <span className="font-mono text-white">#{bNumber ?? '—'}</span>
                 <span className="text-slate-200 font-medium">{bNameLabel}</span>
                 {bMBTI && <span className="text-cyan-300">{String(bMBTI)}</span>}
+                {bAgeLabel != null && <span className="text-slate-500">•</span>}
+                {bAgeLabel != null && <span className="text-slate-300">العمر: {String(bAgeLabel)}</span>}
               </span>
             </div>
             <button onClick={handleCopy} className="hidden md:inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/10 hover:bg-white/20 border border-white/15 text-slate-200 transition">
@@ -565,6 +590,22 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                 </div>
 
                 <div className="space-y-4">
+                  <div className="bg-white/10 border border-white/20 rounded-xl p-4">
+                    <div className="text-slate-300 text-xs mb-2">المعلومات الأساسية</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-200">
+                      <div className="space-y-1">
+                        <div><span className="text-slate-300">{aNameLabel} - العمر:</span> {aAgeLabel != null ? String(aAgeLabel) : '—'}</div>
+                        <div><span className="text-slate-300">{aNameLabel} - الجنس:</span> {mapGenderLabel(a)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div><span className="text-slate-300">{bNameLabel} - العمر:</span> {bAgeLabel != null ? String(bAgeLabel) : '—'}</div>
+                        <div><span className="text-slate-300">{bNameLabel} - الجنس:</span> {mapGenderLabel(b)}</div>
+                      </div>
+                      <div className="md:col-span-2 text-slate-300">
+                        فارق العمر: <span className="text-white font-semibold">{ageDiff !== null ? `${ageDiff}` : '—'}</span>
+                      </div>
+                    </div>
+                  </div>
                   <div className="bg-white/10 border border-white/20 rounded-xl p-4">
                     <div className="text-slate-300 text-xs mb-2 flex items-center gap-2">
                       <span>القيود والمكافآت</span>
@@ -895,6 +936,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
               const lines: string[] = []
               lines.push(`التوافق الإجمالي: ${overallPercent}%`)
               if (pair?.reason) lines.push(`السبب: ${pair.reason}`)
+              lines.push(`الأعمار: ${aAgeLabel != null ? aAgeLabel : '—'} و ${bAgeLabel != null ? bAgeLabel : '—'}${ageDiff !== null ? ` (فارق ${ageDiff})` : ''}`)
+              lines.push(`النوع: ${mapGenderLabel(a)} و ${mapGenderLabel(b)}`)
               lines.push(`التفاعل: ${scores.synergy.toFixed(1)}/35`)
               lines.push(`الطاقة: ${scores.vibe.toFixed(1)}/20`)
               lines.push(`نمط الحياة: ${scores.lifestyle.toFixed(1)}/15`)

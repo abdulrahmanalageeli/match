@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from "react"
 import { X, User, Users, Heart, Brain, MessageCircle, Home, Star, Zap, ArrowLeft, ArrowLeftRight, RotateCcw, Sparkles, Lock, TrendingUp, TrendingDown, Info, AlertTriangle } from "lucide-react"
 import * as Tooltip from "@radix-ui/react-tooltip"
+import * as Popover from "@radix-ui/react-popover"
+import ParticipantHoverCardContent from "./ParticipantHoverCard"
 
 interface ParticipantMatch {
   participant_number: number
@@ -373,162 +375,52 @@ export default function ParticipantDetailModal({
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              <Tooltip.Provider delayDuration={300}>
-                                <Tooltip.Root>
-                                  <Tooltip.Trigger asChild>
-                                    <span className="text-white font-medium cursor-help hover:text-cyan-300 transition-colors">
-                                      {match.participant_name || "غير محدد"}
-                                    </span>
-                                  </Tooltip.Trigger>
-                                  <Tooltip.Portal>
-                                    <Tooltip.Content
-                                      className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
-                                      sideOffset={5}
+                              <Popover.Root>
+                                <Tooltip.Provider delayDuration={300}>
+                                  <Tooltip.Root>
+                                    <Tooltip.Trigger asChild>
+                                      <Popover.Trigger asChild>
+                                        <span className="text-white font-medium cursor-help hover:text-cyan-300 transition-colors">
+                                          {match.participant_name || "غير محدد"}
+                                        </span>
+                                      </Popover.Trigger>
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Portal>
+                                      <Tooltip.Content
+                                        className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                        sideOffset={5}
+                                      >
+                                        <ParticipantHoverCardContent
+                                          participantNumber={match.participant_number}
+                                          participantName={match.participant_name || "غير محدد"}
+                                          pData={participantData.get(match.participant_number)}
+                                        />
+                                        <Tooltip.Arrow className="fill-cyan-400/30" />
+                                      </Tooltip.Content>
+                                    </Tooltip.Portal>
+                                  </Tooltip.Root>
+                                </Tooltip.Provider>
+                                <Popover.Portal>
+                                  <Popover.Content
+                                    className="z-[110] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl relative"
+                                    sideOffset={6}
+                                  >
+                                    <Popover.Close
+                                      className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20"
+                                      aria-label="Close"
                                     >
-                                      {(() => {
-                                        const pData = participantData.get(match.participant_number)
-                                        const surveyData = pData?.survey_data || {}
-                                        const answers = surveyData.answers || {}
-                                        // Preference helpers
-                                        const genderPrefLabel = (() => {
-                                          const raw = answers.actual_gender_preference || answers.gender_preference
-                                          if (raw === 'any_gender' || pData?.any_gender_preference) return 'أي جنس'
-                                          if (raw === 'same_gender' || pData?.same_gender_preference) return 'نفس الجنس فقط'
-                                          if (raw === 'opposite_gender') return 'الجنس المقابل'
-                                          if (pData?.any_gender_preference) return 'أي جنس'
-                                          if (pData?.same_gender_preference) return 'نفس الجنس فقط'
-                                          return 'الجنس المقابل'
-                                        })()
-                                        const agePrefLabel = (() => {
-                                          const open = answers.open_age_preference === 'true' || answers.open_age_preference === true || pData?.open_age_preference
-                                          if (open) return 'مفتوح: بدون قيود عمرية'
-                                          const min = answers.preferred_age_min ?? pData?.preferred_age_min
-                                          const max = answers.preferred_age_max ?? pData?.preferred_age_max
-                                          if (min && max) return `من ${min} إلى ${max}`
-                                          if (min) return `من ${min}+`
-                                          if (max) return `حتى ${max}`
-                                          return 'غير محدد'
-                                        })()
-                                        const nationalityLabel = answers.nationality || pData?.nationality || 'غير محدد'
-                                        const nationalityPrefLabel = (() => {
-                                          const pref = answers.nationality_preference
-                                          if (pref === 'same') return 'نفس الجنسية'
-                                          if (pref === 'any') return 'أي جنسية'
-                                          if (typeof pData?.prefer_same_nationality === 'boolean') {
-                                            return pData.prefer_same_nationality ? 'نفس الجنسية' : 'أي جنسية'
-                                          }
-                                          return 'غير محدد'
-                                        })()
-                                        
-                                        return (
-                                          <div className="space-y-2">
-                                            {/* Header */}
-                                            <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between" dir="rtl">
-                                              <div className="flex items-center gap-3">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="text-cyan-300 font-bold text-lg">{match.participant_name || "غير محدد"}</span>
-                                                  <span className="text-slate-400 text-sm">#{match.participant_number}</span>
-                                                </div>
-                                                {pData?.updated_at && (
-                                                  <span className="text-xs text-slate-500">
-                                                    🕐 {(() => {
-                                                      const utcDate = new Date(pData.updated_at);
-                                                      const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                                                      const now = new Date();
-                                                      const diffMs = now.getTime() - gmt3Date.getTime();
-                                                      const diffMins = Math.floor(diffMs / 60000);
-                                                      const diffHours = Math.floor(diffMs / 3600000);
-                                                      const diffDays = Math.floor(diffMs / 86400000);
-                                                      
-                                                      if (diffMins < 1) return 'Just now';
-                                                      if (diffMins < 60) return `${diffMins}m ago`;
-                                                      if (diffHours < 24) return `${diffHours}h ago`;
-                                                      if (diffDays === 1) return '1d ago';
-                                                      if (diffDays < 30) return `${diffDays}d ago`;
-                                                      
-                                                      return gmt3Date.toLocaleDateString('en-GB', { 
-                                                        day: '2-digit', 
-                                                        month: 'short',
-                                                        year: 'numeric'
-                                                      });
-                                                    })()}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex flex-wrap gap-3 text-xs">
-                                                <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
-                                                <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
-                                                <span className="text-slate-400">تفضيل الجنس: <span className="text-white">{genderPrefLabel}</span></span>
-                                                <span className="text-slate-400">تفضيل العمر: <span className="text-white">{agePrefLabel}</span></span>
-                                                <span className="text-slate-400">الجنسية: <span className="text-white">{nationalityLabel}</span></span>
-                                                <span className="text-slate-400">تفضيل الجنسية: <span className="text-white">{nationalityPrefLabel}</span></span>
-                                              </div>
-                                            </div>
-                                            
-                                            {/* Main Content - 2 Column Layout */}
-                                            <div className="grid grid-cols-3 gap-4">
-                                              {/* Left Column - Vibe Info */}
-                                              <div className="col-span-2 space-y-1.5">
-                                                <div className="text-cyan-300 font-semibold text-xs mb-1">الطاقة والشخصية:</div>
-                                                
-                                                {answers.vibe_1 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الويكند المثالي:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_1}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_2 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الهوايات:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_2}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_3 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الموسيقى:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_3}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_4 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">عمق المحادثة:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_4}</span>
-                                                  </div>
-                                                )}
-                                              </div>
-                                              
-                                              {/* Right Column - Quick Stats */}
-                                              <div className="space-y-1.5">
-                                                <div className="text-cyan-300 font-semibold text-xs mb-1">التوافق:</div>
-                                                <div className="text-xs">
-                                                  <span className="text-slate-400">إجمالي:</span>
-                                                  <span className="text-green-400 ml-1 font-bold">{match.compatibility_score}%</span>
-                                                </div>
-                                                {match.mbti_compatibility_score && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">MBTI:</span>
-                                                    <span className="text-white ml-1">{match.mbti_compatibility_score.toFixed(1)}%</span>
-                                                  </div>
-                                                )}
-                                                {match.vibe_compatibility_score && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الطاقة:</span>
-                                                    <span className="text-white ml-1">{match.vibe_compatibility_score.toFixed(1)}%</span>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            </div>
-                                          </div>
-                                        )
-                                      })()}
-                                      <Tooltip.Arrow className="fill-cyan-400/30" />
-                                    </Tooltip.Content>
-                                  </Tooltip.Portal>
-                                </Tooltip.Root>
-                              </Tooltip.Provider>
+                                      <span className="inline-flex">
+                                        <X className="w-4 h-4 text-slate-200" />
+                                      </span>
+                                    </Popover.Close>
+                                    <ParticipantHoverCardContent
+                                      participantNumber={match.participant_number}
+                                      participantName={match.participant_name || "غير محدد"}
+                                      pData={participantData.get(match.participant_number)}
+                                    />
+                                  </Popover.Content>
+                                </Popover.Portal>
+                              </Popover.Root>
                               {(() => {
                                 // Show openness 0×0 penalty icon next to potential partner name
                                 const pA = participantData.get(participant.assigned_number)

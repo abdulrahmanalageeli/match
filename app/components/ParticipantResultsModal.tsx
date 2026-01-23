@@ -4,6 +4,8 @@ import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
 import PairAnalysisModal from "./PairAnalysisModalPro"
 import * as Tooltip from "@radix-ui/react-tooltip"
+import * as Popover from "@radix-ui/react-popover"
+import ParticipantHoverCardContent from "./ParticipantHoverCard"
 
 interface ParticipantResult {
   id: string
@@ -764,146 +766,57 @@ export default function ParticipantResultsModal({
                           </td>
                           <td className="p-4">
                             <div className="flex items-center gap-2">
-                              <Tooltip.Provider delayDuration={300}>
-                                <Tooltip.Root>
-                                  <Tooltip.Trigger asChild>
-                                    <span className="text-white font-medium cursor-help hover:text-cyan-300 transition-colors">
-                                      {participant.name || "غير محدد"}
-                                    </span>
-                                  </Tooltip.Trigger>
-                                  <Tooltip.Portal>
-                                    <Tooltip.Content
-                                      className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
-                                      sideOffset={5}
-                                    >
-                                      {(() => {
-                                        const pData = participantData.get(participant.assigned_number)
-                                        const surveyData = pData?.survey_data || {}
-                                        const answers = surveyData.answers || {}
-                                        
-                                        return (
-                                          <div className="space-y-2">
-                                            {/* Header */}
-                                            <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between" dir="rtl">
-                                              <div className="flex items-center gap-3">
-                                                <div className="flex items-center gap-2">
-                                                  <span className="text-cyan-300 font-bold text-lg">{participant.name || "غير محدد"}</span>
-                                                  <span className="text-slate-400 text-sm">#{participant.assigned_number}</span>
-                                                </div>
-                                                {pData?.updated_at && (
-                                                  <span className="text-xs text-slate-500">
-                                                    🕐 {(() => {
-                                                      const utcDate = new Date(pData.updated_at);
-                                                      const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                                                      const now = new Date();
-                                                      const diffMs = now.getTime() - gmt3Date.getTime();
-                                                      const diffMins = Math.floor(diffMs / 60000);
-                                                      const diffHours = Math.floor(diffMs / 3600000);
-                                                      const diffDays = Math.floor(diffMs / 86400000);
-                                                      
-                                                      if (diffMins < 1) return 'Just now';
-                                                      if (diffMins < 60) return `${diffMins}m ago`;
-                                                      if (diffHours < 24) return `${diffHours}h ago`;
-                                                      if (diffDays === 1) return '1d ago';
-                                                      if (diffDays < 30) return `${diffDays}d ago`;
-                                                      
-                                                      return gmt3Date.toLocaleDateString('en-GB', { 
-                                                        day: '2-digit', 
-                                                        month: 'short',
-                                                        year: 'numeric'
-                                                      });
-                                                    })()}
-                                                  </span>
-                                                )}
-                                              </div>
-                                              <div className="flex gap-3 text-xs">
-                                                <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
-                                                <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
-                                              </div>
-                                            </div>
-                                            
-                                            {/* Main Content - 2 Column Layout */}
-                                            <div className="grid grid-cols-3 gap-4">
-                                              {/* Left Column - Vibe Info */}
-                                              <div className="col-span-2 space-y-1.5">
-                                                <div className="text-cyan-300 font-semibold text-xs mb-1">الطاقة والشخصية:</div>
-                                                
-                                                {answers.vibe_1 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الويكند المثالي:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_1}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_2 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الهوايات:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_2}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_3 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">الفنان المفضل:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_3}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_4 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">السوالف العميقة:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_4}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_5 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">كيف يصفك أصدقاؤك:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_5}</span>
-                                                  </div>
-                                                )}
-                                                
-                                                {answers.vibe_6 && (
-                                                  <div className="text-xs">
-                                                    <span className="text-slate-400">كيف تصف أصدقاءك:</span>
-                                                    <span className="text-white ml-1">{answers.vibe_6}</span>
-                                                  </div>
-                                                )}
-                                              </div>
-
-                                              {/* Right Column - Previous Matches */}
-                                              {localMatchHistory[participant.assigned_number] && localMatchHistory[participant.assigned_number].length > 0 && (
-                                                <div className="border-l border-cyan-400/20 pl-4">
-                                                  <div className="text-cyan-300 font-semibold text-xs mb-1">Previous Matches:</div>
-                                                  <div className="space-y-0.5">
-                                                    {localMatchHistory[participant.assigned_number].slice(0, 5).map((match: any, idx: number) => (
-                                                      <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-1.5 py-0.5">
-                                                        <div className="flex items-center gap-1">
-                                                          <span className="text-cyan-400">#{match.partner_number}</span>
-                                                          <span className="text-slate-400 truncate max-w-[100px]">{match.partner_name}</span>
-                                                        </div>
-                                                        {match.event_id && match.event_id !== currentEventId && (
-                                                          <span className="text-xs text-purple-400">E{match.event_id}</span>
-                                                        )}
-                                                      </div>
-                                                    ))}
-                                                    {localMatchHistory[participant.assigned_number].length > 5 && (
-                                                      <div className="text-xs text-slate-500 text-center">
-                                                        +{localMatchHistory[participant.assigned_number].length - 5} more
-                                                      </div>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })()}
-                                      <Tooltip.Arrow className="fill-cyan-400/30" />
-                                    </Tooltip.Content>
-                                  </Tooltip.Portal>
-                                </Tooltip.Root>
-                              </Tooltip.Provider>
+                              <Popover.Root>
+                                <Tooltip.Provider delayDuration={300}>
+                                  <Tooltip.Root>
+                                    <Tooltip.Trigger asChild>
+                                      <Popover.Trigger asChild>
+                                        <span className="text-white font-medium cursor-pointer hover:text-cyan-300 transition-colors">
+                                          {participant.name || "غير محدد"}
+                                        </span>
+                                      </Popover.Trigger>
+                                    </Tooltip.Trigger>
+                                    <Tooltip.Portal>
+                                      <Tooltip.Content
+                                        className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                        sideOffset={5}
+                                      >
+                                        <ParticipantHoverCardContent
+                                          participantNumber={participant.assigned_number}
+                                          participantName={participant.name || "غير محدد"}
+                                          pData={participantData.get(participant.assigned_number)}
+                                          history={localMatchHistory[participant.assigned_number] || []}
+                                          currentEventId={currentEventId}
+                                        />
+                                        <Tooltip.Arrow className="fill-cyan-400/30" />
+                                      </Tooltip.Content>
+                                    </Tooltip.Portal>
+                                  </Tooltip.Root>
+                                </Tooltip.Provider>
+                                <Popover.Portal>
+                                  <Popover.Content
+                                    className="z-[110] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                    sideOffset={6}
+                                    align="center"
+                                  >
+                                    <div className="relative">
+                                      <Popover.Close
+                                        className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
+                                        aria-label="Close"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </Popover.Close>
+                                      <ParticipantHoverCardContent
+                                        participantNumber={participant.assigned_number}
+                                        participantName={participant.name || "غير محدد"}
+                                        pData={participantData.get(participant.assigned_number)}
+                                        history={localMatchHistory[participant.assigned_number] || []}
+                                        currentEventId={currentEventId}
+                                      />
+                                    </div>
+                                  </Popover.Content>
+                                </Popover.Portal>
+                              </Popover.Root>
                               {(() => {
                                 // Show yellow alert icon next to the participant name if openness is 0×0 for this pair
                                 const x = participant.assigned_number
@@ -992,144 +905,55 @@ export default function ParticipantResultsModal({
                                     <div>
                                       <div className="font-mono">#{participant.partner_assigned_number}</div>
                                       {participant.partner_name && (
-                                        <Tooltip.Provider delayDuration={300}>
-                                          <Tooltip.Root>
-                                            <Tooltip.Trigger asChild>
-                                              <div className="text-xs text-slate-400 cursor-help hover:text-cyan-300 transition-colors">{participant.partner_name}</div>
-                                            </Tooltip.Trigger>
-                                            <Tooltip.Portal>
-                                              <Tooltip.Content
-                                                className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
-                                                sideOffset={5}
-                                              >
-                                                {(() => {
-                                                  const pData = participantData.get(participant.partner_assigned_number!)
-                                                  const surveyData = pData?.survey_data || {}
-                                                  const answers = surveyData.answers || {}
-                                                  
-                                                  return (
-                                                    <div className="space-y-2">
-                                                      {/* Header */}
-                                                      <div className="border-b border-cyan-400/20 pb-2 flex items-center justify-between" dir="rtl">
-                                                        <div className="flex items-center gap-3">
-                                                          <div className="flex items-center gap-2">
-                                                            <span className="text-cyan-300 font-bold text-lg">{participant.partner_name}</span>
-                                                            <span className="text-slate-400 text-sm">#{participant.partner_assigned_number}</span>
-                                                          </div>
-                                                          {pData?.updated_at && (
-                                                            <span className="text-xs text-slate-500">
-                                                              🕐 {(() => {
-                                                                const utcDate = new Date(pData.updated_at);
-                                                                const gmt3Date = new Date(utcDate.getTime() + (3 * 60 * 60 * 1000));
-                                                                const now = new Date();
-                                                                const diffMs = now.getTime() - gmt3Date.getTime();
-                                                                const diffMins = Math.floor(diffMs / 60000);
-                                                                const diffHours = Math.floor(diffMs / 3600000);
-                                                                const diffDays = Math.floor(diffMs / 86400000);
-                                                                
-                                                                if (diffMins < 1) return 'Just now';
-                                                                if (diffMins < 60) return `${diffMins}m ago`;
-                                                                if (diffHours < 24) return `${diffHours}h ago`;
-                                                                if (diffDays === 1) return '1d ago';
-                                                                if (diffDays < 30) return `${diffDays}d ago`;
-                                                                
-                                                                return gmt3Date.toLocaleDateString('en-GB', { 
-                                                                  day: '2-digit', 
-                                                                  month: 'short',
-                                                                  year: 'numeric'
-                                                                });
-                                                              })()}
-                                                            </span>
-                                                          )}
-                                                        </div>
-                                                        <div className="flex gap-3 text-xs">
-                                                          <span className="text-slate-400">العمر: <span className="text-white">{answers.age || surveyData.age || "غير محدد"}</span></span>
-                                                          <span className="text-slate-400">MBTI: <span className="text-white">{pData?.mbti_personality_type || answers.mbti || "غير محدد"}</span></span>
-                                                        </div>
-                                                      </div>
-                                                      
-                                                      {/* Main Content - 2 Column Layout */}
-                                                      <div className="grid grid-cols-3 gap-4">
-                                                        {/* Left Column - Vibe Info */}
-                                                        <div className="col-span-2 space-y-1.5">
-                                                          <div className="text-cyan-300 font-semibold text-xs mb-1">الطاقة والشخصية:</div>
-                                                          
-                                                          {answers.vibe_1 && (
-                                                            <div className="text-xs">
-                                                              <span className="text-slate-400">الويكند المثالي:</span>
-                                                              <span className="text-white ml-1">{answers.vibe_1}</span>
-                                                            </div>
-                                                          )}
-                                                          
-                                                          {answers.vibe_2 && (
-                                                            <div className="text-xs">
-                                                              <span className="text-slate-400">الهوايات:</span>
-                                                              <span className="text-white ml-1">{answers.vibe_2}</span>
-                                                            </div>
-                                                          )}
-                                                          
-                                                          {answers.vibe_3 && (
-                                                            <div className="text-xs">
-                                                              <span className="text-slate-400">الفنان المفضل:</span>
-                                                              <span className="text-white ml-1">{answers.vibe_3}</span>
-                                                            </div>
-                                                          )}
-                                                          
-                                                          {answers.vibe_4 && (
-                                                            <div className="text-xs">
-                                                              <span className="text-slate-400">السوالف العميقة:</span>
-                                                              <span className="text-white ml-1">{answers.vibe_4}</span>
-                                                            </div>
-                                                          )}
-                                                          
-                                                          {answers.vibe_5 && (
-                                                            <div className="text-xs">
-                                                              <span className="text-slate-400">كيف يصفك أصدقاؤك:</span>
-                                                              <span className="text-white ml-1">{answers.vibe_5}</span>
-                                                            </div>
-                                                          )}
-                                                          
-                                                          {answers.vibe_6 && (
-                                                            <div className="text-xs">
-                                                              <span className="text-slate-400">كيف تصف أصدقاءك:</span>
-                                                              <span className="text-white ml-1">{answers.vibe_6}</span>
-                                                            </div>
-                                                          )}
-                                                        </div>
-
-                                                        {/* Right Column - Previous Matches */}
-                                                        {localMatchHistory[participant.partner_assigned_number || 0] && localMatchHistory[participant.partner_assigned_number || 0].length > 0 && (
-                                                          <div className="border-l border-cyan-400/20 pl-4">
-                                                            <div className="text-cyan-300 font-semibold text-xs mb-1">Previous Matches:</div>
-                                                            <div className="space-y-0.5">
-                                                              {localMatchHistory[participant.partner_assigned_number || 0].slice(0, 5).map((match: any, idx: number) => (
-                                                                <div key={idx} className="flex items-center justify-between text-xs bg-white/5 rounded px-1.5 py-0.5">
-                                                                  <div className="flex items-center gap-1">
-                                                                    <span className="text-cyan-400">#{match.partner_number}</span>
-                                                                    <span className="text-slate-400 truncate max-w-[100px]">{match.partner_name}</span>
-                                                                  </div>
-                                                                  {match.event_id && match.event_id !== currentEventId && (
-                                                                    <span className="text-xs text-purple-400">E{match.event_id}</span>
-                                                                  )}
-                                                                </div>
-                                                              ))}
-                                                              {localMatchHistory[participant.partner_assigned_number || 0].length > 5 && (
-                                                                <div className="text-xs text-slate-500 text-center">
-                                                                  +{localMatchHistory[participant.partner_assigned_number || 0].length - 5} more
-                                                                </div>
-                                                              )}
-                                                            </div>
-                                                          </div>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  )
-                                                })()}
-                                                <Tooltip.Arrow className="fill-cyan-400/30" />
-                                              </Tooltip.Content>
-                                            </Tooltip.Portal>
-                                          </Tooltip.Root>
-                                        </Tooltip.Provider>
+                                        <Popover.Root>
+                                          <Tooltip.Provider delayDuration={300}>
+                                            <Tooltip.Root>
+                                              <Tooltip.Trigger asChild>
+                                                <Popover.Trigger asChild>
+                                                  <div className="text-xs text-slate-400 cursor-pointer hover:text-cyan-300 transition-colors">{participant.partner_name}</div>
+                                                </Popover.Trigger>
+                                              </Tooltip.Trigger>
+                                              <Tooltip.Portal>
+                                                <Tooltip.Content
+                                                  className="z-[100] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                                  sideOffset={5}
+                                                >
+                                                  <ParticipantHoverCardContent
+                                                    participantNumber={participant.partner_assigned_number!}
+                                                    participantName={participant.partner_name}
+                                                    pData={participantData.get(participant.partner_assigned_number!)}
+                                                    history={localMatchHistory[participant.partner_assigned_number || 0] || []}
+                                                    currentEventId={currentEventId}
+                                                  />
+                                                  <Tooltip.Arrow className="fill-cyan-400/30" />
+                                                </Tooltip.Content>
+                                              </Tooltip.Portal>
+                                            </Tooltip.Root>
+                                          </Tooltip.Provider>
+                                          <Popover.Portal>
+                                            <Popover.Content
+                                              className="z-[110] max-w-4xl p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-cyan-400/30 rounded-xl shadow-2xl"
+                                              sideOffset={6}
+                                              align="center"
+                                            >
+                                              <div className="relative">
+                                                <Popover.Close
+                                                  className="absolute top-2 left-2 p-1 rounded-md bg-white/10 hover:bg-white/20 text-white"
+                                                  aria-label="Close"
+                                                >
+                                                  <X className="w-4 h-4" />
+                                                </Popover.Close>
+                                                <ParticipantHoverCardContent
+                                                  participantNumber={participant.partner_assigned_number!}
+                                                  participantName={participant.partner_name}
+                                                  pData={participantData.get(participant.partner_assigned_number!)}
+                                                  history={localMatchHistory[participant.partner_assigned_number || 0] || []}
+                                                  currentEventId={currentEventId}
+                                                />
+                                              </div>
+                                            </Popover.Content>
+                                          </Popover.Portal>
+                                        </Popover.Root>
                                       )}
                                     </div>
                                     {(() => {

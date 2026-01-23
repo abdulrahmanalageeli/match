@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
-import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap, Copy } from "lucide-react"
+import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap, Copy, Users, MessageCircle, Home, Star, CheckCircle } from "lucide-react"
 import CircularProgressBar from "./CircularProgressBar"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs"
 
@@ -168,16 +168,19 @@ const getTierName = (p: number) => (p >= 85 ? 'ممتاز' : p >= 70 ? 'جيد �
 const getInitial = (s: string) => { const t = (s || '').replace(/^#/, '').trim(); return t ? t[0].toUpperCase() : '—' }
 const computeTopSynergyDrivers = (details: Array<{ label: string, scaled: number }>) => details.slice().sort((a,b)=> (b.scaled||0)-(a.scaled||0)).filter(d=> (d.scaled||0)>0).slice(0,2)
 
-function ScoreBar({ label, value, max, color }: { label: string, value: number, max: number, color: string }) {
+function ScoreBar({ label, value, max, color, icon }: { label: string, value: number, max: number, color: string, icon?: React.ReactNode }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100))
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-1">
       <div className="flex items-center justify-between text-xs md:text-sm">
-        <span className="text-slate-200 font-medium">{label}</span>
-        <span className="text-slate-100 font-bold">{value.toFixed(1)} / {max}</span>
+        <span className="flex items-center gap-1.5 text-slate-200 font-medium">
+          {icon && <span className="shrink-0">{icon}</span>}
+          <span>{label}</span>
+        </span>
+        <span className="text-slate-100 font-bold">{Math.round(pct)}%</span>
       </div>
-      <div className="h-3 w-full bg-slate-800 rounded-full overflow-hidden">
-        <div className={`h-full ${color} brightness-110`} style={{ width: `${pct}%` }} />
+      <div className="h-1.5 w-full bg-slate-800/80 rounded-full overflow-hidden">
+        <div className={`h-full ${color} brightness-110 shadow-[0_0_12px_rgba(255,255,255,0.10)]`} style={{ width: `${pct}%` }} />
       </div>
     </div>
   )
@@ -419,6 +422,17 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
   const aMBTI = a?.mbti_personality_type || aSurvey?.mbtiType
   const bMBTI = b?.mbti_personality_type || bSurvey?.mbtiType
 
+  // Preferences quick values and alignment checks for comparison table
+  const aGenderPref = mapGenderPref(a)
+  const bGenderPref = mapGenderPref(b)
+  const aAgePref = mapAgePref(a)
+  const bAgePref = mapAgePref(b)
+  const aNationality = mapNationality(a)
+  const bNationality = mapNationality(b)
+  const genderPrefAlign = aGenderPref === bGenderPref
+  const agePrefAlign = aAgePref === bAgePref
+  const nationalityAlign = aNationality === bNationality
+
   // Ages (robust extraction from row, survey root, or answers)
   const getAgeNum = (val: any) => { const n = parseInt(String(val ?? ''), 10); return isNaN(n) ? null : n }
   const aAgeVal = a?.age ?? aSurvey?.age ?? aAns?.age
@@ -494,7 +508,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-6xl w-[96vw] max-h-[92vh] overflow-y-auto p-0 bg-slate-950 border-white/10 text-white" dir="rtl">
+      <DialogContent className="max-w-6xl w-[96vw] max-h-[92vh] overflow-y-auto p-0 bg-[#0B0E14] border-white/10 text-white" dir="rtl">
         {/* Header */}
         <div className="flex flex-col gap-4 px-6 py-5 border-b border-white/10 bg-gradient-to-l from-cyan-950/50 via-slate-900 to-fuchsia-950/40">
           <div className="flex items-center justify-between gap-6">
@@ -566,32 +580,40 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
             {/* Summary */}
             <TabsContent value="summary">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-3">
-                <div className="bg-white/10 border border-white/20 rounded-xl p-4">
-                  <div className="flex items-center justify-between">
+                <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                  <div className="hidden md:flex items-center justify-center mb-3">
+                    <CircularProgressBar progress={overallPercent} size={148} strokeWidth={12} />
+                  </div>
+                  <div className="md:hidden flex items-center justify-between">
                     <div>
                       <div className="text-slate-300 text-xs">التوافق الإجمالي</div>
-                      <div className="text-3xl font-extrabold text-white flex items-center gap-2">
-                        <span>{overallPercent}%</span>
-                        {unbonusedPercent !== null && (
-                          <span className="text-[11px] font-normal text-slate-400">(بدون مكافآت: {unbonusedPercent}%)</span>
-                        )}
-                      </div>
+                      <div className="text-3xl font-extrabold text-white">{overallPercent}%</div>
                     </div>
-                    <div className="md:hidden"><CircularProgressBar progress={overallPercent} size={90} strokeWidth={10} /></div>
+                    <CircularProgressBar progress={overallPercent} size={90} strokeWidth={10} />
                   </div>
+                  {unbonusedPercent !== null && (
+                    <div className="mt-1 text-[11px] text-slate-400 text-center md:text-right">(بدون مكافآت: {unbonusedPercent}%)</div>
+                  )}
                   <div className="mt-4 space-y-3">
-                    <ScoreBar label="التفاعل" value={scores.synergy} max={35} color="bg-cyan-500" />
-                    <ScoreBar label="الطاقة" value={scores.vibe} max={20} color="bg-violet-500" />
-                    <ScoreBar label="نمط الحياة" value={scores.lifestyle} max={15} color="bg-emerald-500" />
-                    <ScoreBar label="الدعابة/الانفتاح" value={scores.humor} max={15} color="bg-amber-500" />
-                    <ScoreBar label="التواصل" value={scores.communication} max={10} color="bg-indigo-500" />
-                    <ScoreBar label="القيم (5)" value={coreValues5} max={5} color="bg-pink-500" />
+                    <ScoreBar label="التفاعل" icon={<Users className="w-3.5 h-3.5 text-cyan-400" />} value={scores.synergy} max={35} color="bg-cyan-500" />
+                    <ScoreBar label="الطاقة" icon={<Sparkles className="w-3.5 h-3.5 text-violet-400" />} value={scores.vibe} max={20} color="bg-violet-500" />
+                    <ScoreBar label="نمط الحياة" icon={<Home className="w-3.5 h-3.5 text-emerald-400" />} value={scores.lifestyle} max={15} color="bg-emerald-500" />
+                    <ScoreBar label="الدعابة/الانفتاح" icon={<Sparkles className="w-3.5 h-3.5 text-amber-300" />} value={scores.humor} max={15} color="bg-amber-500" />
+                    <ScoreBar label="التواصل" icon={<MessageCircle className="w-3.5 h-3.5 text-indigo-300" />} value={scores.communication} max={10} color="bg-indigo-500" />
+                    <ScoreBar label="القيم/الأهداف" icon={<Star className="w-3.5 h-3.5 text-pink-300" />} value={coreValues5} max={5} color="bg-pink-500" />
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-4">
-                    <div className="text-slate-300 text-xs mb-2">المعلومات الأساسية</div>
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-slate-300 text-xs">الملف التعريفي السريع</div>
+                      {humorApplied && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-400/40 text-amber-200 text-xs">
+                          <Sparkles className="w-3.5 h-3.5" /> مكافأة الدعابة ×{humorMultiplier.toFixed(2)}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-200">
                       <div className="space-y-1">
                         <div><span className="text-slate-300">{aNameLabel} - العمر:</span> {aAgeLabel != null ? String(aAgeLabel) : '—'}</div>
@@ -605,79 +627,98 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair }: Pa
                         فارق العمر: <span className="text-white font-semibold">{ageDiff !== null ? `${ageDiff}` : '—'}</span>
                       </div>
                     </div>
-                  </div>
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-4">
-                    <div className="text-slate-300 text-xs mb-2 flex items-center gap-2">
-                      <span>القيود والمكافآت</span>
-                      {pair?.reason && String(pair.reason).includes('±1y') && (
-                        <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
-                          <span className="text-yellow-300 text-[10px] font-bold">±1</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-xs md:text-sm">
-                      {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200" title="تطابق أسلوب الدعابة يمنح مضاعفًا ×1.05 للنتيجة">
-                          <Sparkles className="w-4 h-4" /> مكافأة أسلوب الدعابة ×1.05
-                        </span>
-                      )}
-                      {pair?.intent_boost_applied && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200" title="تطابق الأهداف يمنح مضاعفًا ×1.05">
-                          <BadgeCheck className="w-4 h-4" /> مضاعف الأهداف ×1.05
-                        </span>
-                      )}
-                      {pair?.attachment_penalty_applied && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="قلق × تجنّب ⇒ −5 قبل تطبيق القيود">
-                          <Shield className="w-4 h-4" /> عقوبة التعلق −5
-                        </span>
-                      )}
-                      {pair?.dead_air_veto_applied && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="كلاهما دور C وراحة الصمت B ⇒ سقف 40%">
-                          <Info className="w-4 h-4" /> قيد الصمت: سقف 40%
-                        </span>
-                      )}
-                      {pair?.humor_clash_veto_applied && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="تعارض قوي في الدعابة (A↔D) ⇒ سقف 50%">
-                          <Info className="w-4 h-4" /> تعارض الدعابة: سقف 50%
-                        </span>
-                      )}
-                      {pair?.cap_applied != null && (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-yellow-400/40 bg-yellow-500/10 text-yellow-200" title="تم تطبيق سقف نهائي على النتيجة">
-                          <Zap className="w-4 h-4" /> تقييد نهائي: {pair.cap_applied}%
-                        </span>
-                      )}
-                      {!pair?.intent_boost_applied && !pair?.attachment_penalty_applied && !pair?.dead_air_veto_applied && !pair?.humor_clash_veto_applied && !pair?.cap_applied && (!pair?.humor_early_openness_bonus || pair.humor_early_openness_bonus === 'none') && (
-                        <span className="text-slate-300">لا توجد قيود/مكافآت خاصة</span>
-                      )}
+                    <div className="mt-3">
+                      <div className="text-slate-300 text-xs mb-2 flex items-center gap-2">
+                        <span>القيود والمكافآت</span>
+                        {pair?.reason && String(pair.reason).includes('±1y') && (
+                          <div className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-yellow-500/20 border border-yellow-400/30" title="تم قبول خارج تفضيل العمر ضمن تسامح ±1 سنة">
+                            <span className="text-yellow-300 text-[10px] font-bold">±1</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs md:text-sm">
+                        {pair?.humor_early_openness_bonus && pair.humor_early_openness_bonus !== 'none' && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-amber-400/40 bg-amber-500/10 text-amber-200" title="تطابق أسلوب الدعابة يمنح مضاعفًا ×1.05 للنتيجة">
+                            <Sparkles className="w-4 h-4" /> مكافأة أسلوب الدعابة ×1.05
+                          </span>
+                        )}
+                        {pair?.intent_boost_applied && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-emerald-400/40 bg-emerald-500/10 text-emerald-200" title="تطابق الأهداف يمنح مضاعفًا ×1.05">
+                            <BadgeCheck className="w-4 h-4" /> مضاعف الأهداف ×1.05
+                          </span>
+                        )}
+                        {pair?.attachment_penalty_applied && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="قلق × تجنّب ⇒ −5 قبل تطبيق القيود">
+                            <Shield className="w-4 h-4" /> عقوبة التعلق −5
+                          </span>
+                        )}
+                        {pair?.dead_air_veto_applied && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="كلاهما دور C وراحة الصمت B ⇒ سقف 40%">
+                            <Info className="w-4 h-4" /> قيد الصمت: سقف 40%
+                          </span>
+                        )}
+                        {pair?.humor_clash_veto_applied && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-red-400/40 bg-red-500/10 text-red-200" title="تعارض قوي في الدعابة (A↔D) ⇒ سقف 50%">
+                            <Info className="w-4 h-4" /> تعارض الدعابة: سقف 50%
+                          </span>
+                        )}
+                        {pair?.cap_applied != null && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-yellow-400/40 bg-yellow-500/10 text-yellow-200" title="تم تطبيق سقف نهائي على النتيجة">
+                            <Zap className="w-4 h-4" /> تقييد نهائي: {pair.cap_applied}%
+                          </span>
+                        )}
+                        {!pair?.intent_boost_applied && !pair?.attachment_penalty_applied && !pair?.dead_air_veto_applied && !pair?.humor_clash_veto_applied && !pair?.cap_applied && (!pair?.humor_early_openness_bonus || pair.humor_early_openness_bonus === 'none') && (
+                          <span className="text-slate-300">لا توجد قيود/مكافآت خاصة</span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
-                  <div className="bg-white/10 border border-white/20 rounded-xl p-4">
-                    <div className="text-slate-300 text-xs mb-2">لمحة عن الطاقة والشخصية</div>
-                    <div className="space-y-1 text-xs text-slate-200">
-                      {aAns?.vibe_1 && <div><span className="text-slate-300">{aNameLabel} - ويكند:</span> {String(aAns.vibe_1)}</div>}
-                      {bAns?.vibe_1 && <div><span className="text-slate-300">{bNameLabel} - ويكند:</span> {String(bAns.vibe_1)}</div>}
-                      {aAns?.vibe_2 && <div><span className="text-slate-300">{aNameLabel} - هوايات:</span> {String(aAns.vibe_2)}</div>}
-                      {bAns?.vibe_2 && <div><span className="text-slate-300">{bNameLabel} - هوايات:</span> {String(bAns.vibe_2)}</div>}
-                    </div>
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
+                    <div className="text-slate-300 text-xs mb-2">الطاقة والشخصية</div>
+                    <ul className="space-y-1 text-xs text-slate-200 list-disc pr-4">
+                      {aAns?.vibe_1 && <li><span className="font-semibold text-white">{aNameLabel}</span> — {String(aAns.vibe_1)}</li>}
+                      {bAns?.vibe_1 && <li><span className="font-semibold text-white">{bNameLabel}</span> — {String(bAns.vibe_1)}</li>}
+                      {aAns?.vibe_2 && <li><span className="font-semibold text-white">{aNameLabel}</span> — {String(aAns.vibe_2)}</li>}
+                      {bAns?.vibe_2 && <li><span className="font-semibold text-white">{bNameLabel}</span> — {String(bAns.vibe_2)}</li>}
+                    </ul>
                   </div>
                 </div>
 
-                <div className="bg-white/10 border border-white/20 rounded-xl p-4">
+                <div className="bg-white/5 backdrop-blur-sm border border-white/15 rounded-xl p-4 bg-gradient-to-b from-white/10 to-white/0">
                   <div className="text-slate-300 text-xs mb-2">التفضيلات</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-slate-200">
-                    <div className="space-y-1">
-                      <div><span className="text-slate-300">{aNameLabel} - الجنس المفضل:</span> {mapGenderPref(a)}</div>
-                      <div><span className="text-slate-300">{aNameLabel} - العمر المفضل:</span> {mapAgePref(a)}</div>
-                      <div><span className="text-slate-300">{aNameLabel} - الجنسية:</span> {mapNationality(a)}</div>
-                      <div><span className="text-slate-300">{aNameLabel} - تفضيل الجنسية:</span> {mapNationalityPref(a)}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <div><span className="text-slate-300">{bNameLabel} - الجنس المفضل:</span> {mapGenderPref(b)}</div>
-                      <div><span className="text-slate-300">{bNameLabel} - العمر المفضل:</span> {mapAgePref(b)}</div>
-                      <div><span className="text-slate-300">{bNameLabel} - الجنسية:</span> {mapNationality(b)}</div>
-                      <div><span className="text-slate-300">{bNameLabel} - تفضيل الجنسية:</span> {mapNationalityPref(b)}</div>
-                    </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs text-slate-200">
+                      <thead className="text-slate-300/90">
+                        <tr>
+                          <th className="text-right py-2 pr-2 font-semibold">فئة التفضيل</th>
+                          <th className="text-right py-2">{aNameLabel}</th>
+                          <th className="text-right py-2">{bNameLabel}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/10">
+                        <tr>
+                          <td className="py-2 pr-2">الجنس المفضل {genderPrefAlign && (<CheckCircle className="inline w-3.5 h-3.5 text-emerald-400 mr-1" />)}</td>
+                          <td className="py-2">{aGenderPref}</td>
+                          <td className="py-2">{bGenderPref}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 pr-2">الفئة العمرية {agePrefAlign && (<CheckCircle className="inline w-3.5 h-3.5 text-emerald-400 mr-1" />)}</td>
+                          <td className="py-2">{aAgePref}</td>
+                          <td className="py-2">{bAgePref}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 pr-2">الجنسية {nationalityAlign && (<CheckCircle className="inline w-3.5 h-3.5 text-emerald-400 mr-1" />)}</td>
+                          <td className="py-2">{aNationality}</td>
+                          <td className="py-2">{bNationality}</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 pr-2">تفضيل الجنسية</td>
+                          <td className="py-2">{mapNationalityPref(a)}</td>
+                          <td className="py-2">{mapNationalityPref(b)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>

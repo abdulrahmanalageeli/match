@@ -369,7 +369,7 @@ export default function WelcomePage() {
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [timeOnCurrentQuestion, setTimeOnCurrentQuestion] = useState(0);
   const [showPaceNudge, setShowPaceNudge] = useState(false);
-  
+  const [hasArrived, setHasArrived] = useState(false);
   // 5-minute warning notification
   const [showFiveMinuteWarning, setShowFiveMinuteWarning] = useState(false);
   

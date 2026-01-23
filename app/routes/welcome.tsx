@@ -1555,7 +1555,12 @@ export default function WelcomePage() {
                 console.log("🔄 Force round 1 view requested");
                 hasForcedRound1Ref.current = true;
                 setStep(4); // Force round 1 view
-                
+                // Ensure we load the current match to populate partner/table
+                setPendingMatchRound(1);
+                if (assignedNumber) {
+                  // Fire-and-forget; effect will also handle via pendingMatchRound
+                  fetchMatches(1);
+                }
                 // Set a flag in session storage to persist across re-renders
                 sessionStorage.setItem('force_round_1', 'true');
               }
@@ -7971,13 +7976,13 @@ export default function WelcomePage() {
 
                   {/* Round Intro Overlay (covers questions until arrival confirmation) */}
                   <AnimatePresence>
-                    {currentRound === 1 && !hasArrivedAtTable && matchResult && matchResult !== "المنظم" && tableNumber && (
+                    {step === 4 && !hasArrivedAtTable && (
                       <motion.div
                         key="round-intro-overlay"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-sm bg-black/60"
+                        className="fixed inset-0 z-60 flex items-center justify-center p-6 backdrop-blur-sm bg-black/60"
                         aria-modal="true"
                         role="dialog"
                       >
@@ -7986,9 +7991,15 @@ export default function WelcomePage() {
                             <motion.div layoutId="partner-number" className={`text-5xl md:text-6xl font-extrabold tracking-tight ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
                               #{matchResult}
                             </motion.div>
-                            <motion.div layoutId="table-number" className={`text-4xl md:text-5xl font-extrabold ${dark ? "text-purple-300" : "text-purple-700"}`}>
-                              طاولة #{tableNumber}
-                            </motion.div>
+                            {tableNumber ? (
+                              <motion.div layoutId="table-number" className={`text-4xl md:text-5xl font-extrabold ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                                طاولة #{tableNumber}
+                              </motion.div>
+                            ) : (
+                              <div className={`text-xl md:text-2xl font-semibold ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                                سيتم إخبارك بالطاولة قريباً
+                              </div>
+                            )}
                             <div className={`${dark ? "text-slate-300" : "text-gray-700"} text-sm md:text-base`}>
                               توجه للطاولة الموضحة أعلاه، ثم اضغط الزر أدناه لبدء الأسئلة.
                             </div>
@@ -8030,8 +8041,8 @@ export default function WelcomePage() {
                     />
                   </Suspense>
                   
-                  {/* Questions Slideshow - Round 1; gate with arrival only when partner/table are known */}
-                  {currentRound === 1 && (!(matchResult && matchResult !== "المنظم" && tableNumber) || hasArrivedAtTable) ? (
+                  {/* Questions Slideshow - Round view; gate with arrival */}
+                  {step === 4 && hasArrivedAtTable ? (
                     <div className={`mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
@@ -8476,6 +8487,47 @@ onClick={() => {
                     </div>
                   </div>
 
+                  {/* Round Intro Overlay (covers questions until arrival confirmation) */}
+                  <AnimatePresence>
+                    {step === 4 && !hasArrivedAtTable && (
+                      <motion.div
+                        key="round-intro-overlay-started"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[60] flex items-center justify-center p-6 backdrop-blur-sm bg-black/60"
+                        aria-modal="true"
+                        role="dialog"
+                      >
+                        <div className={`w-full max-w-2xl rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700" : "bg-white/90 border-gray-200"} shadow-2xl px-6 py-10 text-center`}>
+                          <div className="flex flex-col items-center gap-6">
+                            <motion.div layoutId="partner-number" className={`text-5xl md:text-6xl font-extrabold tracking-tight ${dark ? "text-cyan-300" : "text-cyan-700"}`}>
+                              #{matchResult}
+                            </motion.div>
+                            {tableNumber ? (
+                              <motion.div layoutId="table-number" className={`text-4xl md:text-5xl font-extrabold ${dark ? "text-purple-300" : "text-purple-700"}`}>
+                                طاولة #{tableNumber}
+                              </motion.div>
+                            ) : (
+                              <div className={`text-xl md:text-2xl font-semibold ${dark ? "text-slate-300" : "text-gray-700"}`}>
+                                سيتم إخبارك بالطاولة قريباً
+                              </div>
+                            )}
+                            <div className={`${dark ? "text-slate-300" : "text-gray-700"} text-sm md:text-base`}>
+                              توجه للطاولة الموضحة أعلاه، ثم اضغط الزر أدناه لبدء الأسئلة.
+                            </div>
+                            <button
+                              onClick={() => setHasArrivedAtTable(true)}
+                              className={`${dark ? "bg-emerald-600 hover:bg-emerald-500 text-white" : "bg-emerald-500 hover:bg-emerald-600 text-white"} px-6 py-3 rounded-xl font-semibold shadow-lg transition-colors`}
+                            >
+                              أنا وصلت
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
                     <div className="flex flex-col items-center gap-3 mb-4">
@@ -8494,8 +8546,8 @@ onClick={() => {
                     </div>
                   )}
 
-                  {/* Round 1 Questions Slideshow - Always show for Round 1 */}
-                  {currentRound === 1 && (
+                  {/* Round view questions; gate with arrival */}
+                  {step === 4 && hasArrivedAtTable && (
                     <div className={`mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 

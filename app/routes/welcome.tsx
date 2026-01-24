@@ -75,6 +75,7 @@ import MatchResult from "./MatchResult"
 import CircularProgressBar from "../components/CircularProgressBar"
 
 import { motion, AnimatePresence } from "framer-motion"
+import confetti from "canvas-confetti"
 // Performance: Lazy load heavy components to improve initial page load
 const AIQuestionsGenerator = lazy(() => import("../components/AIQuestionsGenerator"))
 const SurveyComponent = lazy(() => import("../components/SurveyComponent"))
@@ -95,6 +96,77 @@ interface SurveyData {
   gender?: string
   phoneNumber?: string
 }
+
+interface FeedbackAnswersState {
+  compatibilityRate: number
+  sliderMoved: boolean
+  conversationQuality: number
+  personalConnection: number
+  sharedInterests: number
+  comfortLevel: number
+  communicationStyle: number
+  wouldMeetAgain: number
+  overallExperience: number
+  recommendations: string
+  organizerImpression: string
+  participantMessage: string
+}
+
+const RATING_LABELS: Record<number, string> = {
+  1: "ضعيف جداً",
+  2: "ضعيف",
+  3: "متوسط",
+  4: "جيد",
+  5: "ممتاز"
+}
+
+const RATING_SEGMENT_PALETTE: Record<number, { active: string; ring: string }> = {
+  1: { active: "bg-red-500 border-red-500 text-white", ring: "focus-visible:ring-red-400/60" },
+  2: { active: "bg-orange-500 border-orange-500 text-white", ring: "focus-visible:ring-orange-400/60" },
+  3: { active: "bg-yellow-500 border-yellow-500 text-white", ring: "focus-visible:ring-yellow-400/60" },
+  4: { active: "bg-lime-500 border-lime-500 text-white", ring: "focus-visible:ring-lime-400/60" },
+  5: { active: "bg-green-500 border-green-500 text-white", ring: "focus-visible:ring-emerald-400/60" }
+}
+
+const ORGANIZER_IDEA_CHIPS = [
+  "أكثر ما أعجبني هو طريقة حديثه الواثقة",
+  "شعرت أنه محترم ولطيف في الحوار",
+  "تحدث بثقة وهدوء ساعدني على الارتياح",
+  "أحتاج وقتاً أطول لأرتاح أكثر مع هذه الشخصية"
+]
+
+const RECOMMENDATION_IDEA_CHIPS = [
+  "زيادة وقت الاستراحة بين الجولات",
+  "تقليل مستوى الضوضاء في القاعة",
+  "أحببت التنظيم الحالي وأتمنى استمراره",
+  "نود أسئلة أعمق في الجولة القادمة"
+]
+
+const PARTICIPANT_MESSAGE_CHIPS = [
+  "شكراً على المحادثة الجميلة اليوم!",
+  "سعدت بالتعرف عليك وأتمنى أن نلتقي مجدداً",
+  "أحببت طريقة تفكيرك وهدوءك",
+  "أراك شخصاً لطيفاً وممتعاً في الحديث"
+]
+
+type RatingKey =
+  | 'conversationQuality'
+  | 'personalConnection'
+  | 'sharedInterests'
+  | 'comfortLevel'
+  | 'communicationStyle'
+  | 'wouldMeetAgain'
+  | 'overallExperience'
+
+type TextFieldKey = 'organizerImpression' | 'recommendations' | 'participantMessage'
+
+const TEXT_FIELD_LIMITS: Record<TextFieldKey, number> = {
+  organizerImpression: 500,
+  recommendations: 500,
+  participantMessage: 500
+}
+
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 
 export default function WelcomePage() {
@@ -141,6 +213,66 @@ export default function WelcomePage() {
     const multiplier = humorBonus === 'full' ? 1.15 : 1.05
     return Math.round(compatibilityScore / multiplier)
   }
+
+  // Labels under segmented controls (1–5)
+  const ratingLabel = (v: number) => RATING_LABELS[v] ?? RATING_LABELS[3]
+
+  const setRatingValue = (key: RatingKey, value: number) => {
+    setFeedbackAnswers(prev => ({ ...prev, [key]: value }))
+  }
+
+  const renderRatingSegment = (key: RatingKey) => {
+    const currentValue = feedbackAnswers[key]
+    return (
+      <div className="flex items-center justify-between gap-2" dir="ltr">
+        {[1, 2, 3, 4, 5].map((value) => {
+          const palette = RATING_SEGMENT_PALETTE[value] ?? { active: "", ring: "" }
+          const active = currentValue === value
+          return (
+            <motion.button
+              key={value}
+              type="button"
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setRatingValue(key, value)}
+              className={`relative flex min-w-[52px] min-h-[56px] flex-col items-center justify-center gap-1 rounded-2xl border-2 px-3 py-2 text-sm font-semibold transition-colors duration-200 focus:outline-none focus-visible:ring-2 ${palette.ring} ${
+                active
+                  ? `${palette.active} shadow-lg shadow-black/15`
+                  : dark
+                    ? "border-slate-500/40 bg-white/10 text-slate-200 hover:bg-white/20"
+                    : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
+              aria-pressed={active}
+            >
+              <span className="text-lg font-bold leading-none">{value}</span>
+              <span className={`text-[11px] font-medium ${active ? "text-white/90" : dark ? "text-slate-400" : "text-gray-500"}`}>
+                {ratingLabel(value)}
+              </span>
+            </motion.button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const handleTextFieldChange = (field: TextFieldKey, value: string) => {
+    const limit = TEXT_FIELD_LIMITS[field]
+    const trimmed = value.slice(0, limit)
+    setFeedbackAnswers(prev => ({ ...prev, [field]: trimmed }))
+  }
+
+  const handleIdeaChip = (field: TextFieldKey, chip: string) => {
+    const limit = TEXT_FIELD_LIMITS[field]
+    setFeedbackAnswers(prev => {
+      const existing = prev[field]
+      const separator = existing.length > 0 ? (existing.endsWith(' ') ? '' : ' ') : ''
+      const nextValue = `${existing}${separator}${chip}`.trim().slice(0, limit)
+      return { ...prev, [field]: nextValue }
+    })
+    requestAnimationFrame(() => {
+      textFieldRefs[field]?.current?.focus()
+      textFieldRefs[field]?.current?.setSelectionRange(textFieldRefs[field]?.current?.value.length ?? 0, textFieldRefs[field]?.current?.value.length ?? 0)
+    })
+  }
   const [conversationStarted, setConversationStarted] = useState(false)
   const [conversationTimer, setConversationTimer] = useState(1800) // 30 minutes
   const [globalTimerActive, setGlobalTimerActive] = useState(false)
@@ -173,6 +305,58 @@ export default function WelcomePage() {
     participantMessage: "" // Optional message to conversation partner
   })
   const [feedbackNextEventSignup, setFeedbackNextEventSignup] = useState(false)
+  // Feedback UX state & helpers
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
+  const [showMicroSuccess, setShowMicroSuccess] = useState(false)
+  const [keyboardOffset, setKeyboardOffset] = useState(0)
+  const [showQuestionsPeek, setShowQuestionsPeek] = useState(false)
+
+  // Autosize feedback textareas up to ~6 lines
+  useEffect(() => {
+    const autoResize = (el: HTMLTextAreaElement | null) => {
+      if (!el) return
+      el.style.height = 'auto'
+      const lh = parseInt(getComputedStyle(el).lineHeight || '22', 10) || 22
+      const max = lh * 6 + 8
+      el.style.maxHeight = `${max}px`
+      el.style.height = `${Math.min(el.scrollHeight, max)}px`
+    }
+    autoResize(organizerImpressionRef.current)
+    autoResize(recommendationsRef.current)
+    autoResize(participantMessageRef.current)
+  }, [feedbackAnswers.organizerImpression, feedbackAnswers.recommendations, feedbackAnswers.participantMessage])
+
+  const getFeedbackProgress = (): number => {
+    try {
+      const ratings = [
+        feedbackAnswers.conversationQuality,
+        feedbackAnswers.personalConnection,
+        feedbackAnswers.sharedInterests,
+        feedbackAnswers.comfortLevel,
+        feedbackAnswers.communicationStyle,
+        feedbackAnswers.overallExperience,
+      ]
+      const ratingCompleted = ratings.filter(v => v !== 3).length
+      let done = ratingCompleted + (feedbackAnswers.sliderMoved ? 1 : 0)
+      let total = ratings.length + 1 // ratings + slider
+      if (currentRound === 1 && matchResult && matchResult !== 'المنظم') {
+        total += 1
+        if (typeof wantMatch === 'boolean') done += 1
+      }
+      const pct = Math.max(0, Math.min(100, Math.round((done / Math.max(1, total)) * 100)))
+      return pct
+    } catch {
+      return 0
+    }
+  }
+
+  const isFeedbackMinimalComplete = (): boolean => {
+    const sliderOk = !!feedbackAnswers.sliderMoved && feedbackAnswers.compatibilityRate !== 50
+    const wantOk = !(currentRound === 1 && matchResult && matchResult !== 'المنظم') || typeof wantMatch === 'boolean'
+    return sliderOk && wantOk
+  }
+
+
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
   const forceRound = searchParams.get("force_round")
@@ -243,7 +427,18 @@ export default function WelcomePage() {
     // Otherwise, only has default values
     return false;
   };
-
+  useEffect(() => {
+    if (modalStep !== 'feedback') { setKeyboardOffset(0); return }
+    const vv: any = (window as any).visualViewport
+    const handler = () => {
+      if (!vv) return
+      const delta = Math.max(0, window.innerHeight - vv.height)
+      setKeyboardOffset(delta)
+    }
+    handler()
+    vv?.addEventListener('resize', handler)
+    return () => vv?.removeEventListener('resize', handler)
+  }, [modalStep])
   // Enhanced Participant Number Badge Component
   const ParticipantBadge = ({ 
     size = "default", 
@@ -441,6 +636,15 @@ export default function WelcomePage() {
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const organizerImpressionRef = useRef<HTMLTextAreaElement>(null);
+  const recommendationsRef = useRef<HTMLTextAreaElement>(null);
+  const participantMessageRef = useRef<HTMLTextAreaElement>(null);
+
+  const textFieldRefs: Record<TextFieldKey, React.RefObject<HTMLTextAreaElement>> = {
+    organizerImpression: organizerImpressionRef,
+    recommendations: recommendationsRef,
+    participantMessage: participantMessageRef,
+  }
 
   const prompts = [
     "ما أكثر شيء استمتعت به مؤخراً؟",
@@ -451,6 +655,27 @@ export default function WelcomePage() {
     "ما هو أكثر شيء تفتخر به في نفسك؟",
     "ما هو حلمك الكبير في الحياة؟",
     "ما هو أكثر شيء يجعلك تضحك؟"
+  ];
+  // Idea chips for textareas
+  const organizerImpressionIdeas = [
+    "شعرت بالراحة أثناء الحديث",
+    "أسلوب مهذب وهادئ",
+    "طاقة إيجابية وتفاعل جميل",
+    "احترام للوقت والإنصات",
+    "مبادرة لطيفة بطرح الأسئلة"
+  ];
+  const recommendationsIdeas = [
+    "زيادة الوقت بين الجولات",
+    "توضيح أفضل لقواعد الجولة",
+    "تحسين توزيع المقاعد",
+    "موسيقى خلفية هادئة",
+    "تسريع إجراءات الدخول"
+  ];
+  const participantMessageIdeas = [
+    "سعدت بالتعرّف عليك اليوم!",
+    "حديثك كان ممتع ومريح",
+    "أتمنى لك كل التوفيق",
+    "يسعدني نستمر في الحديث لاحقًا"
   ];
   
   // Set 3: Additional curated Round 1 questions
@@ -9204,6 +9429,25 @@ onClick={() => {
               <div className="flex-1 min-w-0">
               {modalStep === "feedback" ? (
                 <>
+                  {/* Sticky Header: Pair info + Round chip + Progress */}
+                  <div className={`sticky top-0 z-10 -mt-2 mb-4 px-4 py-3 rounded-t-xl backdrop-blur ${dark ? 'bg-slate-900/70 border-b border-slate-700/60' : 'bg-white/80 border-b border-gray-200/60'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`text-sm font-bold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                        <span>#{assignedNumber}</span>
+                        <span className={`${dark ? 'text-slate-500' : 'text-gray-400'} mx-2`}>•</span>
+                        <span>{matchResult === 'المنظم' ? 'المنظم' : `#${matchResult}`}</span>
+                      </div>
+                      <div className={`ml-auto text-xs px-3 py-1.5 rounded-full font-bold shadow-sm bg-gradient-to-r ${dark ? 'from-fuchsia-600/40 to-cyan-500/40 text-fuchsia-100' : 'from-fuchsia-500 to-cyan-500 text-white'}`}>
+                        الجولة {currentRound}
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <div className={`w-full h-1.5 rounded-full ${dark ? 'bg-slate-700/60' : 'bg-gray-200/80'}`}>
+                        <div className={`h-full rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500`} style={{ width: `${getFeedbackProgress()}%` }} />
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Anonymous Privacy Header */}
                   <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }} className={`mb-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border-indigo-400/40' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-300/60'}`}>
                     <div className="text-center mb-4">
@@ -9281,14 +9525,15 @@ onClick={() => {
                             step="5"
                             value={100 - feedbackAnswers.compatibilityRate}
                             onChange={(e) => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100 - parseInt(e.target.value), sliderMoved: true }))}
+                            aria-label="درجة التوافق"
                             className="w-full h-2 rounded-full appearance-none cursor-pointer focus:outline-none transition-all duration-300 
-                              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5 
+                              [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 
                               [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white 
                               [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:border-2 
                               [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-all 
                               [&::-webkit-slider-thumb]:duration-200 hover:[&::-webkit-slider-thumb]:scale-110 
                               hover:[&::-webkit-slider-thumb]:shadow-xl [&::-webkit-slider-thumb]:border-solid
-                              [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:rounded-full 
+                              [&::-moz-range-thumb]:w-6 [&::-moz-range-thumb]:h-6 [&::-moz-range-thumb]:rounded-full 
                               [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:cursor-pointer"
                             style={{
                               background: `linear-gradient(to right, 
@@ -9305,6 +9550,13 @@ onClick={() => {
                                 feedbackAnswers.compatibilityRate >= 60 ? '#f59e0b' : '#ef4444'
                             } as CSSProperties & { '--thumb-color': string }}
                           />
+                          {/* Floating value label */}
+                          <div
+                            className={`absolute -top-7 px-2 py-0.5 text-xs font-bold rounded-md ${dark ? 'bg-slate-800 text-slate-200 border border-slate-600/60' : 'bg-white text-gray-800 border border-gray-200 shadow'}`}
+                            style={{ left: `calc(${feedbackAnswers.compatibilityRate}% - 18px)` }}
+                          >
+                            {feedbackAnswers.compatibilityRate}%
+                          </div>
                           <style>
                             {`
                               input[type="range"]::-webkit-slider-thumb {
@@ -9319,7 +9571,7 @@ onClick={() => {
                           </style>
                         </div>
                         <div className="flex justify-between text-xs mt-2" dir="ltr">
-                          <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>0%</span>
+                          <button type="button" onClick={() => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 0, sliderMoved: true }))} className={`${dark ? "text-slate-400" : "text-gray-500"} active:scale-95`}>0%</button>
                           <span className={`font-bold text-lg ${
                             feedbackAnswers.compatibilityRate >= 80 ? "text-green-500" :
                             feedbackAnswers.compatibilityRate >= 60 ? "text-yellow-500" :
@@ -9327,7 +9579,7 @@ onClick={() => {
                           }`}>
                             {feedbackAnswers.compatibilityRate}%
                           </span>
-                          <span className={`${dark ? "text-slate-400" : "text-gray-500"}`}>100%</span>
+                          <button type="button" onClick={() => setFeedbackAnswers(prev => ({ ...prev, compatibilityRate: 100, sliderMoved: true }))} className={`${dark ? "text-slate-400" : "text-gray-500"} active:scale-95`}>100%</button>
                         </div>
                       </div>
                     </div>
@@ -9356,7 +9608,11 @@ onClick={() => {
                              return ""
                            }
                            return (
-                             <button
+                             <motion.button
+                             type="button"
+whileHover={{ scale: 1.07 }}
+whileTap={{ scale: 0.94 }}
+transition={{ type: "spring", stiffness: 500, damping: 30 }}
                                key={value}
                                onClick={() => setFeedbackAnswers(prev => ({ ...prev, conversationQuality: value }))}
                                className={`w-12 h-12 rounded-xl border-2 transition-all duration-300 transform hover:scale-110 text-lg font-bold ${
@@ -9368,7 +9624,7 @@ onClick={() => {
                                }`}
                              >
                                {value}
-                             </button>
+                             </motion.button>
                            )
                          })}
                        </div>

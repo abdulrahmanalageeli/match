@@ -636,6 +636,8 @@ export default function WelcomePage() {
 
   const historyBoxRef = useRef<HTMLDivElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
+  const compatibilityRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToAnalysisRef = useRef<boolean>(false);
   const organizerImpressionRef = useRef<HTMLTextAreaElement>(null);
   const recommendationsRef = useRef<HTMLTextAreaElement>(null);
   const participantMessageRef = useRef<HTMLTextAreaElement>(null);
@@ -1449,6 +1451,21 @@ export default function WelcomePage() {
       }, 100);
     }
   }, [modalStep]);
+
+  // Auto-scroll to compatibility analysis after submitting feedback when result view appears
+  useEffect(() => {
+    if (modalStep === "result" && isScoreRevealed && compatibilityRef.current && shouldScrollToAnalysisRef.current) {
+      // Slight delay to ensure the result view renders before scrolling
+      setTimeout(() => {
+        compatibilityRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+        });
+        // Reset flag so it doesn't auto-scroll on subsequent openings
+        shouldScrollToAnalysisRef.current = false;
+      }, 150);
+    }
+  }, [modalStep, isScoreRevealed]);
 
   // Check auto-signup status when feedback modal is shown
   useEffect(() => {
@@ -4378,6 +4395,8 @@ export default function WelcomePage() {
       }
     }
 
+    // After submitting feedback, prepare to scroll to compatibility analysis in the results view
+    shouldScrollToAnalysisRef.current = true
     setIsScoreRevealed(true)
     setModalStep("result")
 
@@ -10181,6 +10200,8 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                 <div>
                       {isScoreRevealed && (
                         <div className="mt-6 space-y-4">
+                          {/* Anchor to allow auto-scroll to the analysis section */}
+                          <div ref={compatibilityRef} data-anchor="compatibility-analysis" className="h-0" />
                           {/* Compatibility Analysis Section */}
                           {(() => {
                             const formattedReason = formatCompatibilityReason(matchReason)

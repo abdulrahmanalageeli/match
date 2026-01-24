@@ -1238,6 +1238,25 @@ export default function ParticipantResultsModal({
                                                   return null
                                                 })()}
                                                 {(() => {
+                                                  const x = participant.assigned_number
+                                                  const y = participant.partner_assigned_number
+                                                  if (!y) return null
+                                                  const pair = (calculatedPairs || []).find((p: any) => {
+                                                    const a = p.participant_a
+                                                    const b = p.participant_b
+                                                    return (a === x && b === y) || (a === y && b === x)
+                                                  })
+                                                  if (!pair) return null
+                                                  const own = pair.participant_a === x ? (pair.intent_a || '') : (pair.intent_b || '')
+                                                  const other = pair.participant_a === x ? (pair.intent_b || '') : (pair.intent_a || '')
+                                                  return (
+                                                    <>
+                                                      <div className="text-slate-300">• هدف (المشارك): {own || 'غير محدد'}</div>
+                                                      <div className="text-slate-300">• هدف (الشريك): {other || 'غير محدد'}</div>
+                                                    </>
+                                                  )
+                                                })()}
+                                                {(() => {
                                                   // Show both people's openness to different goals
                                                   const x = participant.assigned_number
                                                   const y = participant.partner_assigned_number

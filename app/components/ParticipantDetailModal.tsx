@@ -44,7 +44,7 @@ interface ParticipantDetailModalProps {
   matchType: "ai" | "no-ai" | "group"
   swapMode?: boolean
   onSwapSelect?: (newPartnerNumber: number) => Promise<void>
-  lockedMatches?: Array<{ participant1_number: number; participant2_number: number; original_compatibility_score?: number }>
+  lockedMatches?: Array<{ id?: string; participant1_number: number; participant2_number: number; original_compatibility_score?: number }>
   cohostTheme?: boolean
 }
 
@@ -138,6 +138,23 @@ export default function ParticipantDetailModal({
         }
       } catch (_) {}
 
+      // 1) Unlock any existing locks that involve either participant (p1 or p2)
+      try {
+        const locksToRemove = (lockedMatches || []).filter(l => 
+          (l.participant1_number === p1 || l.participant2_number === p1 || l.participant1_number === p2 || l.participant2_number === p2)
+        )
+        for (const lock of locksToRemove) {
+          if (!lock?.id) continue
+          await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "remove-locked-match", id: lock.id })
+          })
+        }
+      } catch (e) {
+        console.error("Error unlocking previous locks:", e)
+      }
+
       const res = await fetch("/api/admin/trigger-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,7 +170,25 @@ export default function ParticipantDetailModal({
       })
       const data = await res.json()
       if (res.ok) {
-        alert(`✅ تم إنشاء المطابقة بنجاح:\n#${p1} ↔ #${p2}`)
+        // 2) Auto-lock the newly created match
+        try {
+          const score = (matches.find(m => m.participant_number === p2)?.compatibility_score) ?? 0
+          await fetch("/api/admin", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "add-locked-match",
+              participant1: p1,
+              participant2: p2,
+              compatibilityScore: Math.round(score),
+              round: 1,
+              reason: "Auto-locked after manual match creation"
+            })
+          })
+        } catch (e) {
+          console.error("Error auto-locking new match:", e)
+        }
+        alert(`✅ تم إنشاء المطابقة وتثبيتها بنجاح:\n#${p1} ↔ #${p2}`)
         // Close details modal; parent can refresh if needed
         onClose()
       } else {
@@ -631,6 +666,9 @@ export default function ParticipantDetailModal({
                                                   }
                                                   return null
                                                 })()}
+                                                {/* Show both goals */}
+                                                <div className="text-slate-300">• هدف (المشارك): {match.intent_self || 'غير محدد'}</div>
+                                                <div className="text-slate-300">• هدف (الشريك): {match.intent_other || 'غير محدد'}</div>
                                                 {(() => {
                                                   // Show each person's openness to different goals
                                                   const pA = participantData.get(participant.assigned_number)

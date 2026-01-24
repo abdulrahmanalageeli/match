@@ -77,6 +77,12 @@ export default function ParticipantHoverCardContent({
     return "غير محدد"
   })()
 
+  const openIntentGoalMismatch = (
+    answers.open_intent_goal_mismatch === true ||
+    answers.open_intent_goal_mismatch === "true" ||
+    pData?.open_intent_goal_mismatch === true
+  )
+
   return (
     <div className="space-y-2" dir="rtl">
       {/* Header */}
@@ -108,6 +114,9 @@ export default function ParticipantHoverCardContent({
           </span>
           <span className="text-slate-400">
             تفضيل الجنسية: <span className="text-white">{nationalityPrefLabel}</span>
+          </span>
+          <span className="text-slate-400">
+            قبول اختلاف الهدف: <span className="text-white">{openIntentGoalMismatch ? 'نعم' : 'لا'}</span>
           </span>
         </div>
       </div>

@@ -726,9 +726,9 @@ export default function ParticipantResultsModal({
                           className={`border-t border-white/10 hover:bg-white/5 transition-colors ${
                             participant.is_organizer_match 
                               ? 'bg-gradient-to-r from-red-500/10 to-transparent border-red-500/20' 
-                              : index < 3 ? 'bg-gradient-to-r from-yellow-500/10 to-transparent' : ''
+                              : ''
                           } ${(() => {
-                            // Highlight when viewer intent is B and partner intent is non-B
+                            // Yellow only when the B-intent person is the one who accepts different goals (both directions)
                             const x = participant.assigned_number
                             const y = participant.partner_assigned_number
                             if (!y) return ''
@@ -740,7 +740,19 @@ export default function ParticipantResultsModal({
                             if (!pair) return ''
                             const own = pair.participant_a === x ? (pair.intent_a || '') : (pair.intent_b || '')
                             const other = pair.participant_a === x ? (pair.intent_b || '') : (pair.intent_a || '')
-                            return own === 'B' && other && other !== 'B' ? 'bg-red-500/10 border-red-400/20' : ''
+                            const aData = participantData.get(x)
+                            const bData = participantData.get(y)
+                            const ansA = aData?.survey_data?.answers || {}
+                            const ansB = bData?.survey_data?.answers || {}
+                            const openA = (aData?.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === 'true')
+                            const openB = (bData?.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === 'true')
+                            if (own === 'B' && other && other !== 'B') {
+                              return openA ? 'bg-yellow-500/10 border-yellow-400/20' : 'bg-red-500/10 border-red-400/20'
+                            }
+                            if (other === 'B' && own && own !== 'B') {
+                              return openB ? 'bg-yellow-500/10 border-yellow-400/20' : 'bg-red-500/10 border-red-400/20'
+                            }
+                            return ''
                           })()}`}
                         >
                           <td className="p-4">
@@ -1218,7 +1230,30 @@ export default function ParticipantResultsModal({
                                                       <div className="text-red-300">• اختلاف الهدف: B × {other}</div>
                                                     )
                                                   }
+                                                  if (other === 'B' && own && own !== 'B') {
+                                                    return (
+                                                      <div className="text-red-300">• اختلاف الهدف: {own} × B</div>
+                                                    )
+                                                  }
                                                   return null
+                                                })()}
+                                                {(() => {
+                                                  // Show both people's openness to different goals
+                                                  const x = participant.assigned_number
+                                                  const y = participant.partner_assigned_number
+                                                  if (!y) return null
+                                                  const aData = participantData.get(x)
+                                                  const bData = participantData.get(y)
+                                                  const ansA = aData?.survey_data?.answers || {}
+                                                  const ansB = bData?.survey_data?.answers || {}
+                                                  const openA = (aData?.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === 'true')
+                                                  const openB = (bData?.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === 'true')
+                                                  return (
+                                                    <>
+                                                      <div className="text-slate-300">• قبول اختلاف الهدف (المشارك): {openA ? 'نعم' : 'لا'}</div>
+                                                      <div className="text-slate-300">• قبول اختلاف الهدف (الشريك): {openB ? 'نعم' : 'لا'}</div>
+                                                    </>
+                                                  )
                                                 })()}
                                                 {(() => {
                                                   // Add openness 0×0 penalty line inside constraints tooltip when both are 0

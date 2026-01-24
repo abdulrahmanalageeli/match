@@ -341,15 +341,23 @@ export default function ParticipantDetailModal({
                           } ${
                             index < 3 && !match.is_actual_match ? 'bg-gradient-to-r from-blue-500/5 to-transparent' : ''
                           } ${(() => {
-                            const seriousness = match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B'
-                            if (!seriousness) return ''
-                            const pA = participantData.get(participant.assigned_number)
-                            const pB = participantData.get(match.participant_number)
-                            const ansA = pA?.survey_data?.answers || {}
-                            const ansB = pB?.survey_data?.answers || {}
-                            const openA = (pA?.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === 'true')
-                            const openB = (pB?.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === 'true')
-                            return (openA || openB) ? 'bg-yellow-500/10 border-yellow-400/20' : 'bg-red-500/10 border-red-400/20'
+                            // Yellow only when the B-intent person is the one who accepts different goals.
+                            const isSelfB = match.intent_self === 'B'
+                            const isOtherB = match.intent_other === 'B'
+                            if (!(isSelfB || isOtherB)) return ''
+                            if (isSelfB && match.intent_other && match.intent_other !== 'B') {
+                              const pA = participantData.get(participant.assigned_number)
+                              const ansA = pA?.survey_data?.answers || {}
+                              const openA = (pA?.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === 'true')
+                              return openA ? 'bg-yellow-500/10 border-yellow-400/20' : 'bg-red-500/10 border-red-400/20'
+                            }
+                            if (isOtherB && match.intent_self && match.intent_self !== 'B') {
+                              const pB = participantData.get(match.participant_number)
+                              const ansB = pB?.survey_data?.answers || {}
+                              const openB = (pB?.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === 'true')
+                              return openB ? 'bg-yellow-500/10 border-yellow-400/20' : 'bg-red-500/10 border-red-400/20'
+                            }
+                            return ''
                           })()}`}
                         >
                           <td className="p-4">
@@ -610,9 +618,34 @@ export default function ParticipantDetailModal({
                                           <Tooltip.Portal>
                                             <Tooltip.Content sideOffset={6} className="z-[101] max-w-sm px-3 py-2 text-sm text-white bg-slate-900 border border-slate-700 rounded-lg shadow-xl" dir="rtl">
                                               <div className="space-y-1">
-                                                {match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B' && (
-                                                  <div className="text-red-300">• اختلاف الهدف: B × {match.intent_other}</div>
-                                                )}
+                                                {(() => {
+                                                  if (match.intent_self === 'B' && match.intent_other && match.intent_other !== 'B') {
+                                                    return (
+                                                      <div className="text-red-300">• اختلاف الهدف: B × {match.intent_other}</div>
+                                                    )
+                                                  }
+                                                  if (match.intent_other === 'B' && match.intent_self && match.intent_self !== 'B') {
+                                                    return (
+                                                      <div className="text-red-300">• اختلاف الهدف: {match.intent_self} × B</div>
+                                                    )
+                                                  }
+                                                  return null
+                                                })()}
+                                                {(() => {
+                                                  // Show each person's openness to different goals
+                                                  const pA = participantData.get(participant.assigned_number)
+                                                  const pB = participantData.get(match.participant_number)
+                                                  const ansA = pA?.survey_data?.answers || {}
+                                                  const ansB = pB?.survey_data?.answers || {}
+                                                  const openA = (pA?.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === true) || (ansA.open_intent_goal_mismatch === 'true')
+                                                  const openB = (pB?.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === true) || (ansB.open_intent_goal_mismatch === 'true')
+                                                  return (
+                                                    <>
+                                                      <div className="text-slate-300">• قبول اختلاف الهدف (المشارك): {openA ? 'نعم' : 'لا'}</div>
+                                                      <div className="text-slate-300">• قبول اختلاف الهدف (الشريك): {openB ? 'نعم' : 'لا'}</div>
+                                                    </>
+                                                  )
+                                                })()}
                                                 {match.humor_early_openness_bonus && match.humor_early_openness_bonus !== 'none' && (
                                                   <div className="text-amber-300">• مكافأة الدعابة/الانفتاح: {match.humor_early_openness_bonus === 'full' ? 'كاملة (×1.15)' : 'جزئية (×1.05)'}
                                                   </div>

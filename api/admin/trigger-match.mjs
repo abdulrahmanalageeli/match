@@ -1671,39 +1671,143 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     // Perfect groups of 4
     console.log("✅ Perfect grouping achieved with groups of 4")
   } else if (remainingParticipants.length >= 4) {
-    // 4+ extra people - split into valid chunks (prefer 3..4, allow 5 when it helps). Never create 6.
+    // 4+ extra people — iteratively choose the best-scoring next group among sizes 3/4/5. Never create 6.
     const rem = new Set(remainingParticipants)
     const created = []
-    const sizes = (() => {
-      const res = []
-      let n = remainingParticipants.length
-      while (n >= 3) {
-        if (n === 6) { res.push(3, 3); n = 0; break; }
-        if (n === 7) { res.push(4, 3); n = 0; break; }
-        if (n === 5) { res.push(5); n = 0; break; }
-        if (n % 4 === 0) { res.push(4); n -= 4; continue; }
-        if (n % 4 === 1) { res.push(5); n -= 5; continue; }
-        if (n % 4 === 2) { res.push(3); n -= 3; continue; }
-        if (n % 4 === 3) { res.push(3); n -= 3; continue; }
+    // Scoring helper mirroring evaluateForRange bonuses/penalties
+    function computeGroupSelectionScore(combination, targetSize) {
+      // 0) Matched pairs inside group are forbidden under strict finder, but guard anyway
+      for (let i = 0; i < combination.length; i++) {
+        for (let j = i + 1; j < combination.length; j++) {
+          if (areMatched(combination[i], combination[j])) return -Infinity
+        }
       }
-      return res
-    })()
-    for (const size of sizes) {
+      // 1) Gender + female cap
+      const genders = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.gender || participant?.survey_data?.gender
+      }).filter(Boolean)
+      const maleCount = genders.filter(g => g === 'male').length
+      const femaleCount = genders.filter(g => g === 'female').length
+      if (maleCount === 0 || femaleCount === 0) return -Infinity
+      if (femaleCount > 2) return -Infinity
+      const hasSingleFemale = femaleCount === 1 && targetSize === 4
+
+      // 2) Conversation depth compatibility
+      const conversationPrefs = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.survey_data?.vibe_4
+      }).filter(Boolean)
+      const yesCount = conversationPrefs.filter(p => p === 'نعم').length
+      const noCount = conversationPrefs.filter(p => p === 'لا').length
+      if (yesCount > 0 && noCount > 0) return -Infinity
+
+      // 3) Initiator present (when roles fully known)
+      const rolesEarly = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return (
+          participant?.survey_data?.answers?.conversational_role ||
+          participant?.conversational_role ||
+          participant?.survey_data?.conversational_role
+        )
+      }).filter(Boolean).map(v => String(v).toUpperCase())
+      const hasInitiatorEarly = rolesEarly.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
+      if (rolesEarly.length === combination.length && !hasInitiatorEarly) return -Infinity
+
+      // Base compatibility
+      let score = calculateGroupCompatibilityScore(combination, pairScores)
+
+      // Ages
+      const ages = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.age || participant?.survey_data?.age
+      }).filter(Boolean)
+      if (ages.length === combination.length) {
+        const ageRange = Math.max(...ages) - Math.min(...ages)
+        if (ageRange <= 3) score += 5
+      }
+
+      // Humor clash and small diversity bonus
+      const banterStyles = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return (
+          participant?.humor_banter_style ||
+          participant?.survey_data?.humor_banter_style ||
+          participant?.survey_data?.answers?.humor_banter_style
+        )
+      }).filter(Boolean)
+      if (banterStyles.length >= 2) {
+        if (banterStyles.includes('A') && banterStyles.includes('D')) score -= 5
+        const uniqueBanter = new Set(banterStyles).size
+        if (uniqueBanter <= 2) score += 3
+      }
+
+      // Role coverage + ideal mix
+      const roles = rolesEarly
+      if (roles.length >= 2) {
+        const uniqueRoles = new Set(roles)
+        if (uniqueRoles.size >= 2) score += 3
+        if (uniqueRoles.size === 3) score += 3
+        const hasArole = roles.includes('A') || roles.includes('INITIATOR') || roles.includes('INITIATE') || roles.includes('LEADER') || roles.includes('مبادر') || roles.includes('المبادر')
+        const hasBrole = roles.includes('B') || roles.includes('REACTOR') || roles.includes('RESPONDER') || roles.includes('متفاعل') || roles.includes('المتفاعل')
+        if (hasArole && hasBrole) score += 10
+      }
+
+      // Curiosity/flow
+      const curiosity = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return (
+          participant?.survey_data?.answers?.curiosity_style ||
+          participant?.curiosity_style ||
+          participant?.survey_data?.curiosity_style
+        )
+      }).filter(Boolean).map(v => String(v).toUpperCase())
+      if (curiosity.length >= 2) {
+        const hasA = curiosity.includes('A')
+        const hasB = curiosity.includes('B')
+        const hasC = curiosity.includes('C')
+        if (hasA && hasB) score += 4
+        if (hasC) score += 2
+      }
+
+      // Size preference
+      if (targetSize === 4) score += 5
+      else if (targetSize === 5) score -= 5
+
+      // Single-female penalty (size 4 only)
+      if (hasSingleFemale) score = score * 0.7
+
+      return score
+    }
+
+    while (rem.size >= 3) {
       const pool = Array.from(rem)
-      let chunk = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
-      if (!chunk) {
-        console.log(`⚠️ Could not find strict (no matched pairs) group of size ${size} from remaining pool — trying RELAXED fallback`)
-        chunk = findBestGroup(pool, pairScores, size, eligibleParticipants, areMatched)
+      let best = null
+      for (const size of [3, 4, 5]) {
+        if (pool.length < size) continue
+        let grp = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
+        let strict = true
+        if (!grp) {
+          grp = findBestGroup(pool, pairScores, size, eligibleParticipants, areMatched)
+          strict = false
+        }
+        if (!grp) continue
+        const s = computeGroupSelectionScore(grp, size)
+        if (!Number.isFinite(s)) continue
+        if (!best || s > best.score || (s === best.score && size === 4 && best.size !== 4)) {
+          best = { size, group: grp, score: s, strict }
+        }
       }
-      if (!chunk) {
-        console.log(`❌ Even relaxed fallback failed for size ${size}; will revisit in final inclusion pass`)
-        continue
+      if (!best) {
+        console.log(`❌ No valid group found among sizes 3/4/5 for remaining pool; leaving for final inclusion pass`)
+        break
       }
-      // Place selected chunk
-      chunk.forEach(p => rem.delete(p))
-      groups.push([...chunk])
-      chunk.forEach(p => usedParticipants.add(p))
-      created.push(chunk)
+      // Place best chunk
+      best.group.forEach(p => rem.delete(p))
+      groups.push([...best.group])
+      best.group.forEach(p => usedParticipants.add(p))
+      created.push(best.group)
+      console.log(`✅ Chosen next group (size ${best.size}) [${best.group.join(', ')}] with score ${Math.round(best.score)}%`)
     }
     console.log(`✅ Created ${created.length} new group(s) from remaining participants (sizes: ${created.map(c => c.length).join(', ')})`)
   } else if (remainingParticipants.length === 1) {
@@ -4173,8 +4277,71 @@ export default async function handler(req, res) {
             }
           }
 
-          const avg = pairs.length>0 ? Math.round(pairs.reduce((s,p)=>s+p.totals.pairTotal,0)/pairs.length) : 0
-          return res.status(200).json({ success: true, participant_numbers: nums, size: nums.length, average: avg, pairs })
+          // Group-level evaluation mirroring selection heuristics
+          const baseAvg = pairs.length>0 ? (pairs.reduce((s,p)=>s+p.totals.pairTotal,0)/pairs.length) : 0
+
+          // Constraints and factors
+          const participantsArr = nums.map(n=>pMap.get(n)).filter(Boolean)
+          const genders = participantsArr.map(p => p.gender || p.survey_data?.gender).filter(Boolean)
+          const maleCount = genders.filter(g => g === 'male').length
+          const femaleCount = genders.filter(g => g === 'female').length
+          const genderBalance = maleCount>0 && femaleCount>0
+          const femaleCapOk = femaleCount <= 2
+          const hasSingleFemale = (femaleCount === 1 && nums.length === 4)
+
+          const roles = participantsArr.map(p => (p.survey_data?.answers?.conversational_role || p.conversational_role || p.survey_data?.conversational_role)).filter(Boolean).map(v=>String(v).toUpperCase())
+          const initiatorKnown = roles.length === nums.length
+          const initiatorPresent = initiatorKnown ? roles.some(r => r==='A'||r==='INITIATOR'||r==='INITIATE'||r==='LEADER'||r==='مبادر'||r==='المبادر') : null
+
+          const conv = participantsArr.map(p => p.survey_data?.vibe_4).filter(Boolean)
+          const convYes = conv.filter(x=>x==='نعم').length
+          const convNo = conv.filter(x=>x==='لا').length
+          const conversationCompatible = !(convYes>0 && convNo>0)
+
+          const ages = participantsArr.map(p => p.age || p.survey_data?.age).filter(v=>v!=null)
+          const ageRange = (ages.length===nums.length) ? (Math.max(...ages)-Math.min(...ages)) : null
+
+          const banter = participantsArr.map(p => p.humor_banter_style || p.survey_data?.humor_banter_style || p.survey_data?.answers?.humor_banter_style).filter(Boolean)
+          const banterClash = banter.includes('A') && banter.includes('D')
+          const banterUnique = new Set(banter).size
+
+          const curiosity = participantsArr.map(p => p.survey_data?.answers?.curiosity_style || p.curiosity_style || p.survey_data?.curiosity_style).filter(Boolean).map(v=>String(v).toUpperCase())
+          const hasA = curiosity.includes('A'), hasB = curiosity.includes('B'), hasC = curiosity.includes('C')
+
+          // Build factors list and adjusted score
+          const factors = []
+          let adjusted = baseAvg
+          if (ageRange!=null && ageRange<=3) { adjusted += 5; factors.push({ name: 'age_similarity', delta: +5, info: `Age range ≤3 (${ageRange})` }) }
+          if (banter.length>=2) {
+            if (banterClash) { adjusted -= 5; factors.push({ name: 'humor_clash', delta: -5, info: 'A + D present' }) }
+            if (banterUnique <= 2) { adjusted += 3; factors.push({ name: 'humor_compatibility', delta: +3, info: `${banterUnique} styles` }) }
+          }
+          if (roles.length>=2) {
+            const uniq = new Set(roles)
+            if (uniq.size >= 2) { adjusted += 3; factors.push({ name: 'role_coverage_2+', delta: +3 }) }
+            if (uniq.size === 3) { adjusted += 3; factors.push({ name: 'role_full_trio', delta: +3 }) }
+            const hasArole = roles.includes('A')||roles.includes('INITIATOR')||roles.includes('INITIATE')||roles.includes('LEADER')||roles.includes('مبادر')||roles.includes('المبادر')
+            const hasBrole = roles.includes('B')||roles.includes('REACTOR')||roles.includes('RESPONDER')||roles.includes('متفاعل')||roles.includes('المتفاعل')
+            if (hasArole && hasBrole) { adjusted += 10; factors.push({ name: 'ideal_mix_A+B', delta: +10 }) }
+          }
+          if (hasA && hasB) { adjusted += 4; factors.push({ name: 'curiosity_AxB', delta: +4 }) }
+          if (hasC) { adjusted += 2; factors.push({ name: 'curiosity_C_flow', delta: +2 }) }
+          if (nums.length === 4) { adjusted += 5; factors.push({ name: 'size_pref_4', delta: +5 }) }
+          else if (nums.length === 5) { adjusted -= 5; factors.push({ name: 'size_penalty_5', delta: -5 }) }
+          if (hasSingleFemale) { adjusted = adjusted * 0.7; factors.push({ name: 'single_female_penalty', delta: 'x0.7' }) }
+
+          const constraints = {
+            gender_balance: genderBalance,
+            female_cap_ok: femaleCapOk,
+            initiator_known: initiatorKnown,
+            initiator_present: initiatorPresent,
+            conversation_compatible: conversationCompatible,
+            age_range: ageRange
+          }
+
+          const avg = Math.round(baseAvg)
+          const adjustedRounded = Math.max(0, Math.min(100, Math.round(adjusted)))
+          return res.status(200).json({ success: true, participant_numbers: nums, size: nums.length, average: avg, adjusted: adjustedRounded, constraints, factors, pairs })
         } catch (e) {
           console.error('compute-group-breakdown error:', e)
           return res.status(500).json({ error: 'Failed to compute breakdown' })

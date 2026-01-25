@@ -88,6 +88,16 @@ export default function GroupAssignmentsModal({
   const [breakdownGroup, setBreakdownGroup] = useState<number | null>(null)
   const [breakdownData, setBreakdownData] = useState<null | {
     average: number
+    adjusted?: number
+    constraints?: {
+      gender_balance?: boolean
+      female_cap_ok?: boolean
+      initiator_known?: boolean
+      initiator_present?: boolean | null
+      conversation_compatible?: boolean
+      age_range?: number | null
+    }
+    factors?: Array<{ name: string; delta: number | string; info?: string }>
     participant_numbers: number[]
     pairs: Array<{
       a: number
@@ -114,6 +124,9 @@ export default function GroupAssignmentsModal({
       } else {
         setBreakdownData({
           average: data.average,
+          adjusted: data.adjusted,
+          constraints: data.constraints,
+          factors: data.factors,
           participant_numbers: data.participant_numbers,
           pairs: data.pairs || []
         })
@@ -951,10 +964,29 @@ export default function GroupAssignmentsModal({
                 <div className="text-slate-300 text-sm">لا توجد بيانات</div>
               ) : (
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-sm gap-2 flex-wrap">
                     <div className="text-slate-300">المشاركون: {breakdownData.participant_numbers.map(n=>`#${n}`).join(' ، ')}</div>
-                    <div className="text-slate-200">المتوسط: <span className="text-white font-semibold">{breakdownData.average}%</span></div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-slate-200">المتوسط: <span className="text-white font-semibold">{breakdownData.average}%</span></div>
+                      {typeof breakdownData.adjusted === 'number' && (
+                        <div className="text-slate-200">المعدل بعد العوامل: <span className="text-white font-semibold">{breakdownData.adjusted}%</span></div>
+                      )}
+                    </div>
                   </div>
+                  {/* Constraints summary */}
+                  {breakdownData.constraints && (
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-slate-200 space-y-2">
+                      <div className="font-semibold text-slate-300">القيود (Constraints)</div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        <div>توازن الجنسين: <span className={breakdownData.constraints.gender_balance ? 'text-green-300' : 'text-red-300'}>{breakdownData.constraints.gender_balance ? 'متوازن' : 'غير متوازن'}</span></div>
+                        <div>حد الإناث ≤2: <span className={breakdownData.constraints.female_cap_ok ? 'text-green-300' : 'text-red-300'}>{breakdownData.constraints.female_cap_ok ? 'محقق' : 'تجاوز'}</span></div>
+                        <div>معروف دور المبادر: <span className={(breakdownData.constraints.initiator_known ? 'text-green-300' : 'text-amber-300')}>{breakdownData.constraints.initiator_known ? 'نعم' : 'غير مكتمل'}</span></div>
+                        <div>وجود مبادر: <span className={breakdownData.constraints.initiator_present ? 'text-green-300' : (breakdownData.constraints.initiator_present === null ? 'text-slate-300' : 'text-red-300')}>{breakdownData.constraints.initiator_present === null ? 'غير متوفر' : (breakdownData.constraints.initiator_present ? 'موجود' : 'غير موجود')}</span></div>
+                        <div>توافق عمق الحوار: <span className={breakdownData.constraints.conversation_compatible ? 'text-green-300' : 'text-red-300'}>{breakdownData.constraints.conversation_compatible ? 'متوافق' : 'تعارض'}</span></div>
+                        <div>مدى الأعمار: <span className={breakdownData.constraints.age_range != null ? (Number(breakdownData.constraints.age_range) <= 3 ? 'text-green-300' : 'text-slate-300') : 'text-slate-300'}>{breakdownData.constraints.age_range != null ? `${breakdownData.constraints.age_range} سنوات` : 'غير معروف'}</span></div>
+                      </div>
+                    </div>
+                  )}
                   <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
                     <div className="grid grid-cols-6 gap-0 text-xs font-semibold text-slate-300 border-b border-white/10">
                       <div className="p-2">الثنائي</div>
@@ -978,6 +1010,20 @@ export default function GroupAssignmentsModal({
                     </div>
                   </div>
                   <div className="text-[11px] text-slate-400">المجموع = التفاعل (45%) + المرح/الانفتاح (30%) + الاهتمامات (15%) + نمط الحياة (5%) + القيم (5%)</div>
+                  {/* Factors (bonuses/penalties) */}
+                  {breakdownData.factors && breakdownData.factors.length > 0 && (
+                    <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                      <div className="p-2 text-xs font-semibold text-slate-300 border-b border-white/10">العوامل المطبقة (المكافآت/العقوبات)</div>
+                      <ul className="text-xs text-slate-200 divide-y divide-white/5">
+                        {breakdownData.factors.map((f, i) => (
+                          <li key={i} className="flex items-center justify-between p-2">
+                            <span className="truncate">{f.name}{f.info ? ` — ${f.info}` : ''}</span>
+                            <span className={typeof f.delta === 'number' ? (Number(f.delta) >= 0 ? 'text-green-300' : 'text-red-300') : 'text-amber-300'}>{typeof f.delta === 'number' ? (Number(f.delta) >= 0 ? `+${f.delta}` : `${f.delta}`) : String(f.delta)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

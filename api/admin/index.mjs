@@ -210,11 +210,13 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: `Participant #${pNum} not found` })
           }
 
-          // Build previously matched pairs set (current event, any non-null round)
+          // Build previously matched pairs set (current event individual rounds only; exclude round 0 = groups)
           const { data: prevMatches } = await supabase
             .from('match_results')
             .select('participant_a_number, participant_b_number, round')
+            .eq('match_id', STATIC_MATCH_ID)
             .eq('event_id', event_id)
+            .neq('round', 0)
           const seenPairs = new Set()
           for (const r of (prevMatches || [])) {
             const a = r.participant_a_number, b = r.participant_b_number

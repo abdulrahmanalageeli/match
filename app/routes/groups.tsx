@@ -1811,6 +1811,20 @@ export default function GroupsPage() {
         }));
       } catch (_) {}
       setDataLoaded(true);
+      // If admin bypass, confirm immediately and show onboarding (allow login without actual group)
+      if (data.admin_bypass === true) {
+        if (Array.isArray(data.participant_numbers)) {
+          const nums: number[] = data.participant_numbers.map((n: any) => (typeof n === 'string' ? parseInt(n, 10) : n)).filter((n: any) => Number.isFinite(n));
+          setGroupParticipantNumbers(nums);
+        }
+        setJoiningTransition(true);
+        setTimeout(() => {
+          setIsConfirmed(true);
+          setJoiningTransition(false);
+          setShowOnboarding(true);
+        }, 720);
+        return;
+      }
       // Fetch group genders/numbers for onboarding visualization (digits flow) and gate access
       let hasGroup = false;
       try {

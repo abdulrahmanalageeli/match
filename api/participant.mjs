@@ -402,8 +402,40 @@ export default async function handler(req, res) {
         }
       }
 
-      // If none of the candidates have a group, try the first one anyway (will fail)
+      // If none of the candidates have a group, allow login for participants
+      // explicitly excluded from group generation (admin group-only exclusion, code -2)
       if (!chosen) {
+        try {
+          for (const cand of sorted) {
+            const { data: ex, error: exErr } = await supabase
+              .from("excluded_pairs")
+              .select("id")
+              .eq("match_id", match_id)
+              .eq("participant1_number", cand.assigned_number)
+              .eq("participant2_number", -2)
+              .limit(1)
+
+            if (!exErr && Array.isArray(ex) && ex.length > 0) {
+              const name = cand.name || cand?.survey_data?.name || cand?.survey_data?.answers?.name || `المشارك #${cand.assigned_number}`
+              // Return a success with admin_bypass to let the client proceed without a real group
+              return res.status(200).json({
+                success: true,
+                admin_bypass: true,
+                event_id: currentEventId,
+                assigned_number: cand.assigned_number,
+                secure_token: cand.secure_token,
+                name,
+                table_number: null,
+                group_number: null,
+                group_members: [],
+                participant_numbers: [],
+                participant_names: []
+              })
+            }
+          }
+        } catch (_) {}
+
+        // Otherwise, fail as before
         return res.status(403).json({ success: false, error: "لم يتم العثور على مجموعة لك في الحدث الحالي" })
       }
 

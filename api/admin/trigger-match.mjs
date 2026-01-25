@@ -1799,7 +1799,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         console.log(`⚠️ No group with capacity to place ${extra2}; will handle in final inclusion pass`)
       }
       console.log(`✅ Attempted split for two participants across groups (avoiding matched pairs, keeping size ≤5)`)
-    }
+    
   } else if (remainingParticipants.length === 3) {
     // 3 extra people - create a new group OR distribute among existing groups (hard-gate matched pairs)
     if (groups.length === 0) {

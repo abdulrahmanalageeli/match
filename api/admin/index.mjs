@@ -3794,6 +3794,7 @@ export default async function handler(req, res) {
             overall_experience,
             recommendations,
             participant_message,
+            organizer_impression,
             submitted_at
           `)
           .eq("match_id", STATIC_MATCH_ID)

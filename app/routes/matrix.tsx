@@ -15,6 +15,7 @@ interface FeedbackData {
   overall_experience: number
   recommendations?: string
   participant_message?: string
+  organizer_impression?: string
   submitted_at: string
 }
 
@@ -1001,6 +1002,12 @@ export default function MatrixPage() {
                                           {match.feedback.participant_a.participant_message}
                                         </div>
                                       )}
+                                      {match.feedback.participant_a.organizer_impression && (
+                                        <div className="mt-2 p-2 bg-blue-950/30 rounded text-xs text-slate-200 border border-blue-900/30">
+                                          <span className="text-blue-300 font-semibold">انطباع المنظم: </span>
+                                          {match.feedback.participant_a.organizer_impression}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
 
@@ -1039,6 +1046,12 @@ export default function MatrixPage() {
                                         <div className="mt-2 p-2 bg-slate-800/50 rounded text-xs text-slate-200">
                                           <span className="text-green-400 font-semibold">رسالة: </span>
                                           {match.feedback.participant_b.participant_message}
+                                        </div>
+                                      )}
+                                      {match.feedback.participant_b.organizer_impression && (
+                                        <div className="mt-2 p-2 bg-emerald-950/30 rounded text-xs text-slate-200 border border-emerald-900/30">
+                                          <span className="text-emerald-300 font-semibold">انطباع المنظم: </span>
+                                          {match.feedback.participant_b.organizer_impression}
                                         </div>
                                       )}
                                     </div>

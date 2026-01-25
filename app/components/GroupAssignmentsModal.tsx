@@ -1,4 +1,4 @@
-import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check, RefreshCcw, Search } from "lucide-react"
+import { X, Users, MapPin, Star, Shuffle, AlertTriangle, Loader2, Sparkles, Layers, CheckCircle2, Pencil, Check, RefreshCcw, Search, Info } from "lucide-react"
 import { useRef, useState } from "react"
 
 interface GroupAssignment {
@@ -81,6 +81,50 @@ export default function GroupAssignmentsModal({
     currentScores: Record<number, number>
     moveType: 'move' | 'swap' | 'reorder'
   } | null>(null)
+
+  // Per-group breakdown (Spark-Only) modal state
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
+  const [breakdownLoading, setBreakdownLoading] = useState(false)
+  const [breakdownGroup, setBreakdownGroup] = useState<number | null>(null)
+  const [breakdownData, setBreakdownData] = useState<null | {
+    average: number
+    participant_numbers: number[]
+    pairs: Array<{
+      a: number
+      b: number
+      totals: { pairTotal: number; synergy: number; humor_open: number; vibe: number; lifestyle: number; core_values: number }
+    }>
+  }>(null)
+
+  async function openBreakdown(group: GroupAssignment) {
+    const nums = group.participants.map(p => p.number)
+    setBreakdownOpen(true)
+    setBreakdownLoading(true)
+    setBreakdownGroup(group.group_number)
+    setBreakdownData(null)
+    try {
+      const res = await fetch('/api/admin/trigger-match', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matchType: 'group', eventId, action: 'compute-group-breakdown', participant_numbers: nums })
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.success) {
+        alert(data?.error || 'تعذر حساب تفاصيل المجموعة')
+      } else {
+        setBreakdownData({
+          average: data.average,
+          participant_numbers: data.participant_numbers,
+          pairs: data.pairs || []
+        })
+      }
+    } catch (e) {
+      console.error('breakdown error', e)
+      alert('حدث خطأ أثناء حساب التفاصيل')
+    } finally {
+      setBreakdownLoading(false)
+    }
+  }
 
   async function attemptSwap(target: { group: number; participant: number | null }) {
     const isEmptyTarget = !target.participant || target.participant === 0
@@ -588,9 +632,23 @@ export default function GroupAssignmentsModal({
                         <div className="text-slate-400 text-xs">الطاولة #{group.table_number || '—'}</div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 text-yellow-300">
-                      <Star className="w-4 h-4 fill-yellow-300" />
-                      <span className="text-xs sm:text-sm font-semibold">{Math.round(group.compatibility_score || 0)}%</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-yellow-300">
+                        <Star className="w-4 h-4 fill-yellow-300" />
+                        <span className="text-xs sm:text-sm font-semibold">{Math.round(group.compatibility_score || 0)}%</span>
+                      </div>
+                      <button
+                        className={`${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-white/10 hover:bg-white/20'} inline-flex items-center justify-center w-7 h-7 rounded-md text-white`}
+                        title="عرض تحليل النتيجة"
+                        onClick={() => openBreakdown(group)}
+                        disabled={swapping || previewLoading}
+                      >
+                        {breakdownLoading && breakdownGroup === group.group_number ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Info className="w-3.5 h-3.5" />
+                        )}
+                      </button>
                     </div>
                   </div>
 
@@ -873,6 +931,58 @@ export default function GroupAssignmentsModal({
               >
                 متابعة وحفظ
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Group breakdown modal */}
+      {breakdownOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => { setBreakdownOpen(false); setBreakdownGroup(null); setBreakdownData(null); }}>
+          <div className={`w-full max-w-3xl rounded-2xl border ${cohostTheme ? 'border-violet-400/30 bg-gradient-to-br from-violet-950 via-slate-900 to-violet-950' : 'border-white/15 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950'} shadow-2xl overflow-hidden`} onClick={(e)=>e.stopPropagation()}>
+            <div className={`p-4 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'} flex items-center justify-between`}>
+              <div className="text-white font-semibold text-lg">تحليل توافق المجموعة {breakdownGroup ?? ''}</div>
+              <button className={`${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-white/10 hover:bg-white/20'} w-8 h-8 rounded-lg text-white flex items-center justify-center`} onClick={() => { setBreakdownOpen(false); setBreakdownGroup(null); setBreakdownData(null); }}>×</button>
+            </div>
+            <div className="p-4 max-h-[70vh] overflow-y-auto">
+              {breakdownLoading ? (
+                <div className="flex items-center gap-2 text-slate-300"><Loader2 className="w-4 h-4 animate-spin" /> جارٍ الحساب...</div>
+              ) : !breakdownData ? (
+                <div className="text-slate-300 text-sm">لا توجد بيانات</div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="text-slate-300">المشاركون: {breakdownData.participant_numbers.map(n=>`#${n}`).join(' ، ')}</div>
+                    <div className="text-slate-200">المتوسط: <span className="text-white font-semibold">{breakdownData.average}%</span></div>
+                  </div>
+                  <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+                    <div className="grid grid-cols-6 gap-0 text-xs font-semibold text-slate-300 border-b border-white/10">
+                      <div className="p-2">الثنائي</div>
+                      <div className="p-2 text-right">المجموع</div>
+                      <div className="p-2 text-right">التفاعل</div>
+                      <div className="p-2 text-right">المرح/الانفتاح</div>
+                      <div className="p-2 text-right">الاهتمامات</div>
+                      <div className="p-2 text-right">نمط الحياة/القيم</div>
+                    </div>
+                    <div>
+                      {breakdownData.pairs.map((pr, idx) => (
+                        <div key={idx} className="grid grid-cols-6 items-center text-xs border-b border-white/5 last:border-b-0">
+                          <div className="p-2 text-slate-200">#{pr.a} × #{pr.b}</div>
+                          <div className="p-2 text-right text-white font-semibold">{pr.totals.pairTotal}%</div>
+                          <div className="p-2 text-right text-slate-200">{pr.totals.synergy}%</div>
+                          <div className="p-2 text-right text-slate-200">{pr.totals.humor_open}%</div>
+                          <div className="p-2 text-right text-slate-200">{pr.totals.vibe}%</div>
+                          <div className="p-2 text-right text-slate-200">{pr.totals.lifestyle + pr.totals.core_values}%</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="text-[11px] text-slate-400">المجموع = التفاعل (45%) + المرح/الانفتاح (30%) + الاهتمامات (15%) + نمط الحياة (5%) + القيم (5%)</div>
+                </div>
+              )}
+            </div>
+            <div className={`p-3 border-t ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'} flex items-center justify-end`}>
+              <button className={`${cohostTheme ? 'bg-violet-500/20 hover:bg-violet-500/30' : 'bg-white/10 hover:bg-white/20'} px-3 py-1.5 rounded-lg text-white text-sm`} onClick={() => { setBreakdownOpen(false); setBreakdownGroup(null); setBreakdownData(null); }}>إغلاق</button>
             </div>
           </div>
         </div>

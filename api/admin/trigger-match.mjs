@@ -1558,14 +1558,38 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         // ignore cache errors
       }
       
-      // Totals
-      // Regular (0–105): 35 (synergy) + 20 (vibe) + 15 (lifestyle) + 15 (humor) + 10 (communication) + 10 (values)
-      const regularTotal = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled10
-      // Opposites (0–105): flip lifestyle/vibe/humor, keep synergy/values/comm positive
+      // Totals (Spark-Only model, 0–100):
+      // Weights:
+      //   Synergy 45% (scale 0–35 -> 0–45)
+      //   Humor & Openness 30% (scale 0–15 -> 0–30)
+      //   Vibe 15% (scale 0–20 -> 0–15)
+      //   Lifestyle 5% (scale 0–15 -> 0–5)
+      //   Core Values 5% (scale 0–10 -> 0–5)
+      //   Communication 0% (removed from total)
+      const W_SYNERGY = 45 / 35
+      const W_HUMOR = 30 / 15
+      const W_VIBE = 15 / 20
+      const W_LIFESTYLE = 5 / 15
+      const W_VALUES = 5 / 10
+
+      const regularTotal =
+        (synergyScore * W_SYNERGY) +
+        (humorOpenScore * W_HUMOR) +
+        (vibeScore * W_VIBE) +
+        (lifestyleScore * W_LIFESTYLE) +
+        (coreValuesScaled10 * W_VALUES)
+
+      // Opposites (Spark-Only): flip lifestyle/vibe/humor, keep synergy/values positive
       const flippedLifestyle = Math.max(0, 15 - lifestyleScore)
       const flippedVibe = Math.max(0, 20 - vibeScore)
       const flippedHumor = Math.max(0, 15 - humorOpenScore)
-      const oppositesTotal = synergyScore + coreValuesScaled10 + communicationScore + flippedLifestyle + flippedVibe + flippedHumor
+      const oppositesTotal =
+        (synergyScore * W_SYNERGY) +
+        (coreValuesScaled10 * W_VALUES) +
+        (flippedLifestyle * W_LIFESTYLE) +
+        (flippedVibe * W_VIBE) +
+        (flippedHumor * W_HUMOR)
+
       const totalScore = (options?.oppositesMode === true) ? oppositesTotal : regularTotal
       
       pairScores.push({
@@ -1608,9 +1632,9 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     }
   }
   
-  console.log(`\n📊 Top compatibility pairs for groups (0-105% with cached AI vibe):`)
+  console.log(`\n📊 Top compatibility pairs for groups (0–100% Spark-Only):`)
   pairScores.slice(0, 10).forEach(pair => {
-    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Comm: ${pair.communicationScore}%, Life: ${Math.round(pair.lifestyleScore)}%, Values: ${Math.round(pair.coreValuesScore)}%, Interact: ${Math.round(pair.synergyScore)}%, Humor/Open: ${Math.round(pair.humorOpenScore)}%, Vibe: ${Math.round(pair.vibeScore)}%)`)
+    console.log(`  ${pair.participants[0]} × ${pair.participants[1]}: ${Math.round(pair.score)}% (Interact: ${Math.round(pair.synergyScore)} /35, Humor/Open: ${Math.round(pair.humorOpenScore)} /15, Vibe: ${Math.round(pair.vibeScore)} /20, Life: ${Math.round(pair.lifestyleScore)} /15, Values: ${Math.round(pair.coreValuesScore)} /10)`)
   })
 
   // Enhanced group formation algorithm with fallback support
@@ -1647,16 +1671,16 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     // Perfect groups of 4
     console.log("✅ Perfect grouping achieved with groups of 4")
   } else if (remainingParticipants.length >= 4) {
-    // 4+ extra people - split into valid chunks (sizes 3..5 preferred). Avoid 6 unless unavoidable.
+    // 4+ extra people - split into valid chunks (prefer 3..4, allow 5 when it helps). Never create 6.
     const rem = new Set(remainingParticipants)
     const created = []
     const sizes = (() => {
       const res = []
       let n = remainingParticipants.length
-      while (n > 0) {
+      while (n >= 3) {
         if (n === 6) { res.push(3, 3); n = 0; break; }
-        if (n === 5) { res.push(5); n = 0; break; }
         if (n === 7) { res.push(4, 3); n = 0; break; }
+        if (n === 5) { res.push(5); n = 0; break; }
         if (n % 4 === 0) { res.push(4); n -= 4; continue; }
         if (n % 4 === 1) { res.push(5); n -= 5; continue; }
         if (n % 4 === 2) { res.push(3); n -= 3; continue; }
@@ -1685,7 +1709,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   } else if (remainingParticipants.length === 1) {
     // 1 extra person - add to most compatible group without creating matched pairs.
     const extraParticipant = remainingParticipants[0]
-    // Prefer placing into groups with size <= 3 first (to make 4), then <= 4 (to make 5). Avoid 6 unless no alternative.
+    // Prefer placing into groups with size <= 3 (to make 4), then allow making 5 if it ranks best. Never create 6.
     const candidateIndices = groups
       .map((g, i) => ({ i, size: g.length }))
       .filter(({ i }) => groups[i].every(m => !areMatched(m, extraParticipant)))
@@ -1696,8 +1720,6 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         .sort((a, b) => calculateParticipantGroupCompatibility(extraParticipant, groups[b], pairScores) - calculateParticipantGroupCompatibility(extraParticipant, groups[a], pairScores))
         [0]
     let idx = pickByCapacity(4) // up to 3 -> 4
-    if (idx === undefined) idx = pickByCapacity(5) // up to 4 -> 5
-    if (idx === undefined) idx = pickByCapacity(6) // last resort to 6
     if (idx === undefined) {
       // Relaxed placement (ignore matched-pair constraint) to ensure inclusion
       const allGroups = groups.map((g, i) => ({ i, size: g.length }))
@@ -1706,9 +1728,24 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
           .filter(({ size }) => size < maxSize)
           .map(({ i }) => i)
           .sort((a, b) => calculateParticipantGroupCompatibility(extraParticipant, groups[b], pairScores) - calculateParticipantGroupCompatibility(extraParticipant, groups[a], pairScores))[0]
-      idx = pickRelaxed(4) ?? pickRelaxed(5) ?? pickRelaxed(6)
+      idx = pickRelaxed(4)
       if (idx !== undefined) {
-        console.log(`🟠 Relaxed placement: placing #${extraParticipant} into group ${idx + 1} (ignoring matched-pair constraint as a last resort)`) 
+        console.log(`🟠 Relaxed placement: placing #${extraParticipant} into group ${idx + 1} (ignoring matched-pair constraint; keeping size ≤4)`) 
+      }
+    }
+    // If no 4-capacity group was suitable, allow making 5
+    if (idx === undefined) {
+      const idx5 = pickByCapacity(5) // up to 4 -> 5
+      if (idx5 !== undefined) idx = idx5
+      else {
+        const allGroups = groups.map((g, i) => ({ i, size: g.length }))
+        const pickRelaxed = (maxSize) =>
+          allGroups
+            .filter(({ size }) => size < maxSize)
+            .map(({ i }) => i)
+            .sort((a, b) => calculateParticipantGroupCompatibility(extraParticipant, groups[b], pairScores) - calculateParticipantGroupCompatibility(extraParticipant, groups[a], pairScores))[0]
+        const idx5relaxed = pickRelaxed(5)
+        if (idx5relaxed !== undefined) idx = idx5relaxed
       }
     }
     if (idx !== undefined) {
@@ -1721,28 +1758,13 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     // 2 extra people - add both safely without creating matched pairs, preferring groups <= 4 final size
     const [extra1, extra2] = remainingParticipants
     
-    // Check joint placement (avoid matched between themselves and with group)
-    const jointCandidates = groups
-      .map((g, i) => i)
-      .filter(i => groups[i].length <= 4) // allow up to 4 -> 6 only as last resort; we'll try <=4 first
-      .filter(i => !areMatched(extra1, extra2) && groups[i].every(m => !areMatched(m, extra1) && !areMatched(m, extra2)))
-      .sort((a, b) => {
-        const sa = (calculateParticipantGroupCompatibility(extra1, groups[a], pairScores) + calculateParticipantGroupCompatibility(extra2, groups[a], pairScores)) / 2
-        const sb = (calculateParticipantGroupCompatibility(extra1, groups[b], pairScores) + calculateParticipantGroupCompatibility(extra2, groups[b], pairScores)) / 2
-        return sb - sa
-      })
-    if (jointCandidates.length > 0) {
-      const idx = jointCandidates[0]
-      groups[idx].push(extra1, extra2)
-      console.log(`✅ Added both participants ${extra1}, ${extra2} to group ${idx + 1}: [${groups[idx].join(', ')}]`)
-    } else {
-      // Split across two groups (avoid matched pairs and prefer groups <= 4 then <= 5)
-      const pickSafe = (p, maxSize) => groups
-        .map((g, i) => ({ i, size: g.length, score: calculateParticipantGroupCompatibility(p, g, pairScores) }))
-        .filter(({ i, size }) => size < maxSize && groups[i].every(m => !areMatched(m, p)))
-        .sort((a, b) => b.score - a.score)[0]?.i
+    // Split across two groups (avoid matched pairs, prefer ≤4; allow 5 if needed). Do not place both into the same group if it would exceed 5.
+    const pickSafe = (p) => groups
+      .map((g, i) => ({ i, size: g.length, score: calculateParticipantGroupCompatibility(p, g, pairScores) }))
+      .filter(({ i, size }) => size < 5 && groups[i].every(m => !areMatched(m, p)))
+      .sort((a, b) => b.score - a.score)[0]?.i
 
-      let g1 = pickSafe(extra1, 4) ?? pickSafe(extra1, 5) ?? pickSafe(extra1, 6)
+    let g1 = pickSafe(extra1)
       if (g1 == null) {
         // Relaxed placement for extra1
         const allGroups = groups.map((g, i) => ({ i, size: g.length }))
@@ -1751,7 +1773,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
             .filter(({ size }) => size < maxSize)
             .map(({ i }) => i)
             .sort((a, b) => calculateParticipantGroupCompatibility(p, groups[b], pairScores) - calculateParticipantGroupCompatibility(p, groups[a], pairScores))[0]
-        g1 = pickRelaxed(extra1, 4) ?? pickRelaxed(extra1, 5) ?? pickRelaxed(extra1, 6)
+        g1 = pickRelaxed(extra1, 5)
         if (g1 != null) console.log(`🟠 Relaxed placement: placing #${extra1} into group ${g1 + 1}`)
       }
       if (g1 != null) {
@@ -1759,8 +1781,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       } else {
         console.log(`⚠️ No group with capacity to place ${extra1}; will handle in final inclusion pass`)
       }
-
-      let g2 = pickSafe(extra2, 4) ?? pickSafe(extra2, 5) ?? pickSafe(extra2, 6)
+    let g2 = pickSafe(extra2)
       if (g2 == null) {
         // Relaxed placement for extra2
         const allGroups = groups.map((g, i) => ({ i, size: g.length }))
@@ -1769,7 +1790,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
             .filter(({ size }) => size < maxSize)
             .map(({ i }) => i)
             .sort((a, b) => calculateParticipantGroupCompatibility(p, groups[b], pairScores) - calculateParticipantGroupCompatibility(p, groups[a], pairScores))[0]
-        g2 = pickRelaxed(extra2, 4) ?? pickRelaxed(extra2, 5) ?? pickRelaxed(extra2, 6)
+        g2 = pickRelaxed(extra2, 5)
         if (g2 != null) console.log(`🟠 Relaxed placement: placing #${extra2} into group ${g2 + 1}`)
       }
       if (g2 != null) {
@@ -1777,7 +1798,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       } else {
         console.log(`⚠️ No group with capacity to place ${extra2}; will handle in final inclusion pass`)
       }
-      console.log(`✅ Attempted split for two participants across groups (avoiding matched pairs, preferring <=4/5)`)
+      console.log(`✅ Attempted split for two participants across groups (avoiding matched pairs, keeping size ≤5)`)
     }
   } else if (remainingParticipants.length === 3) {
     // 3 extra people - create a new group OR distribute among existing groups (hard-gate matched pairs)
@@ -1798,8 +1819,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         }
       }
     } else {
-      // Distribute among existing groups (avoid matched pairs, prefer making 4 or 5, avoid 6 if possible)
-      const prefOrder = [4, 5, 6]
+      // Distribute among existing groups (avoid matched pairs, prefer making 4, then allow 5)
+      const prefOrder = [4, 5]
       const unplaced = []
       for (const p of remainingParticipants) {
         let placed = false
@@ -1857,7 +1878,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   console.log(`   Participants in groups: ${participantsInGroups.size}/${eligibleParticipants.length}`)
   console.log(`   Participants NOT in groups: ${participantsNotInGroups.length}`)
   
-  // Final inclusion pass: force place any remaining participants into groups (prefer filling to 5, then to 6)
+  // Final inclusion pass: force place any remaining participants into groups (cap at size 5); then try forming new 3s from leftovers
   if (participantsNotInGroups.length > 0) {
     console.log(`\n🛠 Final inclusion pass to place ALL remaining participants...`)
     const unplaced = [...participantsNotInGroups]
@@ -1875,9 +1896,25 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       return false
     }
     for (const p of unplaced) {
+      if (tryPlace(p, 4)) continue
       if (tryPlace(p, 5)) continue
-      if (tryPlace(p, 6)) continue
-      console.log(`❌ No capacity found for #${p} even in final pass (all groups at 6). Consider manual redistribution if this occurs.`)
+      console.log(`❌ No capacity found for #${p} in final pass without exceeding size 5.`)
+    }
+    // Try to form new 3-person groups from any still-unplaced participants
+    const placedSet = new Set(groups.flat())
+    const leftover = eligibleParticipants.map(p => p.assigned_number).filter(n => !placedSet.has(n))
+    if (leftover.length >= 3) {
+      const pool = [...leftover]
+      while (pool.length >= 3) {
+        const chunk = findBestGroupAvoidingMatches(pool, pairScores, 3, areMatched, eligibleParticipants, bannedCombos)
+        if (!chunk) break
+        groups.push([...chunk])
+        for (const x of chunk) {
+          const idx = pool.indexOf(x)
+          if (idx >= 0) pool.splice(idx, 1)
+        }
+        console.log(`🧩 Final-pass: created new 3-person group from leftovers: [${chunk.join(', ')}]`)
+      }
     }
   }
   
@@ -1886,11 +1923,11 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} people)`);
   });
 
-  // Convert groups to group_matches table format (only sizes 3..6)
-  const validGroups = groups.filter(g => g.length >= 3 && g.length <= 6)
-  const skippedGroups = groups.filter(g => g.length < 3 || g.length > 6)
+  // Convert groups to group_matches table format (only sizes 3..5)
+  const validGroups = groups.filter(g => g.length >= 3 && g.length <= 5)
+  const skippedGroups = groups.filter(g => g.length < 3 || g.length > 5)
   if (skippedGroups.length > 0) {
-    console.log(`⚠️ Skipping ${skippedGroups.length} group(s) outside allowed size [3..6]: sizes = ${skippedGroups.map(g => g.length).join(', ')}`)
+    console.log(`⚠️ Skipping ${skippedGroups.length} group(s) outside allowed size [3..5]: sizes = ${skippedGroups.map(g => g.length).join(', ')}`)
   }
 
   const groupMatches = []
@@ -1917,7 +1954,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       participant_numbers: group, // Array of participant numbers
       participant_names: participantNames, // Array of participant names
       compatibility_score: Math.round(groupScore),
-      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 105%)`,
+      reason: `مجموعة من ${group.length} أشخاص بتوافق عالي (${Math.round(groupScore)}% من 100%)`,
       table_number: tableNumber,
       event_id: eventId,
       conversation_status: 'pending'
@@ -1999,15 +2036,18 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         }
       }
 
-      // 3) MBTI I/E: require at least 1 extrovert
-      const mbtiTypes = combination.map(participantNum => {
+      // 3) Q35 conversational_role: require at least 1 initiator (replaces extrovert requirement)
+      const rolesEarly = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
-      }).filter(Boolean)
-      const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
-      const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
-      if (mbtiTypes.length === combination.length && extrovertCount === 0) {
-        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no extroverts (${introvertCount}I, ${extrovertCount}E) - need at least 1E`)
+        return (
+          participant?.survey_data?.answers?.conversational_role ||
+          participant?.conversational_role ||
+          participant?.survey_data?.conversational_role
+        )
+      }).filter(Boolean).map(v => String(v).toUpperCase())
+      const hasInitiatorEarly = rolesEarly.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
+      if (rolesEarly.length === combination.length && !hasInitiatorEarly) {
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no initiator role present (Q35)`)
         continue
       }
 
@@ -2024,7 +2064,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         continue
       }
 
-      // 5) Base score from pairwise compatibility (0-105% with cached AI vibe)
+      // 5) Base score from pairwise compatibility (0–100% Spark-Only model)
       let score = calculateGroupCompatibilityScore(combination, pairScores)
 
       // Bonuses/Penalties (extended with synergy group bonuses)
@@ -2035,13 +2075,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
           console.log(`   ✨ Age similarity bonus: +5% (range: ${ageRange} years, ≤3 preferred)`) 
         }
       }
-      if (mbtiTypes.length === combination.length) {
-        const ieDiff = Math.abs(introvertCount - extrovertCount)
-        if (ieDiff <= 1) {
-          score += 3
-          console.log(`   ✨ I/E balance bonus: +3% (${introvertCount}I, ${extrovertCount}E)`) 
-        }
-      }
+      // MBTI I/E bonus removed per Spark-Only (MBTI excluded)
       // Humor/Banter style dynamics (use survey answers: humor_banter_style A/B/C/D)
       const banterStyles = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
@@ -2082,6 +2116,13 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         if (uniqueRoles.size === 3) {
           score += 3
           console.log(`   ✨ Full role trio bonus: +3% (A/B/C present)`) 
+        }
+        // Ideal Mix bonus: at least one Initiator (A) and one Reactor (B)
+        const hasArole = roles.includes('A') || roles.includes('INITIATOR') || roles.includes('INITIATE') || roles.includes('LEADER') || roles.includes('مبادر') || roles.includes('المبادر')
+        const hasBrole = roles.includes('B') || roles.includes('REACTOR') || roles.includes('RESPONDER') || roles.includes('متفاعل') || roles.includes('المتفاعل')
+        if (hasArole && hasBrole) {
+          score += 10
+          console.log(`   ✨ Ideal mix bonus: +10% (Initiator A + Reactor B)`) 
         }
       }
 
@@ -2125,8 +2166,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         const convType = yesCount > 0 ? 'deep' : noCount > 0 ? 'light' : 'flexible'
         const femaleStatus = hasSingleFemale ? ' (⚠️ single F)' : femaleCount >= 2 ? ' (✅ 2+ F)' : ''
         const ageInfo = ages.length === combination.length ? `, Age range: ${Math.max(...ages) - Math.min(...ages)}y` : ''
-        const ieInfo = mbtiTypes.length === combination.length ? `, I/E: ${introvertCount}I/${extrovertCount}E` : ''
-        console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${Math.round(score)}%, Gender: ${maleCount}M/${femaleCount}F${femaleStatus}, Conv: ${convType}${ageInfo}${ieInfo}`)
+        console.log(`✅ Better balanced group found [${combination.join(', ')}] - Score: ${Math.round(score)}%, Gender: ${maleCount}M/${femaleCount}F${femaleStatus}, Conv: ${convType}${ageInfo}`)
       }
     }
 
@@ -2182,13 +2222,17 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     if (maleCount === 0 || femaleCount === 0) continue
     if (femaleCount > 2) continue
 
-    // extrovert requirement
-    const mbtiTypes = combination.map(participantNum => {
+    // Initiator requirement (Q35): require at least one initiator when roles are fully known
+    const rolesEarly2 = combination.map(participantNum => {
       const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-      return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
-    }).filter(Boolean)
-    const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
-    if (mbtiTypes.length === combination.length && extrovertCount === 0) continue
+      return (
+        participant?.survey_data?.answers?.conversational_role ||
+        participant?.conversational_role ||
+        participant?.survey_data?.conversational_role
+      )
+    }).filter(Boolean).map(v => String(v).toUpperCase())
+    const hasInitiator2 = rolesEarly2.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
+    if (rolesEarly2.length === combination.length && !hasInitiator2) continue
 
     // conversation depth compatibility
     const conversationPrefs = combination.map(participantNum => {
@@ -2215,16 +2259,30 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     // Age <=3 bonus
     if (ageRange <= 3) score += 5
     // I/E balance bonus
-    if (mbtiTypes.length === combination.length) {
-      const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
-      const ieDiff = Math.abs(introvertCount - extrovertCount)
-      if (ieDiff <= 1) score += 3
-    }
+    // MBTI I/E bonus removed per Spark-Only (MBTI excluded)
     // size preference
     if (targetSize === 4) score += 5
     else if (targetSize === 5) score -= 5
     // single-female penalty
     if (hasSingleFemale) score = score * 0.7
+
+    // Ideal Mix in nearest-age fallback: +10% if roles fully known and both A and B present
+    const rolesNearest = combination.map(participantNum => {
+      const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+      return (
+        participant?.survey_data?.answers?.conversational_role ||
+        participant?.conversational_role ||
+        participant?.survey_data?.conversational_role
+      )
+    }).filter(Boolean).map(v => String(v).toUpperCase())
+    if (rolesNearest.length === combination.length) {
+      const hasAroleN = rolesNearest.includes('A') || rolesNearest.includes('INITIATOR') || rolesNearest.includes('INITIATE') || rolesNearest.includes('LEADER') || rolesNearest.includes('مبادر') || rolesNearest.includes('المبادر')
+      const hasBroleN = rolesNearest.includes('B') || rolesNearest.includes('REACTOR') || rolesNearest.includes('RESPONDER') || rolesNearest.includes('متفاعل') || rolesNearest.includes('المتفاعل')
+      if (hasAroleN && hasBroleN) {
+        score += 10
+        console.log(`   ✨ Ideal mix bonus: +10% (Initiator A + Reactor B)`) 
+      }
+    }
 
     if (
       ageRange < nearest.ageRange ||
@@ -2294,18 +2352,18 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       // Age similarity is preferred in primary algorithm, but not enforced in fallback
       console.log(`ℹ️ Fallback: Age constraints REMOVED for group [${combination.join(', ')}]`)
       
-      // CHECK INTROVERT/EXTROVERT BALANCE
-      const mbtiTypes = combination.map(participantNum => {
+      // CHECK Q35 Initiator presence (replaces extrovert presence)
+      const rolesFB = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.mbti_personality_type || participant?.survey_data?.mbtiType
-      }).filter(Boolean)
-      
-      const introvertCount = mbtiTypes.filter(m => m && m[0] === 'I').length
-      const extrovertCount = mbtiTypes.filter(m => m && m[0] === 'E').length
-      
-      // Require at least 1 extrovert per group (all-introvert groups not allowed, but all-extrovert is OK)
-      if (mbtiTypes.length === combination.length && extrovertCount === 0) {
-        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no extroverts (${introvertCount}I, ${extrovertCount}E) - need at least 1E`)
+        return (
+          participant?.survey_data?.answers?.conversational_role ||
+          participant?.conversational_role ||
+          participant?.survey_data?.conversational_role
+        )
+      }).filter(Boolean).map(v => String(v).toUpperCase())
+      const hasInitiatorFB = rolesFB.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
+      if (rolesFB.length === combination.length && !hasInitiatorFB) {
+        console.log(`🚫 Fallback: Skipping group combination [${combination.join(', ')}] - no initiator present (Q35)`)
         continue
       }
       
@@ -2322,11 +2380,7 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       const score = calculateGroupCompatibilityScore(combination, pairScores)
       let adjustedScore = score
       
-      // Bonus for balanced I/E distribution
-      if (mbtiTypes.length === combination.length) {
-        const ieDiff = Math.abs(introvertCount - extrovertCount)
-        if (ieDiff <= 1) adjustedScore += 3
-      }
+      // MBTI I/E bonus removed per Spark-Only (MBTI excluded)
       
       // Prefer groups of 4 over other sizes
       if (targetSize === 4) {
@@ -2356,6 +2410,10 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
           if (uniqueRoles.size === 3) {
             adjustedScore += 3
           }
+          // Ideal Mix bonus: Initiator (A) and Reactor (B)
+          const hasArole = roles.includes('A') || roles.includes('INITIATOR') || roles.includes('INITIATE') || roles.includes('LEADER') || roles.includes('مبادر') || roles.includes('المبادر')
+          const hasBrole = roles.includes('B') || roles.includes('REACTOR') || roles.includes('RESPONDER') || roles.includes('متفاعل') || roles.includes('المتفاعل')
+          if (hasArole && hasBrole) adjustedScore += 10
         }
 
         // Synergy group bonus 2: Curiosity/flow fit (Q39)
@@ -2457,7 +2515,7 @@ function calculateParticipantGroupCompatibility(participant, group, pairScores) 
   return pairCount > 0 ? totalScore / pairCount : 0
 }
 
-// Helper function to calculate group compatibility score (0-105% with cached AI vibe)
+// Helper function to calculate group compatibility score (0–100% Spark-Only average of pair scores)
 function calculateGroupCompatibilityScore(group, pairScores) {
   let totalScore = 0
   let pairCount = 0
@@ -2476,7 +2534,7 @@ function calculateGroupCompatibilityScore(group, pairScores) {
     }
   }
   
-  // Return average compatibility score (0-105% with cached AI vibe)
+  // Return average compatibility score (0–100 Spark-Only)
   const averageScore = pairCount > 0 ? totalScore / pairCount : 0
   return averageScore
 }
@@ -4035,6 +4093,91 @@ export default async function handler(req, res) {
         } catch (e) {
           console.error('preview-groups-topk error:', e)
           return res.status(500).json({ error: 'Failed to preview group arrangements' })
+        }
+      }
+
+      // Compute on-demand breakdown for a given set of participants (no DB writes)
+      if (action === "compute-group-breakdown") {
+        try {
+          const nums = Array.isArray(req.body?.participant_numbers) ? req.body.participant_numbers.map(n=>parseInt(n)).filter(Number.isFinite) : null
+          if (!nums || nums.length < 2) {
+            return res.status(400).json({ error: 'participant_numbers (>=2) are required' })
+          }
+
+          // Fetch participant details needed for scoring
+          const { data: participants, error: pErr } = await supabase
+            .from('participants')
+            .select('assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, humor_banter_style')
+            .in('assigned_number', nums)
+            .eq('match_id', match_id)
+          if (pErr) {
+            console.error('compute-group-breakdown fetch participants error:', pErr)
+            return res.status(500).json({ error: 'Failed to load participants' })
+          }
+          const pMap = new Map((participants||[]).map(p=>[p.assigned_number, p]))
+
+          // Weights (Spark-Only)
+          const W_SYNERGY = 45 / 35
+          const W_HUMOR = 30 / 15
+          const W_VIBE = 15 / 20
+          const W_LIFESTYLE = 5 / 15
+          const W_VALUES = 5 / 10
+
+          const pairs = []
+          for (let i=0;i<nums.length;i++){
+            for (let j=i+1;j<nums.length;j++){
+              const a = pMap.get(nums[i])
+              const b = pMap.get(nums[j])
+              if (!a || !b) continue
+              const mbtiScore = calculateMBTICompatibility(a.mbti_personality_type || a.survey_data?.mbtiType, b.mbti_personality_type || b.survey_data?.mbtiType)
+              const attachmentScore = calculateAttachmentCompatibility(a.attachment_style || a.survey_data?.attachmentStyle, b.attachment_style || b.survey_data?.attachmentStyle)
+              const communicationScore = calculateCommunicationCompatibility(a.communication_style || a.survey_data?.communicationStyle, b.communication_style || b.survey_data?.communicationStyle)
+              const lifestyleScore = calculateLifestyleCompatibility(a.survey_data?.lifestylePreferences, b.survey_data?.lifestylePreferences)
+              const coreValuesScoreRaw = calculateCoreValuesCompatibility(a.survey_data?.coreValues, b.survey_data?.coreValues)
+              const coreValuesScore = Math.max(0, Math.min(10, (coreValuesScoreRaw / 20) * 10))
+              const synergyRaw = calculateInteractionSynergyScore(a, b)
+              const { score: humorOpenRaw, vetoClash } = calculateHumorOpennessScore(a, b)
+              const synergyScore = Math.max(0, Math.min(35, synergyRaw))
+              const humorOpenScore = vetoClash ? 0 : Math.max(0, Math.min(15, humorOpenRaw))
+              let vibeScore = 12
+              try {
+                const cached = await getCachedCompatibility(a, b)
+                if (cached && Number.isFinite(cached.vibeScore)) {
+                  vibeScore = Math.max(0, Math.min(20, Number(cached.vibeScore)))
+                }
+              } catch {}
+
+              const pairTotal =
+                (synergyScore * W_SYNERGY) +
+                (humorOpenScore * W_HUMOR) +
+                (vibeScore * W_VIBE) +
+                (lifestyleScore * W_LIFESTYLE) +
+                (coreValuesScore * W_VALUES)
+
+              pairs.push({
+                a: a.assigned_number,
+                b: b.assigned_number,
+                totals: {
+                  pairTotal: Math.round(pairTotal),
+                  synergy: Math.round(synergyScore * W_SYNERGY),
+                  humor_open: Math.round(humorOpenScore * W_HUMOR),
+                  vibe: Math.round(vibeScore * W_VIBE),
+                  lifestyle: Math.round(lifestyleScore * W_LIFESTYLE),
+                  core_values: Math.round(coreValuesScore * W_VALUES)
+                },
+                raw: {
+                  synergyScore, humorOpenScore, vibeScore, lifestyleScore, coreValuesScore,
+                  mbtiScore, attachmentScore, communicationScore
+                }
+              })
+            }
+          }
+
+          const avg = pairs.length>0 ? Math.round(pairs.reduce((s,p)=>s+p.totals.pairTotal,0)/pairs.length) : 0
+          return res.status(200).json({ success: true, participant_numbers: nums, size: nums.length, average: avg, pairs })
+        } catch (e) {
+          console.error('compute-group-breakdown error:', e)
+          return res.status(500).json({ error: 'Failed to compute breakdown' })
         }
       }
 

@@ -210,17 +210,194 @@ export default async function handler(req, res) {
             return res.status(404).json({ error: `Participant #${pNum} not found` })
           }
 
-          // Evaluate best group by resulting score after insertion
-          let best = { group: null, newScore: -1 }
+          // Build previously matched pairs set (current event, any non-null round)
+          const { data: prevMatches } = await supabase
+            .from('match_results')
+            .select('participant_a_number, participant_b_number, round')
+            .eq('event_id', event_id)
+          const seenPairs = new Set()
+          for (const r of (prevMatches || [])) {
+            const a = r.participant_a_number, b = r.participant_b_number
+            if (!a || !b) continue
+            const k = a < b ? `${a}-${b}` : `${b}-${a}`
+            seenPairs.add(k)
+          }
+
+          // Build excluded pairs set
+          const { data: exclRows } = await supabase
+            .from('excluded_pairs')
+            .select('participant1_number, participant2_number')
+            .eq('match_id', STATIC_MATCH_ID)
+          const excludedPairs = new Set()
+          for (const e of (exclRows || [])) {
+            const a = e.participant1_number, b = e.participant2_number
+            if (!a || !b) continue
+            const k = a < b ? `${a}-${b}` : `${b}-${a}`
+            excludedPairs.add(k)
+          }
+
+          // Helpers: Spark-Only pair score
+          const W_SYNERGY = 45 / 35
+          const W_HUMOR = 30 / 15
+          const W_VIBE = 15 / 20
+          const W_LIFESTYLE = 5 / 15
+          const W_VALUES = 5 / 10
+
+          function toUpper(v){ try { return String(v||'').toUpperCase() } catch { return '' } }
+          function getAns(p, key){ try { let sd=p?.survey_data; if(typeof sd==='string'){ try{ sd=JSON.parse(sd)}catch{sd={}} } const a=sd?.answers||{}; return a[key] ?? sd?.[key] ?? p?.[key] ?? '' } catch { return '' } }
+
+          function sparkLifestyle15(prefs1, prefs2){
+            const base = calculateLifestyleCompatibilityLocal(prefs1, prefs2) // 0..25
+            return Math.max(0, Math.min(15, base * (15/25)))
+          }
+          function sparkCore10(vals1, vals2){
+            const base = calculateCoreValuesCompatibilityLocal(vals1, vals2) // 0..20
+            return Math.max(0, Math.min(10, base * 0.5))
+          }
+          // Local Spark components
+          function computeSynergyScore(pa, pb){
+            const a35 = toUpper(getAns(pa, 'conversational_role'))
+            const b35 = toUpper(getAns(pb, 'conversational_role'))
+            const a36 = toUpper(getAns(pa, 'conversation_depth_pref'))
+            const b36 = toUpper(getAns(pb, 'conversation_depth_pref'))
+            const a37 = toUpper(getAns(pa, 'social_battery'))
+            const b37 = toUpper(getAns(pb, 'social_battery'))
+            const a38 = toUpper(getAns(pa, 'humor_subtype'))
+            const b38 = toUpper(getAns(pb, 'humor_subtype'))
+            const a39 = toUpper(getAns(pa, 'curiosity_style'))
+            const b39 = toUpper(getAns(pb, 'curiosity_style'))
+            const a41 = toUpper(getAns(pa, 'silence_comfort'))
+            const b41 = toUpper(getAns(pb, 'silence_comfort'))
+            let total = 0
+            if ((a35 === 'A' && (b35 === 'B' || b35 === 'C')) || (b35 === 'A' && (a35 === 'B' || a35 === 'C'))) total += 7
+            else if (a35 === 'B' && b35 === 'B') total += 4
+            else if (a35 === 'A' && b35 === 'A') total += 2
+            else if (a35 === 'C' && b35 === 'C') total += 0
+            else if (a35 && b35) total += 3
+            if (a36 && b36) total += (a36 === b36 ? 5 : 1)
+            if (a37 && b37) { if (a37 === 'A' && b37 === 'A') total += 4; else if (a37 === 'B' && b37 === 'B') total += 3; else total += 1 }
+            if (a38 && b38) total += (a38 === b38 ? 4 : 1)
+            if (a39 && b39) { if ((a39 === 'A' && b39 === 'B') || (a39 === 'B' && b39 === 'A')) total += 5; else if (a39 === 'C' && b39 === 'C') total += 5; else if ((a39 === 'A' && b39 === 'A') || (a39 === 'B' && b39 === 'B')) total += 0; else total += 3 }
+            if (a41 && b41) { if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5; else if (a41 === 'A' && b41 === 'A') total += 3; else if (a41 === 'B' && b41 === 'B') total += 0 }
+            return Math.min(35, (total * (35 / 30)))
+          }
+          function computeHumorOpenScore(pa, pb){
+            const hA = toUpper(getAns(pa, 'humor_banter_style'))
+            const hB = toUpper(getAns(pb, 'humor_banter_style'))
+            const oAraw = getAns(pa, 'early_openness_comfort')
+            const oBraw = getAns(pb, 'early_openness_comfort')
+            const oA = oAraw !== '' && oAraw !== undefined && oAraw !== null ? parseInt(oAraw) : undefined
+            const oB = oBraw !== '' && oBraw !== undefined && oBraw !== null ? parseInt(oBraw) : undefined
+            let humor = 0
+            if (hA && hB) {
+              if (hA === hB) humor = 10
+              else if ((hA === 'A' && hB === 'B') || (hA === 'B' && hB === 'A')) humor = 8
+              else if ((hA === 'B' && hB === 'C') || (hA === 'C' && hB === 'B') || (hA === 'C' && hB === 'D') || (hA === 'D' && hB === 'C')) humor = 5
+              else if ((hA === 'A' && hB === 'D') || (hA === 'D' && hB === 'A')) humor = 0
+              else humor = 5
+            }
+            let open = 0
+            if (oA !== undefined && oB !== undefined) {
+              const dist = Math.abs(oA - oB)
+              if (dist === 0) open = 5
+              else if (dist === 1) open = 3
+              else if (dist === 2) open = 1
+              else open = 0
+            }
+            return humor + open // 0..15
+          }
+          function sparkPairScore(a, b){
+            const synergy = Math.max(0, Math.min(35, computeSynergyScore(a, b)))
+            const humor = Math.max(0, Math.min(15, computeHumorOpenScore(a, b)))
+            let vibe = 12 // default
+            // Keep default 12; cached AI vibe may adjust in trigger-match; acceptable approximation here
+            const life = sparkLifestyle15(a?.survey_data?.lifestylePreferences, b?.survey_data?.lifestylePreferences)
+            const core = sparkCore10(a?.survey_data?.coreValues, b?.survey_data?.coreValues)
+            return (synergy*W_SYNERGY) + (humor*W_HUMOR) + (vibe*W_VIBE) + (life*W_LIFESTYLE) + (core*W_VALUES)
+          }
+          function sparkGroupAverage(participantsArr){
+            let sum=0, count=0
+            for(let i=0;i<participantsArr.length;i++){
+              for(let j=i+1;j<participantsArr.length;j++){
+                sum += sparkPairScore(participantsArr[i], participantsArr[j])
+                count++
+              }
+            }
+            return count>0 ? (sum/count) : 0
+          }
+
+          function rolesOf(nums){
+            return nums.map(n=>detailsMap.get(n)).filter(Boolean).map(p=>toUpper(getAns(p,'conversational_role'))).filter(Boolean)
+          }
+          function hasInitiatorRole(nums){
+            const roles = rolesOf(nums)
+            if (roles.length !== nums.length) return true // only enforce when fully known
+            return roles.some(r => r==='A' || r==='INITIATOR' || r==='INITIATE' || r==='LEADER' || r==='مبادر' || r==='المبادر')
+          }
+          function conversationCompatible(nums){
+            const prefs = nums.map(n=>detailsMap.get(n)).filter(Boolean).map(p=>p?.survey_data?.vibe_4).filter(Boolean)
+            const yes = prefs.filter(v=>v==='نعم').length
+            const no = prefs.filter(v=>v==='لا').length
+            return !(yes>0 && no>0)
+          }
+          function gendersCount(nums){
+            const g=nums.map(n=>detailsMap.get(n)).filter(Boolean).map(p=> (p.gender||p.survey_data?.gender||'').toString().toLowerCase())
+            const male=g.filter(x=>x==='male'||x==='m'||x==='ذكر').length
+            const female=g.filter(x=>x==='female'||x==='f'||x==='أنثى').length
+            return {male,female}
+          }
+          function wouldCreateMatchedPairWithCandidate(nums){
+            for(const n of nums){
+              const a=Math.min(pNum,n), b=Math.max(pNum,n)
+              if (seenPairs.has(`${a}-${b}`)) return true
+              if (excludedPairs.has(`${a}-${b}`)) return true
+            }
+            return false
+          }
+          function ageStats(nums){
+            const ages = nums.map(n=>detailsMap.get(n)).filter(Boolean).map(p=> (typeof p.age==='number'?p.age:parseInt(p?.survey_data?.age,10)) ).filter(v=>Number.isFinite(v))
+            if (ages.length!==nums.length) return { range:null }
+            return { range: Math.max(...ages)-Math.min(...ages) }
+          }
+
+          // Evaluate best group by resulting selection score and keep base Spark-only average for persistence
+          let best = { group: null, selectScore: -1, baseAvg: 0 }
           for (const g of candidateGroups) {
-            const nums = Array.isArray(g.participant_numbers) ? g.participant_numbers : []
-            const groupParticipants = nums.map(n => detailsMap.get(n)).filter(Boolean)
-            // If any member details missing, skip group (shouldn't happen often)
-            if (groupParticipants.length !== nums.length) continue
-            const newParticipants = [...groupParticipants, candidate]
-            const score = calculateGroupCompatibilityLocal(newParticipants)
-            if (score > best.newScore) {
-              best = { group: g, newScore: score }
+            const nums = Array.isArray(g.participant_numbers) ? g.participant_numbers.slice() : []
+            // Constraint: avoid creating excluded/previously matched pairs with candidate
+            if (wouldCreateMatchedPairWithCandidate(nums)) continue
+            const prospective = [...nums, pNum]
+            // Constraint: initiator present (if roles known for all)
+            if (!hasInitiatorRole(prospective)) continue
+            // Constraint: conversation depth compatible
+            if (!conversationCompatible(prospective)) continue
+            // Constraint: gender balance and female cap
+            const {male, female} = gendersCount(prospective)
+            if (male===0 || female===0) continue
+            if (female>2) continue
+
+            // Compute base average (Spark-Only 0..100)
+            const participantsArr = prospective.map(n=>detailsMap.get(n)).filter(Boolean)
+            if (participantsArr.length !== prospective.length) continue
+            const baseAvg = sparkGroupAverage(participantsArr)
+
+            // Selection heuristics (non-persistent bonuses)
+            let select = baseAvg
+            const stats = ageStats(prospective)
+            if (stats.range!=null && stats.range<=3) select += 5
+            // size preference
+            if (prospective.length===4) select += 5
+            else if (prospective.length===5) select -= 5
+            // single-female penalty
+            if (prospective.length===4 && female===1) select = select * 0.7
+            // role coverage + ideal mix bonuses
+            const r = rolesOf(prospective)
+            if (r.length>=2){ const uniq=new Set(r); if (uniq.size>=2) select+=3; if (uniq.size===3) select+=3; const hasA=r.includes('A')||r.includes('INITIATOR')||r.includes('INITIATE')||r.includes('LEADER')||r.includes('مبادر')||r.includes('المبادر'); const hasB=r.includes('B')||r.includes('REACTOR')||r.includes('RESPONDER')||r.includes('متفاعل')||r.includes('المتفاعل'); if (hasA && hasB) select += 10 }
+            // conversation compatibility soft bonus
+            if (conversationCompatible(prospective)) select += 3
+
+            if (select > best.selectScore) {
+              best = { group: g, selectScore: select, baseAvg }
             }
           }
 
@@ -235,7 +412,7 @@ export default async function handler(req, res) {
             const p = detailsMap.get(n)
             return (p?.name || p?.survey_data?.name || `المشارك #${n}`)
           })
-          const roundedScore = Math.round(best.newScore)
+          const roundedScore = Math.round(best.baseAvg)
 
           const { error: updErr } = await supabase
             .from("group_matches")
@@ -1704,10 +1881,13 @@ export default async function handler(req, res) {
           const female = genders.filter(g=>g==='female').length
           if (male===0 || female===0) warnings.push(`لا يوجد توازن بين الجنسين (${male}♂ / ${female}♀)`) 
           if (female>2) warnings.push(`عدد الإناث يتجاوز الحد المسموح ( ${female} > 2 )`)
-          // Extrovert presence
-          const mbtis = participants.map(p=>p.mbti_personality_type || p.survey_data?.mbtiType).filter(Boolean)
-          const ext = mbtis.filter(t=>t && t[0]==='E').length
-          if (mbtis.length===participants.length && ext===0) warnings.push("لا يوجد أي منفتح (Extrovert) في المجموعة")
+          // Initiator presence (Q35 conversational_role)
+          const roles = participants
+            .map(p => p?.survey_data?.answers?.conversational_role || p?.conversational_role || p?.survey_data?.conversational_role)
+            .filter(Boolean)
+            .map(v => String(v).toUpperCase())
+          const hasInitiator = roles.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
+          if (roles.length === participants.length && !hasInitiator) warnings.push("لا يوجد مُبادر (Q35) ضمن المجموعة")
           // Conversation depth mismatch
           const conv = participants.map(p=>p.survey_data?.vibe_4).filter(Boolean)
           const yes = conv.filter(v=>v==='نعم').length; const no = conv.filter(v=>v==='لا').length

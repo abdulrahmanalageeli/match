@@ -5051,6 +5051,53 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 BULK PAYMENT STATUS - Set PAID_DONE for multiple participants
+    if (action === "bulk-payment-status") {
+      try {
+        const { participantNumbers, paid } = req.body
+
+        if (!Array.isArray(participantNumbers) || participantNumbers.length === 0) {
+          return res.status(400).json({ error: "participantNumbers must be a non-empty array" })
+        }
+        if (typeof paid !== 'boolean') {
+          return res.status(400).json({ error: "paid must be a boolean" })
+        }
+
+        const list = participantNumbers.filter((n) => typeof n === 'number')
+        if (list.length === 0) {
+          return res.status(400).json({ error: "No valid participant numbers provided" })
+        }
+
+        console.log(`💳 Bulk updating PAID_DONE=${paid} for ${list.length} participants: [${list.join(', ')}]`)
+
+        const { data, error } = await supabase
+          .from("participants")
+          .update({ PAID_DONE: paid })
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", list)
+          .select("assigned_number")
+
+        if (error) {
+          console.error("Error during bulk-payment-status:", error)
+          return res.status(500).json({ error: "Failed to bulk update payment status" })
+        }
+
+        const updatedCount = Array.isArray(data) ? data.length : 0
+        console.log(`✅ Bulk payment status updated for ${updatedCount} participants (requested ${list.length})`)
+
+        return res.status(200).json({
+          success: true,
+          message: `Updated payment status for ${updatedCount} participant(s)`,
+          updatedCount,
+          requestedCount: list.length,
+          participants: data?.map((d) => d.assigned_number) || []
+        })
+      } catch (error) {
+        console.error("Error in bulk-payment-status:", error)
+        return res.status(500).json({ error: "Failed to bulk update payment status" })
+      }
+    }
+
     // 🔹 UPDATE GENDER PREFERENCE - Update gender preference for individual participant
     if (action === "update-gender-preference") {
       try {

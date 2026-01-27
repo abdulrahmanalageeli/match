@@ -160,6 +160,9 @@ export default function AdminPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [exportTemplateType, setExportTemplateType] = useState<'match' | 'early-match' | 'payment-reminder' | 'reminder' | 'survey-completion'>('match');
   
+  // Bulk payment update state
+  const [bulkPayLoading, setBulkPayLoading] = useState(false);
+  
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState<{participantNumber: number, type: 'message' | 'payment'} | null>(null);
   
@@ -775,6 +778,39 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
       toast.error('حدث خطأ في تحديث حالة الرسالة');
     } finally {
       setUpdatingStatus(null);
+    }
+  }
+
+  // Bulk set payment status for selected participants
+  const bulkSetPaymentStatus = async (paid: boolean) => {
+    const list = Array.from(selectedParticipants);
+    if (list.length === 0) {
+      toast.error('اختر مشاركين أولاً');
+      return;
+    }
+    const label = paid ? 'كمدفوع' : 'كغير مدفوع';
+    if (!confirm(`تحديث حالة الدفع ${label} لعدد ${list.length} مشارك/ة؟`)) return;
+
+    setBulkPayLoading(true);
+    try {
+      const res = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bulk-payment-status', participantNumbers: list, paid })
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        toast.error(data?.error || 'فشل تحديث حالة الدفع');
+        return;
+      }
+      toast.success(`تم تحديث حالة الدفع لـ ${data.updatedCount} مشارك/ة`);
+      // Optionally keep selection; here we keep it. Refresh list to reflect badges
+      fetchParticipants();
+    } catch (e: any) {
+      console.error('Bulk payment update error:', e);
+      toast.error(e?.message || 'Network error');
+    } finally {
+      setBulkPayLoading(false);
     }
   }
 
@@ -5266,9 +5302,38 @@ Proceed?`
               </button>
             )}
 
-            {/* Export Template Selection */}
+            {/* Bulk Actions + Export (visible when there is a selection) */}
             {selectedParticipants.size > 0 && (
               <>
+                {/* Bulk Mark Paid */}
+                <button
+                  onClick={() => bulkSetPaymentStatus(true)}
+                  disabled={bulkPayLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {bulkPayLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="w-4 h-4" />
+                  )}
+                  Mark Paid ({selectedParticipants.size})
+                </button>
+
+                {/* Bulk Mark Not Paid */}
+                <button
+                  onClick={() => bulkSetPaymentStatus(false)}
+                  disabled={bulkPayLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {bulkPayLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CreditCard className="w-4 h-4" />
+                  )}
+                  Mark Not Paid ({selectedParticipants.size})
+                </button>
+
+                {/* Export Template Selection */}
                 <div className="relative">
                   <select
                     value={exportTemplateType}

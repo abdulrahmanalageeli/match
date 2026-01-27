@@ -2010,7 +2010,14 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     if (leftover.length >= 3) {
       const pool = [...leftover]
       while (pool.length >= 3) {
-        const chunk = findBestGroupAvoidingMatches(pool, pairScores, 3, areMatched, eligibleParticipants, bannedCombos)
+        let chunk = findBestGroupAvoidingMatches(pool, pairScores, 3, areMatched, eligibleParticipants, bannedCombos)
+        if (!chunk) {
+          console.log(`⚠️ Final-pass: no safe 3-person combination found; trying RELAXED 3-person fallback`)
+          const relaxed3 = findBestGroup(pool, pairScores, 3, eligibleParticipants, areMatched)
+          if (relaxed3) {
+            chunk = relaxed3
+          }
+        }
         if (!chunk) break
         groups.push([...chunk])
         for (const x of chunk) {

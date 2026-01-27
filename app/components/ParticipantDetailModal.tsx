@@ -62,6 +62,7 @@ export default function ParticipantDetailModal({
   const [participantData, setParticipantData] = useState<Map<number, any>>(new Map())
   // Loading indicator for creating a manual match for a specific partner number
   const [creatingManualFor, setCreatingManualFor] = useState<number | null>(null)
+  const [orgImpressions, setOrgImpressions] = useState<Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }>>([])
 
   // Build quick lookup for locked partners and their locked scores
   const lockedByParticipant = useMemo(() => {
@@ -114,6 +115,52 @@ export default function ParticipantDetailModal({
 
     fetchParticipantData()
   }, [isOpen, matches])
+
+  // Organizer impressions: collect from get-all-matches across events
+  useEffect(() => {
+    const fetchImpressions = async () => {
+      if (!isOpen || !participant?.assigned_number) return
+      try {
+        const res = await fetch('/api/admin', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'get-all-matches' })
+        })
+        const data = await res.json()
+        const matches = Array.isArray(data?.matches) ? data.matches : []
+        const num = participant.assigned_number
+        const seen = new Set<string>()
+        const items: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
+        for (const m of matches) {
+          const aNum = m?.participant_a?.number
+          const bNum = m?.participant_b?.number
+          const ev = m?.round
+          let fb: any = null
+          let partner: number | undefined = undefined
+          if (aNum === num) { fb = m?.feedback?.participant_a; partner = bNum }
+          else if (bNum === num) { fb = m?.feedback?.participant_b; partner = aNum }
+          const txt = fb?.organizer_impression
+          if (txt && String(txt).trim() !== '') {
+            const key = `${ev ?? ''}-${partner ?? ''}-${String(txt).trim()}`
+            if (!seen.has(key)) {
+              seen.add(key)
+              items.push({ text: String(txt), eventId: ev, partner, submitted_at: fb?.submitted_at || undefined })
+            }
+          }
+        }
+        items.sort((x, y) => {
+          const dx = x.submitted_at ? new Date(x.submitted_at).getTime() : 0
+          const dy = y.submitted_at ? new Date(y.submitted_at).getTime() : 0
+          if (dx !== dy) return dy - dx
+          return (y.eventId || 0) - (x.eventId || 0)
+        })
+        setOrgImpressions(items)
+      } catch (e) {
+        console.error('Error fetching organizer impressions:', e)
+        setOrgImpressions([])
+      }
+    }
+    fetchImpressions()
+  }, [isOpen, participant?.assigned_number])
 
   // Create a manual match using the same API used in admin.tsx (trigger-match with manualMatch)
   const createManualMatch = async (partnerNumber: number) => {
@@ -266,6 +313,31 @@ export default function ParticipantDetailModal({
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Organizer Impressions */}
+              <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Info className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm text-slate-300">انطباعات المنظّم</span>
+                  <span className="ml-auto text-xs text-slate-400">{orgImpressions.length}</span>
+                </div>
+                {orgImpressions.length === 0 ? (
+                  <div className="text-xs text-slate-400">لا توجد انطباعات</div>
+                ) : (
+                  <ul className="space-y-1 max-h-40 overflow-y-auto pr-1">
+                    {orgImpressions.map((it, idx) => (
+                      <li key={idx} className="text-xs text-slate-200 flex items-start gap-2">
+                        <span className="mt-1 w-1.5 h-1.5 rounded-full bg-cyan-400/80"></span>
+                        <span className="flex-1">
+                          {it.text}
+                          <span className="ml-2 text-[10px] text-slate-400">
+                            {typeof it.eventId === 'number' ? `E${it.eventId}` : ''}{it.partner ? ` • #${it.partner}` : ''}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               {/* Summary Stats */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white/5 backdrop-blur-sm border border-white/20 rounded-xl p-4">

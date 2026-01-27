@@ -1642,26 +1642,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   const usedParticipants = new Set()
   const participantNumbers = eligibleParticipants.map(p => p.assigned_number)
   
-  // Phase 1: Form core groups of 4 first (strictly avoid matched pairs and ensure gender balance)
-  console.log("🔄 Phase 1: Creating core groups of 4 (avoiding matched pairs, ensuring gender balance)")
-  while (participantNumbers.filter(p => !usedParticipants.has(p)).length >= 4) {
-    const availableParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
-    let group = findBestGroupAvoidingMatches(availableParticipants, pairScores, 4, areMatched, eligibleParticipants, bannedCombos)
-    
-    // Fallback (still strict on matched pairs): relax non-hard constraints but NEVER allow matched pairs
-    if (!group && availableParticipants.length >= 4) {
-      console.log("⚠️ No groups of 4 possible under strict constraints - using strict fallback (no matched pairs)")
-      group = findBestGroup(availableParticipants, pairScores, 4, eligibleParticipants, areMatched)
-    }
-    
-    if (group) {
-      groups.push([...group]) // Create a copy to allow modification
-      group.forEach(p => usedParticipants.add(p))
-      console.log(`✅ Created core group of 4: [${group.join(', ')}]`)
-    } else {
-      break
-    }
-  }
+  // Phase 1 (Relaxed): Skip 4-first strategy and consider sizes 3/4/5 from the start.
+  console.log("🔄 Phase 1 skipped (relaxed): considering 3/4/5 from the start")
   
   // Phase 2: Handle remaining participants
   const remainingParticipants = participantNumbers.filter(p => !usedParticipants.has(p))

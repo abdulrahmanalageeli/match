@@ -25,6 +25,18 @@ interface GroupAssignmentsModalProps {
   cohostTheme?: boolean
 }
 
+type RoleKey = 'initiator' | 'reactor' | 'listener' | 'unknown'
+interface ProfileStats {
+  roleCounts: Record<RoleKey, number>
+  conversationDepth: { yes: number; no: number; unknown: number }
+  humorStyles: Record<string, number>
+  curiosityStyles: Record<string, number>
+  silenceComfort: Record<string, number>
+  genderCounts: { male: number; female: number; other: number }
+  age: { min: number | null; max: number | null; range: number | null; list: number[] }
+  size: number
+}
+
 export default function GroupAssignmentsModal({
   isOpen,
   onClose,
@@ -104,6 +116,7 @@ export default function GroupAssignmentsModal({
       b: number
       totals: { pairTotal: number; synergy: number; humor_open: number; vibe: number; lifestyle: number; core_values: number }
     }>
+    profile?: ProfileStats
   }>(null)
 
   async function openBreakdown(group: GroupAssignment) {
@@ -122,20 +135,106 @@ export default function GroupAssignmentsModal({
       if (!res.ok || !data?.success) {
         alert(data?.error || 'تعذر حساب تفاصيل المجموعة')
       } else {
-        setBreakdownData({
+        // Base payload from backend
+        const basePayload = {
           average: data.average,
           adjusted: data.adjusted,
           constraints: data.constraints,
           factors: data.factors,
           participant_numbers: data.participant_numbers,
           pairs: data.pairs || []
-        })
+        }
+        // Fetch participants to compute richer profile stats (roles, conversation, humor, etc.)
+        try {
+          const participantsRes = await fetch('/api/admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'participants' })
+          })
+          const participantsData = await participantsRes.json()
+          const allParticipants = participantsData.participants || []
+          const inGroup = allParticipants.filter((p: any) => nums.includes(p.assigned_number))
+
+          const profile = computeProfileStats(inGroup)
+          setBreakdownData({ ...basePayload, profile })
+        } catch (e) {
+          // If participant enrichment fails, still render core payload
+          setBreakdownData(basePayload)
+        }
       }
     } catch (e) {
       console.error('breakdown error', e)
       alert('حدث خطأ أثناء حساب التفاصيل')
     } finally {
       setBreakdownLoading(false)
+    }
+  }
+
+  function normalizeStr(v: any): string {
+    if (v == null) return ''
+    return String(v).trim()
+  }
+  function toUpper(v: any): string { return normalizeStr(v).toUpperCase() }
+  function classifyRole(raw: any): RoleKey {
+    const v = toUpper(raw)
+    if (v === 'A' || v === 'INITIATOR' || v === 'INITIATE' || v === 'LEADER' || v === 'مبادر' || v === 'المبادر') return 'initiator'
+    if (v === 'B' || v === 'REACTOR' || v === 'RESPONDER' || v === 'RESPONSE' || v === 'متفاعل' || v === 'المتفاعل') return 'reactor'
+    if (v === 'C' || v === 'LISTENER' || v === 'LISTEN' || v === 'مستمع' || v === 'المستمع') return 'listener'
+    return 'unknown'
+  }
+  function computeProfileStats(inGroup: any[]): ProfileStats {
+    const roleCounts: Record<RoleKey, number> = { initiator: 0, reactor: 0, listener: 0, unknown: 0 }
+    const conversationDepth = { yes: 0, no: 0, unknown: 0 }
+    const humorStyles: Record<string, number> = {}
+    const curiosityStyles: Record<string, number> = {}
+    const silenceComfort: Record<string, number> = {}
+    const genderCounts = { male: 0, female: 0, other: 0 }
+    const ages: number[] = []
+
+    for (const p of inGroup) {
+      // Role
+      const roleRaw = p?.survey_data?.answers?.conversational_role || p?.conversational_role || p?.survey_data?.conversational_role
+      const rk = classifyRole(roleRaw)
+      roleCounts[rk]++
+      // Conversation depth (Arabic yes/no or boolean-like)
+      const depthRaw = p?.survey_data?.vibe_4 || p?.survey_data?.answers?.conversation_depth_pref || p?.conversation_depth_pref
+      const depthUp = toUpper(depthRaw)
+      if (depthUp === 'نعم' || depthUp === 'YES' || depthUp === 'Y' || depthUp === 'TRUE') conversationDepth.yes++
+      else if (depthUp === 'لا' || depthUp === 'NO' || depthUp === 'N' || depthUp === 'FALSE') conversationDepth.no++
+      else conversationDepth.unknown++
+      // Humor style
+      const humorRaw = p?.humor_banter_style || p?.survey_data?.humor_banter_style || p?.survey_data?.answers?.humor_banter_style
+      const humorKey = normalizeStr(humorRaw) || '—'
+      humorStyles[humorKey] = (humorStyles[humorKey] || 0) + 1
+      // Curiosity style
+      const curRaw = p?.survey_data?.answers?.curiosity_style || p?.curiosity_style || p?.survey_data?.curiosity_style
+      const curKey = normalizeStr(curRaw) || '—'
+      curiosityStyles[curKey] = (curiosityStyles[curKey] || 0) + 1
+      // Silence comfort
+      const silRaw = p?.survey_data?.answers?.silence_comfort || p?.silence_comfort || p?.survey_data?.silence_comfort
+      const silKey = normalizeStr(silRaw) || '—'
+      silenceComfort[silKey] = (silenceComfort[silKey] || 0) + 1
+      // Gender
+      const g = toUpper(p?.gender || p?.survey_data?.gender)
+      if (g === 'MALE' || g === 'M' || g === 'ذَكَر' || g === 'ذكر') genderCounts.male++
+      else if (g === 'FEMALE' || g === 'F' || g === 'أُنثَى' || g === 'أنثى' || g === 'FEMALE ' ) genderCounts.female++
+      else genderCounts.other++
+      // Age
+      const age = Number(p?.age || p?.survey_data?.age)
+      if (Number.isFinite(age)) ages.push(age)
+    }
+    const min = ages.length ? Math.min(...ages) : null
+    const max = ages.length ? Math.max(...ages) : null
+    const range = (min != null && max != null) ? (max - min) : null
+    return {
+      roleCounts,
+      conversationDepth,
+      humorStyles,
+      curiosityStyles,
+      silenceComfort,
+      genderCounts,
+      age: { min, max, range, list: ages },
+      size: inGroup.length,
     }
   }
 
@@ -987,29 +1086,109 @@ export default function GroupAssignmentsModal({
                       </div>
                     </div>
                   )}
-                  <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-                    <div className="grid grid-cols-6 gap-0 text-xs font-semibold text-slate-300 border-b border-white/10">
-                      <div className="p-2">الثنائي</div>
-                      <div className="p-2 text-right">المجموع</div>
-                      <div className="p-2 text-right">التفاعل</div>
-                      <div className="p-2 text-right">المرح/الانفتاح</div>
-                      <div className="p-2 text-right">الاهتمامات</div>
-                      <div className="p-2 text-right">نمط الحياة/القيم</div>
-                    </div>
-                    <div>
-                      {breakdownData.pairs.map((pr, idx) => (
-                        <div key={idx} className="grid grid-cols-6 items-center text-xs border-b border-white/5 last:border-b-0">
-                          <div className="p-2 text-slate-200">#{pr.a} × #{pr.b}</div>
-                          <div className="p-2 text-right text-white font-semibold">{pr.totals.pairTotal}%</div>
-                          <div className="p-2 text-right text-slate-200">{pr.totals.synergy}%</div>
-                          <div className="p-2 text-right text-slate-200">{pr.totals.humor_open}%</div>
-                          <div className="p-2 text-right text-slate-200">{pr.totals.vibe}%</div>
-                          <div className="p-2 text-right text-slate-200">{pr.totals.lifestyle + pr.totals.core_values}%</div>
+                  {/* Summary instead of pair-by-pair weights */}
+                  {breakdownData.profile && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Roles */}
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+                        <div className="font-semibold text-slate-300 mb-2">أدوار المحادثة</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200">مبادر: <b className="ml-1">{breakdownData.profile.roleCounts.initiator}</b></span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-200">متفاعل: <b className="ml-1">{breakdownData.profile.roleCounts.reactor}</b></span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200">مستمع: <b className="ml-1">{breakdownData.profile.roleCounts.listener}</b></span>
+                          {breakdownData.profile.roleCounts.unknown > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-600/40 text-slate-200">غير معروف: <b className="ml-1">{breakdownData.profile.roleCounts.unknown}</b></span>
+                          )}
                         </div>
-                      ))}
+                      </div>
+                      {/* Conversation depth */}
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+                        <div className="font-semibold text-slate-300 mb-2">تفضيل عمق الحوار</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-200">نعم: <b className="ml-1">{breakdownData.profile.conversationDepth.yes}</b></span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-200">لا: <b className="ml-1">{breakdownData.profile.conversationDepth.no}</b></span>
+                          {breakdownData.profile.conversationDepth.unknown > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-600/40 text-slate-200">غير معروف: <b className="ml-1">{breakdownData.profile.conversationDepth.unknown}</b></span>
+                          )}
+                        </div>
+                      </div>
+                      {/* Humor styles */}
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+                        <div className="font-semibold text-slate-300 mb-2">أنماط الفكاهة</div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {Object.entries(breakdownData.profile.humorStyles).map(([k, v]) => (
+                            <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-fuchsia-500/20 text-fuchsia-200">{k || '—'}: <b className="ml-1">{v as number}</b></span>
+                          ))}
+                        </div>
+                      </div>
+                      {/* Curiosity + Silence */}
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+                        <div className="font-semibold text-slate-300 mb-2">الفضول وراحة الصمت</div>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-slate-400">الفضول:</span>
+                            {Object.entries(breakdownData.profile.curiosityStyles).map(([k, v]) => (
+                              <span key={`c-${k}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-200">{k || '—'}: <b className="ml-1">{v as number}</b></span>
+                            ))}
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-slate-400">راحة الصمت:</span>
+                            {Object.entries(breakdownData.profile.silenceComfort).map(([k, v]) => (
+                              <span key={`s-${k}`} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-200">{k || '—'}: <b className="ml-1">{v as number}</b></span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      {/* Gender & Age */}
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+                        <div className="font-semibold text-slate-300 mb-2">الجنس والعمر</div>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-200">ذكور: <b className="ml-1">{breakdownData.profile.genderCounts.male}</b></span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-200">إناث: <b className="ml-1">{breakdownData.profile.genderCounts.female}</b></span>
+                          {breakdownData.profile.genderCounts.other > 0 && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-600/40 text-slate-200">أخرى: <b className="ml-1">{breakdownData.profile.genderCounts.other}</b></span>
+                          )}
+                        </div>
+                        <div className="text-slate-300">العمر: {breakdownData.profile.age.min != null ? breakdownData.profile.age.min : '—'}–{breakdownData.profile.age.max != null ? breakdownData.profile.age.max : '—'} (المدى: {breakdownData.profile.age.range != null ? breakdownData.profile.age.range : '—'} سنة)</div>
+                      </div>
+                      {/* Insights */}
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs sm:col-span-2">
+                        <div className="font-semibold text-slate-300 mb-2">مؤشرات نوعية</div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <ul className="list-disc list-inside space-y-1 text-green-300">
+                            {/* Positives */}
+                            {(() => {
+                              const pos: string[] = []
+                              if ((breakdownData.profile.roleCounts.initiator || 0) >= 1) pos.push('وجود مبادر واحد على الأقل')
+                              const hasA = (breakdownData.profile.roleCounts.initiator || 0) > 0
+                              const hasB = (breakdownData.profile.roleCounts.reactor || 0) > 0
+                              if (hasA && hasB) pos.push('تغطية أدوار متوازنة (مبادر/متفاعل)')
+                              if ((breakdownData.constraints?.gender_balance) === true) pos.push('توازن جيد بين الجنسين')
+                              if (typeof breakdownData.constraints?.age_range === 'number' && breakdownData.constraints!.age_range <= 3) pos.push('مدى الأعمار متقارب (≤ 3)')
+                              if (breakdownData.profile.conversationDepth.no === 0 || breakdownData.profile.conversationDepth.yes === 0) pos.push('توافق جيد في تفضيل عمق الحوار')
+                              return pos.map((t, i) => <li key={`pos-${i}`}>{t}</li>)
+                            })()}
+                          </ul>
+                          <ul className="list-disc list-inside space-y-1 text-amber-300">
+                            {/* Risks */}
+                            {(() => {
+                              const risks: string[] = []
+                              // Humor clash risk: styles include A and D together (as used in algorithm)
+                              const humorKeys = Object.keys(breakdownData.profile.humorStyles).map(s => s.toUpperCase())
+                              if (humorKeys.includes('A') && humorKeys.includes('D')) risks.push('احتمال تعارض في المزاح (A × D)')
+                              // Mixed depth
+                              if (breakdownData.profile.conversationDepth.yes > 0 && breakdownData.profile.conversationDepth.no > 0) risks.push('اختلاف في تفضيل عمق الحوار')
+                              // Female cap
+                              if (breakdownData.constraints?.female_cap_ok === false) risks.push('تجاوز حد الإناث (≤ 2)')
+                              // No initiator known
+                              if (breakdownData.constraints?.initiator_known === false) risks.push('دور المبادر غير معروف لدى بعض الأعضاء')
+                              return risks.map((t, i) => <li key={`risk-${i}`}>{t}</li>)
+                            })()}
+                          </ul>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-[11px] text-slate-400">المجموع = التفاعل (45%) + المرح/الانفتاح (30%) + الاهتمامات (15%) + نمط الحياة (5%) + القيم (5%)</div>
+                  )}
                   {/* Factors (bonuses/penalties) */}
                   {breakdownData.factors && breakdownData.factors.length > 0 && (
                     <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">

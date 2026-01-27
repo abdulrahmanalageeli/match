@@ -949,10 +949,14 @@ function generateCacheKey(participantA, participantB) {
 }
 
 // Function to get cached compatibility result
-async function getCachedCompatibility(participantA, participantB) {
+// options:
+//   - groupMode: when true, also look into compatibility_cache_groups and (optionally) compute + store on miss
+//   - computeIfMissing: when true AND groupMode, compute vibe & related scores on-the-fly and insert into group cache on miss
+async function getCachedCompatibility(participantA, participantB, options = {}) {
   try {
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
+    const { groupMode = false, computeIfMissing = false } = options || {}
     
     const { data, error } = await supabase
       .from('compatibility_cache')
@@ -1045,7 +1049,102 @@ async function getCachedCompatibility(participantA, participantB) {
         cached: true
       }
     }
-    
+    // If group mode: check secondary group cache table
+    if (groupMode) {
+      const { data: gdata, error: gerror } = await supabase
+        .from('compatibility_cache_groups')
+        .select('*')
+        .eq('participant_a_number', smaller)
+        .eq('participant_b_number', larger)
+        .eq('combined_content_hash', cacheKey.combinedHash)
+        .single()
+      if (gdata && !gerror) {
+        if (!SKIP_DB_WRITES) {
+          await supabase
+            .from('compatibility_cache_groups')
+            .update({ 
+              last_used: new Date().toISOString(),
+              use_count: (gdata.use_count || 0) + 1 
+            })
+            .eq('id', gdata.id)
+        }
+        console.log(`🎯 Group Cache HIT: #${smaller}-#${larger} (groups; used ${(gdata.use_count || 0) + 1} times)`)
+        return {
+          mbtiScore: parseFloat(gdata.mbti_score),
+          attachmentScore: parseFloat(gdata.attachment_score),
+          communicationScore: parseFloat(gdata.communication_score),
+          lifestyleScore: parseFloat(gdata.lifestyle_score),
+          coreValuesScore: parseFloat(gdata.core_values_score),
+          synergyScore: Number.isFinite(parseFloat(gdata.interaction_synergy_score)) ? parseFloat(gdata.interaction_synergy_score) : 0,
+          humorOpenScore: 0, // not stored in group cache table
+          intentScore: Number.isFinite(parseFloat(gdata.intent_goal_score)) ? parseFloat(gdata.intent_goal_score) : 0,
+          vibeScore: parseFloat(gdata.ai_vibe_score ?? 0),
+          totalScore: Number.isFinite(parseFloat(gdata.total_compatibility_score)) ? parseFloat(gdata.total_compatibility_score) : 0,
+          humorMultiplier: parseFloat(gdata.humor_multiplier || 1.0),
+          bonusType: gdata.humor_early_openness_bonus || 'none',
+          cached: true
+        }
+      }
+      // If allowed, compute on-the-fly and store in group cache
+      if (computeIfMissing) {
+        console.log(`💾 Group Cache MISS: #${smaller}-#${larger} - computing vibe & storing into compatibility_cache_groups...`)
+        // Compute required components for group cache
+        const aMBTI = participantA.mbti_personality_type || participantA.survey_data?.mbtiType
+        const bMBTI = participantB.mbti_personality_type || participantB.survey_data?.mbtiType
+        const aAttachment = participantA.attachment_style || participantA.survey_data?.attachmentStyle
+        const bAttachment = participantB.attachment_style || participantB.survey_data?.attachmentStyle
+        const aCommunication = participantA.communication_style || participantA.survey_data?.communicationStyle
+        const bCommunication = participantB.communication_style || participantB.survey_data?.communicationStyle
+        const aLifestyle = participantA.survey_data?.lifestylePreferences || participantA.survey_data?.answers?.lifestyle_1 || null
+        const bLifestyle = participantB.survey_data?.lifestylePreferences || participantB.survey_data?.answers?.lifestyle_1 || null
+        const aCoreValues = participantA.survey_data?.coreValues || participantA.survey_data?.answers?.core_values_1 || null
+        const bCoreValues = participantB.survey_data?.coreValues || participantB.survey_data?.answers?.core_values_1 || null
+
+        const mbtiScore = calculateMBTICompatibility(aMBTI, bMBTI)
+        const attachmentScore = calculateAttachmentCompatibility(aAttachment, bAttachment)
+        const communicationScore = calculateCommunicationCompatibility(aCommunication, bCommunication)
+        const lifestyleScore = calculateLifestyleCompatibility(aLifestyle, bLifestyle)
+        const coreValuesScore = calculateCoreValuesCompatibility(aCoreValues, bCoreValues) // raw 0–20
+        const synergyScore = calculateInteractionSynergyScore(participantA, participantB) // 0–35
+        const { score: humorOpenScore } = calculateHumorOpennessScore(participantA, participantB) // 0–15 (not stored directly)
+        const intentScore = calculateIntentGoalScore(participantA, participantB) // 0 or 5
+        const vibeScore = await calculateVibeCompatibility(participantA, participantB) // 0–20
+        // Compute Spark-Only total (0–100) as used in group pairing
+        const W_SYNERGY = 45 / 35
+        const W_HUMOR = 30 / 15
+        const W_VIBE = 15 / 20
+        const W_LIFESTYLE = 5 / 15
+        const W_VALUES = 5 / 10
+        const coreValuesScaled10 = Math.max(0, Math.min(10, (coreValuesScore / 20) * 10))
+        const regularTotal = (Math.max(0, Math.min(35, synergyScore)) * W_SYNERGY)
+          + (Math.max(0, Math.min(15, humorOpenScore)) * W_HUMOR)
+          + (Math.max(0, Math.min(20, vibeScore)) * W_VIBE)
+          + (Math.max(0, Math.min(15, lifestyleScore)) * W_LIFESTYLE)
+          + (coreValuesScaled10 * W_VALUES)
+
+        // Store in group cache and return structured object
+        await storeGroupCachedCompatibility(participantA, participantB, {
+          mbtiScore, attachmentScore, communicationScore, lifestyleScore,
+          coreValuesScore, synergyScore, intentScore, vibeScore, totalScore: regularTotal,
+          cacheKey
+        })
+        return {
+          mbtiScore,
+          attachmentScore,
+          communicationScore,
+          lifestyleScore,
+          coreValuesScore,
+          synergyScore,
+          humorOpenScore,
+          intentScore,
+          vibeScore,
+          totalScore: regularTotal,
+          humorMultiplier: checkHumorMatch(participantA, participantB),
+          bonusType: 'none',
+          cached: false
+        }
+      }
+    }
     return null
   } catch (error) {
     console.error("Cache lookup error:", error)
@@ -1109,6 +1208,57 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     console.error(`   ❌ Cache store exception for #${participantA.assigned_number}-#${participantB.assigned_number}:`, error)
     console.error(`   Exception message:`, error.message)
     console.error(`   Exception stack:`, error.stack)
+  }
+}
+
+// Function to store compatibility result in GROUP cache table (compatibility_cache_groups)
+async function storeGroupCachedCompatibility(participantA, participantB, payload) {
+  try {
+    if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip group cache store'); return }
+    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+    const cacheKey = payload.cacheKey || generateCacheKey(participantA, participantB)
+
+    console.log(`💾 Storing GROUP cache for #${smaller}-#${larger}...`)
+    // Determine humor bonus text from multiplier
+    let bonusType = 'none'
+    const humorMultiplier = checkHumorMatch(participantA, participantB)
+    if (humorMultiplier === 1.15) bonusType = 'full'
+    else if (humorMultiplier === 1.05) bonusType = 'partial'
+
+    await supabase
+      .from('compatibility_cache_groups')
+      .upsert({
+        participant_a_number: smaller,
+        participant_b_number: larger,
+        combined_content_hash: cacheKey.combinedHash,
+        vibe_content_hash: cacheKey.vibeHash,
+        mbti_hash: cacheKey.mbtiHash,
+        attachment_hash: cacheKey.attachmentHash,
+        communication_hash: cacheKey.communicationHash,
+        lifestyle_hash: cacheKey.lifestyleHash,
+        core_values_hash: cacheKey.coreValuesHash,
+        synergy_hash: cacheKey.synergyHash,
+        ai_vibe_score: payload.vibeScore,
+        mbti_score: payload.mbtiScore,
+        attachment_score: payload.attachmentScore,
+        communication_score: payload.communicationScore,
+        lifestyle_score: payload.lifestyleScore,
+        core_values_score: payload.coreValuesScore,
+        interaction_synergy_score: payload.synergyScore ?? 0,
+        intent_goal_score: payload.intentScore ?? 0,
+        total_compatibility_score: payload.totalScore,
+        humor_multiplier: humorMultiplier,
+        humor_early_openness_bonus: bonusType,
+        use_count: 1,
+        last_used: new Date().toISOString(),
+        participant_a_cached_at: new Date().toISOString(),
+        participant_b_cached_at: new Date().toISOString()
+      })
+      .select()
+
+    console.log(`   ✅ GROUP cache stored successfully: #${smaller}-#${larger}`)
+  } catch (e) {
+    console.error('   ❌ GROUP cache store error:', e)
   }
 }
 
@@ -1547,10 +1697,10 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       // Core values: scale raw 0–20 to 0–10
       const coreValuesScaled10 = Math.max(0, Math.min(10, (coreValuesScore / 20) * 10))
 
-      // Vibe: read from cache if present, otherwise use 12 (0–20 scale)
+      // Vibe: prefer cache; in group mode compute/store on miss (0–20 scale)
       let vibeScore = 12
       try {
-        const cached = await getCachedCompatibility(a, b)
+        const cached = await getCachedCompatibility(a, b, { groupMode: true, computeIfMissing: true })
         if (cached && Number.isFinite(cached.vibeScore)) {
           vibeScore = Math.max(0, Math.min(20, Number(cached.vibeScore)))
         }

@@ -591,7 +591,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     return { vec, feedback: feedbackPct, comp: compPct }
   }
 
-  // Collect organizer impressions (all feedback snippets) for a specific participant number
+  // Collect organizer impressions (about target): take the OTHER side's organizer_impression
   const collectOrganizerImpressions = (matches: any[], personNum: number) => {
     const seen = new Set<string>()
     const items: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
@@ -600,16 +600,17 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
       const aNum = Number(m?.participant_a?.number)
       const bNum = Number(m?.participant_b?.number)
       const evNum = Number(m?.round)
-      let fb: any = null
+      let fbSrc: any = null
       let partner: number | undefined = undefined
-      if (!isNaN(aNum) && aNum === target) { fb = m?.feedback?.participant_a; partner = bNum }
-      else if (!isNaN(bNum) && bNum === target) { fb = m?.feedback?.participant_b; partner = aNum }
-      const txt = fb?.organizer_impression
+      // If target is A, use B's organizer_impression (about A). If target is B, use A's organizer_impression (about B)
+      if (!isNaN(aNum) && aNum === target) { fbSrc = m?.feedback?.participant_b; partner = bNum }
+      else if (!isNaN(bNum) && bNum === target) { fbSrc = m?.feedback?.participant_a; partner = aNum }
+      const txt = fbSrc?.organizer_impression
       if (txt && String(txt).trim() !== '') {
         const key = `${!isNaN(evNum) ? evNum : ''}-${partner ?? ''}-${String(txt).trim()}`
         if (!seen.has(key)) {
           seen.add(key)
-          items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner, submitted_at: fb?.submitted_at || undefined })
+          items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner, submitted_at: fbSrc?.submitted_at || undefined })
         }
       }
     }
@@ -629,30 +630,43 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     const target = Number(personNum)
     for (const f of feedbackAll || []) {
       const p = Number(f?.participant_number)
-      if (!isNaN(p) && p === target) {
-        const txt = f?.organizer_impression
-        if (txt && String(txt).trim() !== '') {
-          const evNum = Number(f?.event_id)
-          // Try to infer the partner from matches of the same event
-          let partner: number | undefined = undefined
-          if (!isNaN(evNum)) {
-            const m = (matches || []).find((mm: any) => {
-              const ev = Number(mm?.round)
-              const a = Number(mm?.participant_a?.number)
-              const b = Number(mm?.participant_b?.number)
-              return ev === evNum && (a === target || b === target)
-            })
-            if (m) {
-              const a = Number(m?.participant_a?.number)
-              const b = Number(m?.participant_b?.number)
-              partner = a === target ? b : a
-            }
-          }
-          const key = `${!isNaN(evNum) ? evNum : ''}-raw-${String(txt).trim()}`
-          if (!seen.has(key)) {
-            seen.add(key)
-            items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner, submitted_at: f?.submitted_at || undefined })
-          }
+      if (isNaN(p)) continue
+      const txt = f?.organizer_impression
+      if (!txt || String(txt).trim() === '') continue
+      const evNum = Number(f?.event_id)
+      const fbRound = Number(f?.round)
+      // Infer partner in same event for the feedback owner p
+      let partner: number | undefined = undefined
+      if (!isNaN(evNum)) {
+        // Prefer exact (event_id + round) match
+        let m = (matches || []).find((mm: any) => {
+          const ev = Number(mm?.round)
+          const rr = Number((mm as any)?.feedback_round)
+          const a = Number(mm?.participant_a?.number)
+          const b = Number(mm?.participant_b?.number)
+          return ev === evNum && !isNaN(fbRound) && rr === fbRound && (a === p || b === p)
+        })
+        // Fallback to event-only if round not found
+        if (!m) {
+          m = (matches || []).find((mm: any) => {
+            const ev = Number(mm?.round)
+            const a = Number(mm?.participant_a?.number)
+            const b = Number(mm?.participant_b?.number)
+            return ev === evNum && (a === p || b === p)
+          })
+        }
+        if (m) {
+          const a = Number(m?.participant_a?.number)
+          const b = Number(m?.participant_b?.number)
+          partner = a === p ? b : a
+        }
+      }
+      // Only attach if the inferred partner equals target (so the note is ABOUT target)
+      if (partner !== undefined && partner === target) {
+        const key = `${!isNaN(evNum) ? evNum : ''}-raw-${String(txt).trim()}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner: p, submitted_at: f?.submitted_at || undefined })
         }
       }
     }

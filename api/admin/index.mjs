@@ -3705,6 +3705,7 @@ export default async function handler(req, res) {
                 humor_clash_veto_applied: !!match.humor_clash_veto_applied,
                 cap_applied: match.cap_applied ?? null,
                 round: match.event_id || 1, // Use event_id instead of round
+                feedback_round: match.round, // preserve original round for feedback inference
                 table_number: match.table_number,
                 match_type: match.match_type || 'مقابلة فردية',
                 mutual_match: match.mutual_match || false,
@@ -3770,6 +3771,7 @@ export default async function handler(req, res) {
                     humor_clash_veto_applied: !!match.humor_clash_veto_applied,
                     cap_applied: match.cap_applied ?? null,
                     round: match.event_id || 1, // Use event_id instead of round
+                    feedback_round: match.round, // preserve original round for feedback inference
                     table_number: match.table_number,
                     match_type: match.match_type || 'مجموعة',
                     mutual_match: false, // Group matches are not mutual

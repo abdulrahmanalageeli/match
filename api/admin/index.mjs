@@ -3844,6 +3844,7 @@ export default async function handler(req, res) {
         return res.status(200).json({
           success: true,
           matches: matchesWithFeedback,
+          feedbackAll: feedbackData || [],
           totalRecords: matchResults.length,
           totalPairs: matchesWithFeedback.length,
           participantCount: participants.length,

@@ -501,6 +501,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const [loadingPrevKey, setLoadingPrevKey] = useState<string | null>(null)
   const [prevMetaA, setPrevMetaA] = useState<Record<string, { similarity?: number, feedback?: number | null, compatibility?: number | null, vec?: any }>>({})
   const [prevMetaB, setPrevMetaB] = useState<Record<string, { similarity?: number, feedback?: number | null, compatibility?: number | null, vec?: any }>>({})
+  const [feedbackAllCache, setFeedbackAllCache] = useState<any[] | null>(null)
   // Organizer impressions per person (across events)
   const [orgImpressionsA, setOrgImpressionsA] = useState<Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }>>([])
   const [orgImpressionsB, setOrgImpressionsB] = useState<Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }>>([])
@@ -542,7 +543,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   }
 
   const ensureAllMatches = async () => {
-    if (allMatchesCache) return allMatchesCache
+    if (allMatchesCache !== null && feedbackAllCache !== null) return { matches: allMatchesCache, feedbackAll: feedbackAllCache }
     try {
       const res = await fetch('/api/admin', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -550,12 +551,15 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
       })
       const data = await res.json()
       if (data?.success && Array.isArray(data.matches)) {
+        const fbAll = Array.isArray(data.feedbackAll) ? data.feedbackAll : []
         setAllMatchesCache(data.matches)
-        return data.matches
+        setFeedbackAllCache(fbAll)
+        return { matches: data.matches, feedbackAll: fbAll }
       }
     } catch (e) { /* ignore */ }
     setAllMatchesCache([])
-    return []
+    setFeedbackAllCache([])
+    return { matches: [], feedbackAll: [] }
   }
 
   const findMatchVector = (matches: any[], pNum1: number, pNum2: number, eventId?: number | null) => {
@@ -618,17 +622,66 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     return items
   }
 
+  // Fallback: read directly from raw feedback list (independent of pairs)
+  const collectOrganizerImpressionsFromFeedback = (feedbackAll: any[] | undefined, personNum: number) => {
+    const seen = new Set<string>()
+    const items: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
+    const target = Number(personNum)
+    for (const f of feedbackAll || []) {
+      const p = Number(f?.participant_number)
+      if (!isNaN(p) && p === target) {
+        const txt = f?.organizer_impression
+        if (txt && String(txt).trim() !== '') {
+          const evNum = Number(f?.event_id)
+          const key = `${!isNaN(evNum) ? evNum : ''}-raw-${String(txt).trim()}`
+          if (!seen.has(key)) {
+            seen.add(key)
+            items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner: undefined, submitted_at: f?.submitted_at || undefined })
+          }
+        }
+      }
+    }
+    items.sort((x, y) => {
+      const dx = x.submitted_at ? new Date(x.submitted_at).getTime() : 0
+      const dy = y.submitted_at ? new Date(y.submitted_at).getTime() : 0
+      if (dx !== dy) return dy - dx
+      return (y.eventId || 0) - (x.eventId || 0)
+    })
+    return items
+  }
+
   // Load organizer impressions for both participants (fresh fetch on open to include all events)
   useEffect(() => {
     if (!open) return
     const load = async () => {
       // Clear cache so we always include cross-event pairs after any backend changes
       setAllMatchesCache(null)
-      const matches = await ensureAllMatches()
-      if (aNumber) setOrgImpressionsA(collectOrganizerImpressions(matches || [], aNumber))
-      else setOrgImpressionsA([])
-      if (bNumber) setOrgImpressionsB(collectOrganizerImpressions(matches || [], bNumber))
-      else setOrgImpressionsB([])
+      setFeedbackAllCache(null)
+      const payload = await ensureAllMatches()
+      const matches = payload?.matches || []
+      const feedbackAll = payload?.feedbackAll || []
+      if (aNumber) {
+        const fromPairs = collectOrganizerImpressions(matches, aNumber)
+        const fromFeedback = collectOrganizerImpressionsFromFeedback(feedbackAll, aNumber)
+        const seen = new Set<string>()
+        const merged: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
+        for (const it of [...fromPairs, ...fromFeedback]) {
+          const k = `${it.eventId ?? ''}-${it.partner ?? ''}-${it.text.trim()}`
+          if (!seen.has(k)) { seen.add(k); merged.push(it) }
+        }
+        setOrgImpressionsA(merged)
+      } else setOrgImpressionsA([])
+      if (bNumber) {
+        const fromPairs = collectOrganizerImpressions(matches, bNumber)
+        const fromFeedback = collectOrganizerImpressionsFromFeedback(feedbackAll, bNumber)
+        const seen = new Set<string>()
+        const merged: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
+        for (const it of [...fromPairs, ...fromFeedback]) {
+          const k = `${it.eventId ?? ''}-${it.partner ?? ''}-${it.text.trim()}`
+          if (!seen.has(k)) { seen.add(k); merged.push(it) }
+        }
+        setOrgImpressionsB(merged)
+      } else setOrgImpressionsB([])
     }
     load()
   }, [open, aNumber, bNumber])
@@ -637,7 +690,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     if (!currentVector || (!aNumber && who === 'A') || (!bNumber && who === 'B')) return
     const key = `${partnerNum}:${eventId ?? 'any'}`
     setLoadingPrevKey(key)
-    const matches = await ensureAllMatches()
+    const payload = await ensureAllMatches()
+    const matches = payload?.matches || []
     const selfNum = who === 'A' ? aNumber : bNumber
     const { vec, feedback, comp } = findMatchVector(matches, selfNum, partnerNum, eventId ?? null)
     if (vec) {

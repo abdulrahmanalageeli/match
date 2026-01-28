@@ -591,20 +591,21 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const collectOrganizerImpressions = (matches: any[], personNum: number) => {
     const seen = new Set<string>()
     const items: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
+    const target = Number(personNum)
     for (const m of matches || []) {
-      const aNum = m?.participant_a?.number
-      const bNum = m?.participant_b?.number
-      const ev = m?.round // event_id stored in round
+      const aNum = Number(m?.participant_a?.number)
+      const bNum = Number(m?.participant_b?.number)
+      const evNum = Number(m?.round)
       let fb: any = null
       let partner: number | undefined = undefined
-      if (aNum === personNum) { fb = m?.feedback?.participant_a; partner = bNum }
-      else if (bNum === personNum) { fb = m?.feedback?.participant_b; partner = aNum }
+      if (!isNaN(aNum) && aNum === target) { fb = m?.feedback?.participant_a; partner = bNum }
+      else if (!isNaN(bNum) && bNum === target) { fb = m?.feedback?.participant_b; partner = aNum }
       const txt = fb?.organizer_impression
       if (txt && String(txt).trim() !== '') {
-        const key = `${ev ?? ''}-${partner ?? ''}-${String(txt).trim()}`
+        const key = `${!isNaN(evNum) ? evNum : ''}-${partner ?? ''}-${String(txt).trim()}`
         if (!seen.has(key)) {
           seen.add(key)
-          items.push({ text: String(txt), eventId: ev, partner, submitted_at: fb?.submitted_at || undefined })
+          items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner, submitted_at: fb?.submitted_at || undefined })
         }
       }
     }
@@ -617,10 +618,12 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     return items
   }
 
-  // Load organizer impressions for both participants (uses cached get-all-matches)
+  // Load organizer impressions for both participants (fresh fetch on open to include all events)
   useEffect(() => {
     if (!open) return
     const load = async () => {
+      // Clear cache so we always include cross-event pairs after any backend changes
+      setAllMatchesCache(null)
       const matches = await ensureAllMatches()
       if (aNumber) setOrgImpressionsA(collectOrganizerImpressions(matches || [], aNumber))
       else setOrgImpressionsA([])

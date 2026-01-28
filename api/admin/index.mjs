@@ -3651,9 +3651,12 @@ export default async function handler(req, res) {
           // Handle individual matches (2 participants) - NO DUPLICATES
           if (participantNumbers.length === 2) {
             const [pA, pB] = participantNumbers
+            const eventId = match.event_id || 1
             
             // Create a unique pair identifier (always smaller number first)
-            const pairKey = pA < pB ? `${pA}-${pB}` : `${pB}-${pA}`
+            const base = pA < pB ? `${pA}-${pB}` : `${pB}-${pA}`
+            // Include eventId so the same pair in different events are treated as distinct
+            const pairKey = `${eventId}:${base}`
             
             // Skip if we've already processed this pair
             if (seenPairs.has(pairKey)) {
@@ -3714,9 +3717,11 @@ export default async function handler(req, res) {
               for (let j = i + 1; j < participantNumbers.length; j++) {
                 const pA = participantNumbers[i]
                 const pB = participantNumbers[j]
+                const eventId = match.event_id || 1
                 
                 // Create a unique pair identifier for group pairs too
-                const pairKey = `group-${pA < pB ? `${pA}-${pB}` : `${pB}-${pA}`}`
+                const base = pA < pB ? `${pA}-${pB}` : `${pB}-${pA}`
+                const pairKey = `group-${eventId}:${base}`
                 
                 // Skip if we've already processed this group pair
                 if (seenPairs.has(pairKey)) {

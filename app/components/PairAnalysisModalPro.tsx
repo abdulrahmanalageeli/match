@@ -622,8 +622,8 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     return items
   }
 
-  // Fallback: read directly from raw feedback list (independent of pairs)
-  const collectOrganizerImpressionsFromFeedback = (feedbackAll: any[] | undefined, personNum: number) => {
+  // Fallback: read directly from raw feedback list (independent of pairs) and infer partner from matches by event
+  const collectOrganizerImpressionsFromFeedback = (matches: any[] | undefined, feedbackAll: any[] | undefined, personNum: number) => {
     const seen = new Set<string>()
     const items: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
     const target = Number(personNum)
@@ -633,10 +633,25 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
         const txt = f?.organizer_impression
         if (txt && String(txt).trim() !== '') {
           const evNum = Number(f?.event_id)
+          // Try to infer the partner from matches of the same event
+          let partner: number | undefined = undefined
+          if (!isNaN(evNum)) {
+            const m = (matches || []).find((mm: any) => {
+              const ev = Number(mm?.round)
+              const a = Number(mm?.participant_a?.number)
+              const b = Number(mm?.participant_b?.number)
+              return ev === evNum && (a === target || b === target)
+            })
+            if (m) {
+              const a = Number(m?.participant_a?.number)
+              const b = Number(m?.participant_b?.number)
+              partner = a === target ? b : a
+            }
+          }
           const key = `${!isNaN(evNum) ? evNum : ''}-raw-${String(txt).trim()}`
           if (!seen.has(key)) {
             seen.add(key)
-            items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner: undefined, submitted_at: f?.submitted_at || undefined })
+            items.push({ text: String(txt), eventId: !isNaN(evNum) ? evNum : undefined, partner, submitted_at: f?.submitted_at || undefined })
           }
         }
       }
@@ -660,9 +675,10 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
       const payload = await ensureAllMatches()
       const matches = payload?.matches || []
       const feedbackAll = payload?.feedbackAll || []
+      try { console.log('[PairAnalysis] fetched', { matches: matches.length, feedbackAll: feedbackAll.length, aNumber, bNumber }) } catch {}
       if (aNumber) {
         const fromPairs = collectOrganizerImpressions(matches, aNumber)
-        const fromFeedback = collectOrganizerImpressionsFromFeedback(feedbackAll, aNumber)
+        const fromFeedback = collectOrganizerImpressionsFromFeedback(matches, feedbackAll, aNumber)
         const seen = new Set<string>()
         const merged: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
         for (const it of [...fromPairs, ...fromFeedback]) {
@@ -670,10 +686,11 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
           if (!seen.has(k)) { seen.add(k); merged.push(it) }
         }
         setOrgImpressionsA(merged)
+        try { console.log('[PairAnalysis] A impressions', { fromPairs: fromPairs.length, fromFeedback: fromFeedback.length, merged: merged.length }) } catch {}
       } else setOrgImpressionsA([])
       if (bNumber) {
         const fromPairs = collectOrganizerImpressions(matches, bNumber)
-        const fromFeedback = collectOrganizerImpressionsFromFeedback(feedbackAll, bNumber)
+        const fromFeedback = collectOrganizerImpressionsFromFeedback(matches, feedbackAll, bNumber)
         const seen = new Set<string>()
         const merged: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
         for (const it of [...fromPairs, ...fromFeedback]) {
@@ -681,6 +698,7 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
           if (!seen.has(k)) { seen.add(k); merged.push(it) }
         }
         setOrgImpressionsB(merged)
+        try { console.log('[PairAnalysis] B impressions', { fromPairs: fromPairs.length, fromFeedback: fromFeedback.length, merged: merged.length }) } catch {}
       } else setOrgImpressionsB([])
     }
     load()

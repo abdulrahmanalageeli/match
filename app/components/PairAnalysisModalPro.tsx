@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react"
+import React, { useMemo, useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog"
 import { BadgeCheck, Brain, Info, Shield, Sparkles, Zap, Copy, Users, MessageCircle, Home, Star, CheckCircle } from "lucide-react"
 import CircularProgressBar from "./CircularProgressBar"
@@ -501,6 +501,9 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
   const [loadingPrevKey, setLoadingPrevKey] = useState<string | null>(null)
   const [prevMetaA, setPrevMetaA] = useState<Record<string, { similarity?: number, feedback?: number | null, compatibility?: number | null, vec?: any }>>({})
   const [prevMetaB, setPrevMetaB] = useState<Record<string, { similarity?: number, feedback?: number | null, compatibility?: number | null, vec?: any }>>({})
+  // Organizer impressions per person (across events)
+  const [orgImpressionsA, setOrgImpressionsA] = useState<Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }>>([])
+  const [orgImpressionsB, setOrgImpressionsB] = useState<Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }>>([])
 
   // Build current pair vector (use API values if available, else computed fallbacks)
   const currentVector = useMemo(() => {
@@ -584,6 +587,49 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
     return { vec, feedback: feedbackPct, comp: compPct }
   }
 
+  // Collect organizer impressions (all feedback snippets) for a specific participant number
+  const collectOrganizerImpressions = (matches: any[], personNum: number) => {
+    const seen = new Set<string>()
+    const items: Array<{ text: string; eventId?: number; partner?: number; submitted_at?: string }> = []
+    for (const m of matches || []) {
+      const aNum = m?.participant_a?.number
+      const bNum = m?.participant_b?.number
+      const ev = m?.round // event_id stored in round
+      let fb: any = null
+      let partner: number | undefined = undefined
+      if (aNum === personNum) { fb = m?.feedback?.participant_a; partner = bNum }
+      else if (bNum === personNum) { fb = m?.feedback?.participant_b; partner = aNum }
+      const txt = fb?.organizer_impression
+      if (txt && String(txt).trim() !== '') {
+        const key = `${ev ?? ''}-${partner ?? ''}-${String(txt).trim()}`
+        if (!seen.has(key)) {
+          seen.add(key)
+          items.push({ text: String(txt), eventId: ev, partner, submitted_at: fb?.submitted_at || undefined })
+        }
+      }
+    }
+    items.sort((x, y) => {
+      const dx = x.submitted_at ? new Date(x.submitted_at).getTime() : 0
+      const dy = y.submitted_at ? new Date(y.submitted_at).getTime() : 0
+      if (dx !== dy) return dy - dx
+      return (y.eventId || 0) - (x.eventId || 0)
+    })
+    return items
+  }
+
+  // Load organizer impressions for both participants (uses cached get-all-matches)
+  useEffect(() => {
+    if (!open) return
+    const load = async () => {
+      const matches = await ensureAllMatches()
+      if (aNumber) setOrgImpressionsA(collectOrganizerImpressions(matches || [], aNumber))
+      else setOrgImpressionsA([])
+      if (bNumber) setOrgImpressionsB(collectOrganizerImpressions(matches || [], bNumber))
+      else setOrgImpressionsB([])
+    }
+    load()
+  }, [open, aNumber, bNumber])
+
   const onClickPrevChip = async (who: 'A' | 'B', partnerNum: number, eventId?: number | null) => {
     if (!currentVector || (!aNumber && who === 'A') || (!bNumber && who === 'B')) return
     const key = `${partnerNum}:${eventId ?? 'any'}`
@@ -658,6 +704,57 @@ export default function PairAnalysisModal({ open, onOpenChange, a, b, pair, hist
             </button>
           </div>
           {/* Removed 'السبب' section per request */}
+          {/* Organizer impressions (top, for each person) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Info className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs text-slate-300">انطباعات المنظّم — {aNameLabel}</span>
+                <span className="ml-auto text-[10px] text-slate-400">{orgImpressionsA.length}</span>
+              </div>
+              {orgImpressionsA.length === 0 ? (
+                <div className="text-[11px] text-slate-400">لا توجد انطباعات</div>
+              ) : (
+                <ul className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                  {orgImpressionsA.map((it, idx) => (
+                    <li key={idx} className="text-[11px] text-slate-200 flex items-start gap-2">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-cyan-400/80"></span>
+                      <span className="flex-1">
+                        {it.text}
+                        <span className="ml-2 text-[10px] text-slate-400">
+                          {typeof it.eventId === 'number' ? `E${it.eventId}` : ''}{it.partner ? ` • #${it.partner}` : ''}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <Info className="w-4 h-4 text-fuchsia-400" />
+                <span className="text-xs text-slate-300">انطباعات المنظّم — {bNameLabel}</span>
+                <span className="ml-auto text-[10px] text-slate-400">{orgImpressionsB.length}</span>
+              </div>
+              {orgImpressionsB.length === 0 ? (
+                <div className="text-[11px] text-slate-400">لا توجد انطباعات</div>
+              ) : (
+                <ul className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                  {orgImpressionsB.map((it, idx) => (
+                    <li key={idx} className="text-[11px] text-slate-200 flex items-start gap-2">
+                      <span className="mt-1 w-1.5 h-1.5 rounded-full bg-fuchsia-400/80"></span>
+                      <span className="flex-1">
+                        {it.text}
+                        <span className="ml-2 text-[10px] text-slate-400">
+                          {typeof it.eventId === 'number' ? `E${it.eventId}` : ''}{it.partner ? ` • #${it.partner}` : ''}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Body */}

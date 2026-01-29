@@ -3815,9 +3815,10 @@ export default async function handler(req, res) {
             humor_clash_veto_applied: compatibilityResult.humorClashVetoApplied || false,
             cap_applied: compatibilityResult.capApplied || null,
             reason: (
-              `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Intent: ${Math.round(compatibilityResult.intentScore)}%` +
+              `Synergy: ${Math.round(compatibilityResult.synergyScore)}% + Vibe: ${Math.round(compatibilityResult.vibeScore)}% + Lifestyle: ${Math.round(compatibilityResult.lifestyleScore)}% + Humor/Openness: ${Math.round(compatibilityResult.humorOpenScore)}% + Communication: ${Math.round(compatibilityResult.communicationScore)}% + Core Values: ${Math.round(compatibilityResult.coreValuesScaled5 != null ? Number(compatibilityResult.coreValuesScaled5) : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore || 0) / 20) * 5)))}%` +
               (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
               (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
+              (compatibilityResult.intentBoostApplied ? ` × IntentBoost(1.05)` : '') +
               (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
             ) + ((() => { const tol = getAgeTolerance(targetParticipant.assigned_number, potentialMatch.assigned_number); return (tol.usedA || tol.usedB) ? ' ⚠️±1y' : '' })()),
             is_actual_match: false, // These are potential matches, not actual matches
@@ -4171,9 +4172,10 @@ export default async function handler(req, res) {
           `Lifestyle: ${Math.round(Number(lifestyleScore || 0))}% + ` +
           `Humor/Openness: ${Math.round(Number(compatibilityResult.humorOpenScore ?? 0))}% + ` +
           `Communication: ${Math.round(Number(communicationScore || 0))}% + ` +
-          `Intent: ${Math.round(Number(compatibilityResult.intentScore ?? 0))}%` +
+          `Core Values: ${Math.round(Number(compatibilityResult.coreValuesScaled5 != null ? compatibilityResult.coreValuesScaled5 : Math.max(0, Math.min(5, (Number(coreValuesScore || 0) / 20) * 5))))}%` +
           (compatibilityResult.attachmentPenaltyApplied ? ` − Penalty(Anx×Avoid)` : '') +
           (compatibilityResult.opennessZeroZeroPenaltyApplied ? ` − Penalty(Opn 0×0)` : '') +
+          (compatibilityResult.intentBoostApplied ? ` × IntentBoost(1.05)` : '') +
           (compatibilityResult.capApplied ? ` (capped @ ${compatibilityResult.capApplied}%)` : '')
         {
           const tol = getAgeTolerance(p1.assigned_number, p2.assigned_number)
@@ -4253,6 +4255,26 @@ export default async function handler(req, res) {
           lifestyle_compatibility_score: lifestyleScore,
           core_values_compatibility_score: coreValuesScore,
           vibe_compatibility_score: vibeScore,
+          // New-model fields for current weights breakdown
+          synergyScore: Number(compatibilityResult.synergyScore ?? 0),           // 0-35
+          humorOpenScore: Number(compatibilityResult.humorOpenScore ?? 0),       // 0-15
+          intentScore: Number(compatibilityResult.intentScore ?? 0),             // 0 or 5
+          communicationScore: Number(compatibilityResult.communicationScore ?? 0), // 0-10
+          lifestyleScore: Number(compatibilityResult.lifestyleScore ?? 0),       // 0-15
+          coreValuesScore: Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0), // raw 0-20 (transparency)
+          coreValuesScaled5: (
+            compatibilityResult.coreValuesScaled5 != null
+              ? Number(compatibilityResult.coreValuesScaled5)
+              : Math.max(0, Math.min(5, (Number(compatibilityResult.coreValuesScore ?? coreValuesScore ?? 0) / 20) * 5))
+          ),
+          vibeScore: Number(compatibilityResult.vibeScore ?? vibeScore ?? 0),    // 0-20
+          // Safety/cap flags
+          attachmentPenaltyApplied: !!compatibilityResult.attachmentPenaltyApplied,
+          intentBoostApplied:       !!compatibilityResult.intentBoostApplied,
+          deadAirVetoApplied:       !!compatibilityResult.deadAirVetoApplied,
+          humorClashVetoApplied:    !!compatibilityResult.humorClashVetoApplied,
+          opennessZeroZeroPenaltyApplied: !!compatibilityResult.opennessZeroZeroPenaltyApplied,
+          capApplied: compatibilityResult.capApplied ?? null,
           humor_multiplier: humorMultiplier,
           humor_bonus: manualBonusType
         }],

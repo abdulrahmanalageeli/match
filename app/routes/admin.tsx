@@ -2318,6 +2318,11 @@ const fetchParticipants = async () => {
           if (hasNewModel) {
             const round = (v:any) => Math.round((Number(v) || 0) * 100) / 100
             detailedMessage += `⚡ Synergy: ${round(result.synergyScore)}/35\n`
+            // Core Values are part of new weights (scaled 0–5)
+            const core5 = (result.coreValuesScaled5 != null)
+              ? Number(result.coreValuesScaled5)
+              : Math.max(0, Math.min(5, ((Number(result.core_values_compatibility_score) || 0) / 20) * 5))
+            detailedMessage += `🧩 Core Values: ${round(core5)}/5\n`
             detailedMessage += `🏠 Lifestyle: ${round(result.lifestyleScore)}/15\n`
             detailedMessage += `😄 Humor & Openness: ${round(result.humorOpenScore)}/15\n`
             detailedMessage += `💬 Communication: ${round(result.communicationScore)}/10\n`
@@ -2326,7 +2331,7 @@ const fetchParticipants = async () => {
             // Safety row (if flags present)
             const safety: string[] = []
             if (result.attachmentPenaltyApplied) safety.push('Attachment penalty: −5 (Anxious × Avoidant)')
-            if (result.intentBoostApplied) safety.push('Intent Match: ×1.1 (Deep Seekers)')
+            if (result.intentBoostApplied) safety.push('Intent Match: ×1.05 (Deep Seekers)')
             if (result.deadAirVetoApplied) safety.push('Capped by Dead‑Air (40%)')
             if (result.humorClashVetoApplied) safety.push('Capped by Humor Clash (50%)')
             if (result.capApplied && !result.deadAirVetoApplied && !result.humorClashVetoApplied) safety.push(`Capped by rule (${result.capApplied}%)`)

@@ -2736,11 +2736,9 @@ export default function WelcomePage() {
     
     // Use relative positioning when accessing via token URL AND in round phase, fixed otherwise
     const isTokenAndRoundPhase = token && phase === "round_1";
-    const hasAnnouncement = !!(announcement && announcement.message);
-    const topFixedClass = hasAnnouncement ? "top-20" : "top-4"; // push nav down if announcement bar exists
     const positionClass = isTokenAndRoundPhase 
       ? "relative top-0 left-1/2 transform -translate-x-1/2 z-[100]" 
-      : `fixed ${topFixedClass} left-1/2 transform -translate-x-1/2 z-[100]`;
+      : "fixed top-4 left-1/2 transform -translate-x-1/2 z-[100]";
     
     // Check if user is signed up for next event but hasn't enabled auto-signup
     const showAutoSignupOffer = showNextEventSignup && !autoSignupEnabled;
@@ -2881,11 +2879,9 @@ export default function WelcomePage() {
     }
     
     // Use relative positioning in round mode (step 4), fixed otherwise
-    const hasAnnouncement = !!(announcement && announcement.message);
-    const topRightFixedClass = hasAnnouncement ? "top-16 sm:top-20 md:top-24" : "top-2 sm:top-3 md:top-4";
     const positionClass = step === 4 
       ? "relative top-0 right-2 sm:right-3 md:right-4 z-[100]" 
-      : `fixed ${topRightFixedClass} right-2 sm:right-3 md:right-4 z-[100]`;
+      : "fixed top-2 right-2 sm:top-3 sm:right-3 md:top-4 md:right-4 z-[100]";
     
     return (
     <div className={positionClass}>
@@ -2979,11 +2975,9 @@ export default function WelcomePage() {
     }
     
     // Use relative positioning in round mode (step 4), fixed otherwise
-    const hasAnnouncement = !!(announcement && announcement.message);
-    const topLeftFixedClass = hasAnnouncement ? "top-16 sm:top-20 md:top-24" : "top-2 sm:top-3 md:top-4";
     const positionClass = step === 4 
       ? "relative top-0 left-2 sm:left-3 md:left-4 z-[100]" 
-      : `fixed ${topLeftFixedClass} left-2 sm:left-3 md:left-4 z-[100]`;
+      : "fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]";
     
     return (
       <div className={positionClass}>
@@ -7656,64 +7650,32 @@ export default function WelcomePage() {
       }}></div>
 
 
-      <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10 pt-16 sm:pt-20">
+      <div className="w-full max-w-md space-y-10 text-center animate-fade-in relative z-10">
 
         {/* Welcome Landing Page */}
         {step === -1 && (
-          <motion.section
-            className="space-y-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 250, damping: 24 }}
-          >
-            <motion.div
-              className={`relative rounded-3xl border shadow-2xl overflow-hidden ${
-                dark ? "bg-white/10 border-white/20" : "bg-white/85 border-gray-200/60"
-              }`}
-              initial={{ scale: 0.98, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.05, type: 'spring', stiffness: 260, damping: 20 }}
-            >
-              <div className="pointer-events-none absolute inset-0">
-                <div className={`absolute -top-20 -left-24 h-56 w-56 blur-3xl rounded-full ${
-                  dark ? "bg-cyan-500/15" : "bg-cyan-400/25"
-                }`} />
-                <div className={`absolute -bottom-24 -right-16 h-64 w-64 blur-3xl rounded-full ${
-                  dark ? "bg-blue-500/10" : "bg-blue-400/20"
-                }`} />
-                <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent" />
-              </div>
-
-              <div className="relative p-8 sm:p-10">
-                <motion.div
-                  className="flex justify-center mb-6"
-                  initial={{ scale: 0.9, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.12 }}
-                >
+          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
+            <div className="relative">
+              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
+                dark ? "bg-gradient-to-r from-cyan-600 to-blue-700" : "bg-gradient-to-r from-cyan-400 to-blue-500"
+              }`}></div>
+              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              }`}>
+                <div className="flex justify-center mb-6">
                   <ParticipantBadge size="large" />
-                </motion.div>
-
-                <div className="text-center space-y-5">
-                  <motion.h1
-                    className="text-3xl sm:text-4xl font-extrabold tracking-tight"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.15 }}
-                  >
-                    <span className="bg-gradient-to-r from-cyan-400 via-sky-400 to-blue-500 bg-clip-text text-transparent">
-                      نظام الصداقة الذكي
-                    </span>
-                  </motion.h1>
-
-                  <motion.div
-                    className={`min-h-[6rem] text-right leading-relaxed ${
-                      dark ? "text-slate-200" : "text-gray-700"
-                    }`}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.22 }}
-                  >
+                </div>
+                
+                <div className="text-center space-y-4">
+                  <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
+                    dark ? "bg-gradient-to-r from-cyan-300 to-blue-400" : "bg-gradient-to-r from-cyan-600 to-blue-700"
+                  }`}>
+                    نظام الصداقة الذكي
+                  </h1>
+                  
+                  <div className={`min-h-[6rem] text-right leading-relaxed ${
+                    dark ? "text-slate-200" : "text-gray-700"
+                  }`}>
                     {welcomeText.split('\n').map((line, index) => (
                       <p key={index} className="mb-2">
                         {line}
@@ -7722,69 +7684,62 @@ export default function WelcomePage() {
                         )}
                       </p>
                     ))}
-                  </motion.div>
+                  </div>
                 </div>
               </div>
-            </motion.div>
-
+            </div>
+            
             {!welcomeTyping && (
-              <motion.div
-                className="flex justify-center"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-              >
+              <div className="flex justify-center">
                 <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
-              </motion.div>
+              </div>
             )}
-          </motion.section>
+          </section>
         )}
 
         {/* خطوة 0 */}
         {step === 0 && (
-          <motion.section
-            className="space-y-8"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 250, damping: 24 }}
-          >
-            <motion.div
-              className={`relative rounded-3xl border shadow-2xl overflow-hidden ${
-                dark ? "bg-white/10 border-white/20" : "bg-white/85 border-gray-200/60"
-              }`}
-              initial={{ scale: 0.98, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.05, type: 'spring', stiffness: 260, damping: 20 }}
-            >
-              <div className="pointer-events-none absolute inset-0">
-                <div className={`absolute -top-16 -right-10 h-56 w-56 blur-3xl rounded-full ${
-                  dark ? "bg-slate-400/15" : "bg-gray-400/20"
-                }`} />
-                <div className={`absolute -bottom-20 -left-12 h-64 w-64 blur-3xl rounded-full ${
-                  dark ? "bg-cyan-500/10" : "bg-blue-400/15"
-                }`} />
-              </div>
-              <div className="relative p-8 sm:p-10">
+          <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
+            <div className="relative">
+              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
+                dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
+              }`}></div>
+              <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
+                dark ? "bg-white/10 border-white/20 hover:bg-white/15" : "bg-white/80 border-gray-200/50 shadow-xl hover:bg-white/90"
+              }`}>
                 <div className="flex justify-center mb-6">
                   <div className="relative">
-                    <Brain className={`${dark ? "text-slate-300" : "text-gray-600"} w-16 h-16`} />
-                    <Sparkles className="w-6 h-6 absolute -top-2 -right-2 text-cyan-400 animate-pulse" />
+                    <Brain className={`w-16 h-16 animate-pulse ${
+                      dark ? "text-slate-400" : "text-gray-600"
+                    }`} />
+                    <Sparkles className={`w-6 h-6 absolute -top-2 -right-2 animate-bounce ${
+                      dark ? "text-slate-300" : "text-gray-500"
+                    }`} />
                   </div>
                 </div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-center mb-3">
-                  <span className={`${dark ? "bg-gradient-to-r from-slate-300 to-slate-100" : "bg-gradient-to-r from-gray-700 to-gray-900"} bg-clip-text text-transparent`}>نظام الصداقة الذكي</span>
+
+                <h1 className={`text-3xl sm:text-4xl font-bold tracking-tight bg-clip-text text-transparent mb-4 ${
+                  dark ? "bg-gradient-to-r from-slate-300 to-slate-400" : "bg-gradient-to-r from-gray-700 to-gray-800"
+                }`}>
+                  نظام الصداقة الذكي
                 </h1>
-                <p className={`text-sm sm:text-base leading-relaxed text-center ${dark ? "text-slate-300" : "text-gray-600"}`}>
-                  ستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين. بعد كل حوار، قرر إذا كان
-                  <span className={`${dark ? "text-slate-200" : "text-gray-800"} font-semibold`}> شخص متوافق </span>
-                  أو <span className="text-red-500 font-semibold"> غير متوافق معك</span>.
+                <p className={`text-sm sm:text-base leading-relaxed ${
+                  dark ? "text-slate-300" : "text-gray-600"
+                }`}>
+                  ستبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة، ثم تنتقل إلى لقاءات فردية مع أشخاص متوافقين. 
+                  بعد كل حوار، قرر إذا كان
+                  <span className={`font-semibold ${
+                    dark ? "text-slate-200" : "text-gray-800"
+                  }`}> شخص متوافق </span>
+                  أو
+                  <span className="font-semibold text-red-500"> غير متوافق معك</span>.
                 </p>
               </div>
-            </motion.div>
-            <motion.div className="flex justify-center" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            </div>
+            <div className="flex justify-center">
               <FancyNextButton onClick={next} label="ابدأ الرحلة" />
-            </motion.div>
-          </motion.section>
+            </div>
+          </section>
         )}
 
         {/* Too Late Message */}

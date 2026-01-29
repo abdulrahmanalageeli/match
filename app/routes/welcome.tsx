@@ -176,10 +176,20 @@ export default function WelcomePage() {
   const [participantName, setParticipantName] = useState<string | null>(null)
   const [secureToken, setSecureToken] = useState<string | null>(null)
   const [showTokenModal, setShowTokenModal] = useState(false)
+  const [showSurveySuccessModal, setShowSurveySuccessModal] = useState(false)
   
   // Database check states for conditional question display
   const [participantHasHumorStyle, setParticipantHasHumorStyle] = useState(false)
   const [participantHasOpennessComfort, setParticipantHasOpennessComfort] = useState(false)
+
+  // Celebrate on survey success open
+  useEffect(() => {
+    if (!showSurveySuccessModal) return
+    try {
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.2 } })
+      setTimeout(() => confetti({ particleCount: 40, spread: 80, origin: { y: 0.3 } }), 280)
+    } catch (_) {}
+  }, [showSurveySuccessModal])
   
   // Vibe questions completion popup states
   const vibeCompletionPopupEnabled = false
@@ -4069,6 +4079,10 @@ export default function WelcomePage() {
       if (!isEditingSurvey) {
         setFormFilledChoiceMade(true) // Mark choice as made for new users - they should go directly to analysis
         console.log("✅ New user completed survey - marked choice as made, going directly to analysis")
+        // Show success modal with participant number and token for brand-new users
+        if (isJustCreatedUser) {
+          setShowSurveySuccessModal(true)
+        }
       } else {
         console.log("🔄 Editing session - keeping formFilledChoiceMade to prevent popup loop")
         setJustCompletedEditing(true) // Mark that user just completed editing
@@ -7243,6 +7257,59 @@ export default function WelcomePage() {
           </div>
         </div>
       )}
+      <AnimatePresence>
+        {showSurveySuccessModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`}
+              dir="rtl"
+              initial={{ y: 20, scale: 0.98, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 12, scale: 0.98, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24, mass: 0.6 }}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`rounded-lg p-2 ${dark ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-green-50 border border-green-200'}`}>
+                    <CheckCircle className={dark ? 'text-emerald-300' : 'text-green-600'} size={18} />
+                  </div>
+                  <h3 className={`text-lg font-extrabold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent`}>
+                    تم إرسال الاستبيان بنجاح
+                  </h3>
+                </div>
+                <button onClick={() => setShowSurveySuccessModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`} aria-label="إغلاق">✕</button>
+              </div>
+              <div className={`${dark ? "bg-emerald-500/10 border border-emerald-400/20" : "bg-green-50 border border-green-200"} rounded-xl p-3 mb-3`}> 
+                <p className={`${dark ? "text-emerald-200" : "text-green-700"} text-sm`}>شكراً لمشاركتك! تم حفظ إجاباتك بنجاح 🎉</p>
+              </div>
+              <div className={`${dark ? "bg-slate-900/40 border border-slate-600" : "bg-gray-50 border border-gray-300"} rounded-xl p-3 mb-3`}>
+                <p className={`${dark ? "text-slate-300" : "text-gray-700"} text-xs mb-1`}>رمزك الآمن</p>
+                <p className={`${dark ? "text-slate-200" : "text-gray-800"} text-sm mb-1`}>رقمك: <span className="font-semibold">#{assignedNumber ?? '—'}</span></p>
+                <div className={`${dark ? "border-slate-600 bg-slate-900/40" : "border-gray-300 bg-gray-50"} flex items-center gap-2 rounded-xl border px-3 py-2 mt-2`}> 
+                  <div className={`${dark ? "text-cyan-300" : "text-blue-700"} font-mono text-xs sm:text-sm select-all overflow-x-auto whitespace-nowrap`}>{secureToken}</div>
+                  <Button
+                    onClick={async () => {
+                      if (secureToken) {
+                        try { await navigator.clipboard.writeText(secureToken); toast.success('تم النسخ'); } catch (_) {}
+                      }
+                    }}
+                    className="h-8 px-3 text-xs"
+                  >نسخ</Button>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowSurveySuccessModal(false)} className="h-9 px-4 text-sm w-full sm:w-auto">حسناً</Button>
+                <Button onClick={() => { if (secureToken) { setShowSurveySuccessModal(false); window.location.href = `/welcome?token=${secureToken}` } }} className="h-9 px-4 text-sm w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white">الانتقال للصفحة الرئيسية</Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-400 mx-auto"></div>
           <p className="text-slate-300 text-xl font-medium" dir="rtl">جارٍ التحميل...</p>
@@ -7351,6 +7418,59 @@ export default function WelcomePage() {
           </div>
         </div>
       )}
+      <AnimatePresence>
+        {showSurveySuccessModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className={`${dark ? "bg-slate-800/95 border-slate-700" : "bg-white/95 border-gray-200"} w-full max-w-md mx-4 rounded-2xl border p-5 shadow-2xl`}
+              dir="rtl"
+              initial={{ y: 20, scale: 0.98, opacity: 0 }}
+              animate={{ y: 0, scale: 1, opacity: 1 }}
+              exit={{ y: 12, scale: 0.98, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 24, mass: 0.6 }}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`rounded-lg p-2 ${dark ? 'bg-emerald-500/10 border border-emerald-400/20' : 'bg-green-50 border border-green-200'}`}>
+                    <CheckCircle className={dark ? 'text-emerald-300' : 'text-green-600'} size={18} />
+                  </div>
+                  <h3 className={`text-lg font-extrabold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent`}>
+                    تم إرسال الاستبيان بنجاح
+                  </h3>
+                </div>
+                <button onClick={() => setShowSurveySuccessModal(false)} className={`${dark ? "hover:bg-slate-700" : "hover:bg-gray-100"} rounded-full p-1`} aria-label="إغلاق">✕</button>
+              </div>
+              <div className={`${dark ? "bg-emerald-500/10 border border-emerald-400/20" : "bg-green-50 border border-green-200"} rounded-xl p-3 mb-3`}> 
+                <p className={`${dark ? "text-emerald-200" : "text-green-700"} text-sm`}>شكراً لمشاركتك! تم حفظ إجاباتك بنجاح 🎉</p>
+              </div>
+              <div className={`${dark ? "bg-slate-900/40 border border-slate-600" : "bg-gray-50 border border-gray-300"} rounded-xl p-3 mb-3`}>
+                <p className={`${dark ? "text-slate-300" : "text-gray-700"} text-xs mb-1`}>رمزك الآمن</p>
+                <p className={`${dark ? "text-slate-200" : "text-gray-800"} text-sm mb-1`}>رقمك: <span className="font-semibold">#{assignedNumber ?? '—'}</span></p>
+                <div className={`${dark ? "border-slate-600 bg-slate-900/40" : "border-gray-300 bg-gray-50"} flex items-center gap-2 rounded-xl border px-3 py-2 mt-2`}> 
+                  <div className={`${dark ? "text-cyan-300" : "text-blue-700"} font-mono text-xs sm:text-sm select-all overflow-x-auto whitespace-nowrap`}>{secureToken}</div>
+                  <Button
+                    onClick={async () => {
+                      if (secureToken) {
+                        try { await navigator.clipboard.writeText(secureToken); toast.success('تم النسخ'); } catch (_) {}
+                      }
+                    }}
+                    className="h-8 px-3 text-xs"
+                  >نسخ</Button>
+                </div>
+              </div>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
+                <Button variant="outline" onClick={() => setShowSurveySuccessModal(false)} className="h-9 px-4 text-sm w-full sm:w-auto">حسناً</Button>
+                <Button onClick={() => { if (secureToken) { setShowSurveySuccessModal(false); window.location.href = `/welcome?token=${secureToken}` } }} className="h-9 px-4 text-sm w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white">الانتقال للصفحة الرئيسية</Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div
         className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden transition-colors duration-1000 ${
           dark

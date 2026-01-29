@@ -177,6 +177,7 @@ export default function WelcomePage() {
   const [secureToken, setSecureToken] = useState<string | null>(null)
   const [showTokenModal, setShowTokenModal] = useState(false)
   const [showSurveySuccessModal, setShowSurveySuccessModal] = useState(false)
+  const [suppressPollingUntil, setSuppressPollingUntil] = useState<number | null>(null)
   
   // Database check states for conditional question display
   const [participantHasHumorStyle, setParticipantHasHumorStyle] = useState(false)
@@ -190,6 +191,18 @@ export default function WelcomePage() {
       setTimeout(() => confetti({ particleCount: 40, spread: 80, origin: { y: 0.3 } }), 280)
     } catch (_) {}
   }, [showSurveySuccessModal])
+  
+  // Auto-clear the post-submit polling suppression
+  useEffect(() => {
+    if (!suppressPollingUntil) return
+    const ms = suppressPollingUntil - Date.now()
+    if (ms <= 0) {
+      setSuppressPollingUntil(null)
+      return
+    }
+    const t = setTimeout(() => setSuppressPollingUntil(null), ms)
+    return () => clearTimeout(t)
+  }, [suppressPollingUntil])
   
   // Vibe questions completion popup states
   const vibeCompletionPopupEnabled = false
@@ -2095,6 +2108,12 @@ export default function WelcomePage() {
     // - registration (step 0)
     // - survey/editing (step 2)
     if (isResolving || step === -1 || step === 0 || step === 2) return
+    // Don't transition steps while success modal is visible
+    if (showSurveySuccessModal) return
+    // Suppress polling transitions for a short time after submit to avoid bouncing back to survey
+    if (suppressPollingUntil && Date.now() < suppressPollingUntil) {
+      return
+    }
     
     // If force_round is set, don't let phase changes affect the view
     if (forceRound === '1') return
@@ -2571,7 +2590,7 @@ export default function WelcomePage() {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive, phase, currentEventId, announcement, emergencyPaused, timerRestored, globalTimerStartTime, globalTimerDuration, conversationStarted, modalStep, isScoreRevealed, isShowingFinishedEventFeedback, secureToken, formFilledChoiceMade, justCompletedEditing, tokenValidationCompleted, surveyData, showFormFilledPrompt, isJustCreatedUser])
+  }, [step, currentRound, assignedNumber, isResolving, globalTimerActive, phase, currentEventId, announcement, emergencyPaused, timerRestored, globalTimerStartTime, globalTimerDuration, conversationStarted, modalStep, isScoreRevealed, isShowingFinishedEventFeedback, secureToken, formFilledChoiceMade, justCompletedEditing, tokenValidationCompleted, surveyData, showFormFilledPrompt, isJustCreatedUser, suppressPollingUntil, showSurveySuccessModal])
 
   // Round 1 Local Timer - counts down from 45 minutes
   // Track if timer has ever started to keep it running even after global timer ends
@@ -4073,16 +4092,18 @@ export default function WelcomePage() {
       }
       // Hide survey and move to waiting/analysis step after successful submission
       setShowSurvey(false)
+      // Prevent polling from forcing step changes for a few seconds after submit
+      setSuppressPollingUntil(Date.now() + 6000)
+      setShowFormFilledPrompt(false)
       
-      // For new users who just completed the survey, mark choice as made to skip the resubmit dialog
-      // For editing users, keep the existing logic to prevent popup loops
-      if (!isEditingSurvey) {
+      // Treat brand-new users explicitly even if isEditingSurvey was set during the session
+      if (isJustCreatedUser) {
+        setFormFilledChoiceMade(true)
+        setShowSurveySuccessModal(true)
+        console.log("🎉 Brand-new user completed survey - showing success modal and skipping form prompt")
+      } else if (!isEditingSurvey) {
         setFormFilledChoiceMade(true) // Mark choice as made for new users - they should go directly to analysis
         console.log("✅ New user completed survey - marked choice as made, going directly to analysis")
-        // Show success modal with participant number and token for brand-new users
-        if (isJustCreatedUser) {
-          setShowSurveySuccessModal(true)
-        }
       } else {
         console.log("🔄 Editing session - keeping formFilledChoiceMade to prevent popup loop")
         setJustCompletedEditing(true) // Mark that user just completed editing

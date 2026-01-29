@@ -3600,11 +3600,26 @@ export default async function handler(req, res) {
         
         console.log(`🔍 BYPASS: Found ${allDatabaseParticipants?.length || 0} total participants (target + ${potentialMatches.length} potential matches)`)
       } else {
-        // Use only eligible participants
-        targetParticipant = eligibleParticipants.find(p => p.assigned_number === participantNumber)
-        potentialMatches = eligibleParticipants.filter(p => p.assigned_number !== participantNumber)
-        
-        console.log(`🔍 STANDARD: Found ${eligibleParticipants.length} eligible participants (target + ${potentialMatches.length} potential matches)`)
+        // STANDARD (no bypass): include ALL eligible users for this match_id (ignore event signup)
+        const { data: allEligiblePool, error: allPoolErr } = await supabase
+          .from("participants")
+          .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+          .eq("match_id", match_id)
+          .neq("assigned_number", 9999)
+        if (allPoolErr) {
+          console.error("Error fetching participants for STANDARD all-eligible pool:", allPoolErr)
+          return res.status(500).json({ error: "Failed to fetch participants for view-all-matches" })
+        }
+        // Filter: survey complete and not excluded
+        let basePool = (allEligiblePool || []).filter(p => {
+          try { return isParticipantComplete(p) } catch (_) { return false }
+        })
+        if (excludedParticipants && excludedParticipants.length > 0) {
+          basePool = basePool.filter(p => !isParticipantExcluded(p.assigned_number, excludedParticipants))
+        }
+        targetParticipant = basePool.find(p => p.assigned_number === participantNumber)
+        potentialMatches = basePool.filter(p => p.assigned_number !== participantNumber)
+        console.log(`🔍 STANDARD-ALL-ELIGIBLE: Found ${basePool.length} eligible participants in database (target + ${potentialMatches.length} potential matches)`)
       }
       
       if (!targetParticipant) {

@@ -3613,6 +3613,33 @@ export default async function handler(req, res) {
         })
       }
       
+      // Additional eligibility: require survey completeness and nationality present (completed nat eligibility)
+      const hasNationality = (p) => {
+        try {
+          const nat = p?.nationality ?? p?.survey_data?.answers?.nationality
+          return nat != null && String(nat).trim() !== ''
+        } catch (_) { return false }
+      }
+      const surveyComplete = (p) => {
+        try { return isParticipantComplete(p) } catch (_) { return false }
+      }
+
+      if (!surveyComplete(targetParticipant)) {
+        return res.status(400).json({ 
+          error: `Participant #${participantNumber} is not eligible: survey incomplete.\n\nPlease complete all required survey fields to view matches.`
+        })
+      }
+      if (!hasNationality(targetParticipant)) {
+        return res.status(400).json({ 
+          error: `Participant #${participantNumber} is not eligible: nationality not provided.\n\nPlease complete nationality to view matches.`
+        })
+      }
+
+      // Filter potential matches for eligibility prior to gender/hard-gate filtering
+      const beforePotentials = potentialMatches.length
+      potentialMatches = potentialMatches.filter(p => surveyComplete(p) && hasNationality(p))
+      console.log(`✅ Eligibility filtering: ${beforePotentials} → ${potentialMatches.length} (survey-complete + nationality present)`)
+
       if (potentialMatches.length === 0) {
         return res.status(400).json({ 
           error: `No potential matches found for participant #${participantNumber}.\n\nAll other participants are either ineligible or don't exist.`

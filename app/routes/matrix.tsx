@@ -78,14 +78,28 @@ export default function MatrixPage() {
   const [deletingMatch, setDeletingMatch] = useState<string | null>(null)
   const [showStatsModal, setShowStatsModal] = useState(false)
   const [showFeedbackPairsModal, setShowFeedbackPairsModal] = useState(false)
+  const [authed, setAuthed] = useState(false)
 
   // Selection and export state
   const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set())
   const [includeAnswersJson, setIncludeAnswersJson] = useState(false)
 
+  // Client-side admin guard using localStorage flag set by admin page
   useEffect(() => {
-    fetchAllMatches()
+    // Only run on client
+    const ok = typeof window !== 'undefined' && localStorage.getItem('admin') === 'authenticated'
+    if (!ok) {
+      if (typeof window !== 'undefined') window.location.href = '/admin'
+      return
+    }
+    setAuthed(true)
   }, [])
+
+  // Load matches only after auth is confirmed
+  useEffect(() => {
+    if (!authed) return
+    fetchAllMatches()
+  }, [authed])
 
   const fetchAllMatches = async () => {
     setLoading(true)

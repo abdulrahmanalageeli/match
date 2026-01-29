@@ -1,5 +1,6 @@
-import AdminPage from "./admin";
-
 export default function AdminCohostPage() {
-  return <AdminPage />;
+  if (typeof window !== 'undefined') {
+    window.location.href = '/admin'
+  }
+  return null
 }

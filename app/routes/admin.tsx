@@ -347,8 +347,8 @@ export default function AdminPage() {
   const [whatsappConfig, setWhatsappConfig] = useState<any | null>(null);
   const [loadingWhatsappConfig, setLoadingWhatsappConfig] = useState(false);
 
-  const STATIC_PASSWORD = "soulmatch2025"
-  const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2025"
+  const STATIC_PASSWORD = "soulmatch2026"
+  const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "soulmatch2026"
 
   // Load WhatsApp config once on mount
   useEffect(() => {

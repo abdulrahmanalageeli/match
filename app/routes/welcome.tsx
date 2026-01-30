@@ -6608,7 +6608,7 @@ export default function WelcomePage() {
               <>
                 {/* Gender preference pill moved into NavigationBar to avoid collision */}
                 {/* Header Section */}
-                <div className="text-center mb-6 sm:mb-8 pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-1000">
+                <div className="text-center mb-4 sm:mb-5 pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
@@ -6619,7 +6619,7 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className={`max-w-4xl mx-auto -mt-4 mb-4 rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
+                <div className={`max-w-4xl mx-auto -mt-6 mb-2 rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
                   <div className="max-w-xl mx-auto px-3 pt-4 pb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <div className="mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
@@ -6636,7 +6636,7 @@ export default function WelcomePage() {
                       </summary>
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
-                        <div className="pt-3">
+                        <div className="pt-1">
                           {/* Features Grid - AI styled */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
                             <div className="ai-card ai-cut p-3 text-center">
@@ -6886,7 +6886,7 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 mt-3 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
                       <div className="grid grid-cols-2 gap-2">
@@ -7075,7 +7075,7 @@ export default function WelcomePage() {
                 {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <>
                     {/* See Match Results Section */}
-                    <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                    <div className="max-w-2xl mx-auto px-4 mt-2 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                       <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">

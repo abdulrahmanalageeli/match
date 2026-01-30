@@ -6631,8 +6631,7 @@ export default function WelcomePage() {
 
                 {/* Process Guide - Ultra Compact */}
                 <div className="max-w-xl mx-auto px-3 mb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-2">
-                    <details className="group">
+                  <details className="group">
                       <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
                         <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />
                         <h2 className="inline">كيف يعمل النظام؟</h2>
@@ -6759,8 +6758,7 @@ export default function WelcomePage() {
                           </div>
                         </div>
                       </div>
-                    </details>
-                  </div>
+                  </details>
                 </div>
 
                 {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}

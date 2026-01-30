@@ -6894,7 +6894,7 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-2 gap-2">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 ai-card ai-cut p-3 sm:p-5 text-center group ${
+                        <div className={`col-span-2 ai-card ai-cut ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
                             ? "opacity-90" 
                             : "hover:shadow-3xl transform hover:scale-[1.02] cursor-pointer"

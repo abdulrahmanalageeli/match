@@ -546,13 +546,17 @@ body::-webkit-scrollbar-corner {
   border: 1px solid rgba(148, 163, 184, 0.12); /* slate-400/12 */
   backdrop-filter: blur(10px);
   overflow: hidden;
+  /* default border gradient tokens */
+  --ai-b1: rgba(34,211,238,.35);
+  --ai-b2: rgba(139,92,246,.35);
+  --ai-b3: rgba(59,130,246,.35);
 }
 .ai-card::before {
   content: "";
   position: absolute;
   inset: 0;
   padding: 1px; /* border thickness */
-  background: linear-gradient(120deg, rgba(34,211,238,.35), rgba(139,92,246,.35), rgba(59,130,246,.35));
+  background: linear-gradient(120deg, var(--ai-b1), var(--ai-b2), var(--ai-b3));
   border-radius: inherit;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -576,6 +580,18 @@ body::-webkit-scrollbar-corner {
 }
 .ai-card:hover::after { opacity: .3; }
 .ai-card:hover::before { animation-duration: 6s, 18s; }
+
+/* Status variants for ai-card border */
+.ai-card--success { 
+  --ai-b1: rgba(16,185,129,.65); /* emerald-500 */
+  --ai-b2: rgba(5,150,105,.6);   /* emerald-600 */
+  --ai-b3: rgba(16,185,129,.65);
+}
+.ai-card--danger  {
+  --ai-b1: rgba(239,68,68,.7);   /* red-500 */
+  --ai-b2: rgba(190,18,60,.6);   /* rose-700 */
+  --ai-b3: rgba(239,68,68,.7);
+}
 
 @keyframes ai-rotate { to { transform: rotate(360deg); } }
 

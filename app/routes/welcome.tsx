@@ -6890,18 +6890,18 @@ export default function WelcomePage() {
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-3 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                    <div className="p-4 sm:p-6">
+                    <div className="p-3 sm:p-4">
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 gap-2">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 rounded-xl p-4 sm:p-6 text-center ${
+                        <div className={`col-span-2 rounded-md p-3 sm:p-5 text-center ${
                           showNextEventSignup 
                             ? "bg-gray-500/20 border border-gray-400/30" 
-                            : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30 group transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                            : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30 group transition-all duration-300 transform hover:scale-[1.02] cursor-pointer"
                         }`}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
+                          <div className={`w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-2 ${
                             showNextEventSignup 
                               ? "bg-gray-500" 
                               : "bg-gradient-to-r from-emerald-500 to-teal-500"
@@ -6911,7 +6911,7 @@ export default function WelcomePage() {
                           <h4 className="text-base font-bold text-white mb-2">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
                           </h4>
-                          <p className="text-cyan-200 text-xs mb-3">
+                          <p className="text-cyan-200 text-xs mb-2">
                             {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
                           </p>
                           
@@ -7013,14 +7013,14 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 transform hover:scale-105"
+                          className="group bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-md p-3 sm:p-5 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 transform hover:scale-[1.02]"
                           id="returning-player"
                         >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3">
+                          <div className="w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-2">
                             <RotateCcw className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
-                          <p className="text-cyan-200 text-xs mb-3">
+                          <p className="text-cyan-200 text-xs mb-2">
                             العودة إلى رحلتك او تعديل بياناتك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-purple-300">
@@ -7037,13 +7037,13 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-105"
+                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-md p-3 sm:p-5 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
+                          <div className="w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-2">
                             <Search className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
-                          <p className="text-cyan-200 text-xs mb-3">
+                          <p className="text-cyan-200 text-xs mb-2">
                             اعرض جميع نتائج التوافق الخاصة بك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-orange-300">
@@ -7055,13 +7055,13 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border border-indigo-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-indigo-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-105"
+                          className="col-span-2 group bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border border-indigo-400/30 rounded-md p-3 sm:p-5 text-center hover:from-indigo-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
+                          <div className="w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center mx-auto mb-2">
                             <Users className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
-                          <p className="text-cyan-200 text-xs mb-3">
+                          <p className="text-cyan-200 text-xs mb-2">
                             30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
                           </p>
                           <div className="flex items-center justify-center gap-2 text-indigo-300">

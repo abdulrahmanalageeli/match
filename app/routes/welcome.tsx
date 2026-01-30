@@ -6636,7 +6636,7 @@ export default function WelcomePage() {
                       </summary>
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
-                        <div className="pt-1">
+                        <div>
                           {/* Features Grid - AI styled */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
                             <div className="ai-card ai-cut p-3 text-center">

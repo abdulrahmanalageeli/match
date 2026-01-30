@@ -559,6 +559,9 @@ body::-webkit-scrollbar-corner {
   -webkit-mask-composite: xor;
   mask-composite: exclude; /* show only the border */
   pointer-events: none;
+  background-size: 300% 300%;
+  filter: hue-rotate(0deg) saturate(1.05);
+  animation: ai-border-pan 18s cubic-bezier(0.65, 0, 0.35, 1) infinite, ai-hue 28s linear infinite;
 }
 .ai-card::after {
   content: "";
@@ -572,8 +575,24 @@ body::-webkit-scrollbar-corner {
   pointer-events: none;
 }
 .ai-card:hover::after { opacity: .3; }
+.ai-card:hover::before { animation-duration: 6s, 18s; }
 
 @keyframes ai-rotate { to { transform: rotate(360deg); } }
+
+/* Border gradient pan around edges (looping slow → fast → slow) */
+@keyframes ai-border-pan {
+  0%   { background-position: 0% 0%;     animation-timing-function: cubic-bezier(.4,0,.2,1); }
+  20%  { background-position: 100% 0%;  animation-timing-function: cubic-bezier(.2,.8,.2,1); }
+  50%  { background-position: 100% 100%; animation-timing-function: cubic-bezier(.4,0,.2,1); }
+  80%  { background-position: 0% 100%;  animation-timing-function: cubic-bezier(.8,.2,.2,1); }
+  100% { background-position: 0% 0%; }
+}
+
+/* Subtle hue rotation for border gradient */
+@keyframes ai-hue {
+  0%   { filter: hue-rotate(0deg)   saturate(1.05); }
+  100% { filter: hue-rotate(360deg) saturate(1.05); }
+}
 
 /* Notched (cut) corners */
 .ai-cut {

@@ -564,8 +564,7 @@ body::-webkit-scrollbar-corner {
   mask-composite: exclude; /* show only the border */
   pointer-events: none;
   background-size: 300% 300%;
-  filter: hue-rotate(0deg) saturate(1.05);
-  animation: ai-border-pan 18s cubic-bezier(0.65, 0, 0.35, 1) infinite, ai-hue 28s linear infinite;
+  animation: ai-border-pan 18s cubic-bezier(0.65, 0, 0.35, 1) infinite;
 }
 .ai-card::after {
   content: "";
@@ -579,7 +578,7 @@ body::-webkit-scrollbar-corner {
   pointer-events: none;
 }
 .ai-card:hover::after { opacity: .3; }
-.ai-card:hover::before { animation-duration: 6s, 18s; }
+.ai-card:hover::before { animation-duration: 6s; }
 
 /* Status variants for ai-card border */
 .ai-card--success { 
@@ -604,11 +603,7 @@ body::-webkit-scrollbar-corner {
   100% { background-position: 0% 0%; }
 }
 
-/* Subtle hue rotation for border gradient */
-@keyframes ai-hue {
-  0%   { filter: hue-rotate(0deg)   saturate(1.05); }
-  100% { filter: hue-rotate(360deg) saturate(1.05); }
-}
+
 
 /* Notched (cut) corners */
 .ai-cut {

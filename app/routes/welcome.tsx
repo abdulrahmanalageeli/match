@@ -2787,6 +2787,31 @@ export default function WelcomePage() {
               </>
             )}
 
+            {/* Gender Preference Pill during initial registration step */}
+            {showRegistrationContent && secureToken && (
+              <>
+                <div className="w-px h-4 bg-slate-600"></div>
+                <button
+                  onClick={() => {
+                    window.location.href = `/welcome?token=${secureToken}&flow=returning`
+                  }}
+                  className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-3 py-1.5 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
+                >
+                  <span className={`text-[10px] font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
+                  <span className={`text-[10px] font-bold ${dark ? 'text-blue-400' : 'text-blue-600'}`}>
+                    {returningGenderPreference === 'same_gender'
+                      ? 'نفس الجنس'
+                      : returningGenderPreference === 'any_gender'
+                        ? 'أي جنس'
+                        : returningGenderPreference === 'opposite_gender'
+                          ? 'الجنس الآخر'
+                          : '...'}
+                  </span>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-colors duration-300">(تغيير)</span>
+                </button>
+              </>
+            )}
+
             {/* Auto-Signup Offer Button - Show for users signed up for next event but auto-signup disabled */}
             {showAutoSignupOffer && !isTokenAndRoundPhase && (
               <>
@@ -6584,30 +6609,7 @@ export default function WelcomePage() {
             {/* Final Registration Content */}
             {showRegistrationContent && (
               <>
-                <div className="text-center mt-16 sm:mt-20 mb-4 relative z-20">
-                  <button 
-                    onClick={() => {
-                    if (secureToken) {
-                      window.location.href = `/welcome?token=${secureToken}&flow=returning`;
-                    } else {
-                      toast.error('لم يتم العثور على رمز المستخدم. يرجى المحاولة مرة أخرى.');
-                    }
-                  }}
-                    className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg hover:shadow-xl transition-shadow duration-300 cursor-pointer border border-gray-200 dark:border-slate-700 group"
-                  >
-                    <span className={`text-xs font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>التفضيل الحالي:</span>
-                    <span className={`text-xs font-bold ${dark ? 'text-blue-400' : 'text-blue-600'}`}>
-                      {returningGenderPreference === 'same_gender' 
-                        ? 'نفس الجنس' 
-                        : returningGenderPreference === 'any_gender' 
-                          ? 'أي جنس' 
-                          : returningGenderPreference === 'opposite_gender' 
-                            ? 'الجنس الآخر' 
-                            : '...'}
-                    </span>
-                    <span className="text-xs text-gray-400 dark:text-gray-500 group-hover:text-blue-500 transition-colors duration-300">(تغيير)</span>
-                  </button>
-                </div>
+                {/* Gender preference pill moved into NavigationBar to avoid collision */}
                 {/* Header Section */}
                 <div className="text-center mb-6 sm:mb-8 pt-16 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">

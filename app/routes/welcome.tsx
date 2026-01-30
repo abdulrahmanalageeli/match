@@ -6640,27 +6640,27 @@ export default function WelcomePage() {
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
                         <div className="pt-3">
-                          {/* Features Grid - Moved inside */}
+                          {/* Features Grid - AI styled */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-2 text-center">
-                              <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                <Users className="w-3.5 h-3.5 text-white" />
+                            <div className="ai-card ai-cut p-3 text-center">
+                              <div className="ai-icon ai-icon--indigo mx-auto mb-2">
+                                <Users className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">لقاءات ذكية</h4>
                               <p className="text-cyan-200 text-[11px]">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
                             </div>
                             
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-2 text-center">
-                              <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                <Brain className="w-3.5 h-3.5 text-white" />
+                            <div className="ai-card ai-cut p-3 text-center">
+                              <div className="ai-icon ai-icon--purple mx-auto mb-2">
+                                <Brain className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">تحليل متقدم</h4>
                               <p className="text-cyan-200 text-[11px]">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
                             </div>
                             
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-2 text-center">
-                              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                <Target className="w-3.5 h-3.5 text-white" />
+                            <div className="ai-card ai-cut p-3 text-center">
+                              <div className="ai-icon ai-icon--emerald mx-auto mb-2">
+                                <Target className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">نتائج دقيقة</h4>
                               <p className="text-cyan-200 text-[11px]">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
@@ -6743,8 +6743,8 @@ export default function WelcomePage() {
                             </div>
                           </div>
                           
-                          {/* Privacy Notice - Moved inside */}
-                          <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                          {/* Privacy Notice - AI styled */}
+                          <div className="mt-4 p-3 ai-card ai-cut">
                             <div className="flex items-start gap-3">
                               <Shield className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
                               <div>
@@ -6894,18 +6894,14 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-2 gap-2">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 rounded-md p-3 sm:p-5 text-center ${
+                        <div className={`col-span-2 ai-card ai-cut p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
-                            ? "bg-gray-500/20 border border-gray-400/30" 
-                            : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30 group transition-all duration-300 transform hover:scale-[1.02] cursor-pointer"
+                            ? "opacity-90" 
+                            : "hover:shadow-3xl transform hover:scale-[1.02] cursor-pointer"
                         }`}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
-                          <div className={`w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-2 ${
-                            showNextEventSignup 
-                              ? "bg-gray-500" 
-                              : "bg-gradient-to-r from-emerald-500 to-teal-500"
-                          }`}>
+                          <div className={`ai-icon ai-icon--emerald mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`}>
                             <UserCheck className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">
@@ -7013,10 +7009,10 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-md p-3 sm:p-5 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 transform hover:scale-[1.02]"
+                          className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                           id="returning-player"
                         >
-                          <div className="w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-2">
+                          <div className="ai-icon ai-icon--purple mx-auto mb-2">
                             <RotateCcw className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
@@ -7037,9 +7033,9 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-md p-3 sm:p-5 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-[1.02]"
+                          className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <div className="w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-2">
+                          <div className="ai-icon ai-icon--orange mx-auto mb-2">
                             <Search className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
@@ -7055,9 +7051,9 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border border-indigo-400/30 rounded-md p-3 sm:p-5 text-center hover:from-indigo-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-[1.02]"
+                          className="col-span-2 group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <div className="w-12 h-12 rounded-md ring-1 ring-white/10 shadow-sm shadow-black/20 backdrop-blur-sm bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center mx-auto mb-2">
+                          <div className="ai-icon ai-icon--indigo mx-auto mb-2">
                             <Users className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>

@@ -6616,7 +6616,7 @@ export default function WelcomePage() {
                       {/* Main hero title/subtitle removed per design request */}
                       
                       {/* Sleek Disclaimer */}
-                      <div className="mt-10 sm:mt-12 max-w-3xl mx-auto">
+                      <div className="mt-4 sm:mt-5 max-w-3xl mx-auto">
                         <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
                           dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"
                         }`}>
@@ -6629,7 +6629,7 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className="max-w-xl mx-auto px-3 mb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
+                <div className="max-w-xl mx-auto px-3 mt-2 mb-2 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <details className="group">
                       <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
                         <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />
@@ -6889,10 +6889,6 @@ export default function WelcomePage() {
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-4 sm:p-6">
-                      <div className="text-center mb-6">
-                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الخدمات المتاحة</h3>
-                        <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
-                      </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}

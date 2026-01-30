@@ -2762,13 +2762,12 @@ export default function WelcomePage() {
             {/* Logo - Center */}
             <div 
               onClick={handleLogoClick}
-              className="cursor-pointer transition-all duration-200 hover:opacity-90"
-              title="الصفحة الرئيسية"
-              aria-label="الصفحة الرئيسية"
+              className="cursor-pointer transition-all duration-200 hover:opacity-80"
             >
-              <div 
-                className="logo-home"
-                style={{ backgroundImage: `url(${logoPng})` }}
+              <img 
+                src={logoPng} 
+                alt="BlindMatch" 
+                className="w-[28px] h-[28px] object-contain min-w-[28px] min-h-[28px]" 
               />
             </div>
 
@@ -6641,6 +6640,22 @@ export default function WelcomePage() {
                           {/* Features Grid - AI styled */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
                             <div className="ai-card ai-cut p-3 text-center">
+                              <motion.div className="ai-ink">
+                                <motion.span
+                                  className="ai-ink__blob ai-ink__blob--1"
+                                  initial={{ x: -30, y: -20 }}
+                                  animate={{ x: [-30, 10, -15], y: [-20, 5, -20] }}
+                                  transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut' }}
+                                  style={{ width: 120, height: 120, top: '10%', left: '8%' }}
+                                />
+                                <motion.span
+                                  className="ai-ink__blob ai-ink__blob--2"
+                                  initial={{ x: 20, y: 10 }}
+                                  animate={{ x: [20, -5, 25], y: [10, -15, 10] }}
+                                  transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut', delay: 0.4 }}
+                                  style={{ width: 100, height: 100, bottom: '12%', right: '10%' }}
+                                />
+                              </motion.div>
                               <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Users className="w-4 h-4 text-white" />
                               </div>
@@ -6649,6 +6664,22 @@ export default function WelcomePage() {
                             </div>
                             
                             <div className="ai-card ai-cut p-3 text-center">
+                              <motion.div className="ai-ink">
+                                <motion.span
+                                  className="ai-ink__blob ai-ink__blob--2"
+                                  initial={{ x: -20, y: -10 }}
+                                  animate={{ x: [-20, 15, -10], y: [-10, 8, -10] }}
+                                  transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+                                  style={{ width: 110, height: 110, top: '12%', left: '12%' }}
+                                />
+                                <motion.span
+                                  className="ai-ink__blob ai-ink__blob--3"
+                                  initial={{ x: 15, y: 20 }}
+                                  animate={{ x: [15, -10, 20], y: [20, -6, 20] }}
+                                  transition={{ duration: 13, repeat: Infinity, ease: 'easeInOut', delay: 0.2 }}
+                                  style={{ width: 90, height: 90, bottom: '10%', right: '12%' }}
+                                />
+                              </motion.div>
                               <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Brain className="w-4 h-4 text-white" />
                               </div>
@@ -6657,6 +6688,22 @@ export default function WelcomePage() {
                             </div>
                             
                             <div className="ai-card ai-cut p-3 text-center">
+                              <motion.div className="ai-ink">
+                                <motion.span
+                                  className="ai-ink__blob ai-ink__blob--1"
+                                  initial={{ x: -18, y: -18 }}
+                                  animate={{ x: [-18, 8, -12], y: [-18, 6, -18] }}
+                                  transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+                                  style={{ width: 100, height: 100, top: '10%', left: '10%' }}
+                                />
+                                <motion.span
+                                  className="ai-ink__blob ai-ink__blob--3"
+                                  initial={{ x: 22, y: 22 }}
+                                  animate={{ x: [22, -12, 22], y: [22, -10, 22] }}
+                                  transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut', delay: 0.3 }}
+                                  style={{ width: 95, height: 95, bottom: '12%', right: '12%' }}
+                                />
+                              </motion.div>
                               <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Target className="w-4 h-4 text-white" />
                               </div>
@@ -6743,6 +6790,15 @@ export default function WelcomePage() {
                           
                           {/* Privacy Notice - AI styled */}
                           <div className="mt-4 p-3 ai-card ai-cut">
+                            <motion.div className="ai-ink">
+                              <motion.span
+                                className="ai-ink__blob ai-ink__blob--2"
+                                initial={{ x: -20, y: -10 }}
+                                animate={{ x: [-20, 10, -12], y: [-10, 6, -10] }}
+                                transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+                                style={{ width: 120, height: 120, top: '10%', left: '10%' }}
+                              />
+                            </motion.div>
                             <div className="flex items-start gap-3">
                               <Shield className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
                               <div>
@@ -6887,7 +6943,7 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 mt-0 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
                       <div className="grid grid-cols-2 gap-2">
@@ -7010,6 +7066,15 @@ export default function WelcomePage() {
                           className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                           id="returning-player"
                         >
+                          <motion.div className="ai-ink">
+                            <motion.span
+                              className="ai-ink__blob ai-ink__blob--1"
+                              initial={{ x: -24, y: -16 }}
+                              animate={{ x: [-24, 8, -10], y: [-16, 6, -16] }}
+                              transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+                              style={{ width: 110, height: 110, top: '10%', left: '10%' }}
+                            />
+                          </motion.div>
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <RotateCcw className="w-6 h-6 text-white" />
                           </div>
@@ -7033,6 +7098,15 @@ export default function WelcomePage() {
                           }}
                           className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
+                          <motion.div className="ai-ink">
+                            <motion.span
+                              className="ai-ink__blob ai-ink__blob--3"
+                              initial={{ x: -18, y: -12 }}
+                              animate={{ x: [-18, 12, -6], y: [-12, 6, -12] }}
+                              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+                              style={{ width: 110, height: 110, top: '10%', left: '12%' }}
+                            />
+                          </motion.div>
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <Search className="w-6 h-6 text-white" />
                           </div>
@@ -7051,6 +7125,15 @@ export default function WelcomePage() {
                           onClick={() => window.location.href = '/groups'}
                           className="col-span-2 group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
+                          <motion.div className="ai-ink">
+                            <motion.span
+                              className="ai-ink__blob ai-ink__blob--2"
+                              initial={{ x: -22, y: -14 }}
+                              animate={{ x: [-22, 10, -8], y: [-14, 8, -14] }}
+                              transition={{ duration: 11.5, repeat: Infinity, ease: 'easeInOut' }}
+                              style={{ width: 120, height: 120, top: '10%', left: '10%' }}
+                            />
+                          </motion.div>
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <Users className="w-6 h-6 text-white" />
                           </div>
@@ -7469,7 +7552,7 @@ export default function WelcomePage() {
         )}
       </AnimatePresence>
       <div
-        className={`min-h-screen px-4 py-10 flex items-center justify-center relative overflow-hidden transition-colors duration-1000 ${
+        className={`min-h-screen px-4 py-6 flex items-center justify-center relative overflow-hidden transition-colors duration-1000 ${
           dark
             ? step === 4 && currentRound === 1
               ? currentQuestions[currentQuestionIndex].level === 0
@@ -8130,7 +8213,7 @@ export default function WelcomePage() {
         {step === 4 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             {/* In-page navbar for round mode */}
-            <div className="relative mb-8">
+            <div className="relative mb-12">
               <NavigationBar />
               <LogoHeader />
               <ParticipantIcon />

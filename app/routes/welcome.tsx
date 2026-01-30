@@ -6643,7 +6643,7 @@ export default function WelcomePage() {
                           {/* Features Grid - AI styled */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
                             <div className="ai-card ai-cut p-3 text-center">
-                              <div className="ai-icon ai-icon--indigo mx-auto mb-2">
+                              <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Users className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">لقاءات ذكية</h4>
@@ -6651,7 +6651,7 @@ export default function WelcomePage() {
                             </div>
                             
                             <div className="ai-card ai-cut p-3 text-center">
-                              <div className="ai-icon ai-icon--purple mx-auto mb-2">
+                              <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Brain className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">تحليل متقدم</h4>
@@ -6659,7 +6659,7 @@ export default function WelcomePage() {
                             </div>
                             
                             <div className="ai-card ai-cut p-3 text-center">
-                              <div className="ai-icon ai-icon--emerald mx-auto mb-2">
+                              <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                                 <Target className="w-4 h-4 text-white" />
                               </div>
                               <h4 className="text-xs font-bold text-white mb-1">نتائج دقيقة</h4>
@@ -6901,7 +6901,7 @@ export default function WelcomePage() {
                         }`}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
-                          <div className={`ai-icon ai-icon--emerald mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`}>
+                          <div className={`ai-icon ai-icon--ghost mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`}>
                             <UserCheck className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">
@@ -7012,7 +7012,7 @@ export default function WelcomePage() {
                           className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                           id="returning-player"
                         >
-                          <div className="ai-icon ai-icon--purple mx-auto mb-2">
+                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <RotateCcw className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
@@ -7035,7 +7035,7 @@ export default function WelcomePage() {
                           }}
                           className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <div className="ai-icon ai-icon--orange mx-auto mb-2">
+                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <Search className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
@@ -7053,7 +7053,7 @@ export default function WelcomePage() {
                           onClick={() => window.location.href = '/groups'}
                           className="col-span-2 group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <div className="ai-icon ai-icon--indigo mx-auto mb-2">
+                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <Users className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>

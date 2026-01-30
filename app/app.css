@@ -543,7 +543,7 @@ body::-webkit-scrollbar-corner {
 .ai-card {
   position: relative;
   background: rgba(2, 6, 23, 0.35); /* slate-950/35 */
-  border: 1px solid rgba(148, 163, 184, 0.12); /* slate-400/12 */
+  border: 0; /* remove base border to avoid double border */
   backdrop-filter: blur(10px);
   overflow: hidden;
   /* neon glow (GPU-light): static layered shadows using existing gradient colors */
@@ -552,8 +552,17 @@ body::-webkit-scrollbar-corner {
   --ai-b1: rgba(34,211,238,.35);
   --ai-b2: rgba(139,92,246,.35);
   --ai-b3: rgba(59,130,246,.35);
+  z-index: 0; /* establish stacking context so ::before can sit above */
 }
 .ai-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  /* disabled border paint on ::before to avoid stacking issues */
+  background: transparent;
+  pointer-events: none;
+}
+.ai-card::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -566,27 +575,14 @@ body::-webkit-scrollbar-corner {
   mask-composite: exclude; /* show only the border */
   pointer-events: none;
   background-size: 300% 300%;
-  /* disable animated pan for performance */
-  animation: none;
+  animation: none; /* keep static for perf */
+  z-index: 2; /* paint above any inner overlays */
 }
-.ai-card::after {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  background: transparent;
-  animation: none;
-  filter: none;
-  opacity: 0;
-  transition: none;
-  pointer-events: none;
-}
-.ai-card:hover::after { opacity: 0; }
-.ai-card:hover::before { animation: none; }
+.ai-card:hover::after { animation: none; }
 
 /* Slightly stronger glow on hover (still GPU-light) */
 .ai-card:hover {
   box-shadow: 0 0 12px var(--ai-b1), 0 0 22px var(--ai-b2), 0 0 34px var(--ai-b3);
-  border-color: rgba(148, 163, 184, 0.2);
 }
 
 /* Status variants for ai-card border */
@@ -663,37 +659,3 @@ html:not(.dark) .ai-ink {
 .ai-ink__blob--1 { background: radial-gradient(closest-side, var(--ai-b1), transparent 60%); }
 .ai-ink__blob--2 { background: radial-gradient(closest-side, var(--ai-b2), transparent 60%); }
 .ai-ink__blob--3 { background: radial-gradient(closest-side, var(--ai-b3), transparent 60%); }
-
-/* Upgrade generic card containers to AI-styled borders (no TSX changes needed) */
-/* Targets elements with: backdrop-blur-xl + border + rounded-2xl + p-8 + shadow-2xl */
-.backdrop-blur-xl.border.rounded-2xl.p-8.shadow-2xl {
-  position: relative;
-  overflow: hidden;
-  /* Use same gradient tokens as .ai-card */
-  --ai-b1: var(--ai-b1, rgba(34,211,238,.35));
-  --ai-b2: var(--ai-b2, rgba(139,92,246,.35));
-  --ai-b3: var(--ai-b3, rgba(59,130,246,.35));
-  border: 1px solid rgba(148, 163, 184, 0.12) !important;
-  /* Subtle neon glow consistent with .ai-card */
-  box-shadow: 0 0 10px var(--ai-b1), 0 0 18px var(--ai-b2), 0 0 26px var(--ai-b3);
-  /* Notched corners like .ai-cut */
-  clip-path: polygon(12px 0%, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
-}
-.backdrop-blur-xl.border.rounded-2xl.p-8.shadow-2xl::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 1px; /* border thickness */
-  background: linear-gradient(120deg, var(--ai-b1), var(--ai-b2), var(--ai-b3));
-  border-radius: inherit;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude; /* show only the border */
-  pointer-events: none;
-  background-size: 300% 300%;
-  animation: none; /* keep static to reduce GPU */
-}
-.backdrop-blur-xl.border.rounded-2xl.p-8.shadow-2xl:hover {
-  box-shadow: 0 0 12px var(--ai-b1), 0 0 22px var(--ai-b2), 0 0 34px var(--ai-b3);
-}

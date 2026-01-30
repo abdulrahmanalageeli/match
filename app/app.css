@@ -546,6 +546,8 @@ body::-webkit-scrollbar-corner {
   border: 1px solid rgba(148, 163, 184, 0.12); /* slate-400/12 */
   backdrop-filter: blur(10px);
   overflow: hidden;
+  /* neon glow (GPU-light): static layered shadows using existing gradient colors */
+  box-shadow: 0 0 10px var(--ai-b1), 0 0 18px var(--ai-b2), 0 0 26px var(--ai-b3);
   /* default border gradient tokens */
   --ai-b1: rgba(34,211,238,.35);
   --ai-b2: rgba(139,92,246,.35);
@@ -564,21 +566,28 @@ body::-webkit-scrollbar-corner {
   mask-composite: exclude; /* show only the border */
   pointer-events: none;
   background-size: 300% 300%;
-  animation: ai-border-pan 18s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+  /* disable animated pan for performance */
+  animation: none;
 }
 .ai-card::after {
   content: "";
   position: absolute;
   inset: -40%;
-  background: conic-gradient(from 0deg, transparent 10%, rgba(59,130,246,.35), rgba(139,92,246,.35), rgba(34,211,238,.35), transparent 90%);
-  animation: ai-rotate 8s linear infinite;
-  filter: blur(24px);
+  background: transparent;
+  animation: none;
+  filter: none;
   opacity: 0;
-  transition: opacity .3s ease;
+  transition: none;
   pointer-events: none;
 }
-.ai-card:hover::after { opacity: .3; }
-.ai-card:hover::before { animation-duration: 6s; }
+.ai-card:hover::after { opacity: 0; }
+.ai-card:hover::before { animation: none; }
+
+/* Slightly stronger glow on hover (still GPU-light) */
+.ai-card:hover {
+  box-shadow: 0 0 12px var(--ai-b1), 0 0 22px var(--ai-b2), 0 0 34px var(--ai-b3);
+  border-color: rgba(148, 163, 184, 0.2);
+}
 
 /* Status variants for ai-card border */
 .ai-card--success { 

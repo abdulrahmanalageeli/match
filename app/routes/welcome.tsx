@@ -2757,7 +2757,7 @@ export default function WelcomePage() {
     return (
       <div className={positionClass}>
         <div className="flex flex-col items-center gap-2">
-          <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-4 py-2 border border-slate-600/50 shadow-md backdrop-blur-sm">
+          <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-3 py-1 border border-slate-600/50 shadow-md backdrop-blur-sm">
             <div className="flex items-center gap-3">
             {/* Logo - Center */}
             <div 
@@ -2767,7 +2767,7 @@ export default function WelcomePage() {
               <img 
                 src={logoPng} 
                 alt="BlindMatch" 
-                className="w-[35px] h-[35px] object-contain min-w-[35px] min-h-[35px]" 
+                className="w-[28px] h-[28px] object-contain min-w-[28px] min-h-[28px]" 
               />
             </div>
 
@@ -6613,12 +6613,7 @@ export default function WelcomePage() {
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
 
-                      <h1 className="text-2xl sm:text-4xl lg:text-6xl font-bold text-white mb-3 sm:mb-4 tracking-tight">
-                        التوافق الأعمى
-                      </h1>
-                      <p className="text-sm sm:text-xl text-cyan-100 max-w-2xl mx-auto leading-relaxed px-2">
-                        اكتشف أشخاص متوافقين معك من خلال الذكاء الاصطناعي المتقدم
-                      </p>
+                      {/* Main hero title/subtitle removed per design request */}
                       
                       {/* Sleek Disclaimer */}
                       <div className="mt-4 max-w-3xl mx-auto">
@@ -6635,41 +6630,41 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className="max-w-2xl mx-auto px-4 mb-6 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
-                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3">
+                <div className="max-w-xl mx-auto px-3 mb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
+                  <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-2">
                     <details className="group">
-                      <summary className="flex items-center justify-center text-base font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors py-1">
-                        <HelpCircle className="w-4 h-4 ml-2 text-cyan-400" />
+                      <summary className="flex items-center justify-center text-sm font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors py-1">
+                        <HelpCircle className="w-3 h-3 ml-2 text-cyan-400" />
                         <h2 className="inline">كيف يعمل النظام؟</h2>
-                        <ChevronLeft className="w-4 h-4 mr-2 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-400" />
+                        <ChevronLeft className="w-3 h-3 mr-2 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-400" />
                       </summary>
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
-                        <div className="pt-4">
+                        <div className="pt-3">
                           {/* Features Grid - Moved inside */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-2 text-center">
                               <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                <Users className="w-4 h-4 text-white" />
+                                <Users className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <h4 className="text-sm font-bold text-white mb-1">لقاءات ذكية</h4>
-                              <p className="text-cyan-200 text-xs">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
+                              <h4 className="text-xs font-bold text-white mb-1">لقاءات ذكية</h4>
+                              <p className="text-cyan-200 text-[11px]">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
                             </div>
                             
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-2 text-center">
                               <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                <Brain className="w-4 h-4 text-white" />
+                                <Brain className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <h4 className="text-sm font-bold text-white mb-1">تحليل متقدم</h4>
-                              <p className="text-cyan-200 text-xs">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
+                              <h4 className="text-xs font-bold text-white mb-1">تحليل متقدم</h4>
+                              <p className="text-cyan-200 text-[11px]">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
                             </div>
                             
-                            <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                            <div className="bg-white/5 border border-white/10 rounded-lg p-2 text-center">
                               <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                <Target className="w-4 h-4 text-white" />
+                                <Target className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <h4 className="text-sm font-bold text-white mb-1">نتائج دقيقة</h4>
-                              <p className="text-cyan-200 text-xs">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
+                              <h4 className="text-xs font-bold text-white mb-1">نتائج دقيقة</h4>
+                              <p className="text-cyan-200 text-[11px]">احصل على تقييم دقيق لدرجة التوافق مع كل شخص</p>
                             </div>
                           </div>
                           
@@ -7081,13 +7076,7 @@ export default function WelcomePage() {
                         </button>
                       </div>
                       
-                      {/* Quick Info */}
-                      <div className="mt-6 p-3 bg-white/5 border border-white/10 rounded-lg">
-                        <div className="flex items-center justify-center gap-2 text-cyan-300">
-                          <CheckCircle className="w-4 h-4" />
-                          <span className="text-xs sm:text-sm">تم حفظ بياناتك - يمكنك الوصول للخدمات مباشرة</span>
-                        </div>
-                      </div>
+                      {/* Saved data info intentionally removed per design request */}
                     </div>
                   </div>
                 )}
@@ -7195,18 +7184,18 @@ export default function WelcomePage() {
 
                 {/* Footer Info */}
                 <div className="text-center mt-8 sm:mt-12 mb-8 sm:mb-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6 text-cyan-200 text-xs sm:text-sm">
+                  <div className="flex flex-row items-center justify-center gap-3 text-cyan-200 text-xs">
                     <div className="flex items-center gap-2">
                       <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>آمن ومحمي</span>
+                      <span className="whitespace-nowrap">آمن ومحمي</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>سريع وسهل</span>
+                      <span className="whitespace-nowrap">سريع وسهل</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span>نتائج متميزة</span>
+                      <span className="whitespace-nowrap">نتائج متميزة</span>
                     </div>
                   </div>
                 </div>

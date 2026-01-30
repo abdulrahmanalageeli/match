@@ -544,10 +544,14 @@ body::-webkit-scrollbar-corner {
   position: relative;
   background: rgba(2, 6, 23, 0.35); /* slate-950/35 */
   border: 0; /* remove base border to avoid double border */
+  outline: 0 !important; /* prevent global outline from covering corners */
+  outline-offset: 0 !important;
+  isolation: isolate; /* keep pseudo-elements layering self-contained */
+  contain: layout paint; /* avoid ancestor effects covering corners */
   backdrop-filter: blur(10px);
   overflow: hidden;
   /* neon glow (GPU-light): static layered shadows using existing gradient colors */
-  box-shadow: 0 0 10px var(--ai-b1), 0 0 18px var(--ai-b2), 0 0 26px var(--ai-b3);
+  box-shadow: none; /* move glow to ::before so it respects clip-path */
   /* default border gradient tokens */
   --ai-b1: rgba(34,211,238,.35);
   --ai-b2: rgba(139,92,246,.35);
@@ -560,13 +564,17 @@ body::-webkit-scrollbar-corner {
   inset: 0;
   /* disabled border paint on ::before to avoid stacking issues */
   background: transparent;
+  border-radius: inherit;
+  /* place the glow here so it follows the chopped shape */
+  box-shadow: 0 0 10px var(--ai-b1), 0 0 18px var(--ai-b2), 0 0 26px var(--ai-b3);
   pointer-events: none;
+  z-index: 0; /* below content and the ::after border */
 }
 .ai-card::after {
   content: "";
   position: absolute;
   inset: 0;
-  padding: 1px; /* border thickness */
+  padding: 2px; /* border thickness */
   background: linear-gradient(120deg, var(--ai-b1), var(--ai-b2), var(--ai-b3));
   border-radius: inherit;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -582,7 +590,8 @@ body::-webkit-scrollbar-corner {
 
 /* Slightly stronger glow on hover (still GPU-light) */
 .ai-card:hover {
-  box-shadow: 0 0 12px var(--ai-b1), 0 0 22px var(--ai-b2), 0 0 34px var(--ai-b3);
+  /* intensify glow on ::before by increasing shadow via filter */
+  filter: drop-shadow(0 0 12px var(--ai-b1)) drop-shadow(0 0 22px var(--ai-b2)) drop-shadow(0 0 34px var(--ai-b3));
 }
 
 /* Status variants for ai-card border */
@@ -613,6 +622,11 @@ body::-webkit-scrollbar-corner {
 /* Notched (cut) corners */
 .ai-cut {
   clip-path: polygon(12px 0%, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
+}
+/* Ensure pseudo-elements use the same chopped shape so corners don't get covered */
+.ai-cut::before,
+.ai-cut::after {
+  clip-path: inherit;
 }
 
 /* Hex/tech icon container with gradient and subtle glass */
@@ -645,6 +659,7 @@ body::-webkit-scrollbar-corner {
   pointer-events: none;
   mix-blend-mode: screen;
   opacity: .45;
+  z-index: 1; /* stay below the gradient border (::after) */
 }
 /* Light mode: a bit subtler */
 html:not(.dark) .ai-ink {

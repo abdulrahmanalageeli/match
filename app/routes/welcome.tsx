@@ -2755,6 +2755,7 @@ export default function WelcomePage() {
     }
     
     return (
+      <>
       <div className={positionClass}>
         <div className="flex flex-col items-center gap-2">
           <div className="bg-gradient-to-r from-slate-800/40 to-slate-700/40 rounded-full px-3 py-1 border border-slate-600/50 shadow-md backdrop-blur-sm">
@@ -2880,6 +2881,8 @@ export default function WelcomePage() {
           )}
         </div>
       </div>
+      {!isTokenAndRoundPhase && (<div className="h-14 sm:h-16" aria-hidden="true"></div>)}
+      </>
     );
   };
 
@@ -6150,7 +6153,21 @@ export default function WelcomePage() {
                             <Label htmlFor="next-humor-A" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
                               المزاح والمرح
                             </Label>
-                          </div>
+                            {/* Preference tag integrated in card */}
+                          {showRegistrationContent && secureToken && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); window.location.href = `/welcome?token=${secureToken}&flow=returning`; }}
+                              className="absolute top-2 right-2 inline-flex items-center gap-1 bg-slate-800/70 dark:bg-slate-800/70 backdrop-blur-sm rounded-full px-2 py-0.5 border border-white/10 text-[10px] text-slate-200 hover:text-blue-300 transition-colors"
+                              title="تغيير التفضيل"
+                            >
+                              <span className="font-medium">التفضيل الحالي:</span>
+                              <span className="font-bold text-blue-300">
+                                {returningGenderPreference === 'same_gender' ? 'نفس الجنس' : returningGenderPreference === 'any_gender' ? 'أي جنس' : returningGenderPreference === 'opposite_gender' ? 'الجنس الآخر' : '...'}
+                              </span>
+                              <span className="text-slate-400">(تغيير)</span>
+                            </button>
+                          )}
+                        </div>
                           <div className="flex items-center gap-3">
                             <RadioGroupItem value="B" id="next-humor-B" className={`${dark ? "border-purple-400/50 text-purple-400" : "border-purple-500/50 text-purple-500"}`} />
                             <Label htmlFor="next-humor-B" className={`text-sm cursor-pointer ${dark ? "text-purple-200" : "text-purple-700"}`}>
@@ -6608,7 +6625,7 @@ export default function WelcomePage() {
               <>
                 {/* Gender preference pill moved into NavigationBar to avoid collision */}
                 {/* Header Section */}
-                <div className="text-center mb-6 sm:mb-8 pt-16 animate-in slide-in-from-bottom-4 duration-1000">
+                <div className="text-center mb-6 sm:mb-8 pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
@@ -6616,12 +6633,12 @@ export default function WelcomePage() {
                       {/* Main hero title/subtitle removed per design request */}
                       
                       {/* Sleek Disclaimer */}
-                      <div className="mt-4 max-w-3xl mx-auto">
-                        <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-sm border ${
+                      <div className="mt-10 sm:mt-12 max-w-3xl mx-auto">
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-sm border ${
                           dark ? "bg-slate-800/30 border-slate-600/50 text-slate-300" : "bg-white/20 border-white/30 text-gray-700"
                         }`}>
                           <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></div>
-                          <span className="text-xs font-medium">
+                          <span className="text-[11px] font-medium">
                             هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
                           </span>
                         </div>
@@ -6633,10 +6650,10 @@ export default function WelcomePage() {
                 <div className="max-w-xl mx-auto px-3 mb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
                   <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-2">
                     <details className="group">
-                      <summary className="flex items-center justify-center text-sm font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors py-1">
-                        <HelpCircle className="w-3 h-3 ml-2 text-cyan-400" />
+                      <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
+                        <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />
                         <h2 className="inline">كيف يعمل النظام؟</h2>
-                        <ChevronLeft className="w-3 h-3 mr-2 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-400" />
+                        <ChevronLeft className="w-3.5 h-3.5 mr-1 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-300" />
                       </summary>
                       
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
@@ -6669,7 +6686,7 @@ export default function WelcomePage() {
                           </div>
                           
                           <div className="text-center mb-4">
-                            <p className="text-cyan-200 text-sm max-w-2xl mx-auto">
+                            <p className="text-cyan-200 text-xs max-w-2xl mx-auto">
                               نظام توافق شخصي متقدم حيث لا يُسمح للمشاركين بالكشف عن أسمائهم وأعمارهم إلا في حالة التطابق المتبادل في النهاية
                             </p>
                           </div>
@@ -6892,26 +6909,19 @@ export default function WelcomePage() {
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-4 sm:p-6">
-                      <div className="text-center mb-6">
-                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الخدمات المتاحة</h3>
-                        <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
-                      </div>
+                      {/* Services heading removed per design request */}
                       
                       <div className="grid grid-cols-2 gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 rounded-xl p-4 sm:p-6 text-center ${
+                        <div className={`col-span-2 relative overflow-hidden rounded-xl p-4 sm:p-6 text-center ${
                           showNextEventSignup 
-                            ? "bg-gray-500/20 border border-gray-400/30" 
-                            : "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 border border-emerald-400/30 hover:from-emerald-500/30 hover:to-teal-500/30 group transition-all duration-300 transform hover:scale-105 cursor-pointer"
+                            ? "bg-white/5 backdrop-blur-xl border border-white/10 ring-1 ring-white/10" 
+                            : "bg-white/10 backdrop-blur-xl border border-white/10 ring-1 ring-white/10 hover:bg-white/15 group transition-all duration-300 transform hover:scale-105 cursor-pointer"
                         }`}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
-                            showNextEventSignup 
-                              ? "bg-gray-500" 
-                              : "bg-gradient-to-r from-emerald-500 to-teal-500"
-                          }`}>
-                            <UserCheck className="w-6 h-6 text-white" />
+                          <div className="mx-auto mb-3">
+                            <UserCheck className={`w-7 h-7 ${showNextEventSignup ? 'text-gray-400' : 'text-emerald-300'} filter drop-shadow-[0_0_10px_rgba(16,185,129,0.35)]`} />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
@@ -6921,8 +6931,7 @@ export default function WelcomePage() {
                           </p>
                           
                           {!showNextEventSignup ? (
-                            <div className="flex items-center justify-center gap-2 text-emerald-300">
-                              <span className="text-xs font-medium">انقر للتسجيل</span>
+                            <div className="absolute bottom-2 left-2 text-emerald-300 opacity-70">
                               <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                             </div>
                           ) : (
@@ -7018,18 +7027,17 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-purple-500/30 hover:to-pink-500/30 transition-all duration-300 transform hover:scale-105"
+                          className="group relative overflow-hidden bg-white/10 backdrop-blur-xl border border-white/10 ring-1 ring-white/10 rounded-xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 transform hover:scale-105"
                           id="returning-player"
                         >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-3">
-                            <RotateCcw className="w-6 h-6 text-white" />
+                          <div className="mx-auto mb-3">
+                            <RotateCcw className="w-7 h-7 text-fuchsia-300 filter drop-shadow-[0_0_10px_rgba(217,70,239,0.35)]" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
                           <p className="text-cyan-200 text-xs mb-3">
                             العودة إلى رحلتك او تعديل بياناتك
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-purple-300">
-                            <span className="text-xs font-medium">العودة للرحلة</span>
+                          <div className="absolute bottom-2 left-2 text-purple-300 opacity-70">
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </button>
@@ -7042,17 +7050,16 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-orange-500/30 hover:to-red-500/30 transition-all duration-300 transform hover:scale-105"
+                          className="group relative overflow-hidden bg-white/10 backdrop-blur-xl border border-white/10 ring-1 ring-white/10 rounded-xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 transform hover:scale-105"
                         >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center mx-auto mb-3">
-                            <Search className="w-6 h-6 text-white" />
+                          <div className="mx-auto mb-3">
+                            <Search className="w-7 h-7 text-orange-300 filter drop-shadow-[0_0_10px_rgba(251,146,60,0.35)]" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
                           <p className="text-cyan-200 text-xs mb-3">
                             اعرض جميع نتائج التوافق الخاصة بك
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-orange-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
+                          <div className="absolute bottom-2 left-2 text-orange-300 opacity-70">
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </button>
@@ -7060,17 +7067,16 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group bg-gradient-to-r from-indigo-500/20 to-blue-500/20 border border-indigo-400/30 rounded-xl p-4 sm:p-6 text-center hover:from-indigo-500/30 hover:to-blue-500/30 transition-all duration-300 transform hover:scale-105"
+                          className="col-span-2 group relative overflow-hidden bg-white/10 backdrop-blur-xl border border-white/10 ring-1 ring-white/10 rounded-xl p-4 sm:p-6 text-center hover:bg-white/15 transition-all duration-300 transform hover:scale-105"
                         >
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 flex items-center justify-center mx-auto mb-3">
-                            <Users className="w-6 h-6 text-white" />
+                          <div className="mx-auto mb-3">
+                            <Users className="w-7 h-7 text-indigo-300 filter drop-shadow-[0_0_10px_rgba(99,102,241,0.35)]" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
                           <p className="text-cyan-200 text-xs mb-3">
                             30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-indigo-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
+                          <div className="absolute bottom-2 left-2 text-indigo-300 opacity-70">
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
                         </button>

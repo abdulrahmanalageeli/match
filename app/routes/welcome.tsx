@@ -2762,12 +2762,13 @@ export default function WelcomePage() {
             {/* Logo - Center */}
             <div 
               onClick={handleLogoClick}
-              className="cursor-pointer transition-all duration-200 hover:opacity-80"
+              className="cursor-pointer transition-all duration-200 hover:opacity-90"
+              title="الصفحة الرئيسية"
+              aria-label="الصفحة الرئيسية"
             >
-              <img 
-                src={logoPng} 
-                alt="BlindMatch" 
-                className="w-[28px] h-[28px] object-contain min-w-[28px] min-h-[28px]" 
+              <div 
+                className="logo-home"
+                style={{ backgroundImage: `url(${logoPng})` }}
               />
             </div>
 
@@ -6886,7 +6887,7 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="max-w-4xl mx-auto px-4 mt-0 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
                       <div className="grid grid-cols-2 gap-2">
@@ -7054,9 +7055,6 @@ export default function WelcomePage() {
                             <Users className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
-                          <p className="text-cyan-200 text-xs mb-2">
-                            30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
-                          </p>
                           <div className="flex items-center justify-center gap-2 text-indigo-300">
                             <span className="text-xs font-medium">انقر للوصول</span>
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
@@ -8132,7 +8130,7 @@ export default function WelcomePage() {
         {step === 4 && (
           <section className="space-y-6 animate-in slide-in-from-bottom-4 duration-700">
             {/* In-page navbar for round mode */}
-            <div className="relative mb-12">
+            <div className="relative mb-8">
               <NavigationBar />
               <LogoHeader />
               <ParticipantIcon />

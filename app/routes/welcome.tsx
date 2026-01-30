@@ -6629,7 +6629,7 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className={`max-w-3xl mx-auto -mt-4 mb-4 rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
+                <div className={`max-w-4xl mx-auto -mt-4 mb-4 rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
                   <div className="max-w-xl mx-auto px-3 pt-4 pb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <details className="group">
                       <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
@@ -6760,7 +6760,7 @@ export default function WelcomePage() {
                       </div>
                   </details>
                   </div>
-                </div>
+                
 
                 {/* Registration Options - Hidden for new users, only show for users who dismiss popup */}
                 {false && !(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
@@ -6889,7 +6889,7 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="max-w-4xl mx-auto px-4 mt-3 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-4 sm:p-6">
                       
                       <div className="grid grid-cols-2 gap-4">
@@ -7075,6 +7075,8 @@ export default function WelcomePage() {
                     </div>
                   </div>
                 )}
+
+                </div>
 
                 {/* Token Input Sections for Non-Saved Users */}
                 {!(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (

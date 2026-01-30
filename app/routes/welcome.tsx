@@ -6909,7 +6909,10 @@ export default function WelcomePage() {
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-4 sm:p-6">
-                      {/* Services heading removed per design request */}
+                      <div className="text-center mb-6">
+                        <h3 className="text-lg sm:text-xl font-bold text-white mb-2">الخدمات المتاحة</h3>
+                        <p className="text-cyan-200 text-xs sm:text-sm">اختر الخدمة التي تريد الوصول إليها</p>
+                      </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}

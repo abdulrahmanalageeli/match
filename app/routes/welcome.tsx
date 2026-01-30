@@ -6619,8 +6619,8 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className={`max-w-4xl mx-auto -mt-6 mb-2 rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
-                  <div className="max-w-xl mx-auto px-3 pt-4 pb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
+                <div className={`max-w-4xl mx-auto -mt-10 mb-2 rounded-2xl border ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
+                  <div className="max-w-xl mx-auto px-3 pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <div className="mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
                       <span className="text-[7px] font-medium">
@@ -6629,7 +6629,7 @@ export default function WelcomePage() {
                     </div>
                   </div>
                   <details className="group">
-                      <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
+                      <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-0 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
                         <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />
                         <h2 className="inline">كيف يعمل النظام؟</h2>
                         <ChevronLeft className="w-3.5 h-3.5 mr-1 transition-transform duration-300 group-open:rotate-[-90deg] text-cyan-300" />
@@ -6638,7 +6638,7 @@ export default function WelcomePage() {
                       <div className="overflow-hidden transition-all duration-500 ease-in-out max-h-0 group-open:max-h-[1200px]">
                         <div>
                           {/* Features Grid - AI styled */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-3 -mt-2">
                             <div className="ai-card ai-cut p-3 text-center">
                               <motion.div className="ai-ink">
                                 <motion.span
@@ -7552,7 +7552,7 @@ export default function WelcomePage() {
         )}
       </AnimatePresence>
       <div
-        className={`min-h-screen px-4 py-6 flex items-center justify-center relative overflow-hidden transition-colors duration-1000 ${
+        className={`min-h-screen px-4 py-4 flex items-start justify-center relative overflow-hidden transition-colors duration-1000 ${
           dark
             ? step === 4 && currentRound === 1
               ? currentQuestions[currentQuestionIndex].level === 0

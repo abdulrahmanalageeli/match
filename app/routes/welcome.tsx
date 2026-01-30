@@ -6617,11 +6617,10 @@ export default function WelcomePage() {
                       
                       {/* Sleek Disclaimer */}
                       <div className="mt-10 sm:mt-12 max-w-3xl mx-auto">
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-sm border ${
-                          dark ? "bg-slate-800/30 border-slate-600/50 text-slate-300" : "bg-white/20 border-white/30 text-gray-700"
+                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${
+                          dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"
                         }`}>
-                          <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse"></div>
-                          <span className="text-[11px] font-medium">
+                          <span className="text-[7px] font-medium">
                             هذا حدث فكري لتحدي وجهات النظر • هدفه اختبار التوافق الفكري والثقافي من خلال نقاشات جماعية ومحادثات فردية
                           </span>
                         </div>
@@ -6630,7 +6629,7 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className="max-w-xl mx-auto px-3 mb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700">
+                <div className="max-w-xl mx-auto px-3 mb-4 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <details className="group">
                       <summary className="inline-flex items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-3 py-1 rounded-full bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border border-white/10">
                         <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />

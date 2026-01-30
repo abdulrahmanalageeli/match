@@ -7253,23 +7253,7 @@ export default function WelcomePage() {
                   </>
                 )}
 
-                {/* Footer Info */}
-                <div className="text-center mt-8 sm:mt-12 mb-8 sm:mb-12 px-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                  <div className="flex flex-row items-center justify-center gap-3 text-cyan-200 text-xs">
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="whitespace-nowrap">آمن ومحمي</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="whitespace-nowrap">سريع وسهل</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <UserCheck className="w-3 h-3 sm:w-4 sm:h-4" />
-                      <span className="whitespace-nowrap">نتائج متميزة</span>
-                    </div>
-                  </div>
-                </div>
+                
 
               </>
             )}

@@ -6639,7 +6639,15 @@ export default function WelcomePage() {
                         <div>
                           {/* Features Grid - AI styled */}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-1 -mt-3">
-                            <div className="ai-card ai-cut p-3 text-center">
+                            <div
+                              className="ai-card ai-cut p-3 text-center"
+                              style={{
+                                ['--ai-b1' as any]: 'rgba(56,189,248,.55)',   // cyan-400
+                                ['--ai-b2' as any]: 'rgba(99,102,241,.55)',   // indigo-500
+                                ['--ai-b3' as any]: 'rgba(59,130,246,.55)',   // blue-500
+                                background: 'linear-gradient(135deg, rgba(29,78,216,0.18), rgba(14,165,233,0.14))'
+                              }}
+                            >
                               <motion.div className="ai-ink">
                                 <motion.span
                                   className="ai-ink__blob ai-ink__blob--1"
@@ -6663,7 +6671,15 @@ export default function WelcomePage() {
                               <p className="text-cyan-200 text-[11px]">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
                             </div>
                             
-                            <div className="ai-card ai-cut p-3 text-center">
+                            <div
+                              className="ai-card ai-cut p-3 text-center"
+                              style={{
+                                ['--ai-b1' as any]: 'rgba(168,85,247,.55)',  // purple-500
+                                ['--ai-b2' as any]: 'rgba(236,72,153,.55)',  // pink-500
+                                ['--ai-b3' as any]: 'rgba(147,51,234,.55)',  // violet-600
+                                background: 'linear-gradient(135deg, rgba(109,40,217,0.18), rgba(236,72,153,0.14))'
+                              }}
+                            >
                               <motion.div className="ai-ink">
                                 <motion.span
                                   className="ai-ink__blob ai-ink__blob--2"
@@ -6687,7 +6703,15 @@ export default function WelcomePage() {
                               <p className="text-cyan-200 text-[11px]">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
                             </div>
                             
-                            <div className="ai-card ai-cut p-3 text-center">
+                            <div
+                              className="ai-card ai-cut p-3 text-center"
+                              style={{
+                                ['--ai-b1' as any]: 'rgba(251,146,60,.55)',  // orange-400
+                                ['--ai-b2' as any]: 'rgba(244,63,94,.55)',   // rose-500 accent
+                                ['--ai-b3' as any]: 'rgba(234,88,12,.55)',   // orange-600
+                                background: 'linear-gradient(135deg, rgba(234,88,12,0.18), rgba(251,191,36,0.14))'
+                              }}
+                            >
                               <motion.div className="ai-ink">
                                 <motion.span
                                   className="ai-ink__blob ai-ink__blob--1"

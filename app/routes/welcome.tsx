@@ -7087,26 +7087,11 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group ai-card ai-card--accent ai-cut ai-cut--painted p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-                          style={{
-                            ['--ai-b1' as any]: 'rgba(168,85,247,.55)',  // purple-500
-                            ['--ai-b2' as any]: 'rgba(236,72,153,.55)',  // pink-500
-                            ['--ai-b3' as any]: 'rgba(147,51,234,.55)',  // violet-600
-                            background: 'linear-gradient(135deg, rgba(109,40,217,0.22), rgba(236,72,153,0.16))'
-                          }}
+                          className="group bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 sm:p-5 text-center shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 transform hover:scale-[1.02]"
                           id="returning-player"
                         >
-                          <motion.div className="ai-ink">
-                            <motion.span
-                              className="ai-ink__blob ai-ink__blob--1"
-                              initial={{ x: -24, y: -16 }}
-                              animate={{ x: [-24, 8, -10], y: [-16, 6, -16] }}
-                              transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
-                              style={{ width: 110, height: 110, top: '10%', left: '10%' }}
-                            />
-                          </motion.div>
-                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <RotateCcw className="w-6 h-6 text-white" />
+                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <RotateCcw className="w-4 h-4 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
                           <p className="text-cyan-200 text-xs mb-2">
@@ -7126,25 +7111,10 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group ai-card ai-card--accent ai-cut ai-cut--painted p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-                          style={{
-                            ['--ai-b1' as any]: 'rgba(251,146,60,.55)',  // orange-400
-                            ['--ai-b2' as any]: 'rgba(244,63,94,.55)',   // rose-500
-                            ['--ai-b3' as any]: 'rgba(234,88,12,.55)',   // orange-600
-                            background: 'linear-gradient(135deg, rgba(234,88,12,0.22), rgba(251,191,36,0.16))'
-                          }}
+                          className="group bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 sm:p-5 text-center shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <motion.div className="ai-ink">
-                            <motion.span
-                              className="ai-ink__blob ai-ink__blob--3"
-                              initial={{ x: -18, y: -12 }}
-                              animate={{ x: [-18, 12, -6], y: [-12, 6, -12] }}
-                              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-                              style={{ width: 110, height: 110, top: '10%', left: '12%' }}
-                            />
-                          </motion.div>
-                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <Search className="w-6 h-6 text-white" />
+                          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <Search className="w-4 h-4 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
                           <p className="text-cyan-200 text-xs mb-2">
@@ -7159,25 +7129,10 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-card--accent ai-cut ai-cut--painted p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-                          style={{
-                            ['--ai-b1' as any]: 'rgba(56,189,248,.55)',   // cyan-400
-                            ['--ai-b2' as any]: 'rgba(99,102,241,.55)',   // indigo-500
-                            ['--ai-b3' as any]: 'rgba(59,130,246,.55)',   // blue-500
-                            background: 'linear-gradient(135deg, rgba(29,78,216,0.22), rgba(14,165,233,0.16))'
-                          }}
+                          className="col-span-2 group bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 sm:p-5 text-center shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 transform hover:scale-[1.02]"
                         >
-                          <motion.div className="ai-ink">
-                            <motion.span
-                              className="ai-ink__blob ai-ink__blob--2"
-                              initial={{ x: -22, y: -14 }}
-                              animate={{ x: [-22, 10, -8], y: [-14, 8, -14] }}
-                              transition={{ duration: 11.5, repeat: Infinity, ease: 'easeInOut' }}
-                              style={{ width: 120, height: 120, top: '10%', left: '10%' }}
-                            />
-                          </motion.div>
-                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <Users className="w-6 h-6 text-white" />
+                          <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <Users className="w-4 h-4 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
                           <div className="flex items-center justify-center gap-2 text-indigo-300">

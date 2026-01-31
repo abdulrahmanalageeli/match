@@ -633,14 +633,19 @@ body::-webkit-scrollbar-corner {
   clip-path: inherit;
 }
 /* Animated gradient ink overlay inside ai-cards (Framer Motion controls transform only) */
+.ai-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint style;
+}
+
 .ai-ink {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  border-radius: inherit;
-  z-index: 0; /* stay below the content */
+  z-index: 0;
   overflow: hidden;
-  /* Add mask to respect the cut corners */
   -webkit-mask: 
     linear-gradient(#fff 0 0) content-box, 
     linear-gradient(#fff 0 0);
@@ -649,7 +654,10 @@ body::-webkit-scrollbar-corner {
     linear-gradient(#fff 0 0) content-box, 
     linear-gradient(#fff 0 0);
   mask-composite: exclude;
-  /* No blur/filter here to keep GPU usage lower */
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 /* Light mode: a bit subtler */
@@ -658,11 +666,13 @@ html:not(.dark) .ai-ink {
 }
 
 /* Ink blob styles */
-.ai-ink__blob--1, 
-.ai-ink__blob--2, 
+.ai-ink__blob--1,
+.ai-ink__blob--2,
 .ai-ink__blob--3 {
   position: absolute;
-  border-radius: 9999px;
+  border-radius: 50%;
+  transform: translateZ(0);
+  will-change: transform;
   /* No blur/filter to keep GPU impact low */
 }
 

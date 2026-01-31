@@ -544,6 +544,7 @@ body::-webkit-scrollbar-corner {
   position: relative;
   background: rgba(2, 6, 23, 0.35); /* slate-950/35 */
   border: 0; /* remove base border to avoid double border */
+  background-clip: padding-box; /* Prevent background from bleeding through border */
   outline: 0 !important; /* prevent global outline from covering corners */
   outline-offset: 0 !important;
   isolation: isolate; /* keep pseudo-elements layering self-contained */

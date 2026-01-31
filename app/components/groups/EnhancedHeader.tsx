@@ -1,6 +1,5 @@
 import { Clock, Users, ChevronDown, Home, Settings, HelpCircle } from "lucide-react";
 import { useState } from "react";
-import logoPng from "../../welcome/blindmatch.png";
 
 interface EnhancedHeaderProps {
   timeRemaining: number;
@@ -60,11 +59,9 @@ export function EnhancedHeader({
             onClick={onGoHome}
             className="flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
           >
-            <img 
-              src={logoPng} 
-              alt="BlindMatch" 
-              className="w-10 h-10 object-contain drop-shadow-lg" 
-            />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 p-1.5 shadow-lg ring-1 ring-white/10">
+              <Home className="w-full h-full text-white" strokeWidth={2.5} />
+            </div>
           </button>
 
           {/* Center info */}

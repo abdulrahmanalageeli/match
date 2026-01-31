@@ -39,7 +39,6 @@ import { Smartphone, Link as LinkIcon, Bell } from "lucide-react";
 import PromptTopicsModal from "../components/PromptTopicsModal";
 import { OnboardingModal } from "../components/groups/OnboardingModal";
 import PhoneEntry from "../components/groups/PhoneEntry";
-import logoPng from "../welcome/blindmatch.png";
 import { animate } from "motion";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -3520,11 +3519,9 @@ export default function GroupsPage() {
                     onClick={() => window.location.href = "/welcome"}
                     className="cursor-pointer transition-all duration-200 hover:opacity-80"
                   >
-                    <img 
-                      src={logoPng} 
-                      alt="BlindMatch" 
-                      className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain" 
-                    />
+                    <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 p-1.5 shadow-lg ring-1 ring-white/10">
+                      <Home className="w-full h-full text-white" strokeWidth={2.5} />
+                    </div>
                   </div>
 
                   {/* Participant Info */}
@@ -3722,11 +3719,9 @@ export default function GroupsPage() {
               onClick={() => window.location.href = "/welcome"}
               className="flex-shrink-0 transition-transform duration-200 hover:scale-110 active:scale-95"
             >
-              <img 
-                src={logoPng} 
-                alt="BlindMatch" 
-                className={`${headerCollapsed ? 'w-8 h-8' : 'w-10 h-10'} object-contain drop-shadow-lg`} 
-              />
+              <div className={`${headerCollapsed ? 'w-8 h-8' : 'w-10 h-10'} rounded-xl bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 p-1 shadow-lg ring-1 ring-white/10`}>
+                <Home className="w-full h-full text-white" strokeWidth={2.5} />
+              </div>
             </button>
 
             {/* Back Button with smooth transition - positioned absolutely on left (only when expanded) */}

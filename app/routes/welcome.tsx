@@ -53,6 +53,7 @@ import {
   Layers,
   Bell,
   Info,
+  Home,
 } from "lucide-react"
 import { Button } from "../../components/ui/button"
 import { Avatar, AvatarFallback } from "../../components/ui/avatar"
@@ -2764,11 +2765,9 @@ export default function WelcomePage() {
               onClick={handleLogoClick}
               className="cursor-pointer transition-all duration-200 hover:opacity-80"
             >
-              <img 
-                src={logoPng} 
-                alt="BlindMatch" 
-                className="w-[28px] h-[28px] object-contain min-w-[28px] min-h-[28px]" 
-              />
+              <div className="w-[28px] h-[28px] min-w-[28px] min-h-[28px] rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 p-[5px] shadow-lg ring-1 ring-white/10">
+                <Home className="w-full h-full text-white" strokeWidth={2.5} />
+              </div>
             </div>
 
             {/* Participant Infoo */}
@@ -2919,11 +2918,9 @@ export default function WelcomePage() {
             
             {/* Main logo container */}
             <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
-              <img 
-                src={logoPng} 
-                alt="BlindMatch" 
-                className="w-8 h-8 object-contain drop-shadow-sm" 
-              />
+              <div className="w-8 h-8 rounded-md bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 p-1.5 shadow-md ring-1 ring-white/10">
+                <Home className="w-full h-full text-white" strokeWidth={2.5} />
+              </div>
             </div>
             
             {/* Subtle animated border */}
@@ -6967,7 +6964,7 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 -mt-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
                       <div className="grid grid-cols-2 gap-2">

@@ -7087,7 +7087,7 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
+                          className="group ai-card ai-card--flat ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                           style={{
                             ['--ai-b1' as any]: 'rgba(168,85,247,.55)',  // purple-500
                             ['--ai-b2' as any]: 'rgba(236,72,153,.55)',  // pink-500
@@ -7126,7 +7126,7 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
+                          className="group ai-card ai-card--flat ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                           style={{
                             ['--ai-b1' as any]: 'rgba(251,146,60,.55)',  // orange-400
                             ['--ai-b2' as any]: 'rgba(244,63,94,.55)',   // rose-500
@@ -7159,7 +7159,7 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
+                          className="col-span-2 group ai-card ai-card--flat ai-cut p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
                           style={{
                             ['--ai-b1' as any]: 'rgba(56,189,248,.55)',   // cyan-400
                             ['--ai-b2' as any]: 'rgba(99,102,241,.55)',   // indigo-500

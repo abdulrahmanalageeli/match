@@ -5435,7 +5435,7 @@ export default function WelcomePage() {
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-md w-full">
-            <div className="bg-white/10 backdrop-blur-xl border border-cyan-400/30 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-white/15 backdrop-blur-2xl border border-cyan-400/40 rounded-2xl p-8 shadow-2xl ring-1 ring-white/10">
               <div className="text-center">
                 {/* Loading Icon */}
                 <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
@@ -5494,7 +5494,7 @@ export default function WelcomePage() {
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-md w-full">
-            <div className="bg-white/10 backdrop-blur-xl border border-red-400/30 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-white/15 backdrop-blur-2xl border border-red-400/40 rounded-2xl p-8 shadow-2xl ring-1 ring-white/10">
               <div className="text-center">
                 {/* Error Icon */}
                 <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -5651,7 +5651,7 @@ export default function WelcomePage() {
               
               {/* Features Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-6">
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg">
                   <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                     <Users className="w-4 h-4 text-white" />
                   </div>
@@ -5659,7 +5659,7 @@ export default function WelcomePage() {
                   <p className="text-cyan-200 text-xs">تبدأ بجلوس مع مجموعة لمدة 20-30 دقيقة ثم لقاءات فردية</p>
                 </div>
                 
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg">
                   <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                     <Brain className="w-4 h-4 text-white" />
                   </div>
@@ -5667,7 +5667,7 @@ export default function WelcomePage() {
                   <p className="text-cyan-200 text-xs">ذكاء اصطناعي يحلل شخصيتك ويجد أفضل التوافقات</p>
                 </div>
                 
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-center">
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg">
                   <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                     <Target className="w-4 h-4 text-white" />
                   </div>
@@ -5738,7 +5738,7 @@ export default function WelcomePage() {
                 </div>
                 
                 {/* Privacy Notice */}
-                <div className="mt-4 p-3 bg-white/5 border border-white/10 rounded-lg">
+                <div className="mt-4 p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg shadow-md">
                   <div className="flex items-start gap-3">
                     <Shield className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
                     <div>
@@ -5791,7 +5791,7 @@ export default function WelcomePage() {
                 {/* FAQ Content */}
                 <div className="space-y-4 mb-6">
                   {/* Platform Purpose */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Target className="w-4 h-4" />
                       ما هو الهدف من هذه المنصة؟
@@ -5803,7 +5803,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Nationality Policy */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Users className="w-4 h-4" />
                       هل يمكنني اختيار جنسية معينة؟
@@ -5815,7 +5815,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Age Matching */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Clock className="w-4 h-4" />
                       كيف يتم التوافق حسب العمر؟
@@ -5827,7 +5827,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Repeat Matching */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <RotateCcw className="w-4 h-4" />
                       هل سأتم مطابقتي مع نفس الأشخاص مرة أخرى؟
@@ -5839,7 +5839,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Session Duration */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Activity className="w-4 h-4" />
                       كم تستغرق الجلسات؟
@@ -5852,7 +5852,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Activities Provided */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Sparkles className="w-4 h-4" />
                       ما الأنشطة المتوفرة؟
@@ -5865,7 +5865,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Privacy & Safety */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Shield className="w-4 h-4" />
                       كيف تضمنون الخصوصية والأمان؟
@@ -5877,7 +5877,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Platform Values */}
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 shadow-lg">
                     <h4 className="text-base font-bold text-orange-300 mb-2 flex items-center gap-2">
                       <Heart className="w-4 h-4" />
                       ما قيمنا ومبادئنا؟
@@ -7181,7 +7181,7 @@ export default function WelcomePage() {
                   <>
                     {/* See Match Results Section */}
                     <div className="max-w-2xl mx-auto px-4 mt-2 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                      <div className="bg-white/15 backdrop-blur-2xl border border-white/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl ring-1 ring-white/10">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
@@ -7213,7 +7213,7 @@ export default function WelcomePage() {
                                 placeholder="أدخل الرمز المميز للنتائج..."
                                 value={resultToken}
                                 onChange={(e) => setResultToken(e.target.value)}
-                                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/10 border border-white/20 rounded-lg sm:rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
+                                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/15 border border-white/30 ring-1 ring-white/10 rounded-lg sm:rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
                                     viewResults(resultToken);
@@ -7235,7 +7235,7 @@ export default function WelcomePage() {
 
                     {/* Group Activities Section */}
                     <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1200">
-                      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl sm:rounded-2xl p-6 sm:p-8">
+                      <div className="bg-white/15 backdrop-blur-2xl border border-white/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl ring-1 ring-white/10">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">

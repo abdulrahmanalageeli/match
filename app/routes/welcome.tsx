@@ -6608,7 +6608,7 @@ export default function WelcomePage() {
               <>
                 {/* Gender preference pill moved into NavigationBar to avoid collision */}
                 {/* Header Section */}
-                <div className="text-center mb-4 sm:mb-5 pt-24 sm:pt-28 animate-in slide-in-from-bottom-4 duration-1000">
+                <div className="text-center mb-4 sm:mb-5 pt-16 sm:pt-20 animate-in slide-in-from-bottom-4 duration-1000">
                   <div className="relative inline-block mb-6 sm:mb-8">
                       <div className="flex items-center justify-center mb-4 sm:mb-6">
                       </div>
@@ -6619,7 +6619,7 @@ export default function WelcomePage() {
                   </div>
 
                 {/* Process Guide - Ultra Compact */}
-                <div className={`max-w-4xl mx-auto -mt-10 mb-2 rounded-2xl border overflow-hidden ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
+                <div className={`max-w-4xl mx-auto -mt-6 mb-2 rounded-2xl border overflow-hidden ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
                   <div className="pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <div className="max-w-xl mx-auto mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>

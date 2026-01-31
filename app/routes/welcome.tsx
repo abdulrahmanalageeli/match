@@ -6970,7 +6970,7 @@ export default function WelcomePage() {
                   <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
                         <div className={`col-span-2 ai-card ai-cut ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
@@ -7079,67 +7079,58 @@ export default function WelcomePage() {
                           )}
                         </div>
 
-                        {/* Returning Player Button - Row 2 Left */}
-                        <button
+                        {/* Returning Player Card - Row 2 Left */}
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
                             if (token) {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 sm:p-5 text-center shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 transform hover:scale-[1.02]"
+                          className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg"
                           id="returning-player"
                         >
                           <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                             <RotateCcw className="w-4 h-4 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
-                          <p className="text-cyan-200 text-xs mb-2">
-                            العودة إلى رحلتك او تعديل بياناتك
-                          </p>
-                          <div className="flex items-center justify-center gap-2 text-purple-300">
-                            <span className="text-xs font-medium">العودة للرحلة</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </button>
+                          <h4 className="text-sm font-bold text-white mb-1">مشترك عائد</h4>
+                          <p className="text-cyan-200 text-xs">العودة إلى رحلتك او تعديل بياناتك</p>
+                        </div>
 
-                        {/* Results Button - Row 2 Right */}
-                        <button
+                        {/* Results Card - Row 2 Right */}
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => {
                             const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
                             if (token) {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 sm:p-5 text-center shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 transform hover:scale-[1.02]"
+                          className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg"
                         >
                           <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center mx-auto mb-2">
                             <Search className="w-4 h-4 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
-                          <p className="text-cyan-200 text-xs mb-2">
-                            اعرض جميع نتائج التوافق الخاصة بك
-                          </p>
-                          <div className="flex items-center justify-center gap-2 text-orange-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </button>
+                          <h4 className="text-sm font-bold text-white mb-1">عرض نتائج التوافق</h4>
+                          <p className="text-cyan-200 text-xs">اعرض جميع نتائج التوافق الخاصة بك</p>
+                        </div>
 
-                        {/* Groups Button - Full Width Row 3 */}
-                        <button
+                        {/* Groups Card - Full Width Row 3 */}
+                        <div
+                          role="button"
+                          tabIndex={0}
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 sm:p-5 text-center shadow-lg hover:bg-white/15 hover:border-white/30 transition-all duration-300 transform hover:scale-[1.02]"
+                          className="col-span-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg"
                         >
                           <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
                             <Users className="w-4 h-4 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
-                          <div className="flex items-center justify-center gap-2 text-indigo-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
-                        </button>
+                          <h4 className="text-sm font-bold text-white mb-1">جولة القروبات</h4>
+                          <p className="text-cyan-200 text-xs">استعرض جولة القروبات والجلسات</p>
+                        </div>
                       </div>
                       
                       {/* Saved data info intentionally removed per design request */}

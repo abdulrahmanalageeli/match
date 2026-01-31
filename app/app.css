@@ -37,8 +37,6 @@
   --toast-bg: oklch(1 0 0);
   --toast-color: oklch(0.145 0 0);
   --toast-border: oklch(0.922 0 0);
-  /* Surface background used to paint notched corners */
-  --surface-bg: #f8f9fa;
 }
 
 :root.dark {
@@ -79,8 +77,6 @@
   --toast-bg: oklch(0.205 0 0);
   --toast-color: oklch(0.985 0 0);
   --toast-border: oklch(0.274 0.006 286.033);
-  /* Approximate page surface for dark gradient */
-  --surface-bg: #0f172a;
 }
 
 @import "tailwindcss";
@@ -629,7 +625,6 @@ body::-webkit-scrollbar-corner {
 .ai-card--accent:hover { filter: none; box-shadow: none !important; }
 .ai-card--accent .ai-ink { display: block; }
 .ai-card--accent.ai-cut .ai-ink { mix-blend-mode: screen; }
-.ai-card--accent .ai-ink { inset: 2px; }
 .ai-card--accent:hover .ai-ink { opacity: .5; }
 
 @keyframes ai-rotate { to { transform: rotate(360deg); } }
@@ -647,64 +642,14 @@ body::-webkit-scrollbar-corner {
 
 /* Notched (cut) corners */
 .ai-cut {
-  --notch: 12px;
-  /* Keep clip-path for broad support */
   clip-path: polygon(12px 0%, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
   -webkit-clip-path: polygon(12px 0%, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
   will-change: clip-path;
-  /* Add mask-based notch to guarantee all paints (incl. pseudo-elements) are clipped */
-  -webkit-mask:
-    conic-gradient(from 90deg at var(--notch) var(--notch), #000 25%, transparent 0) top left,
-    conic-gradient(from 0deg at calc(100% - var(--notch)) var(--notch), #000 25%, transparent 0) top right,
-    conic-gradient(from 180deg at calc(100% - var(--notch)) calc(100% - var(--notch)), #000 25%, transparent 0) bottom right,
-    conic-gradient(from -90deg at var(--notch) calc(100% - var(--notch)), #000 25%, transparent 0) bottom left,
-    linear-gradient(#000 0 0);
-  -webkit-mask-size: var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), 100% 100%;
-  -webkit-mask-position: 0 0, 100% 0, 100% 100%, 0 100%, 0 0;
-  -webkit-mask-repeat: no-repeat;
-  /* Standards versions for broader compatibility */
-  mask-size: var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), 100% 100%;
-  mask-position: 0 0, 100% 0, 100% 100%, 0 100%, 0 0;
-  mask-repeat: no-repeat;
-  mask:
-    conic-gradient(from 90deg at var(--notch) var(--notch), #000 25%, transparent 0) top left/var(--notch) var(--notch) no-repeat,
-    conic-gradient(from 0deg at calc(100% - var(--notch)) var(--notch), #000 25%, transparent 0) top right/var(--notch) var(--notch) no-repeat,
-    conic-gradient(from 180deg at calc(100% - var(--notch)) calc(100% - var(--notch)), #000 25%, transparent 0) bottom right/var(--notch) var(--notch) no-repeat,
-    conic-gradient(from -90deg at var(--notch) calc(100% - var(--notch)), #000 25%, transparent 0) bottom left/var(--notch) var(--notch) no-repeat,
-    linear-gradient(#000 0 0);
 }
 /* Ensure pseudo-elements use the same chopped shape so corners don't get covered */
 .ai-cut::before,
 .ai-cut::after {
   clip-path: inherit;
-}
-
-/* Paint the corner notches with the surrounding surface color (no layout clipping) */
-.ai-cut--painted::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  display: block !important;
-  pointer-events: none;
-  z-index: 3; /* above gradient border (::after) */
-  background:
-    conic-gradient(from 90deg at 12px 12px, var(--surface-bg) 25%, transparent 0) top left,
-    conic-gradient(from 0deg at calc(100% - 12px) 12px, var(--surface-bg) 25%, transparent 0) top right,
-    conic-gradient(from 180deg at calc(100% - 12px) calc(100% - 12px), var(--surface-bg) 25%, transparent 0) bottom right,
-    conic-gradient(from -90deg at 12px calc(100% - 12px), var(--surface-bg) 25%, transparent 0) bottom left;
-  background-size: 12px 12px, 12px 12px, 12px 12px, 12px 12px;
-  background-repeat: no-repeat;
-  /* Make sure the painter is not clipped by inherited clip-path */
-  clip-path: none !important;
-  -webkit-clip-path: none !important;
-}
-
-/* Disable element-level masks for the painted variant so corners can be visually covered */
-.ai-cut.ai-cut--painted {
-  -webkit-mask: none !important;
-  mask: none !important;
-  clip-path: none !important;
-  -webkit-clip-path: none !important;
 }
 
 /* Hex/tech icon container with gradient and subtle glass */

@@ -6967,10 +6967,10 @@ export default function WelcomePage() {
 
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
-                  <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
+                  <div className="max-w-4xl mx-auto px-4 -mt-4 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
-                      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-2 gap-2">
                         {/* Next Event Signup Card - Full Width Row 1 */}
                         <div className={`col-span-2 ai-card ai-cut ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
@@ -7079,58 +7079,112 @@ export default function WelcomePage() {
                           )}
                         </div>
 
-                        {/* Returning Player Card - Row 2 Left */}
-                        <div
-                          role="button"
-                          tabIndex={0}
+                        {/* Returning Player Button - Row 2 Left */}
+                        <button
                           onClick={() => {
                             const token = returningPlayerToken || resultToken || localStorage.getItem('blindmatch_returning_token') || localStorage.getItem('blindmatch_result_token');
                             if (token) {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg"
+                          className="group ai-card ai-card--accent p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
+                          style={{
+                            ['--ai-b1' as any]: 'rgba(168,85,247,.55)',  // purple-500
+                            ['--ai-b2' as any]: 'rgba(236,72,153,.55)',  // pink-500
+                            ['--ai-b3' as any]: 'rgba(147,51,234,.55)',  // violet-600
+                            background: 'linear-gradient(135deg, rgba(109,40,217,0.22), rgba(236,72,153,0.16))'
+                          }}
                           id="returning-player"
                         >
-                          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                            <RotateCcw className="w-4 h-4 text-white" />
+                          <motion.div className="ai-ink">
+                            <motion.span
+                              className="ai-ink__blob ai-ink__blob--1"
+                              initial={{ x: -24, y: -16 }}
+                              animate={{ x: [-24, 8, -10], y: [-16, 6, -16] }}
+                              transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
+                              style={{ width: 110, height: 110, top: '10%', left: '10%' }}
+                            />
+                          </motion.div>
+                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
+                            <RotateCcw className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-sm font-bold text-white mb-1">مشترك عائد</h4>
-                          <p className="text-cyan-200 text-xs">العودة إلى رحلتك او تعديل بياناتك</p>
-                        </div>
+                          <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
+                          <p className="text-cyan-200 text-xs mb-2">
+                            العودة إلى رحلتك او تعديل بياناتك
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-purple-300">
+                            <span className="text-xs font-medium">العودة للرحلة</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
 
-                        {/* Results Card - Row 2 Right */}
-                        <div
-                          role="button"
-                          tabIndex={0}
+                        {/* Results Button - Row 2 Right */}
+                        <button
                           onClick={() => {
                             const token = resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token');
                             if (token) {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg"
+                          className="group ai-card ai-card--accent p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
+                          style={{
+                            ['--ai-b1' as any]: 'rgba(251,146,60,.55)',  // orange-400
+                            ['--ai-b2' as any]: 'rgba(244,63,94,.55)',   // rose-500
+                            ['--ai-b3' as any]: 'rgba(234,88,12,.55)',   // orange-600
+                            background: 'linear-gradient(135deg, rgba(234,88,12,0.22), rgba(251,191,36,0.16))'
+                          }}
                         >
-                          <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center mx-auto mb-2">
-                            <Search className="w-4 h-4 text-white" />
+                          <motion.div className="ai-ink">
+                            <motion.span
+                              className="ai-ink__blob ai-ink__blob--3"
+                              initial={{ x: -18, y: -12 }}
+                              animate={{ x: [-18, 12, -6], y: [-12, 6, -12] }}
+                              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
+                              style={{ width: 110, height: 110, top: '10%', left: '12%' }}
+                            />
+                          </motion.div>
+                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
+                            <Search className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-sm font-bold text-white mb-1">عرض نتائج التوافق</h4>
-                          <p className="text-cyan-200 text-xs">اعرض جميع نتائج التوافق الخاصة بك</p>
-                        </div>
+                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
+                          <p className="text-cyan-200 text-xs mb-2">
+                            اعرض جميع نتائج التوافق الخاصة بك
+                          </p>
+                          <div className="flex items-center justify-center gap-2 text-orange-300">
+                            <span className="text-xs font-medium">انقر للوصول</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
 
-                        {/* Groups Card - Full Width Row 3 */}
-                        <div
-                          role="button"
-                          tabIndex={0}
+                        {/* Groups Button - Full Width Row 3 */}
+                        <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-3 text-center shadow-lg"
+                          className="col-span-2 group ai-card ai-card--accent p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
+                          style={{
+                            ['--ai-b1' as any]: 'rgba(56,189,248,.55)',   // cyan-400
+                            ['--ai-b2' as any]: 'rgba(99,102,241,.55)',   // indigo-500
+                            ['--ai-b3' as any]: 'rgba(59,130,246,.55)',   // blue-500
+                            background: 'linear-gradient(135deg, rgba(29,78,216,0.22), rgba(14,165,233,0.16))'
+                          }}
                         >
-                          <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                            <Users className="w-4 h-4 text-white" />
+                          <motion.div className="ai-ink">
+                            <motion.span
+                              className="ai-ink__blob ai-ink__blob--2"
+                              initial={{ x: -22, y: -14 }}
+                              animate={{ x: [-22, 10, -8], y: [-14, 8, -14] }}
+                              transition={{ duration: 11.5, repeat: Infinity, ease: 'easeInOut' }}
+                              style={{ width: 120, height: 120, top: '10%', left: '10%' }}
+                            />
+                          </motion.div>
+                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
+                            <Users className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-sm font-bold text-white mb-1">جولة القروبات</h4>
-                          <p className="text-cyan-200 text-xs">استعرض جولة القروبات والجلسات</p>
-                        </div>
+                          <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
+                          <div className="flex items-center justify-center gap-2 text-indigo-300">
+                            <span className="text-xs font-medium">انقر للوصول</span>
+                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
+                          </div>
+                        </button>
                       </div>
                       
                       {/* Saved data info intentionally removed per design request */}

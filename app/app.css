@@ -625,6 +625,7 @@ body::-webkit-scrollbar-corner {
 .ai-card--accent:hover { filter: none; box-shadow: none !important; }
 .ai-card--accent .ai-ink { display: block; }
 .ai-card--accent.ai-cut .ai-ink { mix-blend-mode: screen; }
+.ai-card--accent .ai-ink { inset: 2px; }
 .ai-card--accent:hover .ai-ink { opacity: .5; }
 
 @keyframes ai-rotate { to { transform: rotate(360deg); } }
@@ -642,9 +643,31 @@ body::-webkit-scrollbar-corner {
 
 /* Notched (cut) corners */
 .ai-cut {
+  --notch: 12px;
+  /* Keep clip-path for broad support */
   clip-path: polygon(12px 0%, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
   -webkit-clip-path: polygon(12px 0%, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px);
   will-change: clip-path;
+  /* Add mask-based notch to guarantee all paints (incl. pseudo-elements) are clipped */
+  -webkit-mask:
+    conic-gradient(from 90deg at var(--notch) var(--notch), #000 25%, transparent 0) top left,
+    conic-gradient(from 0deg at calc(100% - var(--notch)) var(--notch), #000 25%, transparent 0) top right,
+    conic-gradient(from 180deg at calc(100% - var(--notch)) calc(100% - var(--notch)), #000 25%, transparent 0) bottom right,
+    conic-gradient(from -90deg at var(--notch) calc(100% - var(--notch)), #000 25%, transparent 0) bottom left,
+    linear-gradient(#000 0 0);
+  -webkit-mask-size: var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), 100% 100%;
+  -webkit-mask-position: 0 0, 100% 0, 100% 100%, 0 100%, 0 0;
+  -webkit-mask-repeat: no-repeat;
+  /* Standards versions for broader compatibility */
+  mask-size: var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), var(--notch) var(--notch), 100% 100%;
+  mask-position: 0 0, 100% 0, 100% 100%, 0 100%, 0 0;
+  mask-repeat: no-repeat;
+  mask:
+    conic-gradient(from 90deg at var(--notch) var(--notch), #000 25%, transparent 0) top left/var(--notch) var(--notch) no-repeat,
+    conic-gradient(from 0deg at calc(100% - var(--notch)) var(--notch), #000 25%, transparent 0) top right/var(--notch) var(--notch) no-repeat,
+    conic-gradient(from 180deg at calc(100% - var(--notch)) calc(100% - var(--notch)), #000 25%, transparent 0) bottom right/var(--notch) var(--notch) no-repeat,
+    conic-gradient(from -90deg at var(--notch) calc(100% - var(--notch)), #000 25%, transparent 0) bottom left/var(--notch) var(--notch) no-repeat,
+    linear-gradient(#000 0 0);
 }
 /* Ensure pseudo-elements use the same chopped shape so corners don't get covered */
 .ai-cut::before,

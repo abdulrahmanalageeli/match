@@ -682,7 +682,6 @@ export default function ResultsPage() {
                                                 <div className="flex items-center justify-between mb-1">
                                                   <span className={`text-[11px] font-semibold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>{label}</span>
                                                   <div className="flex items-center gap-2">
-                                                    <span className={`text-[11px] font-mono font-bold ${dark ? 'text-white' : 'text-gray-900'}`}>{score}/{safeMax}</span>
                                                     <span className={`text-[11px] font-bold ${pctColor}`}>{pct}%</span>
                                                   </div>
                                                 </div>

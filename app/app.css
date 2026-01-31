@@ -619,6 +619,14 @@ body::-webkit-scrollbar-corner {
 .ai-card--flat,
 .ai-card--flat:hover { transform: none !important; }
 
+/* Accent variant: lively border and subtle ink without external glow */
+.ai-card--accent::before { display: none; }
+.ai-card--accent::after { animation: ai-border-pan 14s ease-in-out infinite; }
+.ai-card--accent:hover { filter: none; box-shadow: none !important; }
+.ai-card--accent .ai-ink { display: block; }
+.ai-card--accent.ai-cut .ai-ink { mix-blend-mode: screen; }
+.ai-card--accent:hover .ai-ink { opacity: .5; }
+
 @keyframes ai-rotate { to { transform: rotate(360deg); } }
 
 /* Border gradient pan around edges (looping slow → fast → slow) */

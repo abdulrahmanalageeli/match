@@ -3590,6 +3590,8 @@ export default function WelcomePage() {
       if (res.ok) {
         toast.success(data.message || "تم تسجيلك للحدث القادم بنجاح!");
         setShowNextEventPopup(false);
+        // Update UI immediately to reflect signup state without refresh
+        setShowNextEventSignup(true);
         // Refresh the gender preference badge
         if (token) {
           pollParticipantData(token);

@@ -6969,12 +6969,12 @@ export default function WelcomePage() {
                   <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 ai-card ai-cut ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
+                        <div className={`col-span-2 ai-card rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
                             ? "opacity-90" 
-                            : "hover:shadow-3xl transform hover:scale-[1.02] cursor-pointer"
+                            : "hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px] cursor-pointer"
                         }`}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
@@ -6984,7 +6984,7 @@ export default function WelcomePage() {
                           <h4 className="text-base font-bold text-white mb-2">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
                           </h4>
-                          <p className="text-cyan-200 text-xs mb-2">
+                          <p className="text-slate-300 text-xs mb-2">
                             {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
                           </p>
                           
@@ -7086,29 +7086,15 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group ai-card ai-card--accent p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-                          style={{
-                            ['--ai-b1' as any]: 'rgba(168,85,247,.55)',  // purple-500
-                            ['--ai-b2' as any]: 'rgba(236,72,153,.55)',  // pink-500
-                            ['--ai-b3' as any]: 'rgba(147,51,234,.55)',  // violet-600
-                            background: 'linear-gradient(135deg, rgba(109,40,217,0.22), rgba(236,72,153,0.16))'
-                          }}
+                          className="group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           id="returning-player"
                         >
-                          <motion.div className="ai-ink">
-                            <motion.span
-                              className="ai-ink__blob ai-ink__blob--1"
-                              initial={{ x: -24, y: -16 }}
-                              animate={{ x: [-24, 8, -10], y: [-16, 6, -16] }}
-                              transition={{ duration: 11, repeat: Infinity, ease: 'easeInOut' }}
-                              style={{ width: 110, height: 110, top: '10%', left: '10%' }}
-                            />
-                          </motion.div>
+                          
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <RotateCcw className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
-                          <p className="text-cyan-200 text-xs mb-2">
+                          <p className="text-slate-300 text-xs mb-2">
                             العودة إلى رحلتك او تعديل بياناتك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-purple-300">
@@ -7125,28 +7111,14 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group ai-card ai-card--accent p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-                          style={{
-                            ['--ai-b1' as any]: 'rgba(251,146,60,.55)',  // orange-400
-                            ['--ai-b2' as any]: 'rgba(244,63,94,.55)',   // rose-500
-                            ['--ai-b3' as any]: 'rgba(234,88,12,.55)',   // orange-600
-                            background: 'linear-gradient(135deg, rgba(234,88,12,0.22), rgba(251,191,36,0.16))'
-                          }}
+                          className="group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                         >
-                          <motion.div className="ai-ink">
-                            <motion.span
-                              className="ai-ink__blob ai-ink__blob--3"
-                              initial={{ x: -18, y: -12 }}
-                              animate={{ x: [-18, 12, -6], y: [-12, 6, -12] }}
-                              transition={{ duration: 12, repeat: Infinity, ease: 'easeInOut' }}
-                              style={{ width: 110, height: 110, top: '10%', left: '12%' }}
-                            />
-                          </motion.div>
+                          
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <Search className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
-                          <p className="text-cyan-200 text-xs mb-2">
+                          <p className="text-slate-300 text-xs mb-2">
                             اعرض جميع نتائج التوافق الخاصة بك
                           </p>
                           <div className="flex items-center justify-center gap-2 text-orange-300">
@@ -7158,23 +7130,9 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-card--accent p-3 sm:p-5 text-center hover:shadow-3xl transition-all duration-300 transform hover:scale-[1.02]"
-                          style={{
-                            ['--ai-b1' as any]: 'rgba(56,189,248,.55)',   // cyan-400
-                            ['--ai-b2' as any]: 'rgba(99,102,241,.55)',   // indigo-500
-                            ['--ai-b3' as any]: 'rgba(59,130,246,.55)',   // blue-500
-                            background: 'linear-gradient(135deg, rgba(29,78,216,0.22), rgba(14,165,233,0.16))'
-                          }}
+                          className="col-span-2 group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                         >
-                          <motion.div className="ai-ink">
-                            <motion.span
-                              className="ai-ink__blob ai-ink__blob--2"
-                              initial={{ x: -22, y: -14 }}
-                              animate={{ x: [-22, 10, -8], y: [-14, 8, -14] }}
-                              transition={{ duration: 11.5, repeat: Infinity, ease: 'easeInOut' }}
-                              style={{ width: 120, height: 120, top: '10%', left: '10%' }}
-                            />
-                          </motion.div>
+                          
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
                             <Users className="w-6 h-6 text-white" />
                           </div>

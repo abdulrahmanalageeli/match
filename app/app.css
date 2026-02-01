@@ -542,17 +542,18 @@ body::-webkit-scrollbar-corner {
 /* === AI-styled UI helpers (tech aesthetic) === */
 .ai-card {
   position: relative;
-  background: rgba(2, 6, 23, 0.35); /* slate-950/35 */
-  border: 0; /* remove base border to avoid double border */
+  /* Softer neutral surface for dark UI */
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   background-clip: padding-box; /* Prevent background from bleeding through border */
   outline: 0 !important; /* prevent global outline from covering corners */
   outline-offset: 0 !important;
   isolation: isolate; /* keep pseudo-elements layering self-contained */
   contain: layout paint; /* avoid ancestor effects covering corners */
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px) saturate(110%);
   overflow: hidden;
   /* neon glow (GPU-light): static layered shadows using existing gradient colors */
-  box-shadow: none; /* move glow to ::before so it respects clip-path */
+  box-shadow: 0 6px 14px rgba(0,0,0,.25);
   /* default border gradient tokens */
   --ai-b1: rgba(34,211,238,.35);
   --ai-b2: rgba(139,92,246,.35);
@@ -560,51 +561,34 @@ body::-webkit-scrollbar-corner {
   z-index: 0; /* establish stacking context so ::before can sit above */
 }
 .ai-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  /* disabled border paint on ::before to avoid stacking issues */
-  background: transparent;
-  border-radius: inherit;
-  /* subtle outer glow for non-flat cards */
-  box-shadow: 0 0 10px var(--ai-b1), 0 0 18px var(--ai-b2), 0 0 26px var(--ai-b3);
-  pointer-events: none;
-  z-index: 0; /* below content and the ::after border */
+  /* Disable legacy outer glow for a cleaner, modern look */
+  display: none;
 }
 .ai-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 2px; /* border thickness */
-  background: linear-gradient(120deg, var(--ai-b1), var(--ai-b2), var(--ai-b3));
-  border-radius: inherit;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude; /* show only the border */
-  pointer-events: none;
-  background-size: 300% 300%;
-  animation: none; /* keep static for perf */
-  z-index: 2; /* paint above any inner overlays */
+  /* No animated/gradient border by default */
+  display: none;
 }
 .ai-card:hover::after { animation: none; }
 
 /* Slightly stronger glow on hover (still GPU-light) */
 .ai-card:hover {
-  /* intensify glow on ::before by increasing shadow via filter */
-  filter: drop-shadow(0 0 12px var(--ai-b1)) drop-shadow(0 0 22px var(--ai-b2)) drop-shadow(0 0 34px var(--ai-b3));
+  /* Subtle surface lift only */
+  background: rgba(255, 255, 255, 0.06);
+  filter: none;
 }
 
 /* Status variants for ai-card border */
 .ai-card--success { 
-  --ai-b1: rgba(16,185,129,.65); /* emerald-500 */
-  --ai-b2: rgba(5,150,105,.6);   /* emerald-600 */
-  --ai-b3: rgba(16,185,129,.65);
+  --ai-b1: rgba(16,185,129,.45); /* emerald-500 */
+  --ai-b2: rgba(5,150,105,.4);   /* emerald-600 */
+  --ai-b3: rgba(16,185,129,.45);
+  border-color: rgba(16,185,129,.35) !important;
 }
 .ai-card--danger  {
-  --ai-b1: rgba(239,68,68,.7);   /* red-500 */
-  --ai-b2: rgba(190,18,60,.6);   /* rose-700 */
-  --ai-b3: rgba(239,68,68,.7);
+  --ai-b1: rgba(239,68,68,.55);   /* red-500 */
+  --ai-b2: rgba(190,18,60,.5);    /* rose-700 */
+  --ai-b3: rgba(239,68,68,.55);
+  border-color: rgba(239,68,68,.35) !important;
 }
 
 /* Flat variant: no ink, no hover transform, no blur (for crisp edges) */
@@ -621,11 +605,12 @@ body::-webkit-scrollbar-corner {
 
 /* Accent variant: lively border and subtle ink without external glow */
 .ai-card--accent::before { display: none; }
-.ai-card--accent::after { animation: ai-border-pan 14s ease-in-out infinite; }
+.ai-card--accent::after { display: none; }
+.ai-card--accent { border-color: rgba(255,255,255,.12); }
 .ai-card--accent:hover { filter: none; box-shadow: none !important; }
-.ai-card--accent .ai-ink { display: block; }
-.ai-card--accent.ai-cut .ai-ink { mix-blend-mode: screen; }
-.ai-card--accent:hover .ai-ink { opacity: .5; }
+.ai-card--accent .ai-ink { display: none; }
+.ai-card--accent.ai-cut .ai-ink { mix-blend-mode: normal; }
+.ai-card--accent:hover .ai-ink { opacity: 1; }
 
 @keyframes ai-rotate { to { transform: rotate(360deg); } }
 

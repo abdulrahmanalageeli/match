@@ -702,19 +702,3 @@ html:not(.dark) .ai-ink {
     radial-gradient(900px 500px at 10% 110%, rgba(168, 85, 247, 0.12), transparent 60%),
     linear-gradient(180deg, #101c32 0%, #0c162a 100%);
 }
-
-/* Dedicated light theme for Welcome page */
-.welcome-light {
-  background:
-    radial-gradient(1400px 700px at 80% -10%, rgba(59,130,246,0.10), transparent 65%),
-    radial-gradient(1000px 600px at 10% 110%, rgba(236,72,153,0.10), transparent 60%),
-    linear-gradient(180deg, #f6f8fc 0%, #eef2f9 100%);
-}
-
-/* Light surface card (for welcome tiles) */
-.ai-card--light {
-  background: rgba(255,255,255,0.95) !important;
-  border: 1px solid rgba(15,23,42,0.10) !important; /* slate-900/10 */
-  box-shadow: 0 6px 18px rgba(15,23,42,0.08), 0 2px 8px rgba(15,23,42,0.05) !important;
-  backdrop-filter: saturate(105%) blur(6px);
-}

@@ -2916,8 +2916,8 @@ export default function WelcomePage() {
             {/* Glow effect background */}
             <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-blue-500/20 to-cyan-500/20 rounded-lg blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
             
-            {/* Main logo container (light surface) */}
-            <div className="relative bg-white/90 backdrop-blur-xl border border-gray-200 rounded-lg p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
+            {/* Main logo container */}
+            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg p-2 shadow-lg group-hover:shadow-purple-500/20 transition-all duration-700 ease-out">
               <div className="w-8 h-8 rounded-md bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 p-1.5 shadow-md ring-1 ring-white/10">
                 <Home className="w-full h-full text-white" strokeWidth={2.5} />
               </div>
@@ -3005,15 +3005,15 @@ export default function WelcomePage() {
             {/* Glow effect background */}
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm sm:blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
             
-            {/* Main participant container (light surface) */}
-            <div className="relative bg-white/90 backdrop-blur-xl border border-gray-200 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-lg sm:shadow-xl group-hover:shadow-cyan-500/20 transition-all duration-700 ease-out">
+            {/* Main participant container */}
+            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-lg sm:shadow-xl group-hover:shadow-cyan-500/20 transition-all duration-700 ease-out">
               <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
                 {/* Participant Number */}
                 <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-lg sm:text-xl leading-tight">
                   #{assignedNumber}
                 </div>
                 {/* Participant Name */}
-                <div className="text-slate-800 text-xs sm:text-sm font-medium leading-tight mt-1 max-w-[80px] sm:max-w-[90px] truncate">
+                <div className="text-white/90 text-xs sm:text-sm font-medium leading-tight mt-1 max-w-[80px] sm:max-w-[90px] truncate">
                   {participantName}
                 </div>
               </div>
@@ -5111,13 +5111,13 @@ export default function WelcomePage() {
   // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
   if (vibeCompletionPopupEnabled && showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
     return (
-      <div className="min-h-screen relative overflow-hidden welcome-light" dir="rtl">
+      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Background Animation */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className={`absolute rounded-full blur-xl opacity-10 animate-pulse ${
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
                 i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
               }`}
               style={{
@@ -5317,13 +5317,13 @@ export default function WelcomePage() {
   // Survey Completion Popup - Top Level (before any conditional returns)
   if (showSurveyCompletionPopup && incompleteSurveyInfo) {
     return (
-      <div className="min-h-screen relative overflow-hidden welcome-light" dir="rtl">
+      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Background Animation */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className={`absolute rounded-full blur-xl opacity-10 animate-pulse ${
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
                 i % 2 === 0 ? 'bg-orange-400' : 'bg-red-500'
               }`}
               style={{
@@ -5410,13 +5410,13 @@ export default function WelcomePage() {
   // Token validation loading UI
   if (token && isResolving) {
     return (
-      <div className="min-h-screen relative overflow-hidden welcome-light" dir="rtl">
+      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className={`absolute rounded-full blur-xl opacity-10 animate-pulse ${
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
                 i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
               }`}
               style={{
@@ -5434,15 +5434,15 @@ export default function WelcomePage() {
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-md w-full">
-            <div className="bg-white/95 border border-gray-200 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-white/15 backdrop-blur-2xl border border-cyan-400/40 rounded-2xl p-8 shadow-2xl ring-1 ring-white/10">
               <div className="text-center">
                 {/* Loading Icon */}
                 <div className="w-20 h-20 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                  <div className="w-10 h-10 border-4 border-slate-300 border-t-transparent rounded-full animate-spin"></div>
+                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
                 </div>
                 
-                <h1 className="text-2xl font-bold text-slate-900 mb-4">جاري التحقق من الرابط</h1>
-                <p className="text-slate-600 mb-6 leading-relaxed">
+                <h1 className="text-2xl font-bold text-white mb-4">جاري التحقق من الرابط</h1>
+                <p className="text-cyan-200 mb-6 leading-relaxed">
                   يرجى الانتظار بينما نتحقق من صحة الرابط...
                 </p>
                 
@@ -5469,13 +5469,13 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative overflow-hidden welcome-light" dir="rtl">
+        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className={`absolute rounded-full blur-xl opacity-10 animate-pulse ${
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
                 i % 2 === 0 ? 'bg-red-400' : 'bg-orange-500'
               }`}
               style={{
@@ -5493,15 +5493,15 @@ export default function WelcomePage() {
         {/* Main Content */}
         <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-md w-full">
-            <div className="bg-white/95 border border-red-200 rounded-2xl p-8 shadow-2xl">
+            <div className="bg-white/15 backdrop-blur-2xl border border-red-400/40 rounded-2xl p-8 shadow-2xl ring-1 ring-white/10">
               <div className="text-center">
                 {/* Error Icon */}
                 <div className="w-20 h-20 bg-gradient-to-br from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
                   <XCircle className="w-10 h-10 text-white" />
                 </div>
                 
-                <h1 className="text-2xl font-bold text-red-700 mb-4">خطأ في الرابط</h1>
-                <p className="text-red-600 mb-6 leading-relaxed">
+                <h1 className="text-2xl font-bold text-white mb-4">خطأ في الرابط</h1>
+                <p className="text-red-200 mb-6 leading-relaxed">
                   {tokenError}
                 </p>
                 
@@ -5514,8 +5514,8 @@ export default function WelcomePage() {
                   </button>
                   
                   <div className="text-center">
-                    <p className="text-slate-600 text-sm mb-2">هل تحتاج مساعدة؟</p>
-                    <p className="text-slate-500 text-sm">
+                    <p className="text-slate-400 text-sm mb-2">هل تحتاج مساعدة؟</p>
+                    <p className="text-slate-300 text-sm">
                       تواصل مع المنظم للحصول على رابط صحيح
                     </p>
                   </div>
@@ -6496,14 +6496,14 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative overflow-hidden welcome-light" dir="rtl">
+        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {/* Floating orbs */}
           {[...Array(8)].map((_, i) => (
             <div
               key={i}
-              className={`absolute rounded-full blur-xl opacity-10 animate-pulse ${
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
                 i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
               }`}
               style={{
@@ -6971,7 +6971,7 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 ai-card ai-card--light rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
+                        <div className={`col-span-2 ai-card rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
                             ? "opacity-90" 
                             : "hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px] cursor-pointer"
@@ -6979,17 +6979,17 @@ export default function WelcomePage() {
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
                           <div className={`ai-icon ai-icon--ghost mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`}>
-                            <UserCheck className="w-6 h-6 text-slate-700" />
+                            <UserCheck className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-slate-900 mb-2">
+                          <h4 className="text-base font-bold text-white mb-2">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
                           </h4>
-                          <p className="text-slate-600 text-xs mb-2">
+                          <p className="text-slate-300 text-xs mb-2">
                             {showNextEventSignup ? "أنت مسجل بالفعل في الفعالية القادمة" : "سجل باستخدام حسابك الحالي"}
                           </p>
                           
                           {!showNextEventSignup ? (
-                            <div className="flex items-center justify-center gap-2 text-emerald-600">
+                            <div className="flex items-center justify-center gap-2 text-emerald-300">
                               <span className="text-xs font-medium">انقر للتسجيل</span>
                               <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                             </div>
@@ -7029,7 +7029,7 @@ export default function WelcomePage() {
                                   setNextEventSignupLoading(false);
                                 }}
                                 disabled={nextEventSignupLoading}
-                                className="px-4 py-2 bg-orange-50 hover:bg-orange-100 border border-orange-300 text-orange-700 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                                className="px-4 py-2 bg-orange-500/20 hover:bg-orange-500/30 border border-orange-400/30 text-orange-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
                               >
                                 {nextEventSignupLoading ? "جاري الإلغاء..." : "إلغاء التسجيل"}
                               </button>
@@ -7069,7 +7069,7 @@ export default function WelcomePage() {
                                     setNextEventSignupLoading(false);
                                   }}
                                   disabled={nextEventSignupLoading}
-                                  className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-300 text-red-700 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
+                                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 text-red-300 rounded-lg text-xs font-medium transition-all duration-300 hover:scale-105"
                                 >
                                   إيقاف التسجيل التلقائي
                                 </button>
@@ -7086,18 +7086,18 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group ai-card ai-card--light rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           id="returning-player"
                         >
                           
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <RotateCcw className="w-6 h-6 text-slate-700" />
+                            <RotateCcw className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-slate-900 mb-2">مشترك عائد</h4>
-                          <p className="text-slate-600 text-xs mb-2">
+                          <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
+                          <p className="text-slate-300 text-xs mb-2">
                             العودة إلى رحلتك او تعديل بياناتك
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-purple-600">
+                          <div className="flex items-center justify-center gap-2 text-purple-300">
                             <span className="text-xs font-medium">العودة للرحلة</span>
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
@@ -7111,17 +7111,17 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group ai-card ai-card--light rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                         >
                           
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <Search className="w-6 h-6 text-slate-700" />
+                            <Search className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-slate-900 mb-2">عرض نتائج التوافق</h4>
-                          <p className="text-slate-600 text-xs mb-2">
+                          <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
+                          <p className="text-slate-300 text-xs mb-2">
                             اعرض جميع نتائج التوافق الخاصة بك
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-orange-600">
+                          <div className="flex items-center justify-center gap-2 text-orange-300">
                             <span className="text-xs font-medium">انقر للوصول</span>
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
@@ -7130,14 +7130,14 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-card--light rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="col-span-2 group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                         >
                           
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <Users className="w-6 h-6 text-slate-700" />
+                            <Users className="w-6 h-6 text-white" />
                           </div>
-                          <h4 className="text-base font-bold text-slate-900 mb-2">جولة القروبات</h4>
-                          <div className="flex items-center justify-center gap-2 text-indigo-600">
+                          <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
+                          <div className="flex items-center justify-center gap-2 text-indigo-300">
                             <span className="text-xs font-medium">انقر للوصول</span>
                             <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
                           </div>
@@ -7156,7 +7156,7 @@ export default function WelcomePage() {
                   <>
                     {/* See Match Results Section */}
                     <div className="max-w-2xl mx-auto px-4 mt-2 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                      <div className="bg-white/90 border border-gray-200 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl">
+                      <div className="bg-white/15 backdrop-blur-2xl border border-white/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl ring-1 ring-white/10">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-orange-500 to-red-500 flex items-center justify-center">
@@ -7164,8 +7164,8 @@ export default function WelcomePage() {
                             </div>
                           </div>
                           
-                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">عرض نتائج التوافق</h3>
-                          <p className="text-slate-600 text-xs sm:text-sm mb-4">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">عرض نتائج التوافق</h3>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-4">
                             أدخل الرمز المميز الخاص بك لعرض جميع نتائج التوافق
                           </p>
                           {(() => {
@@ -7188,7 +7188,7 @@ export default function WelcomePage() {
                                 placeholder="أدخل الرمز المميز للنتائج..."
                                 value={resultToken}
                                 onChange={(e) => setResultToken(e.target.value)}
-                                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white border border-gray-300 rounded-lg sm:rounded-xl text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
+                                className="w-full px-3 sm:px-4 py-2 sm:py-3 bg-white/15 border border-white/30 ring-1 ring-white/10 rounded-lg sm:rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-orange-400/50 focus:border-orange-400 transition-all duration-300 text-sm sm:text-base"
                                 onKeyPress={(e) => {
                                   if (e.key === 'Enter') {
                                     viewResults(resultToken);
@@ -7210,7 +7210,7 @@ export default function WelcomePage() {
 
                     {/* Group Activities Section */}
                     <div className="max-w-2xl mx-auto px-4 mt-6 animate-in slide-in-from-bottom-4 duration-1000 delay-1200">
-                      <div className="bg-white/90 border border-gray-200 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl">
+                      <div className="bg-white/15 backdrop-blur-2xl border border-white/30 rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-xl ring-1 ring-white/10">
                         <div className="text-center">
                           <div className="flex justify-center mb-4">
                             <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center">
@@ -7218,13 +7218,13 @@ export default function WelcomePage() {
                             </div>
                           </div>
                           
-                          <h3 className="text-lg sm:text-xl font-bold text-slate-900 mb-2">ألعاب جماعية</h3>
-                          <p className="text-slate-600 text-xs sm:text-sm mb-4">
+                          <h3 className="text-lg sm:text-xl font-bold text-white mb-2">ألعاب جماعية</h3>
+                          <p className="text-cyan-200 text-xs sm:text-sm mb-4">
                             30 دقيقة من الألعاب التفاعلية الممتعة للمجموعات
                           </p>
                           
                           <div className="space-y-3 sm:space-y-4">
-                            <div className="grid grid-cols-3 gap-2 text-xs text-slate-600">
+                            <div className="grid grid-cols-3 gap-2 text-xs text-cyan-200">
                               <div className="flex items-center justify-center gap-1">
                                 <Sparkles className="w-3 h-3" />
                                 <span>أسئلة للنقاش</span>
@@ -7281,7 +7281,7 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen flex items-center justify-center welcome-light">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Token Modal */}
       {showTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -7389,7 +7389,7 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen flex items-center justify-center welcome-light">
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="text-center space-y-4 max-w-md mx-auto p-8">
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 backdrop-blur-sm">
             <Shield className="w-12 h-12 text-red-400 mx-auto mb-4" />
@@ -7698,7 +7698,7 @@ export default function WelcomePage() {
         {step === -1 && (
           <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
             <div className="relative">
-              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-10 animate-pulse ${
+              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
                 dark ? "bg-gradient-to-r from-cyan-600 to-blue-700" : "bg-gradient-to-r from-cyan-400 to-blue-500"
               }`}></div>
               <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${
@@ -7743,7 +7743,7 @@ export default function WelcomePage() {
         {step === 0 && (
           <section className="space-y-8 animate-in slide-in-from-bottom-4 duration-700">
             <div className="relative">
-              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-10 animate-pulse ${
+              <div className={`absolute inset-0 rounded-2xl blur-xl opacity-20 animate-pulse ${
                 dark ? "bg-gradient-to-r from-slate-600 to-slate-700" : "bg-gradient-to-r from-gray-400 to-gray-500"
               }`}></div>
               <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-opacity-50 ${

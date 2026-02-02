@@ -5111,7 +5111,7 @@ export default function WelcomePage() {
   // Vibe Questions Completion Popup - Top Level (highest priority for displaying)
   if (vibeCompletionPopupEnabled && showVibeCompletionPopup && Object.keys(incompleteVibeQuestions).length > 0) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Background Animation */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -5317,7 +5317,7 @@ export default function WelcomePage() {
   // Survey Completion Popup - Top Level (before any conditional returns)
   if (showSurveyCompletionPopup && incompleteSurveyInfo) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Background Animation */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -5410,7 +5410,7 @@ export default function WelcomePage() {
   // Token validation loading UI
   if (token && isResolving) {
     return (
-      <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+      <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -5469,7 +5469,7 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {[...Array(8)].map((_, i) => (
@@ -6496,7 +6496,7 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900" dir="rtl">
+        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
         {/* Animated Background Elements */}
         <div className="absolute inset-0">
           {/* Floating orbs */}

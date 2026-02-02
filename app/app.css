@@ -543,8 +543,8 @@ body::-webkit-scrollbar-corner {
 .ai-card {
   position: relative;
   /* Softer neutral surface for dark UI */
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   background-clip: padding-box; /* Prevent background from bleeding through border */
   outline: 0 !important; /* prevent global outline from covering corners */
   outline-offset: 0 !important;
@@ -693,4 +693,12 @@ html:not(.dark) .ai-ink {
 /* Prevent blend from interacting with backdrop outside the clipped shape */
 .ai-cut .ai-ink {
   mix-blend-mode: normal;
+}
+
+/* === Page background: brighter, uplifting tech gradient with soft radials === */
+.page-bg {
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(56, 189, 248, 0.14), transparent 65%),
+    radial-gradient(900px 500px at 10% 110%, rgba(168, 85, 247, 0.12), transparent 60%),
+    linear-gradient(180deg, #101c32 0%, #0c162a 100%);
 }

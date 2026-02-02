@@ -7344,7 +7344,47 @@ export default function WelcomePage() {
                           })()}
                           
                           <div className="space-y-3 sm:space-y-4">
-                            <div className="relative">
+                            <div
+                        className={`relative p-6 rounded-xl ai-animated-border ${
+                          dark ? 'bg-slate-900/60' : 'bg-white/90'
+                        } shadow-lg backdrop-blur-sm ${
+                          questionTransition === 'next' ? 'animate-slide-in-right' :
+                          questionTransition === 'prev' ? 'animate-slide-in-left' : ''
+                        }`}
+                        style={{
+                          ['--ab-size' as any]: '2px',
+                          ['--ab-speed' as any]: '9s',
+                          ['--ab-c1' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#34d399'
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#22d3ee'
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#f59e0b'
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#a855f7'
+                                    : '#10b981',
+                          ['--ab-c2' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#10b981'
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#3b82f6'
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#f97316'
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#ec4899'
+                                    : '#14b8a6',
+                          ['--ab-c3' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#14b8a6'
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#60a5fa'
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#fb923c'
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#f472b6'
+                                    : '#34d399',
+                        }}>
                               <input
                                 type="text"
                                 placeholder="أدخل الرمز المميز للنتائج..."
@@ -8748,15 +8788,47 @@ export default function WelcomePage() {
                       </div>
 
                       {/* Question Card */}
-                      <div 
-                        className={`relative p-6 rounded-xl border ${
-                          dark 
-                            ? "bg-slate-800/50 border-slate-600/50" 
-                            : "bg-white/80 border-gray-200"
+                      <div
+                        className={`relative p-6 rounded-xl ai-animated-border ${
+                          dark ? "bg-slate-900/60" : "bg-white/90"
                         } shadow-lg backdrop-blur-sm ${
-                          questionTransition === 'next' ? 'animate-slide-in-right' : 
+                          questionTransition === 'next' ? 'animate-slide-in-right' :
                           questionTransition === 'prev' ? 'animate-slide-in-left' : ''
-                        }`}>
+                        }`}
+                        style={{
+                          ['--ab-size' as any]: '2px',
+                          ['--ab-speed' as any]: '9s',
+                          ['--ab-c1' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#34d399' /* emerald-400 */
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#22d3ee' /* cyan-400 */
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#f59e0b' /* amber-500 */
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#a855f7' /* purple-500 */
+                                    : '#10b981' /* emerald-500 */,
+                          ['--ab-c2' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#10b981' /* emerald-500 */
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#3b82f6' /* blue-500 */
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#f97316' /* orange-500 */
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#ec4899' /* pink-500 */
+                                    : '#14b8a6' /* teal-500 */,
+                          ['--ab-c3' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#14b8a6' /* teal-500 */
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#60a5fa' /* blue-400 */
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#fb923c' /* orange-400 */
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#f472b6' /* pink-400 */
+                                    : '#34d399' /* emerald-400 */,
+                        }}>
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${

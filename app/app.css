@@ -709,7 +709,7 @@ html:not(.dark) .ai-ink {
   z-index: 0;
   /* Customizable via CSS vars */
   --ab-size: 1.5px;            /* border thickness */
-  --ab-speed: 12s;             /* rotation speed */
+  --ab-speed: 9s;              /* rotation speed */
   --ab-c1: #22d3ee;            /* cyan-400 */
   --ab-c2: #a855f7;            /* purple-500 */
   --ab-c3: #3b82f6;            /* blue-500 */

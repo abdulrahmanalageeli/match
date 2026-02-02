@@ -27,6 +27,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* Force light color scheme across browsers (prevents auto dark mode) */}
+        <meta name="color-scheme" content="light" />
+        <meta name="supported-color-schemes" content="light" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <Meta />
         <Links />
       </head>

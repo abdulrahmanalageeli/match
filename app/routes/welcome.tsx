@@ -5104,22 +5104,57 @@ export default function WelcomePage() {
     }
   }, [globalTimerActive, timerRestored])
 
-  // Animated gradient border fallback (JS-driven)
-  // Ensures border colors animate even if CSS @property is unsupported
+  // Animated gradient border fallback (time-based, only if CSS animation isn't active)
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    let angle = 0;
+    // Quick probe: if --ab-angle changes over 600ms on the first card, CSS is working
+    const probeEl = document.querySelector<HTMLElement>('.ai-animated-border');
+    if (!probeEl) return;
+    const startAngle = getComputedStyle(probeEl).getPropertyValue('--ab-angle').trim();
+
     let rafId = 0 as number;
-    const tick = () => {
-      angle = (angle + 1.2) % 360; // faster sweep
-      const elements = document.querySelectorAll<HTMLElement>('.ai-animated-border');
-      elements.forEach(el => el.style.setProperty('--ab-angle', `${angle}deg`));
-      rafId = window.requestAnimationFrame(tick);
+    let cancel = false;
+
+    const start = performance.now();
+    const check = () => {
+      const now = performance.now();
+      if (now - start < 700) { // wait ~0.7s
+        rafId = requestAnimationFrame(check);
+        return;
+      }
+      const currentAngle = getComputedStyle(probeEl).getPropertyValue('--ab-angle').trim();
+      const cssAnimating = startAngle !== currentAngle && currentAngle !== '';
+      if (cssAnimating) return; // native CSS animation active → no JS fallback
+
+      // JS fallback: compute angle from elapsed time for perfectly smooth loop
+      const parseMs = (v: string) => {
+        v = v.trim();
+        if (v.endsWith('ms')) return parseFloat(v);
+        if (v.endsWith('s')) return parseFloat(v) * 1000;
+        const n = parseFloat(v);
+        return isNaN(n) ? 12000 : n; // default 12s
+      };
+
+      const loop = (t0: number) => {
+        if (cancel) return;
+        const elements = document.querySelectorAll<HTMLElement>('.ai-animated-border');
+        const nowTs = performance.now();
+        elements.forEach(el => {
+          const speedStr = getComputedStyle(el).getPropertyValue('--ab-speed') || '12s';
+          const period = Math.max(1000, parseMs(speedStr));
+          const phase = ((nowTs - t0) % period) / period; // 0..1
+          const angle = phase * 360; // 0..360 (wraps smoothly)
+          el.style.setProperty('--ab-angle', `${angle}deg`);
+        });
+        rafId = requestAnimationFrame(() => loop(t0));
+      };
+
+      rafId = requestAnimationFrame(() => loop(performance.now()));
     };
 
-    rafId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(check);
+    return () => { cancel = true; if (rafId) cancelAnimationFrame(rafId); };
   }, [])
 
   // Pointer parallax highlight for cards (moves radial highlight to cursor)

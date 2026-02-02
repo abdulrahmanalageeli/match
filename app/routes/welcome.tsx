@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, lazy, Suspense, useMemo } from "react"
+import { useState, useEffect, useRef, lazy, Suspense, useMemo, useLayoutEffect, useCallback } from "react"
 import type { MouseEvent, FormEvent, CSSProperties } from "react"
 import { useSearchParams } from "react-router"
 import { X } from "lucide-react"
@@ -388,6 +388,63 @@ export default function WelcomePage() {
   const [isTyping, setIsTyping] = useState(false)
   const [typewriterCompleted, setTypewriterCompleted] = useState(false)
   const [currentRound, setCurrentRound] = useState(1)
+  
+  // Option D: overlay rectangles to mask local background under cards, keeping particles visible around edges
+  const roundWrapperRef = useRef<HTMLDivElement | null>(null)
+  const matchCardRef = useRef<HTMLDivElement | null>(null)
+  const qCardRef = useRef<HTMLDivElement | null>(null)
+  const [overlayRects, setOverlayRects] = useState<Array<{ top: number; left: number; width: number; height: number; radius: number }>>([])
+
+  const recomputeOverlayRects = useCallback(() => {
+    const wrapper = roundWrapperRef.current
+    if (!wrapper) return
+    const wr = wrapper.getBoundingClientRect()
+    const rects: Array<{ top: number; left: number; width: number; height: number; radius: number }> = []
+
+    if (matchCardRef.current) {
+      const r = matchCardRef.current.getBoundingClientRect()
+      rects.push({
+        top: r.top - wr.top,
+        left: r.left - wr.left,
+        width: r.width,
+        height: r.height,
+        radius: 12, // rounded-xl
+      })
+    }
+    if (qCardRef.current) {
+      const r = qCardRef.current.getBoundingClientRect()
+      rects.push({
+        top: r.top - wr.top,
+        left: r.left - wr.left,
+        width: r.width,
+        height: r.height,
+        radius: 16, // rounded-2xl
+      })
+    }
+    setOverlayRects(rects)
+  }, [])
+
+  // Recompute after each layout that might move/size cards
+  useLayoutEffect(() => {
+    recomputeOverlayRects()
+  }, [recomputeOverlayRects, step, currentRound, currentQuestionIndex, conversationStarted, showPromptTopicsModal])
+
+  // Observe size changes + window resize
+  useEffect(() => {
+    const ro = new ResizeObserver(() => recomputeOverlayRects())
+    const w = roundWrapperRef.current
+    const m = matchCardRef.current
+    const q = qCardRef.current
+    if (w) ro.observe(w)
+    if (m) ro.observe(m)
+    if (q) ro.observe(q)
+    const onResize = () => recomputeOverlayRects()
+    window.addEventListener('resize', onResize)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', onResize)
+    }
+  }, [recomputeOverlayRects])
   
   // AI Vibe Analysis states
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
@@ -8313,7 +8370,7 @@ export default function WelcomePage() {
               </div>
             )}
             
-            <div className={`relative isolate overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div ref={roundWrapperRef} className={`relative isolate overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>
               {/* Local floating orbs background (clipped to container) */}
@@ -8349,6 +8406,22 @@ export default function WelcomePage() {
                     backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B7280' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
                   }}
                 />
+              </div>
+              {/* Overlay rectangles that block background under foreground cards (Option D) */}
+              <div className="pointer-events-none absolute inset-0 z-[5]">
+                {overlayRects.map((r, idx) => (
+                  <div
+                    key={idx}
+                    className={`absolute ${dark ? 'bg-slate-950' : 'bg-white'}`}
+                    style={{
+                      top: r.top,
+                      left: r.left,
+                      width: r.width,
+                      height: r.height,
+                      borderRadius: r.radius,
+                    }}
+                  />
+                ))}
               </div>
               <div className="relative z-10">
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
@@ -8417,7 +8490,7 @@ export default function WelcomePage() {
                   )}
                   
                   {/* Match Info Card - Compact */}
-                  <div className={`relative z-10 mb-6 p-4 rounded-xl border shadow-md ${
+                  <div ref={matchCardRef} className={`relative z-10 mb-6 p-4 rounded-xl border shadow-md ${
                     dark 
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
@@ -8524,7 +8597,7 @@ export default function WelcomePage() {
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (
-                    <div className={`relative z-10 mb-6 p-6 rounded-2xl border ${
+                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 

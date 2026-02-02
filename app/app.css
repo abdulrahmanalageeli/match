@@ -708,7 +708,7 @@ html:not(.dark) .ai-ink {
   position: relative;
   z-index: 0;
   /* Customizable via CSS vars */
-  --ab-size: 2px;              /* border thickness */
+  --ab-size: 3px;              /* border thickness */
   --ab-speed: 8s;              /* rotation speed */
   --ab-c1: #22d3ee;            /* cyan-400 */
   --ab-c2: #a855f7;            /* purple-500 */
@@ -717,6 +717,7 @@ html:not(.dark) .ai-ink {
 
 .ai-animated-border::before {
   content: "";
+  display: block;              /* override .ai-card::before { display: none } */
   position: absolute;
   inset: 0;                    /* stays within rounded corners */
   padding: var(--ab-size);
@@ -729,7 +730,7 @@ html:not(.dark) .ai-ink {
   mask-composite: exclude;
   animation: ai-ab-rotate var(--ab-speed) linear infinite;
   will-change: transform;
-  z-index: 1;                  /* sits above base card, but masked */
+  z-index: 2;                  /* sits above base card and any inner ink */
   pointer-events: none;
 }
 

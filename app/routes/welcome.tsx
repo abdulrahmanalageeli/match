@@ -77,6 +77,8 @@ import CircularProgressBar from "../components/CircularProgressBar"
 
 import { motion, AnimatePresence } from "framer-motion"
 import confetti from "canvas-confetti"
+// Use layout effect only on client to avoid SSR warnings
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 // Performance: Lazy load heavy components to improve initial page load
 const AIQuestionsGenerator = lazy(() => import("../components/AIQuestionsGenerator"))
 const SurveyComponent = lazy(() => import("../components/SurveyComponent"))
@@ -424,27 +426,7 @@ export default function WelcomePage() {
     setOverlayRects(rects)
   }, [])
 
-  // Recompute after each layout that might move/size cards
-  useLayoutEffect(() => {
-    recomputeOverlayRects()
-  }, [recomputeOverlayRects, step, currentRound, currentQuestionIndex, conversationStarted, showPromptTopicsModal])
-
-  // Observe size changes + window resize
-  useEffect(() => {
-    const ro = new ResizeObserver(() => recomputeOverlayRects())
-    const w = roundWrapperRef.current
-    const m = matchCardRef.current
-    const q = qCardRef.current
-    if (w) ro.observe(w)
-    if (m) ro.observe(m)
-    if (q) ro.observe(q)
-    const onResize = () => recomputeOverlayRects()
-    window.addEventListener('resize', onResize)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', onResize)
-    }
-  }, [recomputeOverlayRects])
+  
   
   // AI Vibe Analysis states
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null)
@@ -641,6 +623,37 @@ export default function WelcomePage() {
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showRound1Guide, setShowRound1Guide] = useState(false);
+  
+  // Overlay recompute mounts and updates (moved here to avoid TDZ on currentQuestionIndex)
+  useIsomorphicLayoutEffect(() => {
+    recomputeOverlayRects()
+  }, [])
+
+  useEffect(() => {
+    recomputeOverlayRects()
+  }, [step, currentRound, currentQuestionIndex, conversationStarted, showPromptTopicsModal, recomputeOverlayRects])
+
+  useEffect(() => {
+    let ro: any = null
+    try {
+      const RO: any = (typeof window !== 'undefined' && (window as any).ResizeObserver) || null
+      if (RO) {
+        ro = new RO(() => recomputeOverlayRects())
+        const w = roundWrapperRef.current
+        const m = matchCardRef.current
+        const q = qCardRef.current
+        if (w) ro.observe(w)
+        if (m) ro.observe(m)
+        if (q) ro.observe(q)
+      }
+    } catch {}
+    const onResize = () => recomputeOverlayRects()
+    window.addEventListener('resize', onResize)
+    return () => {
+      try { ro && ro.disconnect && ro.disconnect() } catch {}
+      window.removeEventListener('resize', onResize)
+    }
+  }, [recomputeOverlayRects])
   
   // Question pace tracking for gentle nudge
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
@@ -8962,7 +8975,7 @@ onClick={() => {
                 <>
                   
                   {/* Match Info Card - Compact - Same design as timer not active */}
-                  <div className={`relative z-10 mb-6 p-4 rounded-xl border shadow-md ${
+                  <div ref={matchCardRef} className={`relative z-10 mb-6 p-4 rounded-xl border shadow-md ${
                     dark 
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
@@ -9061,7 +9074,7 @@ onClick={() => {
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 && (
-                    <div className={`relative z-10 mb-6 p-6 rounded-2xl border ${
+                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 

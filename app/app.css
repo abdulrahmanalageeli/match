@@ -734,6 +734,8 @@ html:not(.dark) .ai-ink {
   will-change: background;
   z-index: 2;                  /* sits above base card and any inner ink */
   pointer-events: none;
+  /* Soft, color-aware glow. Drop-shadows are inexpensive and work with masks. */
+  filter: drop-shadow(0 0 10px var(--ab-c2)) drop-shadow(0 0 6px var(--ab-c1));
 }
 
 /* Subtle animated grid/circuit pattern overlay inside the card */

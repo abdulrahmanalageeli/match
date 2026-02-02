@@ -8653,23 +8653,23 @@ export default function WelcomePage() {
                     <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
-                          ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
-                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
+                          ? "bg-gradient-to-br from-emerald-500/20 to-green-500/10 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 
+                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300 ring-1 ring-emerald-300/40"
                         : currentQuestions[currentQuestionIndex].level === 1
                           ? dark 
-                            ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
-                            : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                            ? "bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border-cyan-400/50 ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.25)]" 
+                            : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-300 ring-1 ring-cyan-300/40"
                           : currentQuestions[currentQuestionIndex].level === 2
                             ? dark
-                              ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
-                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+                              ? "bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-amber-400/50 ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
+                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 ring-1 ring-amber-300/40"
                             : currentQuestions[currentQuestionIndex].level === 3
                               ? dark
-                                ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
-                                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                                ? "bg-gradient-to-br from-purple-500/20 to-pink-600/10 border-purple-400/50 ring-1 ring-purple-400/30 shadow-[0_0_24px_rgba(168,85,247,0.25)]"
+                                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300 ring-1 ring-purple-300/40"
                               : dark
-                                ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
-                                : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
+                                ? "bg-gradient-to-br from-green-500/20 to-teal-600/10 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
+                                : "bg-gradient-to-br from-green-50 to-teal-50 border-green-300 ring-1 ring-green-300/40"
                     }`}>
                       <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
                         <div
@@ -8790,13 +8790,21 @@ export default function WelcomePage() {
                       {/* Question Card */}
                       <div
                         className={`relative p-6 rounded-xl ai-animated-border ${
-                          dark ? "bg-slate-900/60" : "bg-white/90"
+                          currentQuestions[currentQuestionIndex].level === 0
+                            ? (dark ? 'bg-gradient-to-b from-emerald-500/15 via-emerald-500/10 to-slate-900/40' : 'bg-gradient-to-b from-emerald-50 via-emerald-100/40 to-white')
+                            : currentQuestions[currentQuestionIndex].level === 1
+                              ? (dark ? 'bg-gradient-to-b from-cyan-500/15 via-cyan-500/10 to-slate-900/40' : 'bg-gradient-to-b from-cyan-50 via-cyan-100/40 to-white')
+                              : currentQuestions[currentQuestionIndex].level === 2
+                                ? (dark ? 'bg-gradient-to-b from-amber-500/15 via-amber-500/10 to-slate-900/40' : 'bg-gradient-to-b from-amber-50 via-amber-100/40 to-white')
+                                : currentQuestions[currentQuestionIndex].level === 3
+                                  ? (dark ? 'bg-gradient-to-b from-purple-500/15 via-pink-500/10 to-slate-900/40' : 'bg-gradient-to-b from-purple-50 via-pink-100/40 to-white')
+                                  : (dark ? 'bg-gradient-to-b from-teal-500/15 via-teal-500/10 to-slate-900/40' : 'bg-gradient-to-b from-teal-50 via-teal-100/40 to-white')
                         } shadow-lg backdrop-blur-sm ${
                           questionTransition === 'next' ? 'animate-slide-in-right' :
                           questionTransition === 'prev' ? 'animate-slide-in-left' : ''
                         }`}
                         style={{
-                          ['--ab-size' as any]: '2px',
+                          ['--ab-size' as any]: '3px',
                           ['--ab-speed' as any]: '9s',
                           ['--ab-c1' as any]:
                             currentQuestions[currentQuestionIndex].level === 0
@@ -8830,7 +8838,7 @@ export default function WelcomePage() {
                                     : '#34d399' /* emerald-400 */,
                         }}>
                         {/* Question Number */}
-                        <div className="absolute -top-3 right-4">
+                        <div className="absolute -top-3 right-4 z-30">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
                             currentQuestions[currentQuestionIndex].level === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
@@ -9284,7 +9292,7 @@ onClick={() => {
 
                       <div className="relative">
                         {/* Question Number */}
-                        <div className="absolute -top-3 right-4">
+                        <div className="absolute -top-3 right-4 z-30">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
                             currentQuestions[currentQuestionIndex].level === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"

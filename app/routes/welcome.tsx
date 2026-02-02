@@ -6971,11 +6971,16 @@ export default function WelcomePage() {
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
-                        <div className={`col-span-2 ai-card rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
+                        <div className={`col-span-2 ai-card ai-animated-border rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
                             ? "opacity-90" 
                             : "hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px] cursor-pointer"
                         }`}
+                        style={{
+                          ['--ab-c1' as any]: showNextEventSignup ? '#34d399' : '#f87171',
+                          ['--ab-c2' as any]: showNextEventSignup ? '#10b981' : '#fb923c',
+                          ['--ab-c3' as any]: showNextEventSignup ? '#059669' : '#ef4444'
+                        }}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
                           <div className={`ai-icon ai-icon--ghost mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`}>
@@ -7086,7 +7091,12 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          style={{
+                            ['--ab-c1' as any]: '#a855f7',
+                            ['--ab-c2' as any]: '#ec4899',
+                            ['--ab-c3' as any]: '#9333ea'
+                          }}
                           id="returning-player"
                         >
                           
@@ -7111,7 +7121,12 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          style={{
+                            ['--ab-c1' as any]: '#fb923c',
+                            ['--ab-c2' as any]: '#f43f5e',
+                            ['--ab-c3' as any]: '#ea580c'
+                          }}
                         >
                           
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">
@@ -7130,7 +7145,12 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          style={{
+                            ['--ab-c1' as any]: '#38bdf8',
+                            ['--ab-c2' as any]: '#6366f1',
+                            ['--ab-c3' as any]: '#3b82f6'
+                          }}
                         >
                           
                           <div className="ai-icon ai-icon--ghost mx-auto mb-2">

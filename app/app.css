@@ -702,3 +702,38 @@ html:not(.dark) .ai-ink {
     radial-gradient(900px 500px at 10% 110%, rgba(168, 85, 247, 0.12), transparent 60%),
     linear-gradient(180deg, #101c32 0%, #0c162a 100%);
 }
+
+/* === Animated gradient border (works without @property) === */
+.ai-animated-border {
+  position: relative;
+  z-index: 0;
+  /* Customizable via CSS vars */
+  --ab-size: 2px;              /* border thickness */
+  --ab-speed: 8s;              /* rotation speed */
+  --ab-c1: #22d3ee;            /* cyan-400 */
+  --ab-c2: #a855f7;            /* purple-500 */
+  --ab-c3: #3b82f6;            /* blue-500 */
+}
+
+.ai-animated-border::before {
+  content: "";
+  position: absolute;
+  inset: 0;                    /* stays within rounded corners */
+  padding: var(--ab-size);
+  border-radius: inherit;
+  background: conic-gradient(from 0deg, var(--ab-c1), var(--ab-c2), var(--ab-c3), var(--ab-c1));
+  /* Mask out the center so only the border shows */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ai-ab-rotate var(--ab-speed) linear infinite;
+  will-change: transform;
+  z-index: 1;                  /* sits above base card, but masked */
+  pointer-events: none;
+}
+
+@keyframes ai-ab-rotate {
+  to { transform: rotate(360deg); }
+}
+

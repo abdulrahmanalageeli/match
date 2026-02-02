@@ -8317,13 +8317,30 @@ export default function WelcomePage() {
               dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>
               {/* Local floating orbs background (clipped to container) */}
-              <div className="pointer-events-none absolute inset-0">
+              <div className="pointer-events-none absolute inset-0 z-0">
                 {/* Top-left cyan orb */}
                 <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-cyan-500/20 blur-2xl" />
                 {/* Center soft emerald glow */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl" />
                 {/* Bottom-right purple orb */}
                 <div className="absolute -bottom-14 -right-12 w-56 h-56 rounded-full bg-purple-500/20 blur-3xl" />
+
+                {/* Floating particles (like page background) */}
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={`local-orb-${i}`}
+                    className={`absolute rounded-full blur-xl opacity-30 md:opacity-25 mix-blend-screen animate-pulse ${
+                      i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+                    }`}
+                    style={{
+                      width: `${24 + (i % 3) * 16}px`,
+                      height: `${24 + (i % 4) * 14}px`,
+                      top: `${8 + (i * 11) % 76}%`,
+                      left: `${6 + (i * 17) % 82}%`,
+                      animationDelay: `${i * 0.6}s`,
+                    }}
+                  />
+                ))}
               </div>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (

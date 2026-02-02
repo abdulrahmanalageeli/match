@@ -7049,7 +7049,7 @@ export default function WelcomePage() {
                   <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-fr items-stretch gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
                         <div className={`col-span-2 ai-card ai-animated-border rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
@@ -7172,7 +7172,7 @@ export default function WelcomePage() {
                               handleTokenNavigation(token);
                             }
                           }}
-                          className="group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="block w-full h-full group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           style={{
                             ['--ab-c1' as any]: '#a855f7',
                             ['--ab-c2' as any]: '#ec4899',
@@ -7189,10 +7189,6 @@ export default function WelcomePage() {
                           <p className="text-slate-300 text-xs mb-2">
                             العودة إلى رحلتك او تعديل بياناتك
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-purple-300">
-                            <span className="text-xs font-medium">العودة للرحلة</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
                         </button>
 
                         {/* Results Button - Row 2 Right */}
@@ -7203,7 +7199,7 @@ export default function WelcomePage() {
                               window.location.href = `/results?token=${token}`;
                             }
                           }}
-                          className="group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="block w-full h-full group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           style={{
                             ['--ab-c1' as any]: '#fb923c',
                             ['--ab-c2' as any]: '#f43f5e',
@@ -7219,10 +7215,6 @@ export default function WelcomePage() {
                           <p className="text-slate-300 text-xs mb-2">
                             اعرض جميع نتائج التوافق الخاصة بك
                           </p>
-                          <div className="flex items-center justify-center gap-2 text-orange-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
                         </button>
 
                         {/* Groups Button - Full Width Row 3 */}
@@ -7241,10 +7233,6 @@ export default function WelcomePage() {
                             <Users className="w-6 h-6 text-white" />
                           </div>
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
-                          <div className="flex items-center justify-center gap-2 text-indigo-300">
-                            <span className="text-xs font-medium">انقر للوصول</span>
-                            <ChevronLeft className="w-4 h-4 transform rotate-180 group-hover:translate-x-1 transition-transform" />
-                          </div>
                         </button>
                       </div>
                       

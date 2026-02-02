@@ -801,6 +801,19 @@ html:not(.dark) .ai-ink {
   inherits: true;
 }
 
+/* === Saved actions grid mobile layout fix (50/50 split, equal height) === */
+@media (max-width: 640px) {
+  /* Target the specific grid that holds the two action buttons */
+  .grid:has(#returning-player) {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  /* Make both buttons equal height and occupy full cell */
+  .grid:has(#returning-player) > button {
+    min-height: 120px;
+    height: 100%;
+  }
+}
+
 @keyframes ai-ab-hue {
   to { --ab-angle: 360deg; }
 }

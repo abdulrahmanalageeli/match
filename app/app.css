@@ -709,7 +709,7 @@ html:not(.dark) .ai-ink {
   z-index: 0;
   /* Customizable via CSS vars */
   --ab-size: 1.5px;            /* border thickness */
-  --ab-speed: 8s;              /* rotation speed (slower & smoother) */
+  --ab-speed: 3s;              /* rotation speed */
   --ab-c1: #22d3ee;            /* cyan-400 */
   --ab-c2: #a855f7;            /* purple-500 */
   --ab-c3: #3b82f6;            /* blue-500 */
@@ -745,46 +745,27 @@ html:not(.dark) .ai-ink {
   border-radius: inherit;
   z-index: 1;                  /* below the border, above the surface */
   pointer-events: none;
-  opacity: .32;
-  mix-blend-mode: screen;
+  opacity: .14;
   background:
-    /* Cursor-tracking highlight */
-    radial-gradient(800px 400px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.10), transparent 60%),
-    /* Dot grid */
-    radial-gradient(circle, rgba(255,255,255,.22) 1px, transparent 1.6px),
-    /* Grid lines */
-    linear-gradient(0deg, var(--cp, rgba(148,163,184,.22)) 1px, transparent 1px),
-    linear-gradient(90deg, var(--cp, rgba(148,163,184,.22)) 1px, transparent 1px),
-    /* Scanlines */
-    linear-gradient(180deg, rgba(255,255,255,.05) 0%, transparent 70%, rgba(255,255,255,.04) 100%),
-    /* Corner accent glows */
-    radial-gradient(220px 220px at 0% 0%, var(--ab-c2), transparent 60%),
-    radial-gradient(220px 220px at 100% 100%, var(--ab-c2), transparent 60%);
+    /* Neutral static micro-grid */
+    radial-gradient(circle, rgba(236,240,244,.16) 1px, transparent 1.6px),
+    linear-gradient(0deg, rgba(148,163,184,.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,.12) 1px, transparent 1px);
   background-size:
-    100% 100%,
-    var(--grid-size,18px) var(--grid-size,18px),
-    var(--grid-size,18px) var(--grid-size,18px),
-    var(--grid-size,18px) var(--grid-size,18px),
-    100% 8px,
-    220px 220px,
-    220px 220px;
+    16px 16px,
+    16px 16px,
+    16px 16px;
   background-position:
-    center,
     0 0,
     0 0,
-    0 0,
-    0 0,
-    0 0,
-    100% 100%;
-  animation:
-    ai-grid-pan var(--grid-speed,12s) linear infinite,
-    ai-scan 6s linear infinite;
+    0 0;
+  animation: none;
   -webkit-mask-image: radial-gradient(closest-side, #000 80%, transparent 115%);
   mask-image: radial-gradient(closest-side, #000 80%, transparent 115%);
 }
 
 .ai-animated-border.ai-card:hover::after {
-  opacity: .45;
+  opacity: .18;
 }
 
 @keyframes ai-grid-pan {
@@ -799,9 +780,14 @@ html:not(.dark) .ai-ink {
   }
 }
 
+@keyframes ai-shimmer {
+  0% { background-position: 0% 0%, center, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 200% 200%, center, 0 0, 0 0, 0 0, 0 0; }
+}
+
 @keyframes ai-scan {
-  0% { background-position: center, 0 0, 0 0, 0 0, 0 0, 0 0, 100% 100%; }
-  100% { background-position: center, 0 0, 0 0, 0 0, 0 100%, 0 0, 100% 100%; }
+  0% { background-position: 0% 0%, center, 0 0, 0 0, 0 0, 0; }
+  100% { background-position: 0% 0%, center, 0 0, 0 0, 0 0, 100%; }
 }
 
 @keyframes ai-ab-rotate {

@@ -5147,11 +5147,6 @@ export default function WelcomePage() {
       if (dirty) { dirty = false; raf = requestAnimationFrame(update); }
     };
 
-    window.addEventListener('mousemove', onMove);
-    return () => {
-      window.removeEventListener('mousemove', onMove);
-      if (raf) cancelAnimationFrame(raf);
-    };
   }, [])
 
   // New User Type Popup will be rendered within main page structure

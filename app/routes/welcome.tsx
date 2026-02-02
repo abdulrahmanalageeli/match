@@ -8313,9 +8313,18 @@ export default function WelcomePage() {
               </div>
             )}
             
-            <div className={`relative backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`relative overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>
+              {/* Local floating orbs background (clipped to container) */}
+              <div className="pointer-events-none absolute inset-0">
+                {/* Top-left cyan orb */}
+                <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-cyan-500/20 blur-2xl" />
+                {/* Center soft emerald glow */}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl" />
+                {/* Bottom-right purple orb */}
+                <div className="absolute -bottom-14 -right-12 w-56 h-56 rounded-full bg-purple-500/20 blur-3xl" />
+              </div>
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
                 <div 

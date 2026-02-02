@@ -8313,11 +8313,11 @@ export default function WelcomePage() {
               </div>
             )}
             
-            <div className={`relative overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div className={`relative isolate overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
               dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>
               {/* Local floating orbs background (clipped to container) */}
-              <div className="pointer-events-none absolute inset-0 z-0">
+              <div className="pointer-events-none absolute inset-0 z-[-1]">
                 {/* Top-left cyan orb */}
                 <div className="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-cyan-500/20 blur-2xl" />
                 {/* Center soft emerald glow */}
@@ -8329,7 +8329,7 @@ export default function WelcomePage() {
                 {[...Array(8)].map((_, i) => (
                   <div
                     key={`local-orb-${i}`}
-                    className={`absolute rounded-full blur-xl opacity-30 md:opacity-25 mix-blend-screen animate-pulse ${
+                    className={`absolute rounded-full blur-xl opacity-30 md:opacity-25 animate-pulse ${
                       i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
                     }`}
                     style={{
@@ -8342,6 +8342,7 @@ export default function WelcomePage() {
                   />
                 ))}
               </div>
+              <div className="relative z-10">
               {/* History Icon - Left corner - TEMPORARILY COMMENTED OUT */}
               {false && historyMatches.length > 0 && (
                 <div 
@@ -8382,7 +8383,7 @@ export default function WelcomePage() {
                 <>
                   {/* Partner Timer Notifications */}
                   {showPartnerStartedNotification && (
-                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
+                    <div className={`relative z-10 mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
                       dark
                         ? "bg-green-500/20 border-green-400/40 text-green-200"
                         : "bg-green-100/50 border-green-400/40 text-green-700"
@@ -8395,7 +8396,7 @@ export default function WelcomePage() {
                   )}
                   
                   {partnerEndedTimer && (
-                    <div className={`mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
+                    <div className={`relative z-10 mb-4 p-3 rounded-xl border-2 animate-in slide-in-from-top-4 duration-500 ${
                       dark 
                         ? "bg-orange-500/20 border-orange-400/40 text-orange-200" 
                         : "bg-orange-100/50 border-orange-400/40 text-orange-700"
@@ -8408,7 +8409,7 @@ export default function WelcomePage() {
                   )}
                   
                   {/* Match Info Card - Compact */}
-                  <div className={`mb-6 p-4 rounded-xl border shadow-md ${
+                  <div className={`relative z-10 mb-6 p-4 rounded-xl border shadow-md ${
                     dark 
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
@@ -8489,7 +8490,7 @@ export default function WelcomePage() {
 
                   {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
-                    <div className="flex flex-col items-center gap-3 mb-4">
+                    <div className="relative z-10 flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
                         className={`${
@@ -8515,7 +8516,7 @@ export default function WelcomePage() {
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (
-                    <div className={`mb-6 p-6 rounded-2xl border ${
+                    <div className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
@@ -8880,7 +8881,7 @@ onClick={() => {
                 <>
                   
                   {/* Match Info Card - Compact - Same design as timer not active */}
-                  <div className={`mb-6 p-4 rounded-xl border shadow-md ${
+                  <div className={`relative z-10 mb-6 p-4 rounded-xl border shadow-md ${
                     dark 
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
@@ -8961,7 +8962,7 @@ onClick={() => {
 
                   {/* Discussion button above (tabs moved inside the box) */}
                   {currentRound === 1 && (
-                    <div className="flex flex-col items-center gap-3 mb-4">
+                    <div className="relative z-10 flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
                         className={`${
@@ -8979,7 +8980,7 @@ onClick={() => {
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 && (
-                    <div className={`mb-6 p-6 rounded-2xl border ${
+                    <div className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
@@ -9292,6 +9293,7 @@ onClick={() => {
 
                 </>
               )}
+            </div>
 </div>
           </section>
         )}

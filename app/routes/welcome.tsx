@@ -5104,6 +5104,24 @@ export default function WelcomePage() {
     }
   }, [globalTimerActive, timerRestored])
 
+  // Animated gradient border fallback (JS-driven)
+  // Ensures border colors animate even if CSS @property is unsupported
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let angle = 0;
+    let rafId = 0 as number;
+    const tick = () => {
+      angle = (angle + 0.6) % 360; // ~60fps sweep
+      const elements = document.querySelectorAll<HTMLElement>('.ai-animated-border');
+      elements.forEach(el => el.style.setProperty('--ab-angle', `${angle}deg`));
+      rafId = window.requestAnimationFrame(tick);
+    };
+
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [])
+
   // New User Type Popup will be rendered within main page structure
 
   // Contact Form Popup will be rendered within main page structure

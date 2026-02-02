@@ -713,6 +713,7 @@ html:not(.dark) .ai-ink {
   --ab-c1: #22d3ee;            /* cyan-400 */
   --ab-c2: #a855f7;            /* purple-500 */
   --ab-c3: #3b82f6;            /* blue-500 */
+  --ab-angle: 0deg;            /* default angle so JS and CSS can update */
 }
 
 .ai-animated-border::before {
@@ -743,7 +744,7 @@ html:not(.dark) .ai-ink {
 @property --ab-angle {
   syntax: "<angle>";
   initial-value: 0deg;
-  inherits: false;
+  inherits: true;
 }
 
 @keyframes ai-ab-hue {

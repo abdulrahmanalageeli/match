@@ -722,19 +722,31 @@ html:not(.dark) .ai-ink {
   inset: 0;                    /* stays within rounded corners */
   padding: var(--ab-size);
   border-radius: inherit;
-  background: conic-gradient(from 0deg, var(--ab-c1), var(--ab-c2), var(--ab-c3), var(--ab-c1));
+  /* Only the colors move now, not the geometry */
+  background: conic-gradient(from var(--ab-angle), var(--ab-c1), var(--ab-c2), var(--ab-c3), var(--ab-c1));
   /* Mask out the center so only the border shows */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
-  animation: ai-ab-rotate var(--ab-speed) linear infinite;
-  will-change: transform;
+  animation: ai-ab-hue var(--ab-speed) linear infinite;
+  will-change: background;
   z-index: 2;                  /* sits above base card and any inner ink */
   pointer-events: none;
 }
 
 @keyframes ai-ab-rotate {
   to { transform: rotate(360deg); }
+}
+
+/* Animate only the gradient angle (supported in modern browsers) */
+@property --ab-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes ai-ab-hue {
+  to { --ab-angle: 360deg; }
 }
 

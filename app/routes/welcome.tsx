@@ -3049,52 +3049,8 @@ export default function WelcomePage() {
 
   // Participant Icon Component - shows when user has saved token (but NavigationBar is not showing)
   const ParticipantIcon = () => {
-    // Check localStorage safely (client-side only)
-    const hasStoredResultToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_result_token') : null;
-    const hasStoredReturningToken = typeof window !== 'undefined' ? localStorage.getItem('blindmatch_returning_token') : null;
-    
-    // Hide if NavigationBar should be showing instead
-    if (assignedNumber || resultToken || returningPlayerToken || hasStoredResultToken || hasStoredReturningToken) {
-      return null;
-    }
-    
-    // Only show if user has assigned number and name, and not during initial loading
-    if (!assignedNumber || !participantName || isResolving || !showRegistrationContent) {
-      return null;
-    }
-    
-    // Use relative positioning in round mode (step 4), fixed otherwise
-    const positionClass = step === 4 
-      ? "relative top-0 left-2 sm:left-3 md:left-4 z-[100]" 
-      : "fixed top-2 left-2 sm:top-3 sm:left-3 md:top-4 md:left-4 z-[100]";
-    
-    return (
-      <div className={positionClass}>
-        <div className="group cursor-pointer transition-all duration-700 ease-out hover:scale-105">
-          <div className="relative">
-            {/* Glow effect background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/20 via-blue-500/20 to-purple-500/20 rounded-lg sm:rounded-xl blur-sm sm:blur-md opacity-60 group-hover:opacity-80 transition-opacity duration-1000 ease-in-out"></div>
-            
-            {/* Main participant container */}
-            <div className="relative bg-gradient-to-br from-slate-800/90 via-slate-700/90 to-slate-800/90 backdrop-blur-xl border border-white/10 rounded-lg sm:rounded-xl p-2 sm:p-3 shadow-lg sm:shadow-xl group-hover:shadow-cyan-500/20 transition-all duration-700 ease-out">
-              <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
-                {/* Participant Number */}
-                <div className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent font-bold text-lg sm:text-xl leading-tight">
-                  #{assignedNumber}
-                </div>
-                {/* Participant Name */}
-                <div className="text-white/90 text-xs sm:text-sm font-medium leading-tight mt-1 max-w-[80px] sm:max-w-[90px] truncate">
-                  {participantName}
-                </div>
-              </div>
-            </div>
-            
-            {/* Subtle animated border */}
-            <div className="absolute inset-0 rounded-lg sm:rounded-xl bg-gradient-to-r from-cyan-500/30 via-blue-500/30 to-purple-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-1000 ease-in-out"></div>
-          </div>
-        </div>
-      </div>
-    );
+    // Disabled per design: hide participant number badge on top
+    return null;
   };
 
   // Brute force protection functions

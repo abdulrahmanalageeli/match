@@ -736,6 +736,39 @@ html:not(.dark) .ai-ink {
   pointer-events: none;
 }
 
+/* Subtle animated grid/circuit pattern overlay inside the card */
+.ai-animated-border.ai-card::after {
+  content: "";
+  display: block;              /* override base display:none */
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;                  /* below the border, above the surface */
+  pointer-events: none;
+  opacity: .22;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.06), transparent 55%),
+    linear-gradient(0deg, var(--cp, rgba(148,163,184,.12)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cp, rgba(148,163,184,.12)) 1px, transparent 1px);
+  background-size: 100% 100%, 22px 22px, 22px 22px;
+  background-position: center, 0 0, 0 0;
+  animation: ai-grid-pan 18s linear infinite;
+  -webkit-mask-image: radial-gradient(closest-side, #000 80%, transparent 115%);
+  mask-image: radial-gradient(closest-side, #000 80%, transparent 115%);
+}
+
+@keyframes ai-grid-pan {
+  0% {
+    background-position: center, 0 0, 0 0;
+  }
+  50% {
+    background-position: center, 100% 0, 0 100%;
+  }
+  100% {
+    background-position: center, 200% 0, 0 200%;
+  }
+}
+
 @keyframes ai-ab-rotate {
   to { transform: rotate(360deg); }
 }

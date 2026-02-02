@@ -6997,7 +6997,8 @@ export default function WelcomePage() {
                         style={{
                           ['--ab-c1' as any]: showNextEventSignup ? '#34d399' : '#f87171',
                           ['--ab-c2' as any]: showNextEventSignup ? '#10b981' : '#fb923c',
-                          ['--ab-c3' as any]: showNextEventSignup ? '#059669' : '#ef4444'
+                          ['--ab-c3' as any]: showNextEventSignup ? '#059669' : '#ef4444',
+                          ['--cp' as any]: showNextEventSignup ? 'rgba(16,185,129,0.16)' : 'rgba(239,68,68,0.16)'
                         }}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
@@ -7113,7 +7114,8 @@ export default function WelcomePage() {
                           style={{
                             ['--ab-c1' as any]: '#a855f7',
                             ['--ab-c2' as any]: '#ec4899',
-                            ['--ab-c3' as any]: '#9333ea'
+                            ['--ab-c3' as any]: '#9333ea',
+                            ['--cp' as any]: 'rgba(168,85,247,0.16)'
                           }}
                           id="returning-player"
                         >
@@ -7143,7 +7145,8 @@ export default function WelcomePage() {
                           style={{
                             ['--ab-c1' as any]: '#fb923c',
                             ['--ab-c2' as any]: '#f43f5e',
-                            ['--ab-c3' as any]: '#ea580c'
+                            ['--ab-c3' as any]: '#ea580c',
+                            ['--cp' as any]: 'rgba(251,146,60,0.16)'
                           }}
                         >
                           
@@ -7167,7 +7170,8 @@ export default function WelcomePage() {
                           style={{
                             ['--ab-c1' as any]: '#38bdf8',
                             ['--ab-c2' as any]: '#6366f1',
-                            ['--ab-c3' as any]: '#3b82f6'
+                            ['--ab-c3' as any]: '#3b82f6',
+                            ['--cp' as any]: 'rgba(99,102,241,0.16)'
                           }}
                         >
                           

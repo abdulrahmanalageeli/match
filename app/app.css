@@ -745,16 +745,51 @@ html:not(.dark) .ai-ink {
   border-radius: inherit;
   z-index: 1;                  /* below the border, above the surface */
   pointer-events: none;
-  opacity: .22;
+  opacity: .32;
+  mix-blend-mode: screen;
   background:
-    radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.06), transparent 55%),
-    linear-gradient(0deg, var(--cp, rgba(148,163,184,.12)) 1px, transparent 1px),
-    linear-gradient(90deg, var(--cp, rgba(148,163,184,.12)) 1px, transparent 1px);
-  background-size: 100% 100%, 22px 22px, 22px 22px;
-  background-position: center, 0 0, 0 0;
-  animation: ai-grid-pan 18s linear infinite;
+    /* Holographic shimmer */
+    linear-gradient(120deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,0) 20%, rgba(255,255,255,.10) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,.10) 80%, rgba(255,255,255,0) 100%),
+    /* Cursor-tracking highlight */
+    radial-gradient(800px 400px at var(--mx,50%) var(--my,50%), rgba(255,255,255,.10), transparent 60%),
+    /* Dot grid */
+    radial-gradient(circle, rgba(255,255,255,.22) 1px, transparent 1.6px),
+    /* Grid lines */
+    linear-gradient(0deg, var(--cp, rgba(148,163,184,.22)) 1px, transparent 1px),
+    linear-gradient(90deg, var(--cp, rgba(148,163,184,.22)) 1px, transparent 1px),
+    /* Scanlines */
+    linear-gradient(180deg, rgba(255,255,255,.05) 0%, transparent 70%, rgba(255,255,255,.04) 100%),
+    /* Corner accent glows */
+    radial-gradient(220px 220px at 0% 0%, var(--ab-c2), transparent 60%),
+    radial-gradient(220px 220px at 100% 100%, var(--ab-c2), transparent 60%);
+  background-size:
+    200% 200%,
+    100% 100%,
+    var(--grid-size,18px) var(--grid-size,18px),
+    var(--grid-size,18px) var(--grid-size,18px),
+    var(--grid-size,18px) var(--grid-size,18px),
+    100% 8px,
+    220px 220px,
+    220px 220px;
+  background-position:
+    0% 0%,
+    center,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    0 0,
+    100% 100%;
+  animation:
+    ai-shimmer var(--shimmer-speed,8s) linear infinite,
+    ai-grid-pan var(--grid-speed,12s) linear infinite,
+    ai-scan 6s linear infinite;
   -webkit-mask-image: radial-gradient(closest-side, #000 80%, transparent 115%);
   mask-image: radial-gradient(closest-side, #000 80%, transparent 115%);
+}
+
+.ai-animated-border.ai-card:hover::after {
+  opacity: .45;
 }
 
 @keyframes ai-grid-pan {
@@ -767,6 +802,16 @@ html:not(.dark) .ai-ink {
   100% {
     background-position: center, 200% 0, 0 200%;
   }
+}
+
+@keyframes ai-shimmer {
+  0% { background-position: 0% 0%, center, 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 200% 200%, center, 0 0, 0 0, 0 0, 0 0; }
+}
+
+@keyframes ai-scan {
+  0% { background-position: 0% 0%, center, 0 0, 0 0, 0 0, 0; }
+  100% { background-position: 0% 0%, center, 0 0, 0 0, 0 0, 100%; }
 }
 
 @keyframes ai-ab-rotate {

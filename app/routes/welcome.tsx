@@ -5112,7 +5112,7 @@ export default function WelcomePage() {
     let angle = 0;
     let rafId = 0 as number;
     const tick = () => {
-      angle = (angle + 0.6) % 360; // ~60fps sweep
+      angle = (angle + 1.2) % 360; // faster sweep
       const elements = document.querySelectorAll<HTMLElement>('.ai-animated-border');
       elements.forEach(el => el.style.setProperty('--ab-angle', `${angle}deg`));
       rafId = window.requestAnimationFrame(tick);
@@ -5120,6 +5120,38 @@ export default function WelcomePage() {
 
     rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
+  }, [])
+
+  // Pointer parallax highlight for cards (moves radial highlight to cursor)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    let mx = 50, my = 50;
+    let raf = 0 as number;
+    let dirty = false;
+
+    const onMove = (e: MouseEvent) => {
+      mx = e.clientX; my = e.clientY; dirty = true;
+      if (!raf) raf = requestAnimationFrame(update);
+    };
+
+    const update = () => {
+      const cards = document.querySelectorAll<HTMLElement>('.ai-animated-border');
+      cards.forEach(el => {
+        const r = el.getBoundingClientRect();
+        const x = Math.max(0, Math.min(100, ((mx - r.left) / r.width) * 100));
+        const y = Math.max(0, Math.min(100, ((my - r.top) / r.height) * 100));
+        el.style.setProperty('--mx', `${x}%`);
+        el.style.setProperty('--my', `${y}%`);
+      });
+      raf = 0 as number;
+      if (dirty) { dirty = false; raf = requestAnimationFrame(update); }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      if (raf) cancelAnimationFrame(raf);
+    };
   }, [])
 
   // New User Type Popup will be rendered within main page structure

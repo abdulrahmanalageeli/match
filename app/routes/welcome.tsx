@@ -174,7 +174,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 export default function WelcomePage() {
   const [step, setStep] = useState<number>(0)
-  const [dark, setDark] = useState(false) // Force light mode; do not enable dark theme
+  const [dark, setDark] = useState(true) // Default to dark mode
   const [assignedNumber, setAssignedNumber] = useState<number | null>(null)
   const [participantName, setParticipantName] = useState<string | null>(null)
   const [secureToken, setSecureToken] = useState<string | null>(null)
@@ -3874,9 +3874,8 @@ export default function WelcomePage() {
   }, [showContactForm, participantName, assignedNumber]);
 
   useEffect(() => {
-    // Enforce light mode globally by ensuring the root never has the .dark class
-    document.documentElement.classList.remove("dark")
-  }, [])
+    document.documentElement.classList.toggle("dark", dark)
+  }, [dark])
 
   // Periodically check and reset attempts if enough time has passed
   useEffect(() => {

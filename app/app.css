@@ -326,8 +326,11 @@
 
 html,
 body {
-  @apply bg-white;
-  color-scheme: light;
+  @apply bg-white dark:bg-gray-950;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+  }
 }
 
 /* Apply custom scrollbar to body and html */

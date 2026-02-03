@@ -6646,21 +6646,35 @@ export default function WelcomePage() {
         <LogoHeader />
         <BottomLeftContactButton />
         <ParticipantIcon />
-        <div className="relative min-h-screen overflow-hidden" dir="rtl">
-        {/* Animated gradient background (PhoneEntry style) */}
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-violet-950 animate-bg-pan" />
-        {/* Opposites Attract: Duality orbs + grain overlay */}
-        <div className="pointer-events-none absolute inset-0 z-0">
-          {/* Warm orb - top left */}
-          <div className="absolute -top-28 -left-28 w-[560px] h-[560px] rounded-full bg-gradient-to-br from-orange-400 via-pink-500 to-pink-600 blur-3xl opacity-70 animate-orb mix-blend-screen" />
-          {/* Cool orb - bottom right */}
-          <div className="absolute -bottom-32 -right-24 w-[620px] h-[620px] rounded-full bg-gradient-to-br from-blue-600 via-indigo-700 to-indigo-900 blur-3xl opacity-70 animate-orb-alt mix-blend-screen" />
-          {/* Premium grain overlay */}
-          <div className="absolute inset-0 grain-overlay opacity-[0.05]" />
+        <div className="min-h-screen relative overflow-hidden page-bg" dir="rtl">
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0">
+          {/* Floating orbs */}
+          {[...Array(8)].map((_, i) => (
+            <div
+              key={i}
+              className={`absolute rounded-full blur-xl opacity-20 animate-pulse ${
+                i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+              }`}
+              style={{
+                width: `${32 + (i % 3) * 24}px`,
+                height: `${32 + (i % 4) * 20}px`,
+                top: `${10 + (i * 10) % 70}%`,
+                left: `${5 + (i * 13) % 85}%`,
+                animationDelay: `${i * 0.7}s`,
+                zIndex: 0,
+              }}
+            />
+          ))}
         </div>
 
+        {/* Grid pattern overlay */}
+        <div className="absolute inset-0 opacity-20" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236B7280' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+        }}></div>
+
         {/* Main Content */}
-        <div className="relative z-10 min-h-screen flex items-center justify-center px-4 isolate">
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
           <div className="max-w-4xl w-full">
             {/* Initial Loading Animation */}
             {!showRegistrationContent && (
@@ -6753,11 +6767,9 @@ export default function WelcomePage() {
                     </div>
                   </div>
 
-                {/* Process Guide - Ultra Compact (styled like PhoneEntry card) */}
-                <div className="relative w-full max-w-4xl mx-auto -mt-10 mb-2 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/15 shadow-2xl ring-1 ring-white/10 p-7 overflow-hidden">
-                  {/* Shield to block background orbs from bleeding into the card */}
-                  <div className="absolute inset-0 rounded-3xl bg-slate-950/60 pointer-events-none" />
-                  <div className="relative z-10 pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
+                {/* Process Guide - Ultra Compact */}
+                <div className={`max-w-4xl mx-auto -mt-10 mb-2 rounded-2xl border overflow-hidden ${dark ? "bg-slate-900/80 border-slate-700/50 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 shadow-lg"}`}>
+                  <div className="pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <div className="max-w-xl mx-auto mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
                       <span className="text-[7px] font-medium">

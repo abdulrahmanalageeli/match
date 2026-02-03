@@ -7134,9 +7134,7 @@ export default function WelcomePage() {
                         }}
                         onClick={!showNextEventSignup ? handleAutoSignupNextEvent : undefined}
                         >
-                          <div className={`ai-icon ai-icon--ghost mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`}>
-                            <UserCheck className="w-6 h-6 text-white" />
-                          </div>
+                          <UserCheck className={`w-6 h-6 text-white mx-auto mb-2 ${showNextEventSignup ? "opacity-60" : ""}`} />
                           <h4 className="text-base font-bold text-white mb-2">
                             {showNextEventSignup ? "مسجل للفعالية القادمة ✓" : "سجل للفعالية القادمة"}
                           </h4>
@@ -7252,9 +7250,7 @@ export default function WelcomePage() {
                           id="returning-player"
                         >
                           
-                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <RotateCcw className="w-6 h-6 text-white" />
-                          </div>
+                          <RotateCcw className="w-6 h-6 text-white mx-auto mb-2" />
                           <h4 className="text-base font-bold text-white mb-2">مشترك عائد</h4>
                           <p className="text-slate-300 text-xs mb-2">
                             العودة إلى رحلتك او تعديل بياناتك
@@ -7278,9 +7274,7 @@ export default function WelcomePage() {
                           }}
                         >
                           
-                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <Search className="w-6 h-6 text-white" />
-                          </div>
+                          <Search className="w-6 h-6 text-white mx-auto mb-2" />
                           <h4 className="text-base font-bold text-white mb-2">عرض نتائج التوافق</h4>
                           <p className="text-slate-300 text-xs mb-2">
                             اعرض جميع نتائج التوافق الخاصة بك
@@ -7290,7 +7284,7 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-3 sm:p-5 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-2 sm:p-3 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           style={{
                             ['--ab-c1' as any]: '#38bdf8',
                             ['--ab-c2' as any]: '#6366f1',
@@ -7299,9 +7293,7 @@ export default function WelcomePage() {
                           }}
                         >
                           
-                          <div className="ai-icon ai-icon--ghost mx-auto mb-2">
-                            <Users className="w-6 h-6 text-white" />
-                          </div>
+                          <Users className="w-6 h-6 text-white mx-auto mb-2" />
                           <h4 className="text-base font-bold text-white mb-2">جولة القروبات</h4>
                         </button>
                       </div>

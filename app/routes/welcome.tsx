@@ -7119,7 +7119,7 @@ export default function WelcomePage() {
                   <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
                     <div className="p-3 sm:p-4">
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-fr items-stretch gap-3 sm:gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-auto items-start gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}
                         <div className={`col-span-2 ai-card ai-animated-border rounded-2xl ${showNextEventSignup ? "ai-card--success" : "ai-card--danger"} p-3 sm:p-5 text-center group ${
                           showNextEventSignup 
@@ -7284,7 +7284,7 @@ export default function WelcomePage() {
                         {/* Groups Button - Full Width Row 3 */}
                         <button
                           onClick={() => window.location.href = '/groups'}
-                          className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-2 sm:p-3 text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
+                          className="col-span-2 group ai-card ai-animated-border ai-card--accent rounded-2xl p-2 sm:p-3 !min-h-0 !h-auto text-center hover:shadow-lg transition-transform hover:-translate-y-0.5 active:translate-y-[1px]"
                           style={{
                             ['--ab-c1' as any]: '#38bdf8',
                             ['--ab-c2' as any]: '#6366f1',

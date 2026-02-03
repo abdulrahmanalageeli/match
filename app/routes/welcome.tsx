@@ -6660,7 +6660,7 @@ export default function WelcomePage() {
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 min-h-screen flex items-center justify-center px-4">
+        <div className="relative z-10 min-h-screen flex items-center justify-center px-4 isolate">
           <div className="max-w-4xl w-full">
             {/* Initial Loading Animation */}
             {!showRegistrationContent && (
@@ -6755,7 +6755,9 @@ export default function WelcomePage() {
 
                 {/* Process Guide - Ultra Compact (styled like PhoneEntry card) */}
                 <div className="relative w-full max-w-4xl mx-auto -mt-10 mb-2 rounded-3xl bg-white/5 backdrop-blur-2xl border border-white/15 shadow-2xl ring-1 ring-white/10 p-7 overflow-hidden">
-                  <div className="pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
+                  {/* Shield to block background orbs from bleeding into the card */}
+                  <div className="absolute inset-0 rounded-3xl bg-slate-950/60 pointer-events-none" />
+                  <div className="relative z-10 pt-3 pb-3 animate-in slide-in-from-bottom-4 duration-1000 delay-700 text-center">
                   <div className="max-w-xl mx-auto mb-3">
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
                       <span className="text-[7px] font-medium">

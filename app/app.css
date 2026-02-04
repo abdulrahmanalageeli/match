@@ -816,23 +816,29 @@ html:not(.dark) .ai-ink {
   overflow: hidden;             /* respect rounded corners from Tailwind */
 }
 
+/* Ensure content is always above the decorative layer */
+.circuit-card > * {
+  position: relative;
+  z-index: 1;
+}
+
 .circuit-card::before {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* Layered gradients to emulate subtle circuit traces + nodes */
+  /* Layered gradients to emulate subtle circuit traces + nodes (dark, background-only) */
   background-image:
     /* nodes */
-    radial-gradient(circle at 12% 18%, rgba(56,189,248,.44) 4px, transparent 5px),
-    radial-gradient(circle at 70% 72%, rgba(168,85,247,.40) 4px, transparent 5px),
-    radial-gradient(circle at 35% 60%, rgba(59,130,246,.38) 4px, transparent 5px),
+    radial-gradient(circle at 12% 18%, rgba(0,0,0,.45) 3.5px, transparent 5px),
+    radial-gradient(circle at 70% 72%, rgba(0,0,0,.42) 3.5px, transparent 5px),
+    radial-gradient(circle at 35% 60%, rgba(0,0,0,.40) 3.5px, transparent 5px),
     /* horizontal traces */
-    linear-gradient(transparent 0, transparent calc(20% - 1px), rgba(56,189,248,.34) calc(20% - 1px), rgba(56,189,248,.34) calc(20% + 1px), transparent calc(20% + 1px)),
-    linear-gradient(transparent 0, transparent calc(65% - 1px), rgba(168,85,247,.30) calc(65% - 1px), rgba(168,85,247,.30) calc(65% + 1px), transparent calc(65% + 1px)),
+    linear-gradient(transparent 0, transparent calc(20% - 1px), rgba(0,0,0,.32) calc(20% - 1px), rgba(0,0,0,.32) calc(20% + 1px), transparent calc(20% + 1px)),
+    linear-gradient(transparent 0, transparent calc(65% - 1px), rgba(0,0,0,.30) calc(65% - 1px), rgba(0,0,0,.30) calc(65% + 1px), transparent calc(65% + 1px)),
     /* vertical traces */
-    linear-gradient(90deg, transparent 0, transparent calc(40% - 1px), rgba(99,102,241,.32) calc(40% - 1px), rgba(99,102,241,.32) calc(40% + 1px), transparent calc(40% + 1px)),
-    linear-gradient(90deg, transparent 0, transparent calc(78% - 1px), rgba(56,189,248,.30) calc(78% - 1px), rgba(56,189,248,.30) calc(78% + 1px), transparent calc(78% + 1px));
+    linear-gradient(90deg, transparent 0, transparent calc(40% - 1px), rgba(0,0,0,.30) calc(40% - 1px), rgba(0,0,0,.30) calc(40% + 1px), transparent calc(40% + 1px)),
+    linear-gradient(90deg, transparent 0, transparent calc(78% - 1px), rgba(0,0,0,.28) calc(78% - 1px), rgba(0,0,0,.28) calc(78% + 1px), transparent calc(78% + 1px));
   background-size:
     220px 220px,
     220px 220px,
@@ -843,10 +849,10 @@ html:not(.dark) .ai-ink {
     220px 220px;
   background-repeat: repeat;
   background-position: 0 0;
-  /* brighten pattern so it pops on dark glass */
-  mix-blend-mode: screen;
-  opacity: .42;
-  filter: saturate(120%) contrast(110%);
+  /* dark, opaque-ish, and strictly in the background */
+  mix-blend-mode: normal;
+  opacity: .36;
+  filter: none;
   z-index: 0;                   /* below content */
 }
 

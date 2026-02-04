@@ -742,54 +742,6 @@ html:not(.dark) .ai-ink {
   z-index: 1;                      /* sits between orbs (0) and main pattern (2) */
 }
 
-/* === PNG cutout mask (makes holes transparent inside the element) === */
-.mask-cutout {
-  /* Applies only to the element it is set on, including background, border and content */
-  -webkit-mask-image: url('/BGPattern.png');
-  mask-image: url('/BGPattern.png');
-  -webkit-mask-repeat: no-repeat;
-  mask-repeat: no-repeat;
-  -webkit-mask-size: cover; /* scale the mask to fill the box */
-  mask-size: cover;
-  -webkit-mask-position: center;
-  mask-position: center;
-  mask-mode: alpha; /* use PNG alpha channel */
-}
-
-/* Glass background that subtracts PNG pattern to create transparent holes */
-.container-glass-masked {
-  position: relative;
-  isolation: isolate;               /* contain z-index for inner pseudo */
-  background: transparent !important; /* override tailwind bg-... from TSX */
-}
-.container-glass-masked::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: 0;
-  /* Base glass surface (neutral dark) - keeps existing vibe */
-  background:
-    linear-gradient(180deg, rgba(15,23,42,0.86), rgba(2,6,23,0.82));
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-
-  /* Subtract PNG pattern from this surface to reveal page behind */
-  /* Standard syntax */
-  mask-image: linear-gradient(#fff 0 0), url('/BGPattern.png');
-  mask-repeat: no-repeat, no-repeat;
-  mask-size: cover, cover;
-  mask-position: center, center;
-  mask-composite: exclude; /* subtract second mask from first */
-
-  /* WebKit fallback */
-  -webkit-mask-image: linear-gradient(#fff 0 0), url('/BGPattern.png');
-  -webkit-mask-repeat: no-repeat, no-repeat;
-  -webkit-mask-size: cover, cover;
-  -webkit-mask-position: center, center;
-  -webkit-mask-composite: xor; /* approximate exclude */
-}
-
 /* === Animated gradient border (works without @property) === */
 .ai-animated-border {
   position: relative;
@@ -855,6 +807,45 @@ html:not(.dark) .ai-ink {
 
 .ai-animated-border.ai-card:hover::after {
   opacity: .18;
+}
+
+/* === Circuit-like pattern for main container (welcome page) === */
+.circuit-card {
+  position: relative;
+  isolation: isolate;           /* keep pseudo elements under content */
+  overflow: hidden;             /* respect rounded corners from Tailwind */
+}
+
+.circuit-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Layered gradients to emulate subtle circuit traces + nodes */
+  background-image:
+    /* nodes */
+    radial-gradient(circle at 12% 18%, rgba(56,189,248,.22) 2px, transparent 2.6px),
+    radial-gradient(circle at 70% 72%, rgba(168,85,247,.22) 2px, transparent 2.6px),
+    radial-gradient(circle at 35% 60%, rgba(59,130,246,.20) 2px, transparent 2.6px),
+    /* horizontal traces */
+    linear-gradient(transparent 0, transparent calc(20% - 1px), rgba(56,189,248,.16) calc(20% - 1px), rgba(56,189,248,.16) calc(20% + 1px), transparent calc(20% + 1px)),
+    linear-gradient(transparent 0, transparent calc(65% - 1px), rgba(168,85,247,.14) calc(65% - 1px), rgba(168,85,247,.14) calc(65% + 1px), transparent calc(65% + 1px)),
+    /* vertical traces */
+    linear-gradient(90deg, transparent 0, transparent calc(40% - 1px), rgba(99,102,241,.14) calc(40% - 1px), rgba(99,102,241,.14) calc(40% + 1px), transparent calc(40% + 1px)),
+    linear-gradient(90deg, transparent 0, transparent calc(78% - 1px), rgba(56,189,248,.12) calc(78% - 1px), rgba(56,189,248,.12) calc(78% + 1px), transparent calc(78% + 1px));
+  background-size:
+    320px 320px,
+    320px 320px,
+    320px 320px,
+    320px 320px,
+    320px 320px,
+    320px 320px,
+    320px 320px;
+  background-repeat: repeat;
+  background-position: 0 0;
+  mix-blend-mode: overlay;      /* integrate with container bg */
+  opacity: .16;                 /* subtlety */
+  z-index: 0;                   /* below content */
 }
 
 @keyframes ai-grid-pan {

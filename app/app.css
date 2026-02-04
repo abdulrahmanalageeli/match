@@ -712,11 +712,18 @@ html:not(.dark) .ai-ink {
   pointer-events: none;
   /* The pattern image ships in /public, so it is served from root */
   background-image: url('/BGPattern.png');
-  background-repeat: no-repeat;
-  background-size: cover;          /* scale to viewport while preserving aspect */
-  background-position: center;     /* center the artwork */
-  opacity: 0.12;                   /* keep it cohesive and not overpowering */
+  background-repeat: repeat;       /* tile the pattern */
+  background-size: clamp(220px, 20vw, 360px); /* smaller, responsive tiles */
+  background-position: top left;   /* align tiling origin */
+  opacity: 0.10;                   /* subtle by default */
+  mix-blend-mode: screen;          /* soft glow on dark gradient */
+  animation: page-pattern-glow 9s ease-in-out infinite alternate;
   z-index: 1;                      /* above orbs (default), below content (z-10) */
+}
+
+@keyframes page-pattern-glow {
+  0% { opacity: 0.08; }
+  100% { opacity: 0.15; }
 }
 
 /* === Animated gradient border (works without @property) === */

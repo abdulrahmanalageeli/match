@@ -711,12 +711,12 @@ html:not(.dark) .ai-ink {
   inset: 0;
   pointer-events: none;
   /* The pattern image ships in /public, so it is served from root */
-  background-image: url('/BGPattern.png');
+  background-image: url('/BGPattern.jpg');
   background-repeat: no-repeat;
   background-size: cover;          /* scale to viewport while preserving aspect */
   background-position: center;     /* center the artwork */
   opacity: 0.18;                   /* a bit more opaque */
-  transform: scale(0.85);          /* 15% smaller */
+  transform: none;                 /* revert to original size */
   transform-origin: center;
   /* soft glow around the pattern lines */
   filter: drop-shadow(0 0 36px rgba(56,189,248,0.25))

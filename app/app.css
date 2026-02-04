@@ -703,6 +703,22 @@ html:not(.dark) .ai-ink {
     linear-gradient(180deg, #101c32 0%, #0c162a 100%);
 }
 
+/* Subtle page pattern overlay (uses /public/BGPattern.png)
+   Drawn above the gradient but below in-DOM animated layers and content */
+.page-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* The pattern image ships in /public, so it is served from root */
+  background-image: url('/BGPattern.png');
+  background-repeat: no-repeat;
+  background-size: cover;          /* scale to viewport while preserving aspect */
+  background-position: center;     /* center the artwork */
+  opacity: 0.12;                   /* keep it cohesive and not overpowering */
+  z-index: 1;                      /* above orbs (default), below content (z-10) */
+}
+
 /* === Animated gradient border (works without @property) === */
 .ai-animated-border {
   position: relative;

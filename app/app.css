@@ -824,27 +824,29 @@ html:not(.dark) .ai-ink {
   /* Layered gradients to emulate subtle circuit traces + nodes */
   background-image:
     /* nodes */
-    radial-gradient(circle at 12% 18%, rgba(56,189,248,.22) 2px, transparent 2.6px),
-    radial-gradient(circle at 70% 72%, rgba(168,85,247,.22) 2px, transparent 2.6px),
-    radial-gradient(circle at 35% 60%, rgba(59,130,246,.20) 2px, transparent 2.6px),
+    radial-gradient(circle at 12% 18%, rgba(56,189,248,.44) 4px, transparent 5px),
+    radial-gradient(circle at 70% 72%, rgba(168,85,247,.40) 4px, transparent 5px),
+    radial-gradient(circle at 35% 60%, rgba(59,130,246,.38) 4px, transparent 5px),
     /* horizontal traces */
-    linear-gradient(transparent 0, transparent calc(20% - 1px), rgba(56,189,248,.16) calc(20% - 1px), rgba(56,189,248,.16) calc(20% + 1px), transparent calc(20% + 1px)),
-    linear-gradient(transparent 0, transparent calc(65% - 1px), rgba(168,85,247,.14) calc(65% - 1px), rgba(168,85,247,.14) calc(65% + 1px), transparent calc(65% + 1px)),
+    linear-gradient(transparent 0, transparent calc(20% - 1px), rgba(56,189,248,.34) calc(20% - 1px), rgba(56,189,248,.34) calc(20% + 1px), transparent calc(20% + 1px)),
+    linear-gradient(transparent 0, transparent calc(65% - 1px), rgba(168,85,247,.30) calc(65% - 1px), rgba(168,85,247,.30) calc(65% + 1px), transparent calc(65% + 1px)),
     /* vertical traces */
-    linear-gradient(90deg, transparent 0, transparent calc(40% - 1px), rgba(99,102,241,.14) calc(40% - 1px), rgba(99,102,241,.14) calc(40% + 1px), transparent calc(40% + 1px)),
-    linear-gradient(90deg, transparent 0, transparent calc(78% - 1px), rgba(56,189,248,.12) calc(78% - 1px), rgba(56,189,248,.12) calc(78% + 1px), transparent calc(78% + 1px));
+    linear-gradient(90deg, transparent 0, transparent calc(40% - 1px), rgba(99,102,241,.32) calc(40% - 1px), rgba(99,102,241,.32) calc(40% + 1px), transparent calc(40% + 1px)),
+    linear-gradient(90deg, transparent 0, transparent calc(78% - 1px), rgba(56,189,248,.30) calc(78% - 1px), rgba(56,189,248,.30) calc(78% + 1px), transparent calc(78% + 1px));
   background-size:
-    320px 320px,
-    320px 320px,
-    320px 320px,
-    320px 320px,
-    320px 320px,
-    320px 320px,
-    320px 320px;
+    220px 220px,
+    220px 220px,
+    220px 220px,
+    220px 220px,
+    220px 220px,
+    220px 220px,
+    220px 220px;
   background-repeat: repeat;
   background-position: 0 0;
-  mix-blend-mode: overlay;      /* integrate with container bg */
-  opacity: .16;                 /* subtlety */
+  /* brighten pattern so it pops on dark glass */
+  mix-blend-mode: screen;
+  opacity: .42;
+  filter: saturate(120%) contrast(110%);
   z-index: 0;                   /* below content */
 }
 

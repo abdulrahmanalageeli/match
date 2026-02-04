@@ -7117,7 +7117,7 @@ export default function WelcomePage() {
                 {/* Navbar for Saved Data Users */}
                 {(resultToken || returningPlayerToken || localStorage.getItem('blindmatch_result_token') || localStorage.getItem('blindmatch_returning_token')) && (
                   <div className="max-w-4xl mx-auto px-4 mt-1 animate-in slide-in-from-bottom-4 duration-1000 delay-1000">
-                    <div className="p-3 sm:p-4">
+                    <div className="p-3 sm:p-4 circuit-card rounded-2xl">
                       
                       <div className="grid grid-cols-1 sm:grid-cols-2 auto-rows-auto items-start gap-3 sm:gap-4">
                         {/* Next Event Signup Card - Full Width Row 1 */}

@@ -867,17 +867,17 @@ html:not(.dark) .ai-ink {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background-image: url('/BGPattern.jpg');
+  background-image: url('/BGPattern.png');
   background-repeat: no-repeat;
   background-size: cover;
   background-position: center;
-  opacity: 0.12; /* dark, non-invasive */
+  opacity: 0.10; /* dark, low opacity */
   filter: saturate(110%) brightness(0.85);
-  z-index: 0; /* sit under content/overlays rendered inside */
+  z-index: 1; /* above local bg orbs (z-0), below overlays/content */
 }
 /* Make it even subtler on light mode */
 html:not(.dark) .round-bg-pattern::before {
-  opacity: 0.06;
+  opacity: 0.04;
   filter: saturate(100%) brightness(1);
 }
 

@@ -402,17 +402,6 @@ export default function WelcomePage() {
     if (!wrapper) return
     const wr = wrapper.getBoundingClientRect()
     const rects: Array<{ top: number; left: number; width: number; height: number; radius: number }> = []
-
-    if (matchCardRef.current) {
-      const r = matchCardRef.current.getBoundingClientRect()
-      rects.push({
-        top: r.top - wr.top,
-        left: r.left - wr.left,
-        width: r.width,
-        height: r.height,
-        radius: 12, // rounded-xl
-      })
-    }
     if (qCardRef.current) {
       const r = qCardRef.current.getBoundingClientRect()
       rects.push({

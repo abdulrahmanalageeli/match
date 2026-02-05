@@ -881,32 +881,6 @@ html:not(.dark) .round-bg-pattern::before {
   filter: saturate(100%) brightness(1);
 }
 
-/* Inverse/resumed pattern variant (for question category+set container) */
-.round-bg-pattern-inverse {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-}
-.round-bg-pattern-inverse::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image: url('/BGPattern.png');
-  background-repeat: no-repeat;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.12; /* subtle */
-  filter: invert(1) hue-rotate(180deg) saturate(130%) brightness(1);
-  mix-blend-mode: screen; /* pop on dark gradients */
-  z-index: 0;
-}
-html:not(.dark) .round-bg-pattern-inverse::before {
-  opacity: 0.06;
-  filter: invert(0.85) hue-rotate(180deg) saturate(110%) brightness(1);
-  mix-blend-mode: multiply; /* integrate with light surfaces */
-}
-
 @keyframes ai-grid-pan {
   0% {
     background-position: center, 0 0, 0 0;

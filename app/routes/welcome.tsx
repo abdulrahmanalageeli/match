@@ -8641,7 +8641,7 @@ export default function WelcomePage() {
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
                   {currentRound === 1 ? (
-                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border round-bg-pattern-inverse ${
+                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/20 to-green-500/10 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 

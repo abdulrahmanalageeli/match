@@ -8415,7 +8415,7 @@ export default function WelcomePage() {
               </div>
             )}
             
-            <div ref={roundWrapperRef} className={`relative isolate overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl ${
+            <div ref={roundWrapperRef} className={`relative isolate overflow-hidden backdrop-blur-xl border rounded-2xl p-8 shadow-2xl round-bg-pattern ${
               dark ? "bg-transparent border-white/20" : "bg-transparent border-gray-300/30"
             }`}>
               {/* Local floating orbs background (clipped to container) */}

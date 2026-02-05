@@ -856,6 +856,31 @@ html:not(.dark) .ai-ink {
   z-index: 0;                   /* below content */
 }
 
+/* === BG pattern masked inside any container (used on round wrapper) === */
+.round-bg-pattern {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden; /* respect rounded corners */
+}
+.round-bg-pattern::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url('/BGPattern.jpg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center;
+  opacity: 0.12; /* dark, non-invasive */
+  filter: saturate(110%) brightness(0.85);
+  z-index: 0; /* sit under content/overlays rendered inside */
+}
+/* Make it even subtler on light mode */
+html:not(.dark) .round-bg-pattern::before {
+  opacity: 0.06;
+  filter: saturate(100%) brightness(1);
+}
+
 @keyframes ai-grid-pan {
   0% {
     background-position: center, 0 0, 0 0;

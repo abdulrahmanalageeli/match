@@ -6203,6 +6203,7 @@ Proceed?`
         groupAssignments={groupAssignments}
         totalGroups={totalGroups}
         totalParticipants={totalGroupParticipants}
+          totalPaidParticipants={participants.filter(p => p.PAID_DONE === true).length}
         eventId={currentEventId}
         onSwapApplied={async () => { await fetchGroupAssignments() }}
         cohostTheme={isCohost}

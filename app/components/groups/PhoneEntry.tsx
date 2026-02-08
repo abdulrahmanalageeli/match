@@ -231,10 +231,6 @@ export default function PhoneEntry({ onSubmit, loading = false, error, enablePar
               </form>
             )}
 
-            {/* Footer note */}
-            <div className="mt-5 text-center text-slate-400 text-xs">
-              إذا كان لديك رابطك الشخصي محفوظاً، سيتم إدخالك تلقائياً
-            </div>
           </div>
         </div>
       </div>

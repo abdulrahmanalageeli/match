@@ -25,12 +25,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get all participants who completed the form
+    // Get all participants who completed the form and paid
     console.log("Getting all participants...");
     const { data: allParticipants, error } = await supabase
       .from("participants")
       .select("assigned_number, survey_data, gender, age, same_gender_preference, any_gender_preference")
       .eq("match_id", match_id)
+      .eq("PAID_DONE", true)  // Only include paid participants
       .neq("assigned_number", 9999)  // Exclude organizer participant from matching
       .not("survey_data", "is", null)
 
@@ -228,25 +229,49 @@ function checkAgeCompatibility(participantA, participantB) {
 function createGenderBalancedGroup(participants, targetSize) {
   const males = participants.filter(p => (p.gender || p.survey_data?.gender) === 'male')
   const females = participants.filter(p => (p.gender || p.survey_data?.gender) === 'female')
-  
+
   // For groups, we want a mix of genders but don't enforce strict opposite-gender pairs
   // This is different from individual matching where we strictly require opposite genders
   const group = []
-  
-  // Try to balance genders in the group
+
+  // Special handling for groups of 3: allow 2 males + 1 female composition without penalty
+  if (targetSize === 3) {
+    // Prioritize 2 males + 1 female composition for groups of 3
+    if (males.length >= 2 && females.length >= 1) {
+      // Take 2 males and 1 female
+      group.push(...males.slice(0, 2))
+      group.push(...females.slice(0, 1))
+      return group.slice(0, 3)
+    } else if (males.length >= 1 && females.length >= 2) {
+      // Fallback: 1 male and 2 females
+      group.push(...males.slice(0, 1))
+      group.push(...females.slice(0, 2))
+      return group.slice(0, 3)
+    } else if (males.length >= 3) {
+      // All males if no females available
+      group.push(...males.slice(0, 3))
+      return group.slice(0, 3)
+    } else if (females.length >= 3) {
+      // All females if no males available
+      group.push(...females.slice(0, 3))
+      return group.slice(0, 3)
+    }
+  }
+
+  // Standard balancing logic for other group sizes (4+)
   const halfSize = Math.floor(targetSize / 2)
   const malesToAdd = Math.min(halfSize, males.length)
   const femalesToAdd = Math.min(halfSize, females.length)
-  
+
   // Add males and females
   group.push(...males.slice(0, malesToAdd))
   group.push(...females.slice(0, femalesToAdd))
-  
+
   // Fill remaining slots with any available participants
   const remainingSlots = targetSize - group.length
   const remainingParticipants = participants.filter(p => !group.includes(p))
   group.push(...remainingParticipants.slice(0, remainingSlots))
-  
+
   return group.slice(0, targetSize)
 }
 
@@ -613,8 +638,9 @@ async function generateGroupMatches(participants, round, match_id) {
         })
         i += 4
       } else {
-        // If we can't create a group of 4, fall back to creating smaller groups
-        const group = shuffledParticipants.slice(i, i + 3)
+        // If we can't create a group of 4, fall back to creating smaller groups with gender balance
+        const availableParticipants = shuffledParticipants.slice(i)
+        const group = createGenderBalancedGroup(availableParticipants, 3)
         groups.push({
           group_id: `group_${groups.length + 1}`,
           participant_numbers: group.map(p => p.assigned_number),
@@ -632,8 +658,9 @@ async function generateGroupMatches(participants, round, match_id) {
         i += 3
       }
     } else if (remaining === 3) {
-      // Perfect group of 3
-      const group = shuffledParticipants.slice(i, i + 3)
+      // Perfect group of 3 - use gender balancing logic
+      const availableParticipants = shuffledParticipants.slice(i)
+      const group = createGenderBalancedGroup(availableParticipants, 3)
       groups.push({
         group_id: `group_${groups.length + 1}`,
         participant_numbers: group.map(p => p.assigned_number),

@@ -20,6 +20,7 @@ interface GroupAssignmentsModalProps {
   groupAssignments: GroupAssignment[]
   totalGroups: number
   totalParticipants: number
+  totalPaidParticipants?: number
   eventId?: number
   onSwapApplied?: () => Promise<void> | void
   cohostTheme?: boolean
@@ -43,6 +44,7 @@ export default function GroupAssignmentsModal({
   groupAssignments,
   totalGroups,
   totalParticipants,
+  totalPaidParticipants = 0,
   eventId = 1,
   onSwapApplied,
   cohostTheme = false
@@ -336,6 +338,10 @@ export default function GroupAssignmentsModal({
     return mapped
   })()
 
+  // Calculate participants in groups vs total paid participants
+  const participantsInGroups = computedDisplayGroups.reduce((total, group) => total + group.participant_count, 0)
+  const allPaidInGroups = totalPaidParticipants > 0 && participantsInGroups >= totalPaidParticipants
+
   async function toggleAttendance(pNumber: number, current: boolean) {
     try {
       setAttendanceSaving(prev => ({ ...prev, [pNumber]: true }))
@@ -381,6 +387,36 @@ export default function GroupAssignmentsModal({
             <X className="w-4 h-4" />
           </button>
         </div>
+        {/* Paid Participants Counter */}
+        {totalPaidParticipants > 0 && (
+          <div className={`px-6 py-3 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'}`}>
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${allPaidInGroups ? 'bg-green-500/20' : 'bg-yellow-500/20'}`}>
+                {allPaidInGroups ? (
+                  <CheckCircle2 className={`w-4 h-4 ${cohostTheme ? 'text-green-300' : 'text-green-400'}`} />
+                ) : (
+                  <AlertTriangle className={`w-4 h-4 ${cohostTheme ? 'text-yellow-300' : 'text-yellow-400'}`} />
+                )}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-white text-sm font-medium">
+                    المشاركون المدفوعون: {totalPaidParticipants}
+                  </span>
+                  <span className={`text-xs px-2 py-1 rounded-full ${allPaidInGroups ? 'bg-green-500/20 text-green-300' : 'bg-yellow-500/20 text-yellow-300'}`}>
+                    {allPaidInGroups ? 'جميعهم في مجموعات' : `${participantsInGroups}/${totalPaidParticipants} في مجموعات`}
+                  </span>
+                </div>
+                <p className="text-slate-400 text-xs">
+                  {allPaidInGroups
+                    ? 'تم توزيع جميع المشاركين المدفوعين في المجموعات'
+                    : 'بعض المشاركين المدفوعين غير موجودين في أي مجموعة'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
         {/* View mode toggle */}
         <div className={`px-4 py-3 border-b ${cohostTheme ? 'border-violet-400/20' : 'border-white/10'} bg-white/5`}>
           <div className="flex items-center gap-2">

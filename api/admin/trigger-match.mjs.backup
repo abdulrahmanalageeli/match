@@ -1907,10 +1907,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       else if (targetSize === 5) score -= 5
 
       // Single-female penalty (size 4 only)
-      if (hasSingleFemale) {
-        console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
-        continue
-      }
+      if (hasSingleFemale) score = score * 0.7
 
       return score
     }
@@ -2510,10 +2507,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     if (targetSize === 4) score += 5
     else if (targetSize === 5) score -= 5
     // single-female penalty
-    if (hasSingleFemale) {
-        console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
-        continue
-      }
+    if (hasSingleFemale) score = score * 0.7
 
     // Ideal Mix in nearest-age fallback: +10% if roles fully known and both A and B present
     const rolesNearest = combination.map(participantNum => {

@@ -21,6 +21,7 @@ interface GroupAssignmentsModalProps {
   totalGroups: number
   totalParticipants: number
   totalPaidParticipants?: number
+  participants?: any[]
   eventId?: number
   onSwapApplied?: () => Promise<void> | void
   cohostTheme?: boolean
@@ -45,6 +46,7 @@ export default function GroupAssignmentsModal({
   totalGroups,
   totalParticipants,
   totalPaidParticipants = 0,
+  participants = [],
   eventId = 1,
   onSwapApplied,
   cohostTheme = false
@@ -342,6 +344,15 @@ export default function GroupAssignmentsModal({
   const participantsInGroups = computedDisplayGroups.reduce((total, group) => total + group.participant_count, 0)
   const allPaidInGroups = totalPaidParticipants > 0 && participantsInGroups >= totalPaidParticipants
 
+  // Find paid participants not in any group
+  const participantsInGroupsSet = new Set<number>()
+  computedDisplayGroups.forEach(group => {
+    group.participants.forEach(p => participantsInGroupsSet.add(p.number))
+  })
+  const paidParticipantsNotInGroups = participants
+    .filter(p => p.PAID_DONE === true && !participantsInGroupsSet.has(p.assigned_number))
+    .map(p => ({ number: p.assigned_number, name: p.name || `المشارك #${p.assigned_number}` }))
+
   async function toggleAttendance(pNumber: number, current: boolean) {
     try {
       setAttendanceSaving(prev => ({ ...prev, [pNumber]: true }))
@@ -407,6 +418,24 @@ export default function GroupAssignmentsModal({
                     {allPaidInGroups ? 'جميعهم في مجموعات' : `${participantsInGroups}/${totalPaidParticipants} في مجموعات`}
                   </span>
                 </div>
+                {!allPaidInGroups && paidParticipantsNotInGroups.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-slate-400 text-xs mb-1">المشاركون المدفوعون غير الموزعين في مجموعات:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {paidParticipantsNotInGroups.map((p, index) => (
+                        <span
+                          key={p.number}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs ${
+                            cohostTheme ? 'bg-violet-500/20 text-violet-200' : 'bg-slate-700/50 text-slate-200'
+                          }`}
+                        >
+                          <span className="font-mono">#{p.number}</span>
+                          <span className="truncate max-w-20">{p.name}</span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <p className="text-slate-400 text-xs">
                   {allPaidInGroups
                     ? 'تم توزيع جميع المشاركين المدفوعين في المجموعات'

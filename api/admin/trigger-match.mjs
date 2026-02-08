@@ -1821,29 +1821,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       }).filter(Boolean)
       const maleCount = genders.filter(g => g === 'male').length
       const femaleCount = genders.filter(g => g === 'female').length
-      
-      // For groups of 3, we need at least 1 male and 1 female, but can have 2 of one and 1 of the other
-      if (targetSize === 3) {
-        if (maleCount === 0 || femaleCount === 0) {
-          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - needs at least one male and one female`)
-          return -Infinity
-        }
-        if (femaleCount > 2) {
-          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - too many females (${femaleCount})`)
-          return -Infinity
-        }
-      } else {
-        // For groups of 4 or 5, maintain stricter gender balance
-        if (maleCount === 0 || femaleCount === 0) {
-          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - needs both genders`)
-          return -Infinity
-        }
-        if (femaleCount > 2) {
-          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - too many females (${femaleCount})`)
-          return -Infinity
-        }
-      }
-      
+      if (maleCount === 0 || femaleCount === 0) return -Infinity
+      if (femaleCount > 2) return -Infinity
       const hasSingleFemale = femaleCount === 1 && targetSize === 4
 
       // 2) Conversation depth compatibility
@@ -1923,17 +1902,12 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         if (hasC) score += 2
       }
 
-      // Size-based scoring - treat groups of 3 and 4 equally
-      if (targetSize === 3) {
-        score += 5  // Same bonus as groups of 4
-        console.log(`   ✨ Optimal size bonus: +5% (group of 3)`)
-      } else if (targetSize === 4) {
-        score += 5  // Keep same bonus as before
-        console.log(`   ✨ Optimal size bonus: +5% (group of 4)`)
-      } else if (targetSize === 5) {
-        score -= 5  // Penalty for groups of 5
-        console.log(`   ⚠️ Large group penalty: -5% (group of 5)`)
-      }
+      // Size preference
+      if (targetSize === 4) score += 5
+      else if (targetSize === 5) score -= 5
+
+      // Single-female penalty (size 4 only)
+
 
       return score
     }
@@ -1941,45 +1915,19 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     while (rem.size >= 3) {
       const pool = Array.from(rem)
       let best = null
-      
-      // First, try to find the best possible group among sizes 3 and 4
-      for (const size of [3, 4]) {
+      for (const size of [3, 4, 5]) {
         if (pool.length < size) continue
-        
-        // First try with strict constraints
         let grp = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
         let strict = true
-        
-        // If no group found with strict constraints, try with relaxed constraints
         if (!grp) {
           grp = findBestGroup(pool, pairScores, size, eligibleParticipants, areMatched)
           strict = false
         }
-        
         if (!grp) continue
-        
-        // Calculate the score for this group
         const s = computeGroupSelectionScore(grp, size)
-        
-        // Skip if the group doesn't meet minimum requirements
         if (!Number.isFinite(s)) continue
-        
-        // Update best group if this one has a higher score
-        // If scores are equal, prefer the group with more participants
-        if (!best || s > best.score || (s === best.score && size > best.size)) {
+        if (!best || s > best.score || (s === best.score && size === 4 && best.size !== 4)) {
           best = { size, group: grp, score: s, strict }
-        }
-      }
-      
-      // If no group of 3 or 4 was found, try with group of 5 as last resort
-      if (!best && pool.length >= 5) {
-        const grp = findBestGroup(pool, pairScores, 5, eligibleParticipants, areMatched)
-        if (grp) {
-          const s = computeGroupSelectionScore(grp, 5)
-          if (Number.isFinite(s)) {
-            best = { size: 5, group: grp, score: s, strict: false }
-            console.log(`   ⚠️ Using group of 5 as last resort (${grp.join(', ')})`)
-          }
         }
       }
       if (!best) {
@@ -2556,24 +2504,14 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     if (ageRange <= 3) score += 5
     // I/E balance bonus
     // MBTI I/E bonus removed per Spark-Only (MBTI excluded)
-    // Size preference - give equal preference to groups of 3 and 4
-    if (targetSize === 3) {
-      score += 5  // Same bonus as groups of 4
-      console.log(`   ✨ Optimal size bonus: +5% (group of 3)`)
-    } else if (targetSize === 4) {
-      score += 5  // Keep same bonus for groups of 4
-      console.log(`   ✨ Optimal size bonus: +5% (group of 4)`)
-    } else if (targetSize === 5) {
-      score -= 5  // Penalty for groups of 5
-      console.log(`   ⚠️ Large group penalty: -5% (group of 5)`)
-    }
-    
-    // Single-female penalty (size 4 only)
+    // size preference
+    if (targetSize === 4) score += 5
+    else if (targetSize === 5) score -= 5
+    // single-female penalty
     if (hasSingleFemale) {
-      const originalScore = score
-      score = score * 0.7  // 30% penalty for single female in group of 4
-      console.log(`   📉 Applied 30% penalty for single female in group of 4 (${maleCount}M, 1F): ${Math.round(score)}% (was ${Math.round(originalScore)}%)`)
-    }
+       // console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
+        continue
+      }
 
     // Ideal Mix in nearest-age fallback: +10% if roles fully known and both A and B present
     const rolesNearest = combination.map(participantNum => {

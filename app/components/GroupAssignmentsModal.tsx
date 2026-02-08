@@ -567,45 +567,18 @@ export default function GroupAssignmentsModal({
                   onClick={async () => {
                     setPreviewLoading(true)
                     try {
-                      // Get all participant numbers from current groups
-                      const participantNumbers = groupAssignments.flatMap(g => 
-                        g.participants.map(p => p.number)
-                      );
-                      
                       const res = await fetch('/api/admin/trigger-match', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          action: 'generate-groups',
-                          eventId,
-                          participantNumbers,
-                          preview: true,
-                          topK: 3
-                        })
-                      });
-                      
-                      const data = await res.json();
-                      
+                        body: JSON.stringify({ matchType: 'group', eventId, action: 'preview-groups-topk', topK: 3 })
+                      })
+                      const data = await res.json()
                       if (!res.ok || !data?.success) {
-                        throw new Error(data?.error || 'فشل في جلب البدائل');
+                        alert(data?.error || 'فشل في جلب البدائل')
+                      } else {
+                        setPreviewArrangements(data.arrangements || [])
+                        setActiveArrangement(0)
                       }
-                      
-                      // Format the response to match the expected structure
-                      const arrangements = [
-                        {
-                          label: 'أفضل توزيع',
-                          groupMatches: data.groups?.map((group: any) => ({
-                            group_id: `group-${group.group_number}`,
-                            group_number: group.group_number,
-                            table_number: group.table_number || 0,
-                            participant_numbers: group.participants.map((p: any) => p.assigned_number || p.number),
-                            compatibility_score: group.compatibility_score || 0
-                          })) || []
-                        }
-                      ];
-                      
-                      setPreviewArrangements(arrangements);
-                      setActiveArrangement(0);
                     } catch (e) {
                       console.error('preview error', e)
                       alert('حدث خطأ أثناء المعاينة')

@@ -574,6 +574,7 @@ export default function GroupAssignmentsModal({
                       })
                       const data = await res.json()
                       if (!res.ok || !data?.success) {
+                        console.error('Preview groups error:', data?.error, data?.details)
                         alert(data?.error || 'فشل في جلب البدائل')
                       } else {
                         setPreviewArrangements(data.arrangements || [])

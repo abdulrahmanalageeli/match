@@ -4403,7 +4403,11 @@ export default async function handler(req, res) {
           return res.status(200).json({ success: true, topK: payload.length, arrangements: payload })
         } catch (e) {
           console.error('preview-groups-topk error:', e)
-          return res.status(500).json({ error: 'Failed to preview group arrangements' })
+          return res.status(500).json({ 
+            error: 'Failed to preview group arrangements',
+            details: e.message,
+            stack: process.env.NODE_ENV === 'development' ? e.stack : undefined
+          })
         }
       }
 

@@ -1787,7 +1787,7 @@ export default async function handler(req, res) {
     }
 
     // 🔹 SWAP TWO PARTICIPANTS BETWEEN GROUPS (with validation and score recalculation)
-    if (action === "swap-group-participants") {
+if (action === "swap-group-participants") {
       try {
         const {
           event_id = 1,
@@ -2171,12 +2171,18 @@ export default async function handler(req, res) {
           }
 
           return res.status(200).json(response);
+        } catch (error) {
+          console.error('Error in swap-group-participants:', error);
+          return res.status(500).json({ 
+            error: 'Failed to swap group participants',
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          });
         }
-
       } catch (error) {
         console.error('Error in swap-group-participants:', error);
         return res.status(500).json({ 
-          error: 'Failed to swap group participants',
+          error: 'Failed to process swap request',
           details: error.message,
           stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });

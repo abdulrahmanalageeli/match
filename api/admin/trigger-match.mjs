@@ -1908,7 +1908,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
 
       // Single-female penalty (size 4 only)
       if (hasSingleFemale) {
-        console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
+       // console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
         continue
       }
 
@@ -2511,7 +2511,7 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     else if (targetSize === 5) score -= 5
     // single-female penalty
     if (hasSingleFemale) {
-        console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
+       // console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
         continue
       }
 

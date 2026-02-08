@@ -4388,7 +4388,7 @@ export default async function handler(req, res) {
           }
 
           for (let i = 0; i < topK; i++) {
-            const gm = await generateGroupMatches(eligibleParticipants, match_id, eventId, { bannedCombos, oppositesMode })
+            const gm = await generateGroupMatches(eligibleParticipants, match_id, eventId, { bannedCombos })
             arrangements.push(gm)
             const sig = pickSignature(gm)
             if (sig) bannedCombos.add(sig)

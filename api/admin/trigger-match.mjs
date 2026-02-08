@@ -2262,7 +2262,8 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
 
       const hasSingleFemale = femaleCount === 1 && targetSize === 4
       if (hasSingleFemale) {
-        console.log(`⚠️ Deprioritizing group combination [${combination.join(', ')}] - single female in group of 4 (${maleCount}M, ${femaleCount}F)`) 
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - single female in group of 4 (${maleCount}M, ${femaleCount}F) - HARD CONSTRAINT`)
+        continue
       }
 
       // 2) Age constraint: dynamic scan uses 'maxAgeRange' here

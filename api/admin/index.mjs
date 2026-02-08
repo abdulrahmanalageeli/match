@@ -1787,7 +1787,7 @@ export default async function handler(req, res) {
     }
 
     // 🔹 SWAP TWO PARTICIPANTS BETWEEN GROUPS (with validation and score recalculation)
-if (action === "swap-group-participants") {
+    if (action === "swap-group-participants") {
       try {
         const {
           event_id = 1,
@@ -1864,41 +1864,15 @@ if (action === "swap-group-participants") {
             calculateCoreValuesCompatibility(valsA, valsB)
           )
         }
-        async function calculateGroupScore(groupNums, pMap) {
-          if (!groupNums || groupNums.length < 2) return 0;
-          
-          // Fetch detailed participant data if not already available
-          const missingNums = groupNums.filter(n => !pMap.has(n));
-          if (missingNums.length > 0) {
-            const { data: missingParticipants, error } = await supabase
-              .from('participants')
-              .select('*')
-              .in('assigned_number', missingNums);
-              
-            if (!error && missingParticipants) {
-              missingParticipants.forEach(p => pMap.set(p.assigned_number, p));
+        function calculateGroupScore(groupNums, pMap){
+          let total=0, pairs=0
+          for (let i=0;i<groupNums.length;i++){
+            for (let j=i+1;j<groupNums.length;j++){
+              const a=pMap.get(groupNums[i]); const b=pMap.get(groupNums[j]);
+              if (a && b){ total += pairTotalScore(a,b); pairs++ }
             }
           }
-          
-          // Calculate average compatibility score for all pairs in the group
-          let totalScore = 0;
-          let pairCount = 0;
-          
-          for (let i = 0; i < groupNums.length; i++) {
-            for (let j = i + 1; j < groupNums.length; j++) {
-              const p1 = pMap.get(groupNums[i]);
-              const p2 = pMap.get(groupNums[j]);
-              
-              if (p1 && p2) {
-                const score = pairTotalScore(p1, p2);
-                totalScore += score;
-                pairCount++;
-              }
-            }
-          }
-          
-          // Return average score, or 0 if no valid pairs
-          return pairCount > 0 ? Math.round((totalScore / pairCount) * 100) / 100 : 0;
+          return pairs>0 ? Math.round((total/pairs)) : 0
         }
         async function buildWarnings(groupNums, pMap){
           const warnings=[]
@@ -2013,9 +1987,9 @@ if (action === "swap-group-participants") {
         if (pErr) { return res.status(500).json({ error: 'Failed fetching participants' }) }
         const pMap = new Map(pData.map(p=>[p.assigned_number, p]))
 
-        // 4) Recompute scores with async/await
-        const scoreA = await calculateGroupScore(newA, pMap)
-        const scoreB = groupA_number === groupB_number ? null : await calculateGroupScore(newB, pMap)
+        // 4) Recompute scores
+        const scoreA = calculateGroupScore(newA, pMap)
+        const scoreB = groupA_number === groupB_number ? null : calculateGroupScore(newB, pMap)
 
         // 5) Validate eligibility and build warnings
         const warningsA = await buildWarnings(newA, pMap)
@@ -2038,154 +2012,53 @@ if (action === "swap-group-participants") {
         // 7) Persist swap
         function namesFor(groupNums){
           return groupNums.map(n=>{
-            const p=pMap.get(n); 
-            return (p?.survey_data?.name) || p?.name || `المشارك #${n}`
+            const p=pMap.get(n); return (p?.survey_data?.name) || p?.name || `المشارك #${n}`
           })
         }
-        
-        // 8) Update group scores in the database
-        async function updateGroupScores() {
-          try {
-            const updates = [];
-            
-            // Always update group A
-            updates.push(
-              supabase
-                .from('group_matches')
-                .update({ 
-                  compatibility_score: scoreA,
-                  updated_at: new Date().toISOString()
-                })
-                .eq('match_id', STATIC_MATCH_ID)
-                .eq('event_id', event_id)
-                .eq('group_number', groupA_number)
-            );
-            
-            // Update group B if it's a different group
-            if (groupA_number !== groupB_number) {
-              updates.push(
-                supabase
-                  .from('group_matches')
-                  .update({ 
-                    compatibility_score: scoreB,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('match_id', STATIC_MATCH_ID)
-                  .eq('event_id', event_id)
-                  .eq('group_number', groupB_number)
-              );
-            }
-            
-            // Execute all updates
-            const results = await Promise.all(updates);
-            const errors = results.filter(r => r.error).map(r => r.error);
-            
-            if (errors.length > 0) {
-              console.error('Error updating group scores:', errors);
-              throw new Error('Failed to update group scores');
-            }
-            
-            return true;
-          } catch (error) {
-            console.error('Error in updateGroupScores:', error);
-            throw error;
-          }
-        }
 
-        try {
-          // Update group memberships first
-          if (groupA_number === groupB_number) {
-            // Handle reordering within the same group
-            const { error: upSame } = await supabase
-              .from('group_matches')
-              .update({ 
-                participant_numbers: newA, 
-                participant_names: namesFor(newA),
-                updated_at: new Date().toISOString()
-              })
-              .eq('match_id', STATIC_MATCH_ID)
-              .eq('event_id', event_id)
-              .eq('group_number', groupA_number);
-              
-            if (upSame) { 
-              return res.status(500).json({ error: 'Failed updating group' });
-            }
-          } else {
-            // Handle swap between different groups
-            const [updateA, updateB] = await Promise.all([
-              supabase
-                .from('group_matches')
-                .update({ 
-                  participant_numbers: newA, 
-                  participant_names: namesFor(newA),
-                  updated_at: new Date().toISOString()
-                })
-                .eq('match_id', STATIC_MATCH_ID)
-                .eq('event_id', event_id)
-                .eq('group_number', groupA_number),
-              
-              supabase
-                .from('group_matches')
-                .update({ 
-                  participant_numbers: newB, 
-                  participant_names: namesFor(newB),
-                  updated_at: new Date().toISOString()
-                })
-                .eq('match_id', STATIC_MATCH_ID)
-                .eq('event_id', event_id)
-                .eq('group_number', groupB_number)
-            ]);
-            
-            if (updateA.error || updateB.error) {
-              console.error('Error updating groups:', { updateA: updateA.error, updateB: updateB.error });
-              return res.status(500).json({ 
-                error: `Failed updating groups: ${updateA.error?.message || ''} ${updateB.error?.message || ''}`.trim()
-              });
-            }
-          }
-          
-          // Then update the scores in a separate transaction
-          await updateGroupScores();
-          
-          // Return success response with updated data
-          const response = {
+        if (groupA_number === groupB_number) {
+          const { error: upSame } = await supabase
+            .from('group_matches')
+            .update({ participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA })
+            .eq('match_id', STATIC_MATCH_ID)
+            .eq('event_id', event_id)
+            .eq('group_number', groupA_number)
+          if (upSame) { return res.status(500).json({ error: 'Failed updating group' }) }
+          return res.status(200).json({
+            success: true,
+            updated: { [groupA_number]: { participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA } },
+            warnings: { [groupA_number]: warningsA }
+          })
+        } else {
+          const { error: upA } = await supabase
+            .from('group_matches')
+            .update({ participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA })
+            .eq('match_id', STATIC_MATCH_ID)
+            .eq('event_id', event_id)
+            .eq('group_number', groupA_number)
+          if (upA) { return res.status(500).json({ error: 'Failed updating group A' }) }
+
+          const { error: upB } = await supabase
+            .from('group_matches')
+            .update({ participant_numbers: newB, participant_names: namesFor(newB), compatibility_score: scoreB })
+            .eq('match_id', STATIC_MATCH_ID)
+            .eq('event_id', event_id)
+            .eq('group_number', groupB_number)
+          if (upB) { return res.status(500).json({ error: 'Failed updating group B' }) }
+
+          return res.status(200).json({
             success: true,
             updated: {
-              [groupA_number]: { 
-                participant_numbers: newA, 
-                participant_names: namesFor(newA), 
-                compatibility_score: scoreA 
-              }
+              [groupA_number]: { participant_numbers: newA, participant_names: namesFor(newA), compatibility_score: scoreA },
+              [groupB_number]: { participant_numbers: newB, participant_names: namesFor(newB), compatibility_score: scoreB }
             },
-            warnings: { [groupA_number]: warningsA }
-          };
-          
-          // Add group B data if it's a different group
-          if (groupA_number !== groupB_number) {
-            response.updated[groupB_number] = { 
-              participant_numbers: newB, 
-              participant_names: namesFor(newB), 
-              compatibility_score: scoreB 
-            };
-            response.warnings[groupB_number] = warningsB;
-          }
-
-          return res.status(200).json(response);
-        } catch (error) {
-          console.error('Error in swap-group-participants:', error);
-          return res.status(500).json({ 
-            error: 'Failed to swap group participants',
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-          });
+            warnings: { [groupA_number]: warningsA, [groupB_number]: warningsB }
+          })
         }
+
       } catch (error) {
-        console.error('Error in swap-group-participants:', error);
-        return res.status(500).json({ 
-          error: 'Failed to process swap request',
-          details: error.message,
-          stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
+        console.error('Error in swap-group-participants:', error)
+        return res.status(500).json({ error: 'Failed to swap group participants' })
       }
     }
 

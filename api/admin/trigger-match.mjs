@@ -1902,12 +1902,17 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
         if (hasC) score += 2
       }
 
-      // Size preference
-      if (targetSize === 4) score += 5
-      else if (targetSize === 5) score -= 5
-
-      // Single-female penalty (size 4 only)
-
+      // Size-based scoring - treat groups of 3 and 4 equally
+      if (targetSize === 3) {
+        score += 5  // Same bonus as groups of 4
+        console.log(`   ✨ Optimal size bonus: +5% (group of 3)`)
+      } else if (targetSize === 4) {
+        score += 5  // Keep same bonus as before
+        console.log(`   ✨ Optimal size bonus: +5% (group of 4)`)
+      } else if (targetSize === 5) {
+        score -= 5  // Penalty for groups of 5
+        console.log(`   ⚠️ Large group penalty: -5% (group of 5)`)
+      }
 
       return score
     }
@@ -1915,19 +1920,45 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
     while (rem.size >= 3) {
       const pool = Array.from(rem)
       let best = null
-      for (const size of [3, 4, 5]) {
+      
+      // First, try to find the best possible group among sizes 3 and 4
+      for (const size of [3, 4]) {
         if (pool.length < size) continue
+        
+        // First try with strict constraints
         let grp = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
         let strict = true
+        
+        // If no group found with strict constraints, try with relaxed constraints
         if (!grp) {
           grp = findBestGroup(pool, pairScores, size, eligibleParticipants, areMatched)
           strict = false
         }
+        
         if (!grp) continue
+        
+        // Calculate the score for this group
         const s = computeGroupSelectionScore(grp, size)
+        
+        // Skip if the group doesn't meet minimum requirements
         if (!Number.isFinite(s)) continue
-        if (!best || s > best.score || (s === best.score && size === 4 && best.size !== 4)) {
+        
+        // Update best group if this one has a higher score
+        // If scores are equal, prefer the group with more participants
+        if (!best || s > best.score || (s === best.score && size > best.size)) {
           best = { size, group: grp, score: s, strict }
+        }
+      }
+      
+      // If no group of 3 or 4 was found, try with group of 5 as last resort
+      if (!best && pool.length >= 5) {
+        const grp = findBestGroup(pool, pairScores, 5, eligibleParticipants, areMatched)
+        if (grp) {
+          const s = computeGroupSelectionScore(grp, 5)
+          if (Number.isFinite(s)) {
+            best = { size: 5, group: grp, score: s, strict: false }
+            console.log(`   ⚠️ Using group of 5 as last resort (${grp.join(', ')})`)
+          }
         }
       }
       if (!best) {

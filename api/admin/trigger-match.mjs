@@ -1821,8 +1821,29 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       }).filter(Boolean)
       const maleCount = genders.filter(g => g === 'male').length
       const femaleCount = genders.filter(g => g === 'female').length
-      if (maleCount === 0 || femaleCount === 0) return -Infinity
-      if (femaleCount > 2) return -Infinity
+      
+      // For groups of 3, we need at least 1 male and 1 female, but can have 2 of one and 1 of the other
+      if (targetSize === 3) {
+        if (maleCount === 0 || femaleCount === 0) {
+          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - needs at least one male and one female`)
+          return -Infinity
+        }
+        if (femaleCount > 2) {
+          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - too many females (${femaleCount})`)
+          return -Infinity
+        }
+      } else {
+        // For groups of 4 or 5, maintain stricter gender balance
+        if (maleCount === 0 || femaleCount === 0) {
+          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - needs both genders`)
+          return -Infinity
+        }
+        if (femaleCount > 2) {
+          console.log(`   ⚠️ Skipping group [${combination.join(', ')}] - too many females (${femaleCount})`)
+          return -Infinity
+        }
+      }
+      
       const hasSingleFemale = femaleCount === 1 && targetSize === 4
 
       // 2) Conversation depth compatibility
@@ -2535,14 +2556,24 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     if (ageRange <= 3) score += 5
     // I/E balance bonus
     // MBTI I/E bonus removed per Spark-Only (MBTI excluded)
-    // size preference
-    if (targetSize === 4) score += 5
-    else if (targetSize === 5) score -= 5
-    // single-female penalty
+    // Size preference - give equal preference to groups of 3 and 4
+    if (targetSize === 3) {
+      score += 5  // Same bonus as groups of 4
+      console.log(`   ✨ Optimal size bonus: +5% (group of 3)`)
+    } else if (targetSize === 4) {
+      score += 5  // Keep same bonus for groups of 4
+      console.log(`   ✨ Optimal size bonus: +5% (group of 4)`)
+    } else if (targetSize === 5) {
+      score -= 5  // Penalty for groups of 5
+      console.log(`   ⚠️ Large group penalty: -5% (group of 5)`)
+    }
+    
+    // Single-female penalty (size 4 only)
     if (hasSingleFemale) {
-       // console.log(?? Skipping group combination [] - single female in group of 4 (M, F) - HARD CONSTRAINT)
-        continue
-      }
+      const originalScore = score
+      score = score * 0.7  // 30% penalty for single female in group of 4
+      console.log(`   📉 Applied 30% penalty for single female in group of 4 (${maleCount}M, 1F): ${Math.round(score)}% (was ${Math.round(originalScore)}%)`)
+    }
 
     // Ideal Mix in nearest-age fallback: +10% if roles fully known and both A and B present
     const rolesNearest = combination.map(participantNum => {

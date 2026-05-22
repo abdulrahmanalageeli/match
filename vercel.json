@@ -4,6 +4,10 @@
   "functions": {
     "api/**/*.mjs": {
       "runtime": "@vercel/node@5.3.3"
+    },
+    "api/admin/trigger-match.mjs": {
+      "runtime": "@vercel/node@5.3.3",
+      "maxDuration": 60
     }
   },
   "rewrites": [

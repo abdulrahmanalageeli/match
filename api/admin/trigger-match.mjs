@@ -4730,12 +4730,39 @@ export default async function handler(req, res) {
     // Summary: Retrieved participant data
     console.log(`🔍 Retrieved ${eligibleParticipants.length} eligible participants for matching`)
 
-    const numbers = eligibleParticipants.map(p => p.assigned_number)
+    // For round-based matching, fetch existing matches in this round to skip those participants
+    // This enables resume capability if the request times out mid-run
+    let alreadyMatchedNumbers = new Set()
+    if (matchType === 'same_gender' || matchType === 'opposite_gender') {
+      console.log(`🔍 Fetching existing round ${targetRound} matches for resume capability...`)
+      const { data: existingRoundMatches, error: existingError } = await supabase
+        .from("match_results")
+        .select("participant_a_number, participant_b_number")
+        .eq("match_id", match_id)
+        .eq("event_id", eventId)
+        .eq("round", targetRound)
+      
+      if (existingError) {
+        console.error("⚠️ Error fetching existing round matches:", existingError)
+      } else if (existingRoundMatches && existingRoundMatches.length > 0) {
+        for (const m of existingRoundMatches) {
+          if (m.participant_a_number && m.participant_a_number !== 9999) alreadyMatchedNumbers.add(m.participant_a_number)
+          if (m.participant_b_number && m.participant_b_number !== 9999) alreadyMatchedNumbers.add(m.participant_b_number)
+        }
+        console.log(`⏭️ Found ${alreadyMatchedNumbers.size} participants already matched in round ${targetRound} — skipping them`)
+      }
+    }
+
+    // Filter out already-matched participants from the pool
+    const participantsToMatch = eligibleParticipants.filter(p => !alreadyMatchedNumbers.has(p.assigned_number))
+    console.log(`📊 Eligible pool: ${eligibleParticipants.length} total → ${participantsToMatch.length} to match (${alreadyMatchedNumbers.size} already matched)`)
+
+    const numbers = participantsToMatch.map(p => p.assigned_number)
     const pairs = []
 
-    for (let i = 0; i < eligibleParticipants.length; i++) {
-      for (let j = i + 1; j < eligibleParticipants.length; j++) {
-        pairs.push([eligibleParticipants[i], eligibleParticipants[j]])
+    for (let i = 0; i < participantsToMatch.length; i++) {
+      for (let j = i + 1; j < participantsToMatch.length; j++) {
+        pairs.push([participantsToMatch[i], participantsToMatch[j]])
       }
     }
 
@@ -4906,19 +4933,6 @@ export default async function handler(req, res) {
           compatibilityResult.synergyScore = _derivedSynergy2
           compatibilityResult.humorOpenScore = _derivedHumorOpen2
           compatibilityResult.intentScore = _derivedIntent2
-          
-          // Update cache usage statistics in background (don't await)
-          if (!SKIP_DB_WRITES) {
-            supabase
-              .from('compatibility_cache')
-              .update({ 
-                last_used: new Date().toISOString(),
-                use_count: cachedData.use_count + 1 
-              })
-              .eq('id', cachedData.id)
-              .then(() => {})
-              .catch(err => console.error('Cache update error:', err))
-          }
         } else {
           // Cache MISS - calculate fresh
           cacheMisses++
@@ -5549,27 +5563,67 @@ export default async function handler(req, res) {
 
     // Insert new matches (skip in preview mode)
     if (!SKIP_DB_WRITES) {
-      // For round-based gender matching, clear ONLY this round to allow safe regeneration
-      // (without affecting the other round). Legacy 'individual' generation retains old behavior.
+      // For round-based matching (R1/R2), use incremental writes to avoid timeout
+      // Instead of bulk delete + insert, we check if each pair already exists (resume capability)
+      // and insert only new matches. This allows resuming if the request times out mid-run.
       if (matchType === 'same_gender' || matchType === 'opposite_gender') {
-        console.log(`🧹 Clearing existing round ${targetRound} matches for event ${eventId} before insert...`)
+        console.log(`💾 Incrementally inserting ${finalMatches.length} matches for round ${targetRound} (resume mode)`)
+        let insertedCount = 0
+        let skippedCount = 0
+        for (const match of finalMatches) {
+          // Check if this pair already exists in this round (resume capability)
+          const { data: existing, error: checkError } = await supabase
+            .from("match_results")
+            .select("id")
+            .eq("match_id", match_id)
+            .eq("event_id", eventId)
+            .eq("round", targetRound)
+            .or(`participant_a_number.eq.${match.participant_a_number},participant_b_number.eq.${match.participant_a_number}`)
+            .or(`participant_a_number.eq.${match.participant_b_number},participant_b_number.eq.${match.participant_b_number}`)
+            .limit(1)
+            .single()
+          
+          if (existing && !checkError) {
+            console.log(`⏭️ Skipping #${match.participant_a_number}↔#${match.participant_b_number} (already matched in round ${targetRound})`)
+            skippedCount++
+            continue
+          }
+          
+          // Insert this match
+          const { error: insertError } = await supabase
+            .from("match_results")
+            .insert(match)
+          
+          if (insertError) {
+            console.error(`🔥 Error inserting match #${match.participant_a_number}↔#${match.participant_b_number}:`, insertError)
+            // Continue with other matches instead of failing entirely
+          } else {
+            insertedCount++
+            if (insertedCount % 50 === 0) {
+              console.log(`   Progress: ${insertedCount}/${finalMatches.length} matches inserted...`)
+            }
+          }
+        }
+        console.log(`✅ Incremental insert complete: ${insertedCount} new, ${skippedCount} skipped (already matched)`)
+      } else {
+        // Legacy 'individual' generation: bulk delete + insert (old behavior)
+        console.log(`🧹 Clearing existing matches for event ${eventId} before insert (legacy mode)`)
         const { error: clearError } = await supabase
           .from("match_results")
           .delete()
           .eq("match_id", match_id)
           .eq("event_id", eventId)
-          .eq("round", targetRound)
         if (clearError) {
-          console.error("⚠️ Error clearing previous round matches (continuing):", clearError)
+          console.error("⚠️ Error clearing previous matches (continuing):", clearError)
         }
-      }
-      console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}, round: ${targetRound}`)
-      const { error: insertError } = await supabase
-        .from("match_results")
-        .insert(finalMatches)
-      if (insertError) {
-        console.error("🔥 Error inserting matches:", insertError)
-        throw insertError
+        console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}`)
+        const { error: insertError } = await supabase
+          .from("match_results")
+          .insert(finalMatches)
+        if (insertError) {
+          console.error("🔥 Error inserting matches:", insertError)
+          throw insertError
+        }
       }
     } else {
       console.log(`🧪 Preview mode: skipping DB insert of ${finalMatches.length} matches`)

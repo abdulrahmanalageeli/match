@@ -5571,17 +5571,17 @@ export default async function handler(req, res) {
         let insertedCount = 0
         let skippedCount = 0
         for (const match of finalMatches) {
-          // Check if this pair already exists in this round (resume capability)
+          // Check if this exact pair already exists in this round (resume capability)
+          // Need to check both orderings: (a,b) or (b,a)
           const { data: existing, error: checkError } = await supabase
             .from("match_results")
             .select("id")
             .eq("match_id", match_id)
             .eq("event_id", eventId)
             .eq("round", targetRound)
-            .or(`participant_a_number.eq.${match.participant_a_number},participant_b_number.eq.${match.participant_a_number}`)
-            .or(`participant_a_number.eq.${match.participant_b_number},participant_b_number.eq.${match.participant_b_number}`)
+            .or(`and(participant_a_number.eq.${match.participant_a_number},participant_b_number.eq.${match.participant_b_number}),and(participant_a_number.eq.${match.participant_b_number},participant_b_number.eq.${match.participant_a_number})`)
             .limit(1)
-            .single()
+            .maybeSingle()
           
           if (existing && !checkError) {
             console.log(`⏭️ Skipping #${match.participant_a_number}↔#${match.participant_b_number} (already matched in round ${targetRound})`)

@@ -1296,9 +1296,10 @@ export default async function handler(req, res) {
       if (action === "advance-phase") {
         const { currentPhase } = req.body
         
+        // Two-round flow: registration → form → waiting → round_1 (same-gender) → waiting_2 → round_2 (opposite-gender)
         const phaseOrder = [
-          "registration", "form", "waiting", "round_1" /* "waiting_2", 
-          "round_2", "waiting_3", "round_3", "waiting_4", "round_4", "group_phase" */
+          "registration", "form", "waiting", "round_1", "waiting_2", "round_2"
+          /* "waiting_3", "round_3", "waiting_4", "round_4", "group_phase" */
         ]
         
         const currentIndex = phaseOrder.indexOf(currentPhase)
@@ -1315,7 +1316,7 @@ export default async function handler(req, res) {
             match_id: STATIC_MATCH_ID, 
             phase: nextPhase,
             current_round: currentRound,
-            total_rounds: 1
+            total_rounds: 2
           }, { onConflict: "match_id" })
         
         if (error) return res.status(500).json({ error: error.message })

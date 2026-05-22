@@ -47,6 +47,7 @@ import {
 } from "lucide-react"
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
+import ParticipantDualResultsModal from "~/components/ParticipantDualResultsModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
@@ -151,6 +152,11 @@ export default function AdminPage() {
   const [groupAssignments, setGroupAssignments] = useState<any[]>([])
   const [totalGroups, setTotalGroups] = useState(0)
   const [totalGroupParticipants, setTotalGroupParticipants] = useState(0)
+
+  // Dual-round (same-gender + opposite-gender) results modal state
+  const [showDualResultsModal, setShowDualResultsModal] = useState(false)
+  const [dualResults, setDualResults] = useState<any[]>([])
+  const [dualResultsLoading, setDualResultsLoading] = useState(false)
 
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
@@ -2583,6 +2589,115 @@ const fetchParticipants = async () => {
     }
   }
 
+  // Load both round 1 (same-gender) and round 2 (opposite-gender) matches
+  // and compose a per-participant dual-match dataset for the dual results modal.
+  const loadDualResults = async () => {
+    if (dualResultsLoading) return
+    setDualResultsLoading(true)
+    try {
+      // Fetch all individual match_results for the current event (covers R1 and R2)
+      const matchesRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "get-fresh-results",
+          event_id: currentEventId,
+          match_type: "individual"
+        }),
+      })
+      const matchesData = await matchesRes.json()
+      if (!matchesRes.ok || !matchesData.success) {
+        toast.error("Failed to fetch round matches: " + (matchesData.error || "Unknown error"))
+        return
+      }
+      const allMatches: any[] = matchesData.results || []
+
+      // Fetch participant names (so the modal shows real names)
+      const partRes = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "participants" }),
+      })
+      const partData = await partRes.json()
+      const allParticipants: any[] = partData.participants || []
+      const nameMap = new Map<number, string>()
+      const paidMap = new Map<number, boolean>()
+      allParticipants.forEach((p: any) => {
+        const n = p.name || p.survey_data?.name || `المشارك #${p.assigned_number}`
+        nameMap.set(p.assigned_number, n)
+        paidMap.set(p.assigned_number, !!p.PAID_DONE)
+      })
+
+      // Helper: convert a raw match_results row into a UI-friendly partner object
+      const buildPartnerFromMatch = (selfNumber: number, match: any) => {
+        const partnerNum = match.participant_a_number === selfNumber
+          ? match.participant_b_number
+          : match.participant_a_number
+        return {
+          partner_assigned_number: partnerNum,
+          partner_name: nameMap.get(partnerNum) || `المشارك #${partnerNum}`,
+          partner_paid_done: paidMap.get(partnerNum) || false,
+          compatibility_score: match.compatibility_score || 0,
+          mbti_compatibility_score: match.mbti_compatibility_score || 0,
+          attachment_compatibility_score: match.attachment_compatibility_score || 0,
+          communication_compatibility_score: match.communication_compatibility_score || 0,
+          lifestyle_compatibility_score: match.lifestyle_compatibility_score || 0,
+          core_values_compatibility_score: match.core_values_compatibility_score || 0,
+          vibe_compatibility_score: match.vibe_compatibility_score || 0,
+          humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+          is_organizer_match: partnerNum === 9999,
+          table_number: match.table_number || null,
+          reason: match.reason || '',
+          round: match.round || null,
+        }
+      }
+
+      // Bucket matches by round
+      const roundOneMatches = allMatches.filter(m => m.round === 1)
+      const roundTwoMatches = allMatches.filter(m => m.round === 2)
+
+      // Build per-participant entries from BOTH rounds (all distinct numbers seen)
+      const seen = new Set<number>()
+      const addNumbers = (matches: any[]) => {
+        matches.forEach((m: any) => {
+          if (m.participant_a_number && m.participant_a_number !== 9999) seen.add(m.participant_a_number)
+          if (m.participant_b_number && m.participant_b_number !== 9999) seen.add(m.participant_b_number)
+        })
+      }
+      addNumbers(roundOneMatches)
+      addNumbers(roundTwoMatches)
+
+      const findMatchForParticipant = (num: number, matches: any[]) => {
+        return matches.find(m =>
+          m.participant_a_number === num || m.participant_b_number === num
+        )
+      }
+
+      const composed = Array.from(seen)
+        .sort((a, b) => a - b)
+        .map((num) => {
+          const r1 = findMatchForParticipant(num, roundOneMatches)
+          const r2 = findMatchForParticipant(num, roundTwoMatches)
+          return {
+            assigned_number: num,
+            name: nameMap.get(num) || `المشارك #${num}`,
+            paid_done: paidMap.get(num) || false,
+            sameMatch: r1 ? buildPartnerFromMatch(num, r1) : null,
+            oppositeMatch: r2 ? buildPartnerFromMatch(num, r2) : null,
+          }
+        })
+
+      setDualResults(composed)
+      setShowDualResultsModal(true)
+      console.log(`✅ Dual results loaded: ${composed.length} participants (R1: ${roundOneMatches.length}, R2: ${roundTwoMatches.length})`)
+    } catch (err) {
+      console.error("Error loading dual results:", err)
+      toast.error("Error loading dual results")
+    } finally {
+      setDualResultsLoading(false)
+    }
+  }
+
   const fetchGroupAssignments = async () => {
     try {
       const response = await fetch("/api/admin", {
@@ -3707,6 +3822,114 @@ Proceed?`
                 >
                   <RefreshCcw className="w-3.5 h-3.5" />
                   Generate Matches (Opposites)
+                </button>
+
+                {/* === ROUND-BASED GENDER MATCHING (NEW FLOW) === */}
+                {/* Round 1: Same-Gender Matches */}
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `Generate SAME-GENDER matches (Round 1) for Event ${currentEventId}?\n\nGender preferences will be IGNORED. Every participant will be paired with someone of the SAME gender. All other survey rules (age range, nationality, intent, exclusions, locks) still apply.`
+                    if (excludedPairs.length > 0) {
+                      confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced.`
+                    }
+                    if (excludedParticipants.length > 0) {
+                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} excluded participant(s) will be skipped.`
+                    }
+                    if (!confirm(confirmMessage)) return
+                    setLoading(true)
+                    try {
+                      const res = await fetch("/api/admin/trigger-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          eventId: currentEventId,
+                          excludedPairs,
+                          matchType: "same_gender"
+                        }),
+                      })
+                      const data = await res.json()
+                      if (res.ok) {
+                        let msg = `✅ Same-Gender (R1) matches created: ${data.count}\nEvent ID: ${currentEventId}`
+                        if (data.performance) {
+                          msg += `\n⚡ ${data.performance.totalTimeSeconds}s, cache ${data.performance.cacheHitRate}%, AI calls: ${data.performance.aiCalls}`
+                        }
+                        alert(msg)
+                        await fetchParticipants()
+                        await loadDualResults()
+                      } else {
+                        alert(`❌ Failed to generate Same-Gender matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
+                      }
+                    } catch (err) {
+                      console.error("Same-gender generation error:", err)
+                      toast.error("Same-gender generation failed")
+                    } finally {
+                      setLoading(false)
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-700 hover:from-cyan-700 hover:to-blue-800 text-white rounded-lg transition-all duration-300 text-sm"
+                  title="Round 1: Same-Gender match (ignores gender preference)"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                  Generate Same-Gender (R1)
+                </button>
+
+                {/* Round 2: Opposite-Gender Matches */}
+                <button
+                  onClick={async () => {
+                    let confirmMessage = `Generate OPPOSITE-GENDER matches (Round 2) for Event ${currentEventId}?\n\nGender preferences will be IGNORED. Every participant will be paired with someone of the OPPOSITE gender. All other survey rules still apply.`
+                    if (excludedPairs.length > 0) {
+                      confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced.`
+                    }
+                    if (excludedParticipants.length > 0) {
+                      confirmMessage += `\n\n🚫 ${excludedParticipants.length} excluded participant(s) will be skipped.`
+                    }
+                    if (!confirm(confirmMessage)) return
+                    setLoading(true)
+                    try {
+                      const res = await fetch("/api/admin/trigger-match", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          eventId: currentEventId,
+                          excludedPairs,
+                          matchType: "opposite_gender"
+                        }),
+                      })
+                      const data = await res.json()
+                      if (res.ok) {
+                        let msg = `✅ Opposite-Gender (R2) matches created: ${data.count}\nEvent ID: ${currentEventId}`
+                        if (data.performance) {
+                          msg += `\n⚡ ${data.performance.totalTimeSeconds}s, cache ${data.performance.cacheHitRate}%, AI calls: ${data.performance.aiCalls}`
+                        }
+                        alert(msg)
+                        await fetchParticipants()
+                        await loadDualResults()
+                      } else {
+                        alert(`❌ Failed to generate Opposite-Gender matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
+                      }
+                    } catch (err) {
+                      console.error("Opposite-gender generation error:", err)
+                      toast.error("Opposite-gender generation failed")
+                    } finally {
+                      setLoading(false)
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-rose-600 to-orange-600 hover:from-rose-700 hover:to-orange-700 text-white rounded-lg transition-all duration-300 text-sm"
+                  title="Round 2: Opposite-Gender match (ignores gender preference)"
+                >
+                  <RefreshCcw className="w-3.5 h-3.5" />
+                  Generate Opposite-Gender (R2)
+                </button>
+
+                {/* View both rounds side-by-side */}
+                <button
+                  onClick={loadDualResults}
+                  disabled={dualResultsLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-60"
+                  title="Show each participant's same-gender (R1) and opposite-gender (R2) matches side-by-side"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  {dualResultsLoading ? "Loading..." : "Show Both Matches"}
                 </button>
 
                 {/* Paid-Only Preview (No DB Writes, Ignore Locked) */}
@@ -6208,6 +6431,16 @@ Proceed?`
         eventId={currentEventId}
         onSwapApplied={async () => { await fetchGroupAssignments() }}
         cohostTheme={isCohost}
+      />
+
+      {/* Dual Results Modal (R1 same-gender + R2 opposite-gender side-by-side) */}
+      <ParticipantDualResultsModal
+        isOpen={showDualResultsModal}
+        onClose={() => setShowDualResultsModal(false)}
+        results={dualResults}
+        loading={dualResultsLoading}
+        cohostTheme={isCohost}
+        onRefresh={loadDualResults}
       />
 
       {/* Participant QR Code Modal */}

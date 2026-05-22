@@ -86,6 +86,12 @@ function computeOppositesFlippedScore(components) {
 // Preview guard to skip ALL DB writes in non-mutating flows
 let SKIP_DB_WRITES = false
 
+// Forced gender mode for round-based matching (overrides participant gender preferences)
+//   null              → respect participant preferences (legacy behavior)
+//   'same_gender'     → force same-gender matches only (Round 1)
+//   'opposite_gender' → force opposite-gender matches only (Round 2)
+let CURRENT_MATCH_MODE = null
+
 // Track age tolerance usage per invocation (key: "min-max")
 let AGE_TOLERANCE_MAP = new Map()
 function markAgeTolerance(aNum, bNum, usedA, usedB) {
@@ -543,7 +549,23 @@ function calculateIntentGoalScore(participantA, participantB) {
 function checkGenderCompatibility(participantA, participantB) {
   const genderA = participantA.gender || participantA.survey_data?.gender
   const genderB = participantB.gender || participantB.survey_data?.gender
-  
+
+  // FORCED MODE: round-based matching ignores participant gender preferences
+  if (CURRENT_MATCH_MODE === 'same_gender') {
+    if (!genderA || !genderB) return false
+    const ok = String(genderA).toLowerCase() === String(genderB).toLowerCase()
+    if (ok) console.log(`✅ FORCED same-gender (R1): #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
+    else console.log(`🚫 FORCED same-gender violated: #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
+    return ok
+  }
+  if (CURRENT_MATCH_MODE === 'opposite_gender') {
+    if (!genderA || !genderB) return false
+    const ok = String(genderA).toLowerCase() !== String(genderB).toLowerCase()
+    if (ok) console.log(`✅ FORCED opposite-gender (R2): #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
+    else console.log(`🚫 FORCED opposite-gender violated: #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
+    return ok
+  }
+
   // Check gender preferences from both new and old structure
   let sameGenderPrefA = participantA.same_gender_preference || participantA.survey_data?.answers?.same_gender_preference?.includes('yes') || participantA.survey_data?.answers?.gender_preference?.includes('same_gender')
   let sameGenderPrefB = participantB.same_gender_preference || participantB.survey_data?.answers?.same_gender_preference?.includes('yes') || participantB.survey_data?.answers?.gender_preference?.includes('same_gender')
@@ -2954,9 +2976,21 @@ export default async function handler(req, res) {
   }
   // Reset per-request tolerance tracking
   AGE_TOLERANCE_MAP = new Map()
+  // Reset forced gender mode (will be set below if matchType requires it)
+  CURRENT_MATCH_MODE = null
 
   const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesMode = false } = req.body || {}
-  
+
+  // Activate forced gender mode for round-based matching
+  // 'same_gender'     → Round 1 (everyone matched with same gender, ignoring preference)
+  // 'opposite_gender' → Round 2 (everyone matched with opposite gender, ignoring preference)
+  if (matchType === 'same_gender' || matchType === 'opposite_gender') {
+    CURRENT_MATCH_MODE = matchType
+    console.log(`🎯 FORCED GENDER MODE ACTIVE: ${CURRENT_MATCH_MODE} (gender preferences will be ignored)`)
+  }
+  // Round number for DB inserts: 1 = same-gender, 2 = opposite-gender, default = 1
+  const targetRound = matchType === 'opposite_gender' ? 2 : 1
+
   // Preview mode: disable all DB writes (no inserts/updates/RPC)
   SKIP_DB_WRITES = !!preview
   
@@ -4362,6 +4396,42 @@ export default async function handler(req, res) {
       })
     }
 
+    // ROUND-BASED FILTER: When generating Round 1 (same-gender) or Round 2 (opposite-gender),
+    // only honor locks whose pair gender matches the round's mode. Locks for the OTHER round
+    // remain in the DB and will be honored when that round is generated.
+    if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
+      const before = lockedPairs.length
+      // Need participant gender data to filter; fetch it minimally
+      const lockedNums = Array.from(new Set(lockedPairs.flatMap(l => [l.participant1_number, l.participant2_number])))
+      let genderByNum = new Map()
+      if (lockedNums.length > 0) {
+        const { data: lockGenderRows } = await supabase
+          .from("participants")
+          .select("assigned_number, gender, survey_data")
+          .eq("match_id", match_id)
+          .in("assigned_number", lockedNums)
+        ;(lockGenderRows || []).forEach(p => {
+          const g = (p.gender || p?.survey_data?.gender || '').toString().toLowerCase()
+          genderByNum.set(p.assigned_number, g)
+        })
+      }
+      lockedPairs = lockedPairs.filter(l => {
+        const gA = genderByNum.get(l.participant1_number)
+        const gB = genderByNum.get(l.participant2_number)
+        if (!gA || !gB) {
+          console.log(`   ⚠️ Lock #${l.participant1_number}↔#${l.participant2_number}: missing gender info → SKIPPED for ${CURRENT_MATCH_MODE}`)
+          return false
+        }
+        const sameGender = gA === gB
+        const matchesMode = CURRENT_MATCH_MODE === 'same_gender' ? sameGender : !sameGender
+        if (!matchesMode) {
+          console.log(`   ⏭️ Lock #${l.participant1_number}(${gA})↔#${l.participant2_number}(${gB}): doesn't match ${CURRENT_MATCH_MODE} round → deferred`)
+        }
+        return matchesMode
+      })
+      console.log(`🔒 After ${CURRENT_MATCH_MODE} filter: ${lockedPairs.length}/${before} locks honored this round`)
+    }
+
     // Handle group matching
     if (matchType === "group") {
       console.log("🎯 Group matching requested")
@@ -5091,9 +5161,9 @@ export default async function handler(req, res) {
     
     // Force single round mode for optimal matching
     let rounds = 1 // Single round mode only
-    console.log(`🎯 Using ${rounds} round for matching (single round mode)`)
+    console.log(`🎯 Using ${rounds} round for matching (single round mode), targetRound=${targetRound} (${CURRENT_MATCH_MODE || 'legacy'})`)
 
-    for (let round = 1; round <= rounds; round++) {
+    for (let round = targetRound; round <= targetRound + rounds - 1; round++) {
       console.log(`\n🎯 === ROUND ${round} MATCHING ===`)
       const used = new Set() // Track participants matched in this round
       const roundMatches = []
@@ -5479,7 +5549,21 @@ export default async function handler(req, res) {
 
     // Insert new matches (skip in preview mode)
     if (!SKIP_DB_WRITES) {
-      console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}`)
+      // For round-based gender matching, clear ONLY this round to allow safe regeneration
+      // (without affecting the other round). Legacy 'individual' generation retains old behavior.
+      if (matchType === 'same_gender' || matchType === 'opposite_gender') {
+        console.log(`🧹 Clearing existing round ${targetRound} matches for event ${eventId} before insert...`)
+        const { error: clearError } = await supabase
+          .from("match_results")
+          .delete()
+          .eq("match_id", match_id)
+          .eq("event_id", eventId)
+          .eq("round", targetRound)
+        if (clearError) {
+          console.error("⚠️ Error clearing previous round matches (continuing):", clearError)
+        }
+      }
+      console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}, round: ${targetRound}`)
       const { error: insertError } = await supabase
         .from("match_results")
         .insert(finalMatches)
@@ -5534,11 +5618,15 @@ export default async function handler(req, res) {
 
     // Auto-save results to admin_results table (skip in preview mode)
     const generationType = skipAI ? 'no-ai' : (cacheHits > 0 ? 'cached' : 'ai')
+    // Persist with the actual mode so admin UI can fetch by type
+    const adminMatchType = (matchType === 'same_gender' || matchType === 'opposite_gender')
+      ? matchType
+      : 'individual'
     let sessionId = null
     if (!SKIP_DB_WRITES) {
       sessionId = await autoSaveAdminResults(
         eventId, 
-        'individual', 
+        adminMatchType, 
         generationType, 
         finalMatches, 
         calculatedPairs, 

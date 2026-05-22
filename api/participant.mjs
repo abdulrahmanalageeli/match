@@ -1354,11 +1354,13 @@ export default async function handler(req, res) {
     }
   }
 
-  // CHECK IF PARTICIPANT HAS A VALID MATCH (not organizer #9999) FOR ROUND 1
+  // CHECK IF PARTICIPANT HAS A VALID MATCH (not organizer #9999) FOR A GIVEN ROUND
+  // Accepts optional `round` parameter (defaults to 1 for backwards compatibility).
   if (action === "has-valid-match") {
     try {
-      const { secure_token, event_id: inputEventId } = req.body
+      const { secure_token, event_id: inputEventId, round: inputRound } = req.body
       const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+      const targetRound = (typeof inputRound === 'number' && inputRound > 0) ? inputRound : (parseInt(inputRound) || 1)
 
       if (!secure_token) {
         return res.status(400).json({ error: "Missing secure_token" })
@@ -1391,13 +1393,13 @@ export default async function handler(req, res) {
         } catch (_) {}
       }
 
-      // Look for any round 1 match with a real partner (not 9999)
+      // Look for any match in the requested round with a real partner (not 9999)
       const { data: matches, error: matchesError } = await supabase
         .from("match_results")
         .select("participant_a_number, participant_b_number")
         .eq("match_id", match_id)
         .eq("event_id", eventId)
-        .eq("round", 1)
+        .eq("round", targetRound)
         .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
         .limit(20)
 

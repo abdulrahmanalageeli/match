@@ -227,7 +227,7 @@ export default function WelcomePage() {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
   const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
-  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | /* "waiting_2" | "round_2" | "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
+  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | /* "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [humorBonus, setHumorBonus] = useState<'full' | 'partial' | 'none'>('none')
@@ -681,11 +681,12 @@ export default function WelcomePage() {
   const hasCheckedMatchRef = useRef(false);
   const hasForcedRound1Ref = useRef(false);
 
-  // Call API to verify participant actually has a real match (not 9999)
-  const hasValidMatchForRound1 = async (eventId: number) => {
-    // If we've already confirmed a valid match previously, short-circuit to true
+  // Call API to verify participant actually has a real match (not 9999) for the given round.
+  // Defaults to round 1 for backwards compatibility.
+  const hasValidMatchForRound1 = async (eventId: number, roundOverride?: number) => {
+    // If we've already confirmed a valid match previously for this round, short-circuit to true
     if (hasCheckedMatchRef.current) return true;
-    
+
     setIsCheckingMatch(true);
     try {
       const tokenToUse = token || secureToken;
@@ -693,13 +694,15 @@ export default function WelcomePage() {
         console.log("No token available for match check");
         return false;
       }
+      const targetRound = roundOverride ?? 1;
       const res = await fetch("/api/participant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "has-valid-match",
           secure_token: tokenToUse,
-          event_id: eventId || 1
+          event_id: eventId || 1,
+          round: targetRound
         })
       })
       const data = await res.json()
@@ -1893,11 +1896,13 @@ export default function WelcomePage() {
                 if (eventData.phase && eventData.phase.startsWith("round_")) {
                   const roundNumber = parseInt(eventData.phase.split('_')[1]);
                   setPendingMatchRound(roundNumber);
-                  
+                  // Ensure we re-check for the active round (in case of mid-flow refresh)
+                  hasCheckedMatchRef.current = false;
+
                   if (isCheckingMatch) return; // Skip if we're already checking
-                  
+
                   try {
-                    const ok = await hasValidMatchForRound1(eventData.current_event_id || 1);
+                    const ok = await hasValidMatchForRound1(eventData.current_event_id || 1, roundNumber);
                     if (ok) {
                       setStep(4); // Show matches
                     } else {
@@ -2329,18 +2334,21 @@ export default function WelcomePage() {
           console.log(`🔄 Phase transition check: current phase=${data.phase}, lastPhaseRef=${lastPhaseRef.current}, lastRoundRef=${lastRoundRef.current}, step=${step}`);
           
           if (data.phase && data.phase.startsWith("round_")) {
-            // Round phases (round_1 only - single round mode)
+            // Round phases: round_1 (same-gender) and round_2 (opposite-gender)
             const roundNumber = parseInt(data.phase.split('_')[1]);
-            // Only handle round 1, comment out multi-round logic
-            if (roundNumber === 1 && (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase)) {
+            // Handle Round 1 and Round 2
+            if ((roundNumber === 1 || roundNumber === 2) && (lastRoundRef.current !== roundNumber || lastPhaseRef.current !== data.phase)) {
               console.log(`🔄 Round phase change detected: ${lastPhaseRef.current} → ${data.phase} (Round ${lastRoundRef.current} → ${roundNumber})`);
-              
+
+              // Reset valid-match check cache so we re-verify per round
+              hasCheckedMatchRef.current = false;
+
               await fetchMatches(roundNumber);
-              
+
               if (isCheckingMatch) return; // Skip if we're already checking
               
               try {
-                const ok = await hasValidMatchForRound1(currentEventId || 1);
+                const ok = await hasValidMatchForRound1(currentEventId || 1, roundNumber);
                 if (ok) {
                   setStep(4);
                 } else {
@@ -4289,6 +4297,17 @@ export default function WelcomePage() {
         //   }
         //   return prev
         // })
+      } else {
+        // No match found for this round → clear stale data from a previous round
+        // (e.g., when transitioning round_1 → round_2 but R2 not generated yet, or
+        //  when participant has R1 match but no R2 match assigned).
+        console.log(`ℹ️ No match found for round ${round} — clearing previous round state`)
+        setMatchResult(null)
+        setMatchReason("")
+        setCompatibilityScore(null)
+        setHumorBonus('none')
+        setTableNumber(null)
+        setIsRepeatMatch(false)
       }
     } catch (err) {
       console.error("Error fetching matches:", err)
@@ -7565,7 +7584,7 @@ export default function WelcomePage() {
     )
   }
   
-    if (!isResolving && (phase === "round_1" || /* phase === "round_2" || phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
+    if (!isResolving && (phase === "round_1" || phase === "round_2" || /* phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
   return (
       <>
         <NavigationBar />

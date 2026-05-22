@@ -1192,9 +1192,11 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       bonusType = 'partial'
     }
     
+    // Use insert with on_conflict='ignore' to silently skip duplicates
+    // This avoids race conditions when multiple threads try to cache the same pair
     const { data, error } = await supabase
       .from('compatibility_cache')
-      .upsert({
+      .insert({
         participant_a_number: smaller,
         participant_b_number: larger,
         combined_content_hash: cacheKey.combinedHash,
@@ -1217,7 +1219,7 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
         humor_multiplier: scores.humorMultiplier,
         humor_early_openness_bonus: bonusType,
         use_count: 1
-      })
+      }, { onConflict: 'ignore' })
       .select()
       
     if (!error) {

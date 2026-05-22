@@ -5268,7 +5268,7 @@ export default async function handler(req, res) {
             if (tol.usedA || tol.usedB) reasonStr += ' ⚠️±1y'
           }
 
-          roundMatches.push({
+          const lockedMatchRecord = {
             participant_a_number: participant1,
             participant_b_number: participant2,
             compatibility_score: compatibilityData ? Math.round(compatibilityData.score) : (calc?.score ?? lockedMatch.original_compatibility_score ?? 85),
@@ -5313,7 +5313,36 @@ export default async function handler(req, res) {
             cap_applied: compatibilityData?.capApplied ?? null,
             // Add humor/early openness bonus tracking
             humor_early_openness_bonus: compatibilityData?.bonusType || 'none'
-          })
+          }
+          
+          roundMatches.push(lockedMatchRecord)
+          
+          // For round-based matching, insert locked match immediately to DB for real-time persistence
+          if (!SKIP_DB_WRITES && (matchType === 'same_gender' || matchType === 'opposite_gender')) {
+            const { data: existing, error: checkError } = await supabase
+              .from("match_results")
+              .select("id")
+              .eq("match_id", match_id)
+              .eq("event_id", eventId)
+              .eq("round", targetRound)
+              .or(`and(participant_a_number.eq.${participant1},participant_b_number.eq.${participant2}),and(participant_a_number.eq.${participant2},participant_b_number.eq.${participant1})`)
+              .limit(1)
+              .maybeSingle()
+            
+            if (!existing && !checkError) {
+              const { error: insertError } = await supabase
+                .from("match_results")
+                .insert(lockedMatchRecord)
+              
+              if (insertError) {
+                console.error(`🔥 Error inserting locked match #${participant1}↔#${participant2}:`, insertError)
+              } else {
+                console.log(`✅ Inserted locked match #${participant1}↔#${participant2} (table ${tableCounter})`)
+              }
+            } else {
+              console.log(`⏭️ Skipping locked match #${participant1}↔#${participant2} (already exists)`)
+            }
+          }
           
           console.log(`   🔒 Locked match assigned: #${participant1} ↔ #${participant2} (Table ${tableCounter})`)
           tableCounter++
@@ -5390,7 +5419,8 @@ export default async function handler(req, res) {
             used.add(pair.a)
             used.add(pair.b)
             matchedPairs.add(key)
-            roundMatches.push({
+            
+            const matchRecord = {
               participant_a_number: pair.a,
               participant_b_number: pair.b,
               compatibility_score: Math.round(pair.score),
@@ -5432,7 +5462,37 @@ export default async function handler(req, res) {
               humor_clash_veto_applied: !!pair.humorClashVetoApplied,
               cap_applied: pair.capApplied ?? null,
               humor_early_openness_bonus: pair.bonusType
-            })
+            }
+            
+            roundMatches.push(matchRecord)
+            
+            // For round-based matching, insert immediately to DB for real-time persistence
+            if (!SKIP_DB_WRITES && (matchType === 'same_gender' || matchType === 'opposite_gender')) {
+              const { data: existing, error: checkError } = await supabase
+                .from("match_results")
+                .select("id")
+                .eq("match_id", match_id)
+                .eq("event_id", eventId)
+                .eq("round", targetRound)
+                .or(`and(participant_a_number.eq.${pair.a},participant_b_number.eq.${pair.b}),and(participant_a_number.eq.${pair.b},participant_b_number.eq.${pair.a})`)
+                .limit(1)
+                .maybeSingle()
+              
+              if (!existing && !checkError) {
+                const { error: insertError } = await supabase
+                  .from("match_results")
+                  .insert(matchRecord)
+                
+                if (insertError) {
+                  console.error(`🔥 Error inserting match #${pair.a}↔#${pair.b}:`, insertError)
+                } else {
+                  console.log(`✅ Inserted match #${pair.a}↔#${pair.b} (table ${tableCounter})`)
+                }
+              } else {
+                console.log(`⏭️ Skipping #${pair.a}↔#${pair.b} (already exists)`)
+              }
+            }
+            
             tableCounter++
           }
         }
@@ -5447,7 +5507,8 @@ export default async function handler(req, res) {
             used.add(pair.a)
             used.add(pair.b)
             matchedPairs.add(key)
-            roundMatches.push({
+            
+            const matchRecord = {
               participant_a_number: pair.a,
               participant_b_number: pair.b,
               compatibility_score: Math.round(pair.score),
@@ -5492,7 +5553,37 @@ export default async function handler(req, res) {
               cap_applied: pair.capApplied ?? null,
               // Add humor/early openness bonus tracking
               humor_early_openness_bonus: pair.bonusType
-            })
+            }
+            
+            roundMatches.push(matchRecord)
+            
+            // For round-based matching, insert immediately to DB for real-time persistence
+            if (!SKIP_DB_WRITES && (matchType === 'same_gender' || matchType === 'opposite_gender')) {
+              // Check if this exact pair already exists (resume capability)
+              const { data: existing, error: checkError } = await supabase
+                .from("match_results")
+                .select("id")
+                .eq("match_id", match_id)
+                .eq("event_id", eventId)
+                .eq("round", targetRound)
+                .or(`and(participant_a_number.eq.${pair.a},participant_b_number.eq.${pair.b}),and(participant_a_number.eq.${pair.b},participant_b_number.eq.${pair.a})`)
+                .limit(1)
+                .maybeSingle()
+              
+              if (!existing && !checkError) {
+                const { error: insertError } = await supabase
+                  .from("match_results")
+                  .insert(matchRecord)
+                
+                if (insertError) {
+                  console.error(`🔥 Error inserting match #${pair.a}↔#${pair.b}:`, insertError)
+                } else {
+                  console.log(`✅ Inserted match #${pair.a}↔#${pair.b} (table ${tableCounter})`)
+                }
+              } else {
+                console.log(`⏭️ Skipping #${pair.a}↔#${pair.b} (already exists)`)
+              }
+            }
             
             tableCounter++ // Increment for next pair
           }
@@ -5507,7 +5598,7 @@ export default async function handler(req, res) {
         // Match unmatched participants with organizer (ID 9999)
         for (const unmatchedParticipant of unmatchedInRound) {
           
-          roundMatches.push({
+          const organizerMatchRecord = {
             participant_a_number: unmatchedParticipant,
             participant_b_number: 9999, // Organizer
             compatibility_score: 70,
@@ -5542,7 +5633,36 @@ export default async function handler(req, res) {
             humor_clash_veto_applied: false,
             cap_applied: null,
             humor_early_openness_bonus: 'none'
-          })
+          }
+          
+          roundMatches.push(organizerMatchRecord)
+          
+          // For round-based matching, insert organizer match immediately to DB for real-time persistence
+          if (!SKIP_DB_WRITES && (matchType === 'same_gender' || matchType === 'opposite_gender')) {
+            const { data: existing, error: checkError } = await supabase
+              .from("match_results")
+              .select("id")
+              .eq("match_id", match_id)
+              .eq("event_id", eventId)
+              .eq("round", targetRound)
+              .or(`and(participant_a_number.eq.${unmatchedParticipant},participant_b_number.eq.9999),and(participant_a_number.eq.9999,participant_b_number.eq.${unmatchedParticipant})`)
+              .limit(1)
+              .maybeSingle()
+            
+            if (!existing && !checkError) {
+              const { error: insertError } = await supabase
+                .from("match_results")
+                .insert(organizerMatchRecord)
+              
+              if (insertError) {
+                console.error(`🔥 Error inserting organizer match #${unmatchedParticipant}↔#9999:`, insertError)
+              } else {
+                console.log(`✅ Inserted organizer match #${unmatchedParticipant}↔#9999 (table ${tableCounter})`)
+              }
+            } else {
+              console.log(`⏭️ Skipping organizer match #${unmatchedParticipant}↔#9999 (already exists)`)
+            }
+          }
           
           tableCounter++
                 }
@@ -5564,49 +5684,11 @@ export default async function handler(req, res) {
     }
 
     // Insert new matches (skip in preview mode)
+    // Note: For round-based matching (same_gender/opposite_gender), matches are already inserted in real-time during the loop
+    // This section only handles legacy 'individual' generation mode
     if (!SKIP_DB_WRITES) {
-      // For round-based matching (R1/R2), use incremental writes to avoid timeout
-      // Instead of bulk delete + insert, we check if each pair already exists (resume capability)
-      // and insert only new matches. This allows resuming if the request times out mid-run.
       if (matchType === 'same_gender' || matchType === 'opposite_gender') {
-        console.log(`💾 Incrementally inserting ${finalMatches.length} matches for round ${targetRound} (resume mode)`)
-        let insertedCount = 0
-        let skippedCount = 0
-        for (const match of finalMatches) {
-          // Check if this exact pair already exists in this round (resume capability)
-          // Need to check both orderings: (a,b) or (b,a)
-          const { data: existing, error: checkError } = await supabase
-            .from("match_results")
-            .select("id")
-            .eq("match_id", match_id)
-            .eq("event_id", eventId)
-            .eq("round", targetRound)
-            .or(`and(participant_a_number.eq.${match.participant_a_number},participant_b_number.eq.${match.participant_b_number}),and(participant_a_number.eq.${match.participant_b_number},participant_b_number.eq.${match.participant_a_number})`)
-            .limit(1)
-            .maybeSingle()
-          
-          if (existing && !checkError) {
-            console.log(`⏭️ Skipping #${match.participant_a_number}↔#${match.participant_b_number} (already matched in round ${targetRound})`)
-            skippedCount++
-            continue
-          }
-          
-          // Insert this match
-          const { error: insertError } = await supabase
-            .from("match_results")
-            .insert(match)
-          
-          if (insertError) {
-            console.error(`🔥 Error inserting match #${match.participant_a_number}↔#${match.participant_b_number}:`, insertError)
-            // Continue with other matches instead of failing entirely
-          } else {
-            insertedCount++
-            if (insertedCount % 50 === 0) {
-              console.log(`   Progress: ${insertedCount}/${finalMatches.length} matches inserted...`)
-            }
-          }
-        }
-        console.log(`✅ Incremental insert complete: ${insertedCount} new, ${skippedCount} skipped (already matched)`)
+        console.log(`✅ Round-based matching: matches were inserted in real-time during generation (${finalMatches.length} total)`)
       } else {
         // Legacy 'individual' generation: bulk delete + insert (old behavior)
         console.log(`🧹 Clearing existing matches for event ${eventId} before insert (legacy mode)`)

@@ -1224,14 +1224,14 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       
     if (!error) {
       console.log(`   ✅ Cache STORED successfully: #${smaller}-#${larger}`)
-    } else {
-      console.error(`   ❌ Cache store error for #${smaller}-#${larger}:`, error)
-      console.error(`   Error details:`, JSON.stringify(error, null, 2))
     }
+    // Note: With onConflict: 'ignore', duplicate errors are silently handled - no logging needed
   } catch (error) {
-    console.error(`   ❌ Cache store exception for #${participantA.assigned_number}-#${participantB.assigned_number}:`, error)
-    console.error(`   Exception message:`, error.message)
-    console.error(`   Exception stack:`, error.stack)
+    // Only log unexpected errors, not duplicate key violations (which are expected with onConflict: 'ignore')
+    if (error.code !== '23505') {
+      console.error(`   ❌ Cache store exception for #${participantA.assigned_number}-#${participantB.assigned_number}:`, error)
+      console.error(`   Exception message:`, error.message)
+    }
   }
 }
 
@@ -4759,12 +4759,23 @@ export default async function handler(req, res) {
     const participantsToMatch = eligibleParticipants.filter(p => !alreadyMatchedNumbers.has(p.assigned_number))
     console.log(`📊 Eligible pool: ${eligibleParticipants.length} total → ${participantsToMatch.length} to match (${alreadyMatchedNumbers.size} already matched)`)
 
-    const numbers = participantsToMatch.map(p => p.assigned_number)
+    // BATCH PROCESSING: Limit to 10 participants per run for better visibility and control
+    const BATCH_SIZE = 10
+    const totalRemaining = participantsToMatch.length
+    const batchParticipants = participantsToMatch.slice(0, BATCH_SIZE)
+    const isFinalBatch = totalRemaining <= BATCH_SIZE
+    
+    console.log(`🔄 BATCH MODE: Processing ${batchParticipants.length} participants (batch size: ${BATCH_SIZE}, remaining: ${totalRemaining - batchParticipants.length})`)
+    if (!isFinalBatch) {
+      console.log(`⏳ More participants remain after this batch. Re-run to process next batch.`)
+    }
+
+    const numbers = batchParticipants.map(p => p.assigned_number)
     const pairs = []
 
-    for (let i = 0; i < participantsToMatch.length; i++) {
-      for (let j = i + 1; j < participantsToMatch.length; j++) {
-        pairs.push([participantsToMatch[i], participantsToMatch[j]])
+    for (let i = 0; i < batchParticipants.length; i++) {
+      for (let j = i + 1; j < batchParticipants.length; j++) {
+        pairs.push([batchParticipants[i], batchParticipants[j]])
       }
     }
 
@@ -5806,7 +5817,16 @@ export default async function handler(req, res) {
       results: finalMatches,
       performance: performance,
       calculatedPairs: calculatedPairs,
-      sessionId: sessionId // Include session ID for reference
+      sessionId: sessionId, // Include session ID for reference
+      batchInfo: {
+        batchSize: BATCH_SIZE,
+        processedInBatch: batchParticipants.length,
+        totalEligible: eligibleParticipants.length,
+        alreadyMatched: alreadyMatchedNumbers.size,
+        remainingToProcess: totalRemaining - batchParticipants.length,
+        isFinalBatch: isFinalBatch,
+        hasMoreBatches: !isFinalBatch
+      }
     })
 
   } catch (err) {

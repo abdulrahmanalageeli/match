@@ -89,7 +89,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
   const fetchStatus = async (mode: GenderMode) => {
     setSide(mode, (p) => ({ ...p, statusLoading: true, lastError: null }))
     try {
-      const res = await fetch("/api/admin", {
+      const res = await fetch("/api/admin/trigger-match", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -144,7 +144,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
 
       const batchSize = Math.max(1, Math.min(cur.batchSize || 5, 50))
       try {
-        const res = await fetch("/api/admin", {
+        const res = await fetch("/api/admin/trigger-match", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

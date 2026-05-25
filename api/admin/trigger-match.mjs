@@ -3190,12 +3190,15 @@ export default async function handler(req, res) {
 
       if (error) throw error
 
+      console.log(`📊 Raw participants fetched: ${allParticipants?.length || 0}`)
+
       const participants = (allParticipants || [])
         .filter(p => isParticipantComplete(p))
         // Sort by assigned_number ascending for deterministic batching across calls
         .sort((a, b) => a.assigned_number - b.assigned_number)
 
       const totalParticipants = participants.length
+      console.log(`📊 After isParticipantComplete filter: ${totalParticipants} participants`)
 
       if (totalParticipants < 2) {
         CURRENT_MATCH_MODE = null
@@ -3315,9 +3318,13 @@ export default async function handler(req, res) {
 
       if (error) throw error
 
+      console.log(`📊 [STATUS] Raw participants fetched: ${allParticipants?.length || 0}`)
+
       const participants = (allParticipants || [])
         .filter(p => isParticipantComplete(p))
         .sort((a, b) => a.assigned_number - b.assigned_number)
+
+      console.log(`📊 [STATUS] After isParticipantComplete filter: ${participants.length} participants`)
 
       let eligiblePairs = 0
       let alreadyCached = 0

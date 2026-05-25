@@ -3244,7 +3244,13 @@ export default async function handler(req, res) {
           // Cache lookup
           try {
             const cached = await getCachedCompatibility(p1, p2)
-            if (cached) { alreadyCached++; continue }
+            if (cached) {
+              alreadyCached++
+              if (alreadyCached % 10 === 0) {
+                console.log(`   ✅ Cache hit #${alreadyCached}: #${p1.assigned_number}×#${p2.assigned_number}`)
+              }
+              continue
+            }
 
             // Log first few cache misses to debug hash issue
             if (newlyCached < 3) {

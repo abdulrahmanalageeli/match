@@ -3853,17 +3853,6 @@ Proceed?`
                         if (data.performance) {
                           msg += `\n⚡ ${data.performance.totalTimeSeconds}s, cache ${data.performance.cacheHitRate}%, AI calls: ${data.performance.aiCalls}`
                         }
-                        if (data.batchInfo) {
-                          msg += `\n\n📊 Batch Progress:\n`
-                          msg += `   Processed: ${data.batchInfo.processedInBatch}/${data.batchInfo.totalEligible} participants\n`
-                          msg += `   Already matched: ${data.batchInfo.alreadyMatched}\n`
-                          msg += `   Remaining: ${data.batchInfo.remainingToProcess}\n`
-                          if (data.batchInfo.hasMoreBatches) {
-                            msg += `\n⏳ More participants remain. Click again to process next batch.`
-                          } else {
-                            msg += `\n✅ All participants processed!`
-                          }
-                        }
                         alert(msg)
                         await fetchParticipants()
                         await loadDualResults()
@@ -3911,17 +3900,6 @@ Proceed?`
                         let msg = `✅ Opposite-Gender (R2) matches created: ${data.count}\nEvent ID: ${currentEventId}`
                         if (data.performance) {
                           msg += `\n⚡ ${data.performance.totalTimeSeconds}s, cache ${data.performance.cacheHitRate}%, AI calls: ${data.performance.aiCalls}`
-                        }
-                        if (data.batchInfo) {
-                          msg += `\n\n📊 Batch Progress:\n`
-                          msg += `   Processed: ${data.batchInfo.processedInBatch}/${data.batchInfo.totalEligible} participants\n`
-                          msg += `   Already matched: ${data.batchInfo.alreadyMatched}\n`
-                          msg += `   Remaining: ${data.batchInfo.remainingToProcess}\n`
-                          if (data.batchInfo.hasMoreBatches) {
-                            msg += `\n⏳ More participants remain. Click again to process next batch.`
-                          } else {
-                            msg += `\n✅ All participants processed!`
-                          }
                         }
                         alert(msg)
                         await fetchParticipants()

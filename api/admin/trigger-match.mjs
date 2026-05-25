@@ -979,7 +979,9 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
     const { groupMode = false, computeIfMissing = false } = options || {}
-    
+
+    console.log(`🔍 Cache lookup: #${smaller}-#${larger}, hash=${cacheKey.combinedHash.substring(0, 10)}...`)
+
     const { data, error } = await supabase
       .from('compatibility_cache')
       .select('*')
@@ -987,6 +989,11 @@ async function getCachedCompatibility(participantA, participantB, options = {}) 
       .eq('participant_b_number', larger)
       .eq('combined_content_hash', cacheKey.combinedHash)
       .single()
+
+    if (error) {
+      console.log(`❌ Cache MISS: #${smaller}-#${larger} - ${error.code === 'PGRST116' ? 'no entry found' : error.message}`)
+      return null
+    }
       
     if (data && !error) {
       // Update usage statistics (skip in preview mode)
@@ -1180,8 +1187,8 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip cache store'); return }
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
-    
-    console.log(`💾 Attempting to store cache for #${smaller}-#${larger}...`)
+
+    console.log(`💾 Storing cache for #${smaller}-#${larger}, hash=${cacheKey.combinedHash.substring(0, 10)}...`)
     console.log(`   Scores: total=${scores.totalScore}, vibe=${scores.vibeScore}, humorMultiplier=${scores.humorMultiplier}`)
     
     // Determine bonus type based on humor multiplier
@@ -3241,6 +3248,9 @@ export default async function handler(req, res) {
 
             await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
             newlyCached++
+            if (newlyCached % 5 === 0) {
+              console.log(`   ✅ Batch cached #${newlyCached}: #${p1.assigned_number}×#${p2.assigned_number}`)
+            }
           } catch (err) {
             console.error(`   ❌ Batch cache error #${p1.assigned_number}×#${p2.assigned_number}:`, err?.message)
             errors++
@@ -3250,6 +3260,8 @@ export default async function handler(req, res) {
 
       const hasMore = endExclusive < totalParticipants
       const durationMs = Date.now() - startTime
+
+      console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
 
       // Reset mode flag before returning
       CURRENT_MATCH_MODE = null
@@ -3325,6 +3337,7 @@ export default async function handler(req, res) {
         .sort((a, b) => a.assigned_number - b.assigned_number)
 
       console.log(`📊 [STATUS] After isParticipantComplete filter: ${participants.length} participants`)
+      console.log(`📊 [STATUS] Gender mode: ${genderMode}, CURRENT_MATCH_MODE: ${CURRENT_MATCH_MODE}`)
 
       // First pass: count eligible pairs (gender + hard gates)
       let eligiblePairs = 0
@@ -3351,6 +3364,8 @@ export default async function handler(req, res) {
 
       if (cacheError) throw cacheError
 
+      console.log(`📊 [STATUS] Cached entries fetched: ${cachedEntries?.length || 0}`)
+
       // Build a set of cached pairs (normalized so smaller number is always first)
       const cachedPairSet = new Set()
       ;(cachedEntries || []).forEach(entry => {
@@ -3358,7 +3373,7 @@ export default async function handler(req, res) {
         cachedPairSet.add(`${a}-${b}`)
       })
 
-      // Count how many eligible pairs are cached
+      // Count how many eligible pairs are cached (must pass gender filter for this mode)
       let alreadyCached = 0
       for (let i = 0; i < participants.length; i++) {
         for (let j = i + 1; j < participants.length; j++) {
@@ -3375,6 +3390,8 @@ export default async function handler(req, res) {
       }
 
       const toCache = eligiblePairs - alreadyCached
+
+      console.log(`📊 [STATUS] Final counts: eligible=${eligiblePairs}, cached=${alreadyCached}, to_cache=${toCache}, coverage=${eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100}%`)
 
       CURRENT_MATCH_MODE = null
 
@@ -5119,6 +5136,9 @@ export default async function handler(req, res) {
         if (cachedData) {
           // Cache HIT - use pre-loaded data
           cacheHits++
+          if (cacheHits % 10 === 0) {
+            console.log(`💾 Cache hit #${cacheHits}: #${a.assigned_number}×#${b.assigned_number}`)
+          }
           compatibilityResult = {
             mbtiScore: parseFloat(cachedData.mbti_score),
             attachmentScore: parseFloat(cachedData.attachment_score),
@@ -5162,6 +5182,9 @@ export default async function handler(req, res) {
         } else {
           // Cache MISS - calculate fresh
           cacheMisses++
+          if (cacheMisses % 10 === 0) {
+            console.log(`❌ Cache miss #${cacheMisses}: #${a.assigned_number}×#${b.assigned_number} (hash: ${cacheLookupKey.substring(0, 20)}...)`)
+          }
           if (!skipAI) aiCalls++
           
           // Calculate all scores

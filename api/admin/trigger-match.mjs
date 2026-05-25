@@ -3246,6 +3246,15 @@ export default async function handler(req, res) {
             const cached = await getCachedCompatibility(p1, p2)
             if (cached) { alreadyCached++; continue }
 
+            // Log first few cache misses to debug hash issue
+            if (newlyCached < 3) {
+              const key = generateCacheKey(p1, p2)
+              console.log(`   🔍 Cache miss #${newlyCached + 1}: #${p1.assigned_number}×#${p2.assigned_number}`)
+              console.log(`      Hash: ${key.combinedHash.substring(0, 15)}...`)
+              console.log(`      P1 survey_data: ${JSON.stringify(p1.survey_data).substring(0, 100)}...`)
+              console.log(`      P2 survey_data: ${JSON.stringify(p2.survey_data).substring(0, 100)}...`)
+            }
+
             await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
             newlyCached++
             if (newlyCached % 5 === 0) {

@@ -3326,12 +3326,40 @@ export default async function handler(req, res) {
 
       console.log(`📊 [STATUS] After isParticipantComplete filter: ${participants.length} participants`)
 
+      // First pass: count eligible pairs (gender + hard gates)
       let eligiblePairs = 0
-      let alreadyCached = 0
-      let toCache = 0
+      const participantNumbers = participants.map(p => p.assigned_number)
+      
+      for (let i = 0; i < participants.length; i++) {
+        for (let j = i + 1; j < participants.length; j++) {
+          const p1 = participants[i]
+          const p2 = participants[j]
+          if (!checkGenderCompatibility(p1, p2)) continue
+          if (!checkNationalityHardGate(p1, p2)) continue
+          if (!checkAgeRangeHardGate(p1, p2)) continue
+          if (!checkAgeCompatibility(p1, p2)) continue
+          eligiblePairs++
+        }
+      }
 
-      // Lightweight pass: skip ineligible pairs (gender + hard gates) then
-      // check cache existence with a single query each.
+      // Second pass: fetch all cached entries for these participants in a single query
+      const { data: cachedEntries, error: cacheError } = await supabase
+        .from('compatibility_cache')
+        .select('participant_a_number, participant_b_number')
+        .in('participant_a_number', participantNumbers)
+        .in('participant_b_number', participantNumbers)
+
+      if (cacheError) throw cacheError
+
+      // Build a set of cached pairs (normalized so smaller number is always first)
+      const cachedPairSet = new Set()
+      ;(cachedEntries || []).forEach(entry => {
+        const [a, b] = [entry.participant_a_number, entry.participant_b_number].sort((x, y) => x - y)
+        cachedPairSet.add(`${a}-${b}`)
+      })
+
+      // Count how many eligible pairs are cached
+      let alreadyCached = 0
       for (let i = 0; i < participants.length; i++) {
         for (let j = i + 1; j < participants.length; j++) {
           const p1 = participants[i]
@@ -3341,12 +3369,12 @@ export default async function handler(req, res) {
           if (!checkAgeRangeHardGate(p1, p2)) continue
           if (!checkAgeCompatibility(p1, p2)) continue
 
-          eligiblePairs++
-          const cached = await getCachedCompatibility(p1, p2)
-          if (cached) alreadyCached++
-          else toCache++
+          const [a, b] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+          if (cachedPairSet.has(`${a}-${b}`)) alreadyCached++
         }
       }
+
+      const toCache = eligiblePairs - alreadyCached
 
       CURRENT_MATCH_MODE = null
 

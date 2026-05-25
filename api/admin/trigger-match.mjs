@@ -3218,6 +3218,30 @@ export default async function handler(req, res) {
 
       console.log(`💾 BATCH CACHE [${genderMode}] event=${eventId} participants[${safeStart}..${endExclusive - 1}] of ${totalParticipants}`)
 
+      // BULK CACHE FETCH: Load all cached entries for these participants at once
+      const participantNumbers = participants.map(p => p.assigned_number)
+      const { data: allCachedScores, error: cacheError } = await supabase
+        .from('compatibility_cache')
+        .select('*')
+        .in('participant_a_number', participantNumbers)
+        .in('participant_b_number', participantNumbers)
+
+      if (cacheError) {
+        console.error('⚠️ Error fetching cached scores:', cacheError)
+      }
+
+      // Build in-memory cache map for O(1) lookup
+      const cachedScoresMap = new Map()
+      if (allCachedScores && allCachedScores.length > 0) {
+        allCachedScores.forEach(cache => {
+          const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
+          cachedScoresMap.set(pairKey, cache)
+        })
+        console.log(`✅ Loaded ${cachedScoresMap.size} cached scores into memory`)
+      } else {
+        console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
+      }
+
       let newlyCached = 0
       let alreadyCached = 0
       let skipped = 0
@@ -3241,26 +3265,22 @@ export default async function handler(req, res) {
           if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
           if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
 
-          // Cache lookup
+          // Cache lookup using bulk-fetched map
+          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+          const cacheKey = generateCacheKey(p1, p2)
+          const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
+          const cachedData = cachedScoresMap.get(cacheLookupKey)
+
+          if (cachedData) {
+            alreadyCached++
+            if (alreadyCached % 10 === 0) {
+              console.log(`   ✅ Cache hit #${alreadyCached}: #${p1.assigned_number}×#${p2.assigned_number}`)
+            }
+            continue
+          }
+
+          // Cache miss - calculate and store
           try {
-            const cached = await getCachedCompatibility(p1, p2)
-            if (cached) {
-              alreadyCached++
-              if (alreadyCached % 10 === 0) {
-                console.log(`   ✅ Cache hit #${alreadyCached}: #${p1.assigned_number}×#${p2.assigned_number}`)
-              }
-              continue
-            }
-
-            // Log first few cache misses to debug hash issue
-            if (newlyCached < 3) {
-              const key = generateCacheKey(p1, p2)
-              console.log(`   🔍 Cache miss #${newlyCached + 1}: #${p1.assigned_number}×#${p2.assigned_number}`)
-              console.log(`      Hash: ${key.combinedHash.substring(0, 15)}...`)
-              console.log(`      P1 survey_data: ${JSON.stringify(p1.survey_data).substring(0, 100)}...`)
-              console.log(`      P2 survey_data: ${JSON.stringify(p2.survey_data).substring(0, 100)}...`)
-            }
-
             await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
             newlyCached++
             if (newlyCached % 5 === 0) {

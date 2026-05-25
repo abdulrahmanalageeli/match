@@ -3390,10 +3390,10 @@ export default async function handler(req, res) {
         }
       }
 
-      // Second pass: fetch all cached entries for these participants in a single query
+      // Second pass: fetch all cached entries for these participants in a single query (with hashes)
       const { data: cachedEntries, error: cacheError } = await supabase
         .from('compatibility_cache')
-        .select('participant_a_number, participant_b_number')
+        .select('participant_a_number, participant_b_number, combined_content_hash')
         .in('participant_a_number', participantNumbers)
         .in('participant_b_number', participantNumbers)
 
@@ -3401,14 +3401,14 @@ export default async function handler(req, res) {
 
       console.log(`📊 [STATUS] Cached entries fetched: ${cachedEntries?.length || 0}`)
 
-      // Build a set of cached pairs (normalized so smaller number is always first)
-      const cachedPairSet = new Set()
+      // Build a map of cached pairs with hashes (same approach as batched cache)
+      const cachedScoresMap = new Map()
       ;(cachedEntries || []).forEach(entry => {
-        const [a, b] = [entry.participant_a_number, entry.participant_b_number].sort((x, y) => x - y)
-        cachedPairSet.add(`${a}-${b}`)
+        const pairKey = `${entry.participant_a_number}-${entry.participant_b_number}-${entry.combined_content_hash}`
+        cachedScoresMap.set(pairKey, entry)
       })
 
-      // Count how many eligible pairs are cached (must pass gender filter for this mode)
+      // Count how many eligible pairs are cached (must pass gender filter for this mode AND have matching hash)
       let alreadyCached = 0
       for (let i = 0; i < participants.length; i++) {
         for (let j = i + 1; j < participants.length; j++) {
@@ -3419,8 +3419,10 @@ export default async function handler(req, res) {
           if (!checkAgeRangeHardGate(p1, p2)) continue
           if (!checkAgeCompatibility(p1, p2)) continue
 
-          const [a, b] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
-          if (cachedPairSet.has(`${a}-${b}`)) alreadyCached++
+          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+          const cacheKey = generateCacheKey(p1, p2)
+          const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
+          if (cachedScoresMap.has(cacheLookupKey)) alreadyCached++
         }
       }
 

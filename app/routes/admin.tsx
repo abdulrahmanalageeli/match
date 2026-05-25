@@ -48,6 +48,7 @@ import {
 import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import ParticipantDualResultsModal from "~/components/ParticipantDualResultsModal"
+import BatchedCacheModal from "~/components/BatchedCacheModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
@@ -157,6 +158,9 @@ export default function AdminPage() {
   const [showDualResultsModal, setShowDualResultsModal] = useState(false)
   const [dualResults, setDualResults] = useState<any[]>([])
   const [dualResultsLoading, setDualResultsLoading] = useState(false)
+
+  // Batched gender-mode pre-cache modal state
+  const [showBatchedCacheModal, setShowBatchedCacheModal] = useState(false)
 
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
@@ -4034,6 +4038,17 @@ Proceed?`
                     )}
                     Delta Cache
                   </button>
+
+                  {/* Batched Pre-Cache by Round (R1 same-gender / R2 opposite-gender) */}
+                  <button
+                    onClick={() => setShowBatchedCacheModal(true)}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-indigo-600 to-violet-700 hover:from-indigo-700 hover:to-violet-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
+                    title="Batched pre-cache for R1 (same-gender) and R2 (opposite-gender) — processes 5 participants at a time"
+                  >
+                    <Activity className="w-3.5 h-3.5" />
+                    Batched Cache (R1/R2)
+                  </button>
                 </div>
 
                 <button
@@ -6431,6 +6446,13 @@ Proceed?`
         eventId={currentEventId}
         onSwapApplied={async () => { await fetchGroupAssignments() }}
         cohostTheme={isCohost}
+      />
+
+      {/* Batched Pre-Cache Modal (R1 same-gender + R2 opposite-gender batched caching) */}
+      <BatchedCacheModal
+        isOpen={showBatchedCacheModal}
+        onClose={() => setShowBatchedCacheModal(false)}
+        eventId={currentEventId}
       />
 
       {/* Dual Results Modal (R1 same-gender + R2 opposite-gender side-by-side) */}

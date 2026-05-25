@@ -3154,6 +3154,211 @@ export default async function handler(req, res) {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // BATCHED GENDER-MODE PRE-CACHE
+  // -------------------------------------------------------------------------
+  // Caches same-gender (R1) or opposite-gender (R2) pairs in small batches so
+  // the system isn't overpowered. Each call processes a slice of participants
+  // (default 5 outer-loop participants) and returns progress + hasMore flag.
+  // The frontend drives sequential calls until hasMore=false.
+  // -------------------------------------------------------------------------
+  if (action === "cache-pairs-batched") {
+    if (!eventId) {
+      return res.status(400).json({ error: "eventId is required" })
+    }
+
+    const { genderMode, batchStart = 0, batchSize = 5 } = req.body || {}
+
+    if (genderMode !== 'same' && genderMode !== 'opposite') {
+      return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+    }
+
+    // Activate forced gender mode so checkGenderCompatibility honors it
+    CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const startTime = Date.now()
+
+    try {
+      // Fetch eligible participants (same filter as pre-cache)
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+
+      if (error) throw error
+
+      const participants = (allParticipants || [])
+        .filter(p => isParticipantComplete(p))
+        // Sort by assigned_number ascending for deterministic batching across calls
+        .sort((a, b) => a.assigned_number - b.assigned_number)
+
+      const totalParticipants = participants.length
+
+      if (totalParticipants < 2) {
+        CURRENT_MATCH_MODE = null
+        return res.status(400).json({ error: `Need at least 2 eligible participants. Found ${totalParticipants}.` })
+      }
+
+      const safeStart = Math.max(0, Math.min(parseInt(batchStart) || 0, totalParticipants))
+      const safeSize = Math.max(1, Math.min(parseInt(batchSize) || 5, 50))
+      const endExclusive = Math.min(safeStart + safeSize, totalParticipants)
+
+      console.log(`💾 BATCH CACHE [${genderMode}] event=${eventId} participants[${safeStart}..${endExclusive - 1}] of ${totalParticipants}`)
+
+      let newlyCached = 0
+      let alreadyCached = 0
+      let skipped = 0
+      let errors = 0
+      let pairsProcessed = 0
+
+      // Outer loop: only the slice of participants assigned to this batch.
+      // Inner loop: every j > i (entire remaining pool) — guarantees no
+      // duplicate work across batches because each unique pair (i, j) with i<j
+      // is processed only when i ∈ [safeStart, endExclusive).
+      for (let i = safeStart; i < endExclusive; i++) {
+        for (let j = i + 1; j < totalParticipants; j++) {
+          const p1 = participants[i]
+          const p2 = participants[j]
+          pairsProcessed++
+
+          // Gender check (mode-aware)
+          if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
+          // Other hard gates
+          if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
+          if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
+          if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
+
+          // Cache lookup
+          try {
+            const cached = await getCachedCompatibility(p1, p2)
+            if (cached) { alreadyCached++; continue }
+
+            await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
+            newlyCached++
+          } catch (err) {
+            console.error(`   ❌ Batch cache error #${p1.assigned_number}×#${p2.assigned_number}:`, err?.message)
+            errors++
+          }
+        }
+      }
+
+      const hasMore = endExclusive < totalParticipants
+      const durationMs = Date.now() - startTime
+
+      // Reset mode flag before returning
+      CURRENT_MATCH_MODE = null
+
+      return res.status(200).json({
+        success: true,
+        gender_mode: genderMode,
+        batch: {
+          start: safeStart,
+          end_exclusive: endExclusive,
+          size: endExclusive - safeStart,
+        },
+        stats: {
+          newly_cached: newlyCached,
+          already_cached: alreadyCached,
+          skipped,
+          errors,
+          pairs_processed: pairsProcessed,
+          duration_ms: durationMs,
+        },
+        progress: {
+          participants_completed: endExclusive,
+          participants_total: totalParticipants,
+          has_more: hasMore,
+          next_batch_start: hasMore ? endExclusive : null,
+        },
+      })
+    } catch (err) {
+      CURRENT_MATCH_MODE = null
+      console.error("❌ cache-pairs-batched error:", err)
+      return res.status(500).json({ error: err.message || String(err) })
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // CACHE STATUS BY GENDER MODE
+  // -------------------------------------------------------------------------
+  // Returns counts for the requested gender mode without caching anything:
+  //   - total participants
+  //   - total pairs that would be evaluated for this mode (after gender +
+  //     hard-gate filters)
+  //   - already-cached count (cache hits)
+  //   - to-cache count (cache misses)
+  // -------------------------------------------------------------------------
+  if (action === "cache-status-by-gender") {
+    if (!eventId) {
+      return res.status(400).json({ error: "eventId is required" })
+    }
+
+    const { genderMode } = req.body || {}
+    if (genderMode !== 'same' && genderMode !== 'opposite') {
+      return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+    }
+
+    CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+
+    try {
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+
+      if (error) throw error
+
+      const participants = (allParticipants || [])
+        .filter(p => isParticipantComplete(p))
+        .sort((a, b) => a.assigned_number - b.assigned_number)
+
+      let eligiblePairs = 0
+      let alreadyCached = 0
+      let toCache = 0
+
+      // Lightweight pass: skip ineligible pairs (gender + hard gates) then
+      // check cache existence with a single query each.
+      for (let i = 0; i < participants.length; i++) {
+        for (let j = i + 1; j < participants.length; j++) {
+          const p1 = participants[i]
+          const p2 = participants[j]
+          if (!checkGenderCompatibility(p1, p2)) continue
+          if (!checkNationalityHardGate(p1, p2)) continue
+          if (!checkAgeRangeHardGate(p1, p2)) continue
+          if (!checkAgeCompatibility(p1, p2)) continue
+
+          eligiblePairs++
+          const cached = await getCachedCompatibility(p1, p2)
+          if (cached) alreadyCached++
+          else toCache++
+        }
+      }
+
+      CURRENT_MATCH_MODE = null
+
+      return res.status(200).json({
+        success: true,
+        gender_mode: genderMode,
+        participants_total: participants.length,
+        eligible_pairs: eligiblePairs,
+        already_cached: alreadyCached,
+        to_cache: toCache,
+        coverage_percent: eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100,
+      })
+    } catch (err) {
+      CURRENT_MATCH_MODE = null
+      console.error("❌ cache-status-by-gender error:", err)
+      return res.status(500).json({ error: err.message || String(err) })
+    }
+  }
+
   // Handle delta-pre-cache action (smart incremental caching)
   if (action === "delta-pre-cache") {
     if (!eventId) {

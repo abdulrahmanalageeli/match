@@ -30,6 +30,92 @@ if (LOG_LEVEL === "silent") {
   // eslint-disable-next-line no-console
   console.error = () => {}
 }
+async function fetchAllCachedPairs(table, participantNumbers, pageSize = 1000) {
+  const all = []
+  let from = 0
+  // Safety cap: 200 pages × 1000 rows = 200k rows; way more than realistic.
+  for (let page = 0; page < 200; page++) {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .in('participant_a_number', participantNumbers)
+      .in('participant_b_number', participantNumbers)
+      .range(from, from + pageSize - 1)
+    if (error) {
+      console.error(`❌ fetchAllCachedPairs(${table}) page ${page} error:`, error)
+      return { data: all, error }
+    }
+    if (!data || data.length === 0) break
+    all.push(...data)
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+  return { data: all, error: null }
+}
+ 
+ 
+// -----------------------------------------------------------------------------
+// REPLACE: storeCachedCompatibility   (around line 670)
+// -----------------------------------------------------------------------------
+async function storeCachedCompatibility(participantA, participantB, scores) {
+  try {
+    if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip cache store'); return }
+    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+    const cacheKey = generateCacheKey(participantA, participantB)
+ 
+    let bonusType = 'none'
+    if (scores.humorMultiplier === 1.15) bonusType = 'full'
+    else if (scores.humorMultiplier === 1.05) bonusType = 'partial'
+ 
+    const row = {
+      participant_a_number: smaller,
+      participant_b_number: larger,
+      combined_content_hash: cacheKey.combinedHash,
+      vibe_content_hash: cacheKey.vibeHash,
+      mbti_hash: cacheKey.mbtiHash,
+      attachment_hash: cacheKey.attachmentHash,
+      communication_hash: cacheKey.communicationHash,
+      lifestyle_hash: cacheKey.lifestyleHash,
+      core_values_hash: cacheKey.coreValuesHash,
+      synergy_hash: cacheKey.synergyHash,
+      ai_vibe_score: scores.vibeScore,
+      mbti_score: scores.mbtiScore,
+      attachment_score: scores.attachmentScore,
+      communication_score: scores.communicationScore,
+      lifestyle_score: scores.lifestyleScore,
+      core_values_score: scores.coreValuesScore,
+      interaction_synergy_score: scores.synergyScore ?? 0,
+      intent_goal_score: scores.intentScore ?? 0,
+      total_compatibility_score: scores.totalScore,
+      humor_multiplier: scores.humorMultiplier,
+      humor_early_openness_bonus: bonusType,
+      last_used: new Date().toISOString(),
+      use_count: 1
+    }
+ 
+    // onConflict matches the ACTUAL unique constraint:
+    // UNIQUE (participant_a_number, participant_b_number, combined_content_hash)
+    // When this exact tuple exists, we just touch last_used / use_count.
+    // When the hash differs, no conflict → a new row is inserted alongside.
+    const { error } = await supabase
+      .from('compatibility_cache')
+      .upsert(row, {
+        onConflict: 'participant_a_number,participant_b_number,combined_content_hash'
+      })
+      .select()
+ 
+    if (!error) {
+      console.warn(`✅ Cache stored #${smaller}-#${larger} hash=${cacheKey.combinedHash.substring(0,10)} total=${Math.round(scores.totalScore)}%`)
+    } else {
+      console.error(`❌ Cache store FAILED #${smaller}-#${larger} code=${error.code} msg=${error.message}`)
+      if (error.details) console.error(`   details: ${error.details}`)
+      if (error.hint) console.error(`   hint: ${error.hint}`)
+    }
+  } catch (e) {
+    console.error(`❌ Cache store EXCEPTION #${participantA.assigned_number}-#${participantB.assigned_number}:`, e?.message)
+  }
+}
+ 
 
 // Helper: compute Opposites Attract percentage (0..100) from available sub-scores
 // Emphasize high interaction synergy and low alignment in other dimensions.
@@ -3621,112 +3707,109 @@ export default async function handler(req, res) {
   //   - already-cached count (cache hits)
   //   - to-cache count (cache misses)
   // -------------------------------------------------------------------------
-  if (action === "cache-status-by-gender") {
-    if (!eventId) {
-      return res.status(400).json({ error: "eventId is required" })
-    }
-
-    const { genderMode } = req.body || {}
-    if (genderMode !== 'same' && genderMode !== 'opposite') {
-      return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
-    }
-
-    CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
-
-    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
-
-    try {
-      const { data: allParticipants, error } = await supabase
-        .from("participants")
-        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
-        .eq("match_id", match_id)
-        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
-        .neq("assigned_number", 9999)
-
-      if (error) throw error
-
-      console.log(`📊 [STATUS] Raw participants fetched: ${allParticipants?.length || 0}`)
-
-      const participants = (allParticipants || [])
-        .filter(p => isParticipantComplete(p))
-        .sort((a, b) => a.assigned_number - b.assigned_number)
-
-      console.log(`📊 [STATUS] After isParticipantComplete filter: ${participants.length} participants`)
-      console.log(`📊 [STATUS] Gender mode: ${genderMode}, CURRENT_MATCH_MODE: ${CURRENT_MATCH_MODE}`)
-
-      // First pass: count eligible pairs (gender + hard gates)
-      let eligiblePairs = 0
-      const participantNumbers = participants.map(p => p.assigned_number)
-      
-      for (let i = 0; i < participants.length; i++) {
-        for (let j = i + 1; j < participants.length; j++) {
-          const p1 = participants[i]
-          const p2 = participants[j]
-          if (!checkGenderCompatibility(p1, p2)) continue
-          if (!checkNationalityHardGate(p1, p2)) continue
-          if (!checkAgeRangeHardGate(p1, p2)) continue
-          if (!checkAgeCompatibility(p1, p2)) continue
-          eligiblePairs++
-        }
-      }
-
-      // Second pass: fetch all cached entries for these participants in a single query (with hashes)
-      const { data: cachedEntries, error: cacheError } = await supabase
-        .from('compatibility_cache')
-        .select('participant_a_number, participant_b_number, combined_content_hash')
-        .in('participant_a_number', participantNumbers)
-        .in('participant_b_number', participantNumbers)
-
-      if (cacheError) throw cacheError
-
-      console.log(`📊 [STATUS] Cached entries fetched: ${cachedEntries?.length || 0}`)
-
-      // Build a map of cached pairs with hashes (same approach as batched cache)
-      const cachedScoresMap = new Map()
-      ;(cachedEntries || []).forEach(entry => {
-        const pairKey = `${entry.participant_a_number}-${entry.participant_b_number}-${entry.combined_content_hash}`
-        cachedScoresMap.set(pairKey, entry)
-      })
-
-      // Count how many eligible pairs are cached (must pass gender filter for this mode AND have matching hash)
-      let alreadyCached = 0
-      for (let i = 0; i < participants.length; i++) {
-        for (let j = i + 1; j < participants.length; j++) {
-          const p1 = participants[i]
-          const p2 = participants[j]
-          if (!checkGenderCompatibility(p1, p2)) continue
-          if (!checkNationalityHardGate(p1, p2)) continue
-          if (!checkAgeRangeHardGate(p1, p2)) continue
-          if (!checkAgeCompatibility(p1, p2)) continue
-
-          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
-          const cacheKey = generateCacheKey(p1, p2)
-          const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
-          if (cachedScoresMap.has(cacheLookupKey)) alreadyCached++
-        }
-      }
-
-      const toCache = eligiblePairs - alreadyCached
-
-      console.log(`📊 [STATUS] Final counts: eligible=${eligiblePairs}, cached=${alreadyCached}, to_cache=${toCache}, coverage=${eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100}%`)
-
-      CURRENT_MATCH_MODE = null
-
-      return res.status(200).json({
-        success: true,
-        gender_mode: genderMode,
-        participants_total: participants.length,
-        eligible_pairs: eligiblePairs,
-        already_cached: alreadyCached,
-        to_cache: toCache,
-        coverage_percent: eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100,
-      })
-    } catch (err) {
-      CURRENT_MATCH_MODE = null
-      console.error("❌ cache-status-by-gender error:", err)
-      return res.status(500).json({ error: err.message || String(err) })
-    }
+if (action === "cache-status-by-gender") {
+  if (!eventId) return res.status(400).json({ error: "eventId is required" })
+ 
+  const { genderMode } = req.body || {}
+  if (genderMode !== 'same' && genderMode !== 'opposite') {
+    return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
   }
+ 
+  CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+ 
+  try {
+    const { data: allParticipants, error } = await supabase
+      .from("participants")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+      .eq("match_id", match_id)
+      .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+      .neq("assigned_number", 9999)
+ 
+    if (error) throw error
+ 
+    const participants = (allParticipants || [])
+      .filter(p => isParticipantComplete(p))
+      .sort((a, b) => a.assigned_number - b.assigned_number)
+ 
+    const participantNumbers = participants.map(p => p.assigned_number)
+ 
+    let eligiblePairs = 0
+    for (let i = 0; i < participants.length; i++) {
+      for (let j = i + 1; j < participants.length; j++) {
+        const p1 = participants[i]; const p2 = participants[j]
+        if (!checkGenderCompatibility(p1, p2)) continue
+        if (!checkNationalityHardGate(p1, p2)) continue
+        if (!checkAgeRangeHardGate(p1, p2)) continue
+        if (!checkAgeCompatibility(p1, p2)) continue
+        eligiblePairs++
+      }
+    }
+ 
+    // PAGINATED — was previously capped at 1000 rows by PostgREST.
+    const { data: cachedEntries } = await fetchAllCachedPairs('compatibility_cache', participantNumbers)
+    const cachedScoresMap = new Map()
+    ;(cachedEntries || []).forEach(c => {
+      cachedScoresMap.set(`${c.participant_a_number}-${c.participant_b_number}-${c.combined_content_hash}`, c)
+    })
+ 
+    let alreadyCached = 0
+    for (let i = 0; i < participants.length; i++) {
+      for (let j = i + 1; j < participants.length; j++) {
+        const p1 = participants[i]; const p2 = participants[j]
+        if (!checkGenderCompatibility(p1, p2)) continue
+        if (!checkNationalityHardGate(p1, p2)) continue
+        if (!checkAgeRangeHardGate(p1, p2)) continue
+        if (!checkAgeCompatibility(p1, p2)) continue
+ 
+        const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+        const cacheKey = generateCacheKey(p1, p2)
+        if (cachedScoresMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}`)) alreadyCached++
+      }
+    }
+ 
+    const toCache = eligiblePairs - alreadyCached
+    console.warn(`📊 STATUS [${CURRENT_MATCH_MODE}] participants=${participants.length} eligible=${eligiblePairs} cached=${alreadyCached} to_cache=${toCache} total_rows_in_table=${cachedEntries?.length || 0}`)
+ 
+    CURRENT_MATCH_MODE = null
+ 
+    return res.status(200).json({
+      success: true,
+      gender_mode: genderMode,
+      participants_total: participants.length,
+      eligible_pairs: eligiblePairs,
+      already_cached: alreadyCached,
+      to_cache: toCache,
+      coverage_percent: eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100,
+    })
+  } catch (err) {
+    CURRENT_MATCH_MODE = null
+    console.error("❌ cache-status-by-gender fatal:", err?.message, err?.stack)
+    return res.status(500).json({ error: err?.message || String(err) })
+  }
+}
+ 
+ 
+if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
+  console.warn(`\n${'='.repeat(80)}`)
+  console.warn(`🚀 GENERATION START [${CURRENT_MATCH_MODE}] event=${eventId}`)
+  console.warn(`   skipAI=${skipAI} paidOnly=${paidOnly} preview=${preview} ignoreLocked=${ignoreLocked}`)
+  console.warn(`${'='.repeat(80)}`)
+}
+ 
+// Right before the final res.status(200).json({ message: ... }) (around line 3700):
+if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
+  const regularMatches = finalMatches.filter(m => m.participant_b_number !== 9999)
+  const organizerMatches = finalMatches.filter(m => m.participant_b_number === 9999)
+  const avgScore = regularMatches.length > 0
+    ? Math.round(regularMatches.reduce((s, m) => s + (m.compatibility_score || 0), 0) / regularMatches.length)
+    : 0
+  console.warn(`\n${'='.repeat(80)}`)
+  console.warn(`🏁 GENERATION DONE [${CURRENT_MATCH_MODE}] event=${eventId} round=${targetRound}`)
+  console.warn(`   matches=${finalMatches.length} (regular=${regularMatches.length}, organizer=${organizerMatches.length})`)
+  console.warn(`   avg_score=${avgScore}% cache_hit_rate=${cacheHitRate}% ai_calls=${aiCalls} time=${(totalTime/1000).toFixed(1)}s`)
+  console.warn(`${'='.repeat(80)}\n`)
+}
 
   // Handle delta-pre-cache action (smart incremental caching)
   if (action === "delta-pre-cache") {

@@ -3593,30 +3593,14 @@ if (action === "cache-status-by-gender") {
       to_cache: toCache,
       coverage_percent: eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100,
     })
-  } catch (err) {
+} catch (err) {
     CURRENT_MATCH_MODE = null
     console.error("❌ cache-status-by-gender fatal:", err?.message, err?.stack)
     return res.status(500).json({ error: err?.message || String(err) })
   }
 }
- 
- 
- 
-// Right before the final res.status(200).json({ message: ... }) (around line 3700):
-if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
-  const regularMatches = finalMatches.filter(m => m.participant_b_number !== 9999)
-  const organizerMatches = finalMatches.filter(m => m.participant_b_number === 9999)
-  const avgScore = regularMatches.length > 0
-    ? Math.round(regularMatches.reduce((s, m) => s + (m.compatibility_score || 0), 0) / regularMatches.length)
-    : 0
-  console.warn(`\n${'='.repeat(80)}`)
-  console.warn(`🏁 GENERATION DONE [${CURRENT_MATCH_MODE}] event=${eventId} round=${targetRound}`)
-  console.warn(`   matches=${finalMatches.length} (regular=${regularMatches.length}, organizer=${organizerMatches.length})`)
-  console.warn(`   avg_score=${avgScore}% cache_hit_rate=${cacheHitRate}% ai_calls=${aiCalls} time=${(totalTime/1000).toFixed(1)}s`)
-  console.warn(`${'='.repeat(80)}\n`)
-}
 
-  // Handle delta-pre-cache action (smart incremental caching)
+  // Handle delta-pre-cache action
   if (action === "delta-pre-cache") {
     if (!eventId) {
       return res.status(400).json({ error: "eventId is required" })
@@ -5174,19 +5158,6 @@ if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gen
         excludedParticipants, 
         [] // No locked matches for groups
       )
-if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
-  const regularMatches = finalMatches.filter(m => m.participant_b_number !== 9999)
-  const organizerMatches = finalMatches.filter(m => m.participant_b_number === 9999)
-  const avgScore = regularMatches.length > 0
-    ? Math.round(regularMatches.reduce((s, m) => s + (m.compatibility_score || 0), 0) / regularMatches.length)
-    : 0
-  console.warn(`\n${'='.repeat(80)}`)
-  console.warn(`🏁 GENERATION DONE [${CURRENT_MATCH_MODE}] event=${eventId} round=${targetRound}`)
-  console.warn(`   matches=${finalMatches.length} (regular=${regularMatches.length}, organizer=${organizerMatches.length})`)
-  console.warn(`   avg_score=${avgScore}% cache_hit_rate=${cacheHitRate}% ai_calls=${aiCalls} time=${(totalTime/1000).toFixed(1)}s`)
-  console.warn(`${'='.repeat(80)}\n`)
-}
-
       return res.status(200).json({
         message: `✅ Group matching complete - created ${groupMatches.length} groups`,
         count: groupMatches.length,

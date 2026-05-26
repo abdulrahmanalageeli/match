@@ -1187,58 +1187,331 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
     if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip cache store'); return }
     const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
     const cacheKey = generateCacheKey(participantA, participantB)
-
+ 
     console.log(`💾 Storing cache for #${smaller}-#${larger}, hash=${cacheKey.combinedHash.substring(0, 10)}...`)
     console.log(`   Scores: total=${scores.totalScore}, vibe=${scores.vibeScore}, humorMultiplier=${scores.humorMultiplier}`)
-    
+ 
     // Determine bonus type based on humor multiplier
     let bonusType = 'none'
-    if (scores.humorMultiplier === 1.15) {
-      bonusType = 'full'
-    } else if (scores.humorMultiplier === 1.05) {
-      bonusType = 'partial'
+    if (scores.humorMultiplier === 1.15) bonusType = 'full'
+    else if (scores.humorMultiplier === 1.05) bonusType = 'partial'
+ 
+    const row = {
+      participant_a_number: smaller,
+      participant_b_number: larger,
+      combined_content_hash: cacheKey.combinedHash,
+      vibe_content_hash: cacheKey.vibeHash,
+      mbti_hash: cacheKey.mbtiHash,
+      attachment_hash: cacheKey.attachmentHash,
+      communication_hash: cacheKey.communicationHash,
+      lifestyle_hash: cacheKey.lifestyleHash,
+      core_values_hash: cacheKey.coreValuesHash,
+      synergy_hash: cacheKey.synergyHash,
+      ai_vibe_score: scores.vibeScore,
+      mbti_score: scores.mbtiScore,
+      attachment_score: scores.attachmentScore,
+      communication_score: scores.communicationScore,
+      lifestyle_score: scores.lifestyleScore,
+      core_values_score: scores.coreValuesScore,
+      interaction_synergy_score: scores.synergyScore ?? 0,
+      intent_goal_score: scores.intentScore ?? 0,
+      total_compatibility_score: scores.totalScore,
+      humor_multiplier: scores.humorMultiplier,
+      humor_early_openness_bonus: bonusType,
+      last_used: new Date().toISOString(),
+      use_count: 1
     }
-    
-    const { data, error } = await supabase
+ 
+    // ---------- FIX: explicit onConflict so updates actually update -----------
+    // The unique constraint on this table is (participant_a_number,
+    // participant_b_number). Without specifying onConflict, Supabase performs
+    // a plain INSERT and fails with 23505 when the row already exists,
+    // leaving the stale hash behind. With onConflict it does an UPSERT.
+    let { data, error } = await supabase
       .from('compatibility_cache')
-      .upsert({
-        participant_a_number: smaller,
-        participant_b_number: larger,
-        combined_content_hash: cacheKey.combinedHash,
-        vibe_content_hash: cacheKey.vibeHash,
-        mbti_hash: cacheKey.mbtiHash,
-        attachment_hash: cacheKey.attachmentHash,
-        communication_hash: cacheKey.communicationHash,
-        lifestyle_hash: cacheKey.lifestyleHash,
-        core_values_hash: cacheKey.coreValuesHash,
-        synergy_hash: cacheKey.synergyHash,
-        ai_vibe_score: scores.vibeScore,
-        mbti_score: scores.mbtiScore,
-        attachment_score: scores.attachmentScore,
-        communication_score: scores.communicationScore,
-        lifestyle_score: scores.lifestyleScore,
-        core_values_score: scores.coreValuesScore,
-        interaction_synergy_score: scores.synergyScore ?? 0,
-        intent_goal_score: scores.intentScore ?? 0,
-        total_compatibility_score: scores.totalScore,
-        humor_multiplier: scores.humorMultiplier,
-        humor_early_openness_bonus: bonusType,
-        use_count: 1
-      })
+      .upsert(row, { onConflict: 'participant_a_number,participant_b_number' })
       .select()
-      
+ 
+    // ---------- HARD FALLBACK: delete + insert -------------------------------
+    // If the unique constraint includes columns we didn't list (e.g. the hash
+    // column) and the upsert still fails with 23505, mirror the delta-cache
+    // strategy: explicitly delete the offending row, then insert clean.
+    if (error && (error.code === '23505' || /duplicate/i.test(error.message || ''))) {
+      console.warn(`⚠️ Upsert hit duplicate-key for #${smaller}-#${larger} (${error.code || ''} ${error.message || ''}). Falling back to DELETE+INSERT...`)
+      const { error: delErr } = await supabase
+        .from('compatibility_cache')
+        .delete()
+        .eq('participant_a_number', smaller)
+        .eq('participant_b_number', larger)
+      if (delErr) {
+        console.error(`   ❌ Delete-before-insert failed for #${smaller}-#${larger}:`, delErr)
+        return
+      }
+      const ins = await supabase
+        .from('compatibility_cache')
+        .insert(row)
+        .select()
+      data = ins.data
+      error = ins.error
+    }
+ 
     if (!error) {
-      console.log(`   ✅ Cache STORED successfully: #${smaller}-#${larger}`)
+      console.warn(`✅ Cache STORED #${smaller}-#${larger} hash=${cacheKey.combinedHash.substring(0,10)} (total=${Math.round(scores.totalScore)}%)`)
     } else {
-      console.error(`   ❌ Cache store error for #${smaller}-#${larger}:`, error)
-      console.error(`   Error details:`, JSON.stringify(error, null, 2))
+      console.error(`❌ Cache store FAILED for #${smaller}-#${larger}:`, error)
+      console.error(`   Error code: ${error.code}, message: ${error.message}, details: ${error.details}, hint: ${error.hint}`)
     }
   } catch (error) {
-    console.error(`   ❌ Cache store exception for #${participantA.assigned_number}-#${participantB.assigned_number}:`, error)
-    console.error(`   Exception message:`, error.message)
-    console.error(`   Exception stack:`, error.stack)
+    console.error(`❌ Cache store EXCEPTION for #${participantA.assigned_number}-#${participantB.assigned_number}:`, error.message)
+    console.error(`   Stack:`, error.stack)
   }
 }
+ 
+ 
+// -----------------------------------------------------------------------------
+// REPLACE: storeGroupCachedCompatibility   (around line 730 in your current file)
+// -----------------------------------------------------------------------------
+async function storeGroupCachedCompatibility(participantA, participantB, payload) {
+  try {
+    if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip group cache store'); return }
+    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
+    const cacheKey = payload.cacheKey || generateCacheKey(participantA, participantB)
+ 
+    console.log(`💾 Storing GROUP cache for #${smaller}-#${larger}...`)
+    let bonusType = 'none'
+    const humorMultiplier = checkHumorMatch(participantA, participantB)
+    if (humorMultiplier === 1.15) bonusType = 'full'
+    else if (humorMultiplier === 1.05) bonusType = 'partial'
+ 
+    const row = {
+      participant_a_number: smaller,
+      participant_b_number: larger,
+      combined_content_hash: cacheKey.combinedHash,
+      vibe_content_hash: cacheKey.vibeHash,
+      mbti_hash: cacheKey.mbtiHash,
+      attachment_hash: cacheKey.attachmentHash,
+      communication_hash: cacheKey.communicationHash,
+      lifestyle_hash: cacheKey.lifestyleHash,
+      core_values_hash: cacheKey.coreValuesHash,
+      synergy_hash: cacheKey.synergyHash,
+      ai_vibe_score: payload.vibeScore,
+      mbti_score: payload.mbtiScore,
+      attachment_score: payload.attachmentScore,
+      communication_score: payload.communicationScore,
+      lifestyle_score: payload.lifestyleScore,
+      core_values_score: payload.coreValuesScore,
+      interaction_synergy_score: payload.synergyScore ?? 0,
+      intent_goal_score: payload.intentScore ?? 0,
+      total_compatibility_score: payload.totalScore,
+      humor_multiplier: humorMultiplier,
+      humor_early_openness_bonus: bonusType,
+      use_count: 1,
+      last_used: new Date().toISOString(),
+      participant_a_cached_at: new Date().toISOString(),
+      participant_b_cached_at: new Date().toISOString()
+    }
+ 
+    let { error } = await supabase
+      .from('compatibility_cache_groups')
+      .upsert(row, { onConflict: 'participant_a_number,participant_b_number' })
+      .select()
+ 
+    if (error && (error.code === '23505' || /duplicate/i.test(error.message || ''))) {
+      console.warn(`⚠️ Group upsert hit duplicate-key for #${smaller}-#${larger}. Falling back to DELETE+INSERT...`)
+      const { error: delErr } = await supabase
+        .from('compatibility_cache_groups')
+        .delete()
+        .eq('participant_a_number', smaller)
+        .eq('participant_b_number', larger)
+      if (delErr) {
+        console.error(`   ❌ Group delete-before-insert failed:`, delErr)
+        return
+      }
+      const ins = await supabase.from('compatibility_cache_groups').insert(row).select()
+      error = ins.error
+    }
+ 
+    if (!error) {
+      console.warn(`✅ GROUP cache stored #${smaller}-#${larger}`)
+    } else {
+      console.error(`❌ GROUP cache store FAILED #${smaller}-#${larger}:`, error)
+    }
+  } catch (e) {
+    console.error('❌ GROUP cache store EXCEPTION:', e?.message, e?.stack)
+  }
+}
+ 
+ 
+// -----------------------------------------------------------------------------
+// REPLACE: the cache-pairs-batched action body (around line 2080 in your file)
+//
+// What changed:
+//   • Always-visible startup banner via console.warn (survives LOG_LEVEL=warn).
+//   • Per-batch summary via console.warn.
+//   • Track and return error_samples in the response so the frontend can
+//     surface what's actually failing instead of going silent.
+//   • Detect 23505 (duplicate key) and report it as a hint.
+// -----------------------------------------------------------------------------
+if (action === "cache-pairs-batched") {
+  if (!eventId) return res.status(400).json({ error: "eventId is required" })
+ 
+  const { genderMode, batchStart = 0, batchSize = 5 } = req.body || {}
+  if (genderMode !== 'same' && genderMode !== 'opposite') {
+    return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+  }
+ 
+  CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+  const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+  const startTime = Date.now()
+ 
+  // Always-visible banner (console.warn survives the LOG_LEVEL=warn mute).
+  console.warn(`\n${'='.repeat(80)}`)
+  console.warn(`🎯 BATCH CACHE START [${CURRENT_MATCH_MODE}] event=${eventId} start=${batchStart} size=${batchSize}`)
+  console.warn(`${'='.repeat(80)}`)
+ 
+  try {
+    const { data: allParticipants, error } = await supabase
+      .from("participants")
+      .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+      .eq("match_id", match_id)
+      .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+      .neq("assigned_number", 9999)
+ 
+    if (error) throw error
+ 
+    const participants = (allParticipants || [])
+      .filter(p => isParticipantComplete(p))
+      .sort((a, b) => a.assigned_number - b.assigned_number)
+ 
+    const totalParticipants = participants.length
+    console.warn(`📊 Eligible participants: ${totalParticipants}`)
+ 
+    if (totalParticipants < 2) {
+      CURRENT_MATCH_MODE = null
+      return res.status(400).json({ error: `Need at least 2 eligible participants. Found ${totalParticipants}.` })
+    }
+ 
+    const safeStart = Math.max(0, Math.min(parseInt(batchStart) || 0, totalParticipants))
+    const safeSize = Math.max(1, Math.min(parseInt(batchSize) || 5, 50))
+    const endExclusive = Math.min(safeStart + safeSize, totalParticipants)
+ 
+    console.warn(`🔢 Processing participants[${safeStart}..${endExclusive - 1}] of ${totalParticipants}`)
+ 
+    // Bulk-fetch existing cache rows for these participants
+    const participantNumbers = participants.map(p => p.assigned_number)
+    const { data: allCachedScores, error: cacheError } = await supabase
+      .from('compatibility_cache')
+      .select('*')
+      .in('participant_a_number', participantNumbers)
+      .in('participant_b_number', participantNumbers)
+ 
+    if (cacheError) console.error('⚠️ Error fetching cached scores:', cacheError)
+ 
+    const cachedScoresMap = new Map()
+    if (allCachedScores && allCachedScores.length > 0) {
+      allCachedScores.forEach(cache => {
+        const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
+        cachedScoresMap.set(pairKey, cache)
+      })
+    }
+    console.warn(`💾 Loaded ${cachedScoresMap.size} existing cache rows into memory`)
+ 
+    let newlyCached = 0
+    let alreadyCached = 0
+    let skipped = 0
+    let errors = 0
+    let pairsProcessed = 0
+    let staleRowsDetected = 0
+    const errorSamples = []  // capture up to 5 error messages to bubble up to the UI
+ 
+    for (let i = safeStart; i < endExclusive; i++) {
+      for (let j = i + 1; j < totalParticipants; j++) {
+        const p1 = participants[i]
+        const p2 = participants[j]
+        pairsProcessed++
+ 
+        if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
+        if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
+        if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
+        if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
+ 
+        const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+        const cacheKey = generateCacheKey(p1, p2)
+        const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
+        const cachedData = cachedScoresMap.get(cacheLookupKey)
+ 
+        if (cachedData) {
+          alreadyCached++
+          continue
+        }
+ 
+        // Detect stale rows: row exists for this pair but with a different hash.
+        // This is exactly the case that USED to silently fail before the fix.
+        const staleRow = (allCachedScores || []).find(c =>
+          c.participant_a_number === smaller &&
+          c.participant_b_number === larger &&
+          c.combined_content_hash !== cacheKey.combinedHash
+        )
+        if (staleRow) staleRowsDetected++
+ 
+        try {
+          await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
+          newlyCached++
+        } catch (err) {
+          errors++
+          const msg = err?.message || String(err)
+          console.error(`❌ Batch cache error #${p1.assigned_number}×#${p2.assigned_number}: ${msg}`)
+          if (errorSamples.length < 5) errorSamples.push(`#${p1.assigned_number}×#${p2.assigned_number}: ${msg}`)
+        }
+      }
+    }
+ 
+    const hasMore = endExclusive < totalParticipants
+    const durationMs = Date.now() - startTime
+ 
+    console.warn(`\n${'='.repeat(80)}`)
+    console.warn(`💾 BATCH CACHE DONE [${CURRENT_MATCH_MODE}] event=${eventId}`)
+    console.warn(`   processed=${pairsProcessed} newly=${newlyCached} cache_hits=${alreadyCached}`)
+    console.warn(`   skipped=${skipped} errors=${errors} stale_rows=${staleRowsDetected} duration=${(durationMs/1000).toFixed(1)}s`)
+    if (errors > 0) {
+      console.error(`⚠️ Error samples (up to 5):`)
+      errorSamples.forEach(s => console.error(`   - ${s}`))
+    }
+    if (staleRowsDetected > 0) {
+      console.warn(`ℹ️ ${staleRowsDetected} pair(s) had a stale cache row with a DIFFERENT hash. The fix in storeCachedCompatibility will overwrite them.`)
+    }
+    console.warn(`${'='.repeat(80)}\n`)
+ 
+    CURRENT_MATCH_MODE = null
+ 
+    return res.status(200).json({
+      success: true,
+      gender_mode: genderMode,
+      batch: { start: safeStart, end_exclusive: endExclusive, size: endExclusive - safeStart },
+      stats: {
+        newly_cached: newlyCached,
+        already_cached: alreadyCached,
+        skipped,
+        errors,
+        pairs_processed: pairsProcessed,
+        stale_rows_detected: staleRowsDetected,
+        duration_ms: durationMs,
+      },
+      error_samples: errorSamples,
+      progress: {
+        participants_completed: endExclusive,
+        participants_total: totalParticipants,
+        has_more: hasMore,
+        next_batch_start: hasMore ? endExclusive : null,
+      },
+    })
+  } catch (err) {
+    CURRENT_MATCH_MODE = null
+    console.error("❌ cache-pairs-batched fatal error:", err?.message, err?.stack)
+    return res.status(500).json({ error: err.message || String(err) })
+  }
+}
+
 
 // Function to store compatibility result in GROUP cache table (compatibility_cache_groups)
 async function storeGroupCachedCompatibility(participantA, participantB, payload) {
@@ -2995,6 +3268,13 @@ export default async function handler(req, res) {
     CURRENT_MATCH_MODE = matchType
     console.log(`🎯 FORCED GENDER MODE ACTIVE: ${CURRENT_MATCH_MODE} (gender preferences will be ignored)`)
   }
+  if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
+  console.warn(`\n${'='.repeat(80)}`)
+  console.warn(`🚀 GENERATION START [${CURRENT_MATCH_MODE}] event=${eventId}`)
+  console.warn(`   skipAI=${skipAI}, paidOnly=${paidOnly}, preview=${preview}, ignoreLocked=${ignoreLocked}`)
+  console.warn(`${'='.repeat(80)}`)
+}
+
   // Round number for DB inserts: 1 = same-gender, 2 = opposite-gender, default = 1
   const targetRound = matchType === 'opposite_gender' ? 2 : 1
 
@@ -5006,6 +5286,18 @@ export default async function handler(req, res) {
         excludedParticipants, 
         [] // No locked matches for groups
       )
+if (CURRENT_MATCH_MODE === 'same_gender' || CURRENT_MATCH_MODE === 'opposite_gender') {
+  const regularMatches = finalMatches.filter(m => m.participant_b_number !== 9999)
+  const organizerMatches = finalMatches.filter(m => m.participant_b_number === 9999)
+  const avgScore = regularMatches.length > 0
+    ? Math.round(regularMatches.reduce((s, m) => s + (m.compatibility_score || 0), 0) / regularMatches.length)
+    : 0
+  console.warn(`\n${'='.repeat(80)}`)
+  console.warn(`🏁 GENERATION DONE [${CURRENT_MATCH_MODE}] event=${eventId} round=${targetRound}`)
+  console.warn(`   matches=${finalMatches.length} (regular=${regularMatches.length}, organizer=${organizerMatches.length})`)
+  console.warn(`   avg_score=${avgScore}% cache_hit_rate=${cacheHitRate}% ai_calls=${aiCalls} time=${(totalTime/1000).toFixed(1)}s`)
+  console.warn(`${'='.repeat(80)}\n`)
+}
 
       return res.status(200).json({
         message: `✅ Group matching complete - created ${groupMatches.length} groups`,

@@ -1,6 +1,35 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+function isFetchFailedLikeError(err) {
+  const msg = (err?.message || '').toString()
+  const details = (err?.details || '').toString()
+  return /fetch failed/i.test(msg) || /fetch failed/i.test(details)
+}
+
+async function supabaseRetry(label, op, { attempts = 4, baseDelayMs = 250 } = {}) {
+  let lastErr = null
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await op()
+      if (res?.error && isFetchFailedLikeError(res.error)) {
+        throw res.error
+      }
+      return res
+    } catch (err) {
+      lastErr = err
+      const shouldRetry = isFetchFailedLikeError(err)
+      if (!shouldRetry || attempt >= attempts) break
+      const delay = baseDelayMs * attempt
+      console.warn(`⚠️ ${label} failed with fetch error (attempt ${attempt}/${attempts}). Retrying in ${delay}ms...`)
+      await sleep(delay)
+    }
+  }
+  throw lastErr
+}
+
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY
@@ -6088,20 +6117,26 @@ if (action === "cache-status-by-gender") {
       // (without affecting the other round). Legacy 'individual' generation retains old behavior.
       if (matchType === 'same_gender' || matchType === 'opposite_gender') {
         console.log(`🧹 Clearing existing round ${targetRound} matches for event ${eventId} before insert...`)
-        const { error: clearError } = await supabase
-          .from("match_results")
-          .delete()
-          .eq("match_id", match_id)
-          .eq("event_id", eventId)
-          .eq("round", targetRound)
+        const { error: clearError } = await supabaseRetry(
+          `Clear match_results (round ${targetRound})`,
+          () => supabase
+            .from("match_results")
+            .delete()
+            .eq("match_id", match_id)
+            .eq("event_id", eventId)
+            .eq("round", targetRound)
+        )
         if (clearError) {
           console.error("⚠️ Error clearing previous round matches (continuing):", clearError)
         }
       }
       console.log(`💾 Inserting ${finalMatches.length} new matches for match_id: ${match_id}, event_id: ${eventId}, round: ${targetRound}`)
-      const { error: insertError } = await supabase
-        .from("match_results")
-        .insert(finalMatches)
+      const { error: insertError } = await supabaseRetry(
+        `Insert match_results (count=${finalMatches.length})`,
+        () => supabase
+          .from("match_results")
+          .insert(finalMatches)
+      )
       if (insertError) {
         console.error("🔥 Error inserting matches:", insertError)
         throw insertError
@@ -6211,6 +6246,9 @@ if (action === "cache-status-by-gender") {
     console.error("Error name:", err.name)
     console.error("Error message:", err.message)
     console.error("Error stack:", err.stack)
+    if (err?.cause) {
+      console.error("Error cause:", err.cause)
+    }
     
     // Log additional context
     console.error("Context:")

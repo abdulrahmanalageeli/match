@@ -52,6 +52,33 @@ async function fetchAllCachedPairs(table, participantNumbers, pageSize = 1000) {
   }
   return { data: all, error: null }
 }
+
+async function fetchCachedPairsForOuterParticipants(participantNumbers, outerParticipantNumbers, pageSize = 1000) {
+  const all = []
+  let from = 0
+  if (!participantNumbers?.length || !outerParticipantNumbers?.length) return { data: all, error: null }
+  const outerList = outerParticipantNumbers.join(',')
+
+  for (let page = 0; page < 200; page++) {
+    const { data, error } = await supabase
+      .from('compatibility_cache')
+      .select('participant_a_number, participant_b_number, combined_content_hash')
+      .in('participant_a_number', participantNumbers)
+      .in('participant_b_number', participantNumbers)
+      .or(`participant_a_number.in.(${outerList}),participant_b_number.in.(${outerList})`)
+      .range(from, from + pageSize - 1)
+
+    if (error) {
+      console.error(`❌ fetchCachedPairsForOuterParticipants page ${page} error:`, error)
+      return { data: all, error }
+    }
+    if (!data || data.length === 0) break
+    all.push(...data)
+    if (data.length < pageSize) break
+    from += pageSize
+  }
+  return { data: all, error: null }
+}
  
  
 // -----------------------------------------------------------------------------
@@ -1698,7 +1725,7 @@ GUIDELINES
 
     console.log(`🤖 Calling OpenAI API (model: gpt-4o-mini)...`)
     const apiStartTime = Date.now()
-    
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -1707,6 +1734,8 @@ GUIDELINES
       ],
       max_tokens: 60,
       temperature: 0
+    }, {
+      timeout: 6500
     })
     
     const apiDuration = Date.now() - apiStartTime
@@ -3631,6 +3660,144 @@ if (action === "cache-status-by-gender") {
     return res.status(500).json({ error: err?.message || String(err) })
   }
 }
+
+  if (action === "cache-status-by-gender-batched") {
+    if (!eventId) return res.status(400).json({ error: "eventId is required" })
+
+    const {
+      genderMode,
+      batchStart = 0,
+      batchSize = 10,
+      resumeCursor = null,
+      maxPairsPerRequest = null,
+      maxDurationMs = null,
+    } = req.body || {}
+
+    if (genderMode !== 'same' && genderMode !== 'opposite') {
+      return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
+    }
+
+    CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+    const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const startTime = Date.now()
+
+    try {
+      const { data: allParticipants, error } = await supabase
+        .from("participants")
+        .select("assigned_number, survey_data, mbti_personality_type, attachment_style, communication_style, gender, age, same_gender_preference, any_gender_preference, humor_banter_style, early_openness_comfort, PAID_DONE, signup_for_next_event, auto_signup_next_event, nationality, prefer_same_nationality, preferred_age_min, preferred_age_max, open_age_preference")
+        .eq("match_id", match_id)
+        .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
+        .neq("assigned_number", 9999)
+
+      if (error) throw error
+
+      const participants = (allParticipants || [])
+        .filter(p => isParticipantComplete(p))
+        .sort((a, b) => a.assigned_number - b.assigned_number)
+
+      const totalParticipants = participants.length
+      if (totalParticipants < 2) {
+        CURRENT_MATCH_MODE = null
+        return res.status(400).json({ error: `Need at least 2 eligible participants. Found ${totalParticipants}.` })
+      }
+
+      const safeStart = Math.max(0, Math.min(parseInt(batchStart) || 0, totalParticipants))
+      const safeSize = Math.max(1, Math.min(parseInt(batchSize) || 10, 50))
+      const endExclusive = Math.min(safeStart + safeSize, totalParticipants)
+
+      const effectiveMaxDurationMs = Math.max(500, Math.min(parseInt(maxDurationMs) || 3500, 4500))
+      const effectiveMaxPairs = Math.max(50, Math.min(parseInt(maxPairsPerRequest) || 2500, 25000))
+
+      const participantNumbers = participants.map(p => p.assigned_number)
+      const outerNumbers = participants.slice(safeStart, endExclusive).map(p => p.assigned_number)
+
+      const { data: cachedEntries, error: cachedErr } = await fetchCachedPairsForOuterParticipants(participantNumbers, outerNumbers)
+      if (cachedErr) throw cachedErr
+
+      const cachedScoresMap = new Map()
+      ;(cachedEntries || []).forEach(c => {
+        cachedScoresMap.set(`${c.participant_a_number}-${c.participant_b_number}-${c.combined_content_hash}`, true)
+      })
+
+      let eligiblePairs = 0
+      let alreadyCached = 0
+      let skipped = 0
+      let pairsProcessed = 0
+
+      const isValidCursor = (c) => c && Number.isInteger(c.i) && Number.isInteger(c.j)
+      let cursorI = isValidCursor(resumeCursor) ? resumeCursor.i : safeStart
+      let cursorJ = isValidCursor(resumeCursor) ? resumeCursor.j : (cursorI + 1)
+
+      if (cursorI < safeStart) cursorI = safeStart
+      if (cursorI > endExclusive) cursorI = endExclusive
+
+      let nextResumeCursor = null
+
+      outerLoop:
+      for (let i = cursorI; i < endExclusive; i++) {
+        const jStart = (i === cursorI) ? Math.max(cursorJ, i + 1) : (i + 1)
+        for (let j = jStart; j < totalParticipants; j++) {
+          pairsProcessed++
+          if (pairsProcessed >= effectiveMaxPairs || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+            nextResumeCursor = { i, j }
+            break outerLoop
+          }
+
+          const p1 = participants[i]
+          const p2 = participants[j]
+
+          if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
+          if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
+          if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
+          if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
+
+          eligiblePairs++
+
+          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
+          const cacheKey = generateCacheKey(p1, p2)
+          if (cachedScoresMap.has(`${smaller}-${larger}-${cacheKey.combinedHash}`)) alreadyCached++
+        }
+      }
+
+      if (nextResumeCursor && nextResumeCursor.i >= endExclusive) {
+        nextResumeCursor = null
+      }
+
+      const hasMore = !!nextResumeCursor || endExclusive < totalParticipants
+      const durationMs = Date.now() - startTime
+
+      CURRENT_MATCH_MODE = null
+
+      return res.status(200).json({
+        success: true,
+        gender_mode: genderMode,
+        batch: {
+          start: safeStart,
+          end_exclusive: endExclusive,
+          size: endExclusive - safeStart,
+        },
+        stats: {
+          eligible_pairs: eligiblePairs,
+          already_cached: alreadyCached,
+          skipped,
+          pairs_processed: pairsProcessed,
+          duration_ms: durationMs,
+          cached_rows_scanned: cachedEntries?.length || 0,
+        },
+        progress: {
+          participants_total: totalParticipants,
+          participants_completed: nextResumeCursor ? Math.min(endExclusive, nextResumeCursor.i) : endExclusive,
+          has_more: hasMore,
+          next_batch_start: nextResumeCursor ? safeStart : (endExclusive < totalParticipants ? endExclusive : null),
+          resume_cursor: nextResumeCursor,
+        },
+      })
+    } catch (err) {
+      CURRENT_MATCH_MODE = null
+      console.error("❌ cache-status-by-gender-batched fatal:", err?.message, err?.stack)
+      return res.status(500).json({ error: err?.message || String(err) })
+    }
+  }
 
   // Handle delta-pre-cache action
   if (action === "delta-pre-cache") {

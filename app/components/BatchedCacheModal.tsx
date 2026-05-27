@@ -100,26 +100,67 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
   const fetchStatus = async (mode: GenderMode) => {
     setSide(mode, (p) => ({ ...p, statusLoading: true, lastError: null }))
     try {
-      const res = await fetch("/api/admin/trigger-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "cache-status-by-gender",
-          eventId,
-          genderMode: mode,
-        }),
-      })
-      const data = await readJsonResponse(res)
-      if (!res.ok) throw new Error(data?.error || "Failed to fetch status")
+      let nextStart = 0
+      let resumeCursor: { i: number; j: number } | null = null
+      let participantsTotal: number | null = null
+      let eligiblePairsTotal = 0
+      let alreadyCachedTotal = 0
+
+      while (true) {
+        const res = await fetch("/api/admin/trigger-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "cache-status-by-gender-batched",
+            eventId,
+            genderMode: mode,
+            batchStart: nextStart,
+            batchSize: 10,
+            resumeCursor,
+            maxDurationMs: 3500,
+            maxPairsPerRequest: 2500,
+          }),
+        })
+
+        const data = await readJsonResponse(res)
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || "Failed to fetch status")
+        }
+
+        const stats = data.stats as { eligible_pairs: number; already_cached: number }
+        const progress = data.progress as BatchProgress
+
+        if (participantsTotal == null) participantsTotal = progress.participants_total
+        eligiblePairsTotal += stats.eligible_pairs || 0
+        alreadyCachedTotal += stats.already_cached || 0
+
+        resumeCursor = progress.resume_cursor ?? null
+
+        if (!progress.has_more || progress.next_batch_start == null) break
+
+        if (progress.next_batch_start !== nextStart) {
+          nextStart = progress.next_batch_start
+          resumeCursor = null
+        }
+
+        await new Promise((r) => setTimeout(r, 50))
+      }
+
+      const participants_total = participantsTotal ?? 0
+      const eligible_pairs = eligiblePairsTotal
+      const already_cached = alreadyCachedTotal
+      const to_cache = Math.max(0, eligible_pairs - already_cached)
+      const coverage_percent = eligible_pairs > 0 ? Math.round((already_cached / eligible_pairs) * 100) : 100
+
       setSide(mode, (p) => ({
         ...p,
         statusLoading: false,
         status: {
-          participants_total: data.participants_total,
-          eligible_pairs: data.eligible_pairs,
-          already_cached: data.already_cached,
-          to_cache: data.to_cache,
-          coverage_percent: data.coverage_percent,
+          participants_total,
+          eligible_pairs,
+          already_cached,
+          to_cache,
+          coverage_percent,
         },
       }))
     } catch (err: any) {

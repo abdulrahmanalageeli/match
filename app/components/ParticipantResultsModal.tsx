@@ -35,6 +35,7 @@ interface ParticipantResult {
   paid_done?: boolean
   partner_paid_done?: boolean
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
+  round?: number | null
 }
 
 interface ParticipantResultsModalProps {
@@ -214,7 +215,7 @@ export default function ParticipantResultsModal({
           participant1: participant.assigned_number,
           participant2: participant.partner_assigned_number,
           compatibilityScore: participant.compatibility_score,
-          round: 1,
+          round: participant.round ?? 1,
           reason: "Admin locked from results modal"
         })
       })

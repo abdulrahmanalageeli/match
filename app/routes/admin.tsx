@@ -2860,7 +2860,8 @@ const fetchParticipants = async () => {
               incompatibility_reason: incompatibilityReason,
               paid_done: participantInfo?.paid_done || false,
               partner_paid_done: participantInfoMap.get(match.participant_b_number)?.paid_done || false,
-              humor_early_openness_bonus: match.humor_early_openness_bonus || 'none'
+              humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+              round: match.round ?? null
             })
           }
         }
@@ -2893,7 +2894,8 @@ const fetchParticipants = async () => {
               incompatibility_reason: incompatibilityReason,
               paid_done: participantInfo?.paid_done || false,
               partner_paid_done: participantInfoMap.get(match.participant_a_number)?.paid_done || false,
-              humor_early_openness_bonus: match.humor_early_openness_bonus || 'none'
+              humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
+              round: match.round ?? null
             })
           }
         }
@@ -3859,7 +3861,7 @@ Proceed?`
                         }
                         alert(msg)
                         await fetchParticipants()
-                        await loadDualResults()
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
                       } else {
                         alert(`❌ Failed to generate Same-Gender matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                       }
@@ -3907,7 +3909,7 @@ Proceed?`
                         }
                         alert(msg)
                         await fetchParticipants()
-                        await loadDualResults()
+                        await showParticipantResults(data.results || [], data.count || 0, "ai", data.calculatedPairs || [])
                       } else {
                         alert(`❌ Failed to generate Opposite-Gender matches:\n\n${data.error || "Unknown error"}\n\n${data.details || ''}`)
                       }

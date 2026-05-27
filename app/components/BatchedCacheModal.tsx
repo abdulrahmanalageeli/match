@@ -30,6 +30,17 @@ interface BatchProgress {
   participants_total: number
   has_more: boolean
   next_batch_start: number | null
+  resume_cursor?: { i: number; j: number } | null
+}
+
+async function readJsonResponse(res: Response) {
+  const raw = await res.text()
+  try {
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    const msg = raw?.trim() || `Non-JSON response (HTTP ${res.status})`
+    throw new Error(msg)
+  }
 }
 
 interface SideState {
@@ -98,7 +109,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           genderMode: mode,
         }),
       })
-      const data = await res.json()
+      const data = await readJsonResponse(res)
       if (!res.ok) throw new Error(data?.error || "Failed to fetch status")
       setSide(mode, (p) => ({
         ...p,
@@ -133,6 +144,7 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
     }))
 
     let nextStart = 0
+    let resumeCursor: { i: number; j: number } | null = null
     while (true) {
       const cur = getRef()
       if (cur.cancelRequested) break
@@ -153,10 +165,11 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
             genderMode: mode,
             batchStart: nextStart,
             batchSize,
+            resumeCursor,
             skipAI: false,
           }),
         })
-        const data = await res.json()
+        const data = await readJsonResponse(res)
         if (!res.ok || !data?.success) {
           throw new Error(data?.error || `Batch failed at start=${nextStart}`)
         }
@@ -177,8 +190,14 @@ export default function BatchedCacheModal({ isOpen, onClose, eventId }: BatchedC
           },
         }))
 
+        resumeCursor = progress.resume_cursor ?? null
+
         if (!progress.has_more || progress.next_batch_start == null) break
-        nextStart = progress.next_batch_start
+
+        if (progress.next_batch_start !== nextStart) {
+          nextStart = progress.next_batch_start
+          resumeCursor = null
+        }
 
         // Small breather between batches so the system isn't slammed
         await new Promise((r) => setTimeout(r, 150))

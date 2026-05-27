@@ -3351,7 +3351,15 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "eventId is required" })
     }
 
-    const { genderMode, batchStart = 0, batchSize = 5 } = req.body || {}
+    const {
+      genderMode,
+      batchStart = 0,
+      batchSize = 5,
+      resumeCursor = null,
+      maxPairsPerRequest = null,
+      maxNewCachesPerRequest = null,
+      maxDurationMs = null,
+    } = req.body || {}
 
     if (genderMode !== 'same' && genderMode !== 'opposite') {
       return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
@@ -3395,29 +3403,28 @@ export default async function handler(req, res) {
 
       console.log(`💾 BATCH CACHE [${genderMode}] event=${eventId} participants[${safeStart}..${endExclusive - 1}] of ${totalParticipants}`)
 
-      // BULK CACHE FETCH: Load all cached entries for these participants at once
-      const participantNumbers = participants.map(p => p.assigned_number)
-      const { data: allCachedScores, error: cacheError } = await supabase
-        .from('compatibility_cache')
-        .select('*')
-        .in('participant_a_number', participantNumbers)
-        .in('participant_b_number', participantNumbers)
+      const effectiveMaxDurationMs = Math.max(
+        1000,
+        Math.min(parseInt(maxDurationMs) || 8000, 9000)
+      )
 
-      if (cacheError) {
-        console.error('⚠️ Error fetching cached scores:', cacheError)
-      }
+      // Bounds to keep the function well under serverless timeout.
+      // If AI is enabled, each cache miss may trigger an OpenAI call.
+      const effectiveMaxNewCaches = Math.max(
+        1,
+        Math.min(
+          parseInt(maxNewCachesPerRequest) || (skipAI ? 25 : 2),
+          skipAI ? 500 : 25
+        )
+      )
 
-      // Build in-memory cache map for O(1) lookup
-      const cachedScoresMap = new Map()
-      if (allCachedScores && allCachedScores.length > 0) {
-        allCachedScores.forEach(cache => {
-          const pairKey = `${cache.participant_a_number}-${cache.participant_b_number}-${cache.combined_content_hash}`
-          cachedScoresMap.set(pairKey, cache)
-        })
-        console.log(`✅ Loaded ${cachedScoresMap.size} cached scores into memory`)
-      } else {
-        console.log(`ℹ️ No cached scores found - will calculate all from scratch`)
-      }
+      const effectiveMaxPairs = Math.max(
+        25,
+        Math.min(
+          parseInt(maxPairsPerRequest) || (skipAI ? 1500 : 250),
+          20000
+        )
+      )
 
       let newlyCached = 0
       let alreadyCached = 0
@@ -3425,15 +3432,38 @@ export default async function handler(req, res) {
       let errors = 0
       let pairsProcessed = 0
 
+      const isValidCursor = (c) => c && Number.isInteger(c.i) && Number.isInteger(c.j)
+      let cursorI = isValidCursor(resumeCursor) ? resumeCursor.i : safeStart
+      let cursorJ = isValidCursor(resumeCursor) ? resumeCursor.j : (cursorI + 1)
+
+      if (cursorI < safeStart) cursorI = safeStart
+      if (cursorI > endExclusive) cursorI = endExclusive
+
+      let nextResumeCursor = null
+
+      const makeNextCursor = (i, j) => {
+        const nextJ = j + 1
+        if (nextJ < totalParticipants) return { i, j: nextJ }
+        const nextI = i + 1
+        return { i: nextI, j: nextI + 1 }
+      }
+
       // Outer loop: only the slice of participants assigned to this batch.
       // Inner loop: every j > i (entire remaining pool) — guarantees no
       // duplicate work across batches because each unique pair (i, j) with i<j
       // is processed only when i ∈ [safeStart, endExclusive).
-      for (let i = safeStart; i < endExclusive; i++) {
-        for (let j = i + 1; j < totalParticipants; j++) {
+      outerLoop:
+      for (let i = cursorI; i < endExclusive; i++) {
+        const jStart = (i === cursorI) ? Math.max(cursorJ, i + 1) : (i + 1)
+        for (let j = jStart; j < totalParticipants; j++) {
           const p1 = participants[i]
           const p2 = participants[j]
           pairsProcessed++
+
+          if (pairsProcessed >= effectiveMaxPairs || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+            nextResumeCursor = { i, j }
+            break outerLoop
+          }
 
           // Gender check (mode-aware)
           if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
@@ -3442,35 +3472,36 @@ export default async function handler(req, res) {
           if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
           if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
 
-          // Cache lookup using bulk-fetched map
-          const [smaller, larger] = [p1.assigned_number, p2.assigned_number].sort((x, y) => x - y)
-          const cacheKey = generateCacheKey(p1, p2)
-          const cacheLookupKey = `${smaller}-${larger}-${cacheKey.combinedHash}`
-          const cachedData = cachedScoresMap.get(cacheLookupKey)
-
-          if (cachedData) {
-            alreadyCached++
-            if (alreadyCached % 10 === 0) {
-              console.log(`   ✅ Cache hit #${alreadyCached}: #${p1.assigned_number}×#${p2.assigned_number}`)
-            }
-            continue
-          }
-
-          // Cache miss - calculate and store
           try {
+            const cached = await getCachedCompatibility(p1, p2)
+            if (cached) {
+              alreadyCached++
+              continue
+            }
+
             await calculateFullCompatibilityWithCache(p1, p2, !!skipAI, false)
             newlyCached++
-            if (newlyCached % 5 === 0) {
-              console.log(`   ✅ Batch cached #${newlyCached}: #${p1.assigned_number}×#${p2.assigned_number}`)
+
+            if (newlyCached >= effectiveMaxNewCaches || (Date.now() - startTime) >= effectiveMaxDurationMs) {
+              nextResumeCursor = makeNextCursor(i, j)
+              break outerLoop
             }
           } catch (err) {
             console.error(`   ❌ Batch cache error #${p1.assigned_number}×#${p2.assigned_number}:`, err?.message)
             errors++
+            if ((Date.now() - startTime) >= effectiveMaxDurationMs) {
+              nextResumeCursor = makeNextCursor(i, j)
+              break outerLoop
+            }
           }
         }
       }
 
-      const hasMore = endExclusive < totalParticipants
+      if (nextResumeCursor && nextResumeCursor.i >= endExclusive) {
+        nextResumeCursor = null
+      }
+
+      const hasMore = !!nextResumeCursor || endExclusive < totalParticipants
       const durationMs = Date.now() - startTime
 
       console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
@@ -3495,10 +3526,11 @@ export default async function handler(req, res) {
           duration_ms: durationMs,
         },
         progress: {
-          participants_completed: endExclusive,
+          participants_completed: nextResumeCursor ? Math.min(endExclusive, nextResumeCursor.i) : endExclusive,
           participants_total: totalParticipants,
           has_more: hasMore,
-          next_batch_start: hasMore ? endExclusive : null,
+          next_batch_start: nextResumeCursor ? safeStart : (endExclusive < totalParticipants ? endExclusive : null),
+          resume_cursor: nextResumeCursor,
         },
       })
     } catch (err) {
@@ -5217,13 +5249,8 @@ if (action === "cache-status-by-gender") {
     // This replaces hundreds of individual cache queries with ONE bulk query
     console.log(`💾 Bulk fetching cached compatibility scores for all potential pairs...`)
     const cacheStartTime = Date.now()
-    
-    const { data: allCachedScores, error: cacheError } = await supabase
-      .from("compatibility_cache")
-      .select("*")
-      .in("participant_a_number", numbers)
-      .in("participant_b_number", numbers)
-    
+
+    const { data: allCachedScores, error: cacheError } = await fetchAllCachedPairs('compatibility_cache', numbers)
     if (cacheError) {
       console.error("⚠️ Error fetching cached scores:", cacheError)
       console.log("⚠️ Continuing without cache optimization...")

@@ -35,15 +35,21 @@ async function fetchAllCachedPairs(table, participantNumbers, pageSize = 1000) {
   let from = 0
   // Safety cap: 200 pages × 1000 rows = 200k rows; way more than realistic.
   for (let page = 0; page < 200; page++) {
-    const { data, error } = await supabase
-      .from(table)
-      .select('*')
-      .in('participant_a_number', participantNumbers)
-      .in('participant_b_number', participantNumbers)
-      .order('participant_a_number', { ascending: true })
-      .order('participant_b_number', { ascending: true })
-      .order('combined_content_hash', { ascending: true })
-      .range(from, from + pageSize - 1)
+    let data, error
+    try {
+      ;({ data, error } = await supabase
+        .from(table)
+        .select('*')
+        .in('participant_a_number', participantNumbers)
+        .in('participant_b_number', participantNumbers)
+        .order('participant_a_number', { ascending: true })
+        .order('participant_b_number', { ascending: true })
+        .order('combined_content_hash', { ascending: true })
+        .range(from, from + pageSize - 1))
+    } catch (e) {
+      console.error(`❌ fetchAllCachedPairs(${table}) page ${page} exception:`, e)
+      return { data: all, error: e }
+    }
     if (error) {
       console.error(`❌ fetchAllCachedPairs(${table}) page ${page} error:`, error)
       return { data: all, error }
@@ -63,16 +69,22 @@ async function fetchCachedPairsForOuterParticipants(participantNumbers, outerPar
   const outerList = outerParticipantNumbers.join(',')
 
   for (let page = 0; page < 200; page++) {
-    const { data, error } = await supabase
-      .from('compatibility_cache')
-      .select('participant_a_number, participant_b_number, combined_content_hash')
-      .in('participant_a_number', participantNumbers)
-      .in('participant_b_number', participantNumbers)
-      .or(`participant_a_number.in.(${outerList}),participant_b_number.in.(${outerList})`)
-      .order('participant_a_number', { ascending: true })
-      .order('participant_b_number', { ascending: true })
-      .order('combined_content_hash', { ascending: true })
-      .range(from, from + pageSize - 1)
+    let data, error
+    try {
+      ;({ data, error } = await supabase
+        .from('compatibility_cache')
+        .select('participant_a_number, participant_b_number, combined_content_hash')
+        .in('participant_a_number', participantNumbers)
+        .in('participant_b_number', participantNumbers)
+        .or(`participant_a_number.in.(${outerList}),participant_b_number.in.(${outerList})`)
+        .order('participant_a_number', { ascending: true })
+        .order('participant_b_number', { ascending: true })
+        .order('combined_content_hash', { ascending: true })
+        .range(from, from + pageSize - 1))
+    } catch (e) {
+      console.error(`❌ fetchCachedPairsForOuterParticipants page ${page} exception:`, e)
+      return { data: all, error: e }
+    }
 
     if (error) {
       console.error(`❌ fetchCachedPairsForOuterParticipants page ${page} error:`, error)

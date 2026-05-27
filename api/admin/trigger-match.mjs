@@ -40,6 +40,9 @@ async function fetchAllCachedPairs(table, participantNumbers, pageSize = 1000) {
       .select('*')
       .in('participant_a_number', participantNumbers)
       .in('participant_b_number', participantNumbers)
+      .order('participant_a_number', { ascending: true })
+      .order('participant_b_number', { ascending: true })
+      .order('combined_content_hash', { ascending: true })
       .range(from, from + pageSize - 1)
     if (error) {
       console.error(`❌ fetchAllCachedPairs(${table}) page ${page} error:`, error)
@@ -66,6 +69,9 @@ async function fetchCachedPairsForOuterParticipants(participantNumbers, outerPar
       .in('participant_a_number', participantNumbers)
       .in('participant_b_number', participantNumbers)
       .or(`participant_a_number.in.(${outerList}),participant_b_number.in.(${outerList})`)
+      .order('participant_a_number', { ascending: true })
+      .order('participant_b_number', { ascending: true })
+      .order('combined_content_hash', { ascending: true })
       .range(from, from + pageSize - 1)
 
     if (error) {
@@ -659,19 +665,20 @@ function calculateIntentGoalScore(participantA, participantB) {
 }
 
 // Function to check gender compatibility with support for any_gender_preference
-function checkGenderCompatibility(participantA, participantB) {
+function checkGenderCompatibility(participantA, participantB, forcedMode = null) {
   const genderA = participantA.gender || participantA.survey_data?.gender
   const genderB = participantB.gender || participantB.survey_data?.gender
 
   // FORCED MODE: round-based matching ignores participant gender preferences
-  if (CURRENT_MATCH_MODE === 'same_gender') {
+  const effectiveMode = forcedMode || CURRENT_MATCH_MODE
+  if (effectiveMode === 'same_gender') {
     if (!genderA || !genderB) return false
     const ok = String(genderA).toLowerCase() === String(genderB).toLowerCase()
     if (ok) console.log(`✅ FORCED same-gender (R1): #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
     else console.log(`🚫 FORCED same-gender violated: #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
     return ok
   }
-  if (CURRENT_MATCH_MODE === 'opposite_gender') {
+  if (effectiveMode === 'opposite_gender') {
     if (!genderA || !genderB) return false
     const ok = String(genderA).toLowerCase() !== String(genderB).toLowerCase()
     if (ok) console.log(`✅ FORCED opposite-gender (R2): #${participantA.assigned_number} (${genderA}) × #${participantB.assigned_number} (${genderB})`)
@@ -3274,8 +3281,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
     }
 
-    // Activate forced gender mode so checkGenderCompatibility honors it
-    CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+    // Use request-local forced mode to avoid cross-request global races
+    const forcedGenderMode = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
 
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
     const startTime = Date.now()
@@ -3375,7 +3382,7 @@ export default async function handler(req, res) {
           }
 
           // Gender check (mode-aware)
-          if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
+          if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) { skipped++; continue }
           // Other hard gates
           if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
           if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
@@ -3414,9 +3421,6 @@ export default async function handler(req, res) {
       const durationMs = Date.now() - startTime
 
       console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
-
-      // Reset mode flag before returning
-      CURRENT_MATCH_MODE = null
 
       return res.status(200).json({
         success: true,
@@ -3466,8 +3470,8 @@ if (action === "cache-status-by-gender") {
   if (genderMode !== 'same' && genderMode !== 'opposite') {
     return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
   }
- 
-  CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+
+  const forcedGenderMode = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
   const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
  
   try {
@@ -3490,7 +3494,7 @@ if (action === "cache-status-by-gender") {
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         const p1 = participants[i]; const p2 = participants[j]
-        if (!checkGenderCompatibility(p1, p2)) continue
+        if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) continue
         if (!checkNationalityHardGate(p1, p2)) continue
         if (!checkAgeRangeHardGate(p1, p2)) continue
         if (!checkAgeCompatibility(p1, p2)) continue
@@ -3509,7 +3513,7 @@ if (action === "cache-status-by-gender") {
     for (let i = 0; i < participants.length; i++) {
       for (let j = i + 1; j < participants.length; j++) {
         const p1 = participants[i]; const p2 = participants[j]
-        if (!checkGenderCompatibility(p1, p2)) continue
+        if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) continue
         if (!checkNationalityHardGate(p1, p2)) continue
         if (!checkAgeRangeHardGate(p1, p2)) continue
         if (!checkAgeCompatibility(p1, p2)) continue
@@ -3521,9 +3525,7 @@ if (action === "cache-status-by-gender") {
     }
  
     const toCache = eligiblePairs - alreadyCached
-    console.warn(`📊 STATUS [${CURRENT_MATCH_MODE}] participants=${participants.length} eligible=${eligiblePairs} cached=${alreadyCached} to_cache=${toCache} total_rows_in_table=${cachedEntries?.length || 0}`)
- 
-    CURRENT_MATCH_MODE = null
+    console.warn(`📊 STATUS [${forcedGenderMode}] participants=${participants.length} eligible=${eligiblePairs} cached=${alreadyCached} to_cache=${toCache} total_rows_in_table=${cachedEntries?.length || 0}`)
  
     return res.status(200).json({
       success: true,
@@ -3535,7 +3537,6 @@ if (action === "cache-status-by-gender") {
       coverage_percent: eligiblePairs > 0 ? Math.round((alreadyCached / eligiblePairs) * 100) : 100,
     })
 } catch (err) {
-    CURRENT_MATCH_MODE = null
     console.error("❌ cache-status-by-gender fatal:", err?.message, err?.stack)
     return res.status(500).json({ error: err?.message || String(err) })
   }
@@ -3557,7 +3558,7 @@ if (action === "cache-status-by-gender") {
       return res.status(400).json({ error: "genderMode must be 'same' or 'opposite'" })
     }
 
-    CURRENT_MATCH_MODE = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
+    const forcedGenderMode = genderMode === 'same' ? 'same_gender' : 'opposite_gender'
     const match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
     const startTime = Date.now()
 
@@ -3626,7 +3627,7 @@ if (action === "cache-status-by-gender") {
           const p1 = participants[i]
           const p2 = participants[j]
 
-          if (!checkGenderCompatibility(p1, p2)) { skipped++; continue }
+          if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) { skipped++; continue }
           if (!checkNationalityHardGate(p1, p2)) { skipped++; continue }
           if (!checkAgeRangeHardGate(p1, p2)) { skipped++; continue }
           if (!checkAgeCompatibility(p1, p2)) { skipped++; continue }
@@ -3645,8 +3646,6 @@ if (action === "cache-status-by-gender") {
 
       const hasMore = !!nextResumeCursor || endExclusive < totalParticipants
       const durationMs = Date.now() - startTime
-
-      CURRENT_MATCH_MODE = null
 
       return res.status(200).json({
         success: true,
@@ -3673,7 +3672,6 @@ if (action === "cache-status-by-gender") {
         },
       })
     } catch (err) {
-      CURRENT_MATCH_MODE = null
       console.error("❌ cache-status-by-gender-batched fatal:", err?.message, err?.stack)
       return res.status(500).json({ error: err?.message || String(err) })
     }

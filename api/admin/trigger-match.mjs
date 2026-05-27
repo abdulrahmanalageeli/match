@@ -1368,59 +1368,6 @@ async function storeGroupCachedCompatibility(participantA, participantB, payload
  
  
 
-
-
-// Function to store compatibility result in GROUP cache table (compatibility_cache_groups)
-async function storeGroupCachedCompatibility(participantA, participantB, payload) {
-  try {
-    if (SKIP_DB_WRITES) { console.log('🧪 Preview mode: skip group cache store'); return }
-    const [smaller, larger] = [participantA.assigned_number, participantB.assigned_number].sort((a, b) => a - b)
-    const cacheKey = payload.cacheKey || generateCacheKey(participantA, participantB)
-
-    console.log(`💾 Storing GROUP cache for #${smaller}-#${larger}...`)
-    // Determine humor bonus text from multiplier
-    let bonusType = 'none'
-    const humorMultiplier = checkHumorMatch(participantA, participantB)
-    if (humorMultiplier === 1.15) bonusType = 'full'
-    else if (humorMultiplier === 1.05) bonusType = 'partial'
-
-    await supabase
-      .from('compatibility_cache_groups')
-      .upsert({
-        participant_a_number: smaller,
-        participant_b_number: larger,
-        combined_content_hash: cacheKey.combinedHash,
-        vibe_content_hash: cacheKey.vibeHash,
-        mbti_hash: cacheKey.mbtiHash,
-        attachment_hash: cacheKey.attachmentHash,
-        communication_hash: cacheKey.communicationHash,
-        lifestyle_hash: cacheKey.lifestyleHash,
-        core_values_hash: cacheKey.coreValuesHash,
-        synergy_hash: cacheKey.synergyHash,
-        ai_vibe_score: payload.vibeScore,
-        mbti_score: payload.mbtiScore,
-        attachment_score: payload.attachmentScore,
-        communication_score: payload.communicationScore,
-        lifestyle_score: payload.lifestyleScore,
-        core_values_score: payload.coreValuesScore,
-        interaction_synergy_score: payload.synergyScore ?? 0,
-        intent_goal_score: payload.intentScore ?? 0,
-        total_compatibility_score: payload.totalScore,
-        humor_multiplier: humorMultiplier,
-        humor_early_openness_bonus: bonusType,
-        use_count: 1,
-        last_used: new Date().toISOString(),
-        participant_a_cached_at: new Date().toISOString(),
-        participant_b_cached_at: new Date().toISOString()
-      })
-      .select()
-
-    console.log(`   ✅ GROUP cache stored successfully: #${smaller}-#${larger}`)
-  } catch (e) {
-    console.error('   ❌ GROUP cache store error:', e)
-  }
-}
-
 // Function to check HUMOR style match only → 1.05x if humor matches, else 1.0
 function checkHumorMatch(participantA, participantB) {
   const humorA = participantA.humor_banter_style || 

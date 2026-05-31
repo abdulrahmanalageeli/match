@@ -382,11 +382,6 @@ export default function WelcomePage() {
     return sliderOk && wantOk
   }
 
-  useEffect(() => {
-    setWantMatch(null)
-    setPartnerInfo(null)
-  }, [currentRound])
-
 
   const searchParams = useSearchParams()[0]
   const token = searchParams.get("token")
@@ -617,6 +612,11 @@ export default function WelcomePage() {
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showRound1Guide, setShowRound1Guide] = useState(false);
+
+  useEffect(() => {
+    setWantMatch(null)
+    setPartnerInfo(null)
+  }, [currentRound])
   
   // Overlay recompute mounts and updates (moved here to avoid TDZ on currentQuestionIndex)
   useIsomorphicLayoutEffect(() => {

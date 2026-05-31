@@ -8544,6 +8544,26 @@ export default function WelcomePage() {
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
                   }`}>
+                    {(currentRound === 1 || currentRound === 2) && (
+                      <div className="flex justify-center mb-3">
+                        <span
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border shadow-sm tracking-wide ${
+                            currentRound === 1
+                              ? dark
+                                ? "bg-gradient-to-r from-cyan-600/25 to-emerald-600/20 text-cyan-100 border-cyan-400/30"
+                                : "bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-800 border-cyan-200"
+                              : dark
+                                ? "bg-gradient-to-r from-pink-600/25 to-purple-600/20 text-pink-100 border-pink-400/30"
+                                : "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200"
+                          }`}
+                          aria-label={currentRound === 1 ? "مطابقة نفس الجنس" : "مطابقة الجنس الآخر"}
+                          title={currentRound === 1 ? "Same-gender match" : "Opposite-gender match"}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${currentRound === 1 ? "bg-cyan-400" : "bg-pink-400"}`} />
+                          <span>{currentRound === 1 ? "نفس الجنس" : "الجنس الآخر"}</span>
+                        </span>
+                      </div>
+                    )}
                     {/* Partner & Table Info - Single Row */}
                     <div className="flex items-center justify-between gap-4">
                       {/* Partner Info */}
@@ -8619,7 +8639,7 @@ export default function WelcomePage() {
                   </div>
 
                   {/* Discussion button above (tabs moved inside the box) */}
-                  {currentRound === 1 && (
+                  {(currentRound === 1 || currentRound === 2) && (
                     <div className="relative z-10 flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
@@ -8645,7 +8665,7 @@ export default function WelcomePage() {
                   </Suspense>
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
-                  {currentRound === 1 ? (
+                  {(currentRound === 1 || currentRound === 2) ? (
                     <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
@@ -9056,6 +9076,26 @@ onClick={() => {
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
                   }`}>
+                    {(currentRound === 1 || currentRound === 2) && (
+                      <div className="flex justify-center mb-3">
+                        <span
+                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border shadow-sm tracking-wide ${
+                            currentRound === 1
+                              ? dark
+                                ? "bg-gradient-to-r from-cyan-600/25 to-emerald-600/20 text-cyan-100 border-cyan-400/30"
+                                : "bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-800 border-cyan-200"
+                              : dark
+                                ? "bg-gradient-to-r from-pink-600/25 to-purple-600/20 text-pink-100 border-pink-400/30"
+                                : "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200"
+                          }`}
+                          aria-label={currentRound === 1 ? "مطابقة نفس الجنس" : "مطابقة الجنس الآخر"}
+                          title={currentRound === 1 ? "Same-gender match" : "Opposite-gender match"}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${currentRound === 1 ? "bg-cyan-400" : "bg-pink-400"}`} />
+                          <span>{currentRound === 1 ? "نفس الجنس" : "الجنس الآخر"}</span>
+                        </span>
+                      </div>
+                    )}
                     {/* Partner & Table Info - Single Row */}
                     <div className="flex items-center justify-between gap-4">
                       {/* Partner Info */}
@@ -9131,7 +9171,7 @@ onClick={() => {
                   </div>
 
                   {/* Discussion button above (tabs moved inside the box) */}
-                  {currentRound === 1 && (
+                  {(currentRound === 1 || currentRound === 2) && (
                     <div className="relative z-10 flex flex-col items-center gap-3 mb-4">
                       <button
                         onClick={() => setShowPromptTopicsModal(true)}
@@ -9149,7 +9189,7 @@ onClick={() => {
                   )}
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
-                  {currentRound === 1 && (
+                  {(currentRound === 1 || currentRound === 2) && (
                     <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
                       currentQuestions[currentQuestionIndex].level === 0
                         ? dark 

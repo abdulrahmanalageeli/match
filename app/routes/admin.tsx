@@ -3685,19 +3685,24 @@ Proceed?`
                     if (res.ok) {
                       toast.success(`Phase advanced to ${data.new_phase}. All players instantly transition to new phase!`)
                       
-                      // Show timer reminder if advancing to round phase
-                      if (data.new_phase === "round") {
+                      // Show timer reminder for phases that require a timer
+                      const phaseToRound = (p: string) => {
+                        if (p === "group_phase") return 0
+                        if (p && p.startsWith("round_")) return parseInt(p.split("_")[1])
+                        return null
+                      }
+                      const roundToStart = phaseToRound(data.new_phase)
+                      if (roundToStart !== null && Number.isFinite(roundToStart)) {
                         setTimeout(() => {
+                          const label = roundToStart === 0 ? "Group phase" : `Round ${roundToStart}`
                           const shouldStartTimer = confirm(
                             "⏰ REMINDER: Start Timer?\n\n" +
-                            "You've advanced to Round phase.\n\n" +
+                            `You've advanced to ${label}.\n\n` +
                             "Don't forget to start the timer for participants!\n\n" +
-                            "Click OK to start Round 1 timer now, or Cancel to start it manually later."
+                            `Click OK to start the timer for ${label} now, or Cancel to start it manually later.`
                           )
-                          
                           if (shouldStartTimer) {
-                            // Trigger the start timer function for Round 1
-                            startGlobalTimer(1)
+                            startGlobalTimer(roundToStart)
                           }
                         }, 1000)
                       }

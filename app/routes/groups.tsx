@@ -1614,7 +1614,7 @@ export default function GroupsPage() {
         if (!res.ok) return;
         const data = await res.json();
         const phase = data?.phase || null;
-        const round = data?.current_round || null;
+        const round = data?.current_round ?? null;
         const locked = data?.groups_locked === true;
         if (mounted) {
           if (typeof locked === 'boolean') setGroupsLocked(locked);
@@ -1751,7 +1751,7 @@ export default function GroupsPage() {
         if (stateRes.ok) {
           const s = await stateRes.json();
           const phaseNow = s?.phase || null;
-          const roundNow = s?.current_round || null;
+          const roundNow = s?.current_round ?? null;
           if (phaseNow && /^round_/i.test(phaseNow) && data?.secure_token) {
             window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}`;
           }
@@ -1888,7 +1888,7 @@ export default function GroupsPage() {
         if (stateRes.ok) {
           const s = await stateRes.json();
           const phaseNow = s?.phase || null;
-          const roundNow = s?.current_round || null;
+          const roundNow = s?.current_round ?? null;
           if (phaseNow && /^round_/i.test(phaseNow) && data?.secure_token) {
             window.location.href = `/welcome?token=${encodeURIComponent(data.secure_token)}`;
           }

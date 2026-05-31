@@ -227,7 +227,7 @@ export default function WelcomePage() {
   const [matchResult, setMatchResult] = useState<string | null>(null)
   const [matchReason, setMatchReason] = useState<string>("")
   const [isRepeatMatch, setIsRepeatMatch] = useState<boolean>(false)
-  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | /* "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
+  const [phase, setPhase] = useState<"registration" | "form" | "waiting" | "round_1" | "waiting_2" | "round_2" | "group_phase" | /* "waiting_3" | "round_3" | "waiting_4" | "round_4" | "group_phase" | */ null>(null)
   const [tableNumber, setTableNumber] = useState<number | null>(null)
   const [compatibilityScore, setCompatibilityScore] = useState<number | null>(null)
   const [humorBonus, setHumorBonus] = useState<'full' | 'partial' | 'none'>('none')
@@ -1803,8 +1803,8 @@ export default function WelcomePage() {
           } else {
             const eventData = await res2.json();
             setPhase(eventData.phase || "registration");
-            setCurrentRound(eventData.current_round || 1);
-            setTotalRounds(eventData.total_rounds || 4);
+            setCurrentRound(eventData.current_round ?? 1);
+            setTotalRounds(eventData.total_rounds ?? 4);
             setCurrentEventId(eventData.current_event_id || 1);
             setIsRepeatMatch(false);
             
@@ -1914,11 +1914,11 @@ export default function WelcomePage() {
                   }
                 } else if (eventData.phase && eventData.phase.startsWith("waiting_")) {
                   setStep(3); // Show analysis/waiting
-                // } else if (eventData.phase === "group_phase") {
-                //   setStep(7); // Show group phase
-                //   // Fetch group matches when loading in group phase
-                //   console.log("🎯 Initial load: Fetching group matches for group_phase")
-                //   fetchGroupMatches();
+                } else if (eventData.phase === "group_phase") {
+                  setStep(7); // Show group phase
+                  // Fetch group matches when loading in group phase
+                  console.log("🎯 Initial load: Fetching group matches for group_phase")
+                  fetchGroupMatches();
                 } else if (eventData.phase === "waiting") {
                   // User completed form and we're in waiting phase
                   setStep(3); // Show analysis/waiting
@@ -2322,8 +2322,8 @@ export default function WelcomePage() {
         // Handle step transitions based on phase changes
         if (assignedNumber) {
           // Update current round and total rounds for ALL phase changes
-          setCurrentRound(data.current_round || 1);
-          setTotalRounds(data.total_rounds || 4);
+          setCurrentRound(data.current_round ?? 1);
+          setTotalRounds(data.total_rounds ?? 4);
           setIsRepeatMatch(false);
           
           console.log(`🔄 Polling detected phase: ${data.phase}, current step: ${step}`);
@@ -2474,37 +2474,34 @@ export default function WelcomePage() {
             lastPhaseRef.current = data.phase;
             
             console.log(`✅ Successfully transitioned to ${data.phase}`);
-        // } else if (data.phase === "group_phase") {
-        //     // Group phase - only reset if actually transitioning TO group phase
-        //     if (lastPhaseRef.current !== "group_phase") {
-        //       console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
-        //     setStep(7);
-        //     // Only reset timer if not in global timer mode
-        //     if (!globalTimerActive && !timerRestored) {
-        //       setConversationTimer(1800);
-        //       setConversationStarted(false);
-        //       setModalStep(null);
-        //       setIsScoreRevealed(false);
-        //       setTimerEnded(false);
-        //       setPartnerStartedTimer(false);
-        //       setPartnerEndedTimer(false);
-        //       setShowConversationStarters(false);
-        //       setConversationStarters([]);
-        //       setGeneratingStarters(false);
-        //       setShowHistory(false);
-        //       setShowHistoryDetail(false);
-        //       setSelectedHistoryItem(null);
-        //       setAnimationStep(0);
-        //     } else {
-        //       console.log("🔄 Skipping timer reset in group phase - global timer active or timer was restored");
-        //     }
-        //     fetchGroupMatches();
-        //       
-        //       lastPhaseRef.current = "group_phase";
-        //       console.log(`✅ Successfully transitioned to group_phase`);
-        //     } else {
-        //       console.log(`🔄 Already in group_phase, maintaining current timer state`);
-        //     }
+          } else if (data.phase === "group_phase") {
+            // Group phase
+            if (lastPhaseRef.current !== "group_phase") {
+              console.log(`🔄 Group phase change detected: ${lastPhaseRef.current} → group_phase (from step ${step})`);
+              setStep(7);
+              if (!globalTimerActive && !timerRestored) {
+                setConversationTimer(1800);
+                setConversationStarted(false);
+                setModalStep(null);
+                setIsScoreRevealed(false);
+                setTimerEnded(false);
+                setPartnerStartedTimer(false);
+                setPartnerEndedTimer(false);
+                setShowConversationStarters(false);
+                setConversationStarters([]);
+                setGeneratingStarters(false);
+                setShowHistory(false);
+                setShowHistoryDetail(false);
+                setSelectedHistoryItem(null);
+                setAnimationStep(0);
+              } else {
+                console.log("🔄 Skipping timer reset in group phase - global timer active or timer was restored");
+              }
+              await fetchGroupMatches();
+              lastPhaseRef.current = "group_phase";
+              lastRoundRef.current = 0;
+              console.log(`✅ Successfully transitioned to group_phase`);
+            }
           } else if (data.phase === "waiting") {
             // General waiting phase
             console.log(`🔄 General waiting phase change detected (from step ${step})`);
@@ -4849,7 +4846,7 @@ export default function WelcomePage() {
           assigned_number: assignedNumber,
           round: round,
           duration: duration,
-          // match_type: phase === "group_phase" ? "محايد" : "محايد"
+          match_type: round === 0 ? "محايد" : "individual"
         }),
       });
       
@@ -4885,7 +4882,7 @@ export default function WelcomePage() {
           action: "get-status",
           assigned_number: assignedNumber,
           round: round,
-          // match_type: phase === "group_phase" ? "محايد" : "محايد"
+          match_type: round === 0 ? "محايد" : "individual"
         }),
       });
       
@@ -4913,7 +4910,7 @@ export default function WelcomePage() {
           action: "finish",
           assigned_number: assignedNumber,
           round: round,
-          // match_type: phase === "group_phase" ? "محايد" : "محايد"
+          match_type: round === 0 ? "محايد" : "individual"
         }),
       });
       
@@ -5101,7 +5098,7 @@ export default function WelcomePage() {
 
   // Start database timer when conversation starts (disabled when global timer is active)
   useEffect(() => {
-    if (!assignedNumber || !currentRound || !conversationStarted || globalTimerActive) return;
+    if (!assignedNumber || currentRound === null || currentRound === undefined || !conversationStarted || globalTimerActive) return;
     
     const startTimer = async () => {
       try {
@@ -5121,7 +5118,7 @@ export default function WelcomePage() {
 
   // Reset timer state when round changes (but don't interfere with global timer or restored timer)
   useEffect(() => {
-    if (assignedNumber && currentRound && !globalTimerActive && !timerRestored) {
+    if (assignedNumber && currentRound !== null && currentRound !== undefined && !globalTimerActive && !timerRestored) {
       setConversationTimer(1800);
       setConversationStarted(false);
       setTimerEnded(false);
@@ -7584,7 +7581,7 @@ export default function WelcomePage() {
     )
   }
   
-    if (!isResolving && (phase === "round_1" || phase === "round_2" || /* phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
+    if (!isResolving && (phase === "group_phase" || phase === "round_1" || phase === "round_2" || /* phase === "round_3" || phase === "round_4" || phase === "group_phase" || */ false) && step === 0) {
   return (
       <>
         <NavigationBar />

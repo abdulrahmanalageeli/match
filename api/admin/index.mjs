@@ -1098,8 +1098,8 @@ export default async function handler(req, res) {
           announcement_time: data.announcement_time,
           emergency_paused: data.emergency_paused || false,
           pause_time: data.pause_time,
-          current_round: data.current_round || 1,
-          total_rounds: data.total_rounds || 4,
+          current_round: data.current_round ?? 1,
+          total_rounds: data.total_rounds ?? 4,
           current_event_id: data.current_event_id || 1,
           global_timer_active: data.global_timer_active || false,
           global_timer_start_time: data.global_timer_start_time,
@@ -1155,7 +1155,7 @@ export default async function handler(req, res) {
           }
 
           const currentPhase = eventState?.phase || "registration"
-          const currentRound = eventState?.current_round || 1
+          const currentRound = eventState?.current_round ?? 1
 
           console.log("Current phase:", currentPhase, "Current round:", currentRound);
 
@@ -1296,9 +1296,9 @@ export default async function handler(req, res) {
       if (action === "advance-phase") {
         const { currentPhase } = req.body
         
-        // Two-round flow: registration → form → waiting → round_1 (same-gender) → waiting_2 → round_2 (opposite-gender)
+        // Two-round flow: registration → form → waiting → group_phase → round_1 (same-gender) → waiting_2 → round_2 (opposite-gender)
         const phaseOrder = [
-          "registration", "form", "waiting", "round_1", "waiting_2", "round_2"
+          "registration", "form", "waiting", "group_phase", "round_1", "waiting_2", "round_2"
           /* "waiting_3", "round_3", "waiting_4", "round_4", "group_phase" */
         ]
         
@@ -1308,7 +1308,12 @@ export default async function handler(req, res) {
         }
         
         const nextPhase = currentIndex < phaseOrder.length - 1 ? phaseOrder[currentIndex + 1] : currentPhase
-        const currentRound = nextPhase.startsWith("round_") ? parseInt(nextPhase.split('_')[1]) : 1
+        let currentRound = 1
+        if (nextPhase === 'group_phase') {
+          currentRound = 0
+        } else if (nextPhase.startsWith('round_') || nextPhase.startsWith('waiting_')) {
+          currentRound = parseInt(nextPhase.split('_')[1])
+        }
         
         const { error } = await supabase
           .from("event_state")

@@ -77,12 +77,11 @@ export default async function handler(req, res) {
           }
         }
 
-        // Group matches from match_results table (round = 0 for group phase)
+        // Group matches from group_matches table
         const { data: groupMatches, error: groupError } = await supabase
-          .from("match_results")
-          .select("*")
+          .from("group_matches")
+          .select("group_id, group_number, table_number, participant_numbers, participant_names, compatibility_score, reason")
           .eq("match_id", match_id)
-          .eq("round", 0) // Group phase round
 
         if (groupError) {
           console.error("Group match error (matrix):", groupError)
@@ -90,17 +89,9 @@ export default async function handler(req, res) {
         }
 
         const groupResults = (groupMatches || []).map(match => {
-          const allParticipants = [
-            match.participant_a_number, 
-            match.participant_b_number, 
-            match.participant_c_number, 
-            match.participant_d_number,
-            match.participant_e_number,  // New fallback participant
-            match.participant_f_number   // New fallback participant
-          ].filter(n => n && n > 0 && n !== 9999)
-          
+          const allParticipants = (match.participant_numbers || []).filter(n => n && n > 0 && n !== 9999)
           return {
-            group_id: `group_${match.group_number}`,
+            group_id: match.group_id || `group_${match.group_number}`,
             participants: allParticipants,
             reason: match.reason || "السبب غير متوفر",
             score: match.compatibility_score ?? 0,
@@ -121,14 +112,14 @@ export default async function handler(req, res) {
       }
 
       if (match_type === "محايد" && round === 0) {
-        // Get group matches from match_results table (round = 0 for group phase)
+        const assignedNum = Number.parseInt(String(assigned_number), 10)
+        // Get group matches from group_matches table
         const { data: groupMatches, error: groupError } = await supabase
-          .from("match_results")
-          .select("*")
+          .from("group_matches")
+          .select("group_id, group_number, participant_numbers, participant_names, table_number, compatibility_score, reason")
           .eq("match_id", match_id)
           .eq("event_id", currentEventId)
-          .eq("round", 0) // Group phase round
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
+          .contains('participant_numbers', [assignedNum])
 
         if (groupError) {
           console.error("Group match error:", groupError)
@@ -136,18 +127,11 @@ export default async function handler(req, res) {
         }
 
         const results = (groupMatches || []).map(match => {
-          const allParticipants = [
-            match.participant_a_number, 
-            match.participant_b_number, 
-            match.participant_c_number, 
-            match.participant_d_number,
-            match.participant_e_number,  // New fallback participant
-            match.participant_f_number   // New fallback participant
-          ].filter(n => n && n > 0 && n !== 9999)
-          const otherParticipants = allParticipants.filter(p => p !== assigned_number)
+          const allParticipants = (match.participant_numbers || []).filter(n => n && n > 0 && n !== 9999)
+          const otherParticipants = allParticipants.filter(p => p !== assignedNum)
           
           return {
-            group_id: `group_${match.group_number}`,
+            group_id: match.group_id || `group_${match.group_number}`,
             participants: otherParticipants,
             reason: match.reason || "السبب غير متوفر",
             score: match.compatibility_score ?? 0,
@@ -249,6 +233,7 @@ export default async function handler(req, res) {
 async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
   const { action, assigned_number, round, match_type = "individual", event_id } = req.body
   const effectiveEventId = event_id || currentEventId || 1
+  const assignedNum = Number.parseInt(String(assigned_number), 10)
 
   try {
     if (action === "start") {
@@ -263,12 +248,11 @@ async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
       if (match_type === "محايد" && round === 0) {
         // Update group match timer - only if not already active
         const { data: existingGroup, error: checkError } = await supabase
-          .from("match_results")
-          .select("conversation_status, conversation_start_time")
+          .from("group_matches")
+          .select("id, conversation_status, conversation_start_time, conversation_duration")
           .eq("match_id", match_id)
           .eq("event_id", effectiveEventId)
-          .eq("round", 0)
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
+          .contains('participant_numbers', [assignedNum])
           .single()
 
         if (checkError && checkError.code !== 'PGRST116') { // PGRST116 is "not found"
@@ -276,14 +260,18 @@ async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
           return res.status(500).json({ error: "Failed to check group timer status" })
         }
 
+        if (!existingGroup) {
+          return res.status(404).json({ error: "Group match not found" })
+        }
+
         // Only start if not already active or if timer has finished
         if (existingGroup && existingGroup.conversation_status === 'active' && existingGroup.conversation_start_time) {
           // Timer already active, return current status
-          const remaining = calculateRemainingTime(existingGroup.conversation_start_time, duration)
+          const remaining = calculateRemainingTime(existingGroup.conversation_start_time, existingGroup.conversation_duration || duration)
           return res.status(200).json({ 
             success: true, 
             start_time: existingGroup.conversation_start_time,
-            duration: duration,
+            duration: existingGroup.conversation_duration || duration,
             remaining_time: remaining,
             status: 'active',
             message: "Timer already active"
@@ -291,16 +279,13 @@ async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
         }
 
         const { error } = await supabase
-          .from("match_results")
+          .from("group_matches")
           .update({
             conversation_start_time: now,
             conversation_duration: duration,
             conversation_status: 'active'
           })
-          .eq("match_id", match_id)
-          .eq("event_id", effectiveEventId)
-          .eq("round", 0)
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
+          .eq('id', existingGroup.id)
 
         if (error) {
           console.error("Error starting group timer:", error)
@@ -372,12 +357,11 @@ async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
       if (match_type === "محايد" && round === 0) {
         // Get group match timer status
         const { data: groupMatch, error } = await supabase
-          .from("match_results")
+          .from("group_matches")
           .select("conversation_start_time, conversation_duration, conversation_status")
           .eq("match_id", match_id)
           .eq("event_id", effectiveEventId)
-          .eq("round", 0)
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
+          .contains('participant_numbers', [assignedNum])
           .single()
 
         if (error) {
@@ -471,7 +455,7 @@ async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
       if (match_type === "محايد" && round === 0) {
         // Update group match timer status and clear timer data
         const { error } = await supabase
-          .from("match_results")
+          .from("group_matches")
           .update({ 
             conversation_status: 'finished',
             conversation_start_time: null,
@@ -479,8 +463,7 @@ async function handleTimerAction(req, res, supabase, match_id, currentEventId) {
           })
           .eq("match_id", match_id)
           .eq("event_id", effectiveEventId)
-          .eq("round", 0)
-          .or(`participant_a_number.eq.${assigned_number},participant_b_number.eq.${assigned_number},participant_c_number.eq.${assigned_number},participant_d_number.eq.${assigned_number},participant_e_number.eq.${assigned_number},participant_f_number.eq.${assigned_number}`)
+          .contains('participant_numbers', [assignedNum])
 
         if (error) {
           console.error("Error finishing group timer:", error)

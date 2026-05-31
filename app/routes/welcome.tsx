@@ -365,7 +365,7 @@ export default function WelcomePage() {
       const ratingCompleted = ratings.filter(v => v !== 3).length
       let done = ratingCompleted + (feedbackAnswers.sliderMoved ? 1 : 0)
       let total = ratings.length + 1 // ratings + slider
-      if (currentRound === 1 && matchResult && matchResult !== 'المنظم') {
+      if ((currentRound === 1 || currentRound === 2) && matchResult && matchResult !== 'المنظم') {
         total += 1
         if (typeof wantMatch === 'boolean') done += 1
       }
@@ -378,9 +378,14 @@ export default function WelcomePage() {
 
   const isFeedbackMinimalComplete = (): boolean => {
     const sliderOk = !!feedbackAnswers.sliderMoved && feedbackAnswers.compatibilityRate !== 50
-    const wantOk = !(currentRound === 1 && matchResult && matchResult !== 'المنظم') || typeof wantMatch === 'boolean'
+    const wantOk = !((currentRound === 1 || currentRound === 2) && matchResult && matchResult !== 'المنظم') || typeof wantMatch === 'boolean'
     return sliderOk && wantOk
   }
+
+  useEffect(() => {
+    setWantMatch(null)
+    setPartnerInfo(null)
+  }, [currentRound])
 
 
   const searchParams = useSearchParams()[0]
@@ -4466,7 +4471,7 @@ export default function WelcomePage() {
 
   const submitFeedback = async () => {
     // Only validate the match preference question for round 1 - allow default values for rating questions
-    if (currentRound === 1 && matchResult && matchResult !== 'المنظم' && wantMatch === null) {
+    if ((currentRound === 1 || currentRound === 2) && matchResult && matchResult !== 'المنظم' && wantMatch === null) {
       toast.error('يرجى الإجابة على سؤال: هل ترغب في التواصل مع هذا الشخص مرة أخرى؟');
       return;
     }
@@ -4533,7 +4538,7 @@ export default function WelcomePage() {
 
     // If participant opted to match (round 1), submit preference and fetch partner info if mutual
     try {
-      if (wantMatch === true && assignedNumber && typeof matchResult !== 'undefined' && matchResult !== null) {
+      if (typeof wantMatch === 'boolean' && assignedNumber && typeof matchResult !== 'undefined' && matchResult !== null && matchResult !== 'المنظم') {
         const partnerNumber = parseInt(String(matchResult).replace(/[^0-9]/g, ''))
         if (!isNaN(partnerNumber)) {
           const prefRes = await fetch('/api/participant', {
@@ -4543,7 +4548,7 @@ export default function WelcomePage() {
               action: 'match-preference',
               assigned_number: assignedNumber,
               partner_number: partnerNumber,
-              wants_match: true,
+              wants_match: wantMatch,
               round: currentRound,
               event_id: currentEventId || 1,
             })
@@ -10415,7 +10420,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                      </div>
 
                   {/* Match Preference (Round 1) - Enhanced */}
-                  {currentRound === 1 && matchResult && matchResult !== 'المنظم' && (
+                  {(currentRound === 1 || currentRound === 2) && matchResult && matchResult !== 'المنظم' && (
                     <div className={`mt-8 p-6 rounded-xl border-2 ${dark ? 'bg-gradient-to-r from-purple-500/10 to-pink-500/10 border-purple-400/40' : 'bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300/60'}`}>
                       <div className="text-center mb-4">
                         <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full ${dark ? 'bg-purple-600/20 text-purple-200' : 'bg-purple-100 text-purple-700'}`}>
@@ -10925,7 +10930,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                             </p>
                           </div>
                         )}
-                        {currentRound === 1 && (
+                        {(currentRound === 1 || currentRound === 2) && (
                           <div className={`rounded-2xl overflow-hidden ${dark ? 'bg-gradient-to-br from-cyan-900/30 to-blue-900/30 border border-cyan-700/50' : 'bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200/50'} shadow-lg`}>
                             <div className="p-8 text-center">
                               <div className="flex justify-center mb-6">
@@ -10952,7 +10957,7 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     )}
                   </div>
                   {/* Only show buttons if NOT waiting for host */}
-                  {!(currentRound === 1 && isScoreRevealed) && (
+                  {!((currentRound === 1 || currentRound === 2) && isScoreRevealed) && (
                     <div className="flex justify-center gap-3 mt-6">
                       <Button
                         onClick={() => {

@@ -201,10 +201,10 @@ export default function GroupAssignmentsModal({
       const rk = classifyRole(roleRaw)
       roleCounts[rk]++
       // Conversation depth (Arabic yes/no or boolean-like)
-      const depthRaw = p?.survey_data?.vibe_4 || p?.survey_data?.answers?.conversation_depth_pref || p?.conversation_depth_pref
+      const depthRaw = p?.survey_data?.answers?.vibe_4 || p?.survey_data?.vibe_4 || p?.survey_data?.answers?.conversation_depth_pref || p?.conversation_depth_pref
       const depthUp = toUpper(depthRaw)
-      if (depthUp === 'نعم' || depthUp === 'YES' || depthUp === 'Y' || depthUp === 'TRUE') conversationDepth.yes++
-      else if (depthUp === 'لا' || depthUp === 'NO' || depthUp === 'N' || depthUp === 'FALSE') conversationDepth.no++
+      if (depthUp === 'نعم' || depthUp === 'YES' || depthUp === 'Y' || depthUp === 'TRUE' || depthUp === '1') conversationDepth.yes++
+      else if (depthUp === 'لا' || depthUp === 'NO' || depthUp === 'N' || depthUp === 'FALSE' || depthUp === '0') conversationDepth.no++
       else conversationDepth.unknown++
       // Humor style
       const humorRaw = p?.humor_banter_style || p?.survey_data?.humor_banter_style || p?.survey_data?.answers?.humor_banter_style

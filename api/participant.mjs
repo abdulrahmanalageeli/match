@@ -1185,6 +1185,7 @@ export default async function handler(req, res) {
       const { data: matches, error: matchError } = await supabase
         .from("match_results")
         .select("*")
+        .eq("match_id", participant.match_id)
         .eq("event_finished", true)
         .or(`participant_a_number.eq.${participant.assigned_number},participant_b_number.eq.${participant.assigned_number}`)
         .order("event_id", { ascending: false })
@@ -1207,10 +1208,13 @@ export default async function handler(req, res) {
         const partnerNumber = isParticipantA ? match.participant_b_number : match.participant_a_number
         const wantsMatch = isParticipantA ? match.participant_a_wants_match : match.participant_b_wants_match
         const partnerWantsMatch = isParticipantA ? match.participant_b_wants_match : match.participant_a_wants_match
+        const effectiveRound = (match.round ?? 1)
+        const effectiveEventId = (match.event_id ?? 1)
         
         // Fetch partner information from the same match_id
         let partnerInfo = null
         let partnerMessage = null
+        let myFeedback = null
         if (partnerNumber && partnerNumber !== 9999) {
           try {
             const { data: partnerData, error: partnerError } = await supabase
@@ -1234,8 +1238,8 @@ export default async function handler(req, res) {
               .select("participant_message")
               .eq("match_id", match.match_id)
               .eq("participant_number", partnerNumber)
-              .eq("round", match.round || 1)
-              .eq("event_id", match.event_id || 1)
+              .eq("round", effectiveRound)
+              .eq("event_id", effectiveEventId)
               .single()
             
             if (!feedbackError && feedbackData && feedbackData.participant_message) {
@@ -1244,6 +1248,37 @@ export default async function handler(req, res) {
           } catch (err) {
             console.log(`[API] Could not fetch partner message for #${partnerNumber}:`, err)
           }
+        }
+
+        try {
+          const { data: myFb, error: myFbErr } = await supabase
+            .from('match_feedback')
+            .select(
+              'compatibility_rate, conversation_quality, personal_connection, shared_interests, comfort_level, communication_style, would_meet_again, overall_experience, recommendations, participant_message, submitted_at'
+            )
+            .eq('match_id', match.match_id)
+            .eq('participant_number', participant.assigned_number)
+            .eq('round', effectiveRound)
+            .eq('event_id', effectiveEventId)
+            .single()
+
+          if (!myFbErr && myFb) {
+            myFeedback = {
+              compatibilityRate: myFb.compatibility_rate ?? null,
+              conversationQuality: myFb.conversation_quality ?? null,
+              personalConnection: myFb.personal_connection ?? null,
+              sharedInterests: myFb.shared_interests ?? null,
+              comfortLevel: myFb.comfort_level ?? null,
+              communicationStyle: myFb.communication_style ?? null,
+              wouldMeetAgain: myFb.would_meet_again ?? null,
+              overallExperience: myFb.overall_experience ?? null,
+              recommendations: myFb.recommendations ?? null,
+              participantMessage: myFb.participant_message ?? null,
+              submittedAt: myFb.submitted_at ?? null
+            }
+          }
+        } catch (err) {
+          console.log(`[API] Could not fetch participant feedback for #${participant.assigned_number}:`, err)
         }
         
         // Calculate mutual match based on current wants_match values
@@ -1259,7 +1294,7 @@ export default async function handler(req, res) {
           partner_event_id: partnerInfo?.event_id || null,
           type: match.match_type || "غير محدد",
           reason: match.reason || "السبب غير متوفر",
-          round: match.round || 1,
+          round: effectiveRound,
           table_number: match.table_number,
           score: match.compatibility_score || 0,
           is_repeat_match: match.is_repeat_match || false,
@@ -1268,8 +1303,9 @@ export default async function handler(req, res) {
           partner_wants_match: partnerWantsMatch,
           created_at: match.created_at,
           ai_personality_analysis: match.ai_personality_analysis || null,
-          event_id: match.event_id,
+          event_id: effectiveEventId,
           partner_message: partnerMessage,
+          my_feedback: myFeedback,
           humor_early_openness_bonus: match.humor_early_openness_bonus || 'none',
           // New model numeric fields (if available in DB)
           synergy_score: match.synergy_score ?? null,

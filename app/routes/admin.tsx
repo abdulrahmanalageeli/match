@@ -2272,21 +2272,53 @@ const fetchParticipants = async () => {
     }
     
     try {
-      const res = await fetch("/api/admin/trigger-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          eventId: currentEventId,
-          manualMatch: { 
-            participant1: participant1, 
-            participant2: participant2, 
-            bypassEligibility: bypassEligibility,
-            testModeOnly: testModeOnly,
-            debugPair: debugPair
-          }
-        }),
-      })
-      const data = await res.json()
+      const sendManualMatch = async (forceSwap: boolean) => {
+        const res = await fetch("/api/admin/trigger-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            manualMatch: {
+              participant1: participant1,
+              participant2: participant2,
+              bypassEligibility: bypassEligibility,
+              testModeOnly: testModeOnly,
+              debugPair: debugPair,
+              ...(forceSwap ? { forceSwap: true } : {})
+            }
+          }),
+        })
+        const data = await res.json()
+        return { res, data }
+      }
+
+      let { res, data } = await sendManualMatch(false)
+
+      if (res.status === 409 && data?.conflict && !debugPair && !testModeOnly) {
+        const round = Number(data?.conflict?.round)
+        const roundLabel = round === 2 ? 'Round 2 (Opposite Gender)' : 'Round 1 (Same Gender)'
+        const items = Array.isArray(data?.conflict?.participants) ? data.conflict.participants : []
+        const lines = items
+          .map((c: any) => {
+            const pNum = c?.participant_number
+            const partnerNum = c?.partner_number
+            const partnerName = c?.partner_name
+            const partnerLabel = partnerName ? `${partnerName} (#${partnerNum})` : `#${partnerNum}`
+            return `#${pNum} already has a match with ${partnerLabel} in ${roundLabel}`
+          })
+          .filter(Boolean)
+        const msg =
+          `${lines.join('\n')}` +
+          `\n\nDo you want to swap them out and create the new match (#${participant1} ↔ #${participant2})?`
+
+        const confirmed = confirm(msg)
+        if (!confirmed) {
+          toast.error('Manual match cancelled')
+          return
+        }
+
+        ;({ res, data } = await sendManualMatch(true))
+      }
       
       if (res.ok) {
         if (!debugPair) {

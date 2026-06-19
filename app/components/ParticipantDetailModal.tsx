@@ -171,6 +171,21 @@ export default function ParticipantDetailModal({
     if (!confirm(confirmMessage)) return
     setCreatingManualFor(p2)
     try {
+      const normalizeGender = (g: any) => {
+        if (g === undefined || g === null) return null
+        const v = String(g).trim().toLowerCase()
+        if (!v) return null
+        if (v === 'male' || v === 'm' || v === 'ذكر' || v === 'ذَكَر') return 'male'
+        if (v === 'female' || v === 'f' || v === 'أنثى' || v === 'أُنثَى') return 'female'
+        return null
+      }
+
+      const p1Rec: any = participantData.get(p1) || participant
+      const p2Rec: any = participantData.get(p2)
+      const g1 = normalizeGender(p1Rec?.gender || p1Rec?.survey_data?.gender || p1Rec?.survey_data?.answers?.gender)
+      const g2 = normalizeGender(p2Rec?.gender || p2Rec?.survey_data?.gender || p2Rec?.survey_data?.answers?.gender)
+      const inferredRound = (g1 && g2) ? (g1 === g2 ? 1 : 2) : 1
+
       // Fetch current event id (fallback to 1)
       let currentEventId = 1
       try {
@@ -202,20 +217,53 @@ export default function ParticipantDetailModal({
         console.error("Error unlocking previous locks:", e)
       }
 
-      const res = await fetch("/api/admin/trigger-match", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: currentEventId,
-          manualMatch: {
-            participant1: p1,
-            participant2: p2,
-            bypassEligibility: false,
-            testModeOnly: false
-          }
+      const sendManualMatch = async (forceSwap: boolean) => {
+        const res = await fetch("/api/admin/trigger-match", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            eventId: currentEventId,
+            manualMatch: {
+              participant1: p1,
+              participant2: p2,
+              bypassEligibility: false,
+              testModeOnly: false,
+              ...(forceSwap ? { forceSwap: true } : {})
+            }
+          })
         })
-      })
-      const data = await res.json()
+        const data = await res.json()
+        return { res, data }
+      }
+
+      let { res, data } = await sendManualMatch(false)
+
+      if (res.status === 409 && data?.conflict) {
+        const round = Number(data?.conflict?.round)
+        const roundLabel = round === 2 ? 'الجولة الثانية (مختلف الجنس)' : 'الجولة الأولى (نفس الجنس)'
+        const items = Array.isArray(data?.conflict?.participants) ? data.conflict.participants : []
+        const lines = items
+          .map((c: any) => {
+            const pNum = c?.participant_number
+            const partnerNum = c?.partner_number
+            const partnerName = c?.partner_name
+            const partnerLabel = partnerName ? `${partnerName} (#${partnerNum})` : `#${partnerNum}`
+            return `#${pNum} لديه/لديها مطابقة مسبقاً مع ${partnerLabel} في ${roundLabel}`
+          })
+          .filter(Boolean)
+        const msg =
+          `${lines.join('\n')}` +
+          `\n\nهل تريد استبدال المطابقة السابقة وإنشاء مطابقة جديدة (#${p1} ↔ #${p2})؟`
+
+        const confirmed = confirm(msg)
+        if (!confirmed) {
+          alert('❌ تم إلغاء إنشاء المطابقة')
+          return
+        }
+
+        ;({ res, data } = await sendManualMatch(true))
+      }
+
       if (res.ok) {
         // 2) Auto-lock the newly created match
         try {
@@ -228,7 +276,7 @@ export default function ParticipantDetailModal({
               participant1: p1,
               participant2: p2,
               compatibilityScore: Math.round(score),
-              round: 1,
+              round: inferredRound,
               reason: "Auto-locked after manual match creation"
             })
           })

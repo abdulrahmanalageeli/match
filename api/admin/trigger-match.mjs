@@ -1022,6 +1022,22 @@ function calculateHumorOpennessScore(participantA, participantB) {
 
   return { score: humorScore + openScore, vetoClash }
 }
+
+function getConversationDepthPref(participant) {
+  const raw =
+    participant?.survey_data?.answers?.vibe_4 ??
+    participant?.survey_data?.vibe_4 ??
+    participant?.survey_data?.answers?.conversation_depth_pref ??
+    participant?.conversation_depth_pref
+
+  const v = raw !== undefined && raw !== null ? String(raw).trim().toUpperCase() : ''
+  if (!v) return null
+
+  if (v === 'نعم' || v === 'نَعَم' || v === 'YES' || v === 'Y' || v === 'TRUE' || v === '1') return 'yes'
+  if (v === 'لا' || v === 'لَا' || v === 'NO' || v === 'N' || v === 'FALSE' || v === '0') return 'no'
+
+  return null
+}
 // Helper function to check early openness compatibility
 function checkOpennessCompatibility(opennessA, opennessB) {
   // Allowed combinations:
@@ -1984,10 +2000,10 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       // 2) Conversation depth compatibility
       const conversationPrefs = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.survey_data?.vibe_4
-      }).filter(Boolean)
-      const yesCount = conversationPrefs.filter(p => p === 'نعم').length
-      const noCount = conversationPrefs.filter(p => p === 'لا').length
+        return getConversationDepthPref(participant)
+      }).filter(v => v !== null)
+      const yesCount = conversationPrefs.filter(v => v === 'yes').length
+      const noCount = conversationPrefs.filter(v => v === 'no').length
       if (yesCount > 0 && noCount > 0) return -Infinity
 
       // 3) Initiator present (when roles fully known)
@@ -2454,11 +2470,15 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
       // 4) Conversation depth (vibe_4) must not mix deep and light ("أحياناً" is flexible)
       const conversationPrefs = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.survey_data?.vibe_4
-      }).filter(Boolean)
-      const yesCount = conversationPrefs.filter(p => p === 'نعم').length
-      const noCount = conversationPrefs.filter(p => p === 'لا').length
-      const sometimesCount = conversationPrefs.filter(p => p === 'أحياناً').length
+        return getConversationDepthPref(participant)
+      }).filter(v => v !== null)
+      const yesCount = conversationPrefs.filter(v => v === 'yes').length
+      const noCount = conversationPrefs.filter(v => v === 'no').length
+      const conversationRaw = combination.map(participantNum => {
+        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
+        return participant?.survey_data?.answers?.vibe_4 ?? participant?.survey_data?.vibe_4
+      }).filter(Boolean).map(v => String(v).trim())
+      const sometimesCount = conversationRaw.filter(p => p === 'أحياناً').length
       if (yesCount > 0 && noCount > 0) {
         console.log(`🚫 Skipping group combination [${combination.join(', ')}] - conversation depth mismatch (${yesCount} deep, ${noCount} light, ${sometimesCount} flexible)`) 
         continue
@@ -2637,10 +2657,10 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
     // conversation depth compatibility
     const conversationPrefs = combination.map(participantNum => {
       const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-      return participant?.survey_data?.vibe_4
-    }).filter(Boolean)
-    const yesCount = conversationPrefs.filter(p => p === 'نعم').length
-    const noCount = conversationPrefs.filter(p => p === 'لا').length
+      return getConversationDepthPref(participant)
+    }).filter(v => v !== null)
+    const yesCount = conversationPrefs.filter(v => v === 'yes').length
+    const noCount = conversationPrefs.filter(v => v === 'no').length
     if (yesCount > 0 && noCount > 0) continue
 
     // ages for range
@@ -2773,11 +2793,11 @@ function findBestGroup(availableParticipants, pairScores, targetSize, eligiblePa
       // Check conversation depth preference compatibility
       const conversationPrefs = combination.map(participantNum => {
         const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.survey_data?.vibe_4
-      }).filter(Boolean)
+        return getConversationDepthPref(participant)
+      }).filter(v => v !== null)
       
-      const yesCount = conversationPrefs.filter(p => p === 'نعم').length
-      const noCount = conversationPrefs.filter(p => p === 'لا').length
+      const yesCount = conversationPrefs.filter(v => v === 'yes').length
+      const noCount = conversationPrefs.filter(v => v === 'no').length
       const hasConversationCompatibility = !(yesCount > 0 && noCount > 0) // Compatible if not mixing yes and no
       
       const score = calculateGroupCompatibilityScore(combination, pairScores)
@@ -4556,6 +4576,25 @@ if (action === "cache-status-by-gender") {
         
         console.log(`✅ Standard eligibility: Both participants are eligible for matching`)
       }
+
+      const normalizeGender = (g) => {
+        if (g === undefined || g === null) return null
+        const v = String(g).trim().toLowerCase()
+        if (!v) return null
+        if (v === 'male' || v === 'm' || v === 'ذكر' || v === 'ذَكَر') return 'male'
+        if (v === 'female' || v === 'f' || v === 'أنثى' || v === 'أُنثَى') return 'female'
+        return null
+      }
+
+      const genderA = normalizeGender(p1?.gender || p1?.survey_data?.gender || p1?.survey_data?.answers?.gender)
+      const genderB = normalizeGender(p2?.gender || p2?.survey_data?.gender || p2?.survey_data?.answers?.gender)
+      const inferredRound =
+        (manualMatch.round !== undefined && manualMatch.round !== null)
+          ? Number(manualMatch.round)
+          : (genderA && genderB)
+            ? (genderA === genderB ? 1 : 2)
+            : 1
+      const forcedGenderMode = (inferredRound === 1) ? 'same_gender' : (inferredRound === 2) ? 'opposite_gender' : null
       
       // If debug mode is requested, analyze constraints and return reasons (no DB writes)
       if (manualMatch.debugPair) {
@@ -4605,7 +4644,7 @@ if (action === "cache-status-by-gender") {
             }
 
             // Gender compatibility
-            if (!checkGenderCompatibility(p1, p2)) {
+            if (!checkGenderCompatibility(p1, p2, forcedGenderMode)) {
               reasons.push(`Gender preference mismatch (requires opposite or explicit same-gender preference)`)
             }
 
@@ -4671,6 +4710,7 @@ if (action === "cache-status-by-gender") {
         const { data: existingMatch, error: existingError } = await supabase
           .from("match_results")
           .select("id")
+          .eq("match_id", match_id)
           .eq("event_id", eventId)
           .or(`and(participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p2.assigned_number}),and(participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p1.assigned_number})`)
 
@@ -4684,28 +4724,87 @@ if (action === "cache-status-by-gender") {
       // AUTOMATIC CLEANUP: Remove conflicting matches before creating new one (skip in test mode)
       if (!manualMatch.testModeOnly) {
         console.log(`🧹 Cleaning up conflicting matches for participants #${p1.assigned_number} and #${p2.assigned_number}`)
-        
-        // Find all existing matches for both participants in this event
+
         const { data: conflictingMatches, error: conflictError } = await supabase
           .from("match_results")
-          .select("id, participant_a_number, participant_b_number")
+          .select("id, participant_a_number, participant_b_number, round")
+          .eq("match_id", match_id)
           .eq("event_id", eventId)
+          .eq("round", inferredRound)
           .or(`participant_a_number.eq.${p1.assigned_number},participant_b_number.eq.${p1.assigned_number},participant_a_number.eq.${p2.assigned_number},participant_b_number.eq.${p2.assigned_number}`)
 
         if (conflictError) {
           console.error("Error finding conflicting matches:", conflictError)
           return res.status(500).json({ error: "Failed to check for conflicting matches" })
         }
-        
-        if (conflictingMatches && conflictingMatches.length > 0) {
-          console.log(`🔍 Found ${conflictingMatches.length} conflicting matches to remove:`)
-          
-          for (const match of conflictingMatches) {
+
+        const conflicts = Array.isArray(conflictingMatches) ? conflictingMatches : []
+        const conflictInvolvesBoth = conflicts.some(m => {
+          const a = m.participant_a_number
+          const b = m.participant_b_number
+          return (
+            (a === p1.assigned_number && b === p2.assigned_number) ||
+            (a === p2.assigned_number && b === p1.assigned_number)
+          )
+        })
+        if (conflictInvolvesBoth) {
+          return res.status(400).json({ error: "Match already exists for this event" })
+        }
+
+        if (conflicts.length > 0 && !manualMatch.forceSwap) {
+          const partnerNums = new Set()
+          for (const m of conflicts) {
+            if (m.participant_a_number === p1.assigned_number) partnerNums.add(m.participant_b_number)
+            if (m.participant_b_number === p1.assigned_number) partnerNums.add(m.participant_a_number)
+            if (m.participant_a_number === p2.assigned_number) partnerNums.add(m.participant_b_number)
+            if (m.participant_b_number === p2.assigned_number) partnerNums.add(m.participant_a_number)
+          }
+          const numsArr = Array.from(partnerNums)
+
+          let nameMap = new Map()
+          if (numsArr.length > 0) {
+            try {
+              const { data: rows } = await supabase
+                .from('participants')
+                .select('assigned_number, name, survey_data')
+                .eq('match_id', match_id)
+                .in('assigned_number', numsArr)
+              for (const r of (rows || [])) {
+                const nm = r?.name || r?.survey_data?.name || r?.survey_data?.answers?.name || null
+                nameMap.set(r.assigned_number, nm)
+              }
+            } catch (_) {}
+          }
+
+          const pickPartner = (num) => {
+            const m = conflicts.find(x => x.participant_a_number === num || x.participant_b_number === num)
+            if (!m) return null
+            const partner = (m.participant_a_number === num) ? m.participant_b_number : m.participant_a_number
+            return {
+              match_id: m.id,
+              participant_number: num,
+              partner_number: partner,
+              partner_name: nameMap.get(partner) || null
+            }
+          }
+
+          return res.status(409).json({
+            error: 'Participant already has a match in this round',
+            conflict: {
+              round: inferredRound,
+              participants: [pickPartner(p1.assigned_number), pickPartner(p2.assigned_number)].filter(Boolean)
+            }
+          })
+        }
+
+        if (conflicts.length > 0 && manualMatch.forceSwap) {
+          console.log(`🔍 Found ${conflicts.length} conflicting matches to remove:`)
+
+          for (const match of conflicts) {
             const partnerA = match.participant_a_number
             const partnerB = match.participant_b_number
             console.log(`  - Removing match: #${partnerA} ↔ #${partnerB}`)
-            
-            // Track which participants will no longer have partners
+
             if (partnerA === p1.assigned_number) {
               cleanupSummary.push(`#${partnerB} no longer has partner`)
             } else if (partnerB === p1.assigned_number) {
@@ -4717,18 +4816,27 @@ if (action === "cache-status-by-gender") {
             }
           }
 
-          // Delete all conflicting matches
           const { error: deleteError } = await supabase
             .from("match_results")
             .delete()
-            .in("id", conflictingMatches.map(m => m.id))
+            .in("id", conflicts.map(m => m.id))
 
           if (deleteError) {
             console.error("Error deleting conflicting matches:", deleteError)
             return res.status(500).json({ error: "Failed to clean up conflicting matches" })
           }
 
-          console.log(`✅ Successfully removed ${conflictingMatches.length} conflicting matches`)
+          try {
+            await supabase
+              .from('locked_matches')
+              .delete()
+              .eq('match_id', match_id)
+              .or(
+                `participant1_number.eq.${p1.assigned_number},participant2_number.eq.${p1.assigned_number},participant1_number.eq.${p2.assigned_number},participant2_number.eq.${p2.assigned_number}`
+              )
+          } catch (_) {}
+
+          console.log(`✅ Successfully removed ${conflicts.length} conflicting matches`)
         } else {
           console.log(`✅ No conflicting matches found - clean swap`)
         }
@@ -4850,7 +4958,7 @@ if (action === "cache-status-by-gender") {
           humor_clash_veto_applied: !!compatibilityResult.humorClashVetoApplied,
           cap_applied: compatibilityResult.capApplied ?? null,
           humor_early_openness_bonus: manualBonusType,
-          round: 1,
+          round: inferredRound,
           ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
           created_at: new Date().toISOString()
         }
@@ -5138,9 +5246,9 @@ if (action === "cache-status-by-gender") {
           const initiatorKnown = roles.length === nums.length
           const initiatorPresent = initiatorKnown ? roles.some(r => r==='A'||r==='INITIATOR'||r==='INITIATE'||r==='LEADER'||r==='مبادر'||r==='المبادر') : null
 
-          const conv = participantsArr.map(p => p.survey_data?.vibe_4).filter(Boolean)
-          const convYes = conv.filter(x=>x==='نعم').length
-          const convNo = conv.filter(x=>x==='لا').length
+          const conv = participantsArr.map(p => getConversationDepthPref(p)).filter(v => v !== null)
+          const convYes = conv.filter(x=>x==='yes').length
+          const convNo = conv.filter(x=>x==='no').length
           const conversationCompatible = !(convYes>0 && convNo>0)
 
           const ages = participantsArr.map(p => p.age || p.survey_data?.age).filter(v=>v!=null)

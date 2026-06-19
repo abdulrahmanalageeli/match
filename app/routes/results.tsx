@@ -42,6 +42,19 @@ interface MatchResult {
   event_id?: number
   partner_message?: string | null
   humor_early_openness_bonus?: 'full' | 'partial' | 'none'
+  my_feedback?: {
+    compatibilityRate?: number | null
+    conversationQuality?: number | null
+    personalConnection?: number | null
+    sharedInterests?: number | null
+    comfortLevel?: number | null
+    communicationStyle?: number | null
+    wouldMeetAgain?: number | null
+    overallExperience?: number | null
+    recommendations?: string | null
+    participantMessage?: string | null
+    submittedAt?: string | null
+  } | null
   // New model numeric fields (optional, returned by API if available)
   synergy_score?: number | null
   humor_open_score?: number | null
@@ -330,8 +343,10 @@ export default function ResultsPage() {
         
         if (data.success) {
           // Filter out matches with organizer (participant #9999)
-          const filteredHistory = (data.history || []).filter((match: MatchResult) => 
-            match.with !== 9999 && match.with !== "المنظم"
+          const filteredHistory = (data.history || []).filter((match: MatchResult) =>
+            match.with !== 9999 &&
+            match.with !== "المنظم" &&
+            match.round !== 0
           )
           
           setResultsData({
@@ -506,6 +521,11 @@ export default function ResultsPage() {
                               <h3 className={`font-bold text-sm sm:text-base truncate ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
                                 {match.partner_name || 'شريك المحادثة'}
                               </h3>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
+                              }`}>
+                                {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
+                              </span>
                               {match.is_repeat_match && (
                                 <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
                                   dark ? 'bg-amber-600/70 text-amber-200' : 'bg-amber-200/70 text-amber-700'
@@ -790,6 +810,85 @@ export default function ResultsPage() {
                             </div>
                           )}
 
+                          {match.my_feedback && (
+                            <div className={`p-3 rounded-lg border ${
+                              dark ? 'bg-slate-800/40 border-slate-600/50' : 'bg-white border-gray-200'
+                            }`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <User className={`w-4 h-4 ${dark ? 'text-slate-200' : 'text-gray-700'}`} />
+                                <h4 className={`font-bold text-sm ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                  تقييمك لهذه الجلسة
+                                </h4>
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                {typeof match.my_feedback.compatibilityRate === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">التوافق</div>
+                                    <div className="font-bold">{match.my_feedback.compatibilityRate}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.conversationQuality === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">جودة الحديث</div>
+                                    <div className="font-bold">{match.my_feedback.conversationQuality}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.personalConnection === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">ارتباط</div>
+                                    <div className="font-bold">{match.my_feedback.personalConnection}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.sharedInterests === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">اهتمامات</div>
+                                    <div className="font-bold">{match.my_feedback.sharedInterests}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.comfortLevel === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">راحة</div>
+                                    <div className="font-bold">{match.my_feedback.comfortLevel}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.communicationStyle === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">التواصل</div>
+                                    <div className="font-bold">{match.my_feedback.communicationStyle}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.wouldMeetAgain === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">مرة أخرى</div>
+                                    <div className="font-bold">{match.my_feedback.wouldMeetAgain}</div>
+                                  </div>
+                                )}
+                                {typeof match.my_feedback.overallExperience === 'number' && (
+                                  <div className={`${dark ? 'bg-slate-900/40 text-slate-200' : 'bg-gray-50 text-gray-800'} rounded-md p-2`}>
+                                    <div className="font-semibold">التجربة</div>
+                                    <div className="font-bold">{match.my_feedback.overallExperience}</div>
+                                  </div>
+                                )}
+                              </div>
+                              {(match.my_feedback.recommendations || match.my_feedback.participantMessage) && (
+                                <div className="mt-3 space-y-2 text-sm">
+                                  {match.my_feedback.participantMessage && (
+                                    <div className={`${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                      <div className={`text-xs font-semibold ${dark ? 'text-slate-400' : 'text-gray-500'}`}>رسالتك</div>
+                                      <div className="whitespace-pre-line">{match.my_feedback.participantMessage}</div>
+                                    </div>
+                                  )}
+                                  {match.my_feedback.recommendations && (
+                                    <div className={`${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                      <div className={`text-xs font-semibold ${dark ? 'text-slate-400' : 'text-gray-500'}`}>ملاحظاتك</div>
+                                      <div className="whitespace-pre-line">{match.my_feedback.recommendations}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           {/* Partner Message (if exists) */}
                           {match.partner_message && (
                             <div className={`p-3 rounded-lg border ${
@@ -802,13 +901,13 @@ export default function ResultsPage() {
                                 </h4>
                               </div>
                               
-                              {!showPartnerMessage[match.round] ? (
+                              {!showPartnerMessage[index] ? (
                                 <div className="text-center">
                                   <p className={`text-xs mb-3 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
                                     شريك المحادثة أرسل لك رسالة
                                   </p>
                                   <Button
-                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [match.round]: true }))}
+                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [index]: true }))}
                                     className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white"
                                   >
                                     اضغط لقراءة الرسالة
@@ -822,7 +921,7 @@ export default function ResultsPage() {
                                     "{match.partner_message}"
                                   </p>
                                   <Button
-                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [match.round]: false }))}
+                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [index]: false }))}
                                     className={`mt-2 text-xs px-2 py-1 ${
                                       dark 
                                         ? 'bg-slate-600 hover:bg-slate-700 text-slate-200' 

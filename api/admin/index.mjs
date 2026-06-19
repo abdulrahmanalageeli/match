@@ -337,9 +337,19 @@ export default async function handler(req, res) {
             return roles.some(r => r==='A' || r==='INITIATOR' || r==='INITIATE' || r==='LEADER' || r==='مبادر' || r==='المبادر')
           }
           function conversationCompatible(nums){
-            const prefs = nums.map(n=>detailsMap.get(n)).filter(Boolean).map(p=>p?.survey_data?.vibe_4).filter(Boolean)
-            const yes = prefs.filter(v=>v==='نعم').length
-            const no = prefs.filter(v=>v==='لا').length
+            const prefs = nums
+              .map(n=>detailsMap.get(n))
+              .filter(Boolean)
+              .map(p => {
+                const raw = getAns(p, 'vibe_4') || getAns(p, 'conversation_depth_pref')
+                const v = toUpper(raw)
+                if (v === 'نعم' || v === 'نَعَم' || v === 'YES' || v === 'Y' || v === 'TRUE' || v === '1') return 'yes'
+                if (v === 'لا' || v === 'لَا' || v === 'NO' || v === 'N' || v === 'FALSE' || v === '0') return 'no'
+                return null
+              })
+              .filter(Boolean)
+            const yes = prefs.filter(v=>v==='yes').length
+            const no = prefs.filter(v=>v==='no').length
             return !(yes>0 && no>0)
           }
           function gendersCount(nums){
@@ -1897,8 +1907,16 @@ export default async function handler(req, res) {
           const hasInitiator = roles.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
           if (roles.length === participants.length && !hasInitiator) warnings.push("لا يوجد مُبادر (Q35) ضمن المجموعة")
           // Conversation depth mismatch
-          const conv = participants.map(p=>p.survey_data?.vibe_4).filter(Boolean)
-          const yes = conv.filter(v=>v==='نعم').length; const no = conv.filter(v=>v==='لا').length
+          const conv = participants
+            .map(p => {
+              const raw = getAns(p, 'vibe_4') || getAns(p, 'conversation_depth_pref')
+              const v = String(raw || '').trim().toUpperCase()
+              if (v === 'نعم' || v === 'نَعَم' || v === 'YES' || v === 'Y' || v === 'TRUE' || v === '1') return 'yes'
+              if (v === 'لا' || v === 'لَا' || v === 'NO' || v === 'N' || v === 'FALSE' || v === '0') return 'no'
+              return null
+            })
+            .filter(Boolean)
+          const yes = conv.filter(v=>v==='yes').length; const no = conv.filter(v=>v==='no').length
           if (yes>0 && no>0) warnings.push("تعارض في عمق المحادثة (لا يمكن مزج 'نعم' و'لا')")
           // Payment status
           const unpaid = participants.filter(p=>p.PAID_DONE===false).map(p=>p.assigned_number)

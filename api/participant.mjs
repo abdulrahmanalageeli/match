@@ -1233,48 +1233,101 @@ export default async function handler(req, res) {
 
           // Fetch partner's message from match_feedback
           try {
-            const { data: feedbackData, error: feedbackError } = await supabase
-              .from("match_feedback")
-              .select("participant_message")
-              .eq("match_id", match.match_id)
-              .eq("participant_number", partnerNumber)
-              .eq("round", effectiveRound)
-              .eq("event_id", effectiveEventId)
-              .single()
-            
-            if (!feedbackError && feedbackData && feedbackData.participant_message) {
-              partnerMessage = feedbackData.participant_message
+            const tryEventIds = [effectiveEventId, participant.event_id].filter(
+              (v, i, arr) => typeof v === 'number' && v > 0 && arr.indexOf(v) === i
+            )
+
+            let msgRow = null
+            for (const evId of tryEventIds) {
+              const { data: fbRows, error: fbErr } = await supabase
+                .from('match_feedback')
+                .select('participant_message, submitted_at')
+                .eq('match_id', match.match_id)
+                .eq('participant_number', partnerNumber)
+                .eq('round', effectiveRound)
+                .eq('event_id', evId)
+                .order('submitted_at', { ascending: false })
+                .limit(1)
+
+              if (!fbErr && Array.isArray(fbRows) && fbRows[0]) {
+                msgRow = fbRows[0]
+                break
+              }
             }
+
+            if (!msgRow) {
+              const { data: fbRows, error: fbErr } = await supabase
+                .from('match_feedback')
+                .select('participant_message, submitted_at')
+                .eq('match_id', match.match_id)
+                .eq('participant_number', partnerNumber)
+                .eq('round', effectiveRound)
+                .order('submitted_at', { ascending: false })
+                .limit(1)
+
+              if (!fbErr && Array.isArray(fbRows) && fbRows[0]) {
+                msgRow = fbRows[0]
+              }
+            }
+
+            if (msgRow?.participant_message) partnerMessage = msgRow.participant_message
           } catch (err) {
             console.log(`[API] Could not fetch partner message for #${partnerNumber}:`, err)
           }
         }
 
         try {
-          const { data: myFb, error: myFbErr } = await supabase
-            .from('match_feedback')
-            .select(
-              'compatibility_rate, conversation_quality, personal_connection, shared_interests, comfort_level, communication_style, would_meet_again, overall_experience, recommendations, participant_message, submitted_at'
-            )
-            .eq('match_id', match.match_id)
-            .eq('participant_number', participant.assigned_number)
-            .eq('round', effectiveRound)
-            .eq('event_id', effectiveEventId)
-            .single()
+          const columns = 'compatibility_rate, conversation_quality, personal_connection, shared_interests, comfort_level, communication_style, would_meet_again, overall_experience, recommendations, participant_message, submitted_at'
+          const tryEventIds = [effectiveEventId, participant.event_id].filter(
+            (v, i, arr) => typeof v === 'number' && v > 0 && arr.indexOf(v) === i
+          )
 
-          if (!myFbErr && myFb) {
+          let myFbRow = null
+          for (const evId of tryEventIds) {
+            const { data: rows, error: e } = await supabase
+              .from('match_feedback')
+              .select(columns)
+              .eq('match_id', match.match_id)
+              .eq('participant_number', participant.assigned_number)
+              .eq('round', effectiveRound)
+              .eq('event_id', evId)
+              .order('submitted_at', { ascending: false })
+              .limit(1)
+
+            if (!e && Array.isArray(rows) && rows[0]) {
+              myFbRow = rows[0]
+              break
+            }
+          }
+
+          if (!myFbRow) {
+            const { data: rows, error: e } = await supabase
+              .from('match_feedback')
+              .select(columns)
+              .eq('match_id', match.match_id)
+              .eq('participant_number', participant.assigned_number)
+              .eq('round', effectiveRound)
+              .order('submitted_at', { ascending: false })
+              .limit(1)
+
+            if (!e && Array.isArray(rows) && rows[0]) {
+              myFbRow = rows[0]
+            }
+          }
+
+          if (myFbRow) {
             myFeedback = {
-              compatibilityRate: myFb.compatibility_rate ?? null,
-              conversationQuality: myFb.conversation_quality ?? null,
-              personalConnection: myFb.personal_connection ?? null,
-              sharedInterests: myFb.shared_interests ?? null,
-              comfortLevel: myFb.comfort_level ?? null,
-              communicationStyle: myFb.communication_style ?? null,
-              wouldMeetAgain: myFb.would_meet_again ?? null,
-              overallExperience: myFb.overall_experience ?? null,
-              recommendations: myFb.recommendations ?? null,
-              participantMessage: myFb.participant_message ?? null,
-              submittedAt: myFb.submitted_at ?? null
+              compatibilityRate: myFbRow.compatibility_rate ?? null,
+              conversationQuality: myFbRow.conversation_quality ?? null,
+              personalConnection: myFbRow.personal_connection ?? null,
+              sharedInterests: myFbRow.shared_interests ?? null,
+              comfortLevel: myFbRow.comfort_level ?? null,
+              communicationStyle: myFbRow.communication_style ?? null,
+              wouldMeetAgain: myFbRow.would_meet_again ?? null,
+              overallExperience: myFbRow.overall_experience ?? null,
+              recommendations: myFbRow.recommendations ?? null,
+              participantMessage: myFbRow.participant_message ?? null,
+              submittedAt: myFbRow.submitted_at ?? null
             }
           }
         } catch (err) {

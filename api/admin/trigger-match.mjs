@@ -5869,6 +5869,79 @@ if (action === "cache-status-by-gender") {
       const roundMatches = []
       
       let tableCounter = 1 // Dynamic table numbering starting from 1
+      const usedTables = new Set()
+      const stableSeatingEnabled = (round === 2)
+      let stableHostTableByNumber = null
+      let stableHostSet = null
+
+      if (stableSeatingEnabled) {
+        try {
+          const { data: round1Matches, error: round1Err } = await supabase
+            .from("match_results")
+            .select("participant_a_number, participant_b_number, table_number")
+            .eq("match_id", match_id)
+            .eq("event_id", eventId)
+            .eq("round", 1)
+            .neq("participant_b_number", 9999)
+
+          if (round1Err) {
+            console.error("⚠️ Failed to load Round 1 tables for stable seating (continuing without stability):", round1Err)
+          } else {
+            const m = new Map()
+            const s = new Set()
+            for (const r of round1Matches || []) {
+              if (!r) continue
+              const host = r.participant_a_number
+              const t = r.table_number
+              if (host == null || t == null) continue
+              m.set(host, t)
+              s.add(host)
+            }
+            if (m.size > 0) {
+              stableHostTableByNumber = m
+              stableHostSet = s
+              console.log(`🪑 Stable seating enabled for Round 2: ${m.size} hosts will keep their Round 1 table`)
+            } else {
+              console.log("⚠️ Stable seating requested for Round 2 but no Round 1 table mapping found (continuing without stability)")
+            }
+          }
+        } catch (e) {
+          console.error("⚠️ Error preparing stable seating (continuing without stability):", e)
+        }
+      }
+
+      const getNextFreeTable = () => {
+        while (usedTables.has(tableCounter)) tableCounter++
+        const t = tableCounter
+        usedTables.add(t)
+        tableCounter++
+        return t
+      }
+
+      const assignTableForParticipant = (participantNumber) => {
+        if (stableHostTableByNumber && stableHostSet && stableHostSet.has(participantNumber)) {
+          const t = stableHostTableByNumber.get(participantNumber)
+          if (t != null && !usedTables.has(t)) {
+            usedTables.add(t)
+            return t
+          }
+        }
+        return getNextFreeTable()
+      }
+
+      const assignTableForPair = (aNum, bNum) => {
+        if (stableHostTableByNumber && stableHostSet) {
+          const host = stableHostSet.has(aNum) ? aNum : (stableHostSet.has(bNum) ? bNum : null)
+          if (host != null) {
+            const t = stableHostTableByNumber.get(host)
+            if (t != null && !usedTables.has(t)) {
+              usedTables.add(t)
+              return t
+            }
+          }
+        }
+        return getNextFreeTable()
+      }
       
       // STEP 1: Process locked matches first (highest priority)
       console.log(`🔒 Processing ${lockedPairs.length} locked matches first...`)
@@ -5928,6 +6001,7 @@ if (action === "cache-status-by-gender") {
             }
           }
 
+          const assignedTableNumber = assignTableForPair(participant1, participant2)
           used.add(participant1)
           used.add(participant2)
           
@@ -5962,7 +6036,7 @@ if (action === "cache-status-by-gender") {
             round,
             is_repeat_match: false,
             ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
-            table_number: tableCounter,
+            table_number: assignedTableNumber,
             // Add personality type data
             participant_a_mbti_type: compatibilityData?.aMBTI || p1Data?.mbti_personality_type || p1Data?.survey_data?.mbtiType,
             participant_b_mbti_type: compatibilityData?.bMBTI || p2Data?.mbti_personality_type || p2Data?.survey_data?.mbtiType,
@@ -5999,15 +6073,18 @@ if (action === "cache-status-by-gender") {
             humor_early_openness_bonus: compatibilityData?.bonusType || 'none'
           })
           
-          console.log(`   🔒 Locked match assigned: #${participant1} ↔ #${participant2} (Table ${tableCounter})`)
-          tableCounter++
+          console.log(`   🔒 Locked match assigned: #${participant1} ↔ #${participant2} (Table ${assignedTableNumber})`)
         } else {
           console.log(`   ⚠️ Locked match unavailable: #${participant1} ↔ #${participant2} (P1: ${p1Available}, P2: ${p2Available})`)
         }
       }
       
       // STEP 2: Process remaining pairs using global optimization in preview, greedy otherwise
-      const sortedPairs = [...compatibilityScores].sort((a, b) => b.score - a.score)
+      const candidatePairs = stableHostSet
+        ? compatibilityScores.filter(p => stableHostSet.has(p.a) !== stableHostSet.has(p.b))
+        : compatibilityScores
+
+      const sortedPairs = [...candidatePairs].sort((a, b) => b.score - a.score)
       console.log(`📊 Processing remaining ${sortedPairs.length} calculated pairs...`)
 
       if (SKIP_DB_WRITES) {
@@ -6016,7 +6093,7 @@ if (action === "cache-status-by-gender") {
         const available = new Set(numbers.filter(n => !used.has(n)))
         // Build a local pair map to avoid scope issues
         const pairMap = new Map()
-        for (const p of compatibilityScores) {
+        for (const p of candidatePairs) {
           pairMap.set(keyOf(p.a, p.b), p)
         }
         // 1) Greedy seed
@@ -6071,6 +6148,12 @@ if (action === "cache-status-by-gender") {
         for (const pair of chosen) {
           const key = keyOf(pair.a, pair.b)
           if (!used.has(pair.a) && !used.has(pair.b) && !matchedPairs.has(key)) {
+            if (stableHostSet) {
+              const aHost = stableHostSet.has(pair.a)
+              const bHost = stableHostSet.has(pair.b)
+              if (aHost === bHost) continue
+            }
+            const assignedTableNumber = assignTableForPair(pair.a, pair.b)
             used.add(pair.a)
             used.add(pair.b)
             matchedPairs.add(key)
@@ -6084,7 +6167,7 @@ if (action === "cache-status-by-gender") {
               round,
               is_repeat_match: false,
               ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
-              table_number: tableCounter,
+              table_number: assignedTableNumber,
               participant_a_mbti_type: pair.aMBTI,
               participant_b_mbti_type: pair.bMBTI,
               participant_a_attachment_style: pair.aAttachment,
@@ -6117,7 +6200,6 @@ if (action === "cache-status-by-gender") {
               cap_applied: pair.capApplied ?? null,
               humor_early_openness_bonus: pair.bonusType
             })
-            tableCounter++
           }
         }
       } else {
@@ -6128,6 +6210,12 @@ if (action === "cache-status-by-gender") {
             !used.has(pair.b) &&
             !matchedPairs.has(key)
           ) {
+            if (stableHostSet) {
+              const aHost = stableHostSet.has(pair.a)
+              const bHost = stableHostSet.has(pair.b)
+              if (aHost === bHost) continue
+            }
+            const assignedTableNumber = assignTableForPair(pair.a, pair.b)
             used.add(pair.a)
             used.add(pair.b)
             matchedPairs.add(key)
@@ -6141,7 +6229,7 @@ if (action === "cache-status-by-gender") {
               round,
               is_repeat_match: false,
               ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
-              table_number: tableCounter, // Dynamic table assignment: 1 to N/2
+              table_number: assignedTableNumber, // Dynamic table assignment: 1 to N/2
               // Add personality type data
               participant_a_mbti_type: pair.aMBTI,
               participant_b_mbti_type: pair.bMBTI,
@@ -6177,8 +6265,6 @@ if (action === "cache-status-by-gender") {
               // Add humor/early openness bonus tracking
               humor_early_openness_bonus: pair.bonusType
             })
-            
-            tableCounter++ // Increment for next pair
           }
         }
       }
@@ -6190,6 +6276,7 @@ if (action === "cache-status-by-gender") {
         
         // Match unmatched participants with organizer (ID 9999)
         for (const unmatchedParticipant of unmatchedInRound) {
+          const assignedTableNumber = assignTableForParticipant(unmatchedParticipant)
           
           roundMatches.push({
             participant_a_number: unmatchedParticipant,
@@ -6201,7 +6288,7 @@ if (action === "cache-status-by-gender") {
             round,
             is_repeat_match: false,
             ...(existingEventFinishedStatus !== null && { event_finished: existingEventFinishedStatus }),
-            table_number: tableCounter, // Continue dynamic numbering
+            table_number: assignedTableNumber, // Continue dynamic numbering
             // Add default personality data for organizer matches
             participant_a_mbti_type: participants.find(p => p.assigned_number === unmatchedParticipant)?.mbti_personality_type || participants.find(p => p.assigned_number === unmatchedParticipant)?.survey_data?.mbtiType,
             participant_b_mbti_type: 'منظم',
@@ -6227,13 +6314,12 @@ if (action === "cache-status-by-gender") {
             cap_applied: null,
             humor_early_openness_bonus: 'none'
           })
-          
-          tableCounter++
                 }
               }
 
       console.log(`🎯 Round ${round} completed: ${roundMatches.length} matches, ${roundMatches.filter(m => m.participant_b_number !== 9999).length} regular pairs + ${roundMatches.filter(m => m.participant_b_number === 9999).length} organizer matches`)
-      console.log(`📊 Tables assigned: 1 to ${tableCounter - 1}`)
+      const maxTableAssigned = usedTables.size > 0 ? Math.max(...usedTables) : 0
+      console.log(`📊 Tables assigned: 1 to ${maxTableAssigned}`)
       
       // Show summary of match quality
       const regularMatches = roundMatches.filter(m => m.participant_b_number !== 9999)

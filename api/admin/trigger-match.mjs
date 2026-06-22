@@ -712,6 +712,10 @@ function checkGenderCompatibility(participantA, participantB, forcedMode = null)
 
   // FORCED MODE: round-based matching ignores participant gender preferences
   const effectiveMode = forcedMode || CURRENT_MATCH_MODE
+  if (effectiveMode === 'any_gender') {
+    if (!genderA || !genderB) return true
+    return true
+  }
   if (effectiveMode === 'same_gender') {
     if (!genderA || !genderB) return false
     const ok = String(genderA).toLowerCase() === String(genderB).toLowerCase()
@@ -1822,7 +1826,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       constraintViolations.total_pairs_checked++
       
       // Check gender compatibility first
-      if (!checkGenderCompatibility(a, b)) {
+      if (!checkGenderCompatibility(a, b, 'any_gender')) {
         console.log(`🚫 Skipping group pair ${a.assigned_number} × ${b.assigned_number} - gender incompatible`)
         constraintViolations.gender.push(`${a.assigned_number}×${b.assigned_number}`)
         continue

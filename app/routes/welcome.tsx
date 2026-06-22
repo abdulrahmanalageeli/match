@@ -6787,6 +6787,23 @@ export default function WelcomePage() {
                       </span>
                     </div>
                   </div>
+                  <div className="max-w-xl mx-auto mb-3 px-2">
+                    <div className={`p-3 rounded-xl border ${
+                      dark 
+                        ? "bg-amber-500/10 border-amber-400/30" 
+                        : "bg-amber-50 border-amber-200"
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${dark ? 'text-amber-300' : 'text-amber-600'}`} />
+                        <div className={`text-[11px] leading-relaxed text-right ${dark ? 'text-amber-100' : 'text-amber-800'}`}>
+                          <div className={`font-bold mb-0.5 ${dark ? 'text-amber-200' : 'text-amber-800'}`}>تنبيه</div>
+                          <div>
+                            النتائج تقديرية مبنية على احتمالات وليست ضماناً، وقد تتأثر بدقة الإجابات والسياق.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <details className="group">
                       <summary className="flex w-full items-center justify-center gap-1.5 text-[13px] font-medium text-white cursor-pointer list-none hover:text-cyan-300 transition-colors px-4 py-2 rounded-none bg-gradient-to-r from-cyan-400/10 to-blue-500/10 border-y border-white/10">
                         <HelpCircle className="w-3.5 h-3.5 ml-1 text-cyan-300" />

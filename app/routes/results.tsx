@@ -82,6 +82,14 @@ export default function ResultsPage() {
   const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
   const [expandedEvents, setExpandedEvents] = useState<{[key: number]: boolean}>({})
+
+  const formatSessionCount = (count: number) => {
+    const n = Math.max(0, Math.floor(Number(count) || 0))
+    if (n === 1) return 'جلسة واحدة'
+    if (n === 2) return 'جلستان'
+    if (n >= 3 && n <= 10) return `${n} جلسات`
+    return `${n} جلسة`
+  }
   
   // Helper: show the final score exactly as stored (matches matrix)
   const getOriginalScore = (match: MatchResult): number => {
@@ -558,7 +566,7 @@ export default function ResultsPage() {
                               فعالية رقم {event_id}
                             </div>
                             <div className={`text-xs ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
-                              {items.length} جلسة
+                              {formatSessionCount(items.length)}
                             </div>
                           </div>
                         </div>

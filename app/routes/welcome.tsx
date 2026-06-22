@@ -6787,21 +6787,12 @@ export default function WelcomePage() {
                       </span>
                     </div>
                   </div>
-                  <div className="max-w-xl mx-auto mb-3 px-2">
-                    <div className={`p-3 rounded-xl border ${
-                      dark 
-                        ? "bg-amber-500/10 border-amber-400/30" 
-                        : "bg-amber-50 border-amber-200"
-                    }`}>
-                      <div className="flex items-start gap-2">
-                        <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${dark ? 'text-amber-300' : 'text-amber-600'}`} />
-                        <div className={`text-[11px] leading-relaxed text-right ${dark ? 'text-amber-100' : 'text-amber-800'}`}>
-                          <div className={`font-bold mb-0.5 ${dark ? 'text-amber-200' : 'text-amber-800'}`}>تنبيه</div>
-                          <div>
-                            النتائج تقديرية مبنية على احتمالات وليست ضماناً، وقد تتأثر بدقة الإجابات والسياق.
-                          </div>
-                        </div>
-                      </div>
+                  <div className="max-w-xl mx-auto mb-3">
+                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${dark ? "bg-slate-900/80 border-slate-700/50 text-slate-200 shadow-lg shadow-black/30" : "bg-gray-900/80 border-gray-700/50 text-gray-200 shadow-lg"}`}>
+                      <AlertTriangle className="w-3 h-3" />
+                      <span className="text-[7px] font-medium">
+                        تنبيه: النتائج تقديرية مبنية على احتمالات وليست ضماناً، وقد تتأثر بدقة الإجابات والسياق.
+                      </span>
                     </div>
                   </div>
                   <details className="group">

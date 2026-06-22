@@ -1524,6 +1524,18 @@ const SurveyComponent = memo(function SurveyComponent({
                 </div>
               </div>
             ))}
+            {question.id === 'gender_preference' && (
+              <div className="mt-3" role="note" aria-label="ملاحظة حول تفضيل الجنس">
+                <div className="rounded-xl border-2 border-dashed transition p-3 bg-amber-50/70 dark:bg-amber-900/10 border-amber-300/70 dark:border-amber-400/40">
+                  <div className="flex items-start gap-2 text-amber-900/90 dark:text-amber-200/90">
+                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <div className="text-[12px] leading-relaxed text-right">
+                      حالياً في هذه الفعالية ستكون الجلسات مع الجنسين، وهذا السؤال لا يضمن تطبيق التفضيل الآن — نحتفظ به لفعاليات مستقبلية.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Extra preference (optional): Open to different goal */}
             {question.id === 'intent_goal' && (
               <div className="mt-3" role="region" aria-label="تفضيل إضافي مرتبط بهدف المشاركة">

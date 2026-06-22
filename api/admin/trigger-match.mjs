@@ -3336,6 +3336,7 @@ export default async function handler(req, res) {
       maxPairsPerRequest = null,
       maxNewCachesPerRequest = null,
       maxDurationMs = null,
+      finalizeDeltaCacheMetadata = true,
     } = req.body || {}
 
     if (genderMode !== 'same' && genderMode !== 'opposite') {
@@ -3482,6 +3483,29 @@ export default async function handler(req, res) {
       const durationMs = Date.now() - startTime
 
       console.log(`💾 BATCH CACHE [${genderMode}] COMPLETE: processed=${pairsProcessed}, newly=${newlyCached}, already=${alreadyCached}, skipped=${skipped}, errors=${errors}`)
+
+      // IMPORTANT:
+      // Batched caching can fully refresh the cache, but without updating cache_metadata
+      // delta cache will still think work remains (because last_precache_timestamp is stale).
+      // Only update metadata when the entire batched run is complete (has_more=false).
+      if (!hasMore && finalizeDeltaCacheMetadata) {
+        try {
+          await supabase.rpc('record_cache_session', {
+            p_event_id: eventId,
+            p_participants_cached: totalParticipants,
+            // We can't reliably know total new caches across all batch requests without client aggregation.
+            // The key requirement for delta cache is updating last_precache_timestamp, which this RPC does.
+            p_pairs_cached: newlyCached,
+            p_duration_ms: durationMs,
+            p_ai_calls: (!!skipAI ? 0 : newlyCached),
+            p_cache_hit_rate: pairsProcessed > 0 ? parseFloat(((alreadyCached / pairsProcessed) * 100).toFixed(2)) : 0,
+            p_notes: `Batched pre-cache (${genderMode}) complete: participants=${totalParticipants}`
+          })
+          console.log(`✅ Batched cache completed: cache_metadata updated (delta cache will be fresh)`)
+        } catch (metaError) {
+          console.error('⚠️ Failed to update cache_metadata for batched cache (non-fatal):', metaError)
+        }
+      }
 
       return res.status(200).json({
         success: true,

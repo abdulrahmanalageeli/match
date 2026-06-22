@@ -81,6 +81,7 @@ export default function ResultsPage() {
   const [showAiAnalysis, setShowAiAnalysis] = useState<{[key: number]: boolean}>({})
   const [showPartnerMessage, setShowPartnerMessage] = useState<{[key: number]: boolean}>({})
   const [expandedMatches, setExpandedMatches] = useState<{[key: number]: boolean}>({})
+  const [expandedEvents, setExpandedEvents] = useState<{[key: number]: boolean}>({})
   
   // Helper: show the final score exactly as stored (matches matrix)
   const getOriginalScore = (match: MatchResult): number => {
@@ -369,6 +370,16 @@ export default function ResultsPage() {
     fetchResults()
   }, [token])
 
+  useEffect(() => {
+    if (!resultsData?.history?.length) return
+    setExpandedEvents(prev => {
+      if (prev && Object.keys(prev).length > 0) return prev
+      const firstEventId = resultsData.history.find(m => typeof m.event_id === 'number' && m.event_id > 0)?.event_id
+      const safeEventId = (typeof firstEventId === 'number' && firstEventId > 0) ? firstEventId : (resultsData.event_id || 1)
+      return { [safeEventId]: true }
+    })
+  }, [resultsData])
+
   const getMatchStatusText = (match: MatchResult) => {
     if (match.wants_match === null || match.partner_wants_match === null) {
       return { text: "شريكك لم يقبل بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
@@ -381,6 +392,36 @@ export default function ResultsPage() {
     }
     return { text: "شريكك لم يقبل بعد", color: "text-yellow-500", bgColor: "bg-yellow-100", icon: Clock }
   }
+
+  const eventGroups = (() => {
+    const history = resultsData?.history || []
+    const grouped = new Map<number, Array<{ match: MatchResult; matchIndex: number }>>()
+
+    history.forEach((m, matchIndex) => {
+      const eventId = (typeof m.event_id === 'number' && m.event_id > 0)
+        ? m.event_id
+        : (resultsData?.event_id || 1)
+      const arr = grouped.get(eventId) || []
+      arr.push({ match: { ...m, event_id: eventId }, matchIndex })
+      grouped.set(eventId, arr)
+    })
+
+    return Array.from(grouped.entries())
+      .map(([event_id, items]) => ({
+        event_id,
+        items: items
+          .slice()
+          .sort((a, b) => {
+            const ra = a.match.round ?? 1
+            const rb = b.match.round ?? 1
+            if (ra !== rb) return ra - rb
+            const ta = a.match.created_at ? new Date(a.match.created_at).getTime() : 0
+            const tb = b.match.created_at ? new Date(b.match.created_at).getTime() : 0
+            return tb - ta
+          })
+      }))
+      .sort((a, b) => b.event_id - a.event_id)
+  })()
 
   if (loading) {
     return (
@@ -492,108 +533,149 @@ export default function ResultsPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {resultsData.history.map((match: MatchResult, index: number) => {
-                const status = getMatchStatusText(match)
-                const StatusIcon = status.icon
-                const isExpanded = expandedMatches[index]
+              {eventGroups.map(({ event_id, items }) => {
+                const isEventExpanded = expandedEvents[event_id]
                 
                 return (
-                  <div key={index} className={`rounded-xl border transition-all duration-200 ${
-                    dark ? 'bg-slate-700/40 border-slate-600/50 hover:bg-slate-700/60' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  <div key={event_id} className={`rounded-xl border transition-all duration-200 ${
+                    dark ? 'bg-slate-700/30 border-slate-600/50' : 'bg-gray-50 border-gray-200'
                   }`}>
-                    {/* Collapsible Header */}
-                    <div 
+                    <div
                       className="p-4 cursor-pointer"
-                      onClick={() => setExpandedMatches(prev => ({ ...prev, [index]: !prev[index] }))}
+                      onClick={() => setExpandedEvents(prev => ({ ...prev, [event_id]: !prev[event_id] }))}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                            dark ? 'bg-cyan-600/20 border-cyan-400' : 'bg-cyan-100 border-cyan-300'
+                          <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            dark ? 'bg-indigo-600/20 border-indigo-400' : 'bg-indigo-100 border-indigo-300'
                           }`}>
-                            <span className={`font-bold text-sm ${dark ? 'text-cyan-200' : 'text-cyan-700'}`}>
-                              #{match.with}
+                            <span className={`font-bold text-sm ${dark ? 'text-indigo-200' : 'text-indigo-700'}`}>
+                              {event_id}
                             </span>
                           </div>
-                          
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <h3 className={`font-bold text-sm sm:text-base truncate ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
-                                {match.partner_name || 'شريك المحادثة'}
-                              </h3>
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
-                              }`}>
-                                {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
-                              </span>
-                              {match.is_repeat_match && (
-                                <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                                  dark ? 'bg-amber-600/70 text-amber-200' : 'bg-amber-200/70 text-amber-700'
-                                }`}>
-                                  تكرار
-                                </span>
-                              )}
+                            <div className={`font-bold ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                              فعالية رقم {event_id}
                             </div>
-                            
-                            <div className="flex items-center gap-2 flex-wrap">
-                              {/* Status Badge - Enhanced for Mutual Match */}
-                              {match.mutual_match ? (
-                                <div className="relative">
-                                  <span className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
-                                  <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-lg">
-                                    <Handshake className="w-4 h-4 animate-pulse" />
-                                    مطابقة متبادلة!
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium ${
-                                  dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
-                                }`}>
-                                  <StatusIcon className="w-3.5 h-3.5" />
-                                  {status.text}
-                                </span>
-                              )}
-                              
-                              {/* Score Badge */}
-                              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
-                                getOriginalScore(match) >= 70 ? 'bg-green-500/10 border border-green-500/30' :
-                                getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border border-yellow-500/30' :
-                                'bg-red-500/10 border border-red-500/30'
-                              }`}>
-                                <Award className={`w-3.5 h-3.5 ${
-                                  getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                  getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                  'text-red-500'
-                                }`} />
-                                <span className={`text-sm font-bold ${
-                                  getOriginalScore(match) >= 70 ? 'text-green-500' :
-                                  getOriginalScore(match) >= 50 ? 'text-yellow-500' :
-                                  'text-red-500'
-                                }`}>
-                                  {getOriginalScore(match)}%
-                                </span>
-                              </div>
+                            <div className={`text-xs ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
+                              {items.length} جلسة
                             </div>
                           </div>
                         </div>
-                        
-                        <div className="flex items-center gap-2 flex-shrink-0">
-                          {match.mutual_match && (
-                            <Handshake className="w-5 h-5 text-emerald-500 animate-pulse" />
-                          )}
-                          {isExpanded ? (
-                            <ChevronUp className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
-                          ) : (
-                            <ChevronDown className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
-                          )}
-                        </div>
+
+                        {isEventExpanded ? (
+                          <ChevronUp className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                        ) : (
+                          <ChevronDown className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                        )}
                       </div>
                     </div>
 
-                    {/* Expanded Content */}
-                    {isExpanded && (
+                    {isEventExpanded && (
                       <div className={`px-4 pb-4 border-t ${dark ? 'border-slate-600/50' : 'border-gray-200'}`}>
-                        <div className="pt-4 space-y-4">
+                        <div className="pt-4 space-y-3">
+                          {items.map(({ match, matchIndex }) => {
+                            const status = getMatchStatusText(match)
+                            const StatusIcon = status.icon
+                            const isExpanded = expandedMatches[matchIndex]
+                            
+                            return (
+                              <div key={matchIndex} className={`rounded-xl border transition-all duration-200 ${
+                                dark ? 'bg-slate-700/40 border-slate-600/50 hover:bg-slate-700/60' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                              }`}>
+                                {/* Collapsible Header */}
+                                <div 
+                                  className="p-4 cursor-pointer"
+                                  onClick={() => setExpandedMatches(prev => ({ ...prev, [matchIndex]: !prev[matchIndex] }))}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                                      <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                        dark ? 'bg-cyan-600/20 border-cyan-400' : 'bg-cyan-100 border-cyan-300'
+                                      }`}>
+                                        <span className={`font-bold text-sm ${dark ? 'text-cyan-200' : 'text-cyan-700'}`}>
+                                          #{match.with}
+                                        </span>
+                                      </div>
+                                      
+                                      <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h3 className={`font-bold text-sm sm:text-base truncate ${dark ? 'text-slate-200' : 'text-gray-800'}`}>
+                                            {match.partner_name || 'شريك المحادثة'}
+                                          </h3>
+                                          <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                            dark ? 'bg-slate-600/70 text-slate-200' : 'bg-gray-200/70 text-gray-700'
+                                          }`}>
+                                            {match.round === 2 ? 'الجولة الثانية' : 'الجولة الأولى'}
+                                          </span>
+                                          {match.is_repeat_match && (
+                                            <span className={`text-xs px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                              dark ? 'bg-amber-600/70 text-amber-200' : 'bg-amber-200/70 text-amber-700'
+                                            }`}>
+                                              تكرار
+                                            </span>
+                                          )}
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          {/* Status Badge - Enhanced for Mutual Match */}
+                                          {match.mutual_match ? (
+                                            <div className="relative">
+                                              <span className="absolute -inset-1 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full opacity-50 blur-sm animate-pulse"></span>
+                                              <span className="relative flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-lg">
+                                                <Handshake className="w-4 h-4 animate-pulse" />
+                                                مطابقة متبادلة!
+                                              </span>
+                                            </div>
+                                          ) : (
+                                            <span className={`text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-medium ${
+                                              dark ? `${status.bgColor}/20 ${status.color}` : `${status.bgColor} ${status.color}`
+                                            }`}>
+                                              <StatusIcon className="w-3.5 h-3.5" />
+                                              {status.text}
+                                            </span>
+                                          )}
+                                          
+                                          {/* Score Badge */}
+                                          <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full ${
+                                            getOriginalScore(match) >= 70 ? 'bg-green-500/10 border border-green-500/30' :
+                                            getOriginalScore(match) >= 50 ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                                            'bg-red-500/10 border border-red-500/30'
+                                          }`}>
+                                            <Award className={`w-3.5 h-3.5 ${
+                                              getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                              getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                              'text-red-500'
+                                            }`} />
+                                            <span className={`text-sm font-bold ${
+                                              getOriginalScore(match) >= 70 ? 'text-green-500' :
+                                              getOriginalScore(match) >= 50 ? 'text-yellow-500' :
+                                              'text-red-500'
+                                            }`}>
+                                              {getOriginalScore(match)}%
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                      {match.mutual_match && (
+                                        <Handshake className="w-5 h-5 text-emerald-500 animate-pulse" />
+                                      )}
+                                      {isExpanded ? (
+                                        <ChevronUp className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                                      ) : (
+                                        <ChevronDown className={`w-5 h-5 ${dark ? 'text-slate-400' : 'text-gray-500'}`} />
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Expanded Content */}
+                                {isExpanded && (
+                                  <div className={`px-4 pb-4 border-t ${dark ? 'border-slate-600/50' : 'border-gray-200'}`}>
+                                    <div className="pt-4 space-y-4">
                           {/* Compatibility Score */}
                           <div className={`p-4 rounded-xl border ${
                             getOriginalScore(match) >= 70 ? 'bg-green-500/5 border-green-500/20' :
@@ -746,14 +828,14 @@ export default function ResultsPage() {
                           {match.ai_personality_analysis && (
                             <div>
                               <Button
-                                onClick={() => setShowAiAnalysis(prev => ({ ...prev, [index]: !prev[index] }))}
+                                onClick={() => setShowAiAnalysis(prev => ({ ...prev, [matchIndex]: !prev[matchIndex] }))}
                                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-sm"
                               >
                                 <Sparkles className="w-4 h-4 ml-2" />
-                                {showAiAnalysis[index] ? "إخفاء التحليل الذكي" : "اكتشف سبب توافقكما الرائع!"}
+                                {showAiAnalysis[matchIndex] ? "إخفاء التحليل الذكي" : "اكتشف سبب توافقكما الرائع!"}
                               </Button>
                               
-                              {showAiAnalysis[index] && (
+                              {showAiAnalysis[matchIndex] && (
                                 <div className={`mt-3 p-4 rounded-lg border ${
                                   dark ? 'bg-gradient-to-br from-purple-900/20 to-pink-900/20 border-purple-400/30' : 'bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200'
                                 }`}>
@@ -901,13 +983,13 @@ export default function ResultsPage() {
                                 </h4>
                               </div>
                               
-                              {!showPartnerMessage[index] ? (
+                              {!showPartnerMessage[matchIndex] ? (
                                 <div className="text-center">
                                   <p className={`text-xs mb-3 ${dark ? 'text-purple-300/80' : 'text-purple-600/80'}`}>
                                     شريك المحادثة أرسل لك رسالة
                                   </p>
                                   <Button
-                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [index]: true }))}
+                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: true }))}
                                     className="text-xs px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white"
                                   >
                                     اضغط لقراءة الرسالة
@@ -921,7 +1003,7 @@ export default function ResultsPage() {
                                     "{match.partner_message}"
                                   </p>
                                   <Button
-                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [index]: false }))}
+                                    onClick={() => setShowPartnerMessage(prev => ({ ...prev, [matchIndex]: false }))}
                                     className={`mt-2 text-xs px-2 py-1 ${
                                       dark 
                                         ? 'bg-slate-600 hover:bg-slate-700 text-slate-200' 
@@ -934,6 +1016,12 @@ export default function ResultsPage() {
                               )}
                             </div>
                           )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     )}

@@ -612,6 +612,7 @@ export default function WelcomePage() {
   const [isShowingFinishedEventFeedback, setIsShowingFinishedEventFeedback] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showRound1Guide, setShowRound1Guide] = useState(false);
+  const [participantGender, setParticipantGender] = useState<string | null>(null);
 
   useEffect(() => {
     setWantMatch(null)
@@ -1452,7 +1453,7 @@ export default function WelcomePage() {
         ? round3Questions
         : round1Questions;
 
-  const participantGenderValue = (surveyData as any)?.answers?.gender ?? (surveyData as any)?.gender ?? ''
+  const participantGenderValue = participantGender ?? (surveyData as any)?.answers?.gender ?? (surveyData as any)?.gender ?? ''
   const participantGenderNormalized = String(participantGenderValue || '').trim().toLowerCase()
   const participantIsFemale = participantGenderNormalized === 'female' || participantGenderNormalized === 'أنثى' || participantGenderNormalized === 'انثى'
   const participantIsMale = participantGenderNormalized === 'male' || participantGenderNormalized === 'ذكر'
@@ -1701,6 +1702,9 @@ export default function WelcomePage() {
           setParticipantName(data.name);
           setSecureToken(token); // Store the secure token
           saveUserToken(token, data.name, data.assigned_number); // Save token with name and number to localStorage
+          // Store participant gender for round theming (same-gender pink/blue)
+          const resolvedGender = data.gender ?? data?.survey_data?.answers?.gender ?? null
+          if (resolvedGender) setParticipantGender(resolvedGender)
           // Update gender preference from DB to keep navbar badge in sync
           if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
             setReturningGenderPreference(data.gender_preference)
@@ -3511,6 +3515,9 @@ export default function WelcomePage() {
           console.log('💾 Saved participant number to localStorage:', data.assigned_number);
         }
 
+        // Store participant gender for round theming (same-gender pink/blue)
+        const polledGender = data.gender ?? data?.survey_data?.answers?.gender ?? null
+        if (polledGender) setParticipantGender(polledGender)
         // Update gender preference badge from DB
         if (typeof data.gender_preference === 'string' && data.gender_preference.trim()) {
           setReturningGenderPreference(data.gender_preference)

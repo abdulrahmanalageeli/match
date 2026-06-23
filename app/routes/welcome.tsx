@@ -1460,6 +1460,26 @@ export default function WelcomePage() {
   const isSameGenderGirlsTheme = currentRound === 1 && participantIsFemale
   const sameGenderRoundLabel = participantIsFemale ? 'نفس الجنس (بنات)' : participantIsMale ? 'نفس الجنس (شباب)' : 'نفس الجنس'
 
+  // Track whether the user manually picked a question set (so we don't override their choice)
+  const hasUserChosenSetRef = useRef(false)
+  const chooseQuestionSet = useCallback((set: 'round1' | 'event' | 'set3') => {
+    hasUserChosenSetRef.current = true
+    setActiveQuestionSet(set)
+    setCurrentQuestionIndex(0)
+  }, [])
+
+  // Default question set per round: same-gender (round 1) → set 3, opposite (round 2) → set 1.
+  // Resetting the manual-choice flag first ensures each new round applies its default.
+  useEffect(() => {
+    hasUserChosenSetRef.current = false
+    if (currentRound === 1) {
+      setActiveQuestionSet('set3')
+    } else if (currentRound === 2) {
+      setActiveQuestionSet('round1')
+    }
+    setCurrentQuestionIndex(0)
+  }, [currentRound])
+
   // Safety check: Reset question index if out of bounds when switching question sets
   useEffect(() => {
     if (currentQuestionIndex >= currentQuestions.length) {
@@ -8729,10 +8749,7 @@ export default function WelcomePage() {
                           } shadow-sm`}
                         >
                           <button
-                            onClick={() => {
-                              setActiveQuestionSet('round1');
-                              setCurrentQuestionIndex(0);
-                            }}
+                            onClick={() => chooseQuestionSet('round1')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'round1'
                                 ? (dark
@@ -8746,10 +8763,7 @@ export default function WelcomePage() {
                             المجموعة ١
                           </button>
                           <button
-                            onClick={() => {
-                              setActiveQuestionSet('event');
-                              setCurrentQuestionIndex(0);
-                            }}
+                            onClick={() => chooseQuestionSet('event')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'event'
                                 ? (dark
@@ -8763,10 +8777,7 @@ export default function WelcomePage() {
                             المجموعة ٢
                           </button>
                           <button
-                            onClick={() => {
-                              setActiveQuestionSet('set3');
-                              setCurrentQuestionIndex(0);
-                            }}
+                            onClick={() => chooseQuestionSet('set3')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'set3'
                                 ? (dark
@@ -8780,7 +8791,17 @@ export default function WelcomePage() {
                             المجموعة ٣
                           </button>
                         </div>
-                        <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر أي مجموعة اسئلة</div>
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: [0, -2, 0] }}
+                          transition={{ y: { repeat: Infinity, duration: 2, ease: 'easeInOut' }, opacity: { duration: 0.4 } }}
+                          className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                            dark ? 'bg-slate-800/70 text-slate-300 border border-slate-700' : 'bg-white/80 text-gray-600 border border-gray-200'
+                          } shadow-sm`}
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 ${dark ? 'text-amber-300' : 'text-amber-500'} animate-pulse`} />
+                          <span>ما عجبتك الأسئلة؟ جرّب مجموعة ثانية</span>
+                        </motion.div>
                       </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
@@ -9257,10 +9278,7 @@ onClick={() => {
                           } shadow-sm`}
                         >
                           <button
-                            onClick={() => {
-                              setActiveQuestionSet('round1');
-                              setCurrentQuestionIndex(0);
-                            }}
+                            onClick={() => chooseQuestionSet('round1')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'round1'
                                 ? (dark
@@ -9274,10 +9292,7 @@ onClick={() => {
                             المجموعة ١
                           </button>
                           <button
-                            onClick={() => {
-                              setActiveQuestionSet('event');
-                              setCurrentQuestionIndex(0);
-                            }}
+                            onClick={() => chooseQuestionSet('event')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'event'
                                 ? (dark
@@ -9291,10 +9306,7 @@ onClick={() => {
                             المجموعة ٢
                           </button>
                           <button
-                            onClick={() => {
-                              setActiveQuestionSet('set3');
-                              setCurrentQuestionIndex(0);
-                            }}
+                            onClick={() => chooseQuestionSet('set3')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'set3'
                                 ? (dark
@@ -9308,7 +9320,17 @@ onClick={() => {
                             المجموعة ٣
                           </button>
                         </div>
-                        <div className={`${dark ? 'text-slate-400' : 'text-gray-500'} text-xs`}>اختر مجموعة الأسئلة</div>
+                        <motion.div
+                          initial={{ opacity: 0, y: -4 }}
+                          animate={{ opacity: 1, y: [0, -2, 0] }}
+                          transition={{ y: { repeat: Infinity, duration: 2, ease: 'easeInOut' }, opacity: { duration: 0.4 } }}
+                          className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                            dark ? 'bg-slate-800/70 text-slate-300 border border-slate-700' : 'bg-white/80 text-gray-600 border border-gray-200'
+                          } shadow-sm`}
+                        >
+                          <Sparkles className={`w-3.5 h-3.5 ${dark ? 'text-amber-300' : 'text-amber-500'} animate-pulse`} />
+                          <span>ما عجبتك الأسئلة؟ جرّب مجموعة ثانية</span>
+                        </motion.div>
                       </div>
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">

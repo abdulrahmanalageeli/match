@@ -1452,6 +1452,13 @@ export default function WelcomePage() {
         ? round3Questions
         : round1Questions;
 
+  const participantGenderValue = (surveyData as any)?.answers?.gender ?? (surveyData as any)?.gender ?? ''
+  const participantGenderNormalized = String(participantGenderValue || '').trim().toLowerCase()
+  const participantIsFemale = participantGenderNormalized === 'female' || participantGenderNormalized === 'أنثى' || participantGenderNormalized === 'انثى'
+  const participantIsMale = participantGenderNormalized === 'male' || participantGenderNormalized === 'ذكر'
+  const isSameGenderGirlsTheme = currentRound === 1 && participantIsFemale
+  const sameGenderRoundLabel = participantIsFemale ? 'نفس الجنس (بنات)' : participantIsMale ? 'نفس الجنس (شباب)' : 'نفس الجنس'
+
   // Safety check: Reset question index if out of bounds when switching question sets
   useEffect(() => {
     if (currentQuestionIndex >= currentQuestions.length) {
@@ -8450,7 +8457,9 @@ export default function WelcomePage() {
                   <div
                     key={`local-orb-${i}`}
                     className={`absolute rounded-full blur-xl opacity-30 md:opacity-25 animate-pulse ${
-                      i % 2 === 0 ? 'bg-cyan-400' : 'bg-blue-500'
+                      i % 2 === 0
+                        ? (isSameGenderGirlsTheme ? 'bg-pink-400' : 'bg-cyan-400')
+                        : (isSameGenderGirlsTheme ? 'bg-purple-500' : 'bg-blue-500')
                     }`}
                     style={{
                       width: `${24 + (i % 3) * 16}px`,
@@ -8563,17 +8572,21 @@ export default function WelcomePage() {
                           className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border shadow-sm tracking-wide ${
                             currentRound === 1
                               ? dark
-                                ? "bg-gradient-to-r from-cyan-600/25 to-emerald-600/20 text-cyan-100 border-cyan-400/30"
-                                : "bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-800 border-cyan-200"
+                                ? (isSameGenderGirlsTheme
+                                    ? "bg-gradient-to-r from-pink-600/25 to-purple-600/20 text-pink-100 border-pink-400/30"
+                                    : "bg-gradient-to-r from-cyan-600/25 to-emerald-600/20 text-cyan-100 border-cyan-400/30")
+                                : (isSameGenderGirlsTheme
+                                    ? "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200"
+                                    : "bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-800 border-cyan-200")
                               : dark
                                 ? "bg-gradient-to-r from-pink-600/25 to-purple-600/20 text-pink-100 border-pink-400/30"
                                 : "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200"
                           }`}
-                          aria-label={currentRound === 1 ? "مطابقة نفس الجنس" : "مطابقة الجنس الآخر"}
-                          title={currentRound === 1 ? "Same-gender match" : "Opposite-gender match"}
+                          aria-label={currentRound === 1 ? `مطابقة ${sameGenderRoundLabel}` : "مطابقة الجنس الآخر"}
+                          title={currentRound === 1 ? sameGenderRoundLabel : "Opposite-gender match"}
                         >
-                          <span className={`w-2 h-2 rounded-full ${currentRound === 1 ? "bg-cyan-400" : "bg-pink-400"}`} />
-                          <span>{currentRound === 1 ? "نفس الجنس" : "الجنس الآخر"}</span>
+                          <span className={`w-2 h-2 rounded-full ${currentRound === 1 ? (isSameGenderGirlsTheme ? "bg-pink-400" : "bg-cyan-400") : "bg-pink-400"}`} />
+                          <span>{currentRound === 1 ? sameGenderRoundLabel : "الجنس الآخر"}</span>
                         </span>
                       </div>
                     )}
@@ -8583,11 +8596,11 @@ export default function WelcomePage() {
                       <div className="flex flex-col items-center gap-2 flex-1">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                           dark 
-                            ? "bg-cyan-600/30 border border-cyan-500/50"
-                            : "bg-cyan-100 border border-cyan-300"
+                            ? (isSameGenderGirlsTheme ? "bg-pink-600/30 border border-pink-500/50" : "bg-cyan-600/30 border border-cyan-500/50")
+                            : (isSameGenderGirlsTheme ? "bg-pink-100 border border-pink-300" : "bg-cyan-100 border border-cyan-300")
                         }`}>
                           <Users className={`w-4 h-4 ${
-                            dark ? "text-cyan-400" : "text-cyan-600"
+                            dark ? (isSameGenderGirlsTheme ? "text-pink-400" : "text-cyan-400") : (isSameGenderGirlsTheme ? "text-pink-600" : "text-cyan-600")
                           }`} />
                         </div>
                         <div className="text-center">
@@ -8597,7 +8610,7 @@ export default function WelcomePage() {
                             شريكك
                           </p>
                           <p className={`text-xl font-bold ${
-                            dark ? "text-cyan-300" : "text-cyan-700"
+                            dark ? (isSameGenderGirlsTheme ? "text-pink-300" : "text-cyan-300") : (isSameGenderGirlsTheme ? "text-pink-700" : "text-cyan-700")
                           }`}>
                             {matchResult === "المنظم" ? "المنظم" : `#${matchResult}`}
                           </p>
@@ -8716,8 +8729,8 @@ export default function WelcomePage() {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'round1'
                                 ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
                                 : (dark
                                     ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
@@ -8733,8 +8746,8 @@ export default function WelcomePage() {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'event'
                                 ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
                                 : (dark
                                     ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
@@ -8750,8 +8763,8 @@ export default function WelcomePage() {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'set3'
                                 ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
                                 : (dark
                                     ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
@@ -9095,17 +9108,21 @@ onClick={() => {
                           className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border shadow-sm tracking-wide ${
                             currentRound === 1
                               ? dark
-                                ? "bg-gradient-to-r from-cyan-600/25 to-emerald-600/20 text-cyan-100 border-cyan-400/30"
-                                : "bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-800 border-cyan-200"
+                                ? (isSameGenderGirlsTheme
+                                    ? "bg-gradient-to-r from-pink-600/25 to-purple-600/20 text-pink-100 border-pink-400/30"
+                                    : "bg-gradient-to-r from-cyan-600/25 to-emerald-600/20 text-cyan-100 border-cyan-400/30")
+                                : (isSameGenderGirlsTheme
+                                    ? "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200"
+                                    : "bg-gradient-to-r from-cyan-100 to-emerald-100 text-cyan-800 border-cyan-200")
                               : dark
                                 ? "bg-gradient-to-r from-pink-600/25 to-purple-600/20 text-pink-100 border-pink-400/30"
                                 : "bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200"
                           }`}
-                          aria-label={currentRound === 1 ? "مطابقة نفس الجنس" : "مطابقة الجنس الآخر"}
-                          title={currentRound === 1 ? "Same-gender match" : "Opposite-gender match"}
+                          aria-label={currentRound === 1 ? `مطابقة ${sameGenderRoundLabel}` : "مطابقة الجنس الآخر"}
+                          title={currentRound === 1 ? sameGenderRoundLabel : "Opposite-gender match"}
                         >
-                          <span className={`w-2 h-2 rounded-full ${currentRound === 1 ? "bg-cyan-400" : "bg-pink-400"}`} />
-                          <span>{currentRound === 1 ? "نفس الجنس" : "الجنس الآخر"}</span>
+                          <span className={`w-2 h-2 rounded-full ${currentRound === 1 ? (isSameGenderGirlsTheme ? "bg-pink-400" : "bg-cyan-400") : "bg-pink-400"}`} />
+                          <span>{currentRound === 1 ? sameGenderRoundLabel : "الجنس الآخر"}</span>
                         </span>
                       </div>
                     )}
@@ -9115,11 +9132,11 @@ onClick={() => {
                       <div className="flex flex-col items-center gap-2 flex-1">
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                           dark 
-                            ? "bg-cyan-600/30 border border-cyan-500/50"
-                            : "bg-cyan-100 border border-cyan-300"
+                            ? (isSameGenderGirlsTheme ? "bg-pink-600/30 border border-pink-500/50" : "bg-cyan-600/30 border border-cyan-500/50")
+                            : (isSameGenderGirlsTheme ? "bg-pink-100 border border-pink-300" : "bg-cyan-100 border border-cyan-300")
                         }`}>
                           <Users className={`w-4 h-4 ${
-                            dark ? "text-cyan-400" : "text-cyan-600"
+                            dark ? (isSameGenderGirlsTheme ? "text-pink-400" : "text-cyan-400") : (isSameGenderGirlsTheme ? "text-pink-600" : "text-cyan-600")
                           }`} />
                         </div>
                         <div className="text-center">
@@ -9129,7 +9146,7 @@ onClick={() => {
                             شريكك
                           </p>
                           <p className={`text-xl font-bold ${
-                            dark ? "text-cyan-300" : "text-cyan-700"
+                            dark ? (isSameGenderGirlsTheme ? "text-pink-300" : "text-cyan-300") : (isSameGenderGirlsTheme ? "text-pink-700" : "text-cyan-700")
                           }`}>
                             {matchResult === "المنظم" ? "المنظم" : `#${matchResult}`}
                           </p>
@@ -9240,8 +9257,8 @@ onClick={() => {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'round1'
                                 ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
                                 : (dark
                                     ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
@@ -9257,8 +9274,8 @@ onClick={() => {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'event'
                                 ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
                                 : (dark
                                     ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
@@ -9274,8 +9291,8 @@ onClick={() => {
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
                               activeQuestionSet === 'set3'
                                 ? (dark
-                                    ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md'
-                                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow')
+                                    ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                    : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
                                 : (dark
                                     ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')

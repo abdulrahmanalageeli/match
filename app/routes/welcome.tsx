@@ -8581,6 +8581,15 @@ export default function WelcomePage() {
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
                   }`}>
+                    {currentRound === 1 && round1AccessorySrc && (
+                      <img
+                        src={round1AccessorySrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none select-none absolute -top-6 -left-4 w-16 md:w-20 h-auto drop-shadow-xl opacity-95"
+                        style={{ transform: round1AccessorySrc === '/PinkRibbon.png' ? 'rotate(-12deg)' : 'rotate(8deg)' }}
+                      />
+                    )}
                     {(currentRound === 1 || currentRound === 2) && (
                       <div className="flex justify-center mb-3">
                         <span
@@ -9113,6 +9122,15 @@ onClick={() => {
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
                   }`}>
+                    {currentRound === 1 && round1AccessorySrc && (
+                      <img
+                        src={round1AccessorySrc}
+                        alt=""
+                        aria-hidden="true"
+                        className="pointer-events-none select-none absolute -top-6 -left-4 w-16 md:w-20 h-auto drop-shadow-xl opacity-95"
+                        style={{ transform: round1AccessorySrc === '/PinkRibbon.png' ? 'rotate(-12deg)' : 'rotate(8deg)' }}
+                      />
+                    )}
                     {(currentRound === 1 || currentRound === 2) && (
                       <div className="flex justify-center mb-3">
                         <span

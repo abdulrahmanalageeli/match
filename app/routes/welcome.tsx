@@ -613,21 +613,6 @@ export default function WelcomePage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [showRound1Guide, setShowRound1Guide] = useState(false);
 
-  const round1AccessorySrc = (() => {
-    const raw = String(surveyData?.gender ?? (surveyData?.answers as any)?.gender ?? '')
-      .trim()
-      .toLowerCase()
-
-    if (!raw) return null
-
-    const isFemale = raw === 'female' || raw === 'f' || raw.includes('أنث') || raw.includes('انث')
-    const isMale = raw === 'male' || raw === 'm' || raw.includes('ذكر')
-
-    if (isFemale) return '/PinkRibbon.png'
-    if (isMale) return '/Mustache.png'
-    return null
-  })()
-
   useEffect(() => {
     setWantMatch(null)
     setPartnerInfo(null)
@@ -8572,15 +8557,6 @@ export default function WelcomePage() {
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
                   }`}>
-                    {currentRound === 1 && round1AccessorySrc && (
-                      <img
-                        src={round1AccessorySrc}
-                        alt=""
-                        aria-hidden="true"
-                        className="pointer-events-none select-none absolute -top-6 -left-4 w-16 md:w-20 h-auto drop-shadow-xl opacity-95"
-                        style={{ transform: round1AccessorySrc === '/PinkRibbon.png' ? 'rotate(-12deg)' : 'rotate(8deg)' }}
-                      />
-                    )}
                     {(currentRound === 1 || currentRound === 2) && (
                       <div className="flex justify-center mb-3">
                         <span
@@ -9113,15 +9089,6 @@ onClick={() => {
                       ? "bg-slate-800/50 border-slate-600/50"
                       : "bg-white/80 border-gray-200"
                   }`}>
-                    {currentRound === 1 && round1AccessorySrc && (
-                      <img
-                        src={round1AccessorySrc}
-                        alt=""
-                        aria-hidden="true"
-                        className="pointer-events-none select-none absolute -top-6 -left-4 w-16 md:w-20 h-auto drop-shadow-xl opacity-95"
-                        style={{ transform: round1AccessorySrc === '/PinkRibbon.png' ? 'rotate(-12deg)' : 'rotate(8deg)' }}
-                      />
-                    )}
                     {(currentRound === 1 || currentRound === 2) && (
                       <div className="flex justify-center mb-3">
                         <span

@@ -1651,6 +1651,11 @@ export default function WelcomePage() {
   const isSameGenderGirlsTheme = currentRound === 1 && participantIsFemale
   const sameGenderRoundLabel = participantIsFemale ? 'نفس الجنس (بنات)' : participantIsMale ? 'نفس الجنس (شباب)' : 'نفس الجنس'
 
+  const questionThemeLevel =
+    activeQuestionSet === 'special'
+      ? (isSameGenderGirlsTheme ? 3 : 1)
+      : (currentQuestions[0]?.level ?? 0);
+
   // Track whether the user manually picked a question set (so we don't override their choice)
   const hasUserChosenSetRef = useRef(false)
   const chooseQuestionSet = useCallback((set: 'round1' | 'event' | 'set3' | 'special') => {
@@ -7976,24 +7981,24 @@ export default function WelcomePage() {
         className={`min-h-screen px-4 py-4 flex items-start justify-center relative overflow-hidden transition-colors duration-1000 ${
           dark
             ? step === 4 && currentRound === 1
-              ? currentQuestions[currentQuestionIndex].level === 0
+              ? questionThemeLevel === 0
                 ? "bg-gradient-to-br from-emerald-900/20 via-slate-800 to-green-900/20 text-white"
-                : currentQuestions[currentQuestionIndex].level === 1
+                : questionThemeLevel === 1
                   ? "bg-gradient-to-br from-cyan-900/20 via-slate-800 to-blue-900/20 text-white"
-                  : currentQuestions[currentQuestionIndex].level === 2
+                  : questionThemeLevel === 2
                     ? "bg-gradient-to-br from-amber-900/20 via-slate-800 to-orange-900/20 text-white"
-                    : currentQuestions[currentQuestionIndex].level === 3
+                    : questionThemeLevel === 3
                       ? "bg-gradient-to-br from-purple-900/20 via-slate-800 to-pink-900/20 text-white"
                       : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
               : "bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white"
             : step === 4 && currentRound === 1
-              ? currentQuestions[currentQuestionIndex].level === 0
+              ? questionThemeLevel === 0
                 ? "bg-gradient-to-br from-emerald-50 via-green-50 to-emerald-100 text-gray-900"
-                : currentQuestions[currentQuestionIndex].level === 1
+                : questionThemeLevel === 1
                   ? "bg-gradient-to-br from-cyan-50 via-blue-50 to-cyan-100 text-gray-900"
-                  : currentQuestions[currentQuestionIndex].level === 2
+                  : questionThemeLevel === 2
                     ? "bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 text-gray-900"
-                    : currentQuestions[currentQuestionIndex].level === 3
+                    : questionThemeLevel === 3
                       ? "bg-gradient-to-br from-purple-50 via-pink-50 to-purple-100 text-gray-900"
                       : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
               : "bg-gradient-to-br from-gray-50 via-white to-gray-100 text-gray-900"
@@ -8920,26 +8925,26 @@ export default function WelcomePage() {
                           : (isSameGenderGirlsTheme
                               ? "bg-gradient-to-br from-pink-50 via-fuchsia-50 to-purple-50 border-pink-300 ring-2 ring-pink-300/50 shadow-[0_0_32px_rgba(236,72,153,0.22)]"
                               : "bg-gradient-to-br from-cyan-50 via-sky-50 to-indigo-50 border-cyan-300 ring-2 ring-cyan-300/50 shadow-[0_0_32px_rgba(34,211,238,0.22)]")
-                      : currentQuestions[currentQuestionIndex].level === 0
+                      : questionThemeLevel === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/20 to-green-500/10 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 
                           : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300 ring-1 ring-emerald-300/40"
-                        : currentQuestions[currentQuestionIndex].level === 1
+                        : questionThemeLevel === 1
                           ? dark 
                             ? "bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border-cyan-400/50 ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.25)]" 
                             : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-300 ring-1 ring-cyan-300/40"
-                          : currentQuestions[currentQuestionIndex].level === 2
+                          : questionThemeLevel === 2
                             ? dark
                               ? "bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-amber-400/50 ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
                               : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 ring-1 ring-amber-300/40"
-                            : currentQuestions[currentQuestionIndex].level === 3
+                            : questionThemeLevel === 3
                               ? dark
                                 ? "bg-gradient-to-br from-purple-500/20 to-pink-600/10 border-purple-400/50 ring-1 ring-purple-400/30 shadow-[0_0_24px_rgba(168,85,247,0.25)]"
                                 : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300 ring-1 ring-purple-300/40"
                               : dark
                                 ? "bg-gradient-to-br from-green-500/20 to-teal-600/10 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
                                 : "bg-gradient-to-br from-green-50 to-teal-50 border-green-300 ring-1 ring-green-300/40"
-                    }`}>
+                    }`}> 
                       <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
                         <div
                           className={`inline-flex items-center p-1 rounded-full border ${
@@ -9022,51 +9027,51 @@ export default function WelcomePage() {
                       <div className="text-center mb-6">
                         <div className="flex items-center justify-center gap-2 mb-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            currentQuestions[currentQuestionIndex].level === 0
+                            questionThemeLevel === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                              : currentQuestions[currentQuestionIndex].level === 1
+                              : questionThemeLevel === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                : currentQuestions[currentQuestionIndex].level === 2
+                                : questionThemeLevel === 2
                                   ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                  : currentQuestions[currentQuestionIndex].level === 3
+                                  : questionThemeLevel === 3
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
                             
-                            {renderLevelIcon(currentQuestions[currentQuestionIndex].levelIcon)}
+                            {renderLevelIcon(String(currentQuestions[0]?.levelIcon ?? currentQuestions[currentQuestionIndex]?.levelIcon ?? "Layers"))}
                           </div>
                           <h4 className={`text-lg font-bold ${
-                            currentQuestions[currentQuestionIndex].level === 0
+                            questionThemeLevel === 0
                               ? dark ? "text-emerald-200" : "text-emerald-800"
-                              : currentQuestions[currentQuestionIndex].level === 1
+                              : questionThemeLevel === 1
                                 ? dark ? "text-cyan-200" : "text-cyan-800"
-                                : currentQuestions[currentQuestionIndex].level === 2
+                                : questionThemeLevel === 2
                                   ? dark ? "text-amber-200" : "text-amber-800"
-                                  : currentQuestions[currentQuestionIndex].level === 3
+                                  : questionThemeLevel === 3
                                     ? dark ? "text-purple-200" : "text-purple-800"
                                     : dark ? "text-green-200" : "text-green-800"
                           }`}>
-                            {currentQuestions[currentQuestionIndex].levelTitle}
+                            {currentQuestions[0]?.levelTitle ?? currentQuestions[currentQuestionIndex]?.levelTitle ?? ""}
                           </h4>
                         </div>
                         <p className={`text-sm ${
-                          currentQuestions[currentQuestionIndex].level === 0
+                          questionThemeLevel === 0
                             ? dark ? "text-emerald-300" : "text-emerald-700"
-                            : currentQuestions[currentQuestionIndex].level === 1
+                            : questionThemeLevel === 1
                               ? dark ? "text-cyan-300" : "text-cyan-700"
-                              : currentQuestions[currentQuestionIndex].level === 2
+                              : questionThemeLevel === 2
                                 ? dark ? "text-amber-300" : "text-amber-700"
-                                : currentQuestions[currentQuestionIndex].level === 3
+                                : questionThemeLevel === 3
                                   ? dark ? "text-purple-300" : "text-purple-700"
                                   : dark ? "text-green-300" : "text-green-700"
                         }`}>
-                          {currentQuestions[currentQuestionIndex].level === 0
+                          {questionThemeLevel === 0
                             ? "هذا المستوى يركز على إيجاد نقاط التواصل السريع والاهتمامات المشتركة"
-                            : currentQuestions[currentQuestionIndex].level === 1
+                            : questionThemeLevel === 1
                               ? "هذا المستوى يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة"
-                              : currentQuestions[currentQuestionIndex].level === 2
+                              : questionThemeLevel === 2
                                 ? "هذا المستوى يركز على القيم الأساسية والمبادئ الشخصية العميقة"
-                                : currentQuestions[currentQuestionIndex].level === 3
+                                : questionThemeLevel === 3
                                   ? "هذا المستوى يركز على مشاركة التجارب الشخصية والذكريات المؤثرة"
                                   : "هذا المستوى يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة"
                           }
@@ -9076,13 +9081,13 @@ export default function WelcomePage() {
                       {/* Question Card */}
                       <div
                         className={`relative p-6 rounded-xl ai-animated-border ${
-                          currentQuestions[currentQuestionIndex].level === 0
+                          questionThemeLevel === 0
                             ? (dark ? 'bg-gradient-to-b from-emerald-500/15 via-emerald-500/10 to-slate-900/40' : 'bg-gradient-to-b from-emerald-50 via-emerald-100/40 to-white')
-                            : currentQuestions[currentQuestionIndex].level === 1
+                            : questionThemeLevel === 1
                               ? (dark ? 'bg-gradient-to-b from-cyan-500/15 via-cyan-500/10 to-slate-900/40' : 'bg-gradient-to-b from-cyan-50 via-cyan-100/40 to-white')
-                              : currentQuestions[currentQuestionIndex].level === 2
+                              : questionThemeLevel === 2
                                 ? (dark ? 'bg-gradient-to-b from-amber-500/15 via-amber-500/10 to-slate-900/40' : 'bg-gradient-to-b from-amber-50 via-amber-100/40 to-white')
-                                : currentQuestions[currentQuestionIndex].level === 3
+                                : questionThemeLevel === 3
                                   ? (dark ? 'bg-gradient-to-b from-purple-500/15 via-pink-500/10 to-slate-900/40' : 'bg-gradient-to-b from-purple-50 via-pink-100/40 to-white')
                                   : (dark ? 'bg-gradient-to-b from-teal-500/15 via-teal-500/10 to-slate-900/40' : 'bg-gradient-to-b from-teal-50 via-teal-100/40 to-white')
                         } shadow-lg backdrop-blur-sm ${
@@ -9093,46 +9098,46 @@ export default function WelcomePage() {
                           ['--ab-size' as any]: '3px',
                           ['--ab-speed' as any]: '9s',
                           ['--ab-c1' as any]:
-                            currentQuestions[currentQuestionIndex].level === 0
+                            questionThemeLevel === 0
                               ? '#34d399' /* emerald-400 */
-                              : currentQuestions[currentQuestionIndex].level === 1
+                              : questionThemeLevel === 1
                                 ? '#22d3ee' /* cyan-400 */
-                                : currentQuestions[currentQuestionIndex].level === 2
+                                : questionThemeLevel === 2
                                   ? '#f59e0b' /* amber-500 */
-                                  : currentQuestions[currentQuestionIndex].level === 3
+                                  : questionThemeLevel === 3
                                     ? '#a855f7' /* purple-500 */
                                     : '#10b981' /* emerald-500 */,
                           ['--ab-c2' as any]:
-                            currentQuestions[currentQuestionIndex].level === 0
+                            questionThemeLevel === 0
                               ? '#10b981' /* emerald-500 */
-                              : currentQuestions[currentQuestionIndex].level === 1
+                              : questionThemeLevel === 1
                                 ? '#3b82f6' /* blue-500 */
-                                : currentQuestions[currentQuestionIndex].level === 2
+                                : questionThemeLevel === 2
                                   ? '#f97316' /* orange-500 */
-                                  : currentQuestions[currentQuestionIndex].level === 3
+                                  : questionThemeLevel === 3
                                     ? '#ec4899' /* pink-500 */
                                     : '#14b8a6' /* teal-500 */,
                           ['--ab-c3' as any]:
-                            currentQuestions[currentQuestionIndex].level === 0
+                            questionThemeLevel === 0
                               ? '#14b8a6' /* teal-500 */
-                              : currentQuestions[currentQuestionIndex].level === 1
+                              : questionThemeLevel === 1
                                 ? '#60a5fa' /* blue-400 */
-                                : currentQuestions[currentQuestionIndex].level === 2
+                                : questionThemeLevel === 2
                                   ? '#fb923c' /* orange-400 */
-                                  : currentQuestions[currentQuestionIndex].level === 3
+                                  : questionThemeLevel === 3
                                     ? '#f472b6' /* pink-400 */
                                     : '#34d399' /* emerald-400 */,
                         }}>
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4 z-30">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${
-                            currentQuestions[currentQuestionIndex].level === 0
+                            questionThemeLevel === 0
                               ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                              : currentQuestions[currentQuestionIndex].level === 1
+                              : questionThemeLevel === 1
                                 ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                : currentQuestions[currentQuestionIndex].level === 2
+                                : questionThemeLevel === 2
                                   ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                  : currentQuestions[currentQuestionIndex].level === 3
+                                  : questionThemeLevel === 3
                                     ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                     : "bg-gradient-to-r from-green-500 to-teal-600"
                           }`}>
@@ -9310,13 +9315,13 @@ onClick={() => {
                           <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
                             <div 
                               className={`h-full rounded-full transition-all duration-500 ${
-                                currentQuestions[currentQuestionIndex].level === 0
+                                questionThemeLevel === 0
                                   ? "bg-gradient-to-r from-emerald-500 to-green-500"
-                                  : currentQuestions[currentQuestionIndex].level === 1
+                                  : questionThemeLevel === 1
                                     ? "bg-gradient-to-r from-cyan-500 to-blue-600"
-                                    : currentQuestions[currentQuestionIndex].level === 2
+                                    : questionThemeLevel === 2
                                       ? "bg-gradient-to-r from-amber-500 to-orange-600"
-                                      : currentQuestions[currentQuestionIndex].level === 3
+                                      : questionThemeLevel === 3
                                         ? "bg-gradient-to-r from-purple-500 to-pink-600"
                                         : "bg-gradient-to-r from-green-500 to-teal-600"
                               }`}

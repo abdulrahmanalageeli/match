@@ -8750,7 +8750,7 @@ export default function WelcomePage() {
               <div className="absolute -top-3 -right-3 z-10">
               </div>
               
-              {!conversationStarted ? (
+              {true ? (
                 <>
                   {/* Partner Timer Notifications */}
                   {showPartnerStartedNotification && (
@@ -9475,24 +9475,24 @@ onClick={() => {
                               : "bg-gradient-to-br from-cyan-50 via-sky-50 to-indigo-50 border-cyan-300 ring-2 ring-cyan-300/50 shadow-[0_0_32px_rgba(34,211,238,0.22)]")
                       : currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
-                          ? "bg-gradient-to-br from-emerald-500/25 to-green-900/40 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 
+                          ? "bg-gradient-to-br from-emerald-500/20 to-green-500/10 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 
                           : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300 ring-1 ring-emerald-300/40"
                         : currentQuestions[currentQuestionIndex].level === 1
                           ? dark 
-                            ? "bg-gradient-to-br from-cyan-500/25 to-blue-900/40 border-cyan-400/50 ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.25)]" 
+                            ? "bg-gradient-to-br from-cyan-500/20 to-blue-600/10 border-cyan-400/50 ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.25)]" 
                             : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-300 ring-1 ring-cyan-300/40"
                           : currentQuestions[currentQuestionIndex].level === 2
                             ? dark
-                              ? "bg-gradient-to-br from-amber-500/25 to-orange-900/40 border-amber-400/50 ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
+                              ? "bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-amber-400/50 ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
                               : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 ring-1 ring-amber-300/40"
                             : currentQuestions[currentQuestionIndex].level === 3
                               ? dark
-                                ? "bg-gradient-to-br from-purple-500/25 to-pink-900/40 border-purple-400/50 ring-1 ring-purple-400/30 shadow-[0_0_24px_rgba(168,85,247,0.25)]"
+                                ? "bg-gradient-to-br from-purple-500/20 to-pink-600/10 border-purple-400/50 ring-1 ring-purple-400/30 shadow-[0_0_24px_rgba(168,85,247,0.25)]"
                                 : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300 ring-1 ring-purple-300/40"
                               : dark
-                                ? "bg-gradient-to-br from-green-500/25 to-teal-900/40 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
+                                ? "bg-gradient-to-br from-green-500/20 to-teal-600/10 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
                                 : "bg-gradient-to-br from-green-50 to-teal-50 border-green-300 ring-1 ring-green-300/40"
-                    }`}>
+                    }`}> 
                       <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
                         <div
                           className={`inline-flex items-center p-1 rounded-full border ${
@@ -9730,32 +9730,126 @@ onClick={() => {
     </motion.div>
   </AnimatePresence>
 </div>
+                        {/* 5-Minute Warning Notification */}
+                        {showFiveMinuteWarning && (
+                          <div className={`mt-6 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-500 ${
+                            dark 
+                              ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30" 
+                              : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-300"
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                dark ? "bg-blue-500/20" : "bg-blue-100"
+                              }`}>
+                                <Bell className={`w-5 h-5 ${dark ? "text-blue-400" : "text-blue-600"} animate-pulse`} />
+                              </div>
+                              
+                              <div className="flex-1">
+                                <h4 className={`text-sm font-bold mb-1 ${
+                                  dark ? "text-blue-200" : "text-blue-800"
+                                }`}>
+                                  ⏰ باقي 5 دقائق
+                                </h4>
+                                <p className={`text-sm leading-relaxed ${
+                                  dark ? "text-blue-300/90" : "text-blue-700"
+                                }`}>
+                                  سيظهر نموذج التقييم قريباً. بعد تعبئته، ستحصلون على تحليل فوري من الذكاء الاصطناعي يشرح لكم سبب المطابقة بينكم! 🤖✨
+                                </p>
+                              </div>
+
+                              <button
+                                className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
+                                  dark 
+                                    ? "hover:bg-blue-500/20 text-blue-400" 
+                                    : "hover:bg-blue-100 text-blue-600"
+                                }`}
+                                onClick={() => setShowFiveMinuteWarning(false)}
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Gentle Pace Nudge */}
+                        {showPaceNudge && (
+                          <div className={`mt-6 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
+                            dark 
+                              ? "bg-gradient-to-r from-orange-500/10 to-amber-500/10 border-orange-400/30" 
+                              : "bg-gradient-to-r from-orange-50 to-amber-50 border-orange-300"
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+                                dark ? "bg-orange-500/20" : "bg-orange-100"
+                              }`}>
+                                <Clock className={`w-5 h-5 ${dark ? "text-orange-400" : "text-orange-600"}`} />
+                              </div>
+                              
+                              <div className="flex-1">
+                                <h4 className={`text-sm font-bold mb-1 ${
+                                  dark ? "text-orange-200" : "text-orange-800"
+                                }`}>
+                                  تذكير لطيف
+                                </h4>
+                                <p className={`text-sm leading-relaxed ${
+                                  dark ? "text-orange-300/90" : "text-orange-700"
+                                }`}>
+                                  لديكم {round1Questions.length - currentQuestionIndex - 1} سؤال آخر - جربوا الانتقال للسؤال التالي لاستكشاف المزيد من المواضيع
+                                </p>
+                              </div>
+
+                              <button
+                                className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
+                                  dark 
+                                    ? "hover:bg-orange-500/20 text-orange-400" 
+                                    : "hover:bg-orange-100 text-orange-600"
+                                }`}
+                                onClick={() => setShowPaceNudge(false)}
+                              >
+                                <X className="w-5 h-5" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Navigation */}
-                        <div className="flex justify-between items-center mt-6">
+                        <div className="flex items-center justify-between mt-6">
                           <button
-                            onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+onClick={() => {
+  setQuestionTransition('prev')
+  setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))
+  setTimeout(() => setQuestionTransition('none'), 400)
+}}
                             disabled={currentQuestionIndex === 0}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
                               currentQuestionIndex === 0
-                                ? dark ? "bg-slate-600/50 text-slate-400 cursor-not-allowed" : "bg-gray-200/50 text-gray-400 cursor-not-allowed"
-                                : dark ? "bg-slate-600 text-slate-200 hover:bg-slate-500" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                ? dark
+                                  ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : dark
+                                  ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}
                           >
                             <ChevronRight className="w-4 h-4" />
                             السابق
                           </button>
 
-                          <div className={`text-sm font-medium ${dark ? "text-slate-400" : "text-gray-500"}`}>
-                            {currentQuestionIndex + 1} من {currentQuestions.length}
-                          </div>
 
                           <button
-                            onClick={() => setCurrentQuestionIndex(Math.min(currentQuestions.length - 1, currentQuestionIndex + 1))}
-                            disabled={currentQuestionIndex === currentQuestions.length - 1}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
+onClick={() => {
+  setQuestionTransition('next')
+  setCurrentQuestionIndex(Math.min(currentQuestions.length - 1, currentQuestionIndex + 1))
+  setTimeout(() => setQuestionTransition('none'), 400)
+}}                            disabled={currentQuestionIndex === currentQuestions.length - 1}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-300 ${
                               currentQuestionIndex === currentQuestions.length - 1
-                                ? dark ? "bg-slate-600/50 text-slate-400 cursor-not-allowed" : "bg-gray-200/50 text-gray-400 cursor-not-allowed"
-                                : dark ? "bg-slate-600 text-slate-200 hover:bg-slate-500" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                ? dark
+                                  ? "bg-slate-700/50 text-slate-500 cursor-not-allowed"
+                                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                : dark
+                                  ? "bg-slate-700 text-slate-200 hover:bg-slate-600"
+                                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }`}
                           >
                             التالي
@@ -9763,11 +9857,11 @@ onClick={() => {
                           </button>
                         </div>
 
-                        {/* Progress indicator */}
+                        {/* Progress Bar */}
                         <div className="mt-4">
-                          <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-600" : "bg-gray-200"}`}>
+                          <div className={`w-full h-2 rounded-full ${dark ? "bg-slate-700" : "bg-gray-200"}`}>
                             <div 
-                              className={`h-2 rounded-full transition-all duration-300 ${
+                              className={`h-full rounded-full transition-all duration-500 ${
                                 currentQuestions[currentQuestionIndex].level === 0
                                   ? "bg-gradient-to-r from-emerald-500 to-green-500"
                                   : currentQuestions[currentQuestionIndex].level === 1
@@ -9781,7 +9875,7 @@ onClick={() => {
                               style={{ width: `${((currentQuestionIndex + 1) / currentQuestions.length) * 100}%` }}
                             />
                           </div>
-                          <div className="flex justify-between mt-2 text-xs">
+                          <div className="flex justify-between text-xs mt-1">
                             <span className={dark ? "text-slate-400" : "text-gray-500"}>
                               السؤال {currentQuestionIndex + 1}
                             </span>
@@ -9789,60 +9883,6 @@ onClick={() => {
                               من {currentQuestions.length}
                             </span>
                           </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-
-                  {/* Round 1 Recommended Time Message - Shows every 2 minutes for 15 seconds */}
-                  {currentRound === 1 && round1TimerStarted && (round1LocalTimer >= 2685 || round1LocalTimer % 120 < 15 || round1LocalTimer <= 1800) && (
-                    <div className={`mb-4 p-4 rounded-xl border animate-in slide-in-from-top-2 duration-300 ${
-                      dark 
-                        ? "bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border-blue-400/30"
-                        : "bg-gradient-to-r from-blue-50 to-cyan-50 border-blue-200"
-                    }`}>
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                          <Clock className={`w-5 h-5 ${dark ? "text-blue-400" : "text-blue-600"}`} />
-                          <div>
-                            <p className={`text-sm font-semibold ${dark ? "text-blue-300" : "text-blue-700"}`}>
-                              الوقت الموصى به: 45 دقيقة
-                            </p>
-                            <p className={`text-xs ${dark ? "text-slate-400" : "text-gray-600"}`}>
-                              الحد الأدنى 30 دقيقة
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg ${
-                          round1LocalTimer <= 0 // Time's up
-                            ? dark ? "bg-green-500/20 border border-green-400/30" : "bg-green-100 border border-green-300"
-                            : round1LocalTimer <= 900 // Last 15 minutes
-                              ? dark ? "bg-red-500/20 border border-red-400/30" : "bg-red-100 border border-red-300"
-                              : round1LocalTimer <= 1800 // 30 minutes or less
-                                ? dark ? "bg-yellow-500/20 border border-yellow-400/30" : "bg-yellow-100 border border-yellow-300"
-                                : dark ? "bg-blue-500/20 border border-blue-400/30" : "bg-blue-100 border border-blue-300"
-                        }`}>
-                          <Clock className={`w-4 h-4 ${
-                            round1LocalTimer <= 0
-                              ? dark ? "text-green-400" : "text-green-600"
-                              : round1LocalTimer <= 900
-                                ? dark ? "text-red-400" : "text-red-600"
-                                : round1LocalTimer <= 1800
-                                  ? dark ? "text-yellow-400" : "text-yellow-600"
-                                  : dark ? "text-blue-400" : "text-blue-600"
-                          }`} />
-                          <span className={`text-sm font-bold ${
-                            round1LocalTimer <= 0
-                              ? dark ? "text-green-300" : "text-green-700"
-                              : round1LocalTimer <= 900
-                                ? dark ? "text-red-300" : "text-red-700"
-                                : round1LocalTimer <= 1800
-                                  ? dark ? "text-yellow-300" : "text-yellow-700"
-                                  : dark ? "text-blue-300" : "text-blue-700"
-                          }`}>
-                            {round1LocalTimer <= 0 ? "انتهى!" : `${Math.floor(round1LocalTimer / 60)}:${(round1LocalTimer % 60).toString().padStart(2, '0')}`}
-                          </span>
                         </div>
                       </div>
                     </div>

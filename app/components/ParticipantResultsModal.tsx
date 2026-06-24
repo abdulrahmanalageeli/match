@@ -96,6 +96,9 @@ export default function ParticipantResultsModal({
   const [analysisPair, setAnalysisPair] = useState<any | null>(null)
   // Track participants marked as messaged during this modal session
   const [messageSentSet, setMessageSentSet] = useState<Set<number>>(new Set())
+  // Filters: temporarily hide messaged / paid participants (two-way by pair)
+  const [hideMessaged, setHideMessaged] = useState(false)
+  const [hidePaid, setHidePaid] = useState(false)
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -413,6 +416,24 @@ export default function ParticipantResultsModal({
   // Default order (compatibility desc)
   const sortedResults = [...processedResults].sort((a, b) => b.compatibility_score - a.compatibility_score)
 
+  // Apply temporary filters (hide only — preserve normal order)
+  // Two-way: a participant is hidden if they OR their partner matches the filter.
+  const visibleResults = sortedResults.filter((r) => {
+    const partner = r.partner_assigned_number
+    const hasPartner = !!partner && partner !== 9999
+    if (hideMessaged) {
+      const selfMessaged = isMessageSent(r.assigned_number)
+      const partnerMessaged = hasPartner ? isMessageSent(partner as number) : false
+      if (selfMessaged || partnerMessaged) return false
+    }
+    if (hidePaid) {
+      const selfPaid = !!r.paid_done
+      const partnerPaid = hasPartner ? !!r.partner_paid_done : false
+      if (selfPaid || partnerPaid) return false
+    }
+    return true
+  })
+
   const fetchParticipantDetails = (participantNumber: number, participantName: string) => {
     setLoadingDetails(true)
     
@@ -623,6 +644,46 @@ export default function ParticipantResultsModal({
           </div>
         )}
 
+        {/* Filters */}
+        {matchType !== "group" && results.length > 0 && (
+          <div className="mx-6 mt-4 flex flex-wrap items-center gap-3">
+            <span className="text-xs text-slate-400">فلترة مؤقتة:</span>
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all duration-200 text-sm ${
+              hideMessaged
+                ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
+                : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+            }`}>
+              <input
+                type="checkbox"
+                checked={hideMessaged}
+                onChange={(e) => setHideMessaged(e.target.checked)}
+                className="accent-blue-500 w-4 h-4"
+              />
+              <MessageCircle className="w-4 h-4" />
+              <span>إخفاء من تم التواصل معهم</span>
+            </label>
+            <label className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border cursor-pointer transition-all duration-200 text-sm ${
+              hidePaid
+                ? 'bg-green-500/20 border-green-400/40 text-green-200'
+                : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+            }`}>
+              <input
+                type="checkbox"
+                checked={hidePaid}
+                onChange={(e) => setHidePaid(e.target.checked)}
+                className="accent-green-500 w-4 h-4"
+              />
+              <DollarSign className="w-4 h-4" />
+              <span>إخفاء من دفعوا</span>
+            </label>
+            {(hideMessaged || hidePaid) && (
+              <span className="text-xs text-slate-400">
+                ({visibleResults.length} ظاهر من {sortedResults.length})
+              </span>
+            )}
+          </div>
+        )}
+
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
           {results.length === 0 ? (
@@ -745,7 +806,7 @@ export default function ParticipantResultsModal({
                       </tr>
                     </thead>
                     <tbody>
-                      {sortedResults.map((participant, index) => (
+                      {visibleResults.map((participant, index) => (
                         <tr 
                           key={participant.id} 
                           className={`border-t border-white/10 hover:bg-white/5 transition-colors ${

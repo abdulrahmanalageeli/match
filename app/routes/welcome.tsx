@@ -1440,10 +1440,199 @@ export default function WelcomePage() {
       levelIcon: "Handshake"
     }
   ];
-  
+
+  // Special Set - Same-gender rounds (default). Levels 0–4.
+  const specialQuestions = [
+
+    // Level 0: Quick Connect ⚡
+    {
+      title: "الشي اللي يدافع عنك",
+      question: "فيه موضوع لو أحد هاجمه قدامك... تلقائيًا تلقى نفسك تدافع عنه؟ وش هو؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "زر الإعادة",
+      question: "لو تقدر تعيش سنة من حياتك مرة ثانية بكل تفاصيلها... أي سنة تختار وليه؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "أزمة بسيطة",
+      question: "وش المشكلة الصغيرة اللي تزعجك أكثر مما المفروض؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "قائمة الانتظار",
+      question: "وش الشي اللي تقول من سنوات: (لازم أجربه يومًا ما) وما سويته للحين؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "نظام التشغيل",
+      question: "أنت شخص يعيش بالتخطيط والجداول... ولا تمشي مع التيار وتشوف وين يوديك اليوم؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "الرأي المثير للجدل",
+      question: "وش رأي عندك غالبًا يبدأ نقاشات طويلة مع أصحابك؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+    {
+      title: "شخصية أصحابك",
+      question: "وش الدور اللي تلعبه غالبًا بين أصحابك؟ المنظم؟ المستشار؟ المهرج؟ المختفي؟",
+      level: 0,
+      levelTitle: "اتصال سريع",
+      levelIcon: "Zap"
+    },
+
+    // Level 1: The Spark 🧊
+    {
+      title: "تغيير صغير",
+      question: "وش عادة بسيطة غيرتها بحياتك وكان أثرها أكبر بكثير مما توقعت؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    {
+      title: "إعجاب مهني",
+      question: "وش وظيفة أو مجال تشوفه مثير للاهتمام حتى لو مستحيل تشتغل فيه؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    {
+      title: "بطلك الشخصي",
+      question: "مين شخص بحياتك تعجبك طريقته في العيش أكثر من إنجازاته؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+    {
+      title: "قرار ممتاز",
+      question: "وش أفضل قرار اتخذته خلال آخر سنتين؟",
+      level: 1,
+      levelTitle: "المستوى الأول: الشرارة - لكسر الحاجز",
+      levelIcon: "Flame"
+    },
+
+    // Level 2: The Core 🧭
+    {
+      title: "علامة النضج",
+      question: "متى حسيت لأول مرة إنك فعلاً كبرت أو نضجت؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "الراحة الحقيقية",
+      question: "وش الشي اللي إذا اختفى من حياتك لفترة تبدأ تحس إنك مو على طبيعتك؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "صفة تتمناها",
+      question: "وش صفة تتمنى تكون موجودة فيك أكثر مما هي موجودة الآن؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "إعادة تعريف النجاح",
+      question: "هل تعريفك للنجاح اليوم مختلف عن قبل خمس سنوات؟ وش تغير؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+    {
+      title: "نوع الأشخاص",
+      question: "وش نوع الأشخاص اللي ترتاح لهم بسرعة حتى لو ما تعرفهم زين؟",
+      level: 2,
+      levelTitle: "المستوى الثاني: الجوهر - فهم القيم",
+      levelIcon: "Compass"
+    },
+
+    // Level 3: Sharing Experiences 💫
+    {
+      title: "درس مكلف",
+      question: "وش درس تعلمته بطريقة مؤلمة أو مكلفة شوي؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "موقف ضحكت عليه لاحقًا",
+      question: "وش موقف كان مزعج وقتها لكن صار من أفضل السوالف بعد سنوات؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "مجازفة تستحق",
+      question: "وش مخاطرة أخذتها وكانت من أفضل الأشياء اللي سويتها؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "فترة صعبة",
+      question: "وش أكثر فترة شكّلت جزء كبير من شخصيتك الحالية؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+    {
+      title: "شي كنت مخطئ فيه",
+      question: "وش فكرة أو قناعة كنت متمسك فيها بقوة ثم اكتشفت أنك كنت مخطئ؟",
+      level: 3,
+      levelTitle: "المستوى الثالث: مشاركة التجارب",
+      levelIcon: "Sparkles"
+    },
+
+    // Level 4: "What If?" 🤝
+    {
+      title: "تبادل المهارات",
+      question: "لو لازم كل واحد يعلم الثاني شيء واحد يتقنه... وش الشي اللي بتعلمه؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    },
+    {
+      title: "مشروع مشترك",
+      question: "لو اضطرينا نبدأ مشروع أو فعالية سوا بكرة... وش تتوقع يكون دور كل واحد فينا؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    },
+    {
+      title: "نوع الصداقة",
+      question: "وش الشي اللي يخلي شخص يتحول من معرفة عابرة إلى صديق فعلاً بالنسبة لك؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    },
+    {
+      title: "سبب التطابق",
+      question: "بعد هالحوار... وش تتوقع الشي اللي خلّى النظام يجمعكم في نفس المجموعة؟",
+      level: 4,
+      levelTitle: "المستوى الرابع: \"ماذا لو؟\" - استكشاف السيناريوهات",
+      levelIcon: "Handshake"
+    }
+  ];
+
   // Set selection state
   const [promptIndex, setPromptIndex] = useState(0);
-  const [activeQuestionSet, setActiveQuestionSet] = useState<'round1' | 'event' | 'set3'>('round1');
+  const [activeQuestionSet, setActiveQuestionSet] = useState<'round1' | 'event' | 'set3' | 'special'>(currentRound === 1 ? 'special' : 'round1');
   
   // Select the active question set based on state
   const currentQuestions =
@@ -1451,7 +1640,9 @@ export default function WelcomePage() {
       ? eventQuestions
       : activeQuestionSet === 'set3'
         ? round3Questions
-        : round1Questions;
+        : activeQuestionSet === 'special'
+          ? (currentRound === 1 ? specialQuestions : round1Questions)
+          : round1Questions;
 
   const participantGenderValue = participantGender ?? (surveyData as any)?.answers?.gender ?? (surveyData as any)?.gender ?? ''
   const participantGenderNormalized = String(participantGenderValue || '').trim().toLowerCase()
@@ -1462,18 +1653,19 @@ export default function WelcomePage() {
 
   // Track whether the user manually picked a question set (so we don't override their choice)
   const hasUserChosenSetRef = useRef(false)
-  const chooseQuestionSet = useCallback((set: 'round1' | 'event' | 'set3') => {
+  const chooseQuestionSet = useCallback((set: 'round1' | 'event' | 'set3' | 'special') => {
+    if (set === 'special' && currentRound !== 1) return
     hasUserChosenSetRef.current = true
     setActiveQuestionSet(set)
     setCurrentQuestionIndex(0)
-  }, [])
+  }, [currentRound])
 
-  // Default question set per round: same-gender (round 1) → set 3, opposite (round 2) → set 1.
+  // Default question set per round: same-gender (round 1) → special set, opposite (round 2) → set 1.
   // Resetting the manual-choice flag first ensures each new round applies its default.
   useEffect(() => {
     hasUserChosenSetRef.current = false
     if (currentRound === 1) {
-      setActiveQuestionSet('set3')
+      setActiveQuestionSet('special')
     } else if (currentRound === 2) {
       setActiveQuestionSet('round1')
     }
@@ -8719,8 +8911,16 @@ export default function WelcomePage() {
                   
                   {/* Questions Slideshow - Always show for Round 1 */}
                   {(currentRound === 1 || currentRound === 2) ? (
-                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
-                      currentQuestions[currentQuestionIndex].level === 0
+                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border transition-all duration-500 ${
+                      activeQuestionSet === 'special'
+                        ? dark
+                          ? (isSameGenderGirlsTheme
+                              ? "bg-gradient-to-br from-pink-500/25 via-fuchsia-500/15 to-purple-600/20 border-pink-400/60 ring-2 ring-pink-400/40 shadow-[0_0_44px_rgba(236,72,153,0.4)]"
+                              : "bg-gradient-to-br from-cyan-500/25 via-sky-500/15 to-indigo-600/20 border-cyan-400/60 ring-2 ring-cyan-400/40 shadow-[0_0_44px_rgba(34,211,238,0.4)]")
+                          : (isSameGenderGirlsTheme
+                              ? "bg-gradient-to-br from-pink-50 via-fuchsia-50 to-purple-50 border-pink-300 ring-2 ring-pink-300/50 shadow-[0_0_32px_rgba(236,72,153,0.22)]"
+                              : "bg-gradient-to-br from-cyan-50 via-sky-50 to-indigo-50 border-cyan-300 ring-2 ring-cyan-300/50 shadow-[0_0_32px_rgba(34,211,238,0.22)]")
+                      : currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/20 to-green-500/10 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 
                           : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300 ring-1 ring-emerald-300/40"
@@ -8748,6 +8948,22 @@ export default function WelcomePage() {
                               : 'bg-white/80 border-gray-200'
                           } shadow-sm`}
                         >
+                          {currentRound === 1 && (
+                            <button
+                              onClick={() => chooseQuestionSet('special')}
+                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                activeQuestionSet === 'special'
+                                  ? (dark
+                                      ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                      : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
+                                  : (dark
+                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                              }`}
+                            >
+                              المميزة
+                            </button>
+                          )}
                           <button
                             onClick={() => chooseQuestionSet('round1')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
@@ -9248,8 +9464,16 @@ onClick={() => {
 
                   {/* Round 1 Questions Slideshow - Always show for Round 1 */}
                   {(currentRound === 1 || currentRound === 2) && (
-                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border ${
-                      currentQuestions[currentQuestionIndex].level === 0
+                    <div ref={qCardRef} className={`relative z-10 mb-6 p-6 rounded-2xl border transition-all duration-500 ${
+                      activeQuestionSet === 'special'
+                        ? dark
+                          ? (isSameGenderGirlsTheme
+                              ? "bg-gradient-to-br from-pink-500/25 via-fuchsia-500/15 to-purple-600/20 border-pink-400/60 ring-2 ring-pink-400/40 shadow-[0_0_44px_rgba(236,72,153,0.4)]"
+                              : "bg-gradient-to-br from-cyan-500/25 via-sky-500/15 to-indigo-600/20 border-cyan-400/60 ring-2 ring-cyan-400/40 shadow-[0_0_44px_rgba(34,211,238,0.4)]")
+                          : (isSameGenderGirlsTheme
+                              ? "bg-gradient-to-br from-pink-50 via-fuchsia-50 to-purple-50 border-pink-300 ring-2 ring-pink-300/50 shadow-[0_0_32px_rgba(236,72,153,0.22)]"
+                              : "bg-gradient-to-br from-cyan-50 via-sky-50 to-indigo-50 border-cyan-300 ring-2 ring-cyan-300/50 shadow-[0_0_32px_rgba(34,211,238,0.22)]")
+                      : currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
                           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
                           : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
@@ -9277,6 +9501,22 @@ onClick={() => {
                               : 'bg-white/80 border-gray-200'
                           } shadow-sm`}
                         >
+                          {currentRound === 1 && (
+                            <button
+                              onClick={() => chooseQuestionSet('special')}
+                              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                                activeQuestionSet === 'special'
+                                  ? (dark
+                                      ? (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-600 to-purple-600 text-white shadow-md' : 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md')
+                                      : (isSameGenderGirlsTheme ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow' : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white shadow'))
+                                  : (dark
+                                      ? 'text-slate-300 hover:text-white hover:bg-slate-800/60'
+                                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                              }`}
+                            >
+                              المميزة
+                            </button>
+                          )}
                           <button
                             onClick={() => chooseQuestionSet('round1')}
                             className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${

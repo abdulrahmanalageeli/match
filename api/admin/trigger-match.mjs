@@ -3137,7 +3137,7 @@ export default async function handler(req, res) {
   // Reset forced gender mode (will be set below if matchType requires it)
   CURRENT_MATCH_MODE = null
 
-  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesMode = false } = req.body || {}
+  const { skipAI = false, matchType = "individual", eventId, excludedPairs = [], manualMatch = null, viewAllMatches = null, action = null, count = 50, direction = 'forward', cacheAll = false, preview = false, paidOnly = false, ignoreLocked = false, oppositesMode = false, fromR2Pool = false } = req.body || {}
 
   // Activate forced gender mode for round-based matching
   // 'same_gender'     → Round 1 (everyone matched with same gender, ignoring preference)
@@ -4205,6 +4205,34 @@ if (action === "cache-status-by-gender") {
       const before = eligibleParticipants.length
       eligibleParticipants = eligibleParticipants.filter(p => p.PAID_DONE)
       console.log(`💰 Paid-only filter: ${eligibleParticipants.length}/${before} participants (PAID_DONE=true)`)
+    }
+
+    // Restrict same-gender (R1) pool to participants who were already matched in R2
+    if (fromR2Pool && matchType === 'same_gender') {
+      console.log(`🔁 R2 Pool filter: restricting R1 pool to participants matched in R2 (round=2, event=${eventId})...`)
+      try {
+        const { data: r2Matches, error: r2Error } = await supabase
+          .from('match_results')
+          .select('participant_a_number, participant_b_number')
+          .eq('match_id', match_id)
+          .eq('event_id', eventId)
+          .eq('round', 2)
+          .neq('participant_b_number', 9999)
+        if (r2Error) throw r2Error
+        const r2Numbers = new Set()
+        for (const row of r2Matches || []) {
+          if (row.participant_a_number) r2Numbers.add(row.participant_a_number)
+          if (row.participant_b_number) r2Numbers.add(row.participant_b_number)
+        }
+        const before = eligibleParticipants.length
+        eligibleParticipants = eligibleParticipants.filter(p => r2Numbers.has(p.assigned_number))
+        console.log(`🔁 R2 Pool filter: ${eligibleParticipants.length}/${before} participants retained (only those matched in R2)`)
+        if (eligibleParticipants.length < 2) {
+          return res.status(400).json({ error: `R2 pool filter: need at least 2 participants from R2. Found ${eligibleParticipants.length}. Run Opposite-Gender (R2) matching first.` })
+        }
+      } catch (r2PoolErr) {
+        console.error('⚠️ R2 pool filter error (continuing without filter):', r2PoolErr)
+      }
     }
 
     // Apply group-only exclusions only for group generation

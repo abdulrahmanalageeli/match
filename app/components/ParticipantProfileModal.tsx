@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Save, Edit2, User, Phone, Calendar, MapPin, Heart, MessageSquare, Brain, Users, Star, Coffee } from "lucide-react";
+import { X, Save, Edit2, User, Phone, Calendar, MapPin, Heart, MessageSquare, Brain, Users, Star, Coffee, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 interface ParticipantProfileModalProps {
@@ -14,6 +14,8 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
   const [editMode, setEditMode] = useState<Record<string, boolean>>({});
   const [editedData, setEditedData] = useState<any>({});
   const [saving, setSaving] = useState(false);
+  const [messageSent, setMessageSent] = useState(false);
+  const [markingSent, setMarkingSent] = useState(false);
 
   useEffect(() => {
     if (participant && isOpen) {
@@ -29,10 +31,42 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
         ...surveyAnswers
       });
       setEditMode({});
+      setMessageSent(!!participant.PAID);
     }
   }, [participant, isOpen]);
 
   if (!isOpen || !participant) return null;
+
+  const handleWhatsAppClick = async () => {
+    const raw = participant.phone_number || editedData.phone_number || '';
+    const phone = raw.replace(/\D/g, '');
+    if (phone) {
+      window.open(`https://wa.me/${phone}`, '_blank');
+    }
+    if (!messageSent) {
+      setMarkingSent(true);
+      try {
+        const response = await fetch('/api/admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'toggle-message-status',
+            participantNumber: participant.assigned_number,
+            newStatus: true
+          })
+        });
+        if (response.ok) {
+          setMessageSent(true);
+          toast.success('Marked as messaged');
+          onUpdate();
+        }
+      } catch (e) {
+        console.error('Error marking as sent:', e);
+      } finally {
+        setMarkingSent(false);
+      }
+    }
+  };
 
   const toggleEdit = (field: string) => {
     setEditMode(prev => ({ ...prev, [field]: !prev[field] }));
@@ -217,18 +251,50 @@ export default function ParticipantProfileModal({ participant, isOpen, onClose, 
         {/* Header */}
         <div className={`border-b p-6 ${cohostTheme ? 'bg-gradient-to-r from-rose-600/20 to-pink-600/20 border-rose-400/20' : 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 border-white/10'}`}>
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-white mb-1">
-                Participant #{participant.assigned_number}
-              </h2>
-              <p className="text-slate-300">{participant.name || 'No name provided'}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-2xl font-bold text-white">
+                  Participant #{participant.assigned_number}
+                </h2>
+                {messageSent ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/20 border border-green-400/40 text-green-300 text-xs font-semibold">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Messaged
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/20 border border-red-400/40 text-red-300 text-xs font-semibold">
+                    <XCircle className="w-3.5 h-3.5" />
+                    Not Messaged
+                  </span>
+                )}
+              </div>
+              <p className="text-slate-300 mt-1">{participant.name || 'No name provided'}</p>
             </div>
-            <button
-              onClick={onClose}
-              className={`p-2 rounded-lg transition-colors ${cohostTheme ? 'hover:bg-rose-900/40' : 'hover:bg-white/10'}`}
-            >
-              <X className="w-6 h-6 text-white" />
-            </button>
+            <div className="flex items-center gap-2 ml-4">
+              <button
+                onClick={handleWhatsAppClick}
+                disabled={markingSent}
+                title={participant.phone_number ? `WhatsApp: ${participant.phone_number}` : 'No phone number'}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95 disabled:opacity-60 ${
+                  messageSent
+                    ? 'bg-green-500/20 text-green-300 border border-green-400/40 hover:bg-green-500/30'
+                    : 'bg-green-600/30 text-green-200 border border-green-400/50 hover:bg-green-600/40'
+                }`}
+              >
+                {markingSent ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Phone className="w-4 h-4" />
+                )}
+                <span>WhatsApp</span>
+              </button>
+              <button
+                onClick={onClose}
+                className={`p-2 rounded-lg transition-colors ${cohostTheme ? 'hover:bg-rose-900/40' : 'hover:bg-white/10'}`}
+              >
+                <X className="w-6 h-6 text-white" />
+              </button>
+            </div>
           </div>
         </div>
 

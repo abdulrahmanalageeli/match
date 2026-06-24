@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { X, Users, Heart, Trophy, Star, Eye, ArrowUpDown, CheckCircle, XCircle, AlertTriangle, Zap, Brain, MessageCircle, Home, DollarSign, Info, Lock, Unlock, MessageSquare, Ban, UserX, Sparkles, Flame } from "lucide-react"
+import { toast } from "react-hot-toast"
 import ParticipantDetailModal from "./ParticipantDetailModal"
 import WhatsappMessageModal from "./WhatsappMessageModal"
 import PairAnalysisModal from "./PairAnalysisModalPro"
@@ -93,6 +94,8 @@ export default function ParticipantResultsModal({
   const [analysisA, setAnalysisA] = useState<any | null>(null)
   const [analysisB, setAnalysisB] = useState<any | null>(null)
   const [analysisPair, setAnalysisPair] = useState<any | null>(null)
+  // Track participants marked as messaged during this modal session
+  const [messageSentSet, setMessageSentSet] = useState<Set<number>>(new Set())
 
   // Fetch match history for all participants in modal
   const fetchAllMatchHistoryForModal = async () => {
@@ -191,6 +194,27 @@ export default function ParticipantResultsModal({
       }
     } catch (error) {
       console.error("Error fetching participant data:", error)
+    }
+  }
+
+  const isMessageSent = (assignedNumber: number): boolean => {
+    return messageSentSet.has(assignedNumber) || !!participantData.get(assignedNumber)?.PAID
+  }
+
+  const markMessageSent = async (participantNumber: number) => {
+    if (isMessageSent(participantNumber)) return
+    try {
+      const response = await fetch('/api/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'toggle-message-status', participantNumber, newStatus: true })
+      })
+      if (response.ok) {
+        setMessageSentSet(prev => new Set([...prev, participantNumber]))
+        toast.success(`#${participantNumber} marked as messaged`)
+      }
+    } catch (e) {
+      console.error('Error marking as sent:', e)
     }
   }
 
@@ -856,6 +880,16 @@ export default function ParticipantResultsModal({
                                 }
                                 return null
                               })()}
+                              {/* Message sent indicator */}
+                              {isMessageSent(participant.assigned_number) ? (
+                                <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center" title="تم التواصل واتساب">
+                                  <MessageCircle className="w-3 h-3 text-white" />
+                                </div>
+                              ) : (
+                                <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center" title="لم يتم التواصل">
+                                  <MessageCircle className="w-3 h-3 text-slate-400" />
+                                </div>
+                              )}
                               {/* Payment indicator */}
                               {participant.paid_done ? (
                                 <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center" title="دفع مكتمل">
@@ -1171,7 +1205,6 @@ export default function ParticipantResultsModal({
                             <td className="p-4 text-center">
                               <button
                                 onClick={() => {
-                                  // Get full participant data from participantData map
                                   const fullParticipantData = participantData.get(participant.assigned_number)
                                   setWhatsappParticipant(fullParticipantData || {
                                     assigned_number: participant.assigned_number,
@@ -1179,9 +1212,14 @@ export default function ParticipantResultsModal({
                                     survey_data: { name: participant.name }
                                   })
                                   setShowWhatsappModal(true)
+                                  markMessageSent(participant.assigned_number)
                                 }}
-                                className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-green-500/20 border border-green-400/30 text-green-300 hover:bg-green-500/30 transition-all duration-300 text-sm"
-                                title="إرسال رسالة واتساب"
+                                className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg border transition-all duration-300 text-sm ${
+                                  isMessageSent(participant.assigned_number)
+                                    ? 'bg-blue-500/20 border-blue-400/30 text-blue-300 hover:bg-blue-500/30'
+                                    : 'bg-green-500/20 border-green-400/30 text-green-300 hover:bg-green-500/30'
+                                }`}
+                                title={isMessageSent(participant.assigned_number) ? 'تم التواصل — فتح واتساب' : 'إرسال رسالة واتساب'}
                               >
                                 <MessageSquare className="w-3 h-3" />
                                 <span>واتساب</span>

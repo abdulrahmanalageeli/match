@@ -9625,7 +9625,55 @@ onClick={() => {
                         </p>
                       </div>
 
-                      <div className="relative">
+                      <div
+                        className={`relative p-6 rounded-xl ai-animated-border ${
+                          currentQuestions[currentQuestionIndex].level === 0
+                            ? (dark ? 'bg-gradient-to-b from-emerald-500/15 via-emerald-500/10 to-slate-900/40' : 'bg-gradient-to-b from-emerald-50 via-emerald-100/40 to-white')
+                            : currentQuestions[currentQuestionIndex].level === 1
+                              ? (dark ? 'bg-gradient-to-b from-cyan-500/15 via-cyan-500/10 to-slate-900/40' : 'bg-gradient-to-b from-cyan-50 via-cyan-100/40 to-white')
+                              : currentQuestions[currentQuestionIndex].level === 2
+                                ? (dark ? 'bg-gradient-to-b from-amber-500/15 via-amber-500/10 to-slate-900/40' : 'bg-gradient-to-b from-amber-50 via-amber-100/40 to-white')
+                                : currentQuestions[currentQuestionIndex].level === 3
+                                  ? (dark ? 'bg-gradient-to-b from-purple-500/15 via-pink-500/10 to-slate-900/40' : 'bg-gradient-to-b from-purple-50 via-pink-100/40 to-white')
+                                  : (dark ? 'bg-gradient-to-b from-teal-500/15 via-teal-500/10 to-slate-900/40' : 'bg-gradient-to-b from-teal-50 via-teal-100/40 to-white')
+                        } shadow-lg backdrop-blur-sm ${
+                          questionTransition === 'next' ? 'animate-slide-in-right' :
+                          questionTransition === 'prev' ? 'animate-slide-in-left' : ''
+                        }`}
+                        style={{
+                          ['--ab-size' as any]: '3px',
+                          ['--ab-speed' as any]: '9s',
+                          ['--ab-c1' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#34d399' /* emerald-400 */
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#22d3ee' /* cyan-400 */
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#f59e0b' /* amber-500 */
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#a855f7' /* purple-500 */
+                                    : '#10b981' /* emerald-500 */,
+                          ['--ab-c2' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#10b981' /* emerald-500 */
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#3b82f6' /* blue-500 */
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#f97316' /* orange-500 */
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#ec4899' /* pink-500 */
+                                    : '#14b8a6' /* teal-500 */,
+                          ['--ab-c3' as any]:
+                            currentQuestions[currentQuestionIndex].level === 0
+                              ? '#14b8a6' /* teal-500 */
+                              : currentQuestions[currentQuestionIndex].level === 1
+                                ? '#60a5fa' /* blue-400 */
+                                : currentQuestions[currentQuestionIndex].level === 2
+                                  ? '#fb923c' /* orange-400 */
+                                  : currentQuestions[currentQuestionIndex].level === 3
+                                    ? '#f472b6' /* pink-400 */
+                                    : '#34d399' /* emerald-400 */,
+                        }}>
                         {/* Question Number */}
                         <div className="absolute -top-3 right-4 z-30">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center shadow-lg ${

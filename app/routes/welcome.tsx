@@ -10765,6 +10765,16 @@ transition={{ type: "spring", stiffness: 500, damping: 30 }}
                         </p>
                       </div>
                     </div>
+
+                    {/* Human chemistry disclaimer */}
+                    <div className={`mt-3 text-center py-3.5 px-5 rounded-xl border-r-4 ${dark ? 'bg-amber-500/10 border border-amber-400/20 border-r-amber-400/60' : 'bg-amber-50/80 border border-amber-200/50 border-r-amber-400/70'}`} dir="rtl">
+                      <div className="flex items-start gap-2.5">
+                        <Sparkles className={`w-4 h-4 flex-shrink-0 mt-0.5 ${dark ? 'text-amber-300' : 'text-amber-600'}`} />
+                        <p className={`text-[11px] sm:text-xs leading-relaxed text-right ${dark ? 'text-amber-200/90' : 'text-amber-800'}`}>
+                          <span className="font-bold">تنبيه:</span> النسبة التي تراها تعبّر عن احتمالية نجاح اللقاء، لا عن اكتمال التوافق. الخوارزمية تعمل على ما شاركته معها، أما الكيمياء الإنسانية وما لا يُختصر في سؤال أو إجابة، فقد يغيّر المعادلة بالكامل. هدفنا تقليل احتمالية عدم الانسجام، لا إلغاءها.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 

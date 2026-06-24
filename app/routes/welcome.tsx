@@ -9475,23 +9475,23 @@ onClick={() => {
                               : "bg-gradient-to-br from-cyan-50 via-sky-50 to-indigo-50 border-cyan-300 ring-2 ring-cyan-300/50 shadow-[0_0_32px_rgba(34,211,238,0.22)]")
                       : currentQuestions[currentQuestionIndex].level === 0
                         ? dark 
-                          ? "bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-400/30" 
-                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200"
+                          ? "bg-gradient-to-br from-emerald-500/25 to-green-900/40 border-emerald-400/50 ring-1 ring-emerald-400/30 shadow-[0_0_24px_rgba(16,185,129,0.25)]" 
+                          : "bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-300 ring-1 ring-emerald-300/40"
                         : currentQuestions[currentQuestionIndex].level === 1
                           ? dark 
-                            ? "bg-gradient-to-br from-cyan-500/10 to-blue-600/10 border-cyan-400/30" 
-                            : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200"
+                            ? "bg-gradient-to-br from-cyan-500/25 to-blue-900/40 border-cyan-400/50 ring-1 ring-cyan-400/30 shadow-[0_0_24px_rgba(34,211,238,0.25)]" 
+                            : "bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-300 ring-1 ring-cyan-300/40"
                           : currentQuestions[currentQuestionIndex].level === 2
                             ? dark
-                              ? "bg-gradient-to-br from-amber-500/10 to-orange-600/10 border-amber-400/30"
-                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200"
+                              ? "bg-gradient-to-br from-amber-500/25 to-orange-900/40 border-amber-400/50 ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
+                              : "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300 ring-1 ring-amber-300/40"
                             : currentQuestions[currentQuestionIndex].level === 3
                               ? dark
-                                ? "bg-gradient-to-br from-purple-500/10 to-pink-600/10 border-purple-400/30"
-                                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200"
+                                ? "bg-gradient-to-br from-purple-500/25 to-pink-900/40 border-purple-400/50 ring-1 ring-purple-400/30 shadow-[0_0_24px_rgba(168,85,247,0.25)]"
+                                : "bg-gradient-to-br from-purple-50 to-pink-50 border-purple-300 ring-1 ring-purple-300/40"
                               : dark
-                                ? "bg-gradient-to-br from-green-500/10 to-teal-600/10 border-green-400/30"
-                                : "bg-gradient-to-br from-green-50 to-teal-50 border-green-200"
+                                ? "bg-gradient-to-br from-green-500/25 to-teal-900/40 border-green-400/50 ring-1 ring-teal-400/30 shadow-[0_0_24px_rgba(20,184,166,0.25)]"
+                                : "bg-gradient-to-br from-green-50 to-teal-50 border-green-300 ring-1 ring-green-300/40"
                     }`}>
                       <div dir="rtl" className="flex flex-col items-center gap-1 mb-5">
                         <div

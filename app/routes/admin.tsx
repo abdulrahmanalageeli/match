@@ -3871,7 +3871,7 @@ Proceed?`
                 {/* Round 1: Same-Gender Matches */}
                 <button
                   onClick={async () => {
-                    let confirmMessage = `Generate SAME-GENDER matches (Round 1) for Event ${currentEventId}?\n\n⚠️ Only participants already matched in Round 2 (Opposite-Gender) will be included.\n\nGender preferences will be IGNORED. Every participant will be paired with someone of the SAME gender. All other survey rules still apply.`
+                    let confirmMessage = `Generate SAME-GENDER matches (Round 1) for Event ${currentEventId}?\n\n💰 Only participants who have already PAID (PAID_DONE) will be included. Everyone else is ignored.\n\nGender preferences will be IGNORED. Every participant will be paired with someone of the SAME gender.\n\n📅 Age tolerance is relaxed to ±3 years and relationship goal is ignored for this round.`
                     if (excludedPairs.length > 0) {
                       confirmMessage += `\n\n⚠️ ${excludedPairs.length} excluded pair(s) will be enforced.`
                     }
@@ -3887,8 +3887,7 @@ Proceed?`
                         body: JSON.stringify({
                           eventId: currentEventId,
                           excludedPairs,
-                          matchType: "same_gender",
-                          fromR2Pool: true
+                          matchType: "same_gender"
                         }),
                       })
                       const data = await res.json()

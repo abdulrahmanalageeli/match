@@ -399,9 +399,10 @@ function isParticipantComplete(participant) {
   if (!val(humor_banter)) missing.push('humor_banter_style')
   if (!val(early_open) && early_open !== 0) missing.push('early_openness_comfort')
 
-  // Intent & Goal (Q40) needed for intent/values scoring
+  // Intent & Goal (Q40) needed for intent/values scoring.
+  // For same-gender (R1), goal does not matter — don't require it.
   const intent_goal = ans.intent_goal
-  if (!val(intent_goal)) missing.push('intent_goal')
+  if (CURRENT_MATCH_MODE !== 'same_gender' && !val(intent_goal)) missing.push('intent_goal')
 
   // Optional: Vibe (prefer presence for AI, but not mandatory to avoid over-excluding)
   // const vibeComplete = val(sd.vibeDescription) || ['vibe_1','vibe_2','vibe_3','vibe_4','vibe_5','vibe_6'].every(k => val(ans[k]))
@@ -915,9 +916,10 @@ function checkAgeRangeHardGate(participantA, participantB) {
   const withinAStrict = hasRangeA ? (ageB >= aMin && ageB <= aMax) : true
   const withinBStrict = hasRangeB ? (ageA >= bMin && ageA <= bMax) : true
 
-  // ±1 year tolerance
-  const withinATol = hasRangeA ? (ageB >= (aMin - 1) && ageB <= (aMax + 1)) : true
-  const withinBTol = hasRangeB ? (ageA >= (bMin - 1) && ageA <= (bMax + 1)) : true
+  // Age tolerance: ±1 year normally, but ±3 years for same-gender (R1) for extra freedom
+  const ageTolerance = (CURRENT_MATCH_MODE === 'same_gender') ? 3 : 1
+  const withinATol = hasRangeA ? (ageB >= (aMin - ageTolerance) && ageB <= (aMax + ageTolerance)) : true
+  const withinBTol = hasRangeB ? (ageA >= (bMin - ageTolerance) && ageA <= (bMax + ageTolerance)) : true
 
   const ok = withinATol && withinBTol
 
@@ -4205,6 +4207,17 @@ if (action === "cache-status-by-gender") {
       const before = eligibleParticipants.length
       eligibleParticipants = eligibleParticipants.filter(p => p.PAID_DONE)
       console.log(`💰 Paid-only filter: ${eligibleParticipants.length}/${before} participants (PAID_DONE=true)`)
+    }
+
+    // R1 (same-gender): ALWAYS restrict the pool to participants who have already paid.
+    // Anyone who hasn't paid (PAID_DONE !== true) is ignored entirely.
+    if (matchType === 'same_gender') {
+      const before = eligibleParticipants.length
+      eligibleParticipants = eligibleParticipants.filter(p => p.PAID_DONE === true)
+      console.log(`💰 Same-gender (R1) paid-only pool: ${eligibleParticipants.length}/${before} participants retained (PAID_DONE=true, others ignored)`)
+      if (eligibleParticipants.length < 2) {
+        return res.status(400).json({ error: `Same-gender (R1) requires at least 2 PAID participants. Found ${eligibleParticipants.length}. Mark participants as paid first.` })
+      }
     }
 
     // Restrict same-gender (R1) pool to participants who were already matched in R2

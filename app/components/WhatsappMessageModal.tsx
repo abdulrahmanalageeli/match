@@ -15,7 +15,7 @@ export default function WhatsappMessageModal({ participant, isOpen, onClose, coh
   const [copied, setCopied] = useState(false);
   const [phoneCopied, setPhoneCopied] = useState(false);
   const [urgencyLevel, setUrgencyLevel] = useState<'normal' | 'semi-urgent' | 'urgent'>('normal');
-  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion'>('match');
+  const [templateType, setTemplateType] = useState<'match' | 'early-match' | 'early-reminder' | 'event-info' | 'faq-payment' | 'faq-location' | 'faq-timing' | 'reminder' | 'payment-reminder' | 'partner-info' | 'gender-confirmation' | 'survey-completion' | 'time-change'>('match');
   const [showCustomize, setShowCustomize] = useState(false);
   const [exportMode, setExportMode] = useState(false);
 
@@ -249,6 +249,9 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
 
       case 'survey-completion':
         return `${bold('إكمال الاستبيان للفعالية القادمة')} ${e('📝')}\n\nالسلام عليكم ${bold(name)}،\n\n${e('ℹ️ ')}لاحظنا أن لديك ${bold('بعض الأسئلة غير المكتملة')} في الاستبيان. لإتمام تسجيلك والانضمام للفعالية القادمة، يرجى تعبئة ما تبقى الآن.\n\n${e('🔗 ')}${bold('رابط الدخول المباشر إلى الاستبيان:')}\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&redo=1\n${e('✅ ')}يفتح الرابط الاستبيان مباشرة بدون نوافذ انتظار أو تأكيد.\n\n${e('🛑 ')}${bold('إيقاف التسجيل التلقائي:')}\nhttps://match-omega.vercel.app/welcome?token=${secureToken}&disableauto=1\n\n${e('📱 ')}${bold('معلوماتك:')}\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز الخاص: ${bold(String(secureToken))}\n\n${e('⏰ ')}يفضل الإكمال اليوم لضمان إدراجك في الفعالية القادمة. إذا واجهت أي مشكلة، رد على هذه الرسالة وسنساعدك فوراً.\n\nفريق التوافق الأعمى`;
+
+      case 'time-change':
+        return `${bold('تحديث مهم بخصوص موعد الفعالية')} ${e('⏰')}\n\nالسلام عليكم ${bold(name)}،\n\nنود إبلاغكم بأنه تم ${bold('تغيير وقت الفعالية')} مراعاةً لظروف الصيام.\n\n${e('🕕 ')}${bold('الموعد السابق:')} 6:00 مساءً\n${e('🕢 ')}${bold('الموعد الجديد:')} 7:15 مساءً\n\n${e('📅 ')}${bold('التاريخ:')} ${config.eventDateText}\n${e('📍 ')}${bold('المكان:')} ${config.locationName}\n${e('🗺️ ')}${bold('الموقع:')}\n${config.mapUrl}\n\nيرجى اعتماد الموعد الجديد والحضور قبل البداية بـ 10 دقائق.\n\n${e('📱 ')}${bold('معلوماتك للفعالية:')}\nرقم المشارك: ${bold(String(assignedNumber))}\nالرمز الخاص: ${bold(String(secureToken))}\n\n${e('🔗 ')}${bold('رابط حسابك:')}\nhttps://match-omega.vercel.app/welcome?token=${secureToken}\n\nشكراً لتفهمكم، ونتطلع لرؤيتكم في الموعد الجديد.\n\nفريق التوافق الأعمى`;
 
       default:
         return "";
@@ -617,6 +620,17 @@ ${e('🔥 ')}لا تفوت هذه الفرصة!
               >
                 <FileText className="w-4 h-4 mx-auto mb-1" />
                 إكمال الاستبيان
+              </button>
+              <button
+                onClick={() => setTemplateType('time-change')}
+                className={`p-3 rounded-lg text-sm font-medium transition-colors ${
+                  templateType === 'time-change' 
+                    ? 'bg-violet-600 text-white' 
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                }`}
+              >
+                <Clock className="w-4 h-4 mx-auto mb-1" />
+                تغيير الموعد
               </button>
             </div>
           </div>

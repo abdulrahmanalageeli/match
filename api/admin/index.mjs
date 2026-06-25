@@ -714,10 +714,10 @@ export default async function handler(req, res) {
           
           console.log(`✅ Cleared all table numbers for event ${currentEventId}`)
           
-          // Step 2: Get all locked matches
+          // Step 2: Get all locked matches (both rounds)
           const { data: lockedMatches, error: lockedError } = await supabase
             .from("locked_matches")
-            .select("participant1_number, participant2_number")
+            .select("participant1_number, participant2_number, original_match_round")
             .eq("match_id", STATIC_MATCH_ID)
           
           if (lockedError) {
@@ -727,8 +727,9 @@ export default async function handler(req, res) {
           
           console.log(`📌 Found ${lockedMatches?.length || 0} locked matches`)
           
-          // Step 3: Assign table numbers only to locked/pinned matches
-          let tableCounter = 1
+          // Step 3: Assign table numbers only to locked/pinned matches.
+          // Rounds 1 (same-gender) and 2 (opposite-gender) happen sequentially, so each
+          // round restarts the table count from 1 (a table number may repeat across rounds).
           let assignedCount = 0
 
           // Build age-aware ordering so older participants get lower table numbers
@@ -739,10 +740,10 @@ export default async function handler(req, res) {
             if (lm?.participant2_number && lm.participant2_number !== 9999) allNumbersSet.add(lm.participant2_number)
           }
 
-          // 2) Fetch ages for these participants (prefer column age; fallback to survey_data.age)
+          // 2) Fetch ages + gender for these participants (prefer column; fallback to survey_data)
           const { data: ageRows, error: ageErr } = await supabase
             .from("participants")
-            .select("assigned_number, age, survey_data, event_id")
+            .select("assigned_number, age, survey_data, gender, event_id")
             .eq("match_id", STATIC_MATCH_ID)
             .eq("event_id", currentEventId)
             .in("assigned_number", Array.from(allNumbersSet))
@@ -753,6 +754,7 @@ export default async function handler(req, res) {
           }
 
           const ageMap = new Map()
+          const genderMap = new Map()
           for (const row of ageRows || []) {
             const directAge = typeof row.age === 'number' ? row.age : parseInt(row.age, 10)
             const fallbackAge = (row?.survey_data && (typeof row.survey_data.age === 'number' || typeof row.survey_data.age === 'string'))
@@ -761,47 +763,71 @@ export default async function handler(req, res) {
             const ageVal = Number.isFinite(directAge) ? directAge : (Number.isFinite(fallbackAge) ? fallbackAge : undefined)
             if (row.assigned_number != null) {
               ageMap.set(row.assigned_number, Number.isFinite(ageVal) ? ageVal : 0)
+              const g = (row.gender || row?.survey_data?.gender || '').toString().trim().toLowerCase()
+              genderMap.set(row.assigned_number, g)
             }
           }
 
-          // 3) Enrich locked matches with max pair age and sort DESC (older first)
-          const lockedWithAges = (lockedMatches || []).map((lm) => {
+          // Determine which round a locked pair belongs to:
+          //   prefer stored original_match_round, otherwise derive from genders
+          //   (same gender = round 1, opposite gender = round 2).
+          const getLockRound = (lm) => {
+            const stored = Number(lm?.original_match_round)
+            if (stored === 1 || stored === 2) return stored
+            const g1 = genderMap.get(lm.participant1_number)
+            const g2 = genderMap.get(lm.participant2_number)
+            if (g1 && g2) return g1 === g2 ? 1 : 2
+            return 1 // default to round 1 if unknown
+          }
+
+          // 3) Enrich locked matches with max pair age and round
+          const lockedEnriched = (lockedMatches || []).map((lm) => {
             const a1 = ageMap.get(lm.participant1_number) ?? 0
             const a2 = ageMap.get(lm.participant2_number) ?? 0
-            const pairMaxAge = Math.max(a1, a2)
-            return { ...lm, _age1: a1, _age2: a2, _pairMaxAge: pairMaxAge }
+            return { ...lm, _age1: a1, _age2: a2, _pairMaxAge: Math.max(a1, a2), _round: getLockRound(lm) }
           })
 
-          lockedWithAges.sort((x, y) => (y._pairMaxAge - x._pairMaxAge))
+          // 4) Process each round independently; table counter restarts at 1 per round
+          const perRoundAssigned = { 1: 0, 2: 0 }
+          for (const round of [1, 2]) {
+            const roundLocked = lockedEnriched
+              .filter((l) => l._round === round)
+              .sort((x, y) => (y._pairMaxAge - x._pairMaxAge)) // older pairs get lower tables
 
-          for (const locked of lockedWithAges) {
-            // Update the match using participant numbers (bidirectional)
-            const { error: updateError } = await supabase
-              .from("match_results")
-              .update({ table_number: tableCounter })
-              .eq("match_id", STATIC_MATCH_ID)
-              .eq("event_id", currentEventId)
-              .or(`and(participant_a_number.eq.${locked.participant1_number},participant_b_number.eq.${locked.participant2_number}),and(participant_a_number.eq.${locked.participant2_number},participant_b_number.eq.${locked.participant1_number})`)
-            
-            if (updateError) {
-              console.error(`Error updating table number for locked match #${locked.participant1_number} ↔ #${locked.participant2_number}:`, updateError)
-              return res.status(500).json({ error: updateError.message })
+            let tableCounter = 1
+            for (const locked of roundLocked) {
+              // Update only this round's match row for the pair (bidirectional)
+              const { data: updatedRows, error: updateError } = await supabase
+                .from("match_results")
+                .update({ table_number: tableCounter })
+                .eq("match_id", STATIC_MATCH_ID)
+                .eq("event_id", currentEventId)
+                .eq("round", round)
+                .or(`and(participant_a_number.eq.${locked.participant1_number},participant_b_number.eq.${locked.participant2_number}),and(participant_a_number.eq.${locked.participant2_number},participant_b_number.eq.${locked.participant1_number})`)
+                .select("id")
+
+              if (updateError) {
+                console.error(`Error updating table number (R${round}) for locked match #${locked.participant1_number} ↔ #${locked.participant2_number}:`, updateError)
+                return res.status(500).json({ error: updateError.message })
+              }
+
+              if (updatedRows && updatedRows.length > 0) {
+                console.log(`   📍 R${round} Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked, max age ${locked._pairMaxAge})`)
+                tableCounter++
+                assignedCount++
+                perRoundAssigned[round]++
+              } else {
+                console.log(`   ⚠️ R${round}: no match row found for locked pair #${locked.participant1_number} ↔ #${locked.participant2_number} (skipped, no table consumed)`)
+              }
             }
-            
-            if (typeof locked._pairMaxAge === 'number') {
-              console.log(`   📍 Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked, max age ${locked._pairMaxAge})`)
-            } else {
-              console.log(`   📍 Table ${tableCounter}: #${locked.participant1_number} ↔ #${locked.participant2_number} (Locked)`)
-            }
-            tableCounter++
-            assignedCount++
           }
-          
-          console.log(`✅ Assigned ${assignedCount} table numbers to locked matches`)
-          
+
+          console.log(`✅ Assigned ${assignedCount} table numbers (R1=${perRoundAssigned[1]}, R2=${perRoundAssigned[2]})`)
+
           return res.status(200).json({ 
-            message: `Tables assigned: ${assignedCount} locked matches got table numbers`,
+            message: `Tables assigned — R1: ${perRoundAssigned[1]}, R2: ${perRoundAssigned[2]} (each round starts at table 1)`,
             assignedTables: assignedCount,
+            assignedByRound: perRoundAssigned,
             totalMatches: lockedMatches?.length || 0
           })
         } catch (error) {

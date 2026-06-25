@@ -4246,7 +4246,7 @@ Proceed?`
 
                   <button
                     onClick={async () => {
-                      if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers (1, 2, 3...) only to locked/pinned matches")) return
+                      if (!confirm("Assign table numbers to locked matches only?\n\nThis will:\n1. Clear all table numbers for current event\n2. Assign sequential numbers to locked/pinned matches for BOTH rounds\n   • Round 1 (same-gender): tables 1, 2, 3...\n   • Round 2 (opposite-gender): restarts at 1, 2, 3...\n   (rounds run sequentially, so table numbers may repeat across rounds)")) return
                       const res = await fetch("/api/admin", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },

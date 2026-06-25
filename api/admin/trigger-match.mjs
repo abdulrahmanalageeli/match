@@ -4896,10 +4896,13 @@ if (action === "cache-status-by-gender") {
           }
 
           try {
+            // Only remove locks belonging to the SAME round as this manual match so that
+            // same-gender (round 1) and opposite-gender (round 2) pins stay independent.
             await supabase
               .from('locked_matches')
               .delete()
               .eq('match_id', match_id)
+              .eq('original_match_round', inferredRound)
               .or(
                 `participant1_number.eq.${p1.assigned_number},participant2_number.eq.${p1.assigned_number},participant1_number.eq.${p2.assigned_number},participant2_number.eq.${p2.assigned_number}`
               )

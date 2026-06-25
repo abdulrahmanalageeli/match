@@ -200,10 +200,25 @@ export default function ParticipantDetailModal({
         }
       } catch (_) {}
 
-      // 1) Unlock any existing locks that involve either participant (p1 or p2)
+      // 1) Unlock existing locks that involve either participant — but ONLY within the
+      //    SAME round (same-gender = round 1, opposite-gender = round 2). This keeps
+      //    same-gender and opposite-gender pins independent and parallel: pinning a
+      //    same-gender pair must NOT remove an opposite-gender pin (and vice-versa).
       try {
+        const getLockRound = (l: any): number | null => {
+          const stored = Number(l?.original_match_round)
+          if (stored === 1 || stored === 2) return stored
+          // Fallback: derive from genders when both are known
+          const lr1 = participantData.get(l.participant1_number)
+          const lr2 = participantData.get(l.participant2_number)
+          const lg1 = normalizeGender(lr1?.gender || lr1?.survey_data?.gender || lr1?.survey_data?.answers?.gender)
+          const lg2 = normalizeGender(lr2?.gender || lr2?.survey_data?.gender || lr2?.survey_data?.answers?.gender)
+          if (lg1 && lg2) return lg1 === lg2 ? 1 : 2
+          return null
+        }
         const locksToRemove = (lockedMatches || []).filter(l => 
-          (l.participant1_number === p1 || l.participant2_number === p1 || l.participant1_number === p2 || l.participant2_number === p2)
+          (l.participant1_number === p1 || l.participant2_number === p1 || l.participant1_number === p2 || l.participant2_number === p2) &&
+          getLockRound(l) === inferredRound
         )
         for (const lock of locksToRemove) {
           if (!lock?.id) continue

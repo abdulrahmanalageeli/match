@@ -740,10 +740,10 @@ export default async function handler(req, res) {
             if (lm?.participant2_number && lm.participant2_number !== 9999) allNumbersSet.add(lm.participant2_number)
           }
 
-          // 2) Fetch ages for these participants (prefer column age; fallback to survey_data.age)
+          // 2) Fetch ages + gender for these participants (prefer column; fallback to survey_data)
           const { data: ageRows, error: ageErr } = await supabase
             .from("participants")
-            .select("assigned_number, age, survey_data, event_id")
+            .select("assigned_number, age, survey_data, gender, event_id")
             .eq("match_id", STATIC_MATCH_ID)
             .eq("event_id", currentEventId)
             .in("assigned_number", Array.from(allNumbersSet))
@@ -754,6 +754,7 @@ export default async function handler(req, res) {
           }
 
           const ageMap = new Map()
+          const genderMap = new Map()
           for (const row of ageRows || []) {
             const directAge = typeof row.age === 'number' ? row.age : parseInt(row.age, 10)
             const fallbackAge = (row?.survey_data && (typeof row.survey_data.age === 'number' || typeof row.survey_data.age === 'string'))
@@ -762,19 +763,13 @@ export default async function handler(req, res) {
             const ageVal = Number.isFinite(directAge) ? directAge : (Number.isFinite(fallbackAge) ? fallbackAge : undefined)
             if (row.assigned_number != null) {
               ageMap.set(row.assigned_number, Number.isFinite(ageVal) ? ageVal : 0)
+              const g = (row.gender || row?.survey_data?.gender || '').toString().trim().toLowerCase()
+              genderMap.set(row.assigned_number, g)
             }
           }
 
-          // 3) Enrich locked matches with max pair age (older pairs get lower tables)
-          const lockedEnriched = (lockedMatches || []).map((lm) => {
-            const a1 = ageMap.get(lm.participant1_number) ?? 0
-            const a2 = ageMap.get(lm.participant2_number) ?? 0
-            return { ...lm, _age1: a1, _age2: a2, _pairMaxAge: Math.max(a1, a2) }
-          })
-
-          // 4) Fetch existing match rows for this event so we can map each locked pair
-          //    to its actual match row + round (avoids fragile bidirectional filters and
-          //    uses the real round stored on the match instead of inferring it).
+          // 3) Fetch existing match rows for this event so we can map each locked pair
+          //    to its actual match row + round.
           const { data: matchRows, error: matchRowsErr } = await supabase
             .from("match_results")
             .select("id, participant_a_number, participant_b_number, round")
@@ -788,30 +783,64 @@ export default async function handler(req, res) {
 
           const pairKey = (a, b) => `${Math.min(a, b)}-${Math.max(a, b)}`
           const rowsByPair = new Map()
+          const roundRowCounts = { 1: 0, 2: 0, other: 0 }
           for (const r of matchRows || []) {
             if (r.participant_a_number == null || r.participant_b_number == null) continue
             const k = pairKey(r.participant_a_number, r.participant_b_number)
             if (!rowsByPair.has(k)) rowsByPair.set(k, [])
             rowsByPair.get(k).push(r)
+            if (r.round === 1) roundRowCounts[1]++
+            else if (r.round === 2) roundRowCounts[2]++
+            else roundRowCounts.other++
+          }
+          console.log(`📊 match_results rows for event ${currentEventId}: total=${matchRows?.length || 0} (R1=${roundRowCounts[1]}, R2=${roundRowCounts[2]}, other=${roundRowCounts.other})`)
+
+          // Determine a locked pair's intended round: prefer stored original_match_round,
+          // else derive from genders (same gender = R1, opposite = R2).
+          const intendedRound = (lm) => {
+            const stored = Number(lm?.original_match_round)
+            if (stored === 1 || stored === 2) return stored
+            const g1 = genderMap.get(lm.participant1_number)
+            const g2 = genderMap.get(lm.participant2_number)
+            if (g1 && g2) return g1 === g2 ? 1 : 2
+            return null
           }
 
-          // 5) Bucket locked pairs by their ACTUAL match round (from match_results)
+          // 4) Bucket locked pairs by round. Prefer the actual match row's round; if no row
+          //    exists for the pair, fall back to the intended round and log it as missing
+          //    (such a pair has no match_results row to store a table number on).
           const byRound = { 1: [], 2: [] }
-          for (const lm of lockedEnriched) {
+          const missingRowPairs = []
+          for (const lm of (lockedMatches || [])) {
+            // Skip locked matches involving organizer (#9999)
+            if (lm.participant1_number === 9999 || lm.participant2_number === 9999) {
+              console.log(`   ⏭️ Skipping locked match involving organizer: #${lm.participant1_number} ↔ #${lm.participant2_number}`)
+              continue
+            }
+            const a1 = ageMap.get(lm.participant1_number) ?? 0
+            const a2 = ageMap.get(lm.participant2_number) ?? 0
+            const pairMaxAge = Math.max(a1, a2)
             const rows = rowsByPair.get(pairKey(lm.participant1_number, lm.participant2_number)) || []
-            for (const r of rows) {
-              if (r.round === 1 || r.round === 2) {
-                byRound[r.round].push({
-                  id: r.id,
-                  pairMaxAge: lm._pairMaxAge,
-                  p1: lm.participant1_number,
-                  p2: lm.participant2_number
-                })
-              }
+            const usableRows = rows.filter(r => r.round === 1 || r.round === 2)
+
+            if (usableRows.length === 0) {
+              missingRowPairs.push({ p1: lm.participant1_number, p2: lm.participant2_number, intended: intendedRound(lm) })
+              continue
+            }
+            for (const r of usableRows) {
+              byRound[r.round].push({ id: r.id, pairMaxAge, p1: lm.participant1_number, p2: lm.participant2_number })
             }
           }
 
-          // 6) Process each round independently; table counter restarts at 1 per round
+          if (missingRowPairs.length > 0) {
+            console.warn(`⚠️ ${missingRowPairs.length} locked pair(s) have NO match_results row for event ${currentEventId} and were skipped (no row to assign a table to):`)
+            for (const mp of missingRowPairs) {
+              console.warn(`     • #${mp.p1} ↔ #${mp.p2} (intended R${mp.intended ?? '?'}) — regenerate that round so the locked pair becomes an actual match row`)
+            }
+          }
+          console.log(`🔒 Locked pairs bucketed: R1=${byRound[1].length}, R2=${byRound[2].length}, missingRow=${missingRowPairs.length}`)
+
+          // 5) Process each round independently; table counter restarts at 1 per round
           const perRoundAssigned = { 1: 0, 2: 0 }
           for (const round of [1, 2]) {
             const items = byRound[round].sort((x, y) => (y.pairMaxAge - x.pairMaxAge))
@@ -835,12 +864,13 @@ export default async function handler(req, res) {
             }
           }
 
-          console.log(`✅ Assigned ${assignedCount} table numbers (R1=${perRoundAssigned[1]}, R2=${perRoundAssigned[2]})`)
+          console.log(`✅ Assigned ${assignedCount} table numbers (R1=${perRoundAssigned[1]}, R2=${perRoundAssigned[2]}, skipped=${missingRowPairs.length})`)
 
           return res.status(200).json({ 
-            message: `Tables assigned — R1: ${perRoundAssigned[1]}, R2: ${perRoundAssigned[2]} (each round starts at table 1)`,
+            message: `Tables assigned — R1: ${perRoundAssigned[1]}, R2: ${perRoundAssigned[2]}${missingRowPairs.length ? ` (skipped ${missingRowPairs.length} locked pair(s) with no match row — regenerate that round)` : ''}`,
             assignedTables: assignedCount,
             assignedByRound: perRoundAssigned,
+            skippedNoRow: missingRowPairs.length,
             totalMatches: lockedMatches?.length || 0
           })
         } catch (error) {

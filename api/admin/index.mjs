@@ -2042,7 +2042,7 @@ export default async function handler(req, res) {
           // Conversation depth mismatch
           const conv = participants
             .map(p => {
-              const raw = getAns(p, 'vibe_4') || getAns(p, 'conversation_depth_pref')
+              const raw = p?.survey_data?.answers?.vibe_4 || p?.survey_data?.vibe_4 || p?.survey_data?.conversation_depth_pref
               const v = String(raw || '').trim().toUpperCase()
               if (v === 'نعم' || v === 'نَعَم' || v === 'YES' || v === 'Y' || v === 'TRUE' || v === '1') return 'yes'
               if (v === 'لا' || v === 'لَا' || v === 'NO' || v === 'N' || v === 'FALSE' || v === '0') return 'no'

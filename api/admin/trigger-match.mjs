@@ -2017,10 +2017,10 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       console.log(`🔄 Handling ${overflow.length} overflow participants:`, overflow)
 
       for (const p of overflow) {
-        // Find most compatible group with size < 5
+        // Find most compatible group with size < 5 AND no opposite-gender matched pairs
         const candidates = groups
           .map((g, i) => ({ i, size: g.length, score: calculateParticipantGroupCompatibility(p, g, pairScores) }))
-          .filter(({ size }) => size < 5)
+          .filter(({ i, size }) => size < 5 && groups[i].every(m => !areMatched(m, p)))
           .sort((a, b) => b.score - a.score)
 
         if (candidates.length > 0) {
@@ -2028,6 +2028,8 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
           groups[best.i].push(p)
           console.log(`✅ Added overflow #${p} as 5th to group ${best.i + 1} (compatibility: ${Math.round(best.score)}%)`)
           rem.delete(p)
+        } else {
+          console.log(`⚠️ Overflow #${p} cannot be added to any group without creating opposite-gender matched pair; will create new group`)
         }
       }
 

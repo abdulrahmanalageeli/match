@@ -840,10 +840,14 @@ export default async function handler(req, res) {
           }
           console.log(`🔒 Locked pairs bucketed: R1=${byRound[1].length}, R2=${byRound[2].length}, missingRow=${missingRowPairs.length}`)
 
-          // 5) Process each round independently; table counter restarts at 1 per round
+          // 5) Process rounds: R1 sequentially, R2 tries to reuse R1 tables so one person stays put
           const perRoundAssigned = { 1: 0, 2: 0 }
-          for (const round of [1, 2]) {
-            const items = byRound[round].sort((x, y) => (y.pairMaxAge - x.pairMaxAge))
+          const participantR1Table = new Map() // participant_number → table assigned in R1
+          let stableCount = 0 // how many R2 pairs reused an R1 table
+
+          // --- Round 1: sequential assignment sorted by oldest first ---
+          {
+            const items = byRound[1].sort((x, y) => (y.pairMaxAge - x.pairMaxAge))
             let tableCounter = 1
             for (const item of items) {
               const { error: updateError } = await supabase
@@ -853,23 +857,83 @@ export default async function handler(req, res) {
                 .eq("id", item.id)
 
               if (updateError) {
-                console.error(`Error updating table number (R${round}) for locked match #${item.p1} ↔ #${item.p2}:`, updateError)
+                console.error(`Error updating table number (R1) for locked match #${item.p1} ↔ #${item.p2}:`, updateError)
                 return res.status(500).json({ error: updateError.message })
               }
 
-              console.log(`   📍 R${round} Table ${tableCounter}: #${item.p1} ↔ #${item.p2} (max age ${item.pairMaxAge})`)
+              // Record R1 table for each participant
+              participantR1Table.set(item.p1, tableCounter)
+              participantR1Table.set(item.p2, tableCounter)
+
+              console.log(`   📍 R1 Table ${tableCounter}: #${item.p1} ↔ #${item.p2} (max age ${item.pairMaxAge})`)
               tableCounter++
               assignedCount++
-              perRoundAssigned[round]++
+              perRoundAssigned[1]++
             }
           }
+
+          // --- Round 2: prefer reusing a participant's R1 table (they stay, partner moves to them) ---
+          {
+            const items = byRound[2].sort((x, y) => (y.pairMaxAge - x.pairMaxAge))
+            const usedR2Tables = new Set()
+            let nextFreshTable = 1
+
+            for (const item of items) {
+              let assignedTable = null
+              let stayingParticipant = null
+
+              // Try to reuse an R1 table from either participant
+              const t1 = participantR1Table.get(item.p1)
+              const t2 = participantR1Table.get(item.p2)
+
+              if (t1 != null && !usedR2Tables.has(t1)) {
+                assignedTable = t1
+                stayingParticipant = item.p1
+              } else if (t2 != null && !usedR2Tables.has(t2)) {
+                assignedTable = t2
+                stayingParticipant = item.p2
+              } else {
+                // No R1 table available — assign next fresh number
+                while (usedR2Tables.has(nextFreshTable)) nextFreshTable++
+                assignedTable = nextFreshTable
+                nextFreshTable++
+              }
+
+              usedR2Tables.add(assignedTable)
+
+              const { error: updateError } = await supabase
+                .from("match_results")
+                .update({ table_number: assignedTable })
+                .eq("match_id", STATIC_MATCH_ID)
+                .eq("id", item.id)
+
+              if (updateError) {
+                console.error(`Error updating table number (R2) for locked match #${item.p1} ↔ #${item.p2}:`, updateError)
+                return res.status(500).json({ error: updateError.message })
+              }
+
+              if (stayingParticipant) {
+                const movingParticipant = stayingParticipant === item.p1 ? item.p2 : item.p1
+                console.log(`   🪑 R2 Table ${assignedTable}: #${stayingParticipant} stays (from R1), #${movingParticipant} moves`)
+                stableCount++
+              } else {
+                console.log(`   📍 R2 Table ${assignedTable}: #${item.p1} ↔ #${item.p2} (both move, no R1 table free)`)
+              }
+
+              assignedCount++
+              perRoundAssigned[2]++
+            }
+          }
+
+          console.log(`🪑 Stable seating: ${stableCount}/${perRoundAssigned[2]} R2 pairs reuse an R1 table (one person stays)`)
 
           console.log(`✅ Assigned ${assignedCount} table numbers (R1=${perRoundAssigned[1]}, R2=${perRoundAssigned[2]}, skipped=${missingRowPairs.length})`)
 
           return res.status(200).json({ 
-            message: `Tables assigned — R1: ${perRoundAssigned[1]}, R2: ${perRoundAssigned[2]}${missingRowPairs.length ? ` (skipped ${missingRowPairs.length} locked pair(s) with no match row — regenerate that round)` : ''}`,
+            message: `Tables assigned — R1: ${perRoundAssigned[1]}, R2: ${perRoundAssigned[2]}, stable seating: ${stableCount}/${perRoundAssigned[2]}${missingRowPairs.length ? ` (skipped ${missingRowPairs.length} locked pair(s) with no match row)` : ''}`,
             assignedTables: assignedCount,
             assignedByRound: perRoundAssigned,
+            stableSeating: stableCount,
             skippedNoRow: missingRowPairs.length,
             totalMatches: lockedMatches?.length || 0
           })

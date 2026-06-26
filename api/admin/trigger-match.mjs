@@ -1727,14 +1727,15 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   console.log("🎯 Starting enhanced group matching for", participants.length, "total participants")
   
   // First, get existing individual matches to avoid putting matched pairs in same group
-  console.log("🔍 Fetching existing individual matches to avoid pairing matched participants...")
+  // Only avoid opposite-gender (Round 2) pairs; same-gender (Round 1) pairs are fine together
+  console.log("🔍 Fetching existing opposite-gender matches to avoid pairing them in groups...")
   const { data: existingMatches, error: matchError } = await supabase
     .from("match_results")
     .select("participant_a_number, participant_b_number")
     .eq("match_id", match_id)
     .eq("event_id", eventId)
+    .eq("round", 2) // Only avoid opposite-gender pairs in groups
     .neq("participant_b_number", 9999) // Exclude organizer matches
-    .neq("round", 0) // Exclude group matches (round 0 is for groups)
   
   if (matchError) {
     console.error("❌ Error fetching existing matches:", matchError)

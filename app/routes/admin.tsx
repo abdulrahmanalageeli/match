@@ -3539,16 +3539,15 @@ Proceed?`
             </div>
             <div 
               className="bg-cyan-500/20 backdrop-blur-sm border border-cyan-400/30 rounded-xl px-4 py-2 relative cursor-pointer hover:bg-cyan-500/30 transition-colors z-[1000]" 
-              onMouseEnter={() => {
+              onClick={() => {
                 if (deltaCacheCount > 0) {
-                  setShowDeltaCacheTooltip(true);
-                  fetchDeltaCacheParticipants();
+                  setShowDeltaCacheTooltip(!showDeltaCacheTooltip);
+                  if (!showDeltaCacheTooltip) fetchDeltaCacheParticipants();
                 }
               }}
-              onMouseLeave={() => setShowDeltaCacheTooltip(false)}
               title={deltaCacheCount === 0 
                 ? "Delta cache only counts participants who UPDATED their survey after last cache. Use Pre-Cache for first-time caching." 
-                : "Hover to see participants who updated their survey data since last cache"}
+                : "Click to see participants who updated their survey data since last cache"}
             >
               <span className="text-cyan-300 text-sm">Delta Cache: </span>
               <span className="font-bold text-cyan-200">{deltaCacheCount}</span>
@@ -3559,12 +3558,20 @@ Proceed?`
                 </span>
               )}
               
-              {/* Hover Tooltip */}
+              {/* Click-toggled dropdown (appears below) */}
               {showDeltaCacheTooltip && deltaCacheCount > 0 && (
-                <div className="absolute bottom-full left-0 mb-2 bg-gray-900/95 backdrop-blur-sm border border-cyan-400/30 rounded-xl p-4 shadow-xl min-w-80 max-w-md" style={{ zIndex: 999999 }}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Zap className="w-4 h-4 text-cyan-400" />
-                    <h3 className="text-cyan-300 font-semibold text-sm">Participants Needing Delta Cache Update</h3>
+                <div className="absolute top-full left-0 mt-2 bg-gray-900/95 backdrop-blur-sm border border-cyan-400/30 rounded-xl p-4 shadow-2xl min-w-80 max-w-md" style={{ zIndex: 999999 }}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-cyan-400" />
+                      <h3 className="text-cyan-300 font-semibold text-sm">Participants Needing Delta Cache Update</h3>
+                    </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setShowDeltaCacheTooltip(false); }}
+                      className="p-1 rounded hover:bg-white/10 text-cyan-300/60 hover:text-cyan-200 transition"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                   
                   {loadingDeltaCacheParticipants ? (
@@ -3573,7 +3580,7 @@ Proceed?`
                       Loading participants...
                     </div>
                   ) : deltaCacheParticipants.length > 0 ? (
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="space-y-1.5 max-h-72 overflow-y-auto">
                       {deltaCacheParticipants.map((participant, index) => (
                         <div key={participant.assigned_number || index} className="flex items-center justify-between p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
                           <div className="flex items-center gap-2">
@@ -3585,11 +3592,11 @@ Proceed?`
                               {participant.name}
                             </span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-cyan-400/60 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="bg-cyan-500/15 border border-cyan-500/30 text-cyan-400/80 text-[10px] px-1.5 py-0.5 rounded">
                               {participant.eligibility_reason}
                             </span>
-                            <span className="text-cyan-500/60 text-xs">
+                            <span className="text-cyan-500/60 text-[10px]">
                               {participant.survey_data_updated_at ? 
                                 new Date(participant.survey_data_updated_at).toLocaleDateString() : 
                                 'Recently'

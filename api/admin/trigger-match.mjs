@@ -2001,7 +2001,7 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       const maleCount = genders.filter(g => g === 'male').length
       const femaleCount = genders.filter(g => g === 'female').length
       if (maleCount === 0 || femaleCount === 0) return -Infinity
-      if (femaleCount > 2) return -Infinity
+      if (femaleCount > 3) return -Infinity
       const hasSingleFemale = femaleCount === 1 && targetSize === 4
 
       // 2) Conversation depth compatibility
@@ -2434,8 +2434,8 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no gender balance (${maleCount}M, ${femaleCount}F)`) 
         continue
       }
-      if (femaleCount > 2) {
-        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - too many females (${maleCount}M, ${femaleCount}F) - max 2 females per group`) 
+      if (femaleCount > 3) {
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - too many females (${maleCount}M, ${femaleCount}F) - max 3 females per group`)
         continue
       }
 

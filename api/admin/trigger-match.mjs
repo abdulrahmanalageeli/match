@@ -1974,153 +1974,89 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
   // Phase 1 (Relaxed): Skip 4-first strategy and consider sizes 3/4/5 from the start.
   console.log("🔄 Phase 1 skipped (relaxed): considering 3/4/5 from the start")
   
-  // Phase 2: Handle remaining participants
+  // Phase 2: Handle remaining participants - prioritize groups of 4 exclusively
   const remainingParticipants = participantNumbers.filter(p => !usedParticipants.has(p))
   console.log(`🔄 Phase 2: Handling ${remainingParticipants.length} remaining participants:`, remainingParticipants)
-  
+
   if (remainingParticipants.length === 0) {
     // Perfect groups of 4
     console.log("✅ Perfect grouping achieved with groups of 4")
   } else if (remainingParticipants.length >= 4) {
-    // 4+ extra people — iteratively choose the best-scoring next group among sizes 3/4/5. Never create 6.
+    // STRATEGY: Create as many groups of 4 as possible, then handle overflow
     const rem = new Set(remainingParticipants)
     const created = []
-    // Scoring helper mirroring evaluateForRange bonuses/penalties
-    function computeGroupSelectionScore(combination, targetSize) {
-      // 0) Matched pairs inside group are forbidden under strict finder, but guard anyway
-      for (let i = 0; i < combination.length; i++) {
-        for (let j = i + 1; j < combination.length; j++) {
-          if (areMatched(combination[i], combination[j])) return -Infinity
-        }
-      }
-      // 1) Gender + female cap
-      const genders = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.gender || participant?.survey_data?.gender
-      }).filter(Boolean)
-      const maleCount = genders.filter(g => g === 'male').length
-      const femaleCount = genders.filter(g => g === 'female').length
-      if (maleCount === 0 || femaleCount === 0) return -Infinity
-      if (femaleCount > 3) return -Infinity
-      const hasSingleFemale = femaleCount === 1 && targetSize === 4
 
-      // 2) Conversation depth compatibility
-      const conversationPrefs = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return getConversationDepthPref(participant)
-      }).filter(v => v !== null)
-      const yesCount = conversationPrefs.filter(v => v === 'yes').length
-      const noCount = conversationPrefs.filter(v => v === 'no').length
-      if (yesCount > 0 && noCount > 0) return -Infinity
-
-      // 3) Initiator present (when roles fully known)
-      const rolesEarly = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return (
-          participant?.survey_data?.answers?.conversational_role ||
-          participant?.conversational_role ||
-          participant?.survey_data?.conversational_role
-        )
-      }).filter(Boolean).map(v => String(v).toUpperCase())
-      const hasInitiatorEarly = rolesEarly.some(r => r === 'A' || r === 'INITIATOR' || r === 'INITIATE' || r === 'LEADER' || r === 'مبادر' || r === 'المبادر')
-      if (rolesEarly.length === combination.length && !hasInitiatorEarly) return -Infinity
-
-      // Base compatibility
-      let score = calculateGroupCompatibilityScore(combination, pairScores)
-
-      // Ages
-      const ages = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return participant?.age || participant?.survey_data?.age
-      }).filter(Boolean)
-      if (ages.length === combination.length) {
-        const ageRange = Math.max(...ages) - Math.min(...ages)
-        if (ageRange <= 3) score += 5
-      }
-
-      // Humor clash and small diversity bonus
-      const banterStyles = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return (
-          participant?.humor_banter_style ||
-          participant?.survey_data?.humor_banter_style ||
-          participant?.survey_data?.answers?.humor_banter_style
-        )
-      }).filter(Boolean)
-      if (banterStyles.length >= 2) {
-        if (banterStyles.includes('A') && banterStyles.includes('D')) score -= 5
-        const uniqueBanter = new Set(banterStyles).size
-        if (uniqueBanter <= 2) score += 3
-      }
-
-      // Role coverage + ideal mix
-      const roles = rolesEarly
-      if (roles.length >= 2) {
-        const uniqueRoles = new Set(roles)
-        if (uniqueRoles.size >= 2) score += 3
-        if (uniqueRoles.size === 3) score += 3
-        const hasArole = roles.includes('A') || roles.includes('INITIATOR') || roles.includes('INITIATE') || roles.includes('LEADER') || roles.includes('مبادر') || roles.includes('المبادر')
-        const hasBrole = roles.includes('B') || roles.includes('REACTOR') || roles.includes('RESPONDER') || roles.includes('متفاعل') || roles.includes('المتفاعل')
-        if (hasArole && hasBrole) score += 10
-      }
-
-      // Curiosity/flow
-      const curiosity = combination.map(participantNum => {
-        const participant = eligibleParticipants.find(p => p.assigned_number === participantNum)
-        return (
-          participant?.survey_data?.answers?.curiosity_style ||
-          participant?.curiosity_style ||
-          participant?.survey_data?.curiosity_style
-        )
-      }).filter(Boolean).map(v => String(v).toUpperCase())
-      if (curiosity.length >= 2) {
-        const hasA = curiosity.includes('A')
-        const hasB = curiosity.includes('B')
-        const hasC = curiosity.includes('C')
-        if (hasA && hasB) score += 4
-        if (hasC) score += 2
-      }
-
-      // Size preference
-      if (targetSize === 4) score += 5
-      else if (targetSize === 5) score -= 5
-
-      // Single-female penalty (size 4 only)
-
-
-      return score
-    }
-
-    while (rem.size >= 3) {
+    // First pass: ONLY create groups of 4
+    while (rem.size >= 4) {
       const pool = Array.from(rem)
-      let best = null
-      for (const size of [3, 4, 5]) {
-        if (pool.length < size) continue
-        let grp = findBestGroupAvoidingMatches(pool, pairScores, size, areMatched, eligibleParticipants, bannedCombos)
-        let strict = true
-        if (!grp) {
-          grp = findBestGroup(pool, pairScores, size, eligibleParticipants, areMatched)
-          strict = false
-        }
-        if (!grp) continue
-        const s = computeGroupSelectionScore(grp, size)
-        if (!Number.isFinite(s)) continue
-        if (!best || s > best.score || (s === best.score && size === 4 && best.size !== 4)) {
-          best = { size, group: grp, score: s, strict }
+      const grp = findBestGroupAvoidingMatches(pool, pairScores, 4, areMatched, eligibleParticipants, bannedCombos)
+      if (!grp) {
+        console.log(`⚠️ No valid group of 4 found; trying relaxed fallback`)
+        const relaxed4 = findBestGroup(pool, pairScores, 4, eligibleParticipants, areMatched)
+        if (relaxed4) {
+          grp = relaxed4
+          console.log(`🟠 Relaxed group of 4 created: [${grp.join(', ')}]`)
+        } else {
+          console.log(`❌ Cannot form any group of 4 even with relaxed fallback; breaking to handle overflow`)
+          break
         }
       }
-      if (!best) {
-        console.log(`❌ No valid group found among sizes 3/4/5 for remaining pool; leaving for final inclusion pass`)
-        break
+      if (grp) {
+        grp.forEach(p => rem.delete(p))
+        groups.push([...grp])
+        grp.forEach(p => usedParticipants.add(p))
+        created.push(grp)
+        console.log(`✅ Created group of 4: [${grp.join(', ')}]`)
       }
-      // Place best chunk
-      best.group.forEach(p => rem.delete(p))
-      groups.push([...best.group])
-      best.group.forEach(p => usedParticipants.add(p))
-      created.push(best.group)
-      console.log(`✅ Chosen next group (size ${best.size}) [${best.group.join(', ')}] with score ${Math.round(best.score)}%`)
     }
-    console.log(`✅ Created ${created.length} new group(s) from remaining participants (sizes: ${created.map(c => c.length).join(', ')})`)
+    console.log(`✅ Created ${created.length} groups of 4`)
+
+    // Overflow handling: add remaining as 5th to most compatible groups
+    const overflow = Array.from(rem)
+    if (overflow.length > 0) {
+      console.log(`🔄 Handling ${overflow.length} overflow participants:`, overflow)
+
+      for (const p of overflow) {
+        // Find most compatible group with size < 5
+        const candidates = groups
+          .map((g, i) => ({ i, size: g.length, score: calculateParticipantGroupCompatibility(p, g, pairScores) }))
+          .filter(({ size }) => size < 5)
+          .sort((a, b) => b.score - a.score)
+
+        if (candidates.length > 0) {
+          const best = candidates[0]
+          groups[best.i].push(p)
+          console.log(`✅ Added overflow #${p} as 5th to group ${best.i + 1} (compatibility: ${Math.round(best.score)}%)`)
+          rem.delete(p)
+        }
+      }
+
+      // If still overflow after adding as 5th, create a new group for them
+      const stillOverflow = Array.from(rem)
+      if (stillOverflow.length > 0) {
+        console.log(`🔄 Still ${stillOverflow.length} overflow participants; creating new group(s) for them`)
+        while (stillOverflow.length >= 3) {
+          const size = Math.min(5, stillOverflow.length)
+          const chunk = stillOverflow.splice(0, size)
+          groups.push(chunk)
+          console.log(`✅ Created overflow group (size ${size}): [${chunk.join(', ')}]`)
+        }
+        // If 1-2 left, add to last group if it won't exceed 5
+        if (stillOverflow.length > 0 && groups.length > 0) {
+          const lastGroup = groups[groups.length - 1]
+          if (lastGroup.length + stillOverflow.length <= 5) {
+            lastGroup.push(...stillOverflow)
+            console.log(`✅ Added remaining ${stillOverflow.length} to last group`)
+            stillOverflow.length = 0
+          }
+        }
+        // If still 1-2 left, create a group of 2-3 anyway
+        if (stillOverflow.length > 0) {
+          groups.push([...stillOverflow])
+          console.log(`✅ Created final overflow group (size ${stillOverflow.length}): [${stillOverflow.join(', ')}]`)
+        }
+      }
+    }
   } else if (remainingParticipants.length === 1) {
     // 1 extra person - add to most compatible group without creating matched pairs.
     const extraParticipant = remainingParticipants[0]
@@ -2339,7 +2275,37 @@ async function generateGroupMatches(participants, match_id, eventId, options = {
       }
     }
   }
-  
+
+  // EMERGENCY FALLBACK: If there are still unplaced participants, ignore ALL constraints
+  // and force them into groups of 3-5 to ensure everyone is placed
+  const placedSet = new Set(groups.flat())
+  const emergencyLeftover = eligibleParticipants.map(p => p.assigned_number).filter(n => !placedSet.has(n))
+  if (emergencyLeftover.length > 0) {
+    console.log(`\n🚨 EMERGENCY FALLBACK: ${emergencyLeftover.length} participants still unplaced after all passes. Ignoring ALL constraints to place them.`)
+    const pool = [...emergencyLeftover]
+    while (pool.length >= 3) {
+      // Take up to 5, prefer 3-4 to create more groups
+      const size = pool.length >= 5 ? 5 : pool.length
+      const chunk = pool.splice(0, size)
+      groups.push(chunk)
+      console.log(`🚨 Emergency group created (size ${size}): [${chunk.join(', ')}]`)
+    }
+    // If 1-2 left, add to last group if it won't exceed 5
+    if (pool.length > 0 && groups.length > 0) {
+      const lastGroup = groups[groups.length - 1]
+      if (lastGroup.length + pool.length <= 5) {
+        lastGroup.push(...pool)
+        console.log(`🚨 Emergency: added remaining ${pool.length} to last group: [${lastGroup.join(', ')}]`)
+        pool.length = 0
+      }
+    }
+    // If still 1-2 left and no room, create a group of 2-3 anyway
+    if (pool.length > 0) {
+      groups.push([...pool])
+      console.log(`🚨 Emergency final group (size ${pool.length}): [${pool.join(', ')}]`)
+    }
+  }
+
   console.log(`\n📋 Group Details:`)
   groups.forEach((group, index) => {
     console.log(`  Group ${index + 1}: [${group.join(', ')}] (${group.length} people)`);
@@ -2434,8 +2400,8 @@ function findBestGroupAvoidingMatches(availableParticipants, pairScores, targetS
         console.log(`🚫 Skipping group combination [${combination.join(', ')}] - no gender balance (${maleCount}M, ${femaleCount}F)`) 
         continue
       }
-      if (femaleCount > 3) {
-        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - too many females (${maleCount}M, ${femaleCount}F) - max 3 females per group`)
+      if (femaleCount > 2) {
+        console.log(`🚫 Skipping group combination [${combination.join(', ')}] - too many females (${maleCount}M, ${femaleCount}F) - max 2 females per group`)
         continue
       }
 

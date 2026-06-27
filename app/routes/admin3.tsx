@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -42,6 +42,7 @@ export default function Admin3Page() {
   const [allRankings, setAllRankings] = useState<any[]>([])
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
+  const [matchPairs, setMatchPairs] = useState<any[]>([])
 
   const copyRankings = () => {
     if (!allRankings.length) return
@@ -109,12 +110,18 @@ export default function Admin3Page() {
     setSeating(data.seating)
   }, [])
 
+  const fetchMatches = useCallback(async () => {
+    const data = await api("e3-get-matches")
+    setMatchPairs(data.pairs || [])
+  }, [])
+
   const fetchRankStatus = useCallback(async () => {
     const data = await api("e3-get-rankings-status")
     setRankStatus(data)
     const allData = await api("e3-get-all-rankings")
     setAllRankings(allData.rankings || [])
-  }, [])
+    await fetchMatches()
+  }, [fetchMatches])
 
   useEffect(() => {
     if (!authenticated) return
@@ -589,7 +596,7 @@ export default function Admin3Page() {
                     الجولة {round === 1 ? "الأولى" : round === 2 ? "الثانية" : "الثالثة"}
                   </h4>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {[1, 2, 3, 4, 5, 6].map(table => {
+                    {Object.keys(seating?.[round] || {}).map(Number).sort((a,b) => a-b).map(table => {
                       const members = seating?.[round]?.[table] || []
                       return (
                         <div key={table} className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
@@ -702,6 +709,50 @@ export default function Admin3Page() {
                 </div>
               </>
             )}
+
+            {/* ── Match Results ──────────────────────────────────────────── */}
+            <div className="space-y-3 pt-2 border-t border-gray-800/60">
+              <div className="flex items-center justify-between">
+                <h4 className="font-semibold text-gray-300 text-sm">نتائج المطابقة (اختيارك)</h4>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); return d }))}
+                    disabled={!!loading || (rankStatus?.submitted || 0) === 0}
+                    className="flex items-center gap-1.5 bg-pink-900/40 hover:bg-pink-900/70 border border-pink-800/50 text-pink-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                  >
+                    {loading === "phase2" ? <RefreshCw size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                    تشغيل المطابقة
+                  </button>
+                  <button onClick={fetchMatches} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
+                    <RefreshCw size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {matchPairs.length === 0 ? (
+                <p className="text-gray-600 text-xs text-center py-4">لا توجد نتائج بعد — اضغط "تشغيل المطابقة" بعد اكتمال التصنيفات</p>
+              ) : (
+                <div className="space-y-2">
+                  <p className="text-gray-500 text-xs">{matchPairs.length} زوج</p>
+                  {matchPairs.map((pair: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
+                      <span className="text-gray-600 text-xs font-mono w-5 flex-shrink-0">{idx + 1}</span>
+                      <div className="flex-1 flex items-center gap-2 min-w-0">
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${pair.aGender === "female" ? "bg-pink-400" : "bg-blue-400"}`} />
+                        <span className="text-sm font-medium text-white truncate">{pair.aName}</span>
+                        <span className="text-gray-600 text-xs font-mono">#{pair.a}</span>
+                      </div>
+                      <Heart size={13} className="text-pink-500 flex-shrink-0" />
+                      <div className="flex-1 flex items-center gap-2 min-w-0 justify-end">
+                        <span className="text-gray-600 text-xs font-mono">#{pair.b}</span>
+                        <span className="text-sm font-medium text-white truncate">{pair.bName}</span>
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${pair.bGender === "female" ? "bg-pink-400" : "bg-blue-400"}`} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

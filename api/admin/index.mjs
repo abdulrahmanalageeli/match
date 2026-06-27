@@ -11,6 +11,63 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 
+// ── Event 3.0 constants & helpers ─────────────────────────────────────────────
+const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
+const EVENT3_PASSWORD = "soulmatch2026"
+const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
+
+function e3GenerateSeatingPlan(participantNumbers) {
+  const shuffled = [...participantNumbers].sort(() => Math.random() - 0.5)
+  const grid = Array.from({ length: 6 }, (_, r) => Array.from({ length: 6 }, (_, c) => shuffled[r * 6 + c]))
+  const round1 = grid.map(row => [...row])
+  const round2 = Array.from({ length: 6 }, (_, c) => grid.map(row => row[c]))
+  const round3 = Array.from({ length: 6 }, () => [])
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) round3[E3_LATIN_SQUARE[r][c]].push(grid[r][c])
+  const positionMap = {}
+  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) positionMap[grid[r][c]] = r * 6 + c
+  return { round1, round2, round3, positionMap }
+}
+
+function e3GreedyMutualMatching(rankings) {
+  const unmatched = new Set(rankings.keys()), matches = new Map(), list = Array.from(rankings.keys()), pairs = []
+  for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
+    const pi = list[i], pj = list[j]
+    const ri = (rankings.get(pi) || []).indexOf(pj), rj = (rankings.get(pj) || []).indexOf(pi)
+    if (ri !== -1 && rj !== -1) pairs.push({ a: pi, b: pj, score: ri + rj })
+  }
+  pairs.sort((a, b) => a.score - b.score)
+  for (const { a, b } of pairs) {
+    if (unmatched.has(a) && unmatched.has(b)) { matches.set(a, b); matches.set(b, a); unmatched.delete(a); unmatched.delete(b) }
+    if (unmatched.size === 0) break
+  }
+  const rest = Array.from(unmatched)
+  for (let i = 0; i + 1 < rest.length; i += 2) { matches.set(rest[i], rest[i+1]); matches.set(rest[i+1], rest[i]) }
+  return matches
+}
+
+function e3HungarianMatching(participants, scoreMap) {
+  const half = Math.floor(participants.length / 2)
+  const groupA = participants.slice(0, half), groupB = participants.slice(half)
+  const cost = groupA.map(pa => groupB.map(pb => { const key = pa < pb ? `${pa}-${pb}` : `${pb}-${pa}`; return 100 - (scoreMap[key] ?? 50) }))
+  const matches = new Map()
+  for (const [i, j] of munkres(cost)) { matches.set(groupA[i], groupB[j]); matches.set(groupB[j], groupA[i]) }
+  return matches
+}
+
+function e3CalcCompat(pA, pB) {
+  let score = 50
+  const getA = (p, k) => { try { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data) : (p.survey_data || {}); return sd?.answers?.[k] ?? sd?.[k] ?? p?.[k] ?? "" } catch { return "" } }
+  const mA = (getA(pA, "mbti_type") || pA.mbti_personality_type || "").toUpperCase()
+  const mB = (getA(pB, "mbti_type") || pB.mbti_personality_type || "").toUpperCase()
+  if (mA.length === 4 && mB.length === 4) { let s = 0; for (let i = 0; i < 4; i++) if (mA[i] === mB[i]) s++; score += s >= 3 ? 10 : s === 2 ? 5 : 0 }
+  const ageA = parseInt(getA(pA, "age") || pA.age) || 0, ageB = parseInt(getA(pB, "age") || pB.age) || 0
+  if (ageA && ageB) { const d = Math.abs(ageA - ageB); score += d <= 2 ? 10 : d <= 5 ? 5 : d > 10 ? -10 : 0 }
+  const atA = (getA(pA, "attachment_style") || pA.attachment_style || "").toLowerCase()
+  const atB = (getA(pB, "attachment_style") || pB.attachment_style || "").toLowerCase()
+  if (atA && atB) { if (atA === atB && atA === "secure") score += 10; else if (atA === "secure" || atB === "secure") score += 5 }
+  return Math.min(99, Math.max(1, score))
+}
+
 export default async function handler(req, res) {
   // Add error logging for debugging
   if (!process.env.SUPABASE_URL && !process.env.VITE_SUPABASE_URL) {
@@ -5740,6 +5797,149 @@ export default async function handler(req, res) {
       } catch (error) {
         console.error("Error in get-participant-bonus-data:", error)
         return res.status(500).json({ error: "Failed to get participant bonus data" })
+      }
+    }
+
+    // ── Event 3.0 admin actions (password required in body) ─────────────────────
+    if (action && action.startsWith("e3-")) {
+      if (req.body?.password !== EVENT3_PASSWORD) return res.status(403).json({ error: "Unauthorized" })
+      try {
+        // e3-get-state
+        if (action === "e3-get-state") {
+          const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round").eq("match_id", EVENT3_MATCH_ID).single()
+          const { count: pc } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID)
+          const { count: sc } = await supabase.from("session_assignments").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID)
+          const { count: mc } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).not("phase2_partner", "is", null)
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID)
+          const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
+          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0 })
+        }
+        // e3-get-participants
+        if (action === "e3-get-participants") {
+          const { data, error } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type").eq("match_id", STATIC_MATCH_ID).neq("assigned_number", 9999).order("assigned_number", { ascending: true })
+          if (error) return res.status(500).json({ error: error.message })
+          const { data: sel } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          const selectedSet = new Set((sel || []).map(s => s.participant_number))
+          const participants = (data || []).map(p => { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return { number: p.assigned_number, name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", age: p.age || sd?.answers?.age || sd?.age || "?", selected: selectedSet.has(p.assigned_number) } })
+          return res.status(200).json({ participants, selected_count: selectedSet.size })
+        }
+        // e3-set-participants
+        if (action === "e3-set-participants") {
+          const { participant_numbers } = req.body
+          if (!Array.isArray(participant_numbers) || participant_numbers.length !== 36) return res.status(400).json({ error: "Exactly 36 participants required" })
+          await supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID)
+          const rows = participant_numbers.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: idx }))
+          const { error } = await supabase.from("event3_participants").insert(rows)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Participants selected successfully" })
+        }
+        // e3-generate-seating
+        if (action === "e3-generate-seating") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).order("position", { ascending: true })
+          if (!ep || ep.length !== 36) return res.status(400).json({ error: "Need exactly 36 participants selected first" })
+          const participantNumbers = ep.map(r => r.participant_number)
+          const { round1, round2, round3, positionMap } = e3GenerateSeatingPlan(participantNumbers)
+          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID)
+          await supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID)
+          await supabase.from("event3_participants").insert(participantNumbers.map(num => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: positionMap[num] })))
+          const assignments = []
+          for (let t = 0; t < 6; t++) {
+            for (const p of round1[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 1, table_number: t + 1, participant_id: p })
+            for (const p of round2[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 2, table_number: t + 1, participant_id: p })
+            for (const p of round3[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 3, table_number: t + 1, participant_id: p })
+          }
+          const { error } = await supabase.from("session_assignments").insert(assignments)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Seating plan generated", round1, round2, round3 })
+        }
+        // e3-get-seating
+        if (action === "e3-get-seating") {
+          const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).order("round").order("table_number")
+          if (!rows || rows.length === 0) return res.status(200).json({ seating: null })
+          const nums = [...new Set(rows.map(r => r.participant_id))]
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const nameMap = {}
+          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?" } }
+          const seating = { 1: {}, 2: {}, 3: {} }
+          for (const row of rows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
+          return res.status(200).json({ seating })
+        }
+        // e3-set-phase
+        if (action === "e3-set-phase") {
+          const { error } = await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, phase: req.body.phase }, { onConflict: "match_id" })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: `Phase set to ${req.body.phase}` })
+        }
+        // e3-start-timer
+        if (action === "e3-start-timer") {
+          const { round, duration = 1200 } = req.body
+          const { error } = await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, global_timer_active: true, global_timer_start_time: new Date().toISOString(), global_timer_duration: duration, global_timer_round: round }, { onConflict: "match_id" })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Timer started" })
+        }
+        // e3-stop-timer
+        if (action === "e3-stop-timer") {
+          const { error } = await supabase.from("event_state").update({ global_timer_active: false, global_timer_start_time: null }).eq("match_id", EVENT3_MATCH_ID)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "Timer stopped" })
+        }
+        // e3-get-rankings-status
+        if (action === "e3-get-rankings-status") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          const selected = (ep || []).map(r => r.participant_number)
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID)
+          const submitted = new Set((rankRows || []).map(r => r.ranker_number))
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const nameMap = {}
+          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
+          return res.status(200).json({ total: selected.length, submitted: submitted.size, status: selected.map(n => ({ number: n, submitted: submitted.has(n), name: nameMap[n] || `#${n}` })) })
+        }
+        // e3-trigger-phase2-matching
+        if (action === "e3-trigger-phase2-matching") {
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
+          if (!rankRows || rankRows.length === 0) return res.status(400).json({ error: "No rankings submitted yet" })
+          const rankings = new Map()
+          for (const row of rankRows) {
+            const sorted = rankRows.filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
+            rankings.set(row.ranker_number, sorted)
+          }
+          const matches = e3GreedyMutualMatching(rankings)
+          await supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID)
+          const rows = []
+          const seen = new Set()
+          for (const [p, partner] of matches) { if (seen.has(p)) continue; seen.add(p); seen.add(partner); rows.push({ match_id: EVENT3_MATCH_ID, participant_number: p, phase2_partner: partner }); rows.push({ match_id: EVENT3_MATCH_ID, participant_number: partner, phase2_partner: p }) }
+          const { error } = await supabase.from("event3_matches").insert(rows)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: `Phase 2 matching complete. Created ${rows.length / 2} pairs.` })
+        }
+        // e3-trigger-phase3-matching
+        if (action === "e3-trigger-phase3-matching") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          if (!ep || ep.length !== 36) return res.status(400).json({ error: "Wrong participant count" })
+          const nums = ep.map(r => r.participant_number)
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          if (!pdata) return res.status(500).json({ error: "Failed to fetch participant data" })
+          const scoreMap = {}
+          for (let i = 0; i < pdata.length; i++) for (let j = i + 1; j < pdata.length; j++) { const a = pdata[i].assigned_number, b = pdata[j].assigned_number; const key = a < b ? `${a}-${b}` : `${b}-${a}`; scoreMap[key] = e3CalcCompat(pdata[i], pdata[j]) }
+          const matches = e3HungarianMatching(nums.slice().sort((a, b) => a - b), scoreMap)
+          for (const [p, partner] of matches) { const key = p < partner ? `${p}-${partner}` : `${partner}-${p}`; await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: p, phase3_partner: partner, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" }) }
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.size / 2} pairs.` })
+        }
+        // e3-reset-event
+        if (action === "e3-reset-event") {
+          await Promise.all([
+            supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID),
+            supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, phase: "setup", global_timer_active: false }, { onConflict: "match_id" }),
+          ])
+          return res.status(200).json({ message: "Event reset successfully" })
+        }
+        return res.status(400).json({ error: `Unknown e3 action: ${action}` })
+      } catch (e3err) {
+        console.error("e3 admin error:", e3err)
+        return res.status(500).json({ error: e3err.message || "Internal server error" })
       }
     }
 

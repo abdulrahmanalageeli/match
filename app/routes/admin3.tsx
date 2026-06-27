@@ -336,12 +336,12 @@ export default function Admin3Page() {
                   <Users size={16} className="text-purple-400" /> اختيار المشاركين
                 </h3>
                 <div className="flex items-center gap-2">
-                  <span className={`text-sm px-2 py-0.5 rounded-full ${selectedNumbers.size === 36 ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
-                    {selectedNumbers.size}/36
+                  <span className={`text-sm px-2 py-0.5 rounded-full ${selectedNumbers.size >= 6 ? "bg-green-900 text-green-300" : "bg-gray-800 text-gray-400"}`}>
+                    {selectedNumbers.size} مختار
                   </span>
                   <button
                     onClick={saveParticipants}
-                    disabled={selectedNumbers.size !== 36 || !!loading}
+                    disabled={selectedNumbers.size < 6 || !!loading}
                     className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-lg px-3 py-1.5 text-sm flex items-center gap-1"
                   >
                     {loading === "save-participants" ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
@@ -573,7 +573,7 @@ export default function Admin3Page() {
               <div className="text-center py-12 text-gray-500">
                 <Grid3x3 size={32} className="mx-auto mb-3 opacity-30" />
                 <p>لم تُولَّد خطة الجلسات بعد</p>
-                <p className="text-xs mt-1">اختر 36 مشاركاً ثم اضغط "توليد خطة الجلسات"</p>
+                <p className="text-xs mt-1">اختر المشاركين ثم اضغط "توليد خطة الجلسات"</p>
               </div>
             ) : (
               [1, 2, 3].map(round => (
@@ -629,7 +629,7 @@ export default function Admin3Page() {
                   <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-purple-600 transition-all duration-500"
-                      style={{ width: `${(rankStatus.submitted / (rankStatus.total || 36)) * 100}%` }}
+                      style={{ width: `${(rankStatus.submitted / (rankStatus.total || 1)) * 100}%` }}
                     />
                   </div>
                 </div>

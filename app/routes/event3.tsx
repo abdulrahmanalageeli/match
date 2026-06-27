@@ -4,7 +4,7 @@ import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder } from "framer-motion"
 import confetti from "canvas-confetti"
 import {
-  Clock, Table2, Heart, Brain,
+  Clock, Table2, Heart, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
 } from "lucide-react"
 
@@ -202,8 +202,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
           transition={{ delay: 0.1, type: "spring" }}
           className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-6 py-2.5`}
         >
-          <span className="font-bold text-sm">الجولة {roundAr}</span>
-          <span className="text-gray-600 text-xs">من 3</span>
+          <span className="font-bold text-sm">جولة التعارف {roundAr}</span>
+          <span className="text-gray-600 text-xs">من 2</span>
         </motion.div>
 
         <AnimatePresence>
@@ -257,10 +257,23 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
           </GlassCard>
         )}
 
+        {/* Groups activities link */}
+        <motion.a
+          href="/groups"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+          className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all
+            ${RC.badge} hover:brightness-125 active:scale-95`}
+        >
+          نشاطات المجموعة 🎯
+          <ExternalLink size={15} />
+        </motion.a>
+
         <p className="text-gray-600 text-xs">
           {round === 1 && "ستلتقي بأشخاص جدد في هذه الجولة"}
-          {round === 2 && "وجوه جديدة تماماً — لا أحد التقيت به من قبل"}
-          {round === 3 && "آخر جولة — بعدها ستصنّف من أثار اهتمامك"}
+          {round === 2 && "آخر جولة تعارف — بعدها ستصنّف من أثار اهتمامك"}
+          {round === 3 && "جولة إضافية — بعدها ستصنّف من أثار اهتمامك"}
         </p>
       </motion.div>
     </PageWrapper>
@@ -447,6 +460,16 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   )
 }
 
+// ─── Shared conversation starters ────────────────────────────────────────────
+const CONVO_STARTERS = [
+  "إذا كنت ستسافر غداً دون تخطيط، أين ستذهب؟",
+  "ما الشيء الذي تعلمته مؤخراً وغيّر طريقة تفكيرك؟",
+  "صِف يومك المثالي من الصباح حتى الليل.",
+  "ما الهواية التي تتمنى أن تكون أفضل فيها؟",
+  "ما الكتاب أو الفيلم الذي أثّر فيك كثيراً ولماذا؟",
+  "ما أكثر شيء تقدّره في الصداقة؟",
+]
+
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
 function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
@@ -454,9 +477,17 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
+  const [word, setWord] = useState("")
+  const [wordSubmitted, setWordSubmitted] = useState(false)
+  const [showStarters, setShowStarters] = useState(false)
 
   useEffect(() => {
-    call("e3-get-phase2-reveal", token).then(d => { if (!d.error) setData(d) })
+    call("e3-get-phase2-reveal", token).then(d => {
+      if (!d.error) {
+        setData(d)
+        if (d.my_word) { setWord(d.my_word); setWordSubmitted(true) }
+      }
+    })
   }, [token])
 
   useEffect(() => {
@@ -475,56 +506,104 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     try { confetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] }) } catch {}
   }
 
+  const submitWord = async () => {
+    if (!word.trim()) return
+    const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
+    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ! ✨") }
+  }
+
   return (
-    <PageWrapper className="flex flex-col items-center justify-center p-6 text-center">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-6">
-        <div className="space-y-2">
-          <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}>
-            <Heart size={48} className="mx-auto text-pink-500" fill="currentColor" />
-          </motion.div>
-          <h1 className="text-2xl font-black text-white">الجلسة الأولى</h1>
-          <p className="text-gray-500 text-sm">هذا من اخترته أنت بعد جولات التعارف</p>
-        </div>
+    <PageWrapper>
+      <div className="max-w-sm mx-auto p-5 pb-10 space-y-4">
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
+          <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
+            <Heart size={13} fill="currentColor" /> الجلسة الأولى · اختيارك
+          </div>
+          <p className="text-gray-600 text-xs">هذا من قرّرت أنت لقاءه بعد جولات التعارف</p>
+        </motion.div>
 
         <AnimatePresence mode="wait">
           {!revealed ? (
-            <motion.button
-              key="btn"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              onClick={handleReveal}
-              whileTap={{ scale: 0.97 }}
-              className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-7 font-bold text-xl shadow-2xl shadow-pink-600/40 border border-pink-500/30"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <Heart size={22} fill="white" /> اكشف اسمه / اسمها
-              </span>
-            </motion.button>
-          ) : (
-            <motion.div
-              key="reveal"
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 220 }}
-              className="space-y-4"
-            >
-              <GlassCard className="p-8 border border-pink-800/40 shadow-2xl shadow-pink-500/10">
-                <p className="text-gray-500 text-xs mb-4">اخترت</p>
-                <div className="text-5xl font-black text-white mb-2">{data?.partner_first_name || "..."}</div>
-                <p className="text-pink-400 text-sm">اختيارك الشخصي ❤️</p>
-              </GlassCard>
+            <motion.div key="pre" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-8 font-bold text-xl shadow-2xl shadow-pink-600/40 border border-pink-500/30">
+                <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
+                  <Heart size={24} fill="white" /> اكشف اسمه / اسمها
+                </motion.span>
+              </motion.button>
               {timerActive && timeLeft > 0 && (
-                <GlassCard className="p-4">
-                  <p className="text-gray-500 text-xs mb-1 flex items-center justify-center gap-1"><Clock size={11} className="text-purple-400" /> وقت الجلسة</p>
-                  <div className={`text-3xl font-mono font-bold tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                <GlassCard className="p-4 text-center">
+                  <p className="text-gray-600 text-xs mb-1">الجلسة تبدأ خلال</p>
+                  <div className={`text-3xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
                 </GlassCard>
               )}
-              <p className="text-gray-600 text-xs">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
+            </motion.div>
+          ) : (
+            <motion.div key="post" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.05 }}>
+                <GlassCard className="p-6 border border-pink-800/40 shadow-2xl shadow-pink-500/10 text-center">
+                  <p className="text-gray-500 text-xs mb-2">شريكك</p>
+                  <p className="text-4xl font-black text-white mb-3">{data?.partner_first_name || "..."}</p>
+                  <div className="inline-flex items-center gap-1.5 bg-pink-900/40 border border-pink-800/50 rounded-full px-3 py-1">
+                    <Heart size={11} className="text-pink-400" fill="currentColor" />
+                    <span className="text-pink-300 text-xs font-semibold">اختيارك الشخصي</span>
+                  </div>
+                </GlassCard>
+              </motion.div>
+
+              {timerActive && timeLeft > 0 && (
+                <GlassCard className="p-5">
+                  <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5"><Clock size={11} className="text-pink-400" /> وقت الجلسة المتبقّي</p>
+                  <div className={`text-4xl font-mono font-black tabular-nums mb-3 ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
+                    <motion.div className={`h-full rounded-full ${timeLeft < 60 ? "bg-red-500" : "bg-gradient-to-r from-pink-500 to-rose-500"}`}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
+                </GlassCard>
+              )}
+
+              <GlassCard className="overflow-hidden">
+                <button onClick={() => setShowStarters(s => !s)}
+                  className="w-full flex items-center justify-between p-4 text-sm font-semibold text-white hover:bg-gray-800/30 transition-colors">
+                  <span className="flex items-center gap-2"><Sparkles size={14} className="text-pink-400" /> أسئلة للنقاش ✨</span>
+                  <motion.div animate={{ rotate: showStarters ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                    <ChevronDown size={15} className="text-gray-600" />
+                  </motion.div>
+                </button>
+                <AnimatePresence>
+                  {showStarters && (
+                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden border-t border-gray-800/60">
+                      <div className="p-4 space-y-2">
+                        {CONVO_STARTERS.map((q, i) => (
+                          <motion.div key={i} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                            className="text-sm text-gray-300 bg-gray-800/50 border border-gray-700/40 rounded-xl px-3 py-2.5">{q}</motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </GlassCard>
+
+              <GlassCard className="p-4 space-y-3">
+                <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
+                    onChange={e => setWord(e.target.value.split(" ")[0])} disabled={wordSubmitted}
+                    className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-pink-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                  {wordSubmitted
+                    ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
+                    : <button onClick={submitWord} disabled={!word.trim()}
+                        className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 disabled:opacity-40 text-white rounded-xl px-4 py-2 shadow-md transition-all">
+                        <Send size={14} /></button>
+                  }
+                </div>
+              </GlassCard>
+
+              <p className="text-gray-700 text-xs text-center">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </PageWrapper>
   )
 }
@@ -602,11 +681,17 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
   const [timeLeft, setTimeLeft] = useState(0)
-  const [wordInput, setWordInput] = useState("")
+  const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
+  const [showStarters, setShowStarters] = useState(false)
 
   useEffect(() => {
-    call("e3-get-phase3-reveal", token).then(d => { if (!d.error) setData(d) })
+    call("e3-get-phase3-reveal", token).then(d => {
+      if (!d.error) {
+        setData(d)
+        if (d.word_submitted) setWordSubmitted(true)
+      }
+    })
   }, [token])
 
   useEffect(() => {
@@ -626,99 +711,112 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }
 
   const submitWord = async () => {
-    if (!wordInput.trim()) return
-    const d = await call("e3-submit-phase3-word", token, { word: wordInput.trim() })
-    if (!d.error) setWordSubmitted(true)
+    if (!word.trim()) return
+    const d = await call("e3-submit-phase3-word", token, { word: word.trim() })
+    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ! ✨") }
   }
 
   return (
-    <PageWrapper className="flex flex-col items-center justify-center p-6 text-center">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-6">
-        <div className="space-y-2">
-          <motion.div animate={{ rotate: [0, -6, 6, 0] }} transition={{ duration: 3.5, repeat: Infinity }}>
-            <Brain size={48} className="mx-auto text-purple-400" />
-          </motion.div>
-          <h1 className="text-2xl font-black text-white">الجلسة الثانية</h1>
-          <p className="text-gray-500 text-sm">هذا من اختارته الخوارزمية لك بالبيانات</p>
-        </div>
+    <PageWrapper>
+      <div className="max-w-sm mx-auto p-5 pb-10 space-y-4">
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
+          <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
+            <Brain size={13} /> الجلسة الثانية · اختيار الخوارزمية
+          </div>
+          <p className="text-gray-600 text-xs">هذا من اختارته الخوارزمية من جميع المشاركين</p>
+        </motion.div>
 
         <AnimatePresence mode="wait">
           {!revealed ? (
-            <motion.button
-              key="btn"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              onClick={handleReveal}
-              whileTap={{ scale: 0.97 }}
-              className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-7 font-bold text-xl shadow-2xl shadow-purple-600/40 border border-purple-500/30"
-            >
-              <span className="flex items-center justify-center gap-2">
-                <Brain size={22} /> اكشف اسمه / اسمها
-              </span>
-            </motion.button>
+            <motion.div key="pre" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
+              <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
+                className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-8 font-bold text-xl shadow-2xl shadow-purple-600/40 border border-purple-500/30">
+                <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
+                  <Brain size={24} /> اكشف اختيار الخوارزمية
+                </motion.span>
+              </motion.button>
+              {timerActive && timeLeft > 0 && (
+                <GlassCard className="p-4 text-center">
+                  <p className="text-gray-600 text-xs mb-1">الجلسة تبدأ خلال</p>
+                  <div className={`text-3xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                </GlassCard>
+              )}
+            </motion.div>
           ) : (
-            <motion.div
-              key="reveal"
-              initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ type: "spring", stiffness: 220 }}
-              className="space-y-4"
-            >
+            <motion.div key="post" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               {data?.same_as_phase2 && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-gradient-to-r from-amber-900/40 to-yellow-900/30 border border-amber-700/50 rounded-2xl p-4">
-                  <p className="text-amber-300 font-bold text-sm">✨ مطابقة مثالية!</p>
+                  className="bg-gradient-to-r from-amber-900/40 to-yellow-900/30 border border-amber-700/50 rounded-2xl p-4 text-center">
+                  <p className="text-amber-300 font-black text-base">🏆 مطابقة مثالية!</p>
                   <p className="text-amber-400/70 text-xs mt-0.5">اخترت نفس الشخص الذي اختارته الخوارزمية</p>
                 </motion.div>
               )}
-              <GlassCard className="p-8 border border-purple-800/40 shadow-2xl shadow-purple-500/10">
-                <p className="text-gray-500 text-xs mb-4">اختيار الخوارزمية</p>
-                <div className="text-5xl font-black text-white mb-3">{data?.partner_first_name || "..."}</div>
-                <div className="inline-flex items-center gap-2 bg-purple-900/40 border border-purple-800/50 rounded-full px-4 py-1.5">
-                  <Brain size={13} className="text-purple-400" />
-                  <span className="text-purple-300 font-black text-lg">{data?.compatibility_score}%</span>
-                  <span className="text-gray-500 text-xs">توافق</span>
-                </div>
-              </GlassCard>
+
+              <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.05 }}>
+                <GlassCard className="p-6 border border-purple-800/40 shadow-2xl shadow-purple-500/10 text-center">
+                  <p className="text-gray-500 text-xs mb-2">شريكك</p>
+                  <p className="text-4xl font-black text-white mb-3">{data?.partner_first_name || "..."}</p>
+                  <div className="inline-flex items-center gap-2 bg-purple-900/40 border border-purple-800/50 rounded-full px-4 py-1.5">
+                    <Brain size={12} className="text-purple-400" />
+                    <span className="text-purple-300 font-black text-lg">{data?.compatibility_score}%</span>
+                    <span className="text-gray-500 text-xs">توافق</span>
+                  </div>
+                </GlassCard>
+              </motion.div>
 
               {timerActive && timeLeft > 0 && (
-                <GlassCard className="p-4">
-                  <p className="text-gray-500 text-xs mb-1 flex items-center justify-center gap-1"><Clock size={11} className="text-purple-400" /> وقت الجلسة</p>
-                  <div className={`text-3xl font-mono font-bold tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                </GlassCard>
-              )}
-
-              {data && !wordSubmitted && (
-                <GlassCard className="p-4 space-y-3">
-                  <p className="text-gray-400 text-sm">صف هذه الجلسة بكلمة واحدة</p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="كلمة واحدة..."
-                      value={wordInput}
-                      maxLength={20}
-                      onChange={e => setWordInput(e.target.value.split(" ")[0])}
-                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500/60 transition-all"
-                    />
-                    <button onClick={submitWord}
-                      className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white rounded-xl px-4 py-2 shadow-md shadow-purple-600/20 transition-all">
-                      <Send size={14} />
-                    </button>
+                <GlassCard className="p-5">
+                  <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5"><Clock size={11} className="text-purple-400" /> وقت الجلسة المتبقّي</p>
+                  <div className={`text-4xl font-mono font-black tabular-nums mb-3 ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
+                    <motion.div className={`h-full rounded-full ${timeLeft < 60 ? "bg-red-500" : "bg-gradient-to-r from-purple-500 to-violet-500"}`}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
                 </GlassCard>
               )}
-              {wordSubmitted && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                  className="flex items-center justify-center gap-2 text-green-400 text-sm font-medium">
-                  <CheckCircle size={14} /> تم الحفظ
-                </motion.div>
-              )}
-              <p className="text-gray-600 text-xs">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
+
+              <GlassCard className="overflow-hidden">
+                <button onClick={() => setShowStarters(s => !s)}
+                  className="w-full flex items-center justify-between p-4 text-sm font-semibold text-white hover:bg-gray-800/30 transition-colors">
+                  <span className="flex items-center gap-2"><Sparkles size={14} className="text-purple-400" /> أسئلة للنقاش ✨</span>
+                  <motion.div animate={{ rotate: showStarters ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                    <ChevronDown size={15} className="text-gray-600" />
+                  </motion.div>
+                </button>
+                <AnimatePresence>
+                  {showStarters && (
+                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden border-t border-gray-800/60">
+                      <div className="p-4 space-y-2">
+                        {CONVO_STARTERS.map((q, i) => (
+                          <motion.div key={i} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
+                            className="text-sm text-gray-300 bg-gray-800/50 border border-gray-700/40 rounded-xl px-3 py-2.5">{q}</motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </GlassCard>
+
+              <GlassCard className="p-4 space-y-3">
+                <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
+                <div className="flex gap-2">
+                  <input type="text" placeholder="كلمة واحدة..." value={word} maxLength={20}
+                    onChange={e => setWord(e.target.value.split(" ")[0])} disabled={wordSubmitted}
+                    className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-purple-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                  {wordSubmitted
+                    ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
+                    : <button onClick={submitWord} disabled={!word.trim()}
+                        className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 disabled:opacity-40 text-white rounded-xl px-4 py-2 shadow-md transition-all">
+                        <Send size={14} /></button>
+                  }
+                </div>
+              </GlassCard>
+
+              <p className="text-gray-700 text-xs text-center">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
     </PageWrapper>
   )
 }

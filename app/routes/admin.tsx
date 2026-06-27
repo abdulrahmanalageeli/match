@@ -93,6 +93,7 @@ export default function AdminPage() {
   const [registrationEnabled, setRegistrationEnabled] = useState(true)
   const [groupsLocked, setGroupsLocked] = useState(false)
   const [eventFinished, setEventFinished] = useState(false)
+  const [fixFeedbackLoading, setFixFeedbackLoading] = useState(false)
   
   const [showResultsModal, setShowResultsModal] = useState(false)
   const [participantResults, setParticipantResults] = useState<any[]>([])
@@ -1484,6 +1485,33 @@ const fetchParticipants = async () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fixSameGenderFeedback = async () => {
+    if (!confirm(`This will re-attribute round-1 (same-gender) feedback to round-2 (opposite-gender) for participants who are in same-gender pairs in event ${currentEventId}.\n\nParticipants who already have round-2 feedback will be skipped.\n\nContinue?`)) return
+    setFixFeedbackLoading(true)
+    try {
+      const res = await fetch("/api/admin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "fix-same-gender-feedback", event_id: currentEventId }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        const parts = [`✅ Updated ${data.updated} feedback record(s) → round 2`]
+        if (data.skipped_conflict > 0) parts.push(`${data.skipped_conflict} skipped (already had round-2 feedback)`)
+        if (data.skipped_no_r2_match > 0) parts.push(`${data.skipped_no_r2_match} skipped (no round-2 match found)`)
+        toast.success(parts.join(" · "), { duration: 8000 })
+        if (data.errors?.length) {
+          data.errors.forEach((e: string) => toast.error(e, { duration: 6000 }))
+        }
+      } else {
+        toast.error("Failed: " + (data.error || "Unknown error"))
+      }
+    } catch (err) {
+      toast.error("Error fixing same-gender feedback")
+    }
+    setFixFeedbackLoading(false)
   }
 
   const updateCurrentEventId = async (newEventId: number) => {
@@ -5205,6 +5233,20 @@ Proceed?`
                 >
                   <CheckCircle className="w-4 h-4" />
                   Event {currentEventId}: {eventFinished ? "Finished" : "Ongoing"}
+                </button>
+
+                <button
+                  onClick={fixSameGenderFeedback}
+                  disabled={fixFeedbackLoading}
+                  title={`Re-attribute round-1 (same-gender) feedback to round-2 (opposite-gender) for event ${currentEventId}`}
+                  className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white rounded-lg transition-all duration-300 text-sm disabled:opacity-50"
+                >
+                  {fixFeedbackLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ArrowLeftRight className="w-4 h-4" />
+                  )}
+                  Fix Same-Gender Feedback
                 </button>
 
                 <button

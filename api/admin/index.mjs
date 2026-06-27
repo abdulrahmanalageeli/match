@@ -2554,6 +2554,151 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: "Failed to get event finished status" })
       }
     }
+    if (action === "fix-same-gender-feedback") {
+      try {
+        const { event_id } = req.body
+        if (!event_id) return res.status(400).json({ error: "Missing event_id" })
+        console.log(`🔧 Fixing same-gender feedback for event ${event_id}`)
+
+        // Step 1: Get all round-1 match results for this event to identify same-gender pairs
+        const { data: round1Matches, error: r1Error } = await supabase
+          .from("match_results")
+          .select("participant_a_number, participant_b_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .eq("round", 1)
+
+        if (r1Error) return res.status(500).json({ error: r1Error.message })
+        if (!round1Matches || round1Matches.length === 0) {
+          return res.status(200).json({ success: true, message: "No round-1 matches found for this event", updated: 0, skipped: 0 })
+        }
+
+        // Step 2: Fetch gender for all participants involved in round-1 matches
+        const allRound1Numbers = []
+        for (const m of round1Matches) {
+          allRound1Numbers.push(m.participant_a_number, m.participant_b_number)
+        }
+        const uniqueNumbers = [...new Set(allRound1Numbers)]
+
+        const { data: participantRows, error: pError } = await supabase
+          .from("participants")
+          .select("assigned_number, gender, survey_data")
+          .eq("match_id", STATIC_MATCH_ID)
+          .in("assigned_number", uniqueNumbers)
+
+        if (pError) return res.status(500).json({ error: pError.message })
+
+        // Build gender map: assigned_number → gender string
+        const genderMap = {}
+        for (const p of participantRows || []) {
+          const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+          genderMap[p.assigned_number] = p.gender || sd?.gender || sd?.answers?.gender || null
+        }
+
+        // Step 3: Identify participants who are in a SAME-GENDER round-1 pair
+        const sameGenderParticipants = new Set()
+        for (const m of round1Matches) {
+          const gA = genderMap[m.participant_a_number]
+          const gB = genderMap[m.participant_b_number]
+          if (gA && gB && String(gA).toLowerCase() === String(gB).toLowerCase()) {
+            sameGenderParticipants.add(m.participant_a_number)
+            sameGenderParticipants.add(m.participant_b_number)
+          }
+        }
+
+        console.log(`📊 Found ${sameGenderParticipants.size} participants in same-gender round-1 matches`)
+
+        if (sameGenderParticipants.size === 0) {
+          return res.status(200).json({ success: true, message: "No same-gender round-1 matches found", updated: 0, skipped: 0 })
+        }
+
+        // Step 4: Get round-1 feedback records for these same-gender participants
+        const { data: round1Feedbacks, error: fbError } = await supabase
+          .from("match_feedback")
+          .select("id, participant_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .eq("round", 1)
+          .in("participant_number", Array.from(sameGenderParticipants))
+
+        if (fbError) return res.status(500).json({ error: fbError.message })
+
+        if (!round1Feedbacks || round1Feedbacks.length === 0) {
+          return res.status(200).json({ success: true, message: "No round-1 feedback found for same-gender participants", updated: 0, skipped: 0 })
+        }
+
+        console.log(`📝 Found ${round1Feedbacks.length} round-1 feedback records to potentially migrate`)
+
+        // Step 5: Check which of those participants have a round-2 match
+        const fbParticipantNumbers = round1Feedbacks.map(f => f.participant_number)
+        const { data: round2Matches } = await supabase
+          .from("match_results")
+          .select("participant_a_number, participant_b_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .eq("round", 2)
+
+        const hasRound2Match = new Set()
+        for (const m of round2Matches || []) {
+          hasRound2Match.add(m.participant_a_number)
+          hasRound2Match.add(m.participant_b_number)
+        }
+
+        // Step 6: Check which already have round-2 feedback (unique constraint guard)
+        const { data: existingR2Feedbacks } = await supabase
+          .from("match_feedback")
+          .select("participant_number")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .eq("round", 2)
+          .in("participant_number", fbParticipantNumbers)
+
+        const alreadyHasR2Feedback = new Set((existingR2Feedbacks || []).map(f => f.participant_number))
+
+        // Step 7: Update eligible records: round 1 → round 2
+        const toUpdate = round1Feedbacks.filter(f =>
+          hasRound2Match.has(f.participant_number) &&
+          !alreadyHasR2Feedback.has(f.participant_number)
+        )
+        const skippedConflict = round1Feedbacks.filter(f => alreadyHasR2Feedback.has(f.participant_number))
+        const skippedNoR2Match = round1Feedbacks.filter(f => !hasRound2Match.has(f.participant_number) && !alreadyHasR2Feedback.has(f.participant_number))
+
+        let updatedCount = 0
+        const errors = []
+
+        for (const feedback of toUpdate) {
+          const { error: updateError } = await supabase
+            .from("match_feedback")
+            .update({ round: 2 })
+            .eq("id", feedback.id)
+
+          if (updateError) {
+            errors.push(`Participant ${feedback.participant_number}: ${updateError.message}`)
+            console.error(`❌ Failed to update feedback for participant ${feedback.participant_number}:`, updateError.message)
+          } else {
+            updatedCount++
+            console.log(`✅ Updated feedback for participant #${feedback.participant_number}: round 1 → 2`)
+          }
+        }
+
+        console.log(`🔧 Fix complete: ${updatedCount} updated, ${skippedConflict.length} skipped (already had R2 feedback), ${skippedNoR2Match.length} skipped (no R2 match)`)
+
+        return res.status(200).json({
+          success: true,
+          message: `Fixed ${updatedCount} feedback records: reassigned round 1 → round 2 for same-gender participants in event ${event_id}`,
+          updated: updatedCount,
+          skipped_conflict: skippedConflict.length,
+          skipped_no_r2_match: skippedNoR2Match.length,
+          total_same_gender_participants: sameGenderParticipants.size,
+          total_with_feedback: round1Feedbacks.length,
+          errors: errors.length > 0 ? errors : undefined
+        })
+      } catch (err) {
+        console.error("Error fixing same-gender feedback:", err)
+        return res.status(500).json({ error: "Failed to fix same-gender feedback" })
+      }
+    }
+
     if (action === "cleanup-incomplete-profiles") {
       try {
         console.log("Starting cleanup of incomplete profiles for match_id:", STATIC_MATCH_ID)

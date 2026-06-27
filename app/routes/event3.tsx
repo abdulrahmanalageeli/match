@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
+import { motion, AnimatePresence, Reorder } from "framer-motion"
+import confetti from "canvas-confetti"
 import {
-  Clock, Table2, Heart, Brain, Star, ChevronUp, ChevronDown,
-  CheckCircle, Send, RefreshCw, Sparkles, ArrowRight, Home,
-  Users, Trophy, MessageCircle, ArrowUp, ArrowDown,
+  Clock, Table2, Heart, Brain,
+  CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
 } from "lucide-react"
 
 const API = "/api/participant"
@@ -23,6 +24,51 @@ function formatTime(s: number) {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
 }
 
+// ─── Shared Design Components ─────────────────────────────────────────────────
+function PageWrapper({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`min-h-screen bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-600/8 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-600/6 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] bg-violet-600/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+      </div>
+      <div className="relative z-10">{children}</div>
+    </div>
+  )
+}
+
+function GlassCard({ children, className = "", glow = "" }: { children: React.ReactNode; className?: string; glow?: string }) {
+  return (
+    <div className={`bg-gray-900/70 backdrop-blur-md border border-gray-800/60 rounded-2xl ${glow} ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function Brand() {
+  return (
+    <div className="text-center">
+      <div className="inline-flex items-center gap-1.5">
+        <Sparkles size={14} className="text-purple-400" />
+        <span className="text-sm font-semibold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wider">
+          التوافق الأعمى
+        </span>
+        <Sparkles size={14} className="text-pink-400" />
+      </div>
+      <div className="text-[10px] text-gray-600 tracking-widest font-medium mt-0.5">VERSION 3.0</div>
+    </div>
+  )
+}
+
+function Spinner({ size = 24, className = "" }: { size?: number; className?: string }) {
+  return (
+    <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}>
+      <RefreshCw size={size} className={`text-purple-500 ${className}`} />
+    </motion.div>
+  )
+}
+
 // ─── Token Entry Screen ───────────────────────────────────────────────────────
 function TokenEntry({ onToken }: { onToken: (t: string) => void }) {
   const [val, setVal] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || "")
@@ -33,41 +79,82 @@ function TokenEntry({ onToken }: { onToken: (t: string) => void }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6" dir="rtl">
-      <div className="w-full max-w-sm space-y-6 text-center">
-        <div className="text-5xl mb-2">✨</div>
-        <h1 className="text-2xl font-bold text-white">التوافق الأعمى 3.0</h1>
-        <p className="text-gray-400 text-sm">أدخل رمزك للدخول</p>
-        <input
-          type="text"
-          placeholder="رمز الدخول"
-          value={val}
-          onChange={e => setVal(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && submit()}
-          className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-4 py-3 text-center text-lg focus:outline-none focus:border-purple-500"
-        />
-        <button
-          onClick={submit}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-xl py-3 font-semibold text-lg transition-colors"
-        >
-          دخول
-        </button>
-      </div>
-    </div>
+    <PageWrapper className="flex items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="w-full max-w-sm space-y-8 text-center"
+      >
+        <div className="space-y-5">
+          <motion.div
+            initial={{ scale: 0, rotate: -10 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 240, delay: 0.1 }}
+            className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 flex items-center justify-center shadow-2xl shadow-purple-600/40"
+          >
+            <Heart size={36} className="text-white" fill="white" />
+          </motion.div>
+          <Brand />
+          <div>
+            <h1 className="text-3xl font-black text-white">أهلاً بك</h1>
+            <p className="text-gray-500 text-sm mt-2">أدخل رمزك الشخصي للانضمام إلى الفعالية</p>
+          </div>
+        </div>
+
+        <GlassCard className="p-6 space-y-4 shadow-2xl shadow-black/30">
+          <input
+            type="text"
+            placeholder="أدخل رمز الدخول هنا"
+            value={val}
+            onChange={e => setVal(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && submit()}
+            className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3.5 text-center text-lg focus:outline-none focus:border-purple-500/70 focus:bg-gray-800/90 transition-all placeholder:text-gray-600"
+          />
+          <motion.button
+            onClick={submit}
+            whileTap={{ scale: 0.97 }}
+            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl py-3.5 font-bold text-lg shadow-lg shadow-purple-600/30 transition-all"
+          >
+            دخول ✨
+          </motion.button>
+        </GlassCard>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
 // ─── Waiting / Setup Screen ───────────────────────────────────────────────────
 function SetupScreen() {
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 text-center" dir="rtl">
-      <div className="space-y-4 animate-pulse">
-        <div className="text-6xl">✨</div>
-        <h1 className="text-2xl font-bold text-white">التوافق الأعمى 3.0</h1>
-        <p className="text-gray-400">الفعالية ستبدأ قريباً...</p>
-        <p className="text-gray-600 text-sm">انتظر توجيهات المنظم</p>
-      </div>
-    </div>
+    <PageWrapper className="flex items-center justify-center p-6 text-center">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.92 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="space-y-6 max-w-sm w-full"
+      >
+        <motion.div
+          animate={{ scale: [1, 1.08, 1], rotate: [0, 8, -8, 0] }}
+          transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 0.5 }}
+          className="text-7xl mx-auto w-fit"
+        >✨</motion.div>
+        <Brand />
+        <GlassCard className="p-8 space-y-4 shadow-xl shadow-black/20">
+          <div className="flex justify-center gap-1.5">
+            {[0, 1, 2].map(i => (
+              <motion.div
+                key={i}
+                className="w-2 h-2 bg-purple-500 rounded-full"
+                animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1, 0.8] }}
+                transition={{ duration: 1.4, repeat: Infinity, delay: i * 0.35 }}
+              />
+            ))}
+          </div>
+          <h1 className="text-xl font-bold text-white">الفعالية ستبدأ قريباً</h1>
+          <p className="text-gray-500 text-sm">انتظر توجيهات المنظم</p>
+        </GlassCard>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
@@ -95,67 +182,88 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
   }, [timerActive, timerStart, timerDuration])
 
   const roundAr = ["الأولى", "الثانية", "الثالثة"][round - 1] || round
+  const RC = [
+    { badge: "bg-blue-900/30 border-blue-700/40 text-blue-300", card: "border-blue-800/40", num: "text-blue-300", pill: "bg-blue-900/40 text-blue-300 border-blue-800/40" },
+    { badge: "bg-indigo-900/30 border-indigo-700/40 text-indigo-300", card: "border-indigo-800/40", num: "text-indigo-300", pill: "bg-indigo-900/40 text-indigo-300 border-indigo-800/40" },
+    { badge: "bg-violet-900/30 border-violet-700/40 text-violet-300", card: "border-violet-800/40", num: "text-violet-300", pill: "bg-violet-900/40 text-violet-300 border-violet-800/40" },
+  ][round - 1] || { badge: "bg-purple-900/30 border-purple-700/40 text-purple-300", card: "border-purple-800/40", num: "text-purple-300", pill: "bg-purple-900/40 text-purple-300 border-purple-800/40" }
 
   return (
-    <div className="min-h-screen bg-gray-950 p-6 flex flex-col items-center justify-center" dir="rtl">
-      <div className="w-full max-w-sm space-y-6 text-center">
+    <PageWrapper className="flex flex-col items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-sm space-y-5 text-center"
+      >
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ delay: 0.1, type: "spring" }}
+          className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-6 py-2.5`}
+        >
+          <span className="font-bold text-sm">الجولة {roundAr}</span>
+          <span className="text-gray-600 text-xs">من 3</span>
+        </motion.div>
 
-        {/* Round badge */}
-        <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 rounded-full px-5 py-2">
-          <span className="text-purple-300 font-semibold">الجولة {roundAr}</span>
-          <span className="text-gray-500">من 3</span>
-        </div>
-
-        {/* Timer */}
-        {timerActive && timeLeft > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-            <p className="text-gray-400 text-sm mb-1">الوقت المتبقي</p>
-            <div className="text-5xl font-mono font-bold text-white">{formatTime(timeLeft)}</div>
-            <div className="mt-3 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-purple-600 transition-all duration-1000"
-                style={{ width: `${(timeLeft / timerDuration) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Table assignment */}
-        {assignment ? (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
-            <div className="flex items-center justify-center gap-2 text-gray-400 text-sm">
-              <Table2 size={16} /> مكانك هذه الجولة
-            </div>
-            <div className="text-6xl font-bold text-white">{assignment.table}</div>
-            <div className="text-gray-400 text-sm">طاولة رقم</div>
-
-            {assignment.tablemates?.length > 0 && (
-              <div className="mt-4 pt-4 border-t border-gray-800">
-                <p className="text-gray-500 text-xs mb-3">رفاقك في الطاولة</p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  {assignment.tablemates.map((m: any) => (
-                    <span key={m.number} className="bg-gray-800 text-gray-300 rounded-full px-3 py-1 text-sm">
-                      {m.first_name}
-                    </span>
-                  ))}
+        <AnimatePresence>
+          {timerActive && timeLeft > 0 && (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
+              <GlassCard className="p-5">
+                <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5">
+                  <Clock size={12} className="text-purple-400" /> الوقت المتبقي
+                </p>
+                <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
+                  {formatTime(timeLeft)}
                 </div>
-              </div>
-            )}
-          </div>
+                <div className="mt-3 h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
+                  <motion.div
+                    className={`h-full rounded-full ${timeLeft < 60 ? "bg-red-500" : "bg-gradient-to-r from-purple-500 to-pink-500"}`}
+                    animate={{ width: `${(timeLeft / timerDuration) * 100}%` }}
+                    transition={{ duration: 1 }}
+                  />
+                </div>
+              </GlassCard>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {assignment ? (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
+              <p className="text-gray-500 text-xs flex items-center justify-center gap-1.5">
+                <Table2 size={12} /> مكانك هذه الجولة
+              </p>
+              <div className={`text-8xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
+              <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
+              {assignment.tablemates?.length > 0 && (
+                <div className="pt-4 border-t border-gray-800/60">
+                  <p className="text-gray-600 text-xs mb-3">رفاقك في الطاولة</p>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {assignment.tablemates.map((m: any) => (
+                      <span key={m.number} className={`${RC.pill} border rounded-full px-3 py-1 text-sm font-medium`}>
+                        {m.first_name}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </GlassCard>
+          </motion.div>
         ) : (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 flex flex-col items-center gap-3">
-            <RefreshCw size={20} className="text-gray-600 animate-spin" />
+          <GlassCard className="p-10 flex flex-col items-center gap-3">
+            <Spinner size={22} />
             <p className="text-gray-500 text-sm">جاري تحميل مكانك...</p>
-          </div>
+          </GlassCard>
         )}
 
         <p className="text-gray-600 text-xs">
-          {round === 1 && "ستلتقي بـ 5 أشخاص جدد في هذه الجولة"}
+          {round === 1 && "ستلتقي بأشخاص جدد في هذه الجولة"}
           {round === 2 && "وجوه جديدة تماماً — لا أحد التقيت به من قبل"}
-          {round === 3 && "آخر 5 أشخاص — بعد ذلك ستصنّفهم جميعاً"}
+          {round === 3 && "آخر جولة — بعدها ستصنّف من أثار اهتمامك"}
         </p>
-      </div>
-    </div>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
@@ -166,44 +274,17 @@ function RankingScreen({ token }: { token: string }) {
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [selectedIdx, setSelectedIdx] = useState<number | null>(null)
 
   useEffect(() => {
     call("e3-get-participants-met", token).then(d => {
       if (d.error) { toast.error(d.error); return }
       setPeople(d.people || [])
       if (d.already_submitted) setSubmitted(true)
-      // Initial order: sorted by round met, then number
       const sorted = [...(d.people || [])].sort((a, b) => a.round - b.round || a.number - b.number)
       setOrder(sorted.map((p: any) => p.number))
       setLoading(false)
     })
   }, [token])
-
-  const moveUp = (idx: number) => {
-    if (idx === 0) return
-    setOrder(prev => { const n = [...prev]; [n[idx - 1], n[idx]] = [n[idx], n[idx - 1]]; return n })
-  }
-  const moveDown = (idx: number) => {
-    if (idx === order.length - 1) return
-    setOrder(prev => { const n = [...prev]; [n[idx], n[idx + 1]] = [n[idx + 1], n[idx]]; return n })
-  }
-
-  const tapItem = (idx: number) => {
-    if (selectedIdx === null) {
-      setSelectedIdx(idx)
-    } else if (selectedIdx === idx) {
-      setSelectedIdx(null)
-    } else {
-      // Swap selected with tapped
-      setOrder(prev => {
-        const n = [...prev]
-        ;[n[selectedIdx], n[idx]] = [n[idx], n[selectedIdx]]
-        return n
-      })
-      setSelectedIdx(null)
-    }
-  }
 
   const submit = async () => {
     setSubmitting(true)
@@ -211,99 +292,134 @@ function RankingScreen({ token }: { token: string }) {
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
     setSubmitted(true)
-    toast.success("تم حفظ تصنيفاتك بنجاح!")
+    toast.success("تم حفظ تصنيفاتك! ✨")
   }
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
 
-  const roundBadge = (r: number) => {
-    const colors = ["bg-blue-900/50 text-blue-300", "bg-indigo-900/50 text-indigo-300", "bg-violet-900/50 text-violet-300"]
-    return colors[r - 1] || colors[0]
+  const roundLabel = (r: number) => ["الجولة الأولى", "الجولة الثانية", "الجولة الثالثة"][r - 1] || `الجولة ${r}`
+  const roundStyle = (r: number) => [
+    "bg-blue-900/50 text-blue-300 border-blue-700/50",
+    "bg-indigo-900/50 text-indigo-300 border-indigo-700/50",
+    "bg-violet-900/50 text-violet-300 border-violet-700/50",
+  ][r - 1] || "bg-gray-800/50 text-gray-400 border-gray-700/50"
+
+  const rankStyle = (idx: number) => {
+    if (idx === 0) return "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-lg shadow-amber-500/30"
+    if (idx === 1) return "bg-gradient-to-br from-gray-300 to-gray-400 text-black"
+    if (idx === 2) return "bg-gradient-to-br from-amber-700 to-amber-800 text-white"
+    return "bg-gray-800/80 text-gray-500"
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center" dir="rtl">
-      <RefreshCw size={24} className="text-gray-500 animate-spin" />
-    </div>
+    <PageWrapper className="flex items-center justify-center">
+      <Spinner size={28} />
+    </PageWrapper>
   )
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-32" dir="rtl">
-      <div className="max-w-md mx-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-gray-950/95 backdrop-blur z-10 p-5 pb-3 border-b border-gray-800">
-          <h1 className="text-xl font-bold text-white text-center">صنّف من أثار اهتمامك</h1>
-          <p className="text-gray-500 text-xs text-center mt-1">
-            {submitted ? "✓ تم التصنيف — يمكنك التعديل" : "اضغط على شخص لتحديده، ثم اضغط على موضع آخر للمبادلة"}
-          </p>
+    <PageWrapper>
+      <div className="max-w-md mx-auto pb-36">
+
+        {/* Sticky header */}
+        <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
+          <div className="px-5 pt-5 pb-3">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <Trophy size={16} className="text-amber-400" />
+              <h1 className="text-lg font-bold text-white">من أثار اهتمامك أكثر؟</h1>
+            </div>
+            <p className="text-gray-500 text-xs text-center">
+              قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> عبر 3 جولات — رتّبهم من الأكثر إثارة للاهتمام إلى الأقل
+            </p>
+            <p className="text-gray-700 text-[11px] text-center mt-1">اسحب الأسماء لإعادة الترتيب · هذا التصنيف سري تماماً</p>
+          </div>
+
+          {/* Round legend */}
+          <div className="px-5 pb-3 flex gap-2 justify-center flex-wrap">
+            {[1, 2, 3].map(r => (
+              <span key={r} className={`text-xs px-3 py-1 rounded-full border ${roundStyle(r)}`}>
+                {roundLabel(r)}
+              </span>
+            ))}
+          </div>
+
+          {submitted && (
+            <div className="mx-5 mb-3 flex items-center gap-2 bg-green-900/20 border border-green-800/40 rounded-xl px-3 py-2">
+              <CheckCircle size={13} className="text-green-400" />
+              <span className="text-green-400 text-xs">تصنيفك محفوظ — يمكنك التعديل وإعادة الإرسال</span>
+            </div>
+          )}
         </div>
 
-        <div className="p-4 space-y-2">
-          {order.map((num, idx) => {
-            const p = personMap[num]
-            if (!p) return null
-            const isSelected = selectedIdx === idx
+        {/* Drag-to-reorder list */}
+        <div className="p-4">
+          <Reorder.Group axis="y" values={order} onReorder={setOrder} className="space-y-2.5" as="div">
+            {order.map((num, idx) => {
+              const p = personMap[num]
+              if (!p) return null
+              return (
+                <Reorder.Item
+                  key={num}
+                  value={num}
+                  as="div"
+                  className="flex items-center gap-3 p-3.5 rounded-2xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm cursor-grab active:cursor-grabbing touch-none select-none"
+                  whileDrag={{
+                    scale: 1.04,
+                    boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+                    borderColor: "rgba(139,92,246,0.5)",
+                    backgroundColor: "rgba(88,28,135,0.2)",
+                    zIndex: 50,
+                  }}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: idx * 0.02 }}
+                >
+                  {/* Rank badge */}
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
+                    {idx + 1}
+                  </div>
 
-            return (
-              <div
-                key={num}
-                onClick={() => tapItem(idx)}
-                className={`flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer select-none ${
-                  isSelected
-                    ? "border-purple-500 bg-purple-900/30 shadow-lg shadow-purple-500/20"
-                    : "border-gray-800 bg-gray-900 hover:border-gray-700"
-                }`}
-              >
-                {/* Rank number */}
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-                  idx === 0 ? "bg-amber-500 text-black" :
-                  idx === 1 ? "bg-gray-400 text-black" :
-                  idx === 2 ? "bg-amber-700 text-white" :
-                  "bg-gray-800 text-gray-400"
-                }`}>
-                  {idx + 1}
-                </div>
+                  {/* Name + round */}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-white text-sm leading-tight">{p.first_name}</div>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roundStyle(p.round)}`}>
+                      {roundLabel(p.round)}
+                    </span>
+                  </div>
 
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-white text-sm">{p.first_name}</div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${roundBadge(p.round)}`}>
-                    جولة {p.round}
-                  </span>
-                </div>
-
-                {/* Move buttons */}
-                <div className="flex flex-col gap-0.5" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => moveUp(idx)} disabled={idx === 0}
-                    className="p-1 rounded hover:bg-gray-700 text-gray-600 hover:text-gray-300 disabled:opacity-20">
-                    <ChevronUp size={14} />
-                  </button>
-                  <button onClick={() => moveDown(idx)} disabled={idx === order.length - 1}
-                    className="p-1 rounded hover:bg-gray-700 text-gray-600 hover:text-gray-300 disabled:opacity-20">
-                    <ChevronDown size={14} />
-                  </button>
-                </div>
-              </div>
-            )
-          })}
+                  {/* Drag handle */}
+                  <GripVertical size={17} className="text-gray-600 flex-shrink-0" />
+                </Reorder.Item>
+              )
+            })}
+          </Reorder.Group>
         </div>
       </div>
 
-      {/* Submit button */}
-      <div className="fixed bottom-0 inset-x-0 p-5 bg-gradient-to-t from-gray-950 pt-8">
-        <button
-          onClick={submit}
-          disabled={submitting}
-          className="w-full max-w-md mx-auto flex items-center justify-center gap-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-70 text-white rounded-2xl py-4 font-semibold text-lg shadow-lg shadow-purple-600/30 transition-all"
-        >
-          {submitting ? <RefreshCw size={20} className="animate-spin" /> : <Send size={20} />}
-          {submitted ? "تحديث التصنيف" : "تأكيد التصنيف"}
-        </button>
-        {submitted && (
-          <p className="text-center text-green-400 text-xs mt-2">✓ محفوظ — انتظر كشف النتائج</p>
-        )}
+      {/* Fixed submit bar */}
+      <div className="fixed bottom-0 inset-x-0 p-5 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
+        <div className="max-w-md mx-auto">
+          <motion.button
+            onClick={submit}
+            disabled={submitting}
+            whileTap={{ scale: 0.97 }}
+            className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-2xl py-4 font-bold text-base shadow-2xl shadow-purple-600/30 transition-all"
+          >
+            {submitting ? <Spinner size={18} className="!text-white" /> : <Send size={18} />}
+            {submitted ? "تحديث التصنيف" : "إرسال التصنيف النهائي"}
+          </motion.button>
+          {submitted ? (
+            <p className="text-center text-green-400 text-xs mt-2.5 flex items-center justify-center gap-1.5">
+              <CheckCircle size={11} /> محفوظ — انتظر كشف النتائج
+            </p>
+          ) : (
+            <p className="text-center text-gray-700 text-[11px] mt-2">
+              النظام سيختار توافقك الأمثل من تصنيفاتك
+            </p>
+          )}
+        </div>
       </div>
-    </div>
+    </PageWrapper>
   )
 }
 
@@ -330,46 +446,62 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
-      <div className="w-full max-w-sm space-y-6">
+  const handleReveal = () => {
+    setRevealed(true)
+    try { confetti({ particleCount: 55, spread: 65, origin: { y: 0.45 }, colors: ["#ec4899", "#f43f5e", "#fb7185", "#be185d"] }) } catch {}
+  }
 
-        <div>
-          <div className="text-4xl mb-2">💘</div>
-          <h1 className="text-2xl font-bold text-white">الجلسة الأولى</h1>
-          <p className="text-gray-500 text-sm mt-1">هذا من اخترته أنت</p>
+  return (
+    <PageWrapper className="flex flex-col items-center justify-center p-6 text-center">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-6">
+        <div className="space-y-2">
+          <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 2, repeat: Infinity, repeatDelay: 0.5 }}>
+            <Heart size={48} className="mx-auto text-pink-500" fill="currentColor" />
+          </motion.div>
+          <h1 className="text-2xl font-black text-white">الجلسة الأولى</h1>
+          <p className="text-gray-500 text-sm">هذا من اخترته أنت بعد جولات التعارف</p>
         </div>
 
-        {!revealed ? (
-          <button
-            onClick={() => setRevealed(true)}
-            className="w-full bg-gradient-to-br from-pink-600 to-rose-700 text-white rounded-2xl py-6 font-bold text-xl shadow-2xl shadow-pink-600/30 active:scale-95 transition-transform"
-          >
-            اكشف اسمه / اسمها
-          </button>
-        ) : (
-          <div className="bg-gray-900 border border-pink-800/40 rounded-2xl p-8 space-y-3 animate-in fade-in duration-500">
-            {data ? (
-              <>
-                <div className="text-5xl font-bold text-white">{data.partner_first_name}</div>
-                <p className="text-pink-300 text-sm">هذا هو اختيارك</p>
-              </>
-            ) : (
-              <div className="text-gray-500">جاري التحميل...</div>
-            )}
-          </div>
-        )}
-
-        {revealed && timerActive && timeLeft > 0 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-            <p className="text-gray-400 text-xs mb-1">وقت الجلسة</p>
-            <div className="text-3xl font-mono font-bold text-white">{formatTime(timeLeft)}</div>
-          </div>
-        )}
-
-        <p className="text-gray-600 text-xs">ابحث عن {data?.partner_first_name || "شريكك"} وابدأ محادثتكم</p>
-      </div>
-    </div>
+        <AnimatePresence mode="wait">
+          {!revealed ? (
+            <motion.button
+              key="btn"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={handleReveal}
+              whileTap={{ scale: 0.97 }}
+              className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-7 font-bold text-xl shadow-2xl shadow-pink-600/40 border border-pink-500/30"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Heart size={22} fill="white" /> اكشف اسمه / اسمها
+              </span>
+            </motion.button>
+          ) : (
+            <motion.div
+              key="reveal"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 220 }}
+              className="space-y-4"
+            >
+              <GlassCard className="p-8 border border-pink-800/40 shadow-2xl shadow-pink-500/10">
+                <p className="text-gray-500 text-xs mb-4">اخترت</p>
+                <div className="text-5xl font-black text-white mb-2">{data?.partner_first_name || "..."}</div>
+                <p className="text-pink-400 text-sm">اختيارك الشخصي ❤️</p>
+              </GlassCard>
+              {timerActive && timeLeft > 0 && (
+                <GlassCard className="p-4">
+                  <p className="text-gray-500 text-xs mb-1 flex items-center justify-center gap-1"><Clock size={11} className="text-purple-400" /> وقت الجلسة</p>
+                  <div className={`text-3xl font-mono font-bold tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                </GlassCard>
+              )}
+              <p className="text-gray-600 text-xs">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
@@ -396,45 +528,46 @@ function Phase2WordScreen({ token }: { token: string }) {
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
     setSubmitted(true)
-    toast.success("تم الحفظ!")
+    toast.success("تم الحفظ! ✨")
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
-      <div className="w-full max-w-sm space-y-6">
-        <div>
-          <div className="text-4xl mb-2">💬</div>
+    <PageWrapper className="flex flex-col items-center justify-center p-6 text-center">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-6">
+        <div className="space-y-2">
+          <div className="text-5xl">💬</div>
           <h1 className="text-xl font-bold text-white">كيف كانت الجلسة مع {partnerName}؟</h1>
-          <p className="text-gray-500 text-sm mt-1">صفها بكلمة واحدة</p>
+          <p className="text-gray-500 text-sm">صفها بكلمة واحدة</p>
         </div>
-
-        <input
-          type="text"
-          placeholder="مثلاً: ممتع، عميق، مريح..."
-          value={word}
-          maxLength={20}
-          onChange={e => setWord(e.target.value.split(" ")[0])}
-          onKeyDown={e => e.key === "Enter" && !submitted && submit()}
-          disabled={submitted}
-          className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-4 py-4 text-center text-xl focus:outline-none focus:border-purple-500 disabled:opacity-60"
-        />
-
-        {!submitted ? (
-          <button
-            onClick={submit}
-            disabled={submitting || !word.trim()}
-            className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white rounded-xl py-3 font-semibold transition-colors"
-          >
-            {submitting ? "جاري الحفظ..." : "تأكيد"}
-          </button>
-        ) : (
-          <div className="flex items-center justify-center gap-2 text-green-400">
-            <CheckCircle size={18} />
-            <span>تم الحفظ — انتظر المرحلة التالية</span>
-          </div>
-        )}
-      </div>
-    </div>
+        <GlassCard className="p-6 space-y-4 shadow-xl shadow-black/20">
+          <input
+            type="text"
+            placeholder="مثلاً: ممتع، عميق، مريح..."
+            value={word}
+            maxLength={20}
+            onChange={e => setWord(e.target.value.split(" ")[0])}
+            onKeyDown={e => e.key === "Enter" && !submitted && submit()}
+            disabled={submitted}
+            className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-4 text-center text-xl focus:outline-none focus:border-pink-500/60 disabled:opacity-60 transition-all placeholder:text-gray-600"
+          />
+          {!submitted ? (
+            <motion.button
+              onClick={submit}
+              disabled={submitting || !word.trim()}
+              whileTap={{ scale: 0.97 }}
+              className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 disabled:opacity-40 text-white rounded-xl py-3.5 font-bold shadow-lg shadow-pink-600/25 transition-all"
+            >
+              {submitting ? "جاري الحفظ..." : "تأكيد ✓"}
+            </motion.button>
+          ) : (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+              className="flex items-center justify-center gap-2 py-3 text-green-400 font-medium">
+              <CheckCircle size={18} /> تم الحفظ — انتظر المرحلة التالية
+            </motion.div>
+          )}
+        </GlassCard>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
@@ -463,6 +596,11 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
+  const handleReveal = () => {
+    setRevealed(true)
+    try { confetti({ particleCount: 65, spread: 70, origin: { y: 0.4 }, colors: ["#7c3aed", "#8b5cf6", "#a78bfa", "#c4b5fd"] }) } catch {}
+  }
+
   const submitWord = async () => {
     if (!wordInput.trim()) return
     const d = await call("e3-submit-phase3-word", token, { word: wordInput.trim() })
@@ -470,81 +608,94 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6 text-center" dir="rtl">
-      <div className="w-full max-w-sm space-y-6">
-
-        <div>
-          <div className="text-4xl mb-2">🧠</div>
-          <h1 className="text-2xl font-bold text-white">الجلسة الثانية</h1>
-          <p className="text-gray-500 text-sm mt-1">هذا من اختارته الخوارزمية لك</p>
+    <PageWrapper className="flex flex-col items-center justify-center p-6 text-center">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-6">
+        <div className="space-y-2">
+          <motion.div animate={{ rotate: [0, -6, 6, 0] }} transition={{ duration: 3.5, repeat: Infinity }}>
+            <Brain size={48} className="mx-auto text-purple-400" />
+          </motion.div>
+          <h1 className="text-2xl font-black text-white">الجلسة الثانية</h1>
+          <p className="text-gray-500 text-sm">هذا من اختارته الخوارزمية لك بالبيانات</p>
         </div>
 
-        {!revealed ? (
-          <button
-            onClick={() => setRevealed(true)}
-            className="w-full bg-gradient-to-br from-purple-600 to-violet-700 text-white rounded-2xl py-6 font-bold text-xl shadow-2xl shadow-purple-600/30 active:scale-95 transition-transform"
-          >
-            اكشف اسمه / اسمها
-          </button>
-        ) : (
-          <div className="space-y-4 animate-in fade-in duration-500">
-            <div className="bg-gray-900 border border-purple-800/40 rounded-2xl p-8 space-y-3">
-              {data ? (
-                <>
-                  {data.same_as_phase2 && (
-                    <div className="bg-amber-900/30 border border-amber-700/40 rounded-xl p-3 mb-2">
-                      <p className="text-amber-300 text-sm font-medium">✨ مطابقة مثالية!</p>
-                      <p className="text-amber-400/70 text-xs">اخترت نفس الشخص الذي اختارته الخوارزمية</p>
-                    </div>
-                  )}
-                  <div className="text-5xl font-bold text-white">{data.partner_first_name}</div>
-                  <div className="flex items-center justify-center gap-2">
-                    <Brain size={14} className="text-purple-400" />
-                    <span className="text-purple-300 font-bold text-xl">{data.compatibility_score}%</span>
-                    <span className="text-gray-500 text-sm">توافق</span>
-                  </div>
-                </>
-              ) : (
-                <div className="text-gray-500">جاري التحميل...</div>
+        <AnimatePresence mode="wait">
+          {!revealed ? (
+            <motion.button
+              key="btn"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              onClick={handleReveal}
+              whileTap={{ scale: 0.97 }}
+              className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-7 font-bold text-xl shadow-2xl shadow-purple-600/40 border border-purple-500/30"
+            >
+              <span className="flex items-center justify-center gap-2">
+                <Brain size={22} /> اكشف اسمه / اسمها
+              </span>
+            </motion.button>
+          ) : (
+            <motion.div
+              key="reveal"
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: "spring", stiffness: 220 }}
+              className="space-y-4"
+            >
+              {data?.same_as_phase2 && (
+                <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                  className="bg-gradient-to-r from-amber-900/40 to-yellow-900/30 border border-amber-700/50 rounded-2xl p-4">
+                  <p className="text-amber-300 font-bold text-sm">✨ مطابقة مثالية!</p>
+                  <p className="text-amber-400/70 text-xs mt-0.5">اخترت نفس الشخص الذي اختارته الخوارزمية</p>
+                </motion.div>
               )}
-            </div>
-
-            {timerActive && timeLeft > 0 && (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-                <p className="text-gray-400 text-xs mb-1">وقت الجلسة</p>
-                <div className="text-3xl font-mono font-bold text-white">{formatTime(timeLeft)}</div>
-              </div>
-            )}
-
-            {data && !wordSubmitted && (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-3">
-                <p className="text-gray-400 text-sm">صف هذه الجلسة بكلمة واحدة</p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="كلمة واحدة..."
-                    value={wordInput}
-                    maxLength={20}
-                    onChange={e => setWordInput(e.target.value.split(" ")[0])}
-                    className="flex-1 bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-purple-500"
-                  />
-                  <button onClick={submitWord} className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-3 py-2">
-                    <Send size={14} />
-                  </button>
+              <GlassCard className="p-8 border border-purple-800/40 shadow-2xl shadow-purple-500/10">
+                <p className="text-gray-500 text-xs mb-4">اختيار الخوارزمية</p>
+                <div className="text-5xl font-black text-white mb-3">{data?.partner_first_name || "..."}</div>
+                <div className="inline-flex items-center gap-2 bg-purple-900/40 border border-purple-800/50 rounded-full px-4 py-1.5">
+                  <Brain size={13} className="text-purple-400" />
+                  <span className="text-purple-300 font-black text-lg">{data?.compatibility_score}%</span>
+                  <span className="text-gray-500 text-xs">توافق</span>
                 </div>
-              </div>
-            )}
-            {wordSubmitted && (
-              <div className="flex items-center justify-center gap-2 text-green-400 text-sm">
-                <CheckCircle size={14} /> تم الحفظ
-              </div>
-            )}
-          </div>
-        )}
+              </GlassCard>
 
-        <p className="text-gray-600 text-xs">ابحث عن {data?.partner_first_name || "شريكك"} وابدأ محادثتكم</p>
-      </div>
-    </div>
+              {timerActive && timeLeft > 0 && (
+                <GlassCard className="p-4">
+                  <p className="text-gray-500 text-xs mb-1 flex items-center justify-center gap-1"><Clock size={11} className="text-purple-400" /> وقت الجلسة</p>
+                  <div className={`text-3xl font-mono font-bold tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                </GlassCard>
+              )}
+
+              {data && !wordSubmitted && (
+                <GlassCard className="p-4 space-y-3">
+                  <p className="text-gray-400 text-sm">صف هذه الجلسة بكلمة واحدة</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="كلمة واحدة..."
+                      value={wordInput}
+                      maxLength={20}
+                      onChange={e => setWordInput(e.target.value.split(" ")[0])}
+                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500/60 transition-all"
+                    />
+                    <button onClick={submitWord}
+                      className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 hover:to-violet-500 text-white rounded-xl px-4 py-2 shadow-md shadow-purple-600/20 transition-all">
+                      <Send size={14} />
+                    </button>
+                  </div>
+                </GlassCard>
+              )}
+              {wordSubmitted && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="flex items-center justify-center gap-2 text-green-400 text-sm font-medium">
+                  <CheckCircle size={14} /> تم الحفظ
+                </motion.div>
+              )}
+              <p className="text-gray-600 text-xs">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
@@ -560,91 +711,100 @@ function FinalRevealScreen({ token }: { token: string }) {
     })
   }, [token])
 
+  useEffect(() => {
+    if (!data) return
+    if (data.same_match) {
+      try {
+        confetti({ particleCount: 100, spread: 80, origin: { y: 0.3 } })
+        setTimeout(() => confetti({ particleCount: 60, spread: 90, origin: { y: 0.4 }, colors: ["#f59e0b", "#fbbf24", "#fcd34d", "#fef08a"] }), 400)
+      } catch {}
+    }
+  }, [data])
+
   if (loading) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center" dir="rtl">
-      <RefreshCw size={24} className="text-gray-500 animate-spin" />
-    </div>
+    <PageWrapper className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
   )
 
   if (!data) return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center text-gray-500" dir="rtl">
-      لا توجد نتائج بعد
-    </div>
+    <PageWrapper className="flex items-center justify-center text-gray-500 text-sm">لا توجد نتائج بعد</PageWrapper>
   )
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center p-6" dir="rtl">
-      <div className="w-full max-w-sm space-y-5 text-center">
+    <PageWrapper className="flex flex-col items-center justify-center p-6">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-5 text-center">
+        <Brand />
+        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+          className="text-6xl">✨</motion.div>
+        <h1 className="text-2xl font-black text-white">الكشف النهائي</h1>
 
-        <div className="text-5xl">✨</div>
-        <h1 className="text-2xl font-bold text-white">الكشف النهائي</h1>
-
-        {data.same_match ? (
-          <div className="bg-amber-900/20 border border-amber-600/40 rounded-2xl p-5">
+        {data.same_match && (
+          <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
+            className="bg-gradient-to-r from-amber-900/40 via-yellow-900/30 to-amber-900/40 border border-amber-600/50 rounded-2xl p-5 shadow-2xl shadow-amber-500/20">
             <div className="text-3xl mb-2">🏆</div>
-            <p className="text-amber-300 font-bold text-lg">مطابقة مثالية!</p>
+            <p className="text-amber-300 font-black text-lg">مطابقة مثالية!</p>
             <p className="text-amber-400/70 text-sm mt-1">
-              اخترت <strong>{data.phase2.partner_first_name}</strong> والخوارزمية اختارت نفس الشخص
+              اخترت <strong className="text-amber-300">{data.phase2?.partner_first_name}</strong> والخوارزمية اختارت نفس الشخص
             </p>
-          </div>
-        ) : null}
+          </motion.div>
+        )}
 
-        {/* Side by side */}
         <div className="grid grid-cols-2 gap-3">
-          {/* Phase 2 - Your choice */}
-          <div className="bg-gray-900 border border-pink-800/40 rounded-2xl p-4 space-y-2">
-            <div className="text-xl">💘</div>
-            <p className="text-xs text-gray-500">اخترت</p>
-            <p className="text-xl font-bold text-white">{data.phase2.partner_first_name}</p>
-            {data.phase2.word && (
-              <span className="text-xs bg-pink-900/40 text-pink-300 rounded-full px-2 py-0.5">
-                "{data.phase2.word}"
-              </span>
-            )}
-          </div>
-
-          {/* Phase 3 - Algorithm */}
-          <div className="bg-gray-900 border border-purple-800/40 rounded-2xl p-4 space-y-2">
-            <div className="text-xl">🧠</div>
-            <p className="text-xs text-gray-500">الخوارزمية</p>
-            <p className="text-xl font-bold text-white">{data.phase3.partner_first_name}</p>
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-purple-300 font-bold text-sm">{data.phase3.compatibility_score}%</span>
-              <span className="text-xs text-gray-600">توافق</span>
-            </div>
-            {data.phase3.word && (
-              <span className="text-xs bg-purple-900/40 text-purple-300 rounded-full px-2 py-0.5">
-                "{data.phase3.word}"
-              </span>
-            )}
-          </div>
+          <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
+            <GlassCard className="p-5 space-y-2.5 border border-pink-800/40 shadow-xl shadow-pink-500/8 h-full flex flex-col items-center">
+              <div className="text-2xl">💘</div>
+              <p className="text-gray-500 text-xs">اخترت</p>
+              <p className="text-xl font-black text-white leading-tight">{data.phase2?.partner_first_name}</p>
+              {data.phase2?.word && (
+                <span className="text-xs bg-pink-900/40 text-pink-300 border border-pink-800/40 rounded-full px-2.5 py-0.5">
+                  "{data.phase2.word}"
+                </span>
+              )}
+            </GlassCard>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, x: 15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
+            <GlassCard className="p-5 space-y-2.5 border border-purple-800/40 shadow-xl shadow-purple-500/8 h-full flex flex-col items-center">
+              <div className="text-2xl">🧠</div>
+              <p className="text-gray-500 text-xs">الخوارزمية</p>
+              <p className="text-xl font-black text-white leading-tight">{data.phase3?.partner_first_name}</p>
+              <div className="flex items-center gap-1">
+                <span className="text-purple-300 font-black text-sm">{data.phase3?.compatibility_score}%</span>
+                <span className="text-gray-600 text-xs">توافق</span>
+              </div>
+              {data.phase3?.word && (
+                <span className="text-xs bg-purple-900/40 text-purple-300 border border-purple-800/40 rounded-full px-2.5 py-0.5">
+                  "{data.phase3.word}"
+                </span>
+              )}
+            </GlassCard>
+          </motion.div>
         </div>
 
-        <p className="text-gray-500 text-xs mt-4">
+        <p className="text-gray-500 text-xs leading-relaxed">
           {data.same_match
             ? "غريزتك والخوارزمية متوافقتان — هذا نادر الحدوث ✨"
-            : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"
-          }
+            : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </p>
-      </div>
-    </div>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
 // ─── Not Enrolled Screen ──────────────────────────────────────────────────────
 function NotEnrolledScreen() {
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-6 text-center" dir="rtl">
-      <div className="space-y-4">
-        <div className="text-4xl">🔒</div>
+    <PageWrapper className="flex items-center justify-center p-6 text-center">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5 max-w-xs">
+        <div className="w-16 h-16 mx-auto rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">
+          <Lock size={28} className="text-gray-500" />
+        </div>
         <h2 className="text-xl font-bold text-white">أنت لست مسجلاً</h2>
         <p className="text-gray-500 text-sm">رمزك صحيح، لكن لم يتم تسجيلك في هذه الفعالية.</p>
         <p className="text-gray-600 text-xs">تواصل مع المنظم للمساعدة.</p>
-        <a href="/welcome" className="inline-flex items-center gap-2 text-purple-400 text-sm hover:text-purple-300">
+        <a href="/welcome" className="inline-flex items-center gap-2 text-purple-400 text-sm hover:text-purple-300 transition-colors">
           <Home size={14} /> العودة للصفحة الرئيسية
         </a>
-      </div>
-    </div>
+      </motion.div>
+    </PageWrapper>
   )
 }
 
@@ -657,8 +817,7 @@ export default function Event3Page() {
   })
 
   const [eventState, setEventState] = useState<any>(null)
-  const [enrolled, setEnrolled] = useState<boolean | null>(null) // null = unknown
-  const [polling, setPolling] = useState(false)
+  const [enrolled, setEnrolled] = useState<boolean | null>(null)
 
   const fetchState = useCallback(async () => {
     if (!token) return
@@ -668,7 +827,6 @@ export default function Event3Page() {
     if (enrolled === null) setEnrolled(d.enrolled !== false)
   }, [token, enrolled])
 
-  // Save token if from URL
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
     if (p) { setToken(p); localStorage.setItem("blindmatch_result_token", p) }
@@ -683,32 +841,31 @@ export default function Event3Page() {
 
   if (!token) return <TokenEntry onToken={t => { setToken(t); localStorage.setItem("blindmatch_result_token", t) }} />
 
-  if (!eventState) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center" dir="rtl">
-        <RefreshCw size={24} className="text-gray-500 animate-spin" />
-      </div>
-    )
-  }
+  if (!eventState) return (
+    <PageWrapper className="flex items-center justify-center">
+      <Spinner size={28} />
+    </PageWrapper>
+  )
 
   const { phase, timer_active, timer_start, timer_duration } = eventState
   const timerProps = { timerActive: timer_active, timerStart: timer_start, timerDuration: timer_duration }
 
-  // Check enrollment (only once state is loaded)
   if (enrolled === false) return <NotEnrolledScreen />
 
   const isRound = /^round[123]$/.test(phase)
 
   return (
     <>
-      <Toaster position="top-center" />
-      {phase === "setup" && <SetupScreen />}
-      {isRound && <RoundScreen token={token} phase={phase} {...timerProps} />}
-      {phase === "ranking" && <RankingScreen token={token} />}
-      {phase === "phase2_reveal" && <Phase2RevealScreen token={token} {...timerProps} />}
-      {phase === "phase2_oneword" && <Phase2WordScreen token={token} />}
-      {phase === "phase3_reveal" && <Phase3RevealScreen token={token} {...timerProps} />}
-      {phase === "final_reveal" && <FinalRevealScreen token={token} />}
+      <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
+      <AnimatePresence mode="wait">
+        {phase === "setup" && <SetupScreen key="setup" />}
+        {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}
+        {phase === "ranking" && <RankingScreen key="ranking" token={token} />}
+        {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
+        {phase === "phase2_oneword" && <Phase2WordScreen key="p2w" token={token} />}
+        {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
+        {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
+      </AnimatePresence>
     </>
   )
 }

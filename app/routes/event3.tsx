@@ -25,7 +25,7 @@ function formatTime(s: number) {
 
 // ─── Token Entry Screen ───────────────────────────────────────────────────────
 function TokenEntry({ onToken }: { onToken: (t: string) => void }) {
-  const [val, setVal] = useState(() => localStorage.getItem("blindmatch_result_token") || "")
+  const [val, setVal] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || "")
 
   const submit = () => {
     if (val.trim()) { localStorage.setItem("blindmatch_result_token", val.trim()); onToken(val.trim()) }
@@ -653,7 +653,7 @@ export default function Event3Page() {
   const [searchParams] = useSearchParams()
   const [token, setToken] = useState<string | null>(() => {
     const p = searchParams.get("token") || searchParams.get("t")
-    return p || localStorage.getItem("blindmatch_result_token") || null
+    return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
   const [eventState, setEventState] = useState<any>(null)

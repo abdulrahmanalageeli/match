@@ -17,15 +17,25 @@ const EVENT3_PASSWORD = "soulmatch2026"
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
 
 function e3GenerateSeatingPlan(participantNumbers) {
+  const N = participantNumbers.length
   const shuffled = [...participantNumbers].sort(() => Math.random() - 0.5)
-  const grid = Array.from({ length: 6 }, (_, r) => Array.from({ length: 6 }, (_, c) => shuffled[r * 6 + c]))
-  const round1 = grid.map(row => [...row])
-  const round2 = Array.from({ length: 6 }, (_, c) => grid.map(row => row[c]))
-  const round3 = Array.from({ length: 6 }, () => [])
-  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) round3[E3_LATIN_SQUARE[r][c]].push(grid[r][c])
+  const T = Math.max(2, Math.ceil(N / 6)) // number of tables, target ≤6 per group
+  // Pad to T*G grid
+  const padded = [...shuffled]
+  while (padded.length % T !== 0) padded.push(null)
+  const G = padded.length / T
+  const grid = Array.from({ length: T }, (_, t) => Array.from({ length: G }, (_, g) => padded[t * G + g]))
+  // Round 1: rows
+  const round1 = grid.map(row => row.filter(Boolean))
+  // Round 2: Latin shift (t,g) → table (t+g)%T
+  const round2 = Array.from({ length: T }, () => [])
+  for (let t = 0; t < T; t++) for (let g = 0; g < G; g++) { const p = grid[t][g]; if (p) round2[(t + g) % T].push(p) }
+  // Round 3: double shift (t,g) → table (t+2g)%T
+  const round3 = Array.from({ length: T }, () => [])
+  for (let t = 0; t < T; t++) for (let g = 0; g < G; g++) { const p = grid[t][g]; if (p) round3[(t + g * 2) % T].push(p) }
   const positionMap = {}
-  for (let r = 0; r < 6; r++) for (let c = 0; c < 6; c++) positionMap[grid[r][c]] = r * 6 + c
-  return { round1, round2, round3, positionMap }
+  for (let i = 0; i < shuffled.length; i++) positionMap[shuffled[i]] = i
+  return { round1, round2, round3, T, positionMap }
 }
 
 function e3GreedyMutualMatching(rankings) {
@@ -5826,7 +5836,7 @@ export default async function handler(req, res) {
         // e3-set-participants
         if (action === "e3-set-participants") {
           const { participant_numbers } = req.body
-          if (!Array.isArray(participant_numbers) || participant_numbers.length !== 36) return res.status(400).json({ error: "Exactly 36 participants required" })
+          if (!Array.isArray(participant_numbers) || participant_numbers.length < 4) return res.status(400).json({ error: "Select at least 4 participants" })
           await supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID)
           const rows = participant_numbers.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: idx }))
           const { error } = await supabase.from("event3_participants").insert(rows)
@@ -5836,14 +5846,14 @@ export default async function handler(req, res) {
         // e3-generate-seating
         if (action === "e3-generate-seating") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).order("position", { ascending: true })
-          if (!ep || ep.length !== 36) return res.status(400).json({ error: "Need exactly 36 participants selected first" })
+          if (!ep || ep.length < 4) return res.status(400).json({ error: "Select at least 4 participants first" })
           const participantNumbers = ep.map(r => r.participant_number)
-          const { round1, round2, round3, positionMap } = e3GenerateSeatingPlan(participantNumbers)
+          const { round1, round2, round3, T, positionMap } = e3GenerateSeatingPlan(participantNumbers)
           await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID)
           await supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID)
           await supabase.from("event3_participants").insert(participantNumbers.map(num => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: positionMap[num] })))
           const assignments = []
-          for (let t = 0; t < 6; t++) {
+          for (let t = 0; t < T; t++) {
             for (const p of round1[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 1, table_number: t + 1, participant_id: p })
             for (const p of round2[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 2, table_number: t + 1, participant_id: p })
             for (const p of round3[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 3, table_number: t + 1, participant_id: p })
@@ -5915,7 +5925,7 @@ export default async function handler(req, res) {
         // e3-trigger-phase3-matching
         if (action === "e3-trigger-phase3-matching") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
-          if (!ep || ep.length !== 36) return res.status(400).json({ error: "Wrong participant count" })
+          if (!ep || ep.length < 4) return res.status(400).json({ error: "No participants selected" })
           const nums = ep.map(r => r.participant_number)
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           if (!pdata) return res.status(500).json({ error: "Failed to fetch participant data" })

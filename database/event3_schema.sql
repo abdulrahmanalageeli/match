@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.event3_participants (
   created_at timestamptz DEFAULT now(),
   CONSTRAINT event3_participants_match_participant_unique UNIQUE (match_id, participant_number),
   CONSTRAINT event3_participants_match_position_unique UNIQUE (match_id, position),
-  CONSTRAINT event3_participants_position_range CHECK (position >= 0 AND position <= 35)
+  CONSTRAINT event3_participants_position_range CHECK (position >= 0)
 );
 
 -- جدول نتائج المطابقة الفردية
@@ -30,6 +30,10 @@ CREATE TABLE IF NOT EXISTS public.event3_matches (
   created_at timestamptz DEFAULT now(),
   CONSTRAINT event3_matches_match_participant_unique UNIQUE (match_id, participant_number)
 );
+
+-- If table already exists with old constraint, run this to fix it:
+-- ALTER TABLE public.event3_participants DROP CONSTRAINT IF EXISTS event3_participants_position_range;
+-- ALTER TABLE public.event3_participants ADD CONSTRAINT event3_participants_position_range CHECK (position >= 0);
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_event3_participants_match ON public.event3_participants(match_id);

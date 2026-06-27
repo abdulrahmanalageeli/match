@@ -140,8 +140,8 @@ export default function Admin3Page() {
   })
 
   const saveParticipants = () => run("save-participants", async () => {
-    if (selectedNumbers.size !== 36)
-      return { error: `يجب اختيار 36 مشاركاً بالضبط (تم اختيار ${selectedNumbers.size})` }
+    if (selectedNumbers.size < 4)
+      return { error: `يجب اختيار 4 مشاركين على الأقل (تم اختيار ${selectedNumbers.size})` }
     const data = await api("e3-set-participants", { participant_numbers: Array.from(selectedNumbers) })
     if (!data.error) fetchParticipants()
     return data

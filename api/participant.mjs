@@ -2613,7 +2613,7 @@ Please respond in JSON format:
       // e3-submit-ranking
       if (action === "e3-submit-ranking") {
         const { ranked_list } = req.body
-        if (!Array.isArray(ranked_list) || ranked_list.length !== 15) return res.status(400).json({ error: "Must rank exactly 15 participants" })
+        if (!Array.isArray(ranked_list) || ranked_list.length === 0) return res.status(400).json({ error: "Ranking list cannot be empty" })
         await supabase.from("participant_rankings").delete().eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
         const { error } = await supabase.from("participant_rankings").insert(ranked_list.map((num, idx) => ({ match_id: E3_MATCH_ID, event_id: 3, ranker_number: myNumber, ranked_number: num, rank: idx + 1 })))
         if (error) return res.status(500).json({ error: error.message })

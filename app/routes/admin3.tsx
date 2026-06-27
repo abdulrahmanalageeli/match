@@ -15,7 +15,9 @@ const PHASES = [
   { id: "round1",         label: "الجولة الأولى",        icon: "1️⃣", color: "blue" },
   { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
   { id: "round3",         label: "الجولة الثالثة",       icon: "3️⃣", color: "violet" },
-  { id: "ranking",        label: "التصنيف",              icon: "🏆", color: "yellow" },
+  { id: "ranking1",       label: "التصنيف — جولة 1",    icon: "🏆", color: "yellow" },
+  { id: "ranking2",       label: "التصنيف — جولة 2",    icon: "🏆", color: "yellow" },
+  { id: "ranking3",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
   { id: "phase2_reveal",  label: "الكشف الأول",          icon: "💘", color: "pink" },
   { id: "phase2_oneword", label: "الكلمة الأولى",        icon: "💬", color: "rose" },
   { id: "phase3_reveal",  label: "الكشف الثاني",         icon: "🧠", color: "purple" },
@@ -265,9 +267,9 @@ export default function Admin3Page() {
         {state && (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "المشاركون المختارون", value: `${state.participants_selected}/36`, icon: Users, ok: state.participants_selected === 36 },
+              { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
-              { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/36`, icon: BarChart3, ok: state.rankings_submitted === 36 },
+              { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
               { label: "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
             ].map(stat => (
               <div key={stat.label} className={`bg-gray-900 border rounded-xl p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
@@ -402,11 +404,11 @@ export default function Admin3Page() {
                 {[
                   {
                     label: "توليد خطة الجلسات",
-                    desc: "يتطلب 36 مشاركاً",
+                    desc: `يتطلب ${state?.participants_selected || 0} مشاركاً محدداً`,
                     action: generateSeating,
                     icon: Grid3x3,
                     color: "blue",
-                    enabled: state?.participants_selected === 36,
+                    enabled: (state?.participants_selected || 0) >= 6,
                     loadKey: "seating",
                   },
                   {
@@ -419,6 +421,15 @@ export default function Admin3Page() {
                     loadKey: "phase-round1",
                   },
                   {
+                    label: "التصنيف بعد الجولة 1",
+                    desc: `${state?.rankings_submitted || 0} صوّتوا حتى الآن`,
+                    action: () => setPhase("ranking1"),
+                    icon: BarChart3,
+                    color: "yellow",
+                    enabled: true,
+                    loadKey: "phase-ranking1",
+                  },
+                  {
                     label: "بدء الجولة الثانية",
                     desc: "20 دقيقة",
                     action: () => { setPhase("round2"); startTimer(2, 1200) },
@@ -426,6 +437,15 @@ export default function Admin3Page() {
                     color: "green",
                     enabled: true,
                     loadKey: "phase-round2",
+                  },
+                  {
+                    label: "التصنيف بعد الجولة 2",
+                    desc: `${state?.rankings_submitted || 0} صوّتوا حتى الآن`,
+                    action: () => setPhase("ranking2"),
+                    icon: BarChart3,
+                    color: "yellow",
+                    enabled: true,
+                    loadKey: "phase-ranking2",
                   },
                   {
                     label: "بدء الجولة الثالثة",
@@ -437,21 +457,21 @@ export default function Admin3Page() {
                     loadKey: "phase-round3",
                   },
                   {
-                    label: "فتح شاشة التصنيف",
-                    desc: "5 دقائق",
-                    action: () => setPhase("ranking"),
+                    label: "التصنيف النهائي (بعد الجولة 3)",
+                    desc: `${state?.rankings_submitted || 0} صوّتوا حتى الآن`,
+                    action: () => setPhase("ranking3"),
                     icon: BarChart3,
                     color: "yellow",
                     enabled: true,
-                    loadKey: "phase-ranking",
+                    loadKey: "phase-ranking3",
                   },
                   {
                     label: "تشغيل مطابقة المرحلة 2",
-                    desc: "بناءً على التصنيفات",
+                    desc: "بناءً على التصنيفات النهائية",
                     action: triggerPhase2,
                     icon: Shuffle,
                     color: "pink",
-                    enabled: (state?.rankings_submitted || 0) >= 18,
+                    enabled: (state?.rankings_submitted || 0) > 0,
                     loadKey: "phase2",
                   },
                   {

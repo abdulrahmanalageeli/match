@@ -268,9 +268,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token }: { token: string }) {
+function RankingScreen({ token, completedRounds }: { token: string, completedRounds: number }) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
+  const [newNums, setNewNums] = useState<Set<number>>(new Set())
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -278,10 +279,23 @@ function RankingScreen({ token }: { token: string }) {
   useEffect(() => {
     call("e3-get-participants-met", token).then(d => {
       if (d.error) { toast.error(d.error); return }
-      setPeople(d.people || [])
+      const allPeople: any[] = d.people || []
+      const existingRankings: Record<number, number> = d.existing_rankings || {}
       if (d.already_submitted) setSubmitted(true)
-      const sorted = [...(d.people || [])].sort((a, b) => a.round - b.round || a.number - b.number)
-      setOrder(sorted.map((p: any) => p.number))
+      setPeople(allPeople)
+
+      // People already ranked → keep their saved order
+      const ranked = allPeople
+        .filter(p => existingRankings[p.number] !== undefined)
+        .sort((a, b) => existingRankings[a.number] - existingRankings[b.number])
+
+      // People NOT yet ranked → new additions this session, go to bottom
+      const fresh = allPeople
+        .filter(p => existingRankings[p.number] === undefined)
+        .sort((a, b) => a.round - b.round || a.number - b.number)
+
+      setNewNums(new Set(fresh.map(p => p.number)))
+      setOrder([...ranked.map(p => p.number), ...fresh.map(p => p.number)])
       setLoading(false)
     })
   }, [token])
@@ -329,9 +343,14 @@ function RankingScreen({ token }: { token: string }) {
               <h1 className="text-lg font-bold text-white">من أثار اهتمامك أكثر؟</h1>
             </div>
             <p className="text-gray-500 text-xs text-center">
-              قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> عبر 3 جولات — رتّبهم من الأكثر إثارة للاهتمام إلى الأقل
+              قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> عبر {completedRounds} {completedRounds === 1 ? "جولة" : "جولات"} — رتّبهم من الأكثر إثارة للاهتمام إلى الأقل
             </p>
-            <p className="text-gray-700 text-[11px] text-center mt-1">اسحب الأسماء لإعادة الترتيب · هذا التصنيف سري تماماً</p>
+            {newNums.size > 0 && (
+              <p className="text-purple-400 text-[11px] text-center mt-1 font-medium">
+                ✨ {newNums.size} أشخاص جدد من الجولة {completedRounds} أُضيفوا في الأسفل
+              </p>
+            )}
+            <p className="text-gray-700 text-[11px] text-center mt-0.5">اسحب الأسماء لإعادة الترتيب · هذا التصنيف سري تماماً</p>
           </div>
 
           {/* Round legend */}
@@ -381,7 +400,12 @@ function RankingScreen({ token }: { token: string }) {
 
                   {/* Name + round */}
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-white text-sm leading-tight">{p.first_name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
+                      {newNums.has(num) && (
+                        <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
+                      )}
+                    </div>
                     <span className={`text-[11px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roundStyle(p.round)}`}>
                       {roundLabel(p.round)}
                     </span>
@@ -853,6 +877,8 @@ export default function Event3Page() {
   if (enrolled === false) return <NotEnrolledScreen />
 
   const isRound = /^round[123]$/.test(phase)
+  const rankingMatch = phase.match(/^ranking([123])$/)
+  const completedRounds = rankingMatch ? parseInt(rankingMatch[1]) : null
 
   return (
     <>
@@ -860,7 +886,7 @@ export default function Event3Page() {
       <AnimatePresence mode="wait">
         {phase === "setup" && <SetupScreen key="setup" />}
         {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}
-        {phase === "ranking" && <RankingScreen key="ranking" token={token} />}
+        {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
         {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
         {phase === "phase2_oneword" && <Phase2WordScreen key="p2w" token={token} />}
         {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}

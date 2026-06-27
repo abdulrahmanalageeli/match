@@ -165,6 +165,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
   const round = parseInt(phase.replace("round", "")) || 1
   const [assignment, setAssignment] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState(0)
+  const [showGroups, setShowGroups] = useState(false)
 
   useEffect(() => {
     call("e3-get-assignment", token, { round }).then(d => { if (!d.error) setAssignment(d) })
@@ -181,102 +182,140 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  const roundAr = ["الأولى", "الثانية", "الثالثة"][round - 1] || round
+  const roundAr = ["الأولى", "الثانية"][round - 1] || round
   const RC = [
-    { badge: "bg-blue-900/30 border-blue-700/40 text-blue-300", card: "border-blue-800/40", num: "text-blue-300", pill: "bg-blue-900/40 text-blue-300 border-blue-800/40" },
-    { badge: "bg-indigo-900/30 border-indigo-700/40 text-indigo-300", card: "border-indigo-800/40", num: "text-indigo-300", pill: "bg-indigo-900/40 text-indigo-300 border-indigo-800/40" },
-    { badge: "bg-violet-900/30 border-violet-700/40 text-violet-300", card: "border-violet-800/40", num: "text-violet-300", pill: "bg-violet-900/40 text-violet-300 border-violet-800/40" },
-  ][round - 1] || { badge: "bg-purple-900/30 border-purple-700/40 text-purple-300", card: "border-purple-800/40", num: "text-purple-300", pill: "bg-purple-900/40 text-purple-300 border-purple-800/40" }
+    { badge: "bg-blue-900/30 border-blue-700/40 text-blue-300", card: "border-blue-800/40", num: "text-blue-300", pill: "bg-blue-900/40 text-blue-300 border-blue-800/40", bar: "from-blue-500 to-cyan-500" },
+    { badge: "bg-indigo-900/30 border-indigo-700/40 text-indigo-300", card: "border-indigo-800/40", num: "text-indigo-300", pill: "bg-indigo-900/40 text-indigo-300 border-indigo-800/40", bar: "from-indigo-500 to-purple-500" },
+  ][round - 1] || { badge: "bg-purple-900/30 border-purple-700/40 text-purple-300", card: "border-purple-800/40", num: "text-purple-300", pill: "bg-purple-900/40 text-purple-300 border-purple-800/40", bar: "from-purple-500 to-pink-500" }
+
+  const timerBarH = timerActive && timeLeft > 0 ? "64px" : "0px"
 
   return (
-    <PageWrapper className="flex flex-col items-center justify-center p-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="w-full max-w-sm space-y-5 text-center"
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ delay: 0.1, type: "spring" }}
-          className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-6 py-2.5`}
-        >
-          <span className="font-bold text-sm">جولة التعارف {roundAr}</span>
-          <span className="text-gray-600 text-xs">من 2</span>
-        </motion.div>
+    <div className="min-h-screen bg-gray-950 relative overflow-hidden" dir="rtl">
+      {/* Background orbs */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-600/8 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-600/6 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+      </div>
 
-        <AnimatePresence>
-          {timerActive && timeLeft > 0 && (
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-              <GlassCard className="p-5">
-                <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5">
-                  <Clock size={12} className="text-purple-400" /> الوقت المتبقي
+      {/* ── Sticky Timer Strip ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {timerActive && timeLeft > 0 && (
+          <motion.div
+            initial={{ y: -64 }} animate={{ y: 0 }} exit={{ y: -64 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed top-0 inset-x-0 z-50 bg-gray-950/95 backdrop-blur-md border-b border-gray-800/60"
+          >
+            <div className="flex items-center justify-between px-5 h-16 max-w-sm mx-auto">
+              <div className="flex items-center gap-2">
+                <Clock size={14} className="text-purple-400" />
+                <span className="text-gray-500 text-xs">الوقت المتبقي</span>
+              </div>
+              <div className={`text-2xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
+                {formatTime(timeLeft)}
+              </div>
+              <div className="w-20 h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full bg-gradient-to-r ${timeLeft < 60 ? "from-red-500 to-red-400" : RC.bar}`}
+                  animate={{ width: `${(timeLeft / timerDuration) * 100}%` }}
+                  transition={{ duration: 1 }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Main Content ───────────────────────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+        className="relative z-10 flex flex-col items-center justify-center p-6 min-h-screen"
+        style={{ paddingTop: `calc(1.5rem + ${timerBarH})` }}
+      >
+        <div className="w-full max-w-sm space-y-5 text-center">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring" }}
+            className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-6 py-2.5`}
+          >
+            <span className="font-bold text-sm">جولة التعارف {roundAr}</span>
+            <span className="text-gray-600 text-xs">من 2</span>
+          </motion.div>
+
+          {assignment ? (
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
+                <p className="text-gray-500 text-xs flex items-center justify-center gap-1.5">
+                  <Table2 size={12} /> مكانك هذه الجولة
                 </p>
-                <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
-                  {formatTime(timeLeft)}
-                </div>
-                <div className="mt-3 h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
-                  <motion.div
-                    className={`h-full rounded-full ${timeLeft < 60 ? "bg-red-500" : "bg-gradient-to-r from-purple-500 to-pink-500"}`}
-                    animate={{ width: `${(timeLeft / timerDuration) * 100}%` }}
-                    transition={{ duration: 1 }}
-                  />
-                </div>
+                <div className={`text-8xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
+                <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
+                {assignment.tablemates?.length > 0 && (
+                  <div className="pt-4 border-t border-gray-800/60">
+                    <p className="text-gray-600 text-xs mb-3">رفاقك في الطاولة</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      {assignment.tablemates.map((m: any) => (
+                        <span key={m.number} className={`${RC.pill} border rounded-full px-3 py-1 text-sm font-medium`}>
+                          {m.first_name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </GlassCard>
             </motion.div>
-          )}
-        </AnimatePresence>
-
-        {assignment ? (
-          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-            <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
-              <p className="text-gray-500 text-xs flex items-center justify-center gap-1.5">
-                <Table2 size={12} /> مكانك هذه الجولة
-              </p>
-              <div className={`text-8xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
-              <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
-              {assignment.tablemates?.length > 0 && (
-                <div className="pt-4 border-t border-gray-800/60">
-                  <p className="text-gray-600 text-xs mb-3">رفاقك في الطاولة</p>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {assignment.tablemates.map((m: any) => (
-                      <span key={m.number} className={`${RC.pill} border rounded-full px-3 py-1 text-sm font-medium`}>
-                        {m.first_name}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
+          ) : (
+            <GlassCard className="p-10 flex flex-col items-center gap-3">
+              <Spinner size={22} />
+              <p className="text-gray-500 text-sm">جاري تحميل مكانك...</p>
             </GlassCard>
-          </motion.div>
-        ) : (
-          <GlassCard className="p-10 flex flex-col items-center gap-3">
-            <Spinner size={22} />
-            <p className="text-gray-500 text-sm">جاري تحميل مكانك...</p>
-          </GlassCard>
-        )}
+          )}
 
-        {/* Groups activities link */}
-        <motion.a
-          href="/groups"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35 }}
-          className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all
-            ${RC.badge} hover:brightness-125 active:scale-95`}
-        >
-          نشاطات المجموعة 🎯
-          <ExternalLink size={15} />
-        </motion.a>
+          {/* Groups button */}
+          <motion.button
+            onClick={() => setShowGroups(true)}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+            className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all ${RC.badge} hover:brightness-125 active:scale-95`}
+          >
+            نشاطات المجموعة 🎯
+            <ExternalLink size={15} />
+          </motion.button>
 
-        <p className="text-gray-600 text-xs">
-          {round === 1 && "ستلتقي بأشخاص جدد في هذه الجولة"}
-          {round === 2 && "آخر جولة تعارف — بعدها ستصنّف من أثار اهتمامك"}
-          {round === 3 && "جولة إضافية — بعدها ستصنّف من أثار اهتمامك"}
-        </p>
+          <p className="text-gray-600 text-xs">
+            {round === 1 && "ستلتقي بأشخاص جدد في هذه الجولة"}
+            {round === 2 && "آخر جولة تعارف — بعدها ستصنّف من أثار اهتمامك"}
+          </p>
+        </div>
       </motion.div>
-    </PageWrapper>
+
+      {/* ── Groups Overlay Modal ────────────────────────────────────── */}
+      <AnimatePresence>
+        {showGroups && (
+          <motion.div
+            initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }}
+            transition={{ type: "spring", stiffness: 280, damping: 32 }}
+            className="fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col"
+            style={{ top: timerActive && timeLeft > 0 ? "64px" : "0px" }}
+          >
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-md flex-shrink-0">
+              <span className="font-bold text-white flex items-center gap-2">🎯 نشاطات المجموعة</span>
+              <button
+                onClick={() => setShowGroups(false)}
+                className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm font-medium"
+              >
+                رجوع ← 
+              </button>
+            </div>
+            {/* iframe */}
+            <iframe
+              src="/groups"
+              className="flex-1 w-full border-0"
+              title="نشاطات المجموعة"
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   )
 }
 
@@ -290,7 +329,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
-    call("e3-get-participants-met", token).then(d => {
+    call("e3-get-participants-met", token, { completed_rounds: completedRounds }).then(d => {
       if (d.error) { toast.error(d.error); return }
       const allPeople: any[] = d.people || []
       const existingRankings: Record<number, number> = d.existing_rankings || {}
@@ -302,16 +341,18 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
         .filter(p => existingRankings[p.number] !== undefined)
         .sort((a, b) => existingRankings[a.number] - existingRankings[b.number])
 
-      // People NOT yet ranked → new additions this session, go to bottom
+      // People NOT yet ranked → unranked, go to bottom sorted by round then number
       const fresh = allPeople
         .filter(p => existingRankings[p.number] === undefined)
         .sort((a, b) => a.round - b.round || a.number - b.number)
 
-      setNewNums(new Set(fresh.map(p => p.number)))
+      // "new" badge only for people from the latest round (and only when completedRounds > 1)
+      const newRound = completedRounds > 1 ? completedRounds : -1
+      setNewNums(new Set(allPeople.filter(p => p.round === newRound).map(p => p.number)))
       setOrder([...ranked.map(p => p.number), ...fresh.map(p => p.number)])
       setLoading(false)
     })
-  }, [token])
+  }, [token, completedRounds])
 
   const submit = async () => {
     setSubmitting(true)
@@ -324,11 +365,10 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
 
-  const roundLabel = (r: number) => ["الجولة الأولى", "الجولة الثانية", "الجولة الثالثة"][r - 1] || `الجولة ${r}`
+  const roundLabel = (r: number) => ["الجولة الأولى", "الجولة الثانية"][r - 1] || `الجولة ${r}`
   const roundStyle = (r: number) => [
     "bg-blue-900/50 text-blue-300 border-blue-700/50",
     "bg-indigo-900/50 text-indigo-300 border-indigo-700/50",
-    "bg-violet-900/50 text-violet-300 border-violet-700/50",
   ][r - 1] || "bg-gray-800/50 text-gray-400 border-gray-700/50"
 
   const rankStyle = (idx: number) => {
@@ -368,7 +408,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 
           {/* Round legend */}
           <div className="px-5 pb-3 flex gap-2 justify-center flex-wrap">
-            {[1, 2, 3].map(r => (
+            {[1, 2].map(r => (
               <span key={r} className={`text-xs px-3 py-1 rounded-full border ${roundStyle(r)}`}>
                 {roundLabel(r)}
               </span>
@@ -411,10 +451,11 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
                     {idx + 1}
                   </div>
 
-                  {/* Name + round */}
+                  {/* Name + number + round */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
+                      <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
                       {newNums.has(num) && (
                         <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
                       )}

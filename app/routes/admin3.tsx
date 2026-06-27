@@ -13,11 +13,9 @@ const API = "/api/admin"
 const PHASES = [
   { id: "setup",          label: "إعداد الفعالية",       icon: "⚙️", color: "gray" },
   { id: "round1",         label: "الجولة الأولى",        icon: "1️⃣", color: "blue" },
-  { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
-  { id: "round3",         label: "الجولة الثالثة",       icon: "3️⃣", color: "violet" },
   { id: "ranking1",       label: "التصنيف — جولة 1",    icon: "🏆", color: "yellow" },
-  { id: "ranking2",       label: "التصنيف — جولة 2",    icon: "🏆", color: "yellow" },
-  { id: "ranking3",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
+  { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
+  { id: "ranking2",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
   { id: "phase2_reveal",  label: "الكشف الأول",          icon: "💘", color: "pink" },
   { id: "phase2_oneword", label: "الكلمة الأولى",        icon: "💬", color: "rose" },
   { id: "phase3_reveal",  label: "الكشف الثاني",         icon: "🧠", color: "purple" },
@@ -41,6 +39,8 @@ export default function Admin3Page() {
   const [selectedNumbers, setSelectedNumbers] = useState<Set<number>>(new Set())
   const [seating, setSeating] = useState<any>(null)
   const [rankStatus, setRankStatus] = useState<any>(null)
+  const [allRankings, setAllRankings] = useState<any[]>([])
+  const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
@@ -90,6 +90,8 @@ export default function Admin3Page() {
   const fetchRankStatus = useCallback(async () => {
     const data = await api("e3-get-rankings-status")
     setRankStatus(data)
+    const allData = await api("e3-get-all-rankings")
+    setAllRankings(allData.rankings || [])
   }, [])
 
   useEffect(() => {
@@ -448,24 +450,6 @@ export default function Admin3Page() {
                     loadKey: "phase-ranking2",
                   },
                   {
-                    label: "بدء الجولة الثالثة",
-                    desc: "20 دقيقة",
-                    action: () => { setPhase("round3"); startTimer(3, 1200) },
-                    icon: Play,
-                    color: "green",
-                    enabled: true,
-                    loadKey: "phase-round3",
-                  },
-                  {
-                    label: "التصنيف النهائي (بعد الجولة 3)",
-                    desc: `${state?.rankings_submitted || 0} صوّتوا حتى الآن`,
-                    action: () => setPhase("ranking3"),
-                    icon: BarChart3,
-                    color: "yellow",
-                    enabled: true,
-                    loadKey: "phase-ranking3",
-                  },
-                  {
                     label: "تشغيل مطابقة المرحلة 2",
                     desc: "بناءً على التصنيفات النهائية",
                     action: triggerPhase2,
@@ -576,7 +560,7 @@ export default function Admin3Page() {
                 <p className="text-xs mt-1">اختر المشاركين ثم اضغط "توليد خطة الجلسات"</p>
               </div>
             ) : (
-              [1, 2, 3].map(round => (
+              [1, 2].map(round => (
                 <div key={round} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
                   <h4 className="font-semibold mb-4 flex items-center gap-2">
                     <span className="bg-purple-900/50 text-purple-300 rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold">{round}</span>
@@ -614,17 +598,33 @@ export default function Admin3Page() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-gray-300">حالة التصنيفات</h3>
-              <button onClick={fetchRankStatus} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
-                <RefreshCw size={14} />
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => run("randomize", () => api("e3-randomize-rankings").then(d => { fetchRankStatus(); return d }))}
+                  disabled={!!loading}
+                  className="flex items-center gap-1.5 bg-violet-900/60 hover:bg-violet-800 border border-violet-700/50 text-violet-300 rounded-lg px-3 py-1.5 text-xs"
+                >
+                  {loading === "randomize" ? <RefreshCw size={12} className="animate-spin" /> : <Shuffle size={12} />}
+                  عشوائي
+                </button>
+                <button
+                  onClick={() => { if (confirm("حذف جميع التصنيفات؟")) run("clear-rank", () => api("e3-clear-rankings").then(d => { fetchRankStatus(); return d })) }}
+                  disabled={!!loading}
+                  className="flex items-center gap-1.5 bg-red-900/40 hover:bg-red-900/70 border border-red-800/50 text-red-400 rounded-lg px-3 py-1.5 text-xs"
+                >
+                  <RotateCcw size={12} /> حذف الكل
+                </button>
+                <button onClick={fetchRankStatus} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400">
+                  <RefreshCw size={14} />
+                </button>
+              </div>
             </div>
 
             {rankStatus && (
               <>
                 <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-gray-400 text-sm">التقدم</span>
-                    <span className="font-bold text-white">{rankStatus.submitted}/{rankStatus.total}</span>
+                    <span className="text-gray-400 text-sm">التقدم — {rankStatus.submitted} من {rankStatus.total} صوّتوا</span>
                   </div>
                   <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
                     <div
@@ -634,19 +634,39 @@ export default function Admin3Page() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                  {(rankStatus.status || []).map((s: any) => (
-                    <div key={s.number} className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${
-                      s.submitted ? "border-green-800 bg-green-900/20" : "border-gray-700 bg-gray-800"
+                <div className="space-y-2">
+                  {allRankings.map((r: any) => (
+                    <div key={r.number} className={`bg-gray-900 border rounded-xl overflow-hidden transition-colors ${
+                      r.submitted ? "border-green-800" : "border-gray-800"
                     }`}>
-                      {s.submitted
-                        ? <CheckCircle size={14} className="text-green-400 flex-shrink-0" />
-                        : <Circle size={14} className="text-gray-600 flex-shrink-0" />
-                      }
-                      <div className="min-w-0">
-                        <div className="truncate text-gray-300">{s.name}</div>
-                        <div className="text-gray-600">#{s.number}</div>
-                      </div>
+                      <button
+                        onClick={() => setExpandedRanker(expandedRanker === r.number ? null : r.number)}
+                        className="w-full flex items-center gap-3 p-3 text-right hover:bg-gray-800/40 transition-colors"
+                      >
+                        {r.submitted
+                          ? <CheckCircle size={15} className="text-green-400 flex-shrink-0" />
+                          : <Circle size={15} className="text-gray-600 flex-shrink-0" />
+                        }
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-medium text-gray-200 truncate">{r.name}</span>
+                          <span className="text-gray-600 text-xs mr-2">#{r.number}</span>
+                        </div>
+                        <span className="text-gray-500 text-xs flex-shrink-0">{r.submitted ? `${r.count} مرتّبين` : "لم يصوّت"}</span>
+                        <ChevronRight size={13} className={`text-gray-600 transition-transform flex-shrink-0 ${expandedRanker === r.number ? "rotate-90" : ""}`} />
+                      </button>
+                      {expandedRanker === r.number && r.submitted && (
+                        <div className="px-4 pb-3 border-t border-gray-800/60 pt-2">
+                          <div className="space-y-1">
+                            {r.ranked_list.map((item: any, idx: number) => (
+                              <div key={item.number} className="flex items-center gap-2 text-xs">
+                                <span className="w-5 h-5 rounded-md bg-gray-800 text-gray-500 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
+                                <span className="text-gray-300">{item.name}</span>
+                                <span className="text-gray-600 font-mono">#{item.number}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

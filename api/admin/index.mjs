@@ -6080,6 +6080,60 @@ export default async function handler(req, res) {
           for (const [p, partner] of matches) { const key = p < partner ? `${p}-${partner}` : `${partner}-${p}`; await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: p, phase3_partner: partner, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" }) }
           return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.size / 2} pairs.` })
         }
+        // e3-get-all-rankings
+        if (action === "e3-get-all-rankings") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          const selected = (ep || []).map(r => r.participant_number)
+          if (selected.length === 0) return res.status(200).json({ rankings: [] })
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const nameMap = {}
+          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
+          const { data: allRanks } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
+          const byRanker = {}
+          for (const r of allRanks || []) {
+            if (!byRanker[r.ranker_number]) byRanker[r.ranker_number] = []
+            byRanker[r.ranker_number].push({ number: r.ranked_number, rank: r.rank, name: nameMap[r.ranked_number] || `#${r.ranked_number}` })
+          }
+          const result = selected.map(n => ({
+            number: n,
+            name: nameMap[n] || `#${n}`,
+            submitted: !!byRanker[n],
+            count: (byRanker[n] || []).length,
+            ranked_list: (byRanker[n] || []).sort((a, b) => a.rank - b.rank),
+          }))
+          return res.status(200).json({ rankings: result })
+        }
+        // e3-randomize-rankings
+        if (action === "e3-randomize-rankings") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          const selected = (ep || []).map(r => r.participant_number)
+          if (selected.length === 0) return res.status(400).json({ error: "No participants selected" })
+          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("participant_id", selected)
+          if (!allAssignments || allAssignments.length === 0) return res.status(400).json({ error: "No session assignments found" })
+          const shuffle = arr => { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] } return a }
+          const rows = []
+          for (const myNum of selected) {
+            const myRounds = allAssignments.filter(a => a.participant_id === myNum)
+            const seenMates = new Set()
+            const mates = []
+            for (const row of myRounds.sort((a, b) => a.round - b.round)) {
+              const tableMates = allAssignments.filter(a => a.round === row.round && a.table_number === row.table_number && a.participant_id !== myNum)
+              for (const m of tableMates) { if (!seenMates.has(m.participant_id)) { seenMates.add(m.participant_id); mates.push(m.participant_id) } }
+            }
+            if (mates.length === 0) continue
+            const shuffled = shuffle(mates)
+            await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("ranker_number", myNum)
+            for (let i = 0; i < shuffled.length; i++) rows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, ranker_number: myNum, ranked_number: shuffled[i], rank: i + 1 })
+          }
+          if (rows.length > 0) { const { error } = await supabase.from("participant_rankings").insert(rows); if (error) return res.status(500).json({ error: error.message }) }
+          return res.status(200).json({ message: `Randomized rankings for ${selected.length} participants (${rows.length} entries)` })
+        }
+        // e3-clear-rankings
+        if (action === "e3-clear-rankings") {
+          const { error } = await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "All rankings cleared" })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([

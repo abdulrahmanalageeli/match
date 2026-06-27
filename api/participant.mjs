@@ -2593,14 +2593,22 @@ Please respond in JSON format:
 
       // e3-get-participants-met
       if (action === "e3-get-participants-met") {
-        const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("participant_id", myNumber)
+        const completedRounds = Math.min(parseInt(req.body.completed_rounds || "3") || 3, 3)
+        const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", E3_MATCH_ID).eq("participant_id", myNumber).lte("round", completedRounds)
         if (!allRounds || allRounds.length === 0) return res.status(404).json({ error: "No session assignments found" })
         const metNumbers = []
-        for (const row of allRounds) {
+        const seenNums = new Set()
+        for (const row of allRounds.sort((a, b) => a.round - b.round)) {
           const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber)
-          for (const m of mates || []) metNumbers.push({ number: m.participant_id, round: row.round })
+          for (const m of mates || []) {
+            if (m.participant_id !== myNumber && !seenNums.has(m.participant_id)) {
+              seenNums.add(m.participant_id)
+              metNumbers.push({ number: m.participant_id, round: row.round })
+            }
+          }
         }
-        const nums = [...new Set(metNumbers.map(m => m.number))]
+        if (metNumbers.length === 0) return res.status(200).json({ people: [], existing_rankings: {}, already_submitted: false })
+        const nums = metNumbers.map(m => m.number)
         const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", nums)
         const nameMap = {}
         for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }

@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -41,6 +41,28 @@ export default function Admin3Page() {
   const [rankStatus, setRankStatus] = useState<any>(null)
   const [allRankings, setAllRankings] = useState<any[]>([])
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const copyRankings = () => {
+    if (!allRankings.length) return
+    const date = new Date().toLocaleString("ar-SA", { dateStyle: "short", timeStyle: "short" })
+    const lines: string[] = [`تصنيفات المشاركين — ${date}`, "═".repeat(40), ""]
+    for (const r of allRankings) {
+      if (r.submitted) {
+        lines.push(`▌ ${r.name} (#${r.number}) — ${r.count} مرتّبين:`)
+        for (const item of r.ranked_list) {
+          lines.push(`   ${item.rank}. ${item.name} (#${item.number})`)
+        }
+      } else {
+        lines.push(`▌ ${r.name} (#${r.number}) — لم يصوّت`)
+      }
+      lines.push("")
+    }
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
   const [loading, setLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
@@ -599,6 +621,14 @@ export default function Admin3Page() {
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-gray-300">حالة التصنيفات</h3>
               <div className="flex gap-2">
+                <button
+                  onClick={copyRankings}
+                  disabled={!allRankings.length}
+                  className="flex items-center gap-1.5 bg-sky-900/50 hover:bg-sky-800 border border-sky-700/50 text-sky-300 rounded-lg px-3 py-1.5 text-xs disabled:opacity-40"
+                >
+                  {copied ? <Check size={12} /> : <Copy size={12} />}
+                  {copied ? "تم النسخ ✓" : "نسخ"}
+                </button>
                 <button
                   onClick={() => run("randomize", () => api("e3-randomize-rankings").then(d => { fetchRankStatus(); return d }))}
                   disabled={!!loading}

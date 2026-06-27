@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react"
+import GroupsPage from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder } from "framer-motion"
@@ -306,12 +307,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
                 رجوع ← 
               </button>
             </div>
-            {/* iframe */}
-            <iframe
-              src="/groups"
-              className="flex-1 w-full border-0"
-              title="نشاطات المجموعة"
-            />
+            {/* Groups content rendered inline */}
+            <div className="flex-1 overflow-y-auto">
+              <GroupsPage />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

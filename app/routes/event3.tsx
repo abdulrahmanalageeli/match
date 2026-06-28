@@ -980,6 +980,7 @@ export default function Event3Page() {
 
   const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
+  const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
 
   const fetchState = useCallback(async () => {
     if (!token) return
@@ -987,7 +988,8 @@ export default function Event3Page() {
     if (d.error) return
     setEventState(d)
     if (enrolled === null) setEnrolled(d.enrolled !== false)
-  }, [token, enrolled])
+    if (d.my_info && !myInfo) setMyInfo(d.my_info)
+  }, [token, enrolled, myInfo])
 
   useEffect(() => {
     const p = searchParams.get("token") || searchParams.get("t")
@@ -1021,6 +1023,16 @@ export default function Event3Page() {
   return (
     <>
       <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
+
+      {/* Fixed participant info chip */}
+      {myInfo && enrolled && (
+        <div className="fixed top-3 left-3 z-[200] flex items-center gap-2 bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl px-3 py-1.5 shadow-lg shadow-black/30">
+          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400" : myInfo.gender === "male" ? "bg-blue-400" : "bg-purple-400"}`} />
+          <span className="text-white text-xs font-semibold leading-none">{myInfo.name}</span>
+          <span className="text-gray-500 text-[10px] font-mono leading-none">#{myInfo.number}</span>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         {phase === "setup" && <SetupScreen key="setup" />}
         {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}

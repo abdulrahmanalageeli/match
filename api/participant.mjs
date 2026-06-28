@@ -2574,7 +2574,14 @@ Please respond in JSON format:
             myAssignment = { enrolled: !!ep }
           }
         }
-        return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false })
+        let myInfo = null
+        if (participant) {
+          const sd = typeof participant.survey_data === "string" ? JSON.parse(participant.survey_data || "{}") : (participant.survey_data || {})
+          const fullName = participant.name || sd?.answers?.name || sd?.name || ""
+          const firstName = fullName.split(" ")[0] || fullName
+          myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
+        }
+        return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo })
       }
 
       if (!participant) return res.status(401).json({ error: "Invalid or missing token" })

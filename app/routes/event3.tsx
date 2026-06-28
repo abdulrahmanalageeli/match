@@ -7,7 +7,7 @@ import confetti from "canvas-confetti"
 import {
   Clock, MapPin, Heart, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight,
+  MessageSquare, ChevronRight, Users,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -246,9 +246,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
         <div className="w-full max-w-sm space-y-5 text-center">
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, type: "spring" }}
-            className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-6 py-2.5`}
+            className={`inline-flex items-center gap-2 ${RC.badge} border rounded-full px-5 py-2`}
           >
-            <span className="font-bold text-sm">جولة التعارف {roundAr}</span>
+            <Users size={13} />
+            <span className="font-bold text-sm">الجولة الجماعية {roundAr}</span>
             <span className="text-gray-600 text-xs">من 2</span>
           </motion.div>
 
@@ -292,8 +293,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
           </motion.button>
 
           <p className="text-gray-600 text-xs">
-            {round === 1 && "ستلتقي بأشخاص جدد في هذه الجولة"}
-            {round === 2 && "آخر جولة تعارف — بعدها ستصنّف من أثار اهتمامك"}
+            {round === 1 && "تعارف جماعي على طاولتك — ستختار بعدها من تريد جلسة فردية معه"}
+            {round === 2 && "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية"}
           </p>
 
         </div>
@@ -375,7 +376,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
 
-  const roundLabel = (r: number) => ["الجولة الأولى", "الجولة الثانية"][r - 1] || `الجولة ${r}`
+  const roundLabel = (r: number) => ["الجولة الجماعية الأولى", "الجولة الجماعية الثانية"][r - 1] || `الجولة ${r}`
   const roundStyle = (r: number) => [
     "bg-blue-900/50 text-blue-300 border-blue-700/50",
     "bg-indigo-900/50 text-indigo-300 border-indigo-700/50",
@@ -403,11 +404,12 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
           <div className="px-5 pt-5 pb-3">
             <div className="flex items-center justify-center gap-2 mb-1">
               <Trophy size={16} className="text-amber-400" />
-              <h1 className="text-lg font-bold text-white">من أثار اهتمامك أكثر؟</h1>
+              <h1 className="text-lg font-bold text-white">رتّب أولوياتك</h1>
             </div>
             <p className="text-gray-500 text-xs text-center">
-              قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> عبر {completedRounds} {completedRounds === 1 ? "جولة" : "جولات"} — رتّبهم من الأكثر إثارة للاهتمام إلى الأقل
+              قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> في الجولات الجماعية — رتّبهم لتحديد جلستك الفردية
             </p>
+            <p className="text-purple-400/80 text-[11px] text-center mt-1">✨ ترتيبك سيُستخدم لاختيار من ستلتقيه في جلستك الفردية الأولى</p>
             {newNums.size > 0 && (
               <p className="text-purple-400 text-[11px] text-center mt-1 font-medium">
                 ✨ {newNums.size} أشخاص جدد من الجولة {completedRounds} أُضيفوا في الأسفل
@@ -579,10 +581,12 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     <PageWrapper>
       <div className="max-w-sm mx-auto p-5 pb-10 space-y-4">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
-          <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-            <Heart size={13} fill="currentColor" /> الجلسة الأولى · اختيارك
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
+              <Heart size={13} fill="currentColor" /> جلسة فردية 1:1 · اختيارك أنت
+            </div>
+            <p className="text-gray-600 text-xs">جلسة خاصة مع الشخص الذي اخترته من جولات التعارف</p>
           </div>
-          <p className="text-gray-600 text-xs">هذا من قرّرت أنت لقاءه بعد جولات التعارف</p>
         </motion.div>
 
         <AnimatePresence mode="wait">
@@ -682,10 +686,18 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="absolute -bottom-24 left-1/4 w-72 h-72 bg-fuchsia-600/20 rounded-full blur-[80px]" />
               <div className="absolute bottom-1/4 right-1/3 w-60 h-60 bg-pink-400/10 rounded-full blur-[70px]" />
             </div>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
-              <button onClick={() => setView('session')} className="text-gray-400 hover:text-white text-sm transition-colors">← رجوع</button>
-              <span className="text-white font-bold text-sm">تقييم الجلسة الأولى</span>
-              <div className="w-12" />
+            <div className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur-xl px-5 pt-4 pb-3">
+              <div className="flex items-center gap-3 mb-2.5">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-pink-500/40 to-transparent" />
+                <div className="flex items-center gap-1.5 bg-pink-900/25 border border-pink-700/30 rounded-full px-3 py-1">
+                  <Heart size={10} className="text-pink-400" fill="currentColor" />
+                  <span className="text-pink-300 text-xs font-semibold">تقييم الجلسة الفردية الأولى</span>
+                </div>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-pink-500/40 to-transparent" />
+              </div>
+              <button onClick={() => setView('session')} className="flex items-center gap-1 text-gray-600 hover:text-gray-300 text-xs transition-colors mx-auto">
+                <ChevronRight size={11} /> العودة إلى أسئلة الجلسة
+              </button>
             </div>
             {feedbackDone ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">
@@ -1013,10 +1025,12 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     <PageWrapper>
       <div className="max-w-sm mx-auto p-5 pb-10 space-y-4">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
-          <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-            <Brain size={13} /> الجلسة الثانية · اختيار الخوارزمية
+          <div className="flex flex-col items-center gap-1.5">
+            <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
+              <Brain size={13} /> جلسة فردية 1:1 · اختيارنا لك
+            </div>
+            <p className="text-gray-600 text-xs">جلسة خاصة مع من رشّحه النظام بناءً على توافقكما</p>
           </div>
-          <p className="text-gray-600 text-xs">هذا من اختارته الخوارزمية من جميع المشاركين</p>
         </motion.div>
 
         <AnimatePresence mode="wait">
@@ -1158,10 +1172,18 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="absolute -bottom-24 right-1/4 w-72 h-72 bg-indigo-600/20 rounded-full blur-[80px]" />
               <div className="absolute bottom-1/4 left-1/3 w-60 h-60 bg-purple-400/10 rounded-full blur-[70px]" />
             </div>
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
-              <button onClick={() => setView('session')} className="text-gray-400 hover:text-white text-sm transition-colors">← رجوع</button>
-              <span className="text-white font-bold text-sm">تقييم الجلسة الثانية</span>
-              <div className="w-12" />
+            <div className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur-xl px-5 pt-4 pb-3">
+              <div className="flex items-center gap-3 mb-2.5">
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+                <div className="flex items-center gap-1.5 bg-purple-900/25 border border-purple-700/30 rounded-full px-3 py-1">
+                  <Brain size={10} className="text-purple-400" />
+                  <span className="text-purple-300 text-xs font-semibold">تقييم الجلسة الفردية الثانية</span>
+                </div>
+                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+              </div>
+              <button onClick={() => setView('session')} className="flex items-center gap-1 text-gray-600 hover:text-gray-300 text-xs transition-colors mx-auto">
+                <ChevronRight size={11} /> العودة إلى أسئلة الجلسة
+              </button>
             </div>
             {feedbackDone ? (
               <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">

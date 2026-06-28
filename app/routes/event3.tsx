@@ -186,54 +186,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
 
-  // ── Question slideshow state ──────────────────────────────────────────────
-  const [qIdx, setQIdx] = useState(0)
-  const [activeSet, setActiveSet] = useState<'special' | 'set1' | 'set2'>(round === 1 ? 'special' : 'set1')
-  const [qTrans, setQTrans] = useState<'none' | 'next' | 'prev'>('none')
-  const hasPickedSet = useRef(false)
-
-  useEffect(() => {
-    hasPickedSet.current = false
-    setActiveSet(round === 1 ? 'special' : 'set1')
-    setQIdx(0)
-  }, [round])
-
-  const pickSet = (s: 'special' | 'set1' | 'set2') => {
-    if (s === 'special' && round !== 1) return
-    hasPickedSet.current = true
-    setActiveSet(s)
-    setQIdx(0)
-  }
-
-  const currentQs = activeSet === 'special' ? specialQuestions : activeSet === 'set2' ? eventQuestions : round1Questions
-  const q = currentQs[Math.min(qIdx, currentQs.length - 1)]
-
-  const levelColor = (lv: number) => [
-    { bg: "from-emerald-500/20 to-green-500/10", border: "border-emerald-700/40", text: "text-emerald-300", bar: "from-emerald-500 to-green-500", icon: "bg-gradient-to-r from-emerald-500 to-green-500" },
-    { bg: "from-cyan-500/20 to-blue-600/10",    border: "border-cyan-700/40",    text: "text-cyan-300",    bar: "from-cyan-500 to-blue-500",   icon: "bg-gradient-to-r from-cyan-500 to-blue-600"    },
-    { bg: "from-amber-500/20 to-orange-600/10", border: "border-amber-700/40",  text: "text-amber-300",  bar: "from-amber-500 to-orange-500",icon: "bg-gradient-to-r from-amber-500 to-orange-600" },
-    { bg: "from-purple-500/20 to-pink-600/10",  border: "border-purple-700/40", text: "text-purple-300", bar: "from-purple-500 to-pink-500",  icon: "bg-gradient-to-r from-purple-500 to-pink-600"  },
-    { bg: "from-teal-500/20 to-green-600/10",   border: "border-teal-700/40",   text: "text-teal-300",   bar: "from-teal-500 to-green-500",  icon: "bg-gradient-to-r from-teal-500 to-green-600"  },
-  ][lv] ?? { bg: "from-gray-500/20 to-gray-600/10", border: "border-gray-700/40", text: "text-gray-300", bar: "from-gray-500 to-gray-400", icon: "bg-gray-600" }
-
-  const levelDesc = (lv: number) => [
-    "يركز على إيجاد نقاط التواصل السريع والاهتمامات المشتركة",
-    "يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة",
-    "يركز على القيم الأساسية والمبادئ الشخصية العميقة",
-    "يركز على مشاركة التجارب الشخصية والذكريات المؤثرة",
-    "يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة",
-  ][lv] ?? ""
-
-  const LevelIcon = ({ icon }: { icon: string }) => {
-    const cls = "w-4 h-4 text-white"
-    if (icon === "Zap") return <Zap className={cls} />
-    if (icon === "Flame") return <Flame className={cls} />
-    if (icon === "Compass") return <Compass className={cls} />
-    if (icon === "Sparkles") return <Sparkles className={cls} />
-    if (icon === "Handshake") return <Handshake className={cls} />
-    return null
-  }
-
   const roundAr = ["الأولى", "الثانية"][round - 1] || round
   const RC = [
     { badge: "bg-blue-900/30 border-blue-700/40 text-blue-300", card: "border-blue-800/40", num: "text-blue-300", pill: "bg-blue-900/40 text-blue-300 border-blue-800/40", bar: "from-blue-500 to-cyan-500" },
@@ -336,101 +288,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
             {round === 1 && "ستلتقي بأشخاص جدد في هذه الجولة"}
             {round === 2 && "آخر جولة تعارف — بعدها ستصنّف من أثار اهتمامك"}
           </p>
-
-          {/* ── Question Slideshow ─────────────────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-            className={`w-full rounded-2xl border bg-gradient-to-br ${levelColor(q.level).bg} ${levelColor(q.level).border} p-5 space-y-4`}
-          >
-            {/* Set picker tabs */}
-            <div className="flex justify-center">
-              <div className="inline-flex items-center gap-0.5 bg-gray-900/60 border border-gray-700/50 rounded-full p-1">
-                {round === 1 && (
-                  <button
-                    onClick={() => pickSet('special')}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                      activeSet === 'special' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    المميزة
-                  </button>
-                )}
-                <button
-                  onClick={() => pickSet('set1')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    activeSet === 'set1' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  المجموعة ١
-                </button>
-                <button
-                  onClick={() => pickSet('set2')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                    activeSet === 'set2' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  المجموعة ٢
-                </button>
-              </div>
-            </div>
-
-            {/* Level badge */}
-            <div className="flex items-center justify-center gap-2">
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${levelColor(q.level).icon}`}>
-                <LevelIcon icon={q.levelIcon} />
-              </div>
-              <div className="text-center">
-                <p className={`text-xs font-semibold ${levelColor(q.level).text}`}>{q.levelTitle}</p>
-                <p className="text-gray-600 text-[10px]">{levelDesc(q.level)}</p>
-              </div>
-            </div>
-
-            {/* Question card */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={`${activeSet}-${qIdx}`}
-                initial={{ opacity: 0, x: qTrans === 'next' ? 20 : qTrans === 'prev' ? -20 : 0 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: qTrans === 'next' ? -20 : 20 }}
-                transition={{ duration: 0.25 }}
-                className="bg-gray-900/60 rounded-xl p-4 space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${levelColor(q.level).icon} text-white`}>
-                    {qIdx + 1}
-                  </span>
-                  <h5 className="text-white text-sm font-bold">{q.title}</h5>
-                </div>
-                <p className="text-gray-300 text-sm leading-relaxed pr-8">{q.question}</p>
-              </motion.div>
-            </AnimatePresence>
-
-            {/* Navigation */}
-            <div className="flex items-center justify-between gap-3">
-              <button
-                onClick={() => { setQTrans('prev'); setQIdx(i => Math.max(0, i - 1)); setTimeout(() => setQTrans('none'), 300) }}
-                disabled={qIdx === 0}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight size={14} /> السابق
-              </button>
-              <div className="flex-1 h-1 bg-gray-800/80 rounded-full overflow-hidden">
-                <motion.div
-                  className={`h-full rounded-full bg-gradient-to-r ${levelColor(q.level).bar}`}
-                  animate={{ width: `${((qIdx + 1) / currentQs.length) * 100}%` }}
-                  transition={{ duration: 0.4 }}
-                />
-              </div>
-              <span className="text-gray-600 text-[10px] font-mono whitespace-nowrap">{qIdx + 1}/{currentQs.length}</span>
-              <button
-                onClick={() => { setQTrans('next'); setQIdx(i => Math.min(currentQs.length - 1, i + 1)); setTimeout(() => setQTrans('none'), 300) }}
-                disabled={qIdx === currentQs.length - 1}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              >
-                التالي <ChevronLeft size={14} />
-              </button>
-            </div>
-          </motion.div>
 
         </div>
       </motion.div>
@@ -647,15 +504,124 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   )
 }
 
-// ─── Shared conversation starters ────────────────────────────────────────────
-const CONVO_STARTERS = [
-  "إذا كنت ستسافر غداً دون تخطيط، أين ستذهب؟",
-  "ما الشيء الذي تعلمته مؤخراً وغيّر طريقة تفكيرك؟",
-  "صِف يومك المثالي من الصباح حتى الليل.",
-  "ما الهواية التي تتمنى أن تكون أفضل فيها؟",
-  "ما الكتاب أو الفيلم الذي أثّر فيك كثيراً ولماذا؟",
-  "ما أكثر شيء تقدّره في الصداقة؟",
-]
+// ─── Question slideshow — module-level helpers ─────────────────────────────────────
+const levelColor = (lv: number) => [
+  { bg: "from-emerald-500/20 to-green-500/10",  border: "border-emerald-700/40", text: "text-emerald-300", bar: "from-emerald-500 to-green-500",  icon: "bg-gradient-to-r from-emerald-500 to-green-500"  },
+  { bg: "from-cyan-500/20 to-blue-600/10",      border: "border-cyan-700/40",    text: "text-cyan-300",    bar: "from-cyan-500 to-blue-500",    icon: "bg-gradient-to-r from-cyan-500 to-blue-600"     },
+  { bg: "from-amber-500/20 to-orange-600/10",   border: "border-amber-700/40",  text: "text-amber-300",  bar: "from-amber-500 to-orange-500",  icon: "bg-gradient-to-r from-amber-500 to-orange-600"  },
+  { bg: "from-purple-500/20 to-pink-600/10",    border: "border-purple-700/40", text: "text-purple-300", bar: "from-purple-500 to-pink-500",    icon: "bg-gradient-to-r from-purple-500 to-pink-600"  },
+  { bg: "from-teal-500/20 to-green-600/10",     border: "border-teal-700/40",   text: "text-teal-300",   bar: "from-teal-500 to-green-500",    icon: "bg-gradient-to-r from-teal-500 to-green-600"   },
+][lv] ?? { bg: "from-gray-500/20 to-gray-600/10", border: "border-gray-700/40", text: "text-gray-300", bar: "from-gray-500 to-gray-400", icon: "bg-gray-600" }
+
+const levelDesc = (lv: number) => [
+  "يركز على إيجاد نقاط التواصل السريع والاهتمامات المشتركة",
+  "يركز على الشغف، الشخصية، ووجهات النظر بطريقة خفيفة",
+  "يركز على القيم الأساسية والمبادئ الشخصية العميقة",
+  "يركز على مشاركة التجارب الشخصية والذكريات المؤثرة",
+  "يركز على استكشاف السيناريوهات والتوافق في المواقف المختلفة",
+][lv] ?? ""
+
+function LevelIcon({ icon }: { icon: string }) {
+  const cls = "w-4 h-4 text-white"
+  if (icon === "Zap") return <Zap className={cls} />
+  if (icon === "Flame") return <Flame className={cls} />
+  if (icon === "Compass") return <Compass className={cls} />
+  if (icon === "Sparkles") return <Sparkles className={cls} />
+  if (icon === "Handshake") return <Handshake className={cls} />
+  return null
+}
+
+function QuestionSlideshow({ defaultSet }: { defaultSet: 'special' | 'set1' }) {
+  const [qIdx, setQIdx] = useState(0)
+  const [activeSet, setActiveSet] = useState<'special' | 'set1' | 'set2'>(defaultSet)
+  const [qTrans, setQTrans] = useState<'none' | 'next' | 'prev'>('none')
+
+  const currentQs = activeSet === 'special' ? specialQuestions : activeSet === 'set2' ? eventQuestions : round1Questions
+  const q = currentQs[Math.min(qIdx, currentQs.length - 1)]
+  const lc = levelColor(q.level)
+
+  const pick = (s: 'special' | 'set1' | 'set2') => { setActiveSet(s); setQIdx(0) }
+  const goPrev = () => { if (qIdx <= 0) return; setQTrans('prev'); setQIdx(i => i - 1); setTimeout(() => setQTrans('none'), 300) }
+  const goNext = () => { if (qIdx >= currentQs.length - 1) return; setQTrans('next'); setQIdx(i => i + 1); setTimeout(() => setQTrans('none'), 300) }
+
+  return (
+    <div className={`rounded-2xl border bg-gradient-to-br ${lc.bg} ${lc.border} p-5 space-y-4`}>
+      {/* Tabs */}
+      <div className="flex justify-center">
+        <div className="inline-flex items-center gap-0.5 bg-gray-900/60 border border-gray-700/50 rounded-full p-1">
+          {defaultSet === 'special' && (
+            <button onClick={() => pick('special')}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                activeSet === 'special' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
+              }`}>
+              المميزة
+            </button>
+          )}
+          <button onClick={() => pick('set1')}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              activeSet === 'set1' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
+            }`}>
+            المجموعة ١
+          </button>
+          <button onClick={() => pick('set2')}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              activeSet === 'set2' ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-white'
+            }`}>
+            المجموعة ٢
+          </button>
+        </div>
+      </div>
+
+      {/* Level badge */}
+      <div className="flex items-center justify-center gap-2">
+        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${lc.icon}`}>
+          <LevelIcon icon={q.levelIcon} />
+        </div>
+        <div className="text-center">
+          <p className={`text-xs font-semibold ${lc.text}`}>{q.levelTitle}</p>
+          <p className="text-gray-600 text-[10px]">{levelDesc(q.level)}</p>
+        </div>
+      </div>
+
+      {/* Question card */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${activeSet}-${qIdx}`}
+          initial={{ opacity: 0, x: qTrans === 'next' ? 20 : qTrans === 'prev' ? -20 : 0 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: qTrans === 'next' ? -20 : 20 }}
+          transition={{ duration: 0.25 }}
+          className="bg-gray-900/60 rounded-xl p-4 space-y-2"
+        >
+          <div className="flex items-center gap-2">
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 ${lc.icon} text-white`}>
+              {qIdx + 1}
+            </span>
+            <h5 className="text-white text-sm font-bold">{q.title}</h5>
+          </div>
+          <p className="text-gray-300 text-sm leading-relaxed pr-8">{q.question}</p>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Navigation */}
+      <div className="flex items-center justify-between gap-3">
+        <button onClick={goPrev} disabled={qIdx === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+          <ChevronRight size={14} /> السابق
+        </button>
+        <div className="flex-1 h-1 bg-gray-800/80 rounded-full overflow-hidden">
+          <motion.div className={`h-full rounded-full bg-gradient-to-r ${lc.bar}`}
+            animate={{ width: `${((qIdx + 1) / currentQs.length) * 100}%` }} transition={{ duration: 0.4 }} />
+        </div>
+        <span className="text-gray-600 text-[10px] font-mono whitespace-nowrap">{qIdx + 1}/{currentQs.length}</span>
+        <button onClick={goNext} disabled={qIdx === currentQs.length - 1}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-800/60 text-gray-400 hover:text-white hover:bg-gray-700/60 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+          التالي <ChevronLeft size={14} />
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
 function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
@@ -666,8 +632,6 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
-  const [showStarters, setShowStarters] = useState(false)
-
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
       if (!d.error) {
@@ -762,27 +726,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </GlassCard>
               )}
 
-              <GlassCard className="overflow-hidden">
-                <button onClick={() => setShowStarters(s => !s)}
-                  className="w-full flex items-center justify-between p-4 text-sm font-semibold text-white hover:bg-gray-800/30 transition-colors">
-                  <span className="flex items-center gap-2"><Sparkles size={14} className="text-pink-400" /> أسئلة للنقاش ✨</span>
-                  <motion.div animate={{ rotate: showStarters ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                    <ChevronDown size={15} className="text-gray-600" />
-                  </motion.div>
-                </button>
-                <AnimatePresence>
-                  {showStarters && (
-                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden border-t border-gray-800/60">
-                      <div className="p-4 space-y-2">
-                        {CONVO_STARTERS.map((q, i) => (
-                          <motion.div key={i} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                            className="text-sm text-gray-300 bg-gray-800/50 border border-gray-700/40 rounded-xl px-3 py-2.5">{q}</motion.div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </GlassCard>
+              <QuestionSlideshow defaultSet="special" />
 
               <GlassCard className="p-4 space-y-3">
                 <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
@@ -883,8 +827,6 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
-  const [showStarters, setShowStarters] = useState(false)
-
   useEffect(() => {
     call("e3-get-phase3-reveal", token).then(d => {
       if (!d.error) {
@@ -975,27 +917,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </GlassCard>
               )}
 
-              <GlassCard className="overflow-hidden">
-                <button onClick={() => setShowStarters(s => !s)}
-                  className="w-full flex items-center justify-between p-4 text-sm font-semibold text-white hover:bg-gray-800/30 transition-colors">
-                  <span className="flex items-center gap-2"><Sparkles size={14} className="text-purple-400" /> أسئلة للنقاش ✨</span>
-                  <motion.div animate={{ rotate: showStarters ? 180 : 0 }} transition={{ duration: 0.2 }}>
-                    <ChevronDown size={15} className="text-gray-600" />
-                  </motion.div>
-                </button>
-                <AnimatePresence>
-                  {showStarters && (
-                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden border-t border-gray-800/60">
-                      <div className="p-4 space-y-2">
-                        {CONVO_STARTERS.map((q, i) => (
-                          <motion.div key={i} initial={{ opacity: 0, x: 8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                            className="text-sm text-gray-300 bg-gray-800/50 border border-gray-700/40 rounded-xl px-3 py-2.5">{q}</motion.div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </GlassCard>
+              <QuestionSlideshow defaultSet="set1" />
 
               <GlassCard className="p-4 space-y-3">
                 <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>

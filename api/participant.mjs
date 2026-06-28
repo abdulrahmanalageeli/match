@@ -2700,6 +2700,38 @@ Please respond in JSON format:
         return res.status(200).json({ phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null }, phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score || 0, word: matchRow.phase3_word || null }, same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner })
       }
 
+      // e3-get-notes
+      if (action === "e3-get-notes") {
+        const { data } = await supabase
+          .from("event3_participant_notes")
+          .select("about_number,note")
+          .eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", myNumber)
+          .is("phase", null)
+        const noteMap = {}
+        for (const r of data || []) noteMap[r.about_number] = r.note
+        return res.status(200).json({ notes: noteMap })
+      }
+
+      // e3-save-note
+      if (action === "e3-save-note") {
+        const { about_number, note } = req.body
+        if (!about_number) return res.status(400).json({ error: "about_number required" })
+        const trimmed = (note || "").trim()
+        await supabase.from("event3_participant_notes")
+          .delete()
+          .eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", myNumber)
+          .eq("about_number", about_number)
+          .is("phase", null)
+        if (trimmed) {
+          const { error } = await supabase.from("event3_participant_notes")
+            .insert({ match_id: E3_MATCH_ID, participant_number: myNumber, about_number, note: trimmed })
+          if (error) return res.status(500).json({ error: error.message })
+        }
+        return res.status(200).json({ ok: true })
+      }
+
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })
     } catch (e3err) {
       console.error("e3 participant error:", e3err)

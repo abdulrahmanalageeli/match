@@ -7,7 +7,7 @@ import confetti from "canvas-confetti"
 import {
   Clock, MapPin, Heart, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight, Users,
+  MessageSquare, ChevronRight, Users, PenLine,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -338,9 +338,15 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [notes, setNotes] = useState<Record<number, string>>({})
+  const [openNote, setOpenNote] = useState<number | null>(null)
+  const [savingNote, setSavingNote] = useState<number | null>(null)
 
   useEffect(() => {
-    call("e3-get-participants-met", token, { completed_rounds: completedRounds }).then(d => {
+    Promise.all([
+      call("e3-get-participants-met", token, { completed_rounds: completedRounds }),
+      call("e3-get-notes", token),
+    ]).then(([d, nd]) => {
       if (d.error) { toast.error(d.error); return }
       const allPeople: any[] = d.people || []
       const existingRankings: Record<number, number> = d.existing_rankings || {}
@@ -362,8 +368,16 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
       setNewNums(new Set(allPeople.filter(p => p.round === newRound).map(p => p.number)))
       setOrder([...ranked.map(p => p.number), ...fresh.map(p => p.number)])
       setLoading(false)
+
+      if (!nd.error && nd.notes) setNotes(nd.notes)
     })
   }, [token, completedRounds])
+
+  const saveNote = async (aboutNumber: number, text: string) => {
+    setSavingNote(aboutNumber)
+    await call("e3-save-note", token, { about_number: aboutNumber, note: text })
+    setSavingNote(null)
+  }
 
   const submit = async () => {
     setSubmitting(true)
@@ -446,7 +460,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
                   key={num}
                   value={num}
                   as="div"
-                  className="flex items-center gap-3 p-3.5 rounded-2xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm cursor-grab active:cursor-grabbing touch-none select-none"
+                  className="p-3.5 rounded-2xl border border-gray-800/60 bg-gray-900/70 backdrop-blur-sm cursor-grab active:cursor-grabbing touch-none select-none"
                   whileDrag={{
                     scale: 1.04,
                     boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
@@ -458,27 +472,74 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: idx * 0.02 }}
                 >
-                  {/* Rank badge */}
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
-                    {idx + 1}
-                  </div>
-
-                  {/* Name + number + round */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
-                      <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
-                      {newNums.has(num) && (
-                        <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
-                      )}
+                  {/* Top row */}
+                  <div className="flex items-center gap-3">
+                    {/* Rank badge */}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${rankStyle(idx)}`}>
+                      {idx + 1}
                     </div>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roundStyle(p.round)}`}>
-                      {roundLabel(p.round)}
-                    </span>
+
+                    {/* Name + number + round */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
+                        <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
+                        {newNums.has(num) && (
+                          <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
+                        )}
+                      </div>
+                      <span className={`text-[11px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roundStyle(p.round)}`}>
+                        {roundLabel(p.round)}
+                      </span>
+                    </div>
+
+                    {/* Note toggle button */}
+                    <button
+                      onClick={e => { e.stopPropagation(); setOpenNote(openNote === num ? null : num) }}
+                      onPointerDown={e => e.stopPropagation()}
+                      className={`w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-lg transition-all ${
+                        notes[num]
+                          ? "bg-amber-500/15 border border-amber-600/30 text-amber-400"
+                          : "text-gray-700 hover:text-gray-500"
+                      }`}
+                      title="ملاحظة خاصة"
+                    >
+                      <PenLine size={13} />
+                    </button>
+
+                    {/* Drag handle */}
+                    <GripVertical size={17} className="text-gray-600 flex-shrink-0" />
                   </div>
 
-                  {/* Drag handle */}
-                  <GripVertical size={17} className="text-gray-600 flex-shrink-0" />
+                  {/* Collapsible note area */}
+                  <AnimatePresence>
+                    {openNote === num && (
+                      <motion.div
+                        key="note"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                        onPointerDown={e => e.stopPropagation()}
+                      >
+                        <div className="pt-3 mt-3 border-t border-gray-800/50">
+                          <textarea
+                            value={notes[num] || ""}
+                            onChange={e => setNotes(prev => ({ ...prev, [num]: e.target.value }))}
+                            onBlur={() => saveNote(num, notes[num] || "")}
+                            placeholder="ملاحظة خاصة — لن يراها أحد غيرك..."
+                            rows={2}
+                            dir="rtl"
+                            className="w-full bg-gray-800/60 border border-gray-700/50 focus:border-amber-600/50 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 resize-none outline-none transition-colors cursor-text"
+                          />
+                          <p className="text-[10px] mt-1 text-right transition-colors" style={{ color: savingNote === num ? "#f59e0b" : "#374151" }}>
+                            {savingNote === num ? "جاري الحفظ..." : notes[num]?.trim() ? "✓ محفوظة" : "تُحفظ تلقائياً عند المغادرة"}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </Reorder.Item>
               )
             })}
@@ -525,18 +586,9 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [wordSubmitted, setWordSubmitted] = useState(false)
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
-  const [sessionTimer, setSessionTimer] = useState(1800)
-  const [sessionRunning, setSessionRunning] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, wantConnect: null as boolean | null, organizerImpression: '', recommendations: '', participantMessage: '' })
   const [submittingFb, setSubmittingFb] = useState(false)
-
-  useEffect(() => {
-    if (!sessionRunning) return
-    if (sessionTimer <= 0) { setView('feedback'); setSessionRunning(false); return }
-    const iv = setInterval(() => setSessionTimer(p => { if (p <= 1) { clearInterval(iv); setView('feedback'); setSessionRunning(false); return 0 } return p - 1 }), 1000)
-    return () => clearInterval(iv)
-  }, [sessionRunning, sessionTimer])
 
   const submitFb = async () => {
     if (fb.wantConnect === null) { toast.error('يرجى الإجابة على سؤال التواصل'); return }
@@ -565,6 +617,20 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
+
+  // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
+  useEffect(() => {
+    if (!data || !timerActive || !timerStart) return
+    const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+    const remaining = Math.max(0, timerDuration - elapsed)
+    if (elapsed > 60 && remaining > 0) { setRevealed(true); setView('session') }
+    else if (remaining <= 0) { setRevealed(true); setView('feedback') }
+  }, [data, timerActive, timerStart, timerDuration])
+
+  // Transition to feedback when session time runs out
+  useEffect(() => {
+    if (view === 'session' && timerActive && timeLeft === 0) setView('feedback')
+  }, [timeLeft, view, timerActive])
 
   const handleReveal = () => {
     setRevealed(true)
@@ -661,7 +727,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.button
-                onClick={() => { setView('session'); setSessionRunning(true) }}
+                onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                 className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-pink-900/30 border-pink-700/40 text-pink-300 hover:brightness-125 active:scale-95"
               >
@@ -834,7 +900,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 ← رجوع
               </button>
               <span className="text-white font-bold text-sm">أسئلة الجلسة الأولى</span>
-              <span className={`font-mono text-sm font-black tabular-nums ${sessionTimer < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(sessionTimer)}</span>
+              <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(timeLeft)}</span>
             </div>
             <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
               {/* Compact partner reminder */}
@@ -969,18 +1035,9 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [wordSubmitted, setWordSubmitted] = useState(false)
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
-  const [sessionTimer, setSessionTimer] = useState(1800)
-  const [sessionRunning, setSessionRunning] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, wantConnect: null as boolean | null, organizerImpression: '', recommendations: '', participantMessage: '' })
   const [submittingFb, setSubmittingFb] = useState(false)
-
-  useEffect(() => {
-    if (!sessionRunning) return
-    if (sessionTimer <= 0) { setView('feedback'); setSessionRunning(false); return }
-    const iv = setInterval(() => setSessionTimer(p => { if (p <= 1) { clearInterval(iv); setView('feedback'); setSessionRunning(false); return 0 } return p - 1 }), 1000)
-    return () => clearInterval(iv)
-  }, [sessionRunning, sessionTimer])
 
   const submitFb = async () => {
     if (fb.wantConnect === null) { toast.error('يرجى الإجابة على سؤال التواصل'); return }
@@ -1009,6 +1066,20 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
+
+  // Auto-rejoin sync: if timer already running when component mounts, jump to correct view
+  useEffect(() => {
+    if (!data || !timerActive || !timerStart) return
+    const elapsed = Math.floor((Date.now() - new Date(timerStart).getTime()) / 1000)
+    const remaining = Math.max(0, timerDuration - elapsed)
+    if (elapsed > 60 && remaining > 0) { setRevealed(true); setView('session') }
+    else if (remaining <= 0) { setRevealed(true); setView('feedback') }
+  }, [data, timerActive, timerStart, timerDuration])
+
+  // Transition to feedback when session time runs out
+  useEffect(() => {
+    if (view === 'session' && timerActive && timeLeft === 0) setView('feedback')
+  }, [timeLeft, view, timerActive])
 
   const handleReveal = () => {
     setRevealed(true)
@@ -1093,7 +1164,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.button
-                onClick={() => { setView('session'); setSessionRunning(true) }}
+                onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                 className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-purple-900/30 border-purple-700/40 text-purple-300 hover:brightness-125 active:scale-95"
               >
@@ -1123,7 +1194,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 ← رجوع
               </button>
               <span className="text-white font-bold text-sm">أسئلة الجلسة الثانية</span>
-              <span className={`font-mono text-sm font-black tabular-nums ${sessionTimer < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(sessionTimer)}</span>
+              <span className={`font-mono text-sm font-black tabular-nums ${timeLeft < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(timeLeft)}</span>
             </div>
             <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
               <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">

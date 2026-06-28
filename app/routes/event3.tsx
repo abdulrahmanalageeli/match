@@ -659,8 +659,15 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
         {view === 'feedback' && (
           <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto">
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto relative">
+            {/* Background orbs */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+              <div className="absolute -top-32 -left-32 w-96 h-96 bg-pink-600/25 rounded-full blur-[100px]" />
+              <div className="absolute top-1/3 -right-24 w-80 h-80 bg-rose-500/20 rounded-full blur-[90px]" />
+              <div className="absolute -bottom-24 left-1/4 w-72 h-72 bg-fuchsia-600/20 rounded-full blur-[80px]" />
+              <div className="absolute bottom-1/4 right-1/3 w-60 h-60 bg-pink-400/10 rounded-full blur-[70px]" />
+            </div>
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
               <button onClick={() => setView('session')} className="text-gray-400 hover:text-white text-sm transition-colors">← رجوع</button>
               <span className="text-white font-bold text-sm">تقييم الجلسة الأولى</span>
               <div className="w-12" />
@@ -1094,8 +1101,15 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
         {view === 'feedback' && (
           <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto">
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto relative">
+            {/* Background orbs */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+              <div className="absolute -top-32 -right-32 w-96 h-96 bg-purple-600/25 rounded-full blur-[100px]" />
+              <div className="absolute top-1/3 -left-24 w-80 h-80 bg-violet-500/20 rounded-full blur-[90px]" />
+              <div className="absolute -bottom-24 right-1/4 w-72 h-72 bg-indigo-600/20 rounded-full blur-[80px]" />
+              <div className="absolute bottom-1/4 left-1/3 w-60 h-60 bg-purple-400/10 rounded-full blur-[70px]" />
+            </div>
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
               <button onClick={() => setView('session')} className="text-gray-400 hover:text-white text-sm transition-colors">← رجوع</button>
               <span className="text-white font-bold text-sm">تقييم الجلسة الثانية</span>
               <div className="w-12" />

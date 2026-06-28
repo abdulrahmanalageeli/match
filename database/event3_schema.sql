@@ -27,9 +27,15 @@ CREATE TABLE IF NOT EXISTS public.event3_matches (
   phase2_word text,   -- one word typed after Phase 2 meeting
   phase3_word text,   -- one word typed after Phase 3 meeting (optional)
   phase3_score integer, -- compatibility % for Phase 3 (0-100)
+  phase2_feedback jsonb,  -- full feedback form after Phase 2 session
+  phase3_feedback jsonb,  -- full feedback form after Phase 3 session
   created_at timestamptz DEFAULT now(),
   CONSTRAINT event3_matches_match_participant_unique UNIQUE (match_id, participant_number)
 );
+
+-- Migration: add feedback columns if table already exists
+-- ALTER TABLE public.event3_matches ADD COLUMN IF NOT EXISTS phase2_feedback jsonb;
+-- ALTER TABLE public.event3_matches ADD COLUMN IF NOT EXISTS phase3_feedback jsonb;
 
 -- If table already exists with old constraint, run this to fix it:
 -- ALTER TABLE public.event3_participants DROP CONSTRAINT IF EXISTS event3_participants_position_range;

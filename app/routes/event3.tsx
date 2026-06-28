@@ -516,8 +516,29 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
-  const [view, setView] = useState<'partner' | 'session'>('partner')
+  const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
+  const [sessionTimer, setSessionTimer] = useState(1800)
+  const [sessionRunning, setSessionRunning] = useState(false)
+  const [feedbackDone, setFeedbackDone] = useState(false)
+  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wantConnect: null as boolean | null })
+  const [submittingFb, setSubmittingFb] = useState(false)
+
+  useEffect(() => {
+    if (!sessionRunning) return
+    if (sessionTimer <= 0) { setView('feedback'); setSessionRunning(false); return }
+    const iv = setInterval(() => setSessionTimer(p => { if (p <= 1) { clearInterval(iv); setView('feedback'); setSessionRunning(false); return 0 } return p - 1 }), 1000)
+    return () => clearInterval(iv)
+  }, [sessionRunning, sessionTimer])
+
+  const submitFb = async () => {
+    if (fb.wantConnect === null) { toast.error('يرجى الإجابة على سؤال التواصل'); return }
+    setSubmittingFb(true)
+    const d = await call('e3-submit-phase2-feedback', token, { feedback: { ...fb, word } })
+    setSubmittingFb(false)
+    if (!d.error) { setFeedbackDone(true); toast.success('تم الحفظ ✨') }
+  }
+
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
       if (!d.error) {
@@ -621,7 +642,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.button
-                onClick={() => setView('session')}
+                onClick={() => { setView('session'); setSessionRunning(true) }}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                 className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-pink-900/30 border-pink-700/40 text-pink-300 hover:brightness-125 active:scale-95"
               >
@@ -632,6 +653,94 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Feedback View (Phase 2) ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {view === 'feedback' && (
+          <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+              <button onClick={() => setView('session')} className="text-gray-400 hover:text-white text-sm transition-colors">← رجوع</button>
+              <span className="text-white font-bold text-sm">تقييم الجلسة الأولى</span>
+              <div className="w-12" />
+            </div>
+            {feedbackDone ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+                <div className="text-5xl">✨</div>
+                <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
+                <p className="text-gray-500 text-sm text-center">تم حفظ تقييمك بنجاح — انتظر المرحلة التالية</p>
+              </div>
+            ) : (
+              <div className="max-w-sm mx-auto w-full p-5 space-y-5 pb-10">
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-pink-900/20 border border-pink-800/30">
+                  <span className="text-gray-500 text-xs">شريكك</span>
+                  <span className="text-pink-300 font-bold">{data?.partner_first_name}</span>
+                </div>
+                <div className="text-center px-4 py-3 rounded-xl bg-indigo-900/20 border border-indigo-800/30">
+                  <p className="text-indigo-300 text-xs font-semibold">🔒 تقييمك سري تماماً — لا يراه إلا المنظم</p>
+                </div>
+                {/* Compatibility slider */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-5 space-y-3">
+                  <p className="text-white text-sm font-bold">⭐ خمّن درجة التوافق مع شريكك <span className="text-red-400">*</span></p>
+                  <p className="text-gray-500 text-xs">حرّك المؤشر — سيظهر التقييم الحقيقي بعد الإرسال</p>
+                  <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
+                    onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                    style={{ background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)` }} />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>0%</span>
+                    <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+                {/* Rating questions */}
+                {([{ key: 'conversationQuality', label: 'جودة المحادثة' }, { key: 'personalConnection', label: 'التواصل الشخصي' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة' }, { key: 'comfortLevel', label: 'مستوى الراحة' }, { key: 'communicationStyle', label: 'أسلوب التواصل' }] as { key: keyof typeof fb; label: string }[]).map(({ key, label }) => (
+                  <div key={key} className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                    <p className="text-white text-sm font-medium">{label}</p>
+                    <div className="flex gap-2 justify-between" dir="ltr">
+                      {[1,2,3,4,5].map(v => (
+                        <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
+                          className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                            (fb[key] as number) === v
+                              ? v <= 2 ? 'border-red-500 bg-red-500/20 text-red-300' : v === 3 ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500 hover:border-gray-600'
+                          }`}>{v}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {/* Want to connect */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-3">
+                  <p className="text-white text-sm font-bold">هل ترغب في التواصل مع هذا الشخص مرة أخرى؟ <span className="text-red-400">*</span></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
+                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
+                    <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
+                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
+                  </div>
+                </div>
+                {/* One-word */}
+                <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-gray-400 text-sm">صف الجلسة بكلمة واحدة للحفظ</p>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
+                      onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
+                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-pink-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                    {wordSubmitted
+                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
+                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-40 text-white rounded-xl px-4 py-2"><Send size={14} /></button>}
+                  </div>
+                </div>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
+                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 text-white shadow-lg disabled:opacity-40 transition-all">
+                  {submittingFb ? 'جاري الحفظ...' : 'إرسال التقييم ✨'}
+                </motion.button>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Session View (in-page, replaces partner card) ───────────────────── */}
       <AnimatePresence>
@@ -647,7 +756,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 ← رجوع
               </button>
               <span className="text-white font-bold text-sm">أسئلة الجلسة الأولى</span>
-              <div className="w-12" />
+              <span className={`font-mono text-sm font-black tabular-nums ${sessionTimer < 300 ? 'text-red-400' : 'text-pink-300'}`}>{formatTime(sessionTimer)}</span>
             </div>
             <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
               {/* Compact partner reminder */}
@@ -670,7 +779,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
                 <MessageSquare size={14} /> أسئلة للنقاش ✨
               </button>
-              {/* Feedback always visible */}
+              {/* One-word feedback */}
               <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-3">
                 <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
                 <div className="flex gap-2">
@@ -685,6 +794,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   }
                 </div>
               </div>
+              {/* Jump to feedback manually */}
+              <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
             </div>
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
@@ -771,8 +882,29 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
-  const [view, setView] = useState<'partner' | 'session'>('partner')
+  const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
+  const [sessionTimer, setSessionTimer] = useState(1800)
+  const [sessionRunning, setSessionRunning] = useState(false)
+  const [feedbackDone, setFeedbackDone] = useState(false)
+  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wantConnect: null as boolean | null })
+  const [submittingFb, setSubmittingFb] = useState(false)
+
+  useEffect(() => {
+    if (!sessionRunning) return
+    if (sessionTimer <= 0) { setView('feedback'); setSessionRunning(false); return }
+    const iv = setInterval(() => setSessionTimer(p => { if (p <= 1) { clearInterval(iv); setView('feedback'); setSessionRunning(false); return 0 } return p - 1 }), 1000)
+    return () => clearInterval(iv)
+  }, [sessionRunning, sessionTimer])
+
+  const submitFb = async () => {
+    if (fb.wantConnect === null) { toast.error('يرجى الإجابة على سؤال التواصل'); return }
+    setSubmittingFb(true)
+    const d = await call('e3-submit-phase3-feedback', token, { feedback: { ...fb, word } })
+    setSubmittingFb(false)
+    if (!d.error) { setFeedbackDone(true); toast.success('تم الحفظ ✨') }
+  }
+
   useEffect(() => {
     call("e3-get-phase3-reveal", token).then(d => {
       if (!d.error) {
@@ -864,7 +996,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.button
-                onClick={() => setView('session')}
+                onClick={() => { setView('session'); setSessionRunning(true) }}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                 className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-purple-900/30 border-purple-700/40 text-purple-300 hover:brightness-125 active:scale-95"
               >
@@ -889,7 +1021,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 ← رجوع
               </button>
               <span className="text-white font-bold text-sm">أسئلة الجلسة الثانية</span>
-              <div className="w-12" />
+              <span className={`font-mono text-sm font-black tabular-nums ${sessionTimer < 300 ? 'text-red-400' : 'text-purple-300'}`}>{formatTime(sessionTimer)}</span>
             </div>
             <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
               <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
@@ -908,24 +1040,97 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
                 <MessageSquare size={14} /> أسئلة للنقاش ✨
               </button>
-              <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-3">
-                <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
-                <div className="flex gap-2">
-                  <input type="text" placeholder="كلمة واحدة..." value={word} maxLength={20}
-                    onChange={e => setWord(e.target.value.split(" ")[0])} disabled={wordSubmitted}
-                    className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-purple-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
-                  {wordSubmitted
-                    ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
-                    : <button onClick={submitWord} disabled={!word.trim()}
-                        className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 disabled:opacity-40 text-white rounded-xl px-4 py-2 shadow-md transition-all">
-                        <Send size={14} /></button>
-                  }
-                </div>
-              </div>
+              {/* Jump to feedback */}
+              <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
             </div>
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
             </Suspense>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Feedback View (Phase 3) ──────────────────────────────────────────── */}
+      <AnimatePresence>
+        {view === 'feedback' && (
+          <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+              <button onClick={() => setView('session')} className="text-gray-400 hover:text-white text-sm transition-colors">← رجوع</button>
+              <span className="text-white font-bold text-sm">تقييم الجلسة الثانية</span>
+              <div className="w-12" />
+            </div>
+            {feedbackDone ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
+                <div className="text-5xl">✨</div>
+                <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
+                <p className="text-gray-500 text-sm text-center">تم حفظ تقييمك — انتظر الكشف النهائي</p>
+              </div>
+            ) : (
+              <div className="max-w-sm mx-auto w-full p-5 space-y-5 pb-10">
+                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
+                  <span className="text-gray-500 text-xs">شريكك</span>
+                  <span className="text-purple-300 font-bold">{data?.partner_first_name}</span>
+                  {data?.compatibility_score && <span className="text-purple-400 text-xs font-medium">{data.compatibility_score}% توافق</span>}
+                </div>
+                <div className="text-center px-4 py-3 rounded-xl bg-indigo-900/20 border border-indigo-800/30">
+                  <p className="text-indigo-300 text-xs font-semibold">🔒 تقييمك سري تماماً — لا يراه إلا المنظم</p>
+                </div>
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-5 space-y-3">
+                  <p className="text-white text-sm font-bold">⭐ خمّن درجة التوافق مع شريكك <span className="text-red-400">*</span></p>
+                  <p className="text-gray-500 text-xs">حرّك المؤشر — سيظهر التقييم الحقيقي بعد الإرسال</p>
+                  <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
+                    onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
+                    style={{ background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)` }} />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>0%</span>
+                    <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
+                    <span>100%</span>
+                  </div>
+                </div>
+                {([{ key: 'conversationQuality', label: 'جودة المحادثة' }, { key: 'personalConnection', label: 'التواصل الشخصي' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة' }, { key: 'comfortLevel', label: 'مستوى الراحة' }, { key: 'communicationStyle', label: 'أسلوب التواصل' }] as { key: keyof typeof fb; label: string }[]).map(({ key, label }) => (
+                  <div key={key} className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                    <p className="text-white text-sm font-medium">{label}</p>
+                    <div className="flex gap-2 justify-between" dir="ltr">
+                      {[1,2,3,4,5].map(v => (
+                        <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
+                          className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                            (fb[key] as number) === v
+                              ? v <= 2 ? 'border-red-500 bg-red-500/20 text-red-300' : v === 3 ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
+                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500 hover:border-gray-600'
+                          }`}>{v}</button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-3">
+                  <p className="text-white text-sm font-bold">هل ترغب في التواصل مع هذا الشخص مرة أخرى؟ <span className="text-red-400">*</span></p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
+                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
+                    <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
+                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-gray-400 text-sm">صف الجلسة بكلمة واحدة للحفظ</p>
+                  <div className="flex gap-2">
+                    <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
+                      onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
+                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-purple-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                    {wordSubmitted
+                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
+                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-purple-600 to-violet-600 disabled:opacity-40 text-white rounded-xl px-4 py-2"><Send size={14} /></button>}
+                  </div>
+                </div>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
+                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 text-white shadow-lg disabled:opacity-40 transition-all">
+                  {submittingFb ? 'جاري الحفظ...' : 'إرسال التقييم ✨'}
+                </motion.button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

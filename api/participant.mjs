@@ -2674,6 +2674,21 @@ Please respond in JSON format:
         return res.status(200).json({ message: "Word saved" })
       }
 
+      // e3-submit-phase2-feedback
+      if (action === "e3-submit-phase2-feedback") {
+        const fb = req.body.feedback || {}
+        const { error } = await supabase.from("event3_matches").update({ phase2_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ message: "Feedback saved" })
+      }
+      // e3-submit-phase3-feedback
+      if (action === "e3-submit-phase3-feedback") {
+        const fb = req.body.feedback || {}
+        const { error } = await supabase.from("event3_matches").update({ phase3_feedback: fb }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        if (error) return res.status(500).json({ error: error.message })
+        return res.status(200).json({ message: "Feedback saved" })
+      }
+
       // e3-get-final-reveal
       if (action === "e3-get-final-reveal") {
         const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase3_score").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()

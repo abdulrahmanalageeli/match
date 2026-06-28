@@ -6117,8 +6117,26 @@ export default async function handler(req, res) {
           const scoreMap = {}
           for (let i = 0; i < pdata.length; i++) for (let j = i + 1; j < pdata.length; j++) { const a = pdata[i].assigned_number, b = pdata[j].assigned_number; const key = a < b ? `${a}-${b}` : `${b}-${a}`; scoreMap[key] = e3CalcCompat(pdata[i], pdata[j]) }
           const matches = e3HungarianMatching(nums.slice().sort((a, b) => a - b), scoreMap)
-          for (const [p, partner] of matches) { const key = p < partner ? `${p}-${partner}` : `${partner}-${p}`; await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: p, phase3_partner: partner, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" }) }
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.size / 2} pairs.` })
+          const p3seen = new Set()
+          const p3pairs = []
+          for (const [p, partner] of matches) {
+            if (p3seen.has(p)) continue
+            p3seen.add(p); p3seen.add(partner)
+            p3pairs.push({ a: p, b: partner })
+            const key = p < partner ? `${p}-${partner}` : `${partner}-${p}`
+            await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: p, phase3_partner: partner, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" })
+            await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: partner, phase3_partner: p, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" })
+          }
+          // Assign each pair a table (pair index + 1) stored as round=30
+          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 30)
+          const p3tableRows = []
+          p3pairs.forEach(({ a, b }, idx) => {
+            const tbl = idx + 1
+            p3tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 30, table_number: tbl, participant_id: a })
+            p3tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 30, table_number: tbl, participant_id: b })
+          })
+          if (p3tableRows.length) await supabase.from("session_assignments").insert(p3tableRows)
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${p3pairs.length} pairs across ${p3pairs.length} tables.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {

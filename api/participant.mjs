@@ -2660,9 +2660,12 @@ Please respond in JSON format:
       if (action === "e3-get-phase3-reveal") {
         const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
         if (!matchRow || !matchRow.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
-        const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
+        const [{ data: partner }, { data: p3tableRow }] = await Promise.all([
+          supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single(),
+          supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 30).eq("participant_id", myNumber).single(),
+        ])
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word })
+        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, table_number: p3tableRow?.table_number ?? null })
       }
 
       // e3-submit-phase3-word

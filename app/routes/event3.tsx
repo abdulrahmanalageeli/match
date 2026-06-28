@@ -214,23 +214,24 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
           <motion.div
             initial={{ y: -64 }} animate={{ y: 0 }} exit={{ y: -64 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="fixed top-0 inset-x-0 z-50 bg-gray-950/95 backdrop-blur-md border-b border-gray-800/60"
+            className="fixed top-0 inset-x-0 z-50 bg-gray-950/90 backdrop-blur-xl overflow-hidden"
           >
-            <div className="flex items-center justify-between px-5 h-16 max-w-sm mx-auto">
+            <div className="flex items-center justify-between px-5 h-14 max-w-sm mx-auto">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-purple-400" />
+                <Clock size={13} className="text-purple-400" />
                 <span className="text-gray-500 text-xs">الوقت المتبقي</span>
               </div>
               <div className={`text-2xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
                 {formatTime(timeLeft)}
               </div>
-              <div className="w-20 h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
-                <motion.div
-                  className={`h-full rounded-full bg-gradient-to-r ${timeLeft < 60 ? "from-red-500 to-red-400" : RC.bar}`}
-                  animate={{ width: `${(timeLeft / timerDuration) * 100}%` }}
-                  transition={{ duration: 1 }}
-                />
-              </div>
+            </div>
+            <div className="h-[2px] bg-gray-800/60">
+              <motion.div
+                className={`h-full bg-gradient-to-r ${timeLeft < 60 ? "from-red-500 to-red-400" : RC.bar}`}
+                style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 8px rgba(139,92,246,0.7)" }}
+                animate={{ width: `${(timeLeft / timerDuration) * 100}%` }}
+                transition={{ duration: 1 }}
+              />
             </div>
           </motion.div>
         )}
@@ -594,10 +595,17 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
-                <GlassCard className="p-4 text-center">
-                  <p className="text-gray-600 text-xs mb-1">الجلسة تبدأ خلال</p>
-                  <div className={`text-3xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                </GlassCard>
+                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="px-5 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-pink-400" /></p>
+                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  </div>
+                  <div className="h-1 bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
+                </div>
               )}
             </motion.div>
           ) : (
@@ -635,14 +643,17 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               {timerActive && timeLeft > 0 && (
-                <GlassCard className="p-5">
-                  <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5"><Clock size={11} className="text-pink-400" /> وقت الجلسة المتبقّي</p>
-                  <div className={`text-4xl font-mono font-black tabular-nums mb-3 ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                  <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
-                    <motion.div className={`h-full rounded-full ${timeLeft < 60 ? "bg-red-500" : "bg-gradient-to-r from-pink-500 to-rose-500"}`}
+                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="px-5 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">وقت الجلسة المتبقّي <Clock size={11} className="text-pink-400" /></p>
+                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  </div>
+                  <div className="h-1 bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
                       animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
-                </GlassCard>
+                </div>
               )}
 
               <motion.button
@@ -822,9 +833,16 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               </div>
               {/* Live timer strip */}
               {timerActive && timeLeft > 0 && (
-                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-gray-900/60 border border-gray-800/50">
-                  <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-pink-400" /> الوقت المتبقي</span>
-                  <span className={`font-mono font-black text-sm tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                <div className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-pink-400" /> الوقت المتبقي</span>
+                    <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                  </div>
+                  <div className="h-[2px] bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 to-rose-400"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(236,72,153,0.6)" }}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
                 </div>
               )}
               {/* Questions */}
@@ -1011,10 +1029,17 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
-                <GlassCard className="p-4 text-center">
-                  <p className="text-gray-600 text-xs mb-1">الجلسة تبدأ خلال</p>
-                  <div className={`text-3xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                </GlassCard>
+                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="px-5 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-purple-400" /></p>
+                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  </div>
+                  <div className="h-1 bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
+                </div>
               )}
             </motion.div>
           ) : (
@@ -1040,14 +1065,17 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               </motion.div>
 
               {timerActive && timeLeft > 0 && (
-                <GlassCard className="p-5">
-                  <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5"><Clock size={11} className="text-purple-400" /> وقت الجلسة المتبقّي</p>
-                  <div className={`text-4xl font-mono font-black tabular-nums mb-3 ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                  <div className="h-1.5 bg-gray-800/80 rounded-full overflow-hidden">
-                    <motion.div className={`h-full rounded-full ${timeLeft < 60 ? "bg-red-500" : "bg-gradient-to-r from-purple-500 to-violet-500"}`}
+                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="px-5 pt-4 pb-3">
+                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">وقت الجلسة المتبقّي <Clock size={11} className="text-purple-400" /></p>
+                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                  </div>
+                  <div className="h-1 bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
                       animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
                   </div>
-                </GlassCard>
+                </div>
               )}
 
               <motion.button
@@ -1090,9 +1118,16 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 {data?.compatibility_score && <span className="text-purple-400 text-xs font-medium">{data.compatibility_score}% توافق</span>}
               </div>
               {timerActive && timeLeft > 0 && (
-                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-gray-900/60 border border-gray-800/50">
-                  <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-purple-400" /> الوقت المتبقي</span>
-                  <span className={`font-mono font-black text-sm tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                <div className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-purple-400" /> الوقت المتبقي</span>
+                    <span className={`font-mono font-black text-lg tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                  </div>
+                  <div className="h-[2px] bg-gray-800/60">
+                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 to-violet-400"}`}
+                      style={{ boxShadow: timeLeft < 60 ? "0 0 6px rgba(239,68,68,0.6)" : "0 0 6px rgba(139,92,246,0.6)" }}
+                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
+                  </div>
                 </div>
               )}
               <QuestionSlideshow defaultSet="set1" />

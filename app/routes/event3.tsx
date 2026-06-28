@@ -1,16 +1,18 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, lazy, Suspense } from "react"
 import GroupsPage from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder } from "framer-motion"
 import confetti from "canvas-confetti"
 import {
-  Clock, Table2, Heart, Brain, ChevronDown, ExternalLink,
+  Clock, MapPin, Heart, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare,
+  MessageSquare, ChevronRight,
 } from "lucide-react"
 
-import WelcomeRoundPage from "~/routes/welcome-round"
+import { QuestionSlideshow } from "~/components/QuestionSlideshow"
+
+const PromptTopicsModal = lazy(() => import("~/components/PromptTopicsModal"))
 
 const API = "/api/participant"
 
@@ -249,7 +251,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
                 <p className="text-gray-500 text-xs flex items-center justify-center gap-1.5">
-                  <Table2 size={12} /> مكانك هذه الجولة
+                  <MapPin size={12} /> مكانك هذه الجولة
                 </p>
                 <div className={`text-8xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
                 <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
@@ -514,7 +516,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
-  const [showRound, setShowRound] = useState(false)
+  const [view, setView] = useState<'partner' | 'session'>('partner')
+  const [showPrompt, setShowPrompt] = useState(false)
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
       if (!d.error) {
@@ -587,14 +590,22 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 
               {data?.table_number && (
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                  <GlassCard className="p-5 border border-amber-700/40 bg-amber-900/20 text-center space-y-2">
-                    <p className="text-amber-400/80 text-xs font-medium">توجّه الآن إلى</p>
-                    <div className="flex items-center justify-center gap-3">
-                      <Table2 size={22} className="text-amber-400" />
-                      <span className="text-5xl font-black text-amber-300 tabular-nums">{data.table_number}</span>
+                  <div className="relative overflow-hidden rounded-2xl border border-amber-700/50 bg-gradient-to-br from-amber-900/40 via-orange-900/25 to-amber-900/30 p-5 text-center shadow-lg shadow-amber-900/20">
+                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500/60 to-transparent" />
+                    <p className="text-amber-400/80 text-xs font-medium tracking-wider uppercase mb-3">توجّه الآن إلى</p>
+                    <div className="flex items-center justify-center gap-4 mb-3">
+                      <div className="text-center">
+                        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border-2 border-amber-500/40 flex flex-col items-center justify-center mx-auto mb-1.5">
+                          <span className="text-3xl font-black text-amber-300 leading-none">{data.table_number}</span>
+                        </div>
+                        <p className="text-amber-500/80 text-xs font-semibold">طاولة</p>
+                      </div>
                     </div>
-                    <p className="text-amber-500/70 text-xs">ستجد شريكك هناك — انتظر بدء الجلسة</p>
-                  </GlassCard>
+                    <div className="flex items-center justify-center gap-1.5 text-amber-400/70 text-xs">
+                      <MapPin size={12} className="animate-bounce" />
+                      <span>ستجد {data?.partner_first_name || 'شريكك'} هناك — انتظر بدء الجلسة</span>
+                    </div>
+                  </div>
                 </motion.div>
               )}
 
@@ -610,15 +621,57 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.button
-                onClick={() => setShowRound(true)}
+                onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                 className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-pink-900/30 border-pink-700/40 text-pink-300 hover:brightness-125 active:scale-95"
               >
-                أسئلة الجلسة 💬
-                <MessageSquare size={15} />
+                انتقل إلى أسئلة الجلسة
+                <ChevronRight size={16} />
               </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-              <GlassCard className="p-4 space-y-3">
+      {/* ── Session View (in-page, replaces partner card) ───────────────────── */}
+      <AnimatePresence>
+        {view === 'session' && (
+          <motion.div
+            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-40 bg-gray-950 flex flex-col overflow-y-auto"
+          >
+            {/* Sticky header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+              <button onClick={() => setView('partner')} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
+                ← رجوع
+              </button>
+              <span className="text-white font-bold text-sm">أسئلة الجلسة الأولى</span>
+              <div className="w-12" />
+            </div>
+            <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
+              {/* Compact partner reminder */}
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-pink-900/20 border border-pink-800/30">
+                <span className="text-gray-500 text-xs">شريكك</span>
+                <span className="text-pink-300 font-bold">{data?.partner_first_name}</span>
+                {data?.table_number && <span className="text-amber-400 text-xs font-medium">طاولة {data.table_number}</span>}
+              </div>
+              {/* Live timer strip */}
+              {timerActive && timeLeft > 0 && (
+                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-gray-900/60 border border-gray-800/50">
+                  <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-pink-400" /> الوقت المتبقي</span>
+                  <span className={`font-mono font-black text-sm tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                </div>
+              )}
+              {/* Questions */}
+              <QuestionSlideshow defaultSet="special" />
+              {/* PromptTopicsModal */}
+              <button onClick={() => setShowPrompt(true)}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
+                <MessageSquare size={14} /> أسئلة للنقاش ✨
+              </button>
+              {/* Feedback always visible */}
+              <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-3">
                 <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
                 <div className="flex gap-2">
                   <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
@@ -631,30 +684,11 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                         <Send size={14} /></button>
                   }
                 </div>
-              </GlassCard>
-
-              <p className="text-gray-700 text-xs text-center">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ── Welcome Round Overlay (Phase 2 = same-gender round 1) ──────────────── */}
-      <AnimatePresence>
-        {showRound && (
-          <motion.div
-            initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }}
-            transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            className="fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col"
-            style={{ top: timerActive && timeLeft > 0 ? "64px" : "0px" }}
-          >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-md flex-shrink-0">
-              <span className="font-bold text-white flex items-center gap-2">💬 أسئلة الجلسة الأولى</span>
-              <button onClick={() => setShowRound(false)} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">رجوع ←</button>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <WelcomeRoundPage round={1} />
-            </div>
+            <Suspense fallback={null}>
+              {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>
@@ -737,7 +771,8 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [timeLeft, setTimeLeft] = useState(0)
   const [word, setWord] = useState("")
   const [wordSubmitted, setWordSubmitted] = useState(false)
-  const [showRound, setShowRound] = useState(false)
+  const [view, setView] = useState<'partner' | 'session'>('partner')
+  const [showPrompt, setShowPrompt] = useState(false)
   useEffect(() => {
     call("e3-get-phase3-reveal", token).then(d => {
       if (!d.error) {
@@ -829,15 +864,51 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.button
-                onClick={() => setShowRound(true)}
+                onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
                 className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all bg-purple-900/30 border-purple-700/40 text-purple-300 hover:brightness-125 active:scale-95"
               >
-                أسئلة الجلسة 💬
-                <MessageSquare size={15} />
+                انتقل إلى أسئلة الجلسة
+                <ChevronRight size={16} />
               </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
 
-              <GlassCard className="p-4 space-y-3">
+      {/* ── Session View (in-page, Phase 3 = opposite-gender round 2) ───────── */}
+      <AnimatePresence>
+        {view === 'session' && (
+          <motion.div
+            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed inset-0 z-40 bg-gray-950 flex flex-col overflow-y-auto"
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+              <button onClick={() => setView('partner')} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
+                ← رجوع
+              </button>
+              <span className="text-white font-bold text-sm">أسئلة الجلسة الثانية</span>
+              <div className="w-12" />
+            </div>
+            <div className="flex-1 max-w-sm mx-auto w-full p-5 space-y-5">
+              <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
+                <span className="text-gray-500 text-xs">شريكك</span>
+                <span className="text-purple-300 font-bold">{data?.partner_first_name}</span>
+                {data?.compatibility_score && <span className="text-purple-400 text-xs font-medium">{data.compatibility_score}% توافق</span>}
+              </div>
+              {timerActive && timeLeft > 0 && (
+                <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-gray-900/60 border border-gray-800/50">
+                  <span className="text-gray-500 text-xs flex items-center gap-1.5"><Clock size={10} className="text-purple-400" /> الوقت المتبقي</span>
+                  <span className={`font-mono font-black text-sm tabular-nums ${timeLeft < 60 ? 'text-red-400' : 'text-white'}`}>{formatTime(timeLeft)}</span>
+                </div>
+              )}
+              <QuestionSlideshow defaultSet="set1" />
+              <button onClick={() => setShowPrompt(true)}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
+                <MessageSquare size={14} /> أسئلة للنقاش ✨
+              </button>
+              <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-3">
                 <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
                 <div className="flex gap-2">
                   <input type="text" placeholder="كلمة واحدة..." value={word} maxLength={20}
@@ -850,30 +921,11 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                         <Send size={14} /></button>
                   }
                 </div>
-              </GlassCard>
-
-              <p className="text-gray-700 text-xs text-center">ابحث عن {data?.partner_first_name} وابدأ محادثتكما</p>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* ── Welcome Round Overlay (Phase 3 = opposite-gender round 2) ─────────── */}
-      <AnimatePresence>
-        {showRound && (
-          <motion.div
-            initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }}
-            transition={{ type: "spring", stiffness: 280, damping: 32 }}
-            className="fixed inset-x-0 bottom-0 z-40 bg-gray-950 flex flex-col"
-            style={{ top: timerActive && timeLeft > 0 ? "64px" : "0px" }}
-          >
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-md flex-shrink-0">
-              <span className="font-bold text-white flex items-center gap-2">💬 أسئلة الجلسة الثانية</span>
-              <button onClick={() => setShowRound(false)} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm font-medium">رجوع ←</button>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              <WelcomeRoundPage round={2} />
-            </div>
+            <Suspense fallback={null}>
+              {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
+            </Suspense>
           </motion.div>
         )}
       </AnimatePresence>

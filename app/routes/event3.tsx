@@ -591,6 +591,19 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </GlassCard>
               </motion.div>
 
+              {data?.table_number && (
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+                  <GlassCard className="p-5 border border-amber-700/40 bg-amber-900/20 text-center space-y-2">
+                    <p className="text-amber-400/80 text-xs font-medium">توجّه الآن إلى</p>
+                    <div className="flex items-center justify-center gap-3">
+                      <Table2 size={22} className="text-amber-400" />
+                      <span className="text-5xl font-black text-amber-300 tabular-nums">{data.table_number}</span>
+                    </div>
+                    <p className="text-amber-500/70 text-xs">ستجد شريكك هناك — انتظر بدء الجلسة</p>
+                  </GlassCard>
+                </motion.div>
+              )}
+
               {timerActive && timeLeft > 0 && (
                 <GlassCard className="p-5">
                   <p className="text-gray-500 text-xs mb-2 flex items-center justify-center gap-1.5"><Clock size={11} className="text-pink-400" /> وقت الجلسة المتبقّي</p>

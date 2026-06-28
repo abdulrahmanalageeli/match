@@ -2639,9 +2639,12 @@ Please respond in JSON format:
       if (action === "e3-get-phase2-reveal") {
         const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
-        const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single()
+        const [{ data: partner }, { data: tableRow }] = await Promise.all([
+          supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
+          supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 20).eq("participant_id", myNumber).single(),
+        ])
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null })
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null })
       }
 
       // e3-submit-phase2-word

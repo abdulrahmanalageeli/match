@@ -44,14 +44,17 @@ function e3GenerateSeatingPlan(participantNumbers) {
   return { round1, round2, T, G, positionMap }
 }
 
-function e3GreedyMutualMatching(rankings) {
+function e3GreedyMutualMatching(rankings, genders = new Map()) {
   const unmatched = new Set(rankings.keys()), matches = new Map(), list = Array.from(rankings.keys()), pairs = []
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const pi = list[i], pj = list[j]
     const ri = (rankings.get(pi) || []).indexOf(pj), rj = (rankings.get(pj) || []).indexOf(pi)
-    if (ri !== -1 && rj !== -1) pairs.push({ a: pi, b: pj, score: ri + rj })
+    if (ri !== -1 && rj !== -1) {
+      const oppGender = genders.size > 0 && genders.get(pi) && genders.get(pj) && genders.get(pi) !== genders.get(pj) ? 1 : 0
+      pairs.push({ a: pi, b: pj, score: ri + rj, oppGender })
+    }
   }
-  pairs.sort((a, b) => a.score - b.score)
+  pairs.sort((a, b) => a.score - b.score || b.oppGender - a.oppGender)
   for (const { a, b } of pairs) {
     if (unmatched.has(a) && unmatched.has(b)) { matches.set(a, b); matches.set(b, a); unmatched.delete(a); unmatched.delete(b) }
     if (unmatched.size === 0) break
@@ -6072,14 +6075,37 @@ export default async function handler(req, res) {
             const sorted = rankRows.filter(r => r.ranker_number === row.ranker_number).sort((a, b) => a.rank - b.rank).map(r => r.ranked_number)
             rankings.set(row.ranker_number, sorted)
           }
-          const matches = e3GreedyMutualMatching(rankings)
+          const rankerNums = Array.from(rankings.keys())
+          const { data: genderRows } = await supabase.from("participants").select("assigned_number,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", rankerNums)
+          const genders = new Map()
+          for (const p of genderRows || []) {
+            const g = p.gender || (() => { try { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return sd?.answers?.gender || sd?.gender || "" } catch { return "" } })()
+            if (g) genders.set(p.assigned_number, g.toLowerCase())
+          }
+          const matches = e3GreedyMutualMatching(rankings, genders)
           await supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID)
           const rows = []
           const seen = new Set()
-          for (const [p, partner] of matches) { if (seen.has(p)) continue; seen.add(p); seen.add(partner); rows.push({ match_id: EVENT3_MATCH_ID, participant_number: p, phase2_partner: partner }); rows.push({ match_id: EVENT3_MATCH_ID, participant_number: partner, phase2_partner: p }) }
+          const pairs = []
+          for (const [p, partner] of matches) {
+            if (seen.has(p)) continue
+            seen.add(p); seen.add(partner)
+            pairs.push({ a: p, b: partner })
+            rows.push({ match_id: EVENT3_MATCH_ID, participant_number: p, phase2_partner: partner })
+            rows.push({ match_id: EVENT3_MATCH_ID, participant_number: partner, phase2_partner: p })
+          }
           const { error } = await supabase.from("event3_matches").insert(rows)
           if (error) return res.status(500).json({ error: error.message })
-          return res.status(200).json({ message: `Phase 2 matching complete. Created ${rows.length / 2} pairs.` })
+          // Assign each pair a table (pair index + 1) stored as round=20
+          await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
+          const tableRows = []
+          pairs.forEach(({ a, b }, idx) => {
+            const tbl = idx + 1
+            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: tbl, participant_id: a })
+            tableRows.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 20, table_number: tbl, participant_id: b })
+          })
+          await supabase.from("session_assignments").insert(tableRows)
+          return res.status(200).json({ message: `Phase 2 matching complete. Created ${pairs.length} pairs across ${pairs.length} tables.` })
         }
         // e3-trigger-phase3-matching
         if (action === "e3-trigger-phase3-matching") {

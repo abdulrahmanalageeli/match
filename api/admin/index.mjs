@@ -6201,6 +6201,30 @@ export default async function handler(req, res) {
           }
           return res.status(200).json({ pairs })
         }
+        // e3-set-ranking (admin override for one participant's ranking list)
+        if (action === "e3-set-ranking") {
+          const { ranker_number, ranked_list } = req.body
+          if (!ranker_number || !Array.isArray(ranked_list)) return res.status(400).json({ error: "ranker_number and ranked_list required" })
+          await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID).eq("ranker_number", ranker_number)
+          if (ranked_list.length > 0) {
+            const rows = ranked_list.map((num, idx) => ({ match_id: EVENT3_MATCH_ID, event_id: 3, ranker_number, ranked_number: num, rank: idx + 1 }))
+            const { error } = await supabase.from("participant_rankings").insert(rows)
+            if (error) return res.status(500).json({ error: error.message })
+          }
+          return res.status(200).json({ message: `Ranking updated for #${ranker_number}` })
+        }
+        // e3-swap-seating (swap two participants across all rounds in session_assignments)
+        if (action === "e3-swap-seating") {
+          const { num_a, num_b } = req.body
+          if (!num_a || !num_b || num_a === num_b) return res.status(400).json({ error: "Two different participant numbers required" })
+          const { data: rowsA } = await supabase.from("session_assignments").select("id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_a)
+          const { data: rowsB } = await supabase.from("session_assignments").select("id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_b)
+          if (!rowsA?.length && !rowsB?.length) return res.status(404).json({ error: "Neither participant found in session assignments" })
+          const updA = rowsA?.map(r => supabase.from("session_assignments").update({ participant_id: num_b }).eq("id", r.id)) || []
+          const updB = rowsB?.map(r => supabase.from("session_assignments").update({ participant_id: num_a }).eq("id", r.id)) || []
+          await Promise.all([...updA, ...updB])
+          return res.status(200).json({ message: `Swapped #${num_a} ↔ #${num_b} in all rounds` })
+        }
         // e3-clear-rankings
         if (action === "e3-clear-rankings") {
           const { error } = await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID)

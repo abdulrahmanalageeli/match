@@ -576,8 +576,8 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration, scoreRevealed }: {
-  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number; scoreRevealed: boolean
+function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
+  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
@@ -691,14 +691,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration, sco
                       <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
                     </div>
                     <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    {scoreRevealed && data?.compatibility_score ? (
-                      <div className="flex items-center justify-center gap-2 mt-3">
-                        <span className="text-pink-300 font-black text-3xl">{data.compatibility_score}%</span>
-                        <span className="text-gray-500 text-xs">توافق</span>
-                      </div>
-                    ) : (
-                      <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
-                    )}
+                    <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
                   </div>
                 </div>
               </motion.div>
@@ -840,8 +833,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration, sco
                 {/* Want to connect */}
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                   <div>
-                    <p className="text-white/90 text-sm font-semibold">هل تودّ التواصل معه/معها بعد الفعالية؟ <span className="text-red-400">*</span></p>
-                    <p className="text-gray-600 text-xs mt-1.5 leading-relaxed">إذا اختار الطرف الآخر "نعم" أيضاً — سيُعلمكما المنظم ويتيح تبادل طريقة التواصل ✨</p>
+                    <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل معه/معها بعد الفعالية؟ <span className="text-red-400">*</span></p>
+                    <p className="text-gray-500 text-xs mt-1.5 leading-relaxed">إجابتك سرية تماماً ولن يعلم بها الطرف الآخر. فقط في حال أجاب كلاكما بـ«نعم» سيتواصل معكما المنظم لتسهيل تبادل معلومات التواصل 🤝</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
@@ -1028,8 +1021,8 @@ function Phase2WordScreen({ token }: { token: string }) {
 }
 
 // ─── Phase 3 Reveal Screen ────────────────────────────────────────────────────
-function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration, scoreRevealed }: {
-  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number; scoreRevealed: boolean
+function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
+  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
@@ -1151,14 +1144,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration, sco
                       <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
                     </div>
                     <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    {scoreRevealed && data?.compatibility_score ? (
-                      <div className="flex items-center justify-center gap-2 mt-3">
-                        <span className="text-purple-300 font-black text-3xl">{data.compatibility_score}%</span>
-                        <span className="text-gray-500 text-xs">توافق</span>
-                      </div>
-                    ) : (
-                      <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
-                    )}
+                    <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
                   </div>
                 </div>
               </motion.div>
@@ -1330,7 +1316,10 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration, sco
                   </div>
                 ))}
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل مرة أخرى؟ <span className="text-red-400">*</span></p>
+                  <div className="space-y-1.5">
+                    <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل معه/معها بعد الفعالية؟ <span className="text-red-400">*</span></p>
+                    <p className="text-gray-500 text-xs leading-relaxed">إجابتك سرية تماماً ولن يعلم بها الطرف الآخر. فقط في حال أجاب كلاكما بـ«نعم» سيتواصل معكما المنظم لتسهيل تبادل معلومات التواصل 🤝</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
                       className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === true ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>نعم ✅</button>
@@ -1551,9 +1540,9 @@ export default function Event3Page() {
         {phase === "setup" && <SetupScreen key="setup" />}
         {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}
         {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
-        {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} scoreRevealed={!!eventState.phase2_score_revealed} />}
+        {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
         {phase === "phase2_oneword" && <Phase2WordScreen key="p2w" token={token} />}
-        {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} scoreRevealed={!!eventState.phase3_score_revealed} />}
+        {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
         {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
       </AnimatePresence>
     </>

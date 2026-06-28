@@ -69,6 +69,9 @@ export default function Admin3Page() {
   const [genderFilter, setGenderFilter] = useState("all")
   const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking">("control")
   const [timerRemaining, setTimerRemaining] = useState(0)
+  const [editingRanker, setEditingRanker] = useState<number | null>(null)
+  const [editedOrder, setEditedOrder] = useState<any[]>([])
+  const [swapA, setSwapA] = useState<number | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -132,6 +135,11 @@ export default function Admin3Page() {
     return () => clearInterval(iv)
   }, [authenticated, fetchState, fetchParticipants, fetchSeating])
 
+  useEffect(() => {
+    if (authenticated && activeTab === "seating") fetchSeating()
+    if (authenticated && activeTab === "ranking") fetchRankStatus()
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus])
+
   // Timer countdown
   useEffect(() => {
     if (!state?.timer_active || !state?.timer_start) {
@@ -165,8 +173,31 @@ export default function Admin3Page() {
   const startTimer = (round: number, duration = 1200) =>
     run("timer", () => api("e3-start-timer", { round, duration }))
   const stopTimer = () => run("timer-stop", () => api("e3-stop-timer"))
-  const toggleScoreReveal = (which: "phase2" | "phase3", value: boolean) =>
-    run(`score-${which}`, () => api("e3-toggle-score-reveal", { which, value }))
+  const saveRanking = (rankerNum: number) =>
+    run(`save-rank-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: editedOrder.map(i => i.number) }).then(d => { if (!d.error) { setEditingRanker(null); fetchRankStatus() } return d }))
+
+  const doSwap = (numB: number) =>
+    run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
+
+  const getNextStep = (): { label: string; action: () => void; ready: boolean } | null => {
+    if (!state) return null
+    const ph = state.phase || "setup"
+    const hasSeating = state.seating_generated
+    const ranked = state.rankings_submitted || 0
+    const hasMatches = state.phase2_matches_done
+    const sel = state.participants_selected || 0
+    if (ph === "setup" && !hasSeating) return { label: "توليد خطة الجلسات", action: generateSeating, ready: sel >= 6 }
+    if (ph === "setup" && hasSeating) return { label: "⬅ بدء الجولة الأولى (20 دقيقة)", action: () => { setPhase("round1"); startTimer(1, 1200) }, ready: true }
+    if (ph === "round1") return { label: "⬅ التصنيف بعد الجولة 1", action: () => setPhase("ranking1"), ready: true }
+    if (ph === "ranking1") return { label: "⬅ بدء الجولة الثانية (20 دقيقة)", action: () => { setPhase("round2"); startTimer(2, 1200) }, ready: true }
+    if (ph === "round2") return { label: "⬅ التصنيف النهائي", action: () => setPhase("ranking2"), ready: true }
+    if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })), ready: ranked > 0 }
+    if (ph === "ranking2" && hasMatches) return { label: "⬅ بدء كشف المرحلة 2 (30 دقيقة)", action: () => { setPhase("phase2_reveal"); startTimer(4, 1800) }, ready: true }
+    if (ph === "phase2_reveal") return { label: "⬅ شاشة الكلمة الواحدة", action: () => setPhase("phase2_oneword"), ready: true }
+    if (ph === "phase2_oneword") return { label: "⬅ كشف المرحلة 3 (30 دقيقة)", action: () => { setPhase("phase3_reveal"); startTimer(5, 1800) }, ready: true }
+    if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
+    return null
+  }
 
   const generateSeating = () => run("seating", async () => {
     const data = await api("e3-generate-seating")
@@ -558,48 +589,18 @@ export default function Admin3Page() {
               </div>
             </div>
 
-            {/* Score Reveal Controls */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold flex items-center gap-2 mb-4">
-                <Eye size={16} className="text-purple-400" /> كشف نسبة التوافق
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-white">جلسة 1:1 الأولى</p>
-                    <p className="text-xs text-gray-500">{state?.phase2_score_revealed ? 'ظاهرة الآن' : 'مخفية'}</p>
-                  </div>
-                  <button
-                    onClick={() => toggleScoreReveal('phase2', !state?.phase2_score_revealed)}
-                    disabled={!!loading}
-                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
-                      state?.phase2_score_revealed ? 'bg-pink-600' : 'bg-gray-700'
-                    }`}
-                  >
-                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 ${
-                      state?.phase2_score_revealed ? 'left-6' : 'left-0.5'
-                    }`} />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3">
-                  <div>
-                    <p className="text-sm font-medium text-white">جلسة 1:1 الثانية</p>
-                    <p className="text-xs text-gray-500">{state?.phase3_score_revealed ? 'ظاهرة الآن' : 'مخفية'}</p>
-                  </div>
-                  <button
-                    onClick={() => toggleScoreReveal('phase3', !state?.phase3_score_revealed)}
-                    disabled={!!loading}
-                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
-                      state?.phase3_score_revealed ? 'bg-purple-600' : 'bg-gray-700'
-                    }`}
-                  >
-                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 ${
-                      state?.phase3_score_revealed ? 'left-6' : 'left-0.5'
-                    }`} />
-                  </button>
-                </div>
+            {/* Next Step */}
+            {getNextStep() && (() => { const ns = getNextStep()!; return (
+              <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/30 border border-emerald-700/50 rounded-xl p-4">
+                <p className="text-emerald-400/70 text-xs mb-2 font-medium">الخطوة التالية الموصى بها</p>
+                <button
+                  onClick={ns.action}
+                  disabled={!ns.ready || !!loading}
+                  className="w-full py-3 rounded-xl font-bold text-base bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[0.98] shadow-lg shadow-emerald-900/40"
+                >{loading?.startsWith('phase') || loading === 'timer' || loading === 'seating' ? <RefreshCw size={16} className="animate-spin inline ml-2" /> : null}{ns.label}</button>
+                {!ns.ready && <p className="text-emerald-600 text-xs mt-1.5 text-center">أكمل الخطوات السابقة أولاً</p>}
               </div>
-            </div>
+            )})()}
 
             {/* Danger Zone */}
             <div className="bg-gray-900 border border-red-900/40 rounded-xl p-4">
@@ -627,6 +628,17 @@ export default function Admin3Page() {
               </button>
             </div>
 
+            {seating && (
+              <div className={`rounded-xl px-4 py-3 border text-sm flex items-center justify-between gap-3 ${swapA ? 'bg-amber-900/30 border-amber-700/50' : 'bg-gray-900 border-gray-800'}`}>
+                <div>
+                  <p className={`font-medium text-xs ${swapA ? 'text-amber-300' : 'text-gray-400'}`}>
+                    {swapA ? `تبديل المشارك #${swapA} مع...` : 'تبديل مشاركَين بين الطاولات'}
+                  </p>
+                  {!swapA && <p className="text-gray-600 text-xs mt-0.5">اضغط على اسم مشارك أولاً ثم اضغط على آخر</p>}
+                </div>
+                {swapA && <button onClick={() => setSwapA(null)} className="text-gray-500 text-xs hover:text-gray-300">إلغاء</button>}
+              </div>
+            )}
             {!seating ? (
               <div className="text-center py-12 text-gray-500">
                 <Grid3x3 size={32} className="mx-auto mb-3 opacity-30" />
@@ -650,11 +662,13 @@ export default function Admin3Page() {
                           </div>
                           <div className="space-y-1">
                             {members.map((m: any) => (
-                              <div key={m.number} className="text-xs flex items-center gap-1.5">
+                              <button key={m.number}
+                                onClick={() => { if (!swapA) { setSwapA(m.number) } else if (swapA === m.number) { setSwapA(null) } else { doSwap(m.number) } }}
+                                className={`text-xs flex items-center gap-1.5 w-full rounded px-1 py-0.5 text-right transition-colors ${swapA === m.number ? 'bg-amber-800/50 text-amber-200' : swapA ? 'hover:bg-gray-700 cursor-pointer text-gray-300' : 'hover:bg-gray-700/50 text-gray-300'}`}>
                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.gender === "female" ? "bg-pink-400" : "bg-blue-400"}`} />
-                                <span className="text-gray-300 truncate">{m.name}</span>
-                                <span className="text-gray-600 flex-shrink-0">#{m.number}</span>
-                              </div>
+                                <span className="truncate">{m.name}</span>
+                                <span className={`flex-shrink-0 ${swapA === m.number ? 'text-amber-400' : 'text-gray-600'}`}>#{m.number}</span>
+                              </button>
                             ))}
                           </div>
                         </div>
@@ -737,16 +751,49 @@ export default function Admin3Page() {
                         <ChevronRight size={13} className={`text-gray-600 transition-transform flex-shrink-0 ${expandedRanker === r.number ? "rotate-90" : ""}`} />
                       </button>
                       {expandedRanker === r.number && r.submitted && (
-                        <div className="px-4 pb-3 border-t border-gray-800/60 pt-2">
-                          <div className="space-y-1">
-                            {r.ranked_list.map((item: any, idx: number) => (
-                              <div key={item.number} className="flex items-center gap-2 text-xs">
-                                <span className="w-5 h-5 rounded-md bg-gray-800 text-gray-500 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
-                                <span className="text-gray-300">{item.name}</span>
-                                <span className="text-gray-600 font-mono">#{item.number}</span>
+                        <div className="px-4 pb-3 border-t border-gray-800/60 pt-2 space-y-2">
+                          {editingRanker === r.number ? (
+                            <>
+                              <p className="text-amber-400 text-xs mb-1">اسحب أو استخدم الأسهم لإعادة الترتيب</p>
+                              {editedOrder.map((item: any, idx: number) => {
+                                const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
+                                return (
+                                  <div key={item.number} className="flex items-center gap-2 text-xs bg-gray-800/60 rounded-lg px-2 py-1.5">
+                                    <span className="w-5 h-5 rounded-md bg-amber-900/60 text-amber-300 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
+                                    <span className="text-gray-200 flex-1">{item.name} <span className="text-gray-600">#{item.number}</span></span>
+                                    {theyRankedMe && <span className="text-purple-400 text-[10px]">رتّبك #{theyRankedMe.rank}</span>}
+                                    <div className="flex gap-1">
+                                      <button onClick={() => setEditedOrder(o => { const a=[...o]; if(idx>0){[a[idx-1],a[idx]]=[a[idx],a[idx-1]]}; return a })} disabled={idx===0} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▲</button>
+                                      <button onClick={() => setEditedOrder(o => { const a=[...o]; if(idx<a.length-1){[a[idx],a[idx+1]]=[a[idx+1],a[idx]]}; return a })} disabled={idx===editedOrder.length-1} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▼</button>
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={() => saveRanking(r.number)} disabled={!!loading} className="flex-1 py-1.5 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-medium">{loading===`save-rank-${r.number}` ? '...' : 'حفظ التغييرات'}</button>
+                                <button onClick={() => setEditingRanker(null)} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-400 text-xs">إلغاء</button>
                               </div>
-                            ))}
-                          </div>
+                            </>
+                          ) : (
+                            <>
+                              {r.ranked_list.map((item: any, idx: number) => {
+                                const theyRankedMe = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === r.number)
+                                const mutual = theyRankedMe && theyRankedMe.rank <= 3 && idx < 3
+                                return (
+                                  <div key={item.number} className={`flex items-center gap-2 text-xs rounded-lg px-2 py-1 ${mutual ? 'bg-emerald-900/25 border border-emerald-800/40' : ''}`}>
+                                    <span className="w-5 h-5 rounded-md bg-gray-800 text-gray-500 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
+                                    <span className="text-gray-300 flex-1">{item.name} <span className="text-gray-600">#{item.number}</span></span>
+                                    {theyRankedMe ? (
+                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${mutual ? 'bg-emerald-800/50 text-emerald-300' : 'text-gray-500'}`}>
+                                        {mutual ? '🔁 تبادل' : `رتّبك #${theyRankedMe.rank}`}
+                                      </span>
+                                    ) : <span className="text-gray-700 text-[10px]">لم يرتّبك</span>}
+                                  </div>
+                                )
+                              })}
+                              <button onClick={() => { setEditingRanker(r.number); setEditedOrder([...r.ranked_list]) }} className="mt-1 w-full py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 text-xs">✏️ تعديل الترتيب</button>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

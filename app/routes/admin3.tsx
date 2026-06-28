@@ -165,6 +165,8 @@ export default function Admin3Page() {
   const startTimer = (round: number, duration = 1200) =>
     run("timer", () => api("e3-start-timer", { round, duration }))
   const stopTimer = () => run("timer-stop", () => api("e3-stop-timer"))
+  const toggleScoreReveal = (which: "phase2" | "phase3", value: boolean) =>
+    run(`score-${which}`, () => api("e3-toggle-score-reveal", { which, value }))
 
   const generateSeating = () => run("seating", async () => {
     const data = await api("e3-generate-seating")
@@ -553,6 +555,49 @@ export default function Admin3Page() {
                     </div>
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Score Reveal Controls */}
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
+              <h3 className="font-semibold flex items-center gap-2 mb-4">
+                <Eye size={16} className="text-purple-400" /> كشف نسبة التوافق
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">جلسة 1:1 الأولى</p>
+                    <p className="text-xs text-gray-500">{state?.phase2_score_revealed ? 'ظاهرة الآن' : 'مخفية'}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleScoreReveal('phase2', !state?.phase2_score_revealed)}
+                    disabled={!!loading}
+                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
+                      state?.phase2_score_revealed ? 'bg-pink-600' : 'bg-gray-700'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 ${
+                      state?.phase2_score_revealed ? 'left-6' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
+                <div className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">جلسة 1:1 الثانية</p>
+                    <p className="text-xs text-gray-500">{state?.phase3_score_revealed ? 'ظاهرة الآن' : 'مخفية'}</p>
+                  </div>
+                  <button
+                    onClick={() => toggleScoreReveal('phase3', !state?.phase3_score_revealed)}
+                    disabled={!!loading}
+                    className={`relative w-12 h-6 rounded-full transition-colors duration-200 flex-shrink-0 ${
+                      state?.phase3_score_revealed ? 'bg-purple-600' : 'bg-gray-700'
+                    }`}
+                  >
+                    <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all duration-200 ${
+                      state?.phase3_score_revealed ? 'left-6' : 'left-0.5'
+                    }`} />
+                  </button>
+                </div>
               </div>
             </div>
 

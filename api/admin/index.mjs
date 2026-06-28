@@ -5979,13 +5979,13 @@ export default async function handler(req, res) {
       try {
         // e3-get-state
         if (action === "e3-get-state") {
-          const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round").eq("match_id", EVENT3_MATCH_ID).single()
+          const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed").eq("match_id", EVENT3_MATCH_ID).single()
           const { count: pc } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID)
           const { count: sc } = await supabase.from("session_assignments").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID)
           const { count: mc } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).not("phase2_partner", "is", null)
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID)
           const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
-          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0 })
+          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
@@ -6035,6 +6035,15 @@ export default async function handler(req, res) {
           const seating = { 1: {}, 2: {}, 3: {} }
           for (const row of rows) { if (!seating[row.round][row.table_number]) seating[row.round][row.table_number] = []; seating[row.round][row.table_number].push({ number: row.participant_id, ...nameMap[row.participant_id] }) }
           return res.status(200).json({ seating })
+        }
+        // e3-toggle-score-reveal
+        if (action === "e3-toggle-score-reveal") {
+          const { which, value } = req.body
+          if (which !== "phase2" && which !== "phase3") return res.status(400).json({ error: "which must be 'phase2' or 'phase3'" })
+          const field = which === "phase2" ? "phase2_score_revealed" : "phase3_score_revealed"
+          const { error } = await supabase.from("event_state").upsert({ match_id: EVENT3_MATCH_ID, [field]: !!value }, { onConflict: "match_id" })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: `${which} score ${value ? 'revealed' : 'hidden'}` })
         }
         // e3-set-phase
         if (action === "e3-set-phase") {

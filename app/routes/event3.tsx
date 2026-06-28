@@ -576,8 +576,8 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 
 
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
-function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
-  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration, scoreRevealed }: {
+  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number; scoreRevealed: boolean
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
@@ -681,14 +681,26 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
           ) : (
             <motion.div key="post" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.05 }}>
-                <GlassCard className="p-6 border border-pink-800/40 shadow-2xl shadow-pink-500/10 text-center">
-                  <p className="text-gray-500 text-xs mb-2">شريكك</p>
-                  <p className="text-4xl font-black text-white mb-3">{data?.partner_first_name || "..."}</p>
-                  <div className="inline-flex items-center gap-1.5 bg-pink-900/40 border border-pink-800/50 rounded-full px-3 py-1">
-                    <Heart size={11} className="text-pink-400" fill="currentColor" />
-                    <span className="text-pink-300 text-xs font-semibold">اختيارك الشخصي</span>
+                <div className="relative overflow-hidden rounded-3xl border border-pink-700/25 shadow-2xl shadow-pink-900/30">
+                  <div className="absolute inset-0 bg-gradient-to-br from-pink-950 via-rose-950/80 to-pink-900/60" />
+                  <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-pink-400/60 to-transparent" />
+                  <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
+                  <div className="relative z-10 px-6 pt-7 pb-8 text-center">
+                    <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-5">
+                      <Heart size={10} className="text-pink-400" fill="currentColor" />
+                      <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
+                    </div>
+                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
+                    {scoreRevealed && data?.compatibility_score ? (
+                      <div className="flex items-center justify-center gap-2 mt-3">
+                        <span className="text-pink-300 font-black text-3xl">{data.compatibility_score}%</span>
+                        <span className="text-gray-500 text-xs">توافق</span>
+                      </div>
+                    ) : (
+                      <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
+                    )}
                   </div>
-                </GlassCard>
+                </div>
               </motion.div>
 
               {data?.table_number && (
@@ -794,7 +806,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div dir="ltr" className="space-y-2">
                     <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
                       onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                      className="w-full rounded-full appearance-none cursor-pointer touch-none"
+                      className="compat-slider w-full rounded-full touch-none"
                       style={{
                         height: '20px',
                         background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)`,
@@ -807,7 +819,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   </div>
                 </div>
                 {/* Rating questions */}
-                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'wouldMeetAgain', label: 'الرغبة في لقاء مرة أخرى', hint: '1 = أبداً، 5 = بالتأكيد' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
+                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
                   <div key={key} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     <div>
                       <p className="text-white/90 text-sm font-semibold">{label}</p>
@@ -827,7 +839,10 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 ))}
                 {/* Want to connect */}
                 <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل مرة أخرى؟ <span className="text-red-400">*</span></p>
+                  <div>
+                    <p className="text-white/90 text-sm font-semibold">هل تودّ التواصل معه/معها بعد الفعالية؟ <span className="text-red-400">*</span></p>
+                    <p className="text-gray-600 text-xs mt-1.5 leading-relaxed">إذا اختار الطرف الآخر "نعم" أيضاً — سيُعلمكما المنظم ويتيح تبادل طريقة التواصل ✨</p>
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
                       className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === true ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>نعم ✅</button>
@@ -858,18 +873,6 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                     placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
                     className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
                   <p className="text-gray-700 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
-                </div>
-                {/* One-word */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-gray-500 text-xs font-medium tracking-wide">صف الجلسة بكلمة واحدة <span className="text-gray-700 text-xs">(+ يحفظ باقي التقييم)</span></p>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
-                      onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
-                      className="flex-1 bg-black/30 border border-white/[0.06] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-pink-500/30 disabled:opacity-40 transition-all placeholder:text-gray-700" />
-                    {wordSubmitted
-                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={18} /></div>
-                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-40 text-white rounded-xl px-5 py-3"><Send size={16} /></button>}
-                  </div>
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
                   className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white shadow-[0_4px_24px_-4px_rgba(236,72,153,0.6)] disabled:opacity-30 disabled:shadow-none transition-all">
@@ -1025,8 +1028,8 @@ function Phase2WordScreen({ token }: { token: string }) {
 }
 
 // ─── Phase 3 Reveal Screen ────────────────────────────────────────────────────
-function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
-  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration, scoreRevealed }: {
+  token: string; timerActive: boolean; timerStart: string | null; timerDuration: number; scoreRevealed: boolean
 }) {
   const [data, setData] = useState<any>(null)
   const [revealed, setRevealed] = useState(false)
@@ -1138,15 +1141,26 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               )}
 
               <motion.div initial={{ scale: 0.88, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.05 }}>
-                <GlassCard className="p-6 border border-purple-800/40 shadow-2xl shadow-purple-500/10 text-center">
-                  <p className="text-gray-500 text-xs mb-2">شريكك</p>
-                  <p className="text-4xl font-black text-white mb-3">{data?.partner_first_name || "..."}</p>
-                  <div className="inline-flex items-center gap-2 bg-purple-900/40 border border-purple-800/50 rounded-full px-4 py-1.5">
-                    <Brain size={12} className="text-purple-400" />
-                    <span className="text-purple-300 font-black text-lg">{data?.compatibility_score}%</span>
-                    <span className="text-gray-500 text-xs">توافق</span>
+                <div className="relative overflow-hidden rounded-3xl border border-purple-700/25 shadow-2xl shadow-purple-900/30">
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-violet-950/80 to-purple-900/60" />
+                  <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
+                  <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
+                  <div className="relative z-10 px-6 pt-7 pb-8 text-center">
+                    <div className="inline-flex items-center gap-1.5 bg-purple-900/50 border border-purple-700/40 rounded-full px-3 py-1 mb-5">
+                      <Brain size={10} className="text-purple-400" />
+                      <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
+                    </div>
+                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
+                    {scoreRevealed && data?.compatibility_score ? (
+                      <div className="flex items-center justify-center gap-2 mt-3">
+                        <span className="text-purple-300 font-black text-3xl">{data.compatibility_score}%</span>
+                        <span className="text-gray-500 text-xs">توافق</span>
+                      </div>
+                    ) : (
+                      <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
+                    )}
                   </div>
-                </GlassCard>
+                </div>
               </motion.div>
 
               {timerActive && timeLeft > 0 && (
@@ -1285,7 +1299,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div dir="ltr" className="space-y-2">
                     <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
                       onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                      className="w-full rounded-full appearance-none cursor-pointer touch-none"
+                      className="compat-slider w-full rounded-full touch-none"
                       style={{
                         height: '20px',
                         background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)`,
@@ -1297,7 +1311,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                     </div>
                   </div>
                 </div>
-                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'wouldMeetAgain', label: 'الرغبة في لقاء مرة أخرى', hint: '1 = أبداً، 5 = بالتأكيد' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
+                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
                   <div key={key} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                     <div>
                       <p className="text-white/90 text-sm font-semibold">{label}</p>
@@ -1347,17 +1361,6 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                     placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
                     className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
                   <p className="text-gray-700 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
-                </div>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-gray-500 text-xs font-medium tracking-wide">صف الجلسة بكلمة واحدة <span className="text-gray-700 text-xs">(+ يحفظ باقي التقييم)</span></p>
-                  <div className="flex gap-2">
-                    <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
-                      onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
-                      className="flex-1 bg-black/30 border border-white/[0.06] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30 disabled:opacity-40 transition-all placeholder:text-gray-700" />
-                    {wordSubmitted
-                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={18} /></div>
-                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-purple-600 to-violet-600 disabled:opacity-40 text-white rounded-xl px-5 py-3"><Send size={16} /></button>}
-                  </div>
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
                   className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_4px_24px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all">
@@ -1548,9 +1551,9 @@ export default function Event3Page() {
         {phase === "setup" && <SetupScreen key="setup" />}
         {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}
         {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
-        {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
+        {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} scoreRevealed={!!eventState.phase2_score_revealed} />}
         {phase === "phase2_oneword" && <Phase2WordScreen key="p2w" token={token} />}
-        {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
+        {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} scoreRevealed={!!eventState.phase3_score_revealed} />}
         {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
       </AnimatePresence>
     </>

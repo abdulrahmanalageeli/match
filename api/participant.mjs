@@ -2560,7 +2560,7 @@ Please respond in JSON format:
     try {
       // e3-get-state (no auth required)
       if (action === "e3-get-state") {
-        const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round").eq("match_id", E3_MATCH_ID).single()
+        const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed").eq("match_id", E3_MATCH_ID).single()
         const phase = stateRow?.phase || "setup"
         let myAssignment = null
         if (participant) {
@@ -2581,7 +2581,7 @@ Please respond in JSON format:
           const firstName = fullName.split(" ")[0] || fullName
           myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
         }
-        return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo })
+        return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
       }
 
       if (!participant) return res.status(401).json({ error: "Invalid or missing token" })
@@ -2640,11 +2640,21 @@ Please respond in JSON format:
         const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase2_word").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
         if (!matchRow || !matchRow.phase2_partner) return res.status(404).json({ error: "No Phase 2 match found yet" })
         const [{ data: partner }, { data: tableRow }] = await Promise.all([
-          supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
+          supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase2_partner).single(),
           supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", 20).eq("participant_id", myNumber).single(),
         ])
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null })
+        const getF = (p, k) => { try { const s = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return s?.answers?.[k] ?? s?.[k] ?? p?.[k] ?? "" } catch { return "" } }
+        let phase2Score = 50
+        const mA = (getF(participant, "mbti_type") || participant.mbti_personality_type || "").toUpperCase()
+        const mB = (getF(partner, "mbti_type") || partner?.mbti_personality_type || "").toUpperCase()
+        if (mA.length === 4 && mB.length === 4) { let s = 0; for (let i = 0; i < 4; i++) if (mA[i] === mB[i]) s++; phase2Score += s >= 3 ? 10 : s === 2 ? 5 : 0 }
+        const ageA = parseInt(getF(participant, "age") || participant.age) || 0, ageB = parseInt(getF(partner, "age") || partner?.age) || 0
+        if (ageA && ageB) { const d = Math.abs(ageA - ageB); phase2Score += d <= 2 ? 10 : d <= 5 ? 5 : d > 10 ? -10 : 0 }
+        const atA = (getF(participant, "attachment_style") || "").toLowerCase(), atB = (getF(partner, "attachment_style") || "").toLowerCase()
+        if (atA && atB) { if (atA === atB && atA === "secure") phase2Score += 10; else if (atA === "secure" || atB === "secure") phase2Score += 5 }
+        phase2Score = Math.min(99, Math.max(1, phase2Score))
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: phase2Score })
       }
 
       // e3-submit-phase2-word

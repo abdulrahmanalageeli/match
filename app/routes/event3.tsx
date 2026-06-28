@@ -521,7 +521,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [sessionTimer, setSessionTimer] = useState(1800)
   const [sessionRunning, setSessionRunning] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wantConnect: null as boolean | null })
+  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, wantConnect: null as boolean | null, organizerImpression: '', recommendations: '', participantMessage: '' })
   const [submittingFb, setSubmittingFb] = useState(false)
 
   useEffect(() => {
@@ -680,31 +680,37 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="text-center px-4 py-3 rounded-xl bg-indigo-900/20 border border-indigo-800/30">
                   <p className="text-indigo-300 text-xs font-semibold">🔒 تقييمك سري تماماً — لا يراه إلا المنظم</p>
                 </div>
-                {/* Compatibility slider */}
+                {/* Compatibility slider — force LTR so 0% stays left, 100% stays right */}
                 <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-5 space-y-3">
                   <p className="text-white text-sm font-bold">⭐ خمّن درجة التوافق مع شريكك <span className="text-red-400">*</span></p>
                   <p className="text-gray-500 text-xs">حرّك المؤشر — سيظهر التقييم الحقيقي بعد الإرسال</p>
-                  <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
-                    onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                    style={{ background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)` }} />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>0%</span>
-                    <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
-                    <span>100%</span>
+                  <div dir="ltr" className="space-y-2">
+                    <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
+                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                      className="w-full rounded-full appearance-none cursor-pointer touch-none"
+                      style={{
+                        height: '20px',
+                        background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)`,
+                      }} />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>0%</span>
+                      <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
+                      <span>100%</span>
+                    </div>
                   </div>
                 </div>
                 {/* Rating questions */}
-                {([{ key: 'conversationQuality', label: 'جودة المحادثة' }, { key: 'personalConnection', label: 'التواصل الشخصي' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة' }, { key: 'comfortLevel', label: 'مستوى الراحة' }, { key: 'communicationStyle', label: 'أسلوب التواصل' }] as { key: keyof typeof fb; label: string }[]).map(({ key, label }) => (
+                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'wouldMeetAgain', label: 'الرغبة في لقاء مرة أخرى', hint: '1 = أبداً، 5 = بالتأكيد' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
                   <div key={key} className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
                     <p className="text-white text-sm font-medium">{label}</p>
-                    <div className="flex gap-2 justify-between" dir="ltr">
+                    <p className="text-gray-600 text-xs">{hint}</p>
+                    <div className="flex gap-1.5 justify-between" dir="ltr">
                       {[1,2,3,4,5].map(v => (
                         <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
-                          className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                          className={`flex-1 min-h-[48px] rounded-xl border-2 font-bold text-base transition-all active:scale-95 ${
                             (fb[key] as number) === v
                               ? v <= 2 ? 'border-red-500 bg-red-500/20 text-red-300' : v === 3 ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500 hover:border-gray-600'
+                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500'
                           }`}>{v}</button>
                       ))}
                     </div>
@@ -715,10 +721,34 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <p className="text-white text-sm font-bold">هل ترغب في التواصل مع هذا الشخص مرة أخرى؟ <span className="text-red-400">*</span></p>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
+                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
-                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
+                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
                   </div>
+                </div>
+                {/* Organizer impression */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-white text-sm font-medium">انطباعك عن الشخص <span className="text-gray-500 text-xs font-normal">(سري — للمنظم فقط)</span></p>
+                  <textarea value={fb.organizerImpression} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
+                    placeholder="شعرت بالراحة أثناء الحديث..." rows={3}
+                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
+                  <p className="text-gray-600 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
+                </div>
+                {/* Recommendations */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-white text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                  <textarea value={fb.recommendations} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, recommendations: e.target.value }))}
+                    placeholder="زيادة الوقت بين الجلسات..." rows={3}
+                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
+                  <p className="text-gray-600 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
+                </div>
+                {/* Message to partner */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-white text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                  <textarea value={fb.participantMessage} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, participantMessage: e.target.value }))}
+                    placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
+                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
+                  <p className="text-gray-600 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
                 </div>
                 {/* One-word */}
                 <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-2">
@@ -726,10 +756,10 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div className="flex gap-2">
                     <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
                       onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
-                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-pink-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:border-pink-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
                     {wordSubmitted
-                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
-                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-40 text-white rounded-xl px-4 py-2"><Send size={14} /></button>}
+                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={18} /></div>
+                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-40 text-white rounded-xl px-5 py-3"><Send size={16} /></button>}
                   </div>
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
@@ -887,7 +917,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [sessionTimer, setSessionTimer] = useState(1800)
   const [sessionRunning, setSessionRunning] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wantConnect: null as boolean | null })
+  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, wantConnect: null as boolean | null, organizerImpression: '', recommendations: '', participantMessage: '' })
   const [submittingFb, setSubmittingFb] = useState(false)
 
   useEffect(() => {
@@ -1080,26 +1110,32 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-5 space-y-3">
                   <p className="text-white text-sm font-bold">⭐ خمّن درجة التوافق مع شريكك <span className="text-red-400">*</span></p>
                   <p className="text-gray-500 text-xs">حرّك المؤشر — سيظهر التقييم الحقيقي بعد الإرسال</p>
-                  <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
-                    onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer"
-                    style={{ background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)` }} />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>0%</span>
-                    <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
-                    <span>100%</span>
+                  <div dir="ltr" className="space-y-2">
+                    <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
+                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
+                      className="w-full rounded-full appearance-none cursor-pointer touch-none"
+                      style={{
+                        height: '20px',
+                        background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)`,
+                      }} />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>0%</span>
+                      <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
+                      <span>100%</span>
+                    </div>
                   </div>
                 </div>
-                {([{ key: 'conversationQuality', label: 'جودة المحادثة' }, { key: 'personalConnection', label: 'التواصل الشخصي' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة' }, { key: 'comfortLevel', label: 'مستوى الراحة' }, { key: 'communicationStyle', label: 'أسلوب التواصل' }] as { key: keyof typeof fb; label: string }[]).map(({ key, label }) => (
+                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'wouldMeetAgain', label: 'الرغبة في لقاء مرة أخرى', hint: '1 = أبداً، 5 = بالتأكيد' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
                   <div key={key} className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
                     <p className="text-white text-sm font-medium">{label}</p>
-                    <div className="flex gap-2 justify-between" dir="ltr">
+                    <p className="text-gray-600 text-xs">{hint}</p>
+                    <div className="flex gap-1.5 justify-between" dir="ltr">
                       {[1,2,3,4,5].map(v => (
                         <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
-                          className={`flex-1 py-2.5 rounded-xl border-2 font-bold text-sm transition-all ${
+                          className={`flex-1 min-h-[48px] rounded-xl border-2 font-bold text-base transition-all active:scale-95 ${
                             (fb[key] as number) === v
                               ? v <= 2 ? 'border-red-500 bg-red-500/20 text-red-300' : v === 3 ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500 hover:border-gray-600'
+                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500'
                           }`}>{v}</button>
                       ))}
                     </div>
@@ -1109,20 +1145,44 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <p className="text-white text-sm font-bold">هل ترغب في التواصل مع هذا الشخص مرة أخرى؟ <span className="text-red-400">*</span></p>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
+                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
-                      className={`py-3 rounded-xl border-2 font-bold text-base transition-all ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
+                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
                   </div>
                 </div>
+                {/* Organizer impression */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-white text-sm font-medium">انطباعك عن الشخص <span className="text-gray-500 text-xs font-normal">(سري — للمنظم فقط)</span></p>
+                  <textarea value={fb.organizerImpression} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
+                    placeholder="شعرت بالراحة أثناء الحديث..." rows={3}
+                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
+                  <p className="text-gray-600 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
+                </div>
+                {/* Recommendations */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-white text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                  <textarea value={fb.recommendations} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, recommendations: e.target.value }))}
+                    placeholder="زيادة الوقت بين الجلسات..." rows={3}
+                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
+                  <p className="text-gray-600 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
+                </div>
+                {/* Message to partner */}
+                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
+                  <p className="text-white text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                  <textarea value={fb.participantMessage} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, participantMessage: e.target.value }))}
+                    placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
+                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
+                  <p className="text-gray-600 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
+                </div>
                 <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-gray-400 text-sm">صف الجلسة بكلمة واحدة للحفظ</p>
+                  <p className="text-gray-400 text-sm">صف الجلسة بكلمة واحدة للحفظ <span className="text-gray-600 text-xs">(+ يحفظ باقي التقييم)</span></p>
                   <div className="flex gap-2">
                     <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
                       onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
-                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-purple-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:border-purple-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
                     {wordSubmitted
-                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
-                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-purple-600 to-violet-600 disabled:opacity-40 text-white rounded-xl px-4 py-2"><Send size={14} /></button>}
+                      ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={18} /></div>
+                      : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-purple-600 to-violet-600 disabled:opacity-40 text-white rounded-xl px-5 py-3"><Send size={16} /></button>}
                   </div>
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}

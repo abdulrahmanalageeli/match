@@ -35,9 +35,11 @@ function PageWrapper({ children, className = "" }: { children: React.ReactNode; 
   return (
     <div className={`min-h-screen bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-600/8 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-600/6 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
-        <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] bg-violet-600/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/18 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 w-[380px] h-[380px] bg-violet-500/12 rounded-full blur-[90px] -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute top-1/4 -left-16 w-[300px] h-[300px] bg-rose-500/10 rounded-full blur-[80px]" />
+        <div className="absolute bottom-1/4 -right-10 w-[260px] h-[260px] bg-fuchsia-600/10 rounded-full blur-[80px]" />
       </div>
       <div className="relative z-10">{children}</div>
     </div>
@@ -200,8 +202,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
     <div className="min-h-screen bg-gray-950 relative overflow-hidden" dir="rtl">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-purple-600/8 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-pink-600/6 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2" />
+        <div className="absolute -top-32 -right-16 w-[520px] h-[520px] bg-purple-600/20 rounded-full blur-[110px]" />
+        <div className="absolute -bottom-24 -left-16 w-[460px] h-[460px] bg-pink-600/18 rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 right-1/3 w-[340px] h-[340px] bg-blue-500/10 rounded-full blur-[90px] -translate-y-1/2" />
+        <div className="absolute top-1/4 left-1/4 w-[260px] h-[260px] bg-cyan-500/8 rounded-full blur-[80px]" />
       </div>
 
       {/* ── Sticky Timer Strip ─────────────────────────────────────── */}
@@ -796,8 +800,13 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-0 z-40 bg-gray-950 flex flex-col overflow-y-auto"
           >
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+              <div className="absolute -top-32 -left-24 w-96 h-96 bg-pink-500/20 rounded-full blur-[100px]" />
+              <div className="absolute top-1/2 -right-20 w-80 h-80 bg-rose-500/15 rounded-full blur-[90px]" />
+              <div className="absolute -bottom-20 left-1/3 w-72 h-72 bg-fuchsia-500/15 rounded-full blur-[80px]" />
+            </div>
             {/* Sticky header */}
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
               <button onClick={() => setView('partner')} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
                 ← رجوع
               </button>
@@ -1062,7 +1071,12 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed inset-0 z-40 bg-gray-950 flex flex-col overflow-y-auto"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-950/95 backdrop-blur-md">
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+              <div className="absolute -top-32 -right-24 w-96 h-96 bg-purple-500/20 rounded-full blur-[100px]" />
+              <div className="absolute top-1/2 -left-20 w-80 h-80 bg-violet-500/15 rounded-full blur-[90px]" />
+              <div className="absolute -bottom-20 right-1/3 w-72 h-72 bg-indigo-500/15 rounded-full blur-[80px]" />
+            </div>
+            <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3 border-b border-white/[0.06] bg-gray-950/80 backdrop-blur-xl">
               <button onClick={() => setView('partner')} className="flex items-center gap-1.5 text-gray-400 hover:text-white text-sm font-medium transition-colors">
                 ← رجوع
               </button>

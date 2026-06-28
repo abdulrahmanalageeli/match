@@ -666,24 +666,31 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="w-12" />
             </div>
             {feedbackDone ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-                <div className="text-5xl">✨</div>
-                <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
-                <p className="text-gray-500 text-sm text-center">تم حفظ تقييمك بنجاح — انتظر المرحلة التالية</p>
+              <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_40px_-8px_rgba(16,185,129,0.5)]">
+                  <span className="text-4xl">✨</span>
+                </div>
+                <div className="text-center space-y-1.5">
+                  <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
+                  <p className="text-gray-500 text-sm">تم الحفظ — انتظر المرحلة التالية</p>
+                </div>
               </div>
             ) : (
-              <div className="max-w-sm mx-auto w-full p-5 space-y-5 pb-10">
-                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-pink-900/20 border border-pink-800/30">
-                  <span className="text-gray-500 text-xs">شريكك</span>
-                  <span className="text-pink-300 font-bold">{data?.partner_first_name}</span>
+              <div className="max-w-sm mx-auto w-full p-4 space-y-3 pb-12">
+                <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl bg-gradient-to-l from-pink-950/70 to-rose-950/40 border border-pink-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <span className="text-pink-400/60 text-xs font-medium tracking-wide">شريكك في الجلسة</span>
+                  <span className="text-white font-bold">{data?.partner_first_name}</span>
                 </div>
-                <div className="text-center px-4 py-3 rounded-xl bg-indigo-900/20 border border-indigo-800/30">
-                  <p className="text-indigo-300 text-xs font-semibold">🔒 تقييمك سري تماماً — لا يراه إلا المنظم</p>
+                <div className="flex items-center justify-center gap-1.5 py-1">
+                  <span className="text-gray-600 text-xs">🔒</span>
+                  <span className="text-gray-600 text-xs">تقييمك سري — لا يراه إلا المنظم</span>
                 </div>
                 {/* Compatibility slider — force LTR so 0% stays left, 100% stays right */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-5 space-y-3">
-                  <p className="text-white text-sm font-bold">⭐ خمّن درجة التوافق مع شريكك <span className="text-red-400">*</span></p>
-                  <p className="text-gray-500 text-xs">حرّك المؤشر — سيظهر التقييم الحقيقي بعد الإرسال</p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div>
+                    <p className="text-white/90 text-sm font-semibold">⭐ التوافق المقدَّر <span className="text-red-400">*</span></p>
+                    <p className="text-gray-600 text-xs mt-0.5">حرّك المؤشر — النتيجة الحقيقية تُكشف بعد الإرسال</p>
+                  </div>
                   <div dir="ltr" className="space-y-2">
                     <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
                       onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
@@ -701,69 +708,71 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </div>
                 {/* Rating questions */}
                 {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'wouldMeetAgain', label: 'الرغبة في لقاء مرة أخرى', hint: '1 = أبداً، 5 = بالتأكيد' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
-                  <div key={key} className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                    <p className="text-white text-sm font-medium">{label}</p>
-                    <p className="text-gray-600 text-xs">{hint}</p>
-                    <div className="flex gap-1.5 justify-between" dir="ltr">
+                  <div key={key} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <div>
+                      <p className="text-white/90 text-sm font-semibold">{label}</p>
+                      <p className="text-gray-600 text-xs mt-0.5">{hint}</p>
+                    </div>
+                    <div className="flex gap-2 justify-between" dir="ltr">
                       {[1,2,3,4,5].map(v => (
                         <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
-                          className={`flex-1 min-h-[48px] rounded-xl border-2 font-bold text-base transition-all active:scale-95 ${
+                          className={`flex-1 min-h-[48px] rounded-xl font-bold text-sm transition-all duration-150 active:scale-95 ${
                             (fb[key] as number) === v
-                              ? v <= 2 ? 'border-red-500 bg-red-500/20 text-red-300' : v === 3 ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500'
+                              ? v <= 2 ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_16px_-4px_rgba(239,68,68,0.5)]' : v === 3 ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50 shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)]' : 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
+                              : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'
                           }`}>{v}</button>
                       ))}
                     </div>
                   </div>
                 ))}
                 {/* Want to connect */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-3">
-                  <p className="text-white text-sm font-bold">هل ترغب في التواصل مع هذا الشخص مرة أخرى؟ <span className="text-red-400">*</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل مرة أخرى؟ <span className="text-red-400">*</span></p>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
+                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === true ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>نعم ✅</button>
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
-                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
+                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === false ? 'bg-red-500/15 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_20px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>لا ❌</button>
                   </div>
                 </div>
                 {/* Organizer impression */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-white text-sm font-medium">انطباعك عن الشخص <span className="text-gray-500 text-xs font-normal">(سري — للمنظم فقط)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/80 text-sm font-medium">انطباعك عن الشخص <span className="text-gray-600 text-xs font-normal">(سري — للمنظم فقط)</span></p>
                   <textarea value={fb.organizerImpression} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
                     placeholder="شعرت بالراحة أثناء الحديث..." rows={3}
-                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
-                  <p className="text-gray-600 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
+                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
+                  <p className="text-gray-700 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
                 </div>
                 {/* Recommendations */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-white text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/80 text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
                   <textarea value={fb.recommendations} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, recommendations: e.target.value }))}
                     placeholder="زيادة الوقت بين الجلسات..." rows={3}
-                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
-                  <p className="text-gray-600 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
+                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
+                  <p className="text-gray-700 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
                 </div>
                 {/* Message to partner */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-white text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/80 text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
                   <textarea value={fb.participantMessage} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, participantMessage: e.target.value }))}
                     placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
-                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
-                  <p className="text-gray-600 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
+                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
+                  <p className="text-gray-700 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
                 </div>
                 {/* One-word */}
-                <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-gray-400 text-sm">صف الجلسة بكلمة واحدة للحفظ</p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-gray-500 text-xs font-medium tracking-wide">صف الجلسة بكلمة واحدة <span className="text-gray-700 text-xs">(+ يحفظ باقي التقييم)</span></p>
                   <div className="flex gap-2">
                     <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
                       onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
-                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:border-pink-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                      className="flex-1 bg-black/30 border border-white/[0.06] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-pink-500/30 disabled:opacity-40 transition-all placeholder:text-gray-700" />
                     {wordSubmitted
                       ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={18} /></div>
                       : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-40 text-white rounded-xl px-5 py-3"><Send size={16} /></button>}
                   </div>
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
-                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 text-white shadow-lg disabled:opacity-40 transition-all">
+                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white shadow-[0_4px_24px_-4px_rgba(236,72,153,0.6)] disabled:opacity-30 disabled:shadow-none transition-all">
                   {submittingFb ? 'جاري الحفظ...' : 'إرسال التقييم ✨'}
                 </motion.button>
               </div>
@@ -1092,24 +1101,31 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="w-12" />
             </div>
             {feedbackDone ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-4 p-8">
-                <div className="text-5xl">✨</div>
-                <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
-                <p className="text-gray-500 text-sm text-center">تم حفظ تقييمك — انتظر الكشف النهائي</p>
+              <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">
+                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_40px_-8px_rgba(16,185,129,0.5)]">
+                  <span className="text-4xl">✨</span>
+                </div>
+                <div className="text-center space-y-1.5">
+                  <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
+                  <p className="text-gray-500 text-sm">تم الحفظ — انتظر الكشف النهائي</p>
+                </div>
               </div>
             ) : (
-              <div className="max-w-sm mx-auto w-full p-5 space-y-5 pb-10">
-                <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
-                  <span className="text-gray-500 text-xs">شريكك</span>
-                  <span className="text-purple-300 font-bold">{data?.partner_first_name}</span>
-                  {data?.compatibility_score && <span className="text-purple-400 text-xs font-medium">{data.compatibility_score}% توافق</span>}
+              <div className="max-w-sm mx-auto w-full p-4 space-y-3 pb-12">
+                <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl bg-gradient-to-l from-purple-950/70 to-violet-950/40 border border-purple-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <span className="text-purple-400/60 text-xs font-medium tracking-wide">شريكك في الجلسة</span>
+                  <span className="text-white font-bold">{data?.partner_first_name}</span>
+                  {data?.compatibility_score && <span className="text-purple-400/70 text-xs">{data.compatibility_score}%</span>}
                 </div>
-                <div className="text-center px-4 py-3 rounded-xl bg-indigo-900/20 border border-indigo-800/30">
-                  <p className="text-indigo-300 text-xs font-semibold">🔒 تقييمك سري تماماً — لا يراه إلا المنظم</p>
+                <div className="flex items-center justify-center gap-1.5 py-1">
+                  <span className="text-gray-600 text-xs">🔒</span>
+                  <span className="text-gray-600 text-xs">تقييمك سري — لا يراه إلا المنظم</span>
                 </div>
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-5 space-y-3">
-                  <p className="text-white text-sm font-bold">⭐ خمّن درجة التوافق مع شريكك <span className="text-red-400">*</span></p>
-                  <p className="text-gray-500 text-xs">حرّك المؤشر — سيظهر التقييم الحقيقي بعد الإرسال</p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <div>
+                    <p className="text-white/90 text-sm font-semibold">⭐ التوافق المقدَّر <span className="text-red-400">*</span></p>
+                    <p className="text-gray-600 text-xs mt-0.5">حرّك المؤشر — النتيجة الحقيقية تُكشف بعد الإرسال</p>
+                  </div>
                   <div dir="ltr" className="space-y-2">
                     <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
                       onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
@@ -1126,67 +1142,69 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   </div>
                 </div>
                 {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'wouldMeetAgain', label: 'الرغبة في لقاء مرة أخرى', hint: '1 = أبداً، 5 = بالتأكيد' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
-                  <div key={key} className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                    <p className="text-white text-sm font-medium">{label}</p>
-                    <p className="text-gray-600 text-xs">{hint}</p>
-                    <div className="flex gap-1.5 justify-between" dir="ltr">
+                  <div key={key} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                    <div>
+                      <p className="text-white/90 text-sm font-semibold">{label}</p>
+                      <p className="text-gray-600 text-xs mt-0.5">{hint}</p>
+                    </div>
+                    <div className="flex gap-2 justify-between" dir="ltr">
                       {[1,2,3,4,5].map(v => (
                         <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
-                          className={`flex-1 min-h-[48px] rounded-xl border-2 font-bold text-base transition-all active:scale-95 ${
+                          className={`flex-1 min-h-[48px] rounded-xl font-bold text-sm transition-all duration-150 active:scale-95 ${
                             (fb[key] as number) === v
-                              ? v <= 2 ? 'border-red-500 bg-red-500/20 text-red-300' : v === 3 ? 'border-amber-500 bg-amber-500/20 text-amber-300' : 'border-emerald-500 bg-emerald-500/20 text-emerald-300'
-                              : 'border-gray-700/50 bg-gray-800/40 text-gray-500'
+                              ? v <= 2 ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_16px_-4px_rgba(239,68,68,0.5)]' : v === 3 ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50 shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)]' : 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
+                              : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'
                           }`}>{v}</button>
                       ))}
                     </div>
                   </div>
                 ))}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-3">
-                  <p className="text-white text-sm font-bold">هل ترغب في التواصل مع هذا الشخص مرة أخرى؟ <span className="text-red-400">*</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل مرة أخرى؟ <span className="text-red-400">*</span></p>
                   <div className="grid grid-cols-2 gap-3">
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === true ? 'border-emerald-600/50 bg-emerald-900/20 text-emerald-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>نعم ✅</button>
+                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === true ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>نعم ✅</button>
                     <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
-                      className={`min-h-[56px] rounded-xl border-2 font-bold text-lg transition-all active:scale-95 ${fb.wantConnect === false ? 'border-red-600/50 bg-red-900/20 text-red-300' : 'border-gray-700/50 bg-gray-800/40 text-gray-500'}`}>لا ❌</button>
+                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === false ? 'bg-red-500/15 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_20px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>لا ❌</button>
                   </div>
                 </div>
                 {/* Organizer impression */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-white text-sm font-medium">انطباعك عن الشخص <span className="text-gray-500 text-xs font-normal">(سري — للمنظم فقط)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/80 text-sm font-medium">انطباعك عن الشخص <span className="text-gray-600 text-xs font-normal">(سري — للمنظم فقط)</span></p>
                   <textarea value={fb.organizerImpression} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
                     placeholder="شعرت بالراحة أثناء الحديث..." rows={3}
-                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
-                  <p className="text-gray-600 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
+                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
+                  <p className="text-gray-700 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
                 </div>
                 {/* Recommendations */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-white text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/80 text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
                   <textarea value={fb.recommendations} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, recommendations: e.target.value }))}
                     placeholder="زيادة الوقت بين الجلسات..." rows={3}
-                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
-                  <p className="text-gray-600 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
+                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
+                  <p className="text-gray-700 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
                 </div>
                 {/* Message to partner */}
-                <div className="rounded-2xl border border-gray-800/50 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-white text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-500 text-xs font-normal">(اختياري)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-white/80 text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
                   <textarea value={fb.participantMessage} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, participantMessage: e.target.value }))}
                     placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
-                    className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-600 resize-none placeholder:text-gray-600" />
-                  <p className="text-gray-600 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
+                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
+                  <p className="text-gray-700 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
                 </div>
-                <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-2">
-                  <p className="text-gray-400 text-sm">صف الجلسة بكلمة واحدة للحفظ <span className="text-gray-600 text-xs">(+ يحفظ باقي التقييم)</span></p>
+                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                  <p className="text-gray-500 text-xs font-medium tracking-wide">صف الجلسة بكلمة واحدة <span className="text-gray-700 text-xs">(+ يحفظ باقي التقييم)</span></p>
                   <div className="flex gap-2">
                     <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
                       onChange={e => setWord(e.target.value.split(' ')[0])} disabled={wordSubmitted}
-                      className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3 text-base focus:outline-none focus:border-purple-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
+                      className="flex-1 bg-black/30 border border-white/[0.06] text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/30 disabled:opacity-40 transition-all placeholder:text-gray-700" />
                     {wordSubmitted
                       ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={18} /></div>
                       : <button onClick={submitWord} disabled={!word.trim()} className="bg-gradient-to-r from-purple-600 to-violet-600 disabled:opacity-40 text-white rounded-xl px-5 py-3"><Send size={16} /></button>}
                   </div>
                 </div>
                 <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
-                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-500 text-white shadow-lg disabled:opacity-40 transition-all">
+                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_4px_24px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all">
                   {submittingFb ? 'جاري الحفظ...' : 'إرسال التقييم ✨'}
                 </motion.button>
               </div>

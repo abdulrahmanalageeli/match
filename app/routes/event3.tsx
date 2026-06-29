@@ -1758,7 +1758,7 @@ export default function Event3Page() {
     return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
-  const [showWelcome, setShowWelcome] = useState(() => !token)
+  const [showWelcome, setShowWelcome] = useState(true)
   const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)

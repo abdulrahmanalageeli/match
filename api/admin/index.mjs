@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
 import munkres from "munkres-js"
+import { calculateFullCompatibilityWithCache, isParticipantComplete } from "./trigger-match.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -82,138 +83,27 @@ function e3HungarianMatching(participants, scoreMap) {
   return matches
 }
 
-// ── Real compatibility scoring (mirrored from trigger-match.mjs, no AI/cache) ──
-function e3IsComplete(p) {
-  const sd = (typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}))
-  const ans = sd?.answers || {}
-  const val = v => v !== undefined && v !== null && String(v).trim() !== ""
-  if (!val(p.gender || sd.gender)) return false
-  if (!val(p.mbti_personality_type || sd.mbtiType || ans.mbti) || String(p.mbti_personality_type || sd.mbtiType || ans.mbti || "").length < 4) return false
-  if (!val(p.attachment_style || sd.attachmentStyle || ans.attachment_style)) return false
-  if (!val(p.communication_style || sd.communicationStyle || ans.communication_style)) return false
-  const ls = sd.lifestylePreferences ? String(sd.lifestylePreferences).split(",") : [ans.lifestyle_1, ans.lifestyle_2, ans.lifestyle_3, ans.lifestyle_4, ans.lifestyle_5]
-  if (!ls || ls.filter(v => val(v)).length !== 5) return false
-  const cv = sd.coreValues ? String(sd.coreValues).split(",") : [ans.core_values_1, ans.core_values_2, ans.core_values_3, ans.core_values_4, ans.core_values_5]
-  if (!cv || cv.filter(v => val(v)).length !== 5) return false
-  for (const k of ["conversational_role","conversation_depth_pref","social_battery","humor_subtype","curiosity_style","silence_comfort"]) if (!val(ans[k])) return false
-  if (!val(p.humor_banter_style || sd.humor_banter_style || ans.humor_banter_style)) return false
-  return true
-}
-function e3CalcCommunication(s1, s2) {
-  if (!s1 || !s2) return 4
-  const r = s => s === "Assertive" ? 3 : s === "Passive" ? 2 : s === "Passive-Aggressive" ? 1 : 0
-  const lo = Math.min(r(s1), r(s2)), hi = Math.max(r(s1), r(s2))
-  if (lo === 3 && hi === 3) return 10; if (lo === 2 && hi === 3) return 8; if (lo === 2 && hi === 2) return 5
-  if (lo === 1 && hi === 3) return 4; if (lo === 1 && hi === 2) return 3; if (lo === 1 && hi === 1) return 2
-  if (lo === 0 && hi === 3) return 2; if (lo === 0 && hi === 2) return 1; if (lo === 0 && hi === 1) return 1
-  return 4
-}
-function e3CalcLifestyle(p1, p2) {
-  if (!p1 || !p2) return 0
-  const a = p1.split(","), b = p2.split(",")
-  if (a.length !== 5 || b.length !== 5) return 0
-  const ord = { "أ": 1, "ب": 2, "ج": 3 }
-  let s = 0
-  const d0 = Math.abs((ord[a[0]] || 0) - (ord[b[0]] || 0)); s += d0 === 0 ? 3 : d0 === 1 ? 1.5 : 0
-  const d1 = Math.abs((ord[a[1]] || 0) - (ord[b[1]] || 0)); s += d1 === 0 ? 3 : d1 === 1 ? 2 : 0
-  const bkt = v => v === "ج" ? "close" : "space"; if (a[2] && b[2] && bkt(a[2]) === bkt(b[2])) s += 3
-  const d3 = Math.abs((ord[a[3]] || 0) - (ord[b[3]] || 0)); s += d3 === 0 ? 3 : d3 === 1 ? 1.5 : 0
-  const d4 = Math.abs((ord[a[4]] || 0) - (ord[b[4]] || 0)); s += d4 === 0 ? 3 : d4 === 1 ? 1.5 : 0
-  return Math.max(0, Math.min(10, s))
-}
-function e3CalcCoreValues(v1, v2) {
-  if (!v1 || !v2) return 0
-  const a = v1.split(","), b = v2.split(",")
-  if (a.length !== 5 || b.length !== 5) return 0
-  let s = 0
-  for (let i = 0; i < 5; i++) {
-    if (a[i] === b[i]) s += 4
-    else if ((a[i] === "ب" && (b[i] === "أ" || b[i] === "ج")) || (b[i] === "ب" && (a[i] === "أ" || a[i] === "ج"))) s += 2
+// e3IsComplete and e3FullCalcCompat are now the real functions imported from trigger-match.mjs
+const e3IsComplete = isParticipantComplete
+const e3FullCalcCompat = async (pA, pB) => {
+  const r = await calculateFullCompatibilityWithCache(pA, pB, false, false)
+  return {
+    totalScore: Math.round(r.totalScore),
+    synergyScore: r.synergyScore,
+    lifestyleScore: r.lifestyleScore,
+    communicationScore: r.communicationScore,
+    coreValuesScore: r.coreValuesScore,
+    coreValuesScaled5: r.coreValuesScaled5,
+    humorOpenScore: r.humorOpenScore,
+    intentScore: r.intentScore,
+    vibeScore: r.vibeScore,
+    attachmentPenalty: r.attachmentPenaltyApplied,
+    opennessZeroZero: r.opennessZeroZeroPenaltyApplied,
+    deadAirVeto: r.deadAirVetoApplied,
+    humorClashVeto: r.humorClashVetoApplied,
+    intentBoost: r.intentBoostApplied,
+    capApplied: r.capApplied,
   }
-  return s // 0-20
-}
-function e3CalcSynergy(pA, pB) {
-  const ans = (p, k) => String(p?.survey_data?.answers?.[k] ?? p?.[k] ?? "").toUpperCase()
-  const a35 = ans(pA,"conversational_role"), b35 = ans(pB,"conversational_role")
-  const a36 = ans(pA,"conversation_depth_pref"), b36 = ans(pB,"conversation_depth_pref")
-  const a37 = ans(pA,"social_battery"), b37 = ans(pB,"social_battery")
-  const a38 = ans(pA,"humor_subtype"), b38 = ans(pB,"humor_subtype")
-  const a39 = ans(pA,"curiosity_style"), b39 = ans(pB,"curiosity_style")
-  const a41 = ans(pA,"silence_comfort"), b41 = ans(pB,"silence_comfort")
-  let t = 0
-  if ((a35 === "A" && (b35 === "B" || b35 === "C")) || (b35 === "A" && (a35 === "B" || a35 === "C"))) t += 7
-  else if (a35 === "B" && b35 === "B") t += 4
-  else if (a35 === "A" && b35 === "A") t += 4
-  else if (a35 === "C" && b35 === "C") t += 0
-  else if (a35 && b35) t += 3
-  if (a36 && b36) t += (a36 === b36 ? 5 : 0)
-  if (a37 && b37) { if (a37 === "A" && b37 === "A") t += 4; else if (a37 === "B" && b37 === "B") t += 3; else t += 3 }
-  if (a38 && b38) { if (a38 === b38) t += 4; else if ((a38 === "A" && b38 === "C") || (a38 === "C" && b38 === "A")) t += 3; else if ((a38 === "B" && b38 === "C") || (a38 === "C" && b38 === "B")) t += 3; else t += 2 }
-  if (a39 && b39) { if ((a39 === "A" && b39 === "B") || (a39 === "B" && b39 === "A")) t += 5; else if (a39 === "C" && b39 === "C") t += 5; else if ((a39 === "A" && b39 === "A") || (a39 === "B" && b39 === "B")) t += 0; else t += 3 }
-  if (a41 && b41) { if ((a41 === "A" && b41 === "B") || (a41 === "B" && b41 === "A")) t += 5; else if (a41 === "A" && b41 === "A") t += 3; else if (a41 === "B" && b41 === "B") t += 3 }
-  const gE = p => { const h = ans(p,"humor_banter_style"), r = ans(p,"conversational_role"); const oR = p.early_openness_comfort ?? p?.survey_data?.answers?.early_openness_comfort; const o = oR !== undefined && oR !== null ? parseInt(oR) : undefined; let e = (h === "A" ? 3 : h === "B" ? 2 : 1) + (r === "A" ? 3 : r === "B" ? 2 : 1); if (o !== undefined && !isNaN(o)) e += o + 1; return e }
-  const diff = Math.abs(gE(pA) - gE(pB)); t += diff === 0 ? 5 : diff <= 2 ? 4 : diff <= 4 ? 2 : 0
-  return Math.min(35, t)
-}
-function e3CalcHumorOpen(pA, pB) {
-  const hA = String(pA.humor_banter_style || pA.survey_data?.humor_banter_style || pA.survey_data?.answers?.humor_banter_style || "").toUpperCase()
-  const hB = String(pB.humor_banter_style || pB.survey_data?.humor_banter_style || pB.survey_data?.answers?.humor_banter_style || "").toUpperCase()
-  const oA = pA.early_openness_comfort ?? pA.survey_data?.answers?.early_openness_comfort
-  const oB = pB.early_openness_comfort ?? pB.survey_data?.answers?.early_openness_comfort
-  const iA = oA !== undefined && oA !== null ? parseInt(oA) : undefined
-  const iB = oB !== undefined && oB !== null ? parseInt(oB) : undefined
-  let h = 0, veto = false
-  if (hA && hB) { if (hA === hB) h = 10; else if ((hA === "A" && hB === "B") || (hA === "B" && hB === "A")) h = 8; else if ((hA === "A" && hB === "D") || (hA === "D" && hB === "A")) { h = 0; veto = true } else h = 5 }
-  let o = 0; if (iA !== undefined && iB !== undefined) { const d = Math.abs(iA - iB); o = d === 0 ? 5 : d === 1 ? 3 : d === 2 ? 1 : 0 }
-  return { score: h + o, veto }
-}
-function e3CalcIntent(pA, pB) {
-  const a = String(pA?.survey_data?.answers?.intent_goal || "").toUpperCase()
-  const b = String(pB?.survey_data?.answers?.intent_goal || "").toUpperCase()
-  if (!a || !b) return 0
-  if (a === b) return 5
-  const pair = [a, b].sort().join("+")
-  if (pair === "A+B") return 4; if (pair === "A+C") return 3; if (pair === "B+C") return 2
-  return 2
-}
-function e3FullCalcCompat(pA, pB) {
-  const sd = p => typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
-  const sdA = sd(pA), sdB = sd(pB)
-  const lsA = sdA.lifestylePreferences || [sdA.answers?.lifestyle_1, sdA.answers?.lifestyle_2, sdA.answers?.lifestyle_3, sdA.answers?.lifestyle_4, sdA.answers?.lifestyle_5].join(",")
-  const lsB = sdB.lifestylePreferences || [sdB.answers?.lifestyle_1, sdB.answers?.lifestyle_2, sdB.answers?.lifestyle_3, sdB.answers?.lifestyle_4, sdB.answers?.lifestyle_5].join(",")
-  const cvA = sdA.coreValues || [sdA.answers?.core_values_1, sdA.answers?.core_values_2, sdA.answers?.core_values_3, sdA.answers?.core_values_4, sdA.answers?.core_values_5].join(",")
-  const cvB = sdB.coreValues || [sdB.answers?.core_values_1, sdB.answers?.core_values_2, sdB.answers?.core_values_3, sdB.answers?.core_values_4, sdB.answers?.core_values_5].join(",")
-  const commA = pA.communication_style || sdA.communicationStyle || sdA.answers?.communication_style
-  const commB = pB.communication_style || sdB.communicationStyle || sdB.answers?.communication_style
-  const attA = pA.attachment_style || sdA.attachmentStyle || sdA.answers?.attachment_style
-  const attB = pB.attachment_style || sdB.attachmentStyle || sdB.answers?.attachment_style
-  const mbtiA = pA.mbti_personality_type || sdA.mbtiType || sdA.answers?.mbti || ""
-  const mbtiB = pB.mbti_personality_type || sdB.mbtiType || sdB.answers?.mbti || ""
-  const synergyScore = e3CalcSynergy(pA, pB)
-  const lifestyleScore = e3CalcLifestyle(lsA, lsB)
-  const communicationScore = e3CalcCommunication(commA, commB)
-  const coreRaw = e3CalcCoreValues(cvA, cvB)
-  const coreValuesScaled5 = Math.max(0, Math.min(5, (coreRaw / 20) * 5))
-  const { score: humorOpenScore, veto: humorVeto } = e3CalcHumorOpen(pA, pB)
-  const intentScore = e3CalcIntent(pA, pB)
-  const vibeScore = 12 // default (no AI)
-  let total = synergyScore + vibeScore + lifestyleScore + humorOpenScore + communicationScore + coreValuesScaled5
-  let attachmentPenalty = false, opennessZeroZero = false, deadAirVeto = false, humorClashVeto = false, intentBoost = false, capApplied = null
-  if ((attA === "Anxious" && attB === "Avoidant") || (attA === "Avoidant" && attB === "Anxious")) { total -= 5; attachmentPenalty = true }
-  const oA2 = pA.early_openness_comfort ?? sdA.answers?.early_openness_comfort; const oB2 = pB.early_openness_comfort ?? sdB.answers?.early_openness_comfort
-  const iA2 = oA2 !== undefined && oA2 !== null ? parseInt(oA2) : undefined; const iB2 = oB2 !== undefined && oB2 !== null ? parseInt(oB2) : undefined
-  if (iA2 === 0 && iB2 === 0) { total -= 5; opennessZeroZero = true } else if ((iA2 === 0 && iB2 >= 2) || (iA2 >= 2 && iB2 === 0)) total -= 4
-  if (total < 0) total = 0
-  const hmA = pA.humor_banter_style || sdA.humor_banter_style || sdA.answers?.humor_banter_style
-  const hmB = pB.humor_banter_style || sdB.humor_banter_style || sdB.answers?.humor_banter_style
-  if (hmA && hmB && hmA === hmB) total = total * 1.05
-  total += intentScore; if (intentScore >= 4) intentBoost = true
-  const ansA = sdA.answers || {}; const ansB = sdB.answers || {}
-  if (String(ansA.conversational_role || "").toUpperCase() === "C" && String(ansB.conversational_role || "").toUpperCase() === "C" && String(ansA.silence_comfort || "").toUpperCase() === "B" && String(ansB.silence_comfort || "").toUpperCase() === "B" && total > 40) { total = 40; deadAirVeto = true; capApplied = 40 }
-  if (humorVeto && total > 50) { total = 50; humorClashVeto = true; if (!capApplied) capApplied = 50 }
-  if (total > 100) total = 100
-  const totalScore = Math.max(0, Math.round(total))
-  return { totalScore, synergyScore, lifestyleScore, communicationScore, coreValuesScore: coreRaw, coreValuesScaled5: Math.round(coreValuesScaled5 * 10) / 10, humorOpenScore, intentScore, vibeScore, mbtiA, mbtiB, attA, attB, attachmentPenalty, opennessZeroZero, deadAirVeto, humorClashVeto, intentBoost, capApplied }
 }
 
 export default async function handler(req, res) {
@@ -6242,10 +6132,10 @@ export default async function handler(req, res) {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           if (!ep || ep.length < 4) return res.status(400).json({ error: "No participants selected" })
           const nums = ep.map(r => r.participant_number)
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           if (!pdata) return res.status(500).json({ error: "Failed to fetch participant data" })
           const scoreMap = {}
-          for (let i = 0; i < pdata.length; i++) for (let j = i + 1; j < pdata.length; j++) { const a = pdata[i].assigned_number, b = pdata[j].assigned_number; const key = a < b ? `${a}-${b}` : `${b}-${a}`; scoreMap[key] = e3CalcCompat(pdata[i], pdata[j]) }
+          for (let i = 0; i < pdata.length; i++) for (let j = i + 1; j < pdata.length; j++) { const a = pdata[i].assigned_number, b = pdata[j].assigned_number; const key = a < b ? `${a}-${b}` : `${b}-${a}`; scoreMap[key] = (await e3FullCalcCompat(pdata[i], pdata[j])).totalScore }
           const matches = e3HungarianMatching(nums.slice().sort((a, b) => a - b), scoreMap)
           for (const [p, partner] of matches) { const key = p < partner ? `${p}-${partner}` : `${partner}-${p}`; await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: p, phase3_partner: partner, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" }) }
           return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.size / 2} pairs.` })
@@ -6369,7 +6259,7 @@ export default async function handler(req, res) {
               }
             }
             const bothComplete = !!(infoMap[a] && infoMap[b] && e3IsComplete(infoMap[a]) && e3IsComplete(infoMap[b]))
-            const compat = (infoMap[a] && infoMap[b]) ? e3FullCalcCompat(infoMap[a], infoMap[b]) : null
+            const compat = (infoMap[a] && infoMap[b]) ? await e3FullCalcCompat(infoMap[a], infoMap[b]) : null
             const compatScore = compat ? compat.totalScore : null
             const pairTable = pairTableMap[a] || pairTableMap[b] || null
             pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, aSurvey: ai.survey_data, b, bName: bi.name || `#${b}`, bGender: bi.gender, bSurvey: bi.survey_data, rankBInA, rankAInB, matchType, skippedByA, skippedByB, compatScore, compat, bothComplete, table: pairTable })

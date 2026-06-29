@@ -7,7 +7,7 @@ import confetti from "canvas-confetti"
 import {
   Clock, MapPin, Heart, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight, Users, PenLine,
+  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -80,58 +80,58 @@ function Spinner({ size = 24, className = "" }: { size?: number; className?: str
 // ─── Welcome & Event Flow Onboarding ─────────────────────────────────────────
 const FLOW_STEPS = [
   {
-    icon: "🪑",
-    gradient: "from-blue-600 via-blue-700 to-indigo-800",
+    Icon: Users,
+    gradient: "from-blue-600 via-blue-700 to-blue-900",
     glowClass: "shadow-blue-600/40",
     badge: "الخطوة ١",
-    phase: "الجولة الأولى",
-    title: "تعرّف على الجميع",
-    desc: "تجلس مع مجموعتك الأولى (٤–٦ أشخاص) في جلسة تفاعلية. انطباعات أولى، قصص جديدة.",
+    phase: "الجلسة الأولى",
+    title: "تعرّف على مجموعتك",
+    desc: "تجلس مع ٤ إلى ٦ أشخاص في جلسة تفاعلية منظّمة — فرصة حقيقية للتعارف في بيئة محايدة.",
   },
   {
-    icon: "🔄",
-    gradient: "from-emerald-600 via-emerald-700 to-teal-800",
-    glowClass: "shadow-emerald-600/40",
+    Icon: Shuffle,
+    gradient: "from-teal-600 via-teal-700 to-cyan-900",
+    glowClass: "shadow-teal-500/40",
     badge: "الخطوة ٢",
-    phase: "الجولة الثانية",
-    title: "مجموعة جديدة كلياً",
-    desc: "الخوارزمية تضمن ألّا يتكرر أحد — ستقابل وجوهاً لم تلتقِها في الجولة الأولى.",
+    phase: "الجلسة الثانية",
+    title: "مجموعة مختلفة كلياً",
+    desc: "الخوارزمية تضمن ألّا يتكرر أحد — ستنضم لمجموعة جديدة لم تلتقِ بأحد أفرادها من قبل.",
   },
   {
-    icon: "⭐",
-    gradient: "from-amber-500 via-orange-600 to-red-600",
-    glowClass: "shadow-amber-500/40",
+    Icon: BarChart3,
+    gradient: "from-indigo-600 via-indigo-700 to-violet-900",
+    glowClass: "shadow-indigo-600/40",
     badge: "الخطوة ٣",
     phase: "التصنيف",
-    title: "من أثار اهتمامك؟",
-    desc: "بعد الجولتين، رتّب الأشخاص الذين قابلتهم — قرارك الآن يصنع نتيجتك.",
+    title: "رتّب اختياراتك",
+    desc: "بعد الجلستين، رتّب الأشخاص الذين قابلتهم بحسب مستوى التوافق الذي شعرت به — ترتيبك يصنع نتيجتك.",
   },
   {
-    icon: "💘",
-    gradient: "from-pink-600 via-rose-600 to-red-700",
-    glowClass: "shadow-pink-600/40",
+    Icon: GitMerge,
+    gradient: "from-slate-600 via-slate-700 to-blue-900",
+    glowClass: "shadow-slate-500/30",
     badge: "الخطوة ٤",
     phase: "الكشف الأول",
-    title: "هل الاهتمام متبادل؟",
-    desc: "نكشف الأزواج الذين اختار كل منهم الآخر — جلسة وجهاً لوجه مع من اخترته واختارك.",
+    title: "التوافق المتبادل",
+    desc: "يُكشف الأزواج الذين اختار كل منهم الآخر — جلسة ثنائية لاستكشاف أوجه التشابه والاختلاف.",
   },
   {
-    icon: "🧠",
-    gradient: "from-violet-600 via-purple-700 to-indigo-800",
+    Icon: Brain,
+    gradient: "from-violet-600 via-purple-700 to-indigo-900",
     glowClass: "shadow-violet-600/40",
     badge: "الخطوة ٥",
-    phase: "الكشف الثاني",
-    title: "ما تقوله الخوارزمية",
-    desc: "الذكاء الاصطناعي يحلّل شخصيتك وشخصية كل المشاركين ويختار التوافق العلمي الأمثل لك.",
+    phase: "تحليل الخوارزمية",
+    title: "ما يقوله العلم",
+    desc: "خوارزمية متخصصة تحلّل بياناتك وبيانات جميع المشاركين لتحديد التوافق الأمثل بشكل موضوعي.",
   },
   {
-    icon: "✨",
-    gradient: "from-yellow-500 via-amber-500 to-orange-500",
-    glowClass: "shadow-yellow-500/40",
+    Icon: Trophy,
+    gradient: "from-amber-500 via-orange-600 to-amber-700",
+    glowClass: "shadow-amber-500/40",
     badge: "الخطوة ٦",
-    phase: "الكشف النهائي",
-    title: "قلبك أم العلم — أم كلاهما؟",
-    desc: "اكتشف إذا تطابق اختيارك العاطفي مع اختيار الخوارزمية. هل يتفق القلب والعقل؟",
+    phase: "النتيجة النهائية",
+    title: "مقارنة النتيجتين",
+    desc: "هل تطابق اختيارك الشخصي مع اختيار الخوارزمية؟ اكتشف مدى انسجام حدسك مع التحليل العلمي.",
   },
 ]
 
@@ -192,9 +192,9 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 initial={{ scale: 0, rotate: -20 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.15 }}
-                className="relative z-10 w-28 h-28 rounded-3xl bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 flex items-center justify-center shadow-2xl shadow-purple-600/50"
+                className="relative z-10 w-28 h-28 rounded-3xl bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 flex items-center justify-center shadow-2xl shadow-purple-700/50"
               >
-                <Heart size={50} className="text-white" fill="white" />
+                <Users size={46} className="text-white" strokeWidth={1.5} />
               </motion.div>
             </div>
 
@@ -222,18 +222,18 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 transition={{ delay: 0.65 }}
                 className="text-[2.6rem] font-black text-white leading-tight"
               >
-                رحلة التوافق<br />
-                <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-rose-400 bg-clip-text text-transparent">
-                  الحقيقي
+                التوافق الأعمى<br />
+                <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
+                  الجيل الثالث
                 </span>
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.8 }}
-                className="text-gray-400 text-sm max-w-[230px] mx-auto leading-relaxed"
+                className="text-gray-400 text-sm max-w-[250px] mx-auto leading-relaxed"
               >
-                تجربة فريدة تجمع القلب والعلم لتجد توافقك الأعمق
+                منهجية مبتكرة لاكتشاف مستوى التوافق بين الأشخاص بشكل موضوعي
               </motion.p>
             </motion.div>
 
@@ -248,7 +248,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 onClick={() => setPhase("steps")}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-4 font-black text-lg shadow-2xl shadow-purple-600/30 transition-all"
               >
-                اكتشف كيف تعمل الفعالية ✨
+                كيف تسير الفعالية؟ ←
               </motion.button>
               <button
                 onClick={onDone}
@@ -327,14 +327,14 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                             {s.phase}
                           </span>
                         </div>
-                        {/* Big emoji */}
+                        {/* Step icon */}
                         <motion.div
-                          initial={{ scale: 0.2, rotate: -15 }}
-                          animate={{ scale: 1, rotate: 0 }}
+                          initial={{ scale: 0.2, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
                           transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
-                          className="text-[5rem] leading-none py-2"
+                          className="py-4 flex items-center justify-center"
                         >
-                          {s.icon}
+                          <s.Icon size={68} className="text-white/90" strokeWidth={1.25} />
                         </motion.div>
                         {/* Title */}
                         <motion.h2

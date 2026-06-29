@@ -67,11 +67,14 @@ export default function Admin3Page() {
   const [loading, setLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking">("control")
+  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants">("control")
   const [timerRemaining, setTimerRemaining] = useState(0)
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [editedOrder, setEditedOrder] = useState<any[]>([])
   const [swapA, setSwapA] = useState<number | null>(null)
+  const [mapRound, setMapRound] = useState<1 | 2>(1)
+  const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
+  const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -136,9 +139,10 @@ export default function Admin3Page() {
   }, [authenticated, fetchState, fetchParticipants, fetchSeating])
 
   useEffect(() => {
-    if (authenticated && activeTab === "seating") fetchSeating()
+    if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
     if (authenticated && activeTab === "ranking") fetchRankStatus()
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus])
+    if (authenticated && activeTab === "participants") { fetchParticipants(); fetchSeating(); fetchRankStatus(); fetchMatches() }
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches])
 
   // Timer countdown
   useEffect(() => {
@@ -178,6 +182,29 @@ export default function Admin3Page() {
 
   const doSwap = (numB: number) =>
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
+
+  const handleMemberClick = (m: any) => {
+    if (swapA) {
+      if (swapA === m.number) setSwapA(null)
+      else doSwap(m.number)
+    } else {
+      setSelectedParticipantNum(m.number)
+      setParticipantPanelOpen(true)
+    }
+  }
+
+  const getParticipantTables = (num: number): Record<number, number> => {
+    if (!seating) return {}
+    const result: Record<number, number> = {}
+    for (const r of [1, 2] as const) {
+      for (const [table, members] of Object.entries(seating[r] || {})) {
+        if ((members as any[]).some((m: any) => m.number === num)) {
+          result[r] = Number(table)
+        }
+      }
+    }
+    return result
+  }
 
   const getNextStep = (): { label: string; action: () => void; ready: boolean } | null => {
     if (!state) return null
@@ -378,9 +405,10 @@ export default function Admin3Page() {
         {/* Tabs */}
         <div className="flex gap-2 border-b border-gray-800">
           {[
-            { id: "control",  label: "التحكم", icon: Play },
-            { id: "seating",  label: "خطة الجلسات", icon: Table2 },
-            { id: "ranking",  label: "التصنيفات", icon: BarChart3 },
+            { id: "control",      label: "التحكم",     icon: Play },
+            { id: "seating",      label: "خريطة الجلسات", icon: Table2 },
+            { id: "participants", label: "المشاركون",  icon: Users },
+            { id: "ranking",      label: "التصنيفات",  icon: BarChart3 },
           ].map(tab => (
             <button
               key={tab.id}
@@ -616,65 +644,198 @@ export default function Admin3Page() {
           </div>
         )}
 
-        {/* TAB: SEATING ─────────────────────────────────────────────────────── */}
+        {/* TAB: SEATING MAP ──────────────────────────────────────────────────── */}
         {activeTab === "seating" && (
           <div className="space-y-4">
+            {/* Header */}
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-300">خطة توزيع الجلسات</h3>
-              <button onClick={fetchSeating} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
+              <h3 className="font-semibold text-gray-300">خريطة الجلسات التفاعلية</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { fetchSeating(); fetchRankStatus() }} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
+                  <RefreshCw size={14} />
+                </button>
+                {seating && (
+                  <div className="flex bg-gray-800 rounded-lg p-0.5">
+                    {([1, 2] as const).map(r => (
+                      <button key={r} onClick={() => setMapRound(r)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === r ? 'bg-purple-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
+                      >
+                        {r === 1 ? 'الجولة الأولى' : 'الجولة الثانية'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Swap mode banner */}
+            {swapA !== null && (
+              <div className="bg-amber-900/30 border border-amber-700/50 rounded-xl px-4 py-3 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse flex-shrink-0" />
+                  <span className="text-amber-300 text-sm font-medium">
+                    تبديل: <span className="text-white">{participants.find(p => p.number === swapA)?.name}</span>
+                    <span className="text-amber-600 text-xs mr-2">← اضغط على شخص آخر في أي طاولة للتبديل</span>
+                  </span>
+                </div>
+                <button onClick={() => setSwapA(null)} className="text-amber-600 hover:text-amber-300 text-xs px-2 py-1 rounded-lg hover:bg-amber-900/30 transition-colors">
+                  إلغاء ✕
+                </button>
+              </div>
+            )}
+
+            {!seating ? (
+              <div className="text-center py-16 text-gray-500">
+                <Grid3x3 size={40} className="mx-auto mb-4 opacity-20" />
+                <p className="font-medium">لم تُولَّد خطة الجلسات بعد</p>
+                <p className="text-xs mt-1.5 text-gray-600">اختر المشاركين ثم اضغط "توليد خطة الجلسات"</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.keys(seating?.[mapRound] || {}).map(Number).sort((a, b) => a - b).map(table => {
+                    const members: any[] = seating?.[mapRound]?.[table] || []
+                    const males = members.filter(m => m.gender !== 'female').length
+                    const females = members.filter(m => m.gender === 'female').length
+                    const balanced = Math.abs(males - females) <= 1
+                    const hasSwapMember = swapA !== null && members.some(m => m.number === swapA)
+                    return (
+                      <div key={table} className={`bg-gray-900 rounded-2xl p-4 border transition-all duration-200 ${
+                        hasSwapMember ? 'border-amber-600/70 shadow-lg shadow-amber-900/20' :
+                        swapA !== null ? 'border-blue-800/50 hover:border-blue-600/60' :
+                        'border-gray-800 hover:border-gray-700'
+                      }`}>
+                        {/* Table header */}
+                        <div className="flex items-center justify-between mb-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-900/40 border border-indigo-800/50 flex items-center justify-center flex-shrink-0">
+                              <span className="text-indigo-300 font-black text-lg leading-none">{table}</span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-gray-200 leading-tight">طاولة {table}</p>
+                              <p className="text-[10px] text-gray-600">{members.length} مشارك</p>
+                            </div>
+                          </div>
+                          <span className={`flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-lg border ${
+                            balanced ? 'bg-green-900/20 border-green-800/30 text-green-400' : 'bg-red-900/20 border-red-800/30 text-red-400'
+                          }`}>
+                            <span className="text-blue-400">{males}♂</span>
+                            <span className="text-gray-600">·</span>
+                            <span className="text-pink-400">{females}♀</span>
+                          </span>
+                        </div>
+                        {/* Members */}
+                        <div className="space-y-1.5">
+                          {members.map((m: any) => {
+                            const rankData = allRankings.find(r => r.number === m.number)
+                            const isSwapSrc = swapA === m.number
+                            const isViewing = selectedParticipantNum === m.number && participantPanelOpen
+                            return (
+                              <button key={m.number} onClick={() => handleMemberClick(m)}
+                                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-right transition-all ${
+                                  isSwapSrc
+                                    ? 'bg-amber-900/40 border border-amber-600/50 text-amber-200 shadow-inner'
+                                    : isViewing
+                                    ? 'bg-purple-900/30 border border-purple-600/40 text-purple-100'
+                                    : swapA !== null
+                                    ? 'hover:bg-blue-900/20 border border-transparent hover:border-blue-700/40 text-gray-300 cursor-pointer'
+                                    : 'hover:bg-gray-800/70 border border-transparent hover:border-gray-700/50 text-gray-300 active:scale-[0.98]'
+                                }`}
+                              >
+                                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${m.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                                <span className="flex-1 text-sm font-medium truncate text-right">{m.name}</span>
+                                <span className="text-[10px] text-gray-600 font-mono flex-shrink-0">#{m.number}</span>
+                                <span className={`w-2 h-2 rounded-full flex-shrink-0 ${rankData?.submitted ? 'bg-green-500' : 'bg-gray-700'}`} title={rankData?.submitted ? 'صوّت' : 'لم يصوّت'} />
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 border-t border-gray-800/60">
+                  <p className="text-[10px] text-gray-600 font-semibold">المفتاح:</p>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-green-500" /> صوّت</div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2 h-2 rounded-full bg-gray-700" /> لم يصوّت</div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-blue-400" /> ذكر</div>
+                  <div className="flex items-center gap-1.5 text-[10px] text-gray-600"><span className="w-2.5 h-2.5 rounded-full bg-pink-400" /> أنثى</div>
+                  <p className="text-[10px] text-gray-700">· اضغط على اسم لعرض التفاصيل · اضغط مرتين (مشارك ثم آخر) للتبديل</p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* TAB: PARTICIPANTS ───────────────────────────────────────────────── */}
+        {activeTab === "participants" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-300">نظرة شاملة على المشاركين</h3>
+                <p className="text-xs text-gray-600 mt-0.5">{participants.filter(p => p.selected).length} مشارك مختار · اضغط لعرض التفاصيل</p>
+              </div>
+              <button onClick={() => { fetchParticipants(); fetchSeating(); fetchRankStatus(); fetchMatches() }} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
                 <RefreshCw size={14} />
               </button>
             </div>
 
-            {seating && (
-              <div className={`rounded-xl px-4 py-3 border text-sm flex items-center justify-between gap-3 ${swapA ? 'bg-amber-900/30 border-amber-700/50' : 'bg-gray-900 border-gray-800'}`}>
-                <div>
-                  <p className={`font-medium text-xs ${swapA ? 'text-amber-300' : 'text-gray-400'}`}>
-                    {swapA ? `تبديل المشارك #${swapA} مع...` : 'تبديل مشاركَين بين الطاولات'}
-                  </p>
-                  {!swapA && <p className="text-gray-600 text-xs mt-0.5">اضغط على اسم مشارك أولاً ثم اضغط على آخر</p>}
-                </div>
-                {swapA && <button onClick={() => setSwapA(null)} className="text-gray-500 text-xs hover:text-gray-300">إلغاء</button>}
-              </div>
-            )}
-            {!seating ? (
-              <div className="text-center py-12 text-gray-500">
-                <Grid3x3 size={32} className="mx-auto mb-3 opacity-30" />
-                <p>لم تُولَّد خطة الجلسات بعد</p>
-                <p className="text-xs mt-1">اختر المشاركين ثم اضغط "توليد خطة الجلسات"</p>
+            {participants.filter(p => p.selected).length === 0 ? (
+              <div className="text-center py-12 text-gray-600">
+                <Users size={32} className="mx-auto mb-3 opacity-30" />
+                <p>لم يُختَر مشاركون بعد</p>
               </div>
             ) : (
-              [1, 2].map(round => (
-                <div key={round} className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                  <h4 className="font-semibold mb-4 flex items-center gap-2">
-                    <span className="bg-purple-900/50 text-purple-300 rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold">{round}</span>
-                    الجولة {round === 1 ? "الأولى" : round === 2 ? "الثانية" : "الثالثة"}
-                  </h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {Object.keys(seating?.[round] || {}).map(Number).sort((a,b) => a-b).map(table => {
-                      const members = seating?.[round]?.[table] || []
-                      return (
-                        <div key={table} className="bg-gray-800/50 border border-gray-700 rounded-lg p-3">
-                          <div className="text-xs font-medium text-gray-400 mb-2 flex items-center gap-1">
-                            <Table2 size={12} /> طاولة {table}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {participants.filter(p => p.selected).sort((a, b) => a.number - b.number).map(p => {
+                  const tables = getParticipantTables(p.number)
+                  const rankData = allRankings.find(r => r.number === p.number)
+                  return (
+                    <button key={p.number}
+                      onClick={() => { setSelectedParticipantNum(p.number); setParticipantPanelOpen(true) }}
+                      className="bg-gray-900 border border-gray-800 hover:border-purple-700/50 rounded-xl p-4 text-right transition-all hover:shadow-lg hover:shadow-purple-900/10 active:scale-[0.99] group"
+                    >
+                      <div className="flex items-center gap-3 mb-2.5">
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base flex-shrink-0 ${
+                          p.gender === 'female' ? 'bg-pink-900/40 border border-pink-800/40 text-pink-300' : 'bg-blue-900/40 border border-blue-800/40 text-blue-300'
+                        }`}>
+                          {(p.name || '?').charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-semibold text-white text-sm">{p.name}</span>
+                            <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
+                            {p.age && <span className="text-[10px] text-gray-600">· {p.age}</span>}
                           </div>
-                          <div className="space-y-1">
-                            {members.map((m: any) => (
-                              <button key={m.number}
-                                onClick={() => { if (!swapA) { setSwapA(m.number) } else if (swapA === m.number) { setSwapA(null) } else { doSwap(m.number) } }}
-                                className={`text-xs flex items-center gap-1.5 w-full rounded px-1 py-0.5 text-right transition-colors ${swapA === m.number ? 'bg-amber-800/50 text-amber-200' : swapA ? 'hover:bg-gray-700 cursor-pointer text-gray-300' : 'hover:bg-gray-700/50 text-gray-300'}`}>
-                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${m.gender === "female" ? "bg-pink-400" : "bg-blue-400"}`} />
-                                <span className="truncate">{m.name}</span>
-                                <span className={`flex-shrink-0 ${swapA === m.number ? 'text-amber-400' : 'text-gray-600'}`}>#{m.number}</span>
-                              </button>
-                            ))}
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {p.mbti_personality_type && <span className="text-[10px] text-purple-400">{p.mbti_personality_type}</span>}
+                            {p.communication_style && <span className="text-[10px] text-blue-400 opacity-70">{p.communication_style}</span>}
                           </div>
                         </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))
+                        <div className="flex-shrink-0">
+                          {rankData?.submitted
+                            ? <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-800/30">✓ صوّت</span>
+                            : <span className="text-[10px] text-gray-700">—</span>
+                          }
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {([1, 2] as const).map(r => tables[r] ? (
+                          <span key={r} className={`text-[10px] px-2 py-0.5 rounded-lg border ${
+                            r === 1 ? 'bg-blue-900/20 border-blue-800/30 text-blue-400' : 'bg-indigo-900/20 border-indigo-800/30 text-indigo-400'
+                          }`}>
+                            ج{r}: طاولة {tables[r]}
+                          </span>
+                        ) : null)}
+                        {!tables[1] && !tables[2] && (
+                          <span className="text-[10px] text-gray-700">بدون طاولة محددة</span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
             )}
           </div>
         )}
@@ -936,6 +1097,127 @@ export default function Admin3Page() {
         )}
 
       </div>
+
+      {/* ── Participant Detail Panel ─────────────────────────────────────── */}
+      {participantPanelOpen && selectedParticipantNum !== null && (() => {
+        const p = participants.find(x => x.number === selectedParticipantNum)
+        const rankData = allRankings.find(r => r.number === selectedParticipantNum)
+        const tables = getParticipantTables(selectedParticipantNum)
+        if (!p) return null
+        return (
+          <>
+            <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setParticipantPanelOpen(false)} />
+            <div className="fixed top-0 left-0 h-full w-80 bg-gray-900 border-r border-gray-800 z-50 overflow-y-auto shadow-2xl flex flex-col" dir="rtl">
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-900/95 backdrop-blur-md sticky top-0 z-10">
+                <div className="flex items-center gap-3">
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-black text-xl flex-shrink-0 ${
+                    p.gender === 'female' ? 'bg-pink-900/50 border border-pink-700/50 text-pink-300' : 'bg-blue-900/50 border border-blue-700/50 text-blue-300'
+                  }`}>
+                    {(p.name || '?').charAt(0)}
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base leading-tight">{p.name}</h3>
+                    <p className="text-[11px] text-gray-500">#{p.number} · {p.gender === 'female' ? 'أنثى' : 'ذكر'}{p.age ? ` · ${p.age} سنة` : ''}</p>
+                  </div>
+                </div>
+                <button onClick={() => setParticipantPanelOpen(false)} className="p-2 rounded-xl hover:bg-gray-800 text-gray-500 hover:text-white transition-colors flex-shrink-0">✕</button>
+              </div>
+
+              <div className="p-4 space-y-4 flex-1">
+                {/* Profile tags */}
+                {(p.mbti_personality_type || p.communication_style || p.attachment_style) && (
+                  <div className="flex flex-wrap gap-2">
+                    {p.mbti_personality_type && (
+                      <span className="bg-purple-900/40 border border-purple-700/40 text-purple-300 text-xs px-2.5 py-1 rounded-lg font-medium">{p.mbti_personality_type}</span>
+                    )}
+                    {p.communication_style && (
+                      <span className="bg-blue-900/40 border border-blue-700/40 text-blue-300 text-xs px-2.5 py-1 rounded-lg">{p.communication_style}</span>
+                    )}
+                    {p.attachment_style && (
+                      <span className="bg-teal-900/40 border border-teal-700/40 text-teal-300 text-xs px-2.5 py-1 rounded-lg">{p.attachment_style}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Table assignments */}
+                <div className="bg-gray-800/50 rounded-xl p-3.5 space-y-2.5">
+                  <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                    <Table2 size={11} /> توزيع الطاولات
+                  </h4>
+                  {([1, 2] as const).map(r => (
+                    <div key={r} className="flex items-center justify-between">
+                      <span className="text-xs text-gray-400">الجولة {r === 1 ? 'الأولى' : 'الثانية'}</span>
+                      <div className="flex items-center gap-2">
+                        {tables[r] ? (
+                          <>
+                            <span className="text-xs font-bold text-indigo-300 bg-indigo-900/30 px-2.5 py-1 rounded-lg border border-indigo-800/40">
+                              طاولة {tables[r]}
+                            </span>
+                            <button
+                              onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating"); setMapRound(r) }}
+                              className="text-[10px] text-amber-500 hover:text-amber-300 hover:bg-amber-900/30 px-1.5 py-1 rounded-lg transition-colors"
+                              title="تبديل"
+                            >
+                              ⇄ تبديل
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-600">غير مُعيَّن</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Ranking */}
+                <div className="bg-gray-800/50 rounded-xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                      <BarChart3 size={11} /> التصنيف
+                    </h4>
+                    {rankData?.submitted
+                      ? <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-800/30">✓ صوّت</span>
+                      : <span className="text-[10px] text-gray-700 bg-gray-800 px-2 py-0.5 rounded-full">لم يصوّت بعد</span>
+                    }
+                  </div>
+                  {rankData?.submitted && rankData.ranked_list?.length > 0 ? (
+                    <div className="space-y-1.5 pt-1">
+                      {rankData.ranked_list.slice(0, 6).map((item: any) => {
+                        const theyRankedBack = allRankings.find((x: any) => x.number === item.number)?.ranked_list?.find((y: any) => y.number === p.number)
+                        return (
+                          <div key={item.number} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${theyRankedBack ? 'bg-emerald-900/20 border border-emerald-800/30' : ''}`}>
+                            <span className="w-5 h-5 rounded-lg bg-gray-700 text-gray-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{item.rank}</span>
+                            <span className="text-gray-300 flex-1 truncate">{item.name}</span>
+                            <span className="text-gray-600 text-[10px] flex-shrink-0">#{item.number}</span>
+                            {theyRankedBack && (
+                              <span className="text-emerald-400 text-[10px] flex-shrink-0">🔁 #{theyRankedBack.rank}</span>
+                            )}
+                          </div>
+                        )
+                      })}
+                      {rankData.ranked_list.length > 6 && (
+                        <p className="text-[10px] text-gray-600 text-center pt-0.5">+{rankData.ranked_list.length - 6} آخرون</p>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Actions */}
+                <div className="pt-1">
+                  <button
+                    onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating") }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-900/30 hover:bg-amber-900/50 border border-amber-700/40 text-amber-300 text-sm font-medium transition-all active:scale-[0.98]"
+                  >
+                    <Shuffle size={14} /> تبديل مكانه في الطاولات
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
     </div>
   )
 }

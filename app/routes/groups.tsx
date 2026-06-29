@@ -1461,11 +1461,30 @@ export default function GroupsPage() {
                     }
                   }
                 } catch(_) {}
-                // No group assignment found: stay on PhoneEntry with message
-                setIsConfirmed(false);
-                setTableNumber(null);
-                setGroupMembers([]);
-                setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+                // No main-event group — try Event3 seating fallback
+                let e3Found = false;
+                const semiToken = parsed.secure_token || null;
+                if (semiToken) {
+                  try {
+                    const e3Res = await fetch("/api/participant", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "e3-get-my-group", token: semiToken }) });
+                    if (e3Res.ok) {
+                      const e3Data = await e3Res.json();
+                      if (e3Data.group) {
+                        setTableNumber(e3Data.group.table_number);
+                        setGroupMembers((e3Data.group.members || []).map((m: any) => m.name));
+                        setGroupParticipantNumbers((e3Data.group.members || []).map((m: any) => m.number));
+                        setGroupParticipantGenders((e3Data.group.members || []).map((m: any) => (m.gender === 'male' || m.gender === 'female' ? m.gender : null)));
+                        setIsConfirmed(true); setShowOnboarding(true); e3Found = true;
+                      }
+                    }
+                  } catch(_) {}
+                }
+                if (!e3Found) {
+                  setIsConfirmed(false);
+                  setTableNumber(null);
+                  setGroupMembers([]);
+                  setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+                }
                 setDataLoaded(true);
                 return;
               }
@@ -1571,18 +1590,34 @@ export default function GroupsPage() {
                 setIsConfirmed(true);
                 setShowOnboarding(true);
               } else {
-                console.log(`⚠️ No group assignment found for participant #${participantData.assigned_number} in event ${currentEventId}`);
-                console.log('Participant assigned_number type:', typeof participantData.assigned_number, participantData.assigned_number);
-                console.log('Available groups:', groupData.groups?.map((g: any) => ({ 
-                  table: g.table_number, 
-                  participants: g.participant_numbers,
-                  participantTypes: g.participant_numbers?.map((p: any) => typeof p)
-                })));
-                // Gating: do not confirm; show message on PhoneEntry
-                setIsConfirmed(false);
-                setTableNumber(null);
-                setGroupMembers([]);
-                setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+                console.log(`⚠️ No main-event group for #${participantData.assigned_number}, trying Event3 seating...`);
+                // Fallback: check Event3 session_assignments
+                let e3GroupFound = false;
+                try {
+                  const e3Res = await fetch("/api/participant", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ action: "e3-get-my-group", token: savedToken })
+                  });
+                  if (e3Res.ok) {
+                    const e3Data = await e3Res.json();
+                    if (e3Data.group) {
+                      setTableNumber(e3Data.group.table_number);
+                      setGroupMembers((e3Data.group.members || []).map((m: any) => m.name));
+                      setGroupParticipantNumbers((e3Data.group.members || []).map((m: any) => m.number));
+                      setGroupParticipantGenders((e3Data.group.members || []).map((m: any) => (m.gender === 'male' || m.gender === 'female' ? m.gender : null)));
+                      setIsConfirmed(true);
+                      setShowOnboarding(true);
+                      e3GroupFound = true;
+                    }
+                  }
+                } catch(_) {}
+                if (!e3GroupFound) {
+                  setIsConfirmed(false);
+                  setTableNumber(null);
+                  setGroupMembers([]);
+                  setPhoneError("لا توجد مجموعة مخصصة لك بعد. انتظر التعيين من المنظم.");
+                }
               }
             }
           } catch (groupError) {
@@ -1678,7 +1713,8 @@ export default function GroupsPage() {
           table_number: data.table_number ?? null,
           group_members: data.group_members || [],
           participant_numbers: Array.isArray(data.participant_numbers) ? data.participant_numbers : [],
-          admin_bypass: !!data.admin_bypass
+          admin_bypass: !!data.admin_bypass,
+          secure_token: data.secure_token || null
         }));
       } catch (_) {}
       setDataLoaded(true);
@@ -1806,7 +1842,8 @@ export default function GroupsPage() {
           table_number: data.table_number ?? null,
           group_members: data.group_members || [],
           participant_numbers: Array.isArray(data.participant_numbers) ? data.participant_numbers : [],
-          admin_bypass: !!data.admin_bypass
+          admin_bypass: !!data.admin_bypass,
+          secure_token: data.secure_token || null
         }));
       } catch (_) {}
       setDataLoaded(true);

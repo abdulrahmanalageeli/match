@@ -5983,9 +5983,10 @@ export default async function handler(req, res) {
           const { count: pc } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID)
           const { count: sc } = await supabase.from("session_assignments").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID)
           const { count: mc } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).not("phase2_partner", "is", null)
+          const { count: mc3 } = await supabase.from("event3_matches").select("id", { count: "exact", head: true }).eq("match_id", EVENT3_MATCH_ID).not("phase3_partner", "is", null)
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number").eq("match_id", EVENT3_MATCH_ID)
           const uniqueRankers = new Set((rankRows || []).map(r => r.ranker_number)).size
-          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
+          return res.status(200).json({ phase: stateRow?.phase || "setup", timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, participants_selected: pc || 0, seating_generated: (sc || 0) > 0, rankings_submitted: uniqueRankers, phase2_matches_done: (mc || 0) > 0, phase3_matches_done: (mc3 || 0) > 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
         }
         // e3-get-participants
         if (action === "e3-get-participants") {
@@ -6217,12 +6218,20 @@ export default async function handler(req, res) {
         if (action === "e3-swap-seating") {
           const { num_a, num_b } = req.body
           if (!num_a || !num_b || num_a === num_b) return res.status(400).json({ error: "Two different participant numbers required" })
-          const { data: rowsA } = await supabase.from("session_assignments").select("id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_a)
-          const { data: rowsB } = await supabase.from("session_assignments").select("id,round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_b)
+          const { data: rowsA } = await supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_a)
+          const { data: rowsB } = await supabase.from("session_assignments").select("id,round,table_number,event_id").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_b)
           if (!rowsA?.length && !rowsB?.length) return res.status(404).json({ error: "Neither participant found in session assignments" })
-          const updA = rowsA?.map(r => supabase.from("session_assignments").update({ participant_id: num_b }).eq("id", r.id)) || []
-          const updB = rowsB?.map(r => supabase.from("session_assignments").update({ participant_id: num_a }).eq("id", r.id)) || []
-          await Promise.all([...updA, ...updB])
+          // Delete both first to avoid unique constraint violations, then re-insert with swapped IDs
+          if (rowsA?.length) await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_a)
+          if (rowsB?.length) await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID).eq("participant_id", num_b)
+          const newRows = [
+            ...(rowsA || []).map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || 3, round: r.round, table_number: r.table_number, participant_id: num_b })),
+            ...(rowsB || []).map(r => ({ match_id: EVENT3_MATCH_ID, event_id: r.event_id || 3, round: r.round, table_number: r.table_number, participant_id: num_a }))
+          ]
+          if (newRows.length > 0) {
+            const { error } = await supabase.from("session_assignments").insert(newRows)
+            if (error) return res.status(500).json({ error: error.message })
+          }
           return res.status(200).json({ message: `Swapped #${num_a} ↔ #${num_b} in all rounds` })
         }
         // e3-clear-rankings

@@ -133,7 +133,18 @@ function TokenEntry({ onToken }: { onToken: (t: string) => void }) {
 }
 
 // ─── Waiting / Setup Screen ───────────────────────────────────────────────────
-function SetupScreen() {
+function SetupScreen({ token }: { token: string }) {
+  const [enrolledCount, setEnrolledCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    const fetchCount = () => call("e3-get-state", token).then(d => {
+      if (d && !d.error && d.participants_selected != null) setEnrolledCount(d.participants_selected)
+    })
+    fetchCount()
+    const iv = setInterval(fetchCount, 5000)
+    return () => clearInterval(iv)
+  }, [token])
+
   return (
     <PageWrapper className="flex items-center justify-center p-6 text-center">
       <motion.div
@@ -160,6 +171,12 @@ function SetupScreen() {
           </div>
           <h1 className="text-xl font-bold text-white">الفعالية ستبدأ قريباً</h1>
           <p className="text-gray-500 text-sm">انتظر توجيهات المنظم</p>
+          {enrolledCount != null && enrolledCount > 0 && (
+            <div className="flex items-center justify-center gap-2 pt-1">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-green-400 text-xs font-medium">{enrolledCount} مشارك مسجّل</span>
+            </div>
+          )}
         </GlassCard>
       </motion.div>
     </PageWrapper>
@@ -273,6 +290,18 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
                     </div>
                   </div>
                 )}
+
+              {/* Session ended overlay */}
+              {timerActive && timeLeft === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 pt-4 border-t border-gray-800/60 text-center space-y-1"
+                >
+                  <div className="text-2xl">⏰</div>
+                  <p className="text-white font-semibold text-sm">انتهت الجلسة</p>
+                  <p className="text-gray-500 text-xs">انتظر توجيهات المنظم للمرحلة التالية</p>
+                </motion.div>
+              )}
               </GlassCard>
             </motion.div>
           ) : (
@@ -954,72 +983,6 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   )
 }
 
-// ─── Phase 2 One-Word Screen ──────────────────────────────────────────────────
-function Phase2WordScreen({ token }: { token: string }) {
-  const [word, setWord] = useState("")
-  const [submitted, setSubmitted] = useState(false)
-  const [partnerName, setPartnerName] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    call("e3-get-phase2-reveal", token).then(d => {
-      if (!d.error) {
-        setPartnerName(d.partner_first_name || "")
-        if (d.my_word) { setWord(d.my_word); setSubmitted(true) }
-      }
-    })
-  }, [token])
-
-  const submit = async () => {
-    if (!word.trim()) { toast.error("اكتب كلمة واحدة فقط"); return }
-    setSubmitting(true)
-    const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
-    setSubmitting(false)
-    if (d.error) { toast.error(d.error); return }
-    setSubmitted(true)
-    toast.success("تم الحفظ! ✨")
-  }
-
-  return (
-    <PageWrapper className="flex flex-col items-center justify-center p-6 text-center">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-6">
-        <div className="space-y-2">
-          <div className="text-5xl">💬</div>
-          <h1 className="text-xl font-bold text-white">كيف كانت الجلسة مع {partnerName}؟</h1>
-          <p className="text-gray-500 text-sm">صفها بكلمة واحدة</p>
-        </div>
-        <GlassCard className="p-6 space-y-4 shadow-xl shadow-black/20">
-          <input
-            type="text"
-            placeholder="مثلاً: ممتع، عميق، مريح..."
-            value={word}
-            maxLength={20}
-            onChange={e => setWord(e.target.value.split(" ")[0])}
-            onKeyDown={e => e.key === "Enter" && !submitted && submit()}
-            disabled={submitted}
-            className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-4 text-center text-xl focus:outline-none focus:border-pink-500/60 disabled:opacity-60 transition-all placeholder:text-gray-600"
-          />
-          {!submitted ? (
-            <motion.button
-              onClick={submit}
-              disabled={submitting || !word.trim()}
-              whileTap={{ scale: 0.97 }}
-              className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 disabled:opacity-40 text-white rounded-xl py-3.5 font-bold shadow-lg shadow-pink-600/25 transition-all"
-            >
-              {submitting ? "جاري الحفظ..." : "تأكيد ✓"}
-            </motion.button>
-          ) : (
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-              className="flex items-center justify-center gap-2 py-3 text-green-400 font-medium">
-              <CheckCircle size={18} /> تم الحفظ — انتظر المرحلة التالية
-            </motion.div>
-          )}
-        </GlassCard>
-      </motion.div>
-    </PageWrapper>
-  )
-}
-
 // ─── Phase 3 Reveal Screen ────────────────────────────────────────────────────
 function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
@@ -1537,11 +1500,10 @@ export default function Event3Page() {
       )}
 
       <AnimatePresence mode="wait">
-        {phase === "setup" && <SetupScreen key="setup" />}
+        {phase === "setup" && <SetupScreen key="setup" token={token} />}
         {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}
         {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
         {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
-        {phase === "phase2_oneword" && <Phase2WordScreen key="p2w" token={token} />}
         {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
         {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
       </AnimatePresence>

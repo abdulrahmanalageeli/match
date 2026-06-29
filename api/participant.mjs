@@ -2562,6 +2562,7 @@ Please respond in JSON format:
       if (action === "e3-get-state") {
         const { data: stateRow } = await supabase.from("event_state").select("phase,global_timer_active,global_timer_start_time,global_timer_duration,global_timer_round,phase2_score_revealed,phase3_score_revealed").eq("match_id", E3_MATCH_ID).single()
         const phase = stateRow?.phase || "setup"
+        const { count: participantsSelected } = await supabase.from("event3_participants").select("id", { count: "exact", head: true }).eq("match_id", E3_MATCH_ID)
         let myAssignment = null
         if (participant) {
           const { data: ep } = await supabase.from("event3_participants").select("position").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
@@ -2581,7 +2582,7 @@ Please respond in JSON format:
           const firstName = fullName.split(" ")[0] || fullName
           myInfo = { number: myNumber, name: firstName, gender: participant.gender || sd?.answers?.gender || sd?.gender || null }
         }
-        return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
+        return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
       }
 
       if (!participant) return res.status(401).json({ error: "Invalid or missing token" })
@@ -2740,6 +2741,33 @@ Please respond in JSON format:
           if (error) return res.status(500).json({ error: error.message })
         }
         return res.status(200).json({ ok: true })
+      }
+
+      // e3-get-my-group: returns the participant's current-round group for groups.tsx
+      if (action === "e3-get-my-group") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        // Check enrolled in event3
+        const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).maybeSingle()
+        if (!ep) return res.status(200).json({ group: null })
+        // Determine current round from event phase
+        const { data: stateRow } = await supabase.from("event_state").select("phase").eq("match_id", E3_MATCH_ID).maybeSingle()
+        const phase = stateRow?.phase || "round1"
+        const roundMatch = phase.match(/^round(\d)$/)
+        const currentRound = roundMatch ? parseInt(roundMatch[1]) : 1
+        // Get their table assignment for this round
+        const { data: assignment } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", currentRound).eq("participant_id", myNumber).maybeSingle()
+        if (!assignment) return res.status(200).json({ group: null })
+        // Get all tablemates
+        const { data: tablemates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", currentRound).eq("table_number", assignment.table_number)
+        const nums = (tablemates || []).map(r => r.participant_id)
+        const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", nums)
+        const nameMap = {}
+        for (const p of pdata || []) {
+          const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+          nameMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || null }
+        }
+        const members = nums.map(n => ({ number: n, ...(nameMap[n] || { name: `#${n}`, gender: null }) }))
+        return res.status(200).json({ group: { table_number: assignment.table_number, members } })
       }
 
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })

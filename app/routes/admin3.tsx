@@ -17,7 +17,6 @@ const PHASES = [
   { id: "round2",         label: "الجولة الثانية",       icon: "2️⃣", color: "indigo" },
   { id: "ranking2",       label: "التصنيف النهائي",      icon: "🏆", color: "yellow" },
   { id: "phase2_reveal",  label: "الكشف الأول",          icon: "💘", color: "pink" },
-  { id: "phase2_oneword", label: "الكلمة الأولى",        icon: "💬", color: "rose" },
   { id: "phase3_reveal",  label: "الكشف الثاني",         icon: "🧠", color: "purple" },
   { id: "final_reveal",   label: "الكشف النهائي",        icon: "✨", color: "amber" },
 ]
@@ -193,8 +192,8 @@ export default function Admin3Page() {
     if (ph === "round2") return { label: "⬅ التصنيف النهائي", action: () => setPhase("ranking2"), ready: true }
     if (ph === "ranking2" && !hasMatches) return { label: "⬅ تشغيل مطابقة اختيار المشاركين", action: () => run("phase2", () => api("e3-trigger-phase2-matching").then(d => { fetchMatches(); fetchState(); return d })), ready: ranked > 0 }
     if (ph === "ranking2" && hasMatches) return { label: "⬅ بدء كشف المرحلة 2 (30 دقيقة)", action: () => { setPhase("phase2_reveal"); startTimer(4, 1800) }, ready: true }
-    if (ph === "phase2_reveal") return { label: "⬅ شاشة الكلمة الواحدة", action: () => setPhase("phase2_oneword"), ready: true }
-    if (ph === "phase2_oneword") return { label: "⬅ كشف المرحلة 3 (30 دقيقة)", action: () => { setPhase("phase3_reveal"); startTimer(5, 1800) }, ready: true }
+    if (ph === "phase2_reveal" && !state.phase3_matches_done) return { label: "⬅ تشغيل مطابقة الخوارزمية", action: () => run("phase3", () => api("e3-trigger-phase3-matching").then(d => { fetchState(); return d })), ready: true }
+    if (ph === "phase2_reveal" && state.phase3_matches_done) return { label: "⬅ كشف المرحلة 3 (30 دقيقة)", action: () => { setPhase("phase3_reveal"); startTimer(5, 1800) }, ready: true }
     if (ph === "phase3_reveal") return { label: "⬅ الكشف النهائي ✨", action: () => setPhase("final_reveal"), ready: true }
     return null
   }
@@ -329,12 +328,13 @@ export default function Admin3Page() {
 
         {/* Stats Row */}
         {state && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
               { label: "التصنيفات المقدمة", value: `${state.rankings_submitted}/${state.participants_selected || 0}`, icon: BarChart3, ok: state.rankings_submitted > 0 && state.rankings_submitted >= (state.participants_selected || 1) },
               { label: "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
+              { label: "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: Brain, ok: state.phase3_matches_done },
             ].map(stat => (
               <div key={stat.label} className={`bg-gray-900 border rounded-xl p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
                 <div className="flex items-center justify-between mb-1">
@@ -349,22 +349,28 @@ export default function Admin3Page() {
 
         {/* Timer */}
         {state?.timer_active && (
-          <div className="bg-blue-900/30 border border-blue-700/50 rounded-xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Clock size={20} className="text-blue-400 animate-pulse" />
-              <div>
-                <p className="font-medium text-blue-300">المؤقت نشط</p>
-                <p className="text-xs text-gray-400">الجولة {state.timer_round}</p>
+          <div className="bg-blue-900/30 border border-blue-700/50 rounded-xl overflow-hidden">
+            <div className="p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Clock size={20} className="text-blue-400 animate-pulse" />
+                <div>
+                  <p className="font-medium text-blue-300">المؤقت نشط</p>
+                  <p className="text-xs text-gray-400">الجولة {state.timer_round} · {formatTime(timerRemaining)} متبقية</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`text-3xl font-mono font-bold ${timerRemaining < 120 ? 'text-red-400' : 'text-blue-300'}`}>{formatTime(timerRemaining)}</div>
+                <button onClick={stopTimer} disabled={!!loading} className="bg-red-600/80 hover:bg-red-600 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
+                  <Square size={14} /> إيقاف
+                </button>
               </div>
             </div>
-            <div className="text-3xl font-mono font-bold text-blue-300">{formatTime(timerRemaining)}</div>
-            <button
-              onClick={stopTimer}
-              disabled={!!loading}
-              className="bg-red-600/80 hover:bg-red-600 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2"
-            >
-              <Square size={14} /> إيقاف
-            </button>
+            <div className="h-1.5 bg-blue-950/60">
+              <div
+                className={`h-full transition-all duration-1000 ${timerRemaining < 120 ? 'bg-red-500' : 'bg-blue-400'}`}
+                style={{ width: `${Math.min(100, (timerRemaining / (state.timer_duration || 1200)) * 100)}%` }}
+              />
+            </div>
           </div>
         )}
 
@@ -528,15 +534,6 @@ export default function Admin3Page() {
                     color: "pink",
                     enabled: state?.phase2_matches_done,
                     loadKey: "phase-phase2_reveal",
-                  },
-                  {
-                    label: "شاشة الكلمة الواحدة",
-                    desc: "بعد المرحلة 2",
-                    action: () => setPhase("phase2_oneword"),
-                    icon: Trophy,
-                    color: "rose",
-                    enabled: true,
-                    loadKey: "phase-phase2_oneword",
                   },
                   {
                     label: "تشغيل مطابقة المرحلة 3",

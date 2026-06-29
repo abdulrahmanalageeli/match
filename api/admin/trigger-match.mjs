@@ -1677,25 +1677,25 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
     const systemMessage = `You are a personal compatibility rater. Output a single integer from 0 to 35 only, no extra text.
 
-Goal: score initial-spark "clickability" — the feeling of natural connection in a first meeting — for Arabic-speaking users. Answers are short (~50 characters), so give more credit for small overlaps.
+Goal: score initial-spark "clickability" — the feeling of natural connection in a first meeting — for Arabic-speaking users. Answers are short (~50 characters), so give credit for small overlaps — but equally penalise clear divergences. Mismatches matter as much as matches.
 
 IMPORTANT SCORING POLICY
 • Use the FULL range 0–35. It MUST be possible to reach 35 WITHOUT any "bonus" concept.
-• If both profiles strongly align across most axes (lifestyle, interests, music/arts mood, conversation depth, traits/values), return 34–35. Perfect, unmistakable alignment should receive 35.
-• Do not require a separate "bonus" to reach the maximum. You may still give extra credit for a unique, obvious spark, but it is not mandatory for 35.
+• If both profiles strongly align across most axes, return 34–35. Perfect, unmistakable alignment should receive 35.
+• SYMMETRY RULE: A clear mismatch on an axis lowers the score by as much as a clear match raises it. Do not focus only on shared elements — actively penalise obvious incompatibilities.
 
 RECOMMENDED AXES (score directly 0–35 overall):
-1) Lifestyle & Weekend Habits
-2) Interests & Hobbies
-3) Music/Arts Taste or overall mood
-4) Communication Energy & Expressiveness — are they both animated/warm, or both calm/reserved? Energy mismatch kills initial spark even when topics align perfectly.
-5) Traits & Values
+1) Lifestyle & Weekend Habits — shared rhythms raise score; opposite styles (productive vs reclusive, social vs avoidant) lower it
+2) Interests & Hobbies — overlapping activities raise score; completely different leisure worlds lower it
+3) Music/Arts Taste — explicit genre clash (e.g. traditional Arabic vs Western hip-hop, classical vs heavy metal) is a STRONG negative signal and should significantly lower the score, even if other axes overlap
+4) Communication Energy & Expressiveness — are they both animated/warm, or both calm/reserved? Energy mismatch kills initial spark even when topics align perfectly
+5) Traits & Values — compatible self-descriptions raise score; contradictory or incompatible personalities lower it
 
 GUIDELINES
 • Heavy overlap across 4–5 axes → 34–35
-• Strong overlap across 3 axes, neutral elsewhere → 30–33
-• Mixed/partial alignment → 15–29
-• Mostly mismatched → 0–14
+• Strong overlap across 3 axes, neutral elsewhere → 25–33
+• Mixed: some overlaps, some clear clashes → 12–24
+• Mostly mismatched or 2+ axis clashes → 0–11
 
 أرجِع رقمًا واحدًا فقط من 0 إلى 35 دون أي نص إضافي.
 `

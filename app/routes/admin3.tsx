@@ -74,8 +74,10 @@ export default function Admin3Page() {
   const [swapA, setSwapA] = useState<number | null>(null)
   const [mapRound, setMapRound] = useState<1 | 2 | 20>(1)
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
+  const [editingTableCard, setEditingTableCard] = useState<{ round: number; table: number; value: string } | null>(null)
   const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
   const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
+  const [pairDetail, setPairDetail] = useState<any | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -196,6 +198,15 @@ export default function Admin3Page() {
 
   const moveTable = (num: number, round: number, newTable: number) =>
     run(`move-table-${num}-r${round}`, () => api("e3-move-table", { participant_number: num, round, new_table: newTable }).then(d => { if (!d.error) { setEditingTable(null); fetchSeating() } return d }))
+
+  const renameTable = (round: number, oldTable: number, newTable: number) => {
+    const members: any[] = seating?.[round]?.[oldTable] || []
+    if (!members.length || newTable === oldTable) { setEditingTableCard(null); return }
+    run(`rename-table-${round}-${oldTable}`, () =>
+      Promise.all(members.map(m => api("e3-move-table", { participant_number: m.number, round, new_table: newTable })))
+        .then(() => { setEditingTableCard(null); fetchSeating(); return { message: `Table renamed` } })
+    )
+  }
 
   const getParticipantTables = (num: number): Record<number, number> => {
     if (!seating) return {}
@@ -734,16 +745,26 @@ export default function Admin3Page() {
                               }`}>{pair.matchType === 'mutual' ? '🔁 تبادل' : '⚡ احتياطي'}</span>
                             </div>
                           </div>
-                          {pair.compatScore != null && (
-                            <div className={`text-center px-2.5 py-1.5 rounded-xl border ${
-                              pair.compatScore >= 75 ? 'bg-green-900/30 border-green-700/40 text-green-300' :
-                              pair.compatScore >= 55 ? 'bg-blue-900/30 border-blue-700/40 text-blue-300' :
-                              'bg-gray-800 border-gray-700 text-gray-400'
-                            }`}>
-                              <p className="text-lg font-black leading-none">{pair.compatScore}%</p>
-                              <p className="text-[9px] opacity-60 mt-0.5">توافق</p>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {pair.compatScore != null && pair.bothComplete ? (
+                              <div className={`text-center px-2.5 py-1.5 rounded-xl border ${
+                                pair.compatScore >= 75 ? 'bg-green-900/30 border-green-700/40 text-green-300' :
+                                pair.compatScore >= 55 ? 'bg-blue-900/30 border-blue-700/40 text-blue-300' :
+                                'bg-gray-800 border-gray-700 text-gray-400'
+                              }`}>
+                                <p className="text-lg font-black leading-none">{pair.compatScore}%</p>
+                                <p className="text-[9px] opacity-60 mt-0.5">توافق</p>
+                              </div>
+                            ) : (
+                              <div className="text-center px-2 py-1.5 rounded-xl bg-red-950/30 border border-red-800/30">
+                                <p className="text-[9px] text-red-400 font-medium leading-tight">بيانات<br/>ناقصة</p>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => setPairDetail(pair)}
+                              className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/30 px-2 py-1.5 rounded-lg transition-colors border border-indigo-800/30 hover:border-indigo-700/50"
+                            >📊 تفاصيل</button>
+                          </div>
                         </div>
                         {/* Pair names */}
                         <div className="flex items-center gap-2">
@@ -804,9 +825,34 @@ export default function Admin3Page() {
                         {/* Table header */}
                         <div className="flex items-center justify-between mb-3.5">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-900/40 border border-indigo-800/50 flex items-center justify-center flex-shrink-0">
-                              <span className="text-indigo-300 font-black text-lg leading-none">{table}</span>
-                            </div>
+                            {editingTableCard?.round === mapRound && editingTableCard?.table === table ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  autoFocus
+                                  type="number" min={1} max={99}
+                                  value={editingTableCard.value}
+                                  onChange={e => setEditingTableCard({ ...editingTableCard, value: e.target.value })}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') { const v = parseInt(editingTableCard.value); if (!isNaN(v) && v > 0) renameTable(mapRound as number, table, v) }
+                                    if (e.key === 'Escape') setEditingTableCard(null)
+                                  }}
+                                  className="w-14 h-9 bg-gray-700 border border-indigo-500 text-indigo-200 font-black text-base rounded-xl px-2 text-center focus:outline-none"
+                                />
+                                <button onClick={() => { const v = parseInt(editingTableCard.value); if (!isNaN(v) && v > 0) renameTable(mapRound as number, table, v) }}
+                                  className="text-xs text-green-400 bg-green-900/30 hover:bg-green-900/50 px-2 py-1.5 rounded-lg font-bold transition-colors">✓</button>
+                                <button onClick={() => setEditingTableCard(null)}
+                                  className="text-xs text-gray-500 hover:text-gray-300 px-1.5 py-1.5 rounded-lg transition-colors">✕</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setEditingTableCard({ round: mapRound as number, table, value: String(table) })}
+                                className="w-10 h-10 rounded-xl bg-indigo-900/40 hover:bg-indigo-800/60 border border-indigo-800/50 hover:border-indigo-600/60 flex items-center justify-center flex-shrink-0 transition-all group"
+                                title="اضغط لتغيير رقم الطاولة"
+                              >
+                                <span className="text-indigo-300 font-black text-lg leading-none group-hover:hidden">{table}</span>
+                                <span className="text-indigo-400 text-sm leading-none hidden group-hover:block">✏</span>
+                              </button>
+                            )}
                             <div>
                               <p className="text-sm font-semibold text-gray-200 leading-tight">طاولة {table}</p>
                               <p className="text-[10px] text-gray-600">{members.length} مشارك</p>
@@ -1344,6 +1390,172 @@ export default function Admin3Page() {
               </div>
             </div>
           </>
+        )
+      })()}
+
+      {/* ── Pair Detail Modal ─────────────────────────────────── */}
+      {pairDetail && (() => {
+        const pd = pairDetail
+        const c = pd.compat || {}
+        const getAns = (survey: any, key: string) => {
+          const sd = survey && typeof survey === 'string' ? JSON.parse(survey) : (survey || {})
+          return (sd?.answers?.[key] ?? sd?.[key] ?? '')?.toString()?.toUpperCase() || '—'
+        }
+        const sdA = pd.aSurvey && typeof pd.aSurvey === 'string' ? JSON.parse(pd.aSurvey) : (pd.aSurvey || {})
+        const sdB = pd.bSurvey && typeof pd.bSurvey === 'string' ? JSON.parse(pd.bSurvey) : (pd.bSurvey || {})
+        const ansA = sdA.answers || {}
+        const ansB = sdB.answers || {}
+        const qRows = [
+          { label: 'Q35 الدور في الحديث', a: (ansA.conversational_role||'—').toUpperCase(), b: (ansB.conversational_role||'—').toUpperCase(), tip: 'A=مبادر B=مستجيب C=مستمع' },
+          { label: 'Q36 عمق المحادثة', a: (ansA.conversation_depth_pref||'—').toUpperCase(), b: (ansB.conversation_depth_pref||'—').toUpperCase(), tip: 'A=عميق B=سطحي' },
+          { label: 'Q37 الطاقة الاجتماعية', a: (ansA.social_battery||'—').toUpperCase(), b: (ansB.social_battery||'—').toUpperCase(), tip: 'A=اجتماعي B=هادئ' },
+          { label: 'Q38 أسلوب الفكاهة', a: (ansA.humor_subtype||'—').toUpperCase(), b: (ansB.humor_subtype||'—').toUpperCase(), tip: 'A=سخرية B=دفء C=قصص D=هادئ' },
+          { label: 'Q39 أسلوب الفضول', a: (ansA.curiosity_style||'—').toUpperCase(), b: (ansB.curiosity_style||'—').toUpperCase(), tip: 'A=متسائل B=مجيب C=متوازن' },
+          { label: 'Q40 الهدف من اللقاء', a: (ansA.intent_goal||'—').toUpperCase(), b: (ansB.intent_goal||'—').toUpperCase(), tip: 'A=توسيع دائرة B=تواصل فكري C=اكتشاف' },
+          { label: 'Q41 الراحة مع الصمت', a: (ansA.silence_comfort||'—').toUpperCase(), b: (ansB.silence_comfort||'—').toUpperCase(), tip: 'A=مريح B=غير مريح' },
+          { label: 'أسلوب الفكاهة (humor_banter)', a: (pd.compat?.mbtiA ? (ansA.humor_banter_style||'—') : (ansA.humor_banter_style||'—')).toUpperCase(), b: (ansB.humor_banter_style||'—').toUpperCase(), tip: 'A=مرح B=دافئ C=هادئ D=جدي' },
+          { label: 'الانفتاح المبكر (0-3)', a: String(ansA.early_openness_comfort ?? '—'), b: String(ansB.early_openness_comfort ?? '—'), tip: '0=مغلق 3=منفتح جداً' },
+          { label: 'MBTI', a: c.mbtiA || sdA.mbtiType || ansA.mbti || '—', b: c.mbtiB || sdB.mbtiType || ansB.mbti || '—', tip: '' },
+          { label: 'أسلوب التعلق', a: sdA.attachmentStyle || ansA.attachment_style || '—', b: sdB.attachmentStyle || ansB.attachment_style || '—', tip: '' },
+          { label: 'أسلوب التواصل', a: sdA.communicationStyle || ansA.communication_style || '—', b: sdB.communicationStyle || ansB.communication_style || '—', tip: '' },
+        ]
+        const ScoreBar = ({ label, score, max, color = 'indigo' }: { label: string; score: number; max: number; color?: string }) => (
+          <div className="space-y-1">
+            <div className="flex justify-between text-[10px]">
+              <span className="text-gray-500">{label}</span>
+              <span className={`text-${color}-300 font-bold`}>{score}/{max}</span>
+            </div>
+            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div className={`h-full bg-${color}-500 rounded-full transition-all`} style={{ width: `${Math.min(100, (score / max) * 100)}%` }} />
+            </div>
+          </div>
+        )
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={() => setPairDetail(null)}>
+            <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div className="flex items-center justify-between p-5 border-b border-gray-800 sticky top-0 bg-gray-950 z-10">
+                <div>
+                  <h2 className="text-white font-bold text-lg">تفاصيل المطابقة</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {pd.matchType === 'mutual' ? '🔁 تبادل مشترك' : '⚡ احتياطي'}
+                    {pd.table ? ` · طاولة ${pd.table}` : ''}
+                  </p>
+                </div>
+                <button onClick={() => setPairDetail(null)} className="p-2 hover:bg-gray-800 rounded-xl text-gray-500 hover:text-white transition-colors">✕</button>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Participants */}
+                <div className="grid grid-cols-2 gap-3">
+                  {[{ name: pd.aName, gender: pd.aGender, num: pd.a, rank: pd.rankBInA }, { name: pd.bName, gender: pd.bGender, num: pd.b, rank: pd.rankAInB }].map((p, i) => (
+                    <div key={i} className={`rounded-xl p-3 border ${p.gender === 'female' ? 'bg-pink-950/20 border-pink-800/30' : 'bg-blue-950/20 border-blue-800/30'}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                        <span className="text-white font-semibold text-sm truncate">{p.name}</span>
+                        <span className="text-gray-600 text-[10px]">#{p.num}</span>
+                      </div>
+                      {p.rank != null && <p className="text-[10px] text-gray-500 mt-1">رتّب الآخر: المركز #{p.rank}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Incompleteness warning */}
+                {!pd.bothComplete && (
+                  <div className="bg-red-950/40 border border-red-800/50 rounded-xl p-3 flex items-start gap-2.5">
+                    <span className="text-red-400 text-lg flex-shrink-0">⚠</span>
+                    <div>
+                      <p className="text-red-300 text-sm font-semibold">بيانات المسح غير مكتملة</p>
+                      <p className="text-red-400/70 text-xs mt-0.5">أحد المشاركَين أو كلاهما لم يكملا المسح. نسبة التوافق المعروضة ليست دقيقة.</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Score */}
+                {pd.compatScore != null && (
+                  <div className="bg-gray-900 rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-semibold text-gray-300">تفصيل نسبة التوافق</h3>
+                      <div className={`text-xl font-black px-3 py-1 rounded-xl ${pd.compatScore >= 75 ? 'text-green-300 bg-green-900/30' : pd.compatScore >= 55 ? 'text-blue-300 bg-blue-900/30' : 'text-gray-300 bg-gray-800'}`}>
+                        {pd.compatScore}%
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-amber-400/70 mb-2">⚠ نسبة الـ vibe (ذكاء اصطناعي) محسوبة افتراضياً بـ 12/25 بدون AI</p>
+                    <ScoreBar label="التناغم التفاعلي Synergy" score={c.synergyScore ?? 0} max={35} color="purple" />
+                    <ScoreBar label="الفكاهة + الانفتاح" score={c.humorOpenScore ?? 0} max={15} color="amber" />
+                    <ScoreBar label="أسلوب الحياة" score={c.lifestyleScore ?? 0} max={10} color="teal" />
+                    <ScoreBar label="التواصل" score={c.communicationScore ?? 0} max={10} color="blue" />
+                    <ScoreBar label="القيم الجوهرية (الخام)" score={c.coreValuesScore ?? 0} max={20} color="rose" />
+                    <ScoreBar label="القيم (مرجّح ×0.25)" score={+(c.coreValuesScaled5 ?? 0)} max={5} color="pink" />
+                    <ScoreBar label="الهدف / النية" score={c.intentScore ?? 0} max={5} color="green" />
+                    <ScoreBar label="Vibe (افتراضي)" score={c.vibeScore ?? 12} max={25} color="indigo" />
+                    {/* Flags */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {c.attachmentPenalty && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⚠ عقوبة التعلق -5</span>}
+                      {c.opennessZeroZero && <span className="text-[10px] bg-orange-900/30 text-orange-400 border border-orange-800/40 px-2 py-0.5 rounded-full">⚠ انفتاح 0×0 -5</span>}
+                      {c.deadAirVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فيتو الصمت ≤40%</span>}
+                      {c.humorClashVeto && <span className="text-[10px] bg-red-900/30 text-red-400 border border-red-800/40 px-2 py-0.5 rounded-full">⛔ فيتو الفكاهة ≤50%</span>}
+                      {c.intentBoost && <span className="text-[10px] bg-green-900/30 text-green-400 border border-green-800/40 px-2 py-0.5 rounded-full">✅ دفعة الهدف</span>}
+                    </div>
+                  </div>
+                )}
+
+                {/* Side-by-side answers */}
+                <div className="bg-gray-900 rounded-xl overflow-hidden">
+                  <div className="grid grid-cols-3 gap-0 bg-gray-800/50 px-3 py-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                    <span>السؤال</span>
+                    <span className={`text-center ${pd.aGender === 'female' ? 'text-pink-400' : 'text-blue-400'}`}>{pd.aName.split(' ')[0]}</span>
+                    <span className={`text-center ${pd.bGender === 'female' ? 'text-pink-400' : 'text-blue-400'}`}>{pd.bName.split(' ')[0]}</span>
+                  </div>
+                  {qRows.map((row, i) => (
+                    <div key={i} className={`grid grid-cols-3 gap-0 px-3 py-2 border-t border-gray-800/60 ${i % 2 === 0 ? '' : 'bg-gray-900/50'}`}>
+                      <div>
+                        <p className="text-[10px] text-gray-400 leading-tight">{row.label}</p>
+                        {row.tip && <p className="text-[9px] text-gray-700 leading-tight mt-0.5">{row.tip}</p>}
+                      </div>
+                      <p className={`text-xs font-bold text-center self-center ${row.a === row.b ? 'text-green-400' : 'text-gray-300'}`}>{row.a}</p>
+                      <p className={`text-xs font-bold text-center self-center ${row.a === row.b ? 'text-green-400' : 'text-gray-300'}`}>{row.b}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Skipped choices */}
+                {(pd.skippedByA?.length > 0 || pd.skippedByB?.length > 0) && (
+                  <div className="bg-gray-900 rounded-xl p-4 space-y-3">
+                    <h3 className="text-sm font-semibold text-gray-400">خيارات تم تخطيها</h3>
+                    {pd.skippedByA?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-1">{pd.aName} كان يفضل:</p>
+                        <div className="space-y-1">
+                          {pd.skippedByA.map((s: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-[10px] text-gray-400">
+                              <span className="w-4 h-4 rounded bg-gray-800 text-gray-500 flex items-center justify-center font-bold flex-shrink-0">{s.rank}</span>
+                              <span className="flex-1">{s.name} #{s.number}</span>
+                              <span className="text-gray-600">{s.reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {pd.skippedByB?.length > 0 && (
+                      <div>
+                        <p className="text-[10px] text-gray-500 mb-1">{pd.bName} كان يفضل:</p>
+                        <div className="space-y-1">
+                          {pd.skippedByB.map((s: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-[10px] text-gray-400">
+                              <span className="w-4 h-4 rounded bg-gray-800 text-gray-500 flex items-center justify-center font-bold flex-shrink-0">{s.rank}</span>
+                              <span className="flex-1">{s.name} #{s.number}</span>
+                              <span className="text-gray-600">{s.reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )
       })()}
 

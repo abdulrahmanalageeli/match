@@ -77,6 +77,320 @@ function Spinner({ size = 24, className = "" }: { size?: number; className?: str
   )
 }
 
+// ─── Welcome & Event Flow Onboarding ─────────────────────────────────────────
+const FLOW_STEPS = [
+  {
+    icon: "🪑",
+    gradient: "from-blue-600 via-blue-700 to-indigo-800",
+    glowClass: "shadow-blue-600/40",
+    badge: "الخطوة ١",
+    phase: "الجولة الأولى",
+    title: "تعرّف على الجميع",
+    desc: "تجلس مع مجموعتك الأولى (٤–٦ أشخاص) في جلسة تفاعلية. انطباعات أولى، قصص جديدة.",
+  },
+  {
+    icon: "🔄",
+    gradient: "from-emerald-600 via-emerald-700 to-teal-800",
+    glowClass: "shadow-emerald-600/40",
+    badge: "الخطوة ٢",
+    phase: "الجولة الثانية",
+    title: "مجموعة جديدة كلياً",
+    desc: "الخوارزمية تضمن ألّا يتكرر أحد — ستقابل وجوهاً لم تلتقِها في الجولة الأولى.",
+  },
+  {
+    icon: "⭐",
+    gradient: "from-amber-500 via-orange-600 to-red-600",
+    glowClass: "shadow-amber-500/40",
+    badge: "الخطوة ٣",
+    phase: "التصنيف",
+    title: "من أثار اهتمامك؟",
+    desc: "بعد الجولتين، رتّب الأشخاص الذين قابلتهم — قرارك الآن يصنع نتيجتك.",
+  },
+  {
+    icon: "💘",
+    gradient: "from-pink-600 via-rose-600 to-red-700",
+    glowClass: "shadow-pink-600/40",
+    badge: "الخطوة ٤",
+    phase: "الكشف الأول",
+    title: "هل الاهتمام متبادل؟",
+    desc: "نكشف الأزواج الذين اختار كل منهم الآخر — جلسة وجهاً لوجه مع من اخترته واختارك.",
+  },
+  {
+    icon: "🧠",
+    gradient: "from-violet-600 via-purple-700 to-indigo-800",
+    glowClass: "shadow-violet-600/40",
+    badge: "الخطوة ٥",
+    phase: "الكشف الثاني",
+    title: "ما تقوله الخوارزمية",
+    desc: "الذكاء الاصطناعي يحلّل شخصيتك وشخصية كل المشاركين ويختار التوافق العلمي الأمثل لك.",
+  },
+  {
+    icon: "✨",
+    gradient: "from-yellow-500 via-amber-500 to-orange-500",
+    glowClass: "shadow-yellow-500/40",
+    badge: "الخطوة ٦",
+    phase: "الكشف النهائي",
+    title: "قلبك أم العلم — أم كلاهما؟",
+    desc: "اكتشف إذا تطابق اختيارك العاطفي مع اختيار الخوارزمية. هل يتفق القلب والعقل؟",
+  },
+]
+
+function WelcomeScreen({ onDone }: { onDone: () => void }) {
+  const [phase, setPhase] = useState<"splash" | "steps">("splash")
+  const [step, setStep] = useState(0)
+  const [dir, setDir] = useState(1)
+
+  const goNext = () => {
+    if (step < FLOW_STEPS.length - 1) {
+      setDir(1); setStep(s => s + 1)
+    } else {
+      try { confetti({ particleCount: 90, spread: 75, origin: { y: 0.5 }, colors: ["#a855f7","#ec4899","#f43f5e","#fbbf24"] }) } catch {}
+      setTimeout(onDone, 450)
+    }
+  }
+  const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
+
+  const s = FLOW_STEPS[step]
+
+  return (
+    <div className="min-h-screen bg-gray-950 relative overflow-hidden" dir="rtl">
+      {/* Ambient background */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
+        <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/15 rounded-full blur-[100px]" />
+        <motion.div
+          className="absolute top-1/3 left-1/2 w-[420px] h-[420px] rounded-full blur-[110px] -translate-x-1/2 -translate-y-1/2"
+          animate={{ backgroundColor: ["rgba(139,92,246,0.07)","rgba(236,72,153,0.07)","rgba(59,130,246,0.05)","rgba(139,92,246,0.07)"] }}
+          transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+        />
+      </div>
+
+      <AnimatePresence mode="wait">
+
+        {/* ── SPLASH ─────────────────────────────────────────────────────── */}
+        {phase === "splash" && (
+          <motion.div
+            key="splash"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.4 }}
+            className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 text-center"
+          >
+            {/* Logo + pulsing rings */}
+            <div className="relative mb-8 flex items-center justify-center">
+              {[0, 1, 2].map(i => (
+                <motion.div
+                  key={i}
+                  className="absolute rounded-full border border-purple-400/25"
+                  style={{ width: `${128 + i * 44}px`, height: `${128 + i * 44}px` }}
+                  animate={{ scale: [1, 1.18], opacity: [0.5, 0] }}
+                  transition={{ duration: 2, delay: i * 0.55, repeat: Infinity, ease: "easeOut" }}
+                />
+              ))}
+              <motion.div
+                initial={{ scale: 0, rotate: -20 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 200, damping: 14, delay: 0.15 }}
+                className="relative z-10 w-28 h-28 rounded-3xl bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 flex items-center justify-center shadow-2xl shadow-purple-600/50"
+              >
+                <Heart size={50} className="text-white" fill="white" />
+              </motion.div>
+            </div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45, duration: 0.6 }}
+              className="space-y-3 mb-10"
+            >
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.6 }}
+                className="flex items-center justify-center gap-2"
+              >
+                <Sparkles size={12} className="text-purple-400" />
+                <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-[0.18em] uppercase">
+                  التوافق الأعمى — الجيل الثالث
+                </span>
+                <Sparkles size={12} className="text-pink-400" />
+              </motion.div>
+              <motion.h1
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.65 }}
+                className="text-[2.6rem] font-black text-white leading-tight"
+              >
+                رحلة التوافق<br />
+                <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-rose-400 bg-clip-text text-transparent">
+                  الحقيقي
+                </span>
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.8 }}
+                className="text-gray-400 text-sm max-w-[230px] mx-auto leading-relaxed"
+              >
+                تجربة فريدة تجمع القلب والعلم لتجد توافقك الأعمق
+              </motion.p>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.95 }}
+              className="w-full max-w-xs space-y-3"
+            >
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setPhase("steps")}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-4 font-black text-lg shadow-2xl shadow-purple-600/30 transition-all"
+              >
+                اكتشف كيف تعمل الفعالية ✨
+              </motion.button>
+              <button
+                onClick={onDone}
+                className="w-full text-gray-600 text-sm py-2 hover:text-gray-500 transition-colors"
+              >
+                تخطّى — أدخل رمزك مباشرة
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* ── WALKTHROUGH STEPS ─────────────────────────────────────────── */}
+        {phase === "steps" && (
+          <motion.div
+            key="steps"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="relative z-10 min-h-screen flex flex-col"
+          >
+            {/* Top progress bar */}
+            <div className="w-full h-1 bg-gray-800/50">
+              <motion.div
+                className="h-full bg-gradient-to-r from-purple-500 to-pink-500"
+                animate={{ width: `${((step + 1) / FLOW_STEPS.length) * 100}%` }}
+                transition={{ duration: 0.45, ease: "easeInOut" }}
+              />
+            </div>
+
+            {/* Header nav */}
+            <div className="flex items-center justify-between px-5 py-4">
+              <button
+                onClick={() => step === 0 ? setPhase("splash") : goPrev()}
+                className="flex items-center gap-1 text-gray-500 text-sm hover:text-gray-400 transition-colors"
+              >
+                <ChevronRight size={15} className="rotate-180" />
+                {step === 0 ? "الشاشة الرئيسية" : "السابق"}
+              </button>
+              <span className="text-gray-600 text-xs font-mono tabular-nums">{step + 1} / {FLOW_STEPS.length}</span>
+            </div>
+
+            {/* Step card */}
+            <div className="flex-1 flex flex-col items-center justify-center px-5 py-2">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={step}
+                  variants={{
+                    enter: { opacity: 0, y: 50, scale: 0.92 },
+                    center: { opacity: 1, y: 0, scale: 1 },
+                    exit: { opacity: 0, y: -50, scale: 0.92 },
+                  }}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
+                  className="w-full max-w-sm"
+                >
+                  <div className={`rounded-3xl overflow-hidden shadow-2xl ${s.glowClass}`}>
+                    {/* Gradient header */}
+                    <div className={`bg-gradient-to-br ${s.gradient} px-7 pt-7 pb-6 text-center relative overflow-hidden`}>
+                      {/* Subtle dot pattern */}
+                      <div
+                        className="absolute inset-0 opacity-[0.07]"
+                        style={{
+                          backgroundImage: "radial-gradient(circle, white 1px, transparent 1px)",
+                          backgroundSize: "28px 28px",
+                        }}
+                      />
+                      <div className="relative z-10 space-y-3">
+                        {/* Badges */}
+                        <div className="flex items-center justify-center gap-2">
+                          <span className="bg-white/25 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-full tracking-widest">
+                            {s.badge}
+                          </span>
+                          <span className="bg-black/20 text-white/70 text-[10px] px-2.5 py-1 rounded-full">
+                            {s.phase}
+                          </span>
+                        </div>
+                        {/* Big emoji */}
+                        <motion.div
+                          initial={{ scale: 0.2, rotate: -15 }}
+                          animate={{ scale: 1, rotate: 0 }}
+                          transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
+                          className="text-[5rem] leading-none py-2"
+                        >
+                          {s.icon}
+                        </motion.div>
+                        {/* Title */}
+                        <motion.h2
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.12 }}
+                          className="text-2xl font-black text-white leading-tight"
+                        >
+                          {s.title}
+                        </motion.h2>
+                      </div>
+                    </div>
+                    {/* Description panel */}
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.18 }}
+                      className="bg-gray-900/95 backdrop-blur-sm px-6 py-5"
+                    >
+                      <p className="text-gray-300 text-sm leading-relaxed text-center">{s.desc}</p>
+                    </motion.div>
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Bottom navigation */}
+            <div className="px-5 pb-8 pt-3 space-y-4">
+              {/* Dot indicators */}
+              <div className="flex items-center justify-center gap-1.5">
+                {FLOW_STEPS.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setDir(i > step ? 1 : -1); setStep(i) }}
+                    className={`rounded-full transition-all duration-300 ${
+                      i === step ? "w-6 h-2 bg-white" : "w-2 h-2 bg-gray-700 hover:bg-gray-500"
+                    }`}
+                  />
+                ))}
+              </div>
+              {/* Next button */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={goNext}
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-4 font-black text-lg shadow-xl shadow-purple-600/25 transition-all"
+              >
+                {step === FLOW_STEPS.length - 1 ? "أبدأ رحلتي ✨" : "التالي ←"}
+              </motion.button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ─── Token Entry Screen ───────────────────────────────────────────────────────
 function TokenEntry({ onToken }: { onToken: (t: string) => void }) {
   const [val, setVal] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || "")
@@ -1444,6 +1758,7 @@ export default function Event3Page() {
     return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
+  const [showWelcome, setShowWelcome] = useState(() => !token)
   const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
@@ -1469,6 +1784,7 @@ export default function Event3Page() {
     return () => clearInterval(iv)
   }, [token, fetchState])
 
+  if (showWelcome) return <WelcomeScreen onDone={() => setShowWelcome(false)} />
   if (!token) return <TokenEntry onToken={t => { setToken(t); localStorage.setItem("blindmatch_result_token", t) }} />
 
   if (!eventState) return (

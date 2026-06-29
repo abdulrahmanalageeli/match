@@ -72,7 +72,8 @@ export default function Admin3Page() {
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [editedOrder, setEditedOrder] = useState<any[]>([])
   const [swapA, setSwapA] = useState<number | null>(null)
-  const [mapRound, setMapRound] = useState<1 | 2>(1)
+  const [mapRound, setMapRound] = useState<1 | 2 | 20>(1)
+  const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
   const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
   const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
 
@@ -192,6 +193,9 @@ export default function Admin3Page() {
       setParticipantPanelOpen(true)
     }
   }
+
+  const moveTable = (num: number, round: number, newTable: number) =>
+    run(`move-table-${num}-r${round}`, () => api("e3-move-table", { participant_number: num, round, new_table: newTable }).then(d => { if (!d.error) { setEditingTable(null); fetchSeating() } return d }))
 
   const getParticipantTables = (num: number): Record<number, number> => {
     if (!seating) return {}
@@ -663,6 +667,13 @@ export default function Admin3Page() {
                         {r === 1 ? 'الجولة الأولى' : 'الجولة الثانية'}
                       </button>
                     ))}
+                    {matchPairs.length > 0 && (
+                      <button onClick={() => setMapRound(20)}
+                        className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${mapRound === 20 ? 'bg-emerald-600 text-white shadow' : 'text-gray-400 hover:text-gray-200'}`}
+                      >
+                        1:1 جلسات
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -690,6 +701,91 @@ export default function Admin3Page() {
                 <p className="font-medium">لم تُولَّد خطة الجلسات بعد</p>
                 <p className="text-xs mt-1.5 text-gray-600">اختر المشاركين ثم اضغط "توليد خطة الجلسات"</p>
               </div>
+            ) : mapRound === 20 ? (
+              /* ── 1:1 Pairs View ─────────────────── */
+              <>
+                {matchPairs.length === 0 ? (
+                  <div className="text-center py-12 text-gray-600">
+                    <Heart size={32} className="mx-auto mb-3 opacity-30" />
+                    <p>لم تُجرَ مطابقة الاختيار بعد</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {matchPairs.map((pair: any, idx: number) => (
+                      <div key={idx} className={`rounded-2xl p-4 border ${
+                        pair.matchType === 'mutual' ? 'bg-emerald-950/20 border-emerald-800/40' : 'bg-amber-950/15 border-amber-800/30'
+                      }`}>
+                        {/* Pair header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            {pair.table ? (
+                              <div className="w-9 h-9 rounded-xl bg-indigo-900/40 border border-indigo-800/50 flex items-center justify-center flex-shrink-0">
+                                <span className="text-indigo-300 font-black text-base leading-none">{pair.table}</span>
+                              </div>
+                            ) : (
+                              <div className="w-9 h-9 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0">
+                                <span className="text-gray-600 text-xs">—</span>
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-[10px] text-gray-500 leading-tight">{pair.table ? `طاولة ${pair.table}` : 'بدون طاولة'}</p>
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                                pair.matchType === 'mutual' ? 'text-emerald-300' : 'text-amber-400'
+                              }`}>{pair.matchType === 'mutual' ? '🔁 تبادل' : '⚡ احتياطي'}</span>
+                            </div>
+                          </div>
+                          {pair.compatScore != null && (
+                            <div className={`text-center px-2.5 py-1.5 rounded-xl border ${
+                              pair.compatScore >= 75 ? 'bg-green-900/30 border-green-700/40 text-green-300' :
+                              pair.compatScore >= 55 ? 'bg-blue-900/30 border-blue-700/40 text-blue-300' :
+                              'bg-gray-800 border-gray-700 text-gray-400'
+                            }`}>
+                              <p className="text-lg font-black leading-none">{pair.compatScore}%</p>
+                              <p className="text-[9px] opacity-60 mt-0.5">توافق</p>
+                            </div>
+                          )}
+                        </div>
+                        {/* Pair names */}
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-800/60 rounded-xl px-3 py-2 text-right">
+                            <div className="flex items-center gap-1.5 justify-end">
+                              <span className="text-sm font-semibold text-white truncate">{pair.aName}</span>
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${pair.aGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                            </div>
+                            {pair.rankBInA != null && <p className="text-[10px] text-gray-600 mt-0.5 text-right">رتّب الآخر #{pair.rankBInA}</p>}
+                          </div>
+                          <span className="text-gray-600 flex-shrink-0 text-lg">⇄</span>
+                          <div className="flex-1 bg-gray-800/60 rounded-xl px-3 py-2">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${pair.bGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                              <span className="text-sm font-semibold text-white truncate">{pair.bName}</span>
+                            </div>
+                            {pair.rankAInB != null && <p className="text-[10px] text-gray-600 mt-0.5">رتّب الآخر #{pair.rankAInB}</p>}
+                          </div>
+                        </div>
+                        {/* Move table */}
+                        <div className="mt-2.5 flex items-center gap-2">
+                          <span className="text-[10px] text-gray-600">تعديل الطاولة:</span>
+                          <input
+                            type="number" min={1} max={99}
+                            defaultValue={pair.table || ''}
+                            onBlur={e => {
+                              const v = parseInt(e.target.value)
+                              if (!isNaN(v) && v !== pair.table) {
+                                run(`move-pair-${pair.a}`, () => Promise.all([
+                                  api("e3-move-table", { participant_number: pair.a, round: 20, new_table: v }),
+                                  api("e3-move-table", { participant_number: pair.b, round: 20, new_table: v }),
+                                ]).then(() => { fetchMatches(); return { message: `Pair moved to table ${v}` } }))
+                              }
+                            }}
+                            className="w-16 bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-2 py-1 text-center focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1145,29 +1241,62 @@ export default function Admin3Page() {
                   <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
                     <Table2 size={11} /> توزيع الطاولات
                   </h4>
-                  {([1, 2] as const).map(r => (
-                    <div key={r} className="flex items-center justify-between">
-                      <span className="text-xs text-gray-400">الجولة {r === 1 ? 'الأولى' : 'الثانية'}</span>
-                      <div className="flex items-center gap-2">
-                        {tables[r] ? (
-                          <>
-                            <span className="text-xs font-bold text-indigo-300 bg-indigo-900/30 px-2.5 py-1 rounded-lg border border-indigo-800/40">
-                              طاولة {tables[r]}
-                            </span>
-                            <button
-                              onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating"); setMapRound(r) }}
-                              className="text-[10px] text-amber-500 hover:text-amber-300 hover:bg-amber-900/30 px-1.5 py-1 rounded-lg transition-colors"
-                              title="تبديل"
-                            >
-                              ⇄ تبديل
-                            </button>
-                          </>
-                        ) : (
-                          <span className="text-xs text-gray-600">غير مُعيَّن</span>
-                        )}
+                  {([1, 2] as const).map(r => {
+                    const isEditingThis = editingTable?.num === p.number && editingTable?.round === r
+                    return (
+                      <div key={r} className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-400 flex-shrink-0">الجولة {r === 1 ? 'الأولى' : 'الثانية'}</span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {isEditingThis ? (
+                            <>
+                              <input
+                                autoFocus
+                                type="number" min={1} max={99}
+                                value={editingTable.value}
+                                onChange={e => setEditingTable({ ...editingTable, value: e.target.value })}
+                                onKeyDown={e => {
+                                  if (e.key === 'Enter') { const v = parseInt(editingTable.value); if (!isNaN(v) && v > 0) moveTable(p.number, r, v) }
+                                  if (e.key === 'Escape') setEditingTable(null)
+                                }}
+                                className="w-14 bg-gray-700 border border-indigo-500 text-white text-xs rounded-lg px-2 py-1 text-center focus:outline-none"
+                              />
+                              <button
+                                onClick={() => { const v = parseInt(editingTable.value); if (!isNaN(v) && v > 0) moveTable(p.number, r, v) }}
+                                className="text-[10px] text-green-400 hover:text-green-300 bg-green-900/30 hover:bg-green-900/50 px-2 py-1 rounded-lg transition-colors font-bold"
+                              >✓</button>
+                              <button onClick={() => setEditingTable(null)} className="text-[10px] text-gray-500 hover:text-gray-300 px-1.5 py-1 rounded-lg transition-colors">✕</button>
+                            </>
+                          ) : (
+                            <>
+                              {tables[r] ? (
+                                <button
+                                  onClick={() => setEditingTable({ num: p.number, round: r, value: String(tables[r]) })}
+                                  className="text-xs font-bold text-indigo-300 bg-indigo-900/30 hover:bg-indigo-900/60 px-2.5 py-1 rounded-lg border border-indigo-800/40 hover:border-indigo-600/60 transition-all"
+                                  title="اضغط لتعديل رقم الطاولة"
+                                >
+                                  طاولة {tables[r]} ✏
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setEditingTable({ num: p.number, round: r, value: '' })}
+                                  className="text-xs text-gray-600 hover:text-gray-400 hover:bg-gray-800 px-2 py-1 rounded-lg transition-colors"
+                                >
+                                  + تعيين طاولة
+                                </button>
+                              )}
+                              {tables[r] && (
+                                <button
+                                  onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating"); setMapRound(r) }}
+                                  className="text-[10px] text-amber-500 hover:text-amber-300 hover:bg-amber-900/30 px-1.5 py-1 rounded-lg transition-colors"
+                                  title="تبديل مع شخص آخر"
+                                >⇄</button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Ranking */}

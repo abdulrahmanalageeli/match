@@ -6027,7 +6027,7 @@ export default async function handler(req, res) {
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
-          const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).order("round").order("table_number")
+          const { data: rows } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("round", [1, 2, 3]).order("round").order("table_number")
           if (!rows || rows.length === 0) return res.status(200).json({ seating: null })
           const nums = [...new Set(rows.map(r => r.participant_id))]
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
@@ -6186,9 +6186,13 @@ export default async function handler(req, res) {
           const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID)
           if (!matchRows || matchRows.length === 0) return res.status(200).json({ pairs: [] })
           const nums = [...new Set([...matchRows.map(r => r.participant_number), ...matchRows.map(r => r.phase2_partner).filter(Boolean)])]
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const infoMap = {}
-          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); infoMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?" } }
+          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); infoMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?", ...p } }
+          // Fetch round=20 table assignments for each pair
+          const { data: pairTables } = await supabase.from("session_assignments").select("participant_id,table_number").eq("match_id", EVENT3_MATCH_ID).eq("round", 20)
+          const pairTableMap = {}
+          for (const pt of pairTables || []) pairTableMap[pt.participant_id] = pt.table_number
           // Fetch rankings for match-flow explanation
           const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
           const rankMap = {}  // rankMap[a][b] = 1-based rank of b in a's list
@@ -6244,7 +6248,9 @@ export default async function handler(req, res) {
                 skippedByB.push({ number: pick, name: infoMap[pick]?.name || `#${pick}`, rank: pos + 1, reason })
               }
             }
-            pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, rankBInA, rankAInB, matchType, skippedByA, skippedByB })
+            const compatScore = (infoMap[a] && infoMap[b]) ? e3CalcCompat(infoMap[a], infoMap[b]) : null
+            const pairTable = pairTableMap[a] || pairTableMap[b] || null
+            pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, rankBInA, rankAInB, matchType, skippedByA, skippedByB, compatScore, table: pairTable })
           }
           return res.status(200).json({ pairs })
         }
@@ -6259,6 +6265,18 @@ export default async function handler(req, res) {
             if (error) return res.status(500).json({ error: error.message })
           }
           return res.status(200).json({ message: `Ranking updated for #${ranker_number}` })
+        }
+        // e3-move-table (reassign one participant to a different table in one round)
+        if (action === "e3-move-table") {
+          const { participant_number, round, new_table } = req.body
+          if (!participant_number || !round || !new_table) return res.status(400).json({ error: "participant_number, round, new_table required" })
+          const { error } = await supabase.from("session_assignments")
+            .update({ table_number: parseInt(new_table) })
+            .eq("match_id", EVENT3_MATCH_ID)
+            .eq("participant_id", parseInt(participant_number))
+            .eq("round", parseInt(round))
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: `Moved #${participant_number} to table ${new_table} in round ${round}` })
         }
         // e3-swap-seating (swap two participants across all rounds in session_assignments)
         if (action === "e3-swap-seating") {

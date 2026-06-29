@@ -6189,6 +6189,19 @@ export default async function handler(req, res) {
           const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           const infoMap = {}
           for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); infoMap[p.assigned_number] = { name: p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}`, gender: p.gender || sd?.answers?.gender || sd?.gender || "?" } }
+          // Fetch rankings for match-flow explanation
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID).order("rank", { ascending: true })
+          const rankMap = {}  // rankMap[a][b] = 1-based rank of b in a's list
+          const listMap = {}  // listMap[a] = ordered array (0-indexed) of ranked numbers
+          for (const row of rankRows || []) {
+            if (!rankMap[row.ranker_number]) rankMap[row.ranker_number] = {}
+            rankMap[row.ranker_number][row.ranked_number] = row.rank
+            if (!listMap[row.ranker_number]) listMap[row.ranker_number] = []
+            listMap[row.ranker_number][row.rank - 1] = row.ranked_number
+          }
+          // Build who-got-matched-with map
+          const matchesMap = {}
+          for (const row of matchRows) { if (row.phase2_partner) matchesMap[row.participant_number] = row.phase2_partner }
           const seen = new Set()
           const pairs = []
           for (const row of matchRows) {
@@ -6196,9 +6209,42 @@ export default async function handler(req, res) {
             const key = [row.participant_number, row.phase2_partner].sort((a,b)=>a-b).join("-")
             if (seen.has(key)) continue
             seen.add(key)
-            const a = infoMap[row.participant_number] || {}
-            const b = infoMap[row.phase2_partner] || {}
-            pairs.push({ a: row.participant_number, aName: a.name || `#${row.participant_number}`, aGender: a.gender, b: row.phase2_partner, bName: b.name || `#${row.phase2_partner}`, bGender: b.gender })
+            const a = row.participant_number, b = row.phase2_partner
+            const ai = infoMap[a] || {}, bi = infoMap[b] || {}
+            const rankBInA = rankMap[a]?.[b] ?? null  // where b sits in a's list
+            const rankAInB = rankMap[b]?.[a] ?? null  // where a sits in b's list
+            const matchType = (rankBInA && rankAInB) ? "mutual" : "fallback"
+            // Skipped choices for a (people a ranked above b that didn't pan out)
+            const skippedByA = []
+            if (rankBInA && rankBInA > 1) {
+              const aList = listMap[a] || []
+              for (let pos = 0; pos < rankBInA - 1 && skippedByA.length < 4; pos++) {
+                const pick = aList[pos]; if (!pick) continue
+                const pickRankedA = rankMap[pick]?.[a]
+                const pickMatch = matchesMap[pick]
+                let reason
+                if (!pickRankedA) reason = "لم يرتّبه"
+                else if (pickMatch && pickMatch !== a) reason = `تزوّج مع ${infoMap[pickMatch]?.name || '#' + pickMatch}`
+                else reason = "اختار شخصاً آخر"
+                skippedByA.push({ number: pick, name: infoMap[pick]?.name || `#${pick}`, rank: pos + 1, reason })
+              }
+            }
+            // Skipped choices for b
+            const skippedByB = []
+            if (rankAInB && rankAInB > 1) {
+              const bList = listMap[b] || []
+              for (let pos = 0; pos < rankAInB - 1 && skippedByB.length < 4; pos++) {
+                const pick = bList[pos]; if (!pick) continue
+                const pickRankedB = rankMap[pick]?.[b]
+                const pickMatch = matchesMap[pick]
+                let reason
+                if (!pickRankedB) reason = "لم يرتّبه"
+                else if (pickMatch && pickMatch !== b) reason = `تزوّج مع ${infoMap[pickMatch]?.name || '#' + pickMatch}`
+                else reason = "اختار شخصاً آخر"
+                skippedByB.push({ number: pick, name: infoMap[pick]?.name || `#${pick}`, rank: pos + 1, reason })
+              }
+            }
+            pairs.push({ a, aName: ai.name || `#${a}`, aGender: ai.gender, b, bName: bi.name || `#${b}`, bGender: bi.gender, rankBInA, rankAInB, matchType, skippedByA, skippedByB })
           }
           return res.status(200).json({ pairs })
         }

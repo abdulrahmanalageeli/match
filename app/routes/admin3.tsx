@@ -42,6 +42,7 @@ export default function Admin3Page() {
   const [expandedRanker, setExpandedRanker] = useState<number | null>(null)
   const [copied, setCopied] = useState(false)
   const [matchPairs, setMatchPairs] = useState<any[]>([])
+  const [expandedPair, setExpandedPair] = useState<number | null>(null)
 
   const copyRankings = () => {
     if (!allRankings.length) return
@@ -822,21 +823,110 @@ export default function Admin3Page() {
                 <p className="text-gray-600 text-xs text-center py-4">لا توجد نتائج بعد — اضغط "تشغيل المطابقة" بعد اكتمال التصنيفات</p>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-gray-500 text-xs">{matchPairs.length} زوج</p>
+                  <div className="flex items-center gap-3">
+                    <p className="text-gray-500 text-xs">{matchPairs.length} زوج</p>
+                    <p className="text-gray-600 text-xs">·</p>
+                    <p className="text-emerald-600 text-xs">{matchPairs.filter((p: any) => p.matchType === 'mutual').length} تبادل متبادل</p>
+                    {matchPairs.some((p: any) => p.matchType === 'fallback') && (
+                      <p className="text-amber-600 text-xs">{matchPairs.filter((p: any) => p.matchType === 'fallback').length} احتياطي</p>
+                    )}
+                  </div>
                   {matchPairs.map((pair: any, idx: number) => (
-                    <div key={idx} className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-xl px-4 py-3">
-                      <span className="text-gray-600 text-xs font-mono w-5 flex-shrink-0">{idx + 1}</span>
-                      <div className="flex-1 flex items-center gap-2 min-w-0">
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${pair.aGender === "female" ? "bg-pink-400" : "bg-blue-400"}`} />
-                        <span className="text-sm font-medium text-white truncate">{pair.aName}</span>
-                        <span className="text-gray-600 text-xs font-mono">#{pair.a}</span>
-                      </div>
-                      <Heart size={13} className="text-pink-500 flex-shrink-0" />
-                      <div className="flex-1 flex items-center gap-2 min-w-0 justify-end">
-                        <span className="text-gray-600 text-xs font-mono">#{pair.b}</span>
-                        <span className="text-sm font-medium text-white truncate">{pair.bName}</span>
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${pair.bGender === "female" ? "bg-pink-400" : "bg-blue-400"}`} />
-                      </div>
+                    <div key={idx} className={`border rounded-xl overflow-hidden ${
+                      pair.matchType === 'mutual' ? 'border-emerald-800/50 bg-emerald-950/10' : 'border-amber-800/40 bg-amber-950/10'
+                    }`}>
+                      {/* Header row */}
+                      <button
+                        onClick={() => setExpandedPair(expandedPair === idx ? null : idx)}
+                        className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-white/5 transition-colors text-right"
+                      >
+                        <span className="text-gray-600 text-[10px] font-mono w-4 flex-shrink-0">{idx + 1}</span>
+                        <div className="flex-1 flex items-center gap-1.5 min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.aGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                          <span className="text-sm font-semibold text-white truncate">{pair.aName}</span>
+                          {pair.rankBInA != null && (
+                            <span className="text-[10px] text-gray-500 flex-shrink-0">رتّبه #{pair.rankBInA}</span>
+                          )}
+                        </div>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                          pair.matchType === 'mutual'
+                            ? 'bg-emerald-900/60 text-emerald-300'
+                            : 'bg-amber-900/50 text-amber-400'
+                        }`}>
+                          {pair.matchType === 'mutual' ? '🔁 تبادل' : '⚡ احتياطي'}
+                        </span>
+                        <div className="flex-1 flex items-center gap-1.5 min-w-0 justify-end">
+                          {pair.rankAInB != null && (
+                            <span className="text-[10px] text-gray-500 flex-shrink-0">رتّبه #{pair.rankAInB}</span>
+                          )}
+                          <span className="text-sm font-semibold text-white truncate">{pair.bName}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${pair.bGender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                        </div>
+                        <ChevronRight size={12} className={`text-gray-600 flex-shrink-0 transition-transform ${expandedPair === idx ? 'rotate-90' : ''}`} />
+                      </button>
+
+                      {/* Flow detail */}
+                      {expandedPair === idx && (
+                        <div className="border-t border-gray-800/40 px-3 py-3 space-y-3 bg-gray-950/50">
+                          {/* Person A flow */}
+                          {(pair.skippedByA?.length > 0 || pair.rankBInA != null) && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-gray-500 font-semibold mb-1.5">مسار {pair.aName}</p>
+                              {(pair.skippedByA || []).map((s: any) => (
+                                <div key={s.number} className="flex items-center gap-2 text-[11px]">
+                                  <span className="w-5 h-5 rounded-md bg-red-950/60 text-red-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">#{s.rank}</span>
+                                  <span className="text-gray-300 flex-1 truncate">{s.name}</span>
+                                  <span className="text-red-400/80 flex-shrink-0 text-[10px]">✗ {s.reason}</span>
+                                </div>
+                              ))}
+                              {pair.rankBInA != null && (
+                                <div className="flex items-center gap-2 text-[11px]">
+                                  <span className="w-5 h-5 rounded-md bg-emerald-950/60 text-emerald-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">#{pair.rankBInA}</span>
+                                  <span className="text-emerald-300 flex-1 truncate">{pair.bName}</span>
+                                  <span className="text-emerald-400/80 flex-shrink-0 text-[10px]">✓ {pair.matchType === 'mutual' ? 'تبادل متبادل' : 'تعيين احتياطي'}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Divider if both flows shown */}
+                          {(pair.skippedByA?.length > 0 || pair.rankBInA != null) && (pair.skippedByB?.length > 0 || pair.rankAInB != null) && (
+                            <div className="border-t border-gray-800/30" />
+                          )}
+
+                          {/* Person B flow */}
+                          {(pair.skippedByB?.length > 0 || pair.rankAInB != null) && (
+                            <div className="space-y-1">
+                              <p className="text-[10px] text-gray-500 font-semibold mb-1.5">مسار {pair.bName}</p>
+                              {(pair.skippedByB || []).map((s: any) => (
+                                <div key={s.number} className="flex items-center gap-2 text-[11px]">
+                                  <span className="w-5 h-5 rounded-md bg-red-950/60 text-red-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">#{s.rank}</span>
+                                  <span className="text-gray-300 flex-1 truncate">{s.name}</span>
+                                  <span className="text-red-400/80 flex-shrink-0 text-[10px]">✗ {s.reason}</span>
+                                </div>
+                              ))}
+                              {pair.rankAInB != null && (
+                                <div className="flex items-center gap-2 text-[11px]">
+                                  <span className="w-5 h-5 rounded-md bg-emerald-950/60 text-emerald-400 flex items-center justify-center font-bold text-[10px] flex-shrink-0">#{pair.rankAInB}</span>
+                                  <span className="text-emerald-300 flex-1 truncate">{pair.aName}</span>
+                                  <span className="text-emerald-400/80 flex-shrink-0 text-[10px]">✓ {pair.matchType === 'mutual' ? 'تبادل متبادل' : 'تعيين احتياطي'}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Fallback / no-rank explanation */}
+                          {pair.matchType === 'fallback' && pair.rankBInA == null && pair.rankAInB == null && (
+                            <p className="text-amber-500/70 text-[10px] text-center py-1">⚡ لم يرتّب أيٌّ منهما الآخر — تم التعيين الاحتياطي بعد انتهاء المطابقة المتبادلة</p>
+                          )}
+                          {pair.matchType === 'fallback' && (pair.rankBInA != null || pair.rankAInB != null) && !pair.rankBInA && (
+                            <p className="text-amber-500/70 text-[10px] text-center py-1">⚡ {pair.aName} لم يُدرج {pair.bName} في قائمته — تعيين من جانب واحد</p>
+                          )}
+                          {pair.matchType === 'fallback' && (pair.rankBInA != null || pair.rankAInB != null) && !pair.rankAInB && pair.rankBInA != null && (
+                            <p className="text-amber-500/70 text-[10px] text-center py-1">⚡ {pair.bName} لم يُدرج {pair.aName} في قائمته — تعيين من جانب واحد</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

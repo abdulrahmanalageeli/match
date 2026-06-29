@@ -574,10 +574,10 @@ function calculateLifestyleCompatibility(preferences1, preferences2) {
   // Shared Context bonus: if Q14 & Q18 both matched → +2 (cap at 15 total)
   if (q14Match && q18Match) score += 2
 
-  // Lifestyle Clash penalty: Q18 A vs C → -7
+  // Lifestyle Clash penalty: Q18 A vs C → -4 (softened; weekend preference shouldn't override initial spark)
   if ((prefs1[4] === 'أ' && prefs2[4] === 'ج') || (prefs1[4] === 'ج' && prefs2[4] === 'أ')) {
-    score -= 7
-    console.log(`⚠️ Lifestyle clash penalty: Q18 A vs C → -7`)
+    score -= 4
+    console.log(`⚠️ Lifestyle clash penalty: Q18 A vs C → -4`)
   }
 
   return Math.max(0, Math.min(15, score))
@@ -656,23 +656,25 @@ function calculateInteractionSynergyScore(participantA, participantB) {
     total += 3
   }
 
-  // Q36 (5 pts)
+  // Q36 (5 pts) — depth mismatch is a real conversation killer for initial spark
   if ((a36 && b36)) {
     if (a36 === b36) total += 5
-    else total += 1
+    else total += 0
   }
 
-  // Q37 (4 pts)
+  // Q37 (4 pts) — E+I is often complementary in short meetings, raise mixed penalty
   if ((a37 && b37)) {
     if (a37 === 'A' && b37 === 'A') total += 4
     else if (a37 === 'B' && b37 === 'B') total += 3
-    else total += 1
+    else total += 3
   }
 
-  // Q38 (4 pts)
+  // Q38 (4 pts) — complementary humor styles (sarcasm+storytelling, spontaneous+storytelling) score near-max
   if ((a38 && b38)) {
     if (a38 === b38) total += 4
-    else total += 1
+    else if ((a38 === 'A' && b38 === 'C') || (a38 === 'C' && b38 === 'A')) total += 3
+    else if ((a38 === 'B' && b38 === 'C') || (a38 === 'C' && b38 === 'B')) total += 3
+    else total += 2
   }
 
   // Q39 (5 pts)
@@ -687,11 +689,32 @@ function calculateInteractionSynergyScore(participantA, participantB) {
   if ((a41 && b41)) {
     if ((a41 === 'A' && b41 === 'B') || (a41 === 'B' && b41 === 'A')) total += 5
     else if (a41 === 'A' && b41 === 'A') total += 3
-    else if (a41 === 'B' && b41 === 'B') total += 0
+    else if (a41 === 'B' && b41 === 'B') total += 3
   }
 
-  // Scale existing 30-pt logic up to 35 pts
-  return Math.min(35, (total * (35 / 30)))
+  // Energy Level Compatibility (0–5 pts): derived from humor_banter (Q4.25), conversational_role (Q35), early_openness (Q4.75)
+  // Measures how animated/warm vs calm/reserved each person is — the single biggest missing axis for initial spark
+  const getEnergyLevel = (p) => {
+    const hEn = String(ans(p, 'humor_banter_style') || '').toUpperCase()
+    const rEn = String(ans(p, 'conversational_role') || '').toUpperCase()
+    const openRaw = p.early_openness_comfort !== undefined ? p.early_openness_comfort : p?.survey_data?.answers?.early_openness_comfort
+    const oEn = openRaw !== undefined && openRaw !== null ? parseInt(openRaw) : undefined
+    let e = 0
+    e += hEn === 'A' ? 3 : hEn === 'B' ? 2 : 1  // A=playful/fun, B=warm, C/D=calm/serious
+    e += rEn === 'A' ? 3 : rEn === 'B' ? 2 : 1  // A=initiator, B=reactor, C=listener
+    if (oEn !== undefined && !isNaN(oEn)) e += oEn + 1  // 0→1pt, 1→2pts, 2→3pts, 3→4pts
+    return e  // range 3–10
+  }
+  const energyA = getEnergyLevel(participantA)
+  const energyB = getEnergyLevel(participantB)
+  const energyDiff = Math.abs(energyA - energyB)
+  if (energyDiff === 0) total += 5
+  else if (energyDiff <= 2) total += 4
+  else if (energyDiff <= 4) total += 2
+  // energyDiff >= 5: 0pts — very different energy levels will feel jarring in person
+
+  // Max raw is now 35 (7+5+4+4+5+5+5) — direct cap, no multiplier needed
+  return Math.min(35, total)
 }
 
 // New: Intent & Goal (Q40) → simplified: full if same goal, else 1
@@ -1620,7 +1643,7 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
     if (!aVibeDescription || !bVibeDescription) {
       console.warn("❌ Missing vibe descriptions, using default AI vibe score (scaled to 20)")
-      return 12 // Default mid-high on a 0–20 scale
+      return 8 // Penalise missing/short data — incomplete profiles should not score as well as detailed ones
     }
 
     // Calculate mutual compatibility between the two combined profiles
@@ -1635,7 +1658,7 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
   } catch (error) {
     console.error("🔥 Vibe compatibility calculation error:", error)
-    return 12 // Default mid-high on a 0–20 scale
+    return 8 // Penalise missing/short data — incomplete profiles should not score as well as detailed ones
   }
 }
 
@@ -1644,7 +1667,7 @@ async function calculateCombinedVibeCompatibility(profileA, profileB) {
   try {
     const systemMessage = `You are a personal compatibility rater. Output a single integer from 0 to 35 only, no extra text.
 
-Goal: score fast romantic "clickability" for Arabic-speaking users. Answers are short (~50 characters), so give more credit for small overlaps.
+Goal: score initial-spark "clickability" — the feeling of natural connection in a first meeting — for Arabic-speaking users. Answers are short (~50 characters), so give more credit for small overlaps.
 
 IMPORTANT SCORING POLICY
 • Use the FULL range 0–35. It MUST be possible to reach 35 WITHOUT any "bonus" concept.
@@ -1655,7 +1678,7 @@ RECOMMENDED AXES (score directly 0–35 overall):
 1) Lifestyle & Weekend Habits
 2) Interests & Hobbies
 3) Music/Arts Taste or overall mood
-4) Conversation Style / Depth
+4) Communication Energy & Expressiveness — are they both animated/warm, or both calm/reserved? Energy mismatch kills initial spark even when topics align perfectly.
 5) Traits & Values
 
 GUIDELINES
@@ -1699,7 +1722,7 @@ GUIDELINES
     // Validate score is within range
     if (isNaN(score) || score < 0 || score > 35) {
       console.warn("❌ Invalid AI score, using default:", rawResponse)
-      return 20 // Default higher score to be more lenient
+      return 14 // Neutral fallback (14/35 * 20 = 8/20) — avoid over-rewarding AI failures
     }
 
     // Ensure top-end is reachable in practice: round 34 up to 35
@@ -1716,7 +1739,7 @@ GUIDELINES
       console.error("   API response status:", error.response.status)
       console.error("   API response data:", error.response.data)
     }
-    return 20 // Default higher score to be more lenient
+    return 14 // Neutral fallback (14/35 * 20 = 8/20) — avoid over-rewarding AI failures
   }
 }
 

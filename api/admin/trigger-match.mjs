@@ -523,64 +523,65 @@ function calculateAttachmentCompatibility(style1, style2) {
 
 // Function to calculate communication style compatibility score (up to 10% of total)
 function calculateCommunicationCompatibility(style1, style2) {
-  // New scale: up to 10 pts (Safety/Friction check)
-  if (!style1 || !style2) {
-    return 4; // default mid-low if missing
-  }
+  // Proportional scale: rank styles 0-3 and score by pair — no hard zeros
+  // Rationale: PA/Aggressive answers often reflect survey honesty, not day-to-day behavior
+  if (!style1 || !style2) return 4;
 
-  // Aggressive or Passive-Aggressive with ANY => 0
-  if (style1 === 'Aggressive' || style2 === 'Aggressive' || style1 === 'Passive-Aggressive' || style2 === 'Passive-Aggressive') {
-    return 0;
-  }
+  const rank = s => s === 'Assertive' ? 3 : s === 'Passive' ? 2 : s === 'Passive-Aggressive' ? 1 : 0  // Aggressive=0
+  const r1 = rank(style1)
+  const r2 = rank(style2)
+  const lo = Math.min(r1, r2)
+  const hi = Math.max(r1, r2)
 
-  // Assertive + Assertive
-  if (style1 === 'Assertive' && style2 === 'Assertive') return 10;
-  // Assertive + Passive (orderless)
-  if ((style1 === 'Assertive' && style2 === 'Passive') || (style1 === 'Passive' && style2 === 'Assertive')) return 8;
-  // Passive + Passive
-  if (style1 === 'Passive' && style2 === 'Passive') return 4;
+  if (lo === 3 && hi === 3) return 10  // Assertive + Assertive
+  if (lo === 2 && hi === 3) return 8   // Assertive + Passive
+  if (lo === 2 && hi === 2) return 5   // Passive + Passive
+  if (lo === 1 && hi === 3) return 4   // Assertive + Passive-Aggressive
+  if (lo === 1 && hi === 2) return 3   // Passive + Passive-Aggressive
+  if (lo === 1 && hi === 1) return 2   // PA + PA
+  if (lo === 0 && hi === 3) return 2   // Assertive + Aggressive
+  if (lo === 0 && hi === 2) return 1   // Passive + Aggressive
+  if (lo === 0 && hi === 1) return 1   // PA + Aggressive
+  if (lo === 0 && hi === 0) return 0   // Aggressive + Aggressive
 
-  return 4; // default
+  return 4
 }
 
-// Function to calculate lifestyle compatibility score (up to 25% of total)
+// Function to calculate lifestyle compatibility score (re-weighted to 10% of total)
 function calculateLifestyleCompatibility(preferences1, preferences2) {
-  // New scale: up to 15 pts with per-question 3 pts logic + shared context bonus +2 (capped)
+  // Proximity-based scoring: ordered options use distance, not binary match/miss
+  // All questions have 3 ordered values (أ < ب < ج), so distance 0=full, 1=partial, 2=zero
+  // Penalty removed: lifestyle mismatch lowers score but never drives it negative
   if (!preferences1 || !preferences2) return 0
   const prefs1 = preferences1.split(',')
   const prefs2 = preferences2.split(',')
   if (prefs1.length !== 5 || prefs2.length !== 5) return 0
 
+  const ord = { 'أ': 1, 'ب': 2, 'ج': 3 }  // Arabic letter → ordinal position
   let score = 0
-  let q14Match = false
-  let q18Match = false
 
-  // Q14: Activity Time (index 0) – exact match → 3 pts
-  if (prefs1[0] && prefs2[0] && prefs1[0] === prefs2[0]) { score += 3; q14Match = true }
+  // Q14: Activity time — morning/afternoon/night (ordered proximity)
+  const t1 = ord[prefs1[0]], t2 = ord[prefs2[0]]
+  if (t1 && t2) { const d = Math.abs(t1 - t2); score += d === 0 ? 3 : d === 1 ? 1.5 : 0 }
 
-  // Q15: Contact Freq (index 1) – exact match → 3 pts
-  if (prefs1[1] && prefs2[1] && prefs1[1] === prefs2[1]) { score += 3 }
+  // Q15: Contact frequency — daily/every-few-days/infrequent (ordered proximity)
+  const c1 = ord[prefs1[1]], c2 = ord[prefs2[1]]
+  if (c1 && c2) { const d = Math.abs(c1 - c2); score += d === 0 ? 3 : d === 1 ? 2 : 0 }
 
-  // Q16: Personal Space (index 2) – same bucket (space vs closeness) → 3 pts
-  const bucket16 = v => (v === 'ج' ? 'close' : 'space') // أ,ب => space; ج => close
+  // Q16: Personal space — أ/ب=needs space, ج=prefers closeness (bucket)
+  const bucket16 = v => (v === 'ج' ? 'close' : 'space')
   if (prefs1[2] && prefs2[2] && bucket16(prefs1[2]) === bucket16(prefs2[2])) { score += 3 }
 
-  // Q17: Planning (index 3) – exact match → 3 pts
-  if (prefs1[3] && prefs2[3] && prefs1[3] === prefs2[3]) { score += 3 }
+  // Q17: Planning style — organized/semi/spontaneous (ordered proximity)
+  const p1 = ord[prefs1[3]], p2 = ord[prefs2[3]]
+  if (p1 && p2) { const d = Math.abs(p1 - p2); score += d === 0 ? 3 : d === 1 ? 1.5 : 0 }
 
-  // Q18: Weekend (index 4) – exact match → 3 pts
-  if (prefs1[4] && prefs2[4] && prefs1[4] === prefs2[4]) { score += 3; q18Match = true }
+  // Q18: Weekend preference — social/quiet-with-few/homebody (ordered proximity, NO penalty)
+  const w1 = ord[prefs1[4]], w2 = ord[prefs2[4]]
+  if (w1 && w2) { const d = Math.abs(w1 - w2); score += d === 0 ? 3 : d === 1 ? 1.5 : 0 }
 
-  // Shared Context bonus: if Q14 & Q18 both matched → +2 (cap at 15 total)
-  if (q14Match && q18Match) score += 2
-
-  // Lifestyle Clash penalty: Q18 A vs C → -4 (softened; weekend preference shouldn't override initial spark)
-  if ((prefs1[4] === 'أ' && prefs2[4] === 'ج') || (prefs1[4] === 'ج' && prefs2[4] === 'أ')) {
-    score -= 4
-    console.log(`⚠️ Lifestyle clash penalty: Q18 A vs C → -4`)
-  }
-
-  return Math.max(0, Math.min(15, score))
+  // Max raw = 15 (all perfect), cap at 10 to reflect lifestyle's reduced weight for initial spark
+  return Math.max(0, Math.min(10, score))
 }
 
 // Function to calculate core values compatibility score (up to 20% of total)
@@ -648,7 +649,7 @@ function calculateInteractionSynergyScore(participantA, participantB) {
   } else if (a35 === 'B' && b35 === 'B') {
     total += 4
   } else if (a35 === 'A' && b35 === 'A') {
-    total += 2
+    total += 4  // two initiators energise each other; not as good as A+listener but far from bad
   } else if (a35 === 'C' && b35 === 'C') {
     total += 0
   } else if ((a35 && b35)) {
@@ -717,16 +718,21 @@ function calculateInteractionSynergyScore(participantA, participantB) {
   return Math.min(35, total)
 }
 
-// New: Intent & Goal (Q40) → simplified: full if same goal, else 1
+// Intent & Goal (Q40) → richer compatibility matrix
 function calculateIntentGoalScore(participantA, participantB) {
   const ans = (p, key) => (p?.survey_data?.answers?.[key] ?? p?.[key] ?? '')
   const a40 = String(ans(participantA, 'intent_goal') || '').toUpperCase()
   const b40 = String(ans(participantB, 'intent_goal') || '').toUpperCase()
 
   if (!a40 || !b40) return 0
-
   if (a40 === b40) return 5
-  return 1
+
+  // Cross-intent compatibility: expand-circle + intellectual-match are genuinely compatible
+  const pair = [a40, b40].sort().join('+')
+  if (pair === 'A+B') return 4  // expand circle + intellectual match — highly compatible
+  if (pair === 'A+C') return 3  // expand circle + exploring — compatible
+  if (pair === 'B+C') return 2  // intellectual + exploring — somewhat compatible
+  return 2
 }
 
 // Function to check gender compatibility with support for any_gender_preference
@@ -1569,7 +1575,7 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // Apply multipliers before veto caps
   const humorMultiplier = checkHumorMatch(participantA, participantB)
   totalScore = totalScore * humorMultiplier
-  const intentMultiplier = (intentRaw === 5 ? 1.05 : 1.0)
+  const intentMultiplier = (intentRaw >= 4 ? 1.05 : 1.0)  // boost for same or highly compatible intents
   if (intentMultiplier > 1.0) intentBoostApplied = true
   totalScore = totalScore * intentMultiplier
 
@@ -1648,9 +1654,9 @@ async function calculateVibeCompatibility(participantA, participantB) {
 
     // Calculate mutual compatibility between the two combined profiles
     const raw35 = await calculateCombinedVibeCompatibility(aVibeDescription, bVibeDescription)
-    const vibeScore = Math.max(0, Math.min(20, (raw35 / 35) * 20))
+    const vibeScore = Math.max(0, Math.min(25, (raw35 / 35) * 25))  // re-weighted 20→25: personality energy is the top initial-spark driver
     
-    console.log(`🎯 Vibe compatibility: AI raw=${raw35}/35 → scaled=${vibeScore.toFixed(2)}/20`)
+    console.log(`🎯 Vibe compatibility: AI raw=${raw35}/35 → scaled=${vibeScore.toFixed(2)}/25`)
     console.log(`📝 Profile A preview: "${aVibeDescription.substring(0, 100)}..."`)
     console.log(`📝 Profile B preview: "${bVibeDescription.substring(0, 100)}..."`)
     

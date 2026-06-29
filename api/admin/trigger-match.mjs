@@ -1568,6 +1568,11 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
       totalScore -= 5
       opennessZeroZeroPenaltyApplied = true
       console.log(`⚠️ Early openness penalty applied: 0×0 → -5`)
+    } else if ((oA === 0 && oB >= 2) || (oA >= 2 && oB === 0)) {
+      // Asymmetric: one fully closed (0) + one genuinely open (2+) → the open person extends warmth
+      // that gets no response; arguably more friction than symmetric 0×0
+      totalScore -= 4
+      console.log(`⚠️ Asymmetric openness penalty: ${oA} vs ${oB} → -4`)
     }
   } catch (_) {}
   if (totalScore < 0) totalScore = 0
@@ -1575,9 +1580,8 @@ async function calculateFullCompatibilityWithCache(participantA, participantB, s
   // Apply multipliers before veto caps
   const humorMultiplier = checkHumorMatch(participantA, participantB)
   totalScore = totalScore * humorMultiplier
-  const intentMultiplier = (intentRaw >= 4 ? 1.05 : 1.0)  // boost for same or highly compatible intents
-  if (intentMultiplier > 1.0) intentBoostApplied = true
-  totalScore = totalScore * intentMultiplier
+  totalScore += intentRaw  // direct 0-5 pt contribution: same intent=5, compatible=3-4, mismatch=2
+  if (intentRaw >= 4) intentBoostApplied = true
 
   // Prepare accessor for veto checks
   const getAns = (p, k) => (p?.survey_data?.answers?.[k] ?? p?.[k] ?? '').toString().toUpperCase()

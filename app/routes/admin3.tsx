@@ -1406,297 +1406,267 @@ export default function Admin3Page() {
 
       {/* TAB: OVERVIEW ─────────────────────────────────────────── */}
       {activeTab === "overview" && (() => {
-        const scoreColor = (score: number | null, bothComplete: boolean) => {
-          if (!bothComplete || score == null) return { bg: 'rgba(31,41,55,0.8)', text: '#4b5563' }
-          if (score >= 80) return { bg: 'rgba(16,185,129,0.22)', text: '#34d399' }
-          if (score >= 68) return { bg: 'rgba(59,130,246,0.18)', text: '#60a5fa' }
-          if (score >= 54) return { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa' }
-          if (score >= 40) return { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' }
-          return { bg: 'rgba(239,68,68,0.13)', text: '#f87171' }
-        }
-        const mbtiColor = (m: string) => {
-          if (!m) return 'text-gray-600 bg-gray-800'
-          const type = m.toUpperCase()
-          if (['INFJ','INFP','ENFJ','ENFP'].includes(type)) return 'text-violet-300 bg-violet-950/60 border border-violet-800/40'
-          if (['INTJ','INTP','ENTJ','ENTP'].includes(type)) return 'text-blue-300 bg-blue-950/60 border border-blue-800/40'
-          if (['ISFJ','ISFP','ESFJ','ESFP'].includes(type)) return 'text-pink-300 bg-pink-950/60 border border-pink-800/40'
-          return 'text-teal-300 bg-teal-950/60 border border-teal-800/40'
-        }
-        const attachColor = (a: string) => {
-          if (!a) return 'text-gray-600'
-          if (a === 'Secure') return 'text-green-400'
-          if (a === 'Anxious') return 'text-yellow-400'
-          if (a === 'Avoidant') return 'text-red-400'
-          return 'text-gray-400'
-        }
         const pts: any[] = overviewData?.participants || []
         const matrix: Record<string, { score: number | null; bothComplete: boolean }> = overviewData?.matrix || {}
-        const sortedPts = [...pts].sort((a, b) => a.number - b.number)
-        const males = sortedPts.filter(p => p.gender === 'male')
-        const females = sortedPts.filter(p => p.gender === 'female')
-        const getScore = (a: number, b: number) => {
-          const key = a < b ? `${a}-${b}` : `${b}-${a}`
-          return matrix[key] || null
+        const sorted = [...pts].sort((a, b) => {
+          if (a.gender !== b.gender) return a.gender === 'male' ? -1 : 1
+          return a.number - b.number
+        })
+        const males = sorted.filter(p => p.gender === 'male')
+        const females = sorted.filter(p => p.gender === 'female')
+        const getEntry = (a: number, b: number) => { const k = a < b ? `${a}-${b}` : `${b}-${a}`; return matrix[k] || null }
+
+        const cellStyle = (score: number | null, complete: boolean, isMatch: boolean) => {
+          if (!complete || score == null) return { background: 'rgba(17,24,39,0.9)', color: '#374151', outline: 'none' }
+          let bg = 'rgba(17,24,39,0.9)', col = '#374151'
+          if (score >= 80) { bg = 'rgba(16,185,129,0.25)'; col = '#34d399' }
+          else if (score >= 68) { bg = 'rgba(99,102,241,0.22)'; col = '#818cf8' }
+          else if (score >= 54) { bg = 'rgba(139,92,246,0.18)'; col = '#c084fc' }
+          else if (score >= 40) { bg = 'rgba(234,179,8,0.16)'; col = '#facc15' }
+          else { bg = 'rgba(239,68,68,0.14)'; col = '#f87171' }
+          return { background: bg, color: col, outline: isMatch ? '2px solid #f59e0b' : 'none', outlineOffset: '-2px', zIndex: isMatch ? 1 : 'auto' }
         }
+
+        const mbtiGroup = (m: string) => {
+          if (!m) return null
+          const t = m.toUpperCase()
+          if (['INFJ','INFP','ENFJ','ENFP'].includes(t)) return { label: m, cls: 'bg-violet-900/60 text-violet-300 border-violet-700/50' }
+          if (['INTJ','INTP','ENTJ','ENTP'].includes(t)) return { label: m, cls: 'bg-blue-900/60 text-blue-300 border-blue-700/50' }
+          if (['ISFJ','ISFP','ESFJ','ESFP'].includes(t)) return { label: m, cls: 'bg-pink-900/50 text-pink-300 border-pink-700/50' }
+          return { label: m, cls: 'bg-teal-900/50 text-teal-300 border-teal-700/50' }
+        }
+
+        const attachDot = (a: string) => {
+          if (a === 'Secure') return 'bg-emerald-400'
+          if (a === 'Anxious') return 'bg-yellow-400'
+          if (a === 'Avoidant') return 'bg-red-400'
+          return 'bg-gray-600'
+        }
+
+        const completeCount = pts.filter(p => p.complete).length
+        const votedCount = pts.filter(p => p.rankingSubmitted).length
+        const matchedCount = pts.filter(p => p.matchPartner).length
+        const avgScores = pts.filter(p => p.matchCompatScore != null).map(p => p.matchCompatScore)
+        const avgCompat = avgScores.length ? Math.round(avgScores.reduce((a: number, b: number) => a + b, 0) / avgScores.length) : null
+
         if (overviewLoading) return (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
             <Loader2 size={36} className="text-purple-400 animate-spin" />
             <p className="text-gray-400 text-sm">جاري حساب التوافق لجميع الأزواج…</p>
-            <p className="text-gray-600 text-xs">قد يستغرق هذا دقيقة</p>
+            <p className="text-gray-600 text-xs">قد يستغرق هذا دقيقة واحدة</p>
           </div>
         )
         if (!overviewData) return (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <Layers size={36} className="text-gray-700" />
-            <p className="text-gray-500">لا توجد بيانات. حدّث الصفحة.</p>
-            <button onClick={fetchOverview} className="text-sm text-purple-400 hover:text-purple-300 bg-purple-900/20 px-4 py-2 rounded-xl border border-purple-800/30">تحديث</button>
+            <Layers size={32} className="text-gray-700" />
+            <p className="text-gray-500 text-sm">لا توجد بيانات بعد</p>
+            <button onClick={fetchOverview} className="text-sm text-purple-400 hover:text-purple-300 bg-purple-900/20 px-4 py-2 rounded-xl border border-purple-800/30">تحميل</button>
           </div>
         )
+
         return (
-          <div className="space-y-6 pb-8">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-white">نظرة شاملة</h2>
-                <p className="text-xs text-gray-500 mt-0.5">{pts.length} مشارك · {Object.keys(matrix).length} زوج محسوب</p>
-              </div>
-              <button onClick={fetchOverview} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-700 transition-colors">
-                <RefreshCw size={12} /> تحديث
+          <div className="space-y-5 pb-10">
+
+            {/* ── Header ── */}
+            <div className="flex items-center justify-between pt-1">
+              <h2 className="text-base font-bold text-white">نظرة شاملة</h2>
+              <button onClick={fetchOverview} className="flex items-center gap-1.5 text-[11px] text-gray-500 hover:text-gray-300 bg-gray-800/80 px-2.5 py-1.5 rounded-lg border border-gray-700/60 transition-colors">
+                <RefreshCw size={11} /> تحديث
               </button>
             </div>
 
-            {/* ── SECTION 1: Participant Cards ─────────────────────── */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Users size={12} /> بيانات المشاركين
-              </h3>
-              {/* Males */}
-              {males.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-[10px] text-blue-500 font-semibold mb-2 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />ذكور ({males.length})</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {males.map((p: any) => (
-                      <div key={p.number} className={`rounded-xl p-3 border bg-blue-950/10 border-blue-900/30 relative overflow-hidden`}>
-                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600/0 via-blue-500/60 to-blue-600/0" />
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-semibold text-sm truncate">{p.name}</p>
-                            <p className="text-gray-600 text-[10px]">#{p.number}{p.age ? ` · ${p.age}` : ''}</p>
-                          </div>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${p.complete ? 'bg-green-900/40 text-green-400 border border-green-800/40' : 'bg-red-900/30 text-red-400 border border-red-800/30'}`}>
-                            {p.complete ? '✓ مكتمل' : '⚠ ناقص'}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {p.mbti && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${mbtiColor(p.mbti)}`}>{p.mbti}</span>}
-                          {p.attachment && <span className={`text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 ${attachColor(p.attachment)}`}>{p.attachment}</span>}
-                          {p.humor && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400">{p.humor === 'A' ? '😄 مرح' : p.humor === 'B' ? '🤗 دافئ' : p.humor === 'C' ? '🧘 هادئ' : '🎩 جدي'}</span>}
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 mb-2 text-center">
-                          {[1, 2, 20].map(r => (
-                            <div key={r} className="bg-gray-800/60 rounded-lg px-1 py-1">
-                              <p className="text-[8px] text-gray-600">{r === 20 ? '1:1' : `ج${r}`}</p>
-                              <p className="text-[11px] font-bold text-gray-300">{(r === 1 ? p.r1Table : r === 2 ? p.r2Table : p.r20Table) ?? '—'}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between text-[9px]">
-                          <span className={`flex items-center gap-1 ${p.rankingSubmitted ? 'text-emerald-400' : 'text-gray-600'}`}>
-                            {p.rankingSubmitted ? `✓ صوّت (${p.rankingCount})` : '○ لم يصوّت'}
-                          </span>
-                          {p.matchPartner ? (
-                            <div className="text-right">
-                              <span className="text-gray-500">مع: </span>
-                              <span className="text-white font-medium">{p.matchPartnerName || `#${p.matchPartner}`}</span>
-                              {p.matchCompatScore != null && <span className={`mr-1 font-bold ${p.matchCompatScore >= 68 ? 'text-green-400' : p.matchCompatScore >= 54 ? 'text-blue-400' : 'text-yellow-400'}`}>{p.matchCompatScore}%</span>}
-                            </div>
-                          ) : <span className="text-gray-700">لا مطابقة</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* ── Stats Strip ── */}
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { label: 'المشاركون', value: pts.length, color: 'text-white', bg: 'bg-gray-800/80 border-gray-700/50' },
+                { label: 'الاستبيان', value: `${completeCount}/${pts.length}`, color: completeCount === pts.length ? 'text-emerald-400' : 'text-yellow-400', bg: 'bg-gray-800/80 border-gray-700/50' },
+                { label: 'التصويت', value: `${votedCount}/${pts.length}`, color: votedCount === pts.length ? 'text-emerald-400' : 'text-yellow-400', bg: 'bg-gray-800/80 border-gray-700/50' },
+                { label: 'المطابقات', value: `${matchedCount / 2 | 0}`, color: matchedCount > 0 ? 'text-pink-400' : 'text-gray-600', bg: 'bg-gray-800/80 border-gray-700/50' },
+                { label: 'متوسط التوافق', value: avgCompat != null ? `${avgCompat}%` : '—', color: avgCompat != null && avgCompat >= 68 ? 'text-emerald-400' : avgCompat != null ? 'text-blue-400' : 'text-gray-600', bg: 'bg-gray-800/80 border-gray-700/50' },
+              ].map(s => (
+                <div key={s.label} className={`rounded-xl border px-2 py-2 text-center ${s.bg}`}>
+                  <p className={`text-sm font-black leading-none ${s.color}`}>{s.value}</p>
+                  <p className="text-[9px] text-gray-600 mt-1 leading-tight">{s.label}</p>
                 </div>
-              )}
-              {/* Females */}
-              {females.length > 0 && (
-                <div>
-                  <p className="text-[10px] text-pink-500 font-semibold mb-2 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-pink-400 inline-block" />إناث ({females.length})</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {females.map((p: any) => (
-                      <div key={p.number} className={`rounded-xl p-3 border bg-pink-950/10 border-pink-900/30 relative overflow-hidden`}>
-                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-pink-600/0 via-pink-500/60 to-pink-600/0" />
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-white font-semibold text-sm truncate">{p.name}</p>
-                            <p className="text-gray-600 text-[10px]">#{p.number}{p.age ? ` · ${p.age}` : ''}</p>
-                          </div>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${p.complete ? 'bg-green-900/40 text-green-400 border border-green-800/40' : 'bg-red-900/30 text-red-400 border border-red-800/30'}`}>
-                            {p.complete ? '✓ مكتمل' : '⚠ ناقص'}
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {p.mbti && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${mbtiColor(p.mbti)}`}>{p.mbti}</span>}
-                          {p.attachment && <span className={`text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 ${attachColor(p.attachment)}`}>{p.attachment}</span>}
-                          {p.humor && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400">{p.humor === 'A' ? '😄 مرح' : p.humor === 'B' ? '🤗 دافئ' : p.humor === 'C' ? '🧘 هادئ' : '🎩 جدي'}</span>}
-                        </div>
-                        <div className="grid grid-cols-3 gap-1 mb-2 text-center">
-                          {[1, 2, 20].map(r => (
-                            <div key={r} className="bg-gray-800/60 rounded-lg px-1 py-1">
-                              <p className="text-[8px] text-gray-600">{r === 20 ? '1:1' : `ج${r}`}</p>
-                              <p className="text-[11px] font-bold text-gray-300">{(r === 1 ? p.r1Table : r === 2 ? p.r2Table : p.r20Table) ?? '—'}</p>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex items-center justify-between text-[9px]">
-                          <span className={`flex items-center gap-1 ${p.rankingSubmitted ? 'text-emerald-400' : 'text-gray-600'}`}>
-                            {p.rankingSubmitted ? `✓ صوّت (${p.rankingCount})` : '○ لم يصوّت'}
-                          </span>
-                          {p.matchPartner ? (
-                            <div className="text-right">
-                              <span className="text-gray-500">مع: </span>
-                              <span className="text-white font-medium">{p.matchPartnerName || `#${p.matchPartner}`}</span>
-                              {p.matchCompatScore != null && <span className={`mr-1 font-bold ${p.matchCompatScore >= 68 ? 'text-green-400' : p.matchCompatScore >= 54 ? 'text-blue-400' : 'text-yellow-400'}`}>{p.matchCompatScore}%</span>}
-                            </div>
-                          ) : <span className="text-gray-700">لا مطابقة</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
 
-            {/* ── SECTION 2: Activity Flow Table ───────────────────── */}
-            <div>
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <BarChart3 size={12} /> تدفق النشاط
-              </h3>
-              <div className="bg-gray-900/60 rounded-2xl border border-gray-800 overflow-hidden">
-                <table className="w-full text-xs">
+            {/* ── Participant Roster ── */}
+            <div className="rounded-2xl border border-gray-800 overflow-hidden bg-gray-900/40">
+              <div className="px-3 py-2 border-b border-gray-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-400 flex items-center gap-1.5"><Users size={11} /> قائمة المشاركين</span>
+                <div className="flex items-center gap-2 text-[9px] text-gray-600">
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />ذكور {males.length}</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-pink-400 inline-block" />إناث {females.length}</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px]">
                   <thead>
-                    <tr className="bg-gray-800/60 border-b border-gray-700/50">
-                      <th className="text-right px-3 py-2.5 text-gray-400 font-semibold">المشارك</th>
-                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">ج1</th>
-                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">ج2</th>
-                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">التصويت</th>
-                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">المطابقة النهائية</th>
-                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">التوافق</th>
-                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">الاستبيان</th>
+                    <tr className="border-b border-gray-800/60 bg-gray-800/30">
+                      <th className="text-right px-3 py-2 text-gray-500 font-semibold whitespace-nowrap">الاسم</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">شخصية</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">تعلّق</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج١</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج٢</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">صوّت</th>
+                      <th className="text-right px-2 py-2 text-gray-500 font-semibold">المطابقة</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedPts.map((p: any, i: number) => (
-                      <tr key={p.number} className={`border-b border-gray-800/40 ${i % 2 === 0 ? '' : 'bg-gray-900/30'} hover:bg-gray-800/20 transition-colors`}>
-                        <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
-                            <span className="text-white font-medium truncate max-w-[80px]">{p.name}</span>
-                            <span className="text-gray-700">#{p.number}</span>
-                          </div>
-                        </td>
-                        <td className="text-center px-2 py-2">
-                          {p.r1Table != null ? <span className="text-indigo-300 font-bold">{p.r1Table}</span> : <span className="text-gray-700">—</span>}
-                        </td>
-                        <td className="text-center px-2 py-2">
-                          {p.r2Table != null ? <span className="text-indigo-300 font-bold">{p.r2Table}</span> : <span className="text-gray-700">—</span>}
-                        </td>
-                        <td className="text-center px-2 py-2">
-                          {p.rankingSubmitted
-                            ? <span className="text-emerald-400 font-semibold">✓ {p.rankingCount}</span>
-                            : <span className="text-gray-700">—</span>}
-                        </td>
-                        <td className="text-center px-2 py-2">
-                          {p.matchPartner
-                            ? <span className="text-white">{p.matchPartnerName || `#${p.matchPartner}`}</span>
-                            : <span className="text-gray-700">—</span>}
-                        </td>
-                        <td className="text-center px-2 py-2">
-                          {p.matchCompatScore != null
-                            ? <span className={`font-bold ${p.matchCompatScore >= 68 ? 'text-green-400' : p.matchCompatScore >= 54 ? 'text-blue-400' : 'text-yellow-400'}`}>{p.matchCompatScore}%</span>
-                            : <span className="text-gray-700">—</span>}
-                        </td>
-                        <td className="text-center px-2 py-2">
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${p.complete ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/20'}`}>
-                            {p.complete ? '✓' : '✗'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
+                    {sorted.map((p: any, i: number) => {
+                      const isFirstFemale = p.gender === 'female' && (i === 0 || sorted[i - 1].gender === 'male')
+                      const mb = mbtiGroup(p.mbti)
+                      const rowBg = !p.complete ? 'bg-red-950/10' : p.matchPartner ? 'bg-emerald-950/8' : ''
+                      return (
+                        <>
+                          {isFirstFemale && (
+                            <tr key="divider-f" className="border-t-2 border-pink-900/40">
+                              <td colSpan={7} className="px-3 py-1 bg-pink-950/10">
+                                <span className="text-[9px] text-pink-600 font-semibold tracking-wider uppercase">إناث</span>
+                              </td>
+                            </tr>
+                          )}
+                          {i === 0 && p.gender === 'male' && (
+                            <tr key="divider-m">
+                              <td colSpan={7} className="px-3 py-1 bg-blue-950/10">
+                                <span className="text-[9px] text-blue-600 font-semibold tracking-wider uppercase">ذكور</span>
+                              </td>
+                            </tr>
+                          )}
+                          <tr key={p.number} className={`border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors ${rowBg}`}>
+                            <td className="px-3 py-2">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                                <span className="text-white font-semibold truncate max-w-[80px]">{p.name}</span>
+                                <span className="text-gray-700 flex-shrink-0">#{p.number}</span>
+                                {!p.complete && <span className="text-red-500 text-[9px] flex-shrink-0">⚠</span>}
+                              </div>
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {mb ? <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${mb.cls}`}>{mb.label}</span> : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {p.attachment
+                                ? <span className="flex items-center justify-center gap-1">
+                                    <span className={`w-1.5 h-1.5 rounded-full ${attachDot(p.attachment)}`} />
+                                    <span className="text-gray-400 text-[9px]">{p.attachment === 'Secure' ? 'آمن' : p.attachment === 'Anxious' ? 'قلق' : p.attachment === 'Avoidant' ? 'تجنّبي' : p.attachment}</span>
+                                  </span>
+                                : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {p.r1Table != null ? <span className="text-indigo-300 font-bold">{p.r1Table}</span> : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {p.r2Table != null ? <span className="text-indigo-300 font-bold">{p.r2Table}</span> : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {p.rankingSubmitted
+                                ? <span className="text-emerald-400 font-bold text-xs">✓{p.rankingCount}</span>
+                                : <span className="text-gray-700 text-xs">✗</span>}
+                            </td>
+                            <td className="px-2 py-2 text-right">
+                              {p.matchPartner ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <span className="text-gray-300 truncate max-w-[70px] text-[11px]">{p.matchPartnerName || `#${p.matchPartner}`}</span>
+                                  {p.matchCompatScore != null && (
+                                    <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg border ${
+                                      p.matchCompatScore >= 80 ? 'text-emerald-300 bg-emerald-900/30 border-emerald-800/40' :
+                                      p.matchCompatScore >= 68 ? 'text-indigo-300 bg-indigo-900/30 border-indigo-800/40' :
+                                      p.matchCompatScore >= 54 ? 'text-violet-300 bg-violet-900/30 border-violet-800/40' :
+                                      'text-yellow-300 bg-yellow-900/20 border-yellow-800/30'
+                                    }`}>{p.matchCompatScore}%</span>
+                                  )}
+                                </div>
+                              ) : <span className="text-gray-700 text-[10px]">لا يوجد</span>}
+                            </td>
+                          </tr>
+                        </>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
 
-            {/* ── SECTION 3: Compatibility Matrix ──────────────────── */}
-            {sortedPts.length > 0 && (
+            {/* ── Compatibility Matrix ── */}
+            {males.length > 0 && females.length > 0 && (
               <div>
-                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2">
-                  <Heart size={12} /> مصفوفة التوافق
-                </h3>
-                <p className="text-[10px] text-gray-600 mb-3">الصفوف = ذكور · الأعمدة = إناث · بدون AI (مع الكاش)</p>
-                <div className="bg-gray-900/60 rounded-2xl border border-gray-800 overflow-auto">
-                  {males.length > 0 && females.length > 0 ? (
-                    <table className="text-[10px] w-full">
-                      <thead>
-                        <tr className="border-b border-gray-800">
-                          <th className="bg-gray-800/70 px-2 py-2 text-gray-500 font-semibold sticky left-0 z-10 text-right min-w-[90px]">ذ \ أ</th>
-                          {females.map((f: any) => (
-                            <th key={f.number} className="bg-gray-800/70 px-2 py-2 text-pink-400 font-semibold text-center min-w-[52px] whitespace-nowrap">
-                              <div className="flex flex-col items-center gap-0.5">
-                                <span className="truncate max-w-[44px] text-[9px]">{f.name.split(' ')[0]}</span>
-                                <span className="text-gray-600 text-[8px]">#{f.number}</span>
-                              </div>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {males.map((m: any, mi: number) => (
-                          <tr key={m.number} className="border-b border-gray-800/40">
-                            <td className={`sticky left-0 z-10 px-2 py-1.5 font-semibold text-blue-400 whitespace-nowrap ${mi % 2 === 0 ? 'bg-gray-900' : 'bg-gray-900/80'}`}>
-                              <div className="flex flex-col gap-0">
-                                <span className="text-[9px] truncate max-w-[80px]">{m.name.split(' ')[0]}</span>
-                                <span className="text-gray-600 text-[8px]">#{m.number}</span>
-                              </div>
-                            </td>
-                            {females.map((f: any) => {
-                              const entry = getScore(m.number, f.number)
-                              const { bg, text } = scoreColor(entry?.score ?? null, entry?.bothComplete ?? false)
-                              return (
-                                <td key={f.number} style={{ background: bg }} className="text-center px-1 py-1.5 transition-all hover:ring-1 hover:ring-white/20">
-                                  {entry?.score != null && entry.bothComplete
-                                    ? <span style={{ color: text }} className="font-black text-[11px]">{entry.score}</span>
-                                    : <span className="text-gray-700 text-[10px]">{entry?.score != null ? entry.score : '?'}</span>
-                                  }
-                                </td>
-                              )
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  ) : (
-                    <div className="py-8 text-center text-gray-600 text-sm">يتطلب وجود ذكور وإناث لعرض المصفوفة</div>
-                  )}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-gray-400 flex items-center gap-1.5"><Heart size={11} /> مصفوفة التوافق</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-amber-500 flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-500/70" />مطابقة</span>
+                    <span className="text-[9px] text-gray-600">ذكور × إناث</span>
+                  </div>
                 </div>
-                {/* Legend */}
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  <span className="text-[9px] text-gray-600">الألوان:</span>
+                <div className="rounded-2xl border border-gray-800 overflow-auto bg-gray-900/40">
+                  <table className="text-[11px] border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="sticky left-0 z-20 bg-gray-900 px-3 py-2.5 text-gray-600 font-semibold text-right min-w-[90px] border-b border-r border-gray-800">
+                          ذ ╲ أ
+                        </th>
+                        {females.map((f: any) => (
+                          <th key={f.number} className="bg-gray-900/80 px-1.5 py-2 border-b border-gray-800 min-w-[56px]">
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span className="text-pink-300 font-semibold text-[10px] truncate max-w-[50px]">{f.name.split(' ')[0]}</span>
+                              <span className="text-gray-600 text-[8px]">#{f.number}</span>
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {males.map((m: any, mi: number) => (
+                        <tr key={m.number} className={mi < males.length - 1 ? 'border-b border-gray-800/40' : ''}>
+                          <td className="sticky left-0 z-10 bg-gray-900 px-3 py-2 border-r border-gray-800">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="text-blue-300 font-semibold text-[10px] truncate max-w-[78px]">{m.name.split(' ')[0]}</span>
+                              <span className="text-gray-600 text-[8px]">#{m.number}</span>
+                            </div>
+                          </td>
+                          {females.map((f: any) => {
+                            const entry = getEntry(m.number, f.number)
+                            const isMatch = !!(m.matchPartner === f.number || f.matchPartner === m.number)
+                            const st = cellStyle(entry?.score ?? null, entry?.bothComplete ?? false, isMatch)
+                            return (
+                              <td
+                                key={f.number}
+                                style={{ background: st.background, color: st.color, outline: st.outline, outlineOffset: st.outlineOffset, position: 'relative' } as any}
+                                className="text-center px-1 py-2 transition-colors hover:brightness-125 cursor-default"
+                              >
+                                {entry?.score != null
+                                  ? <span className="font-black text-[13px]">{entry.score}</span>
+                                  : <span className="text-[9px]">?</span>
+                                }
+                                {isMatch && <span className="absolute top-0.5 right-0.5 text-[7px] text-amber-500">★</span>}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {/* Compact legend */}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
                   {[
-                    { bg: 'rgba(16,185,129,0.22)', text: '#34d399', label: '≥80' },
-                    { bg: 'rgba(59,130,246,0.18)', text: '#60a5fa', label: '68–79' },
-                    { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa', label: '54–67' },
-                    { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24', label: '40–53' },
-                    { bg: 'rgba(239,68,68,0.13)', text: '#f87171', label: '<40' },
+                    { s: 'rgba(16,185,129,0.25)', c: '#34d399', l: '≥80' },
+                    { s: 'rgba(99,102,241,0.22)', c: '#818cf8', l: '68–79' },
+                    { s: 'rgba(139,92,246,0.18)', c: '#c084fc', l: '54–67' },
+                    { s: 'rgba(234,179,8,0.16)',  c: '#facc15', l: '40–53' },
+                    { s: 'rgba(239,68,68,0.14)',  c: '#f87171', l: '<40'   },
                   ].map(l => (
-                    <div key={l.label} className="flex items-center gap-1">
-                      <div style={{ background: l.bg }} className="w-5 h-3.5 rounded-sm" />
-                      <span style={{ color: l.text }} className="text-[9px] font-bold">{l.label}</span>
+                    <div key={l.l} className="flex items-center gap-1">
+                      <div style={{ background: l.s }} className="w-4 h-3 rounded-sm border border-white/5" />
+                      <span style={{ color: l.c }} className="text-[9px] font-bold">{l.l}</span>
                     </div>
                   ))}
+                  <span className="text-[9px] text-gray-700 mr-1">· ★ = مطابقة فعلية</span>
                 </div>
               </div>
             )}
+
           </div>
         )
       })()}

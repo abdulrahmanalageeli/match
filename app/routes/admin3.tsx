@@ -81,6 +81,7 @@ export default function Admin3Page() {
   const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
   const [pairDetail, setPairDetail] = useState<any | null>(null)
   const [surveyModal, setSurveyModal] = useState<any | null>(null)
+  const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -1537,7 +1538,7 @@ export default function Admin3Page() {
                           )}
                           <tr key={p.number} className={`border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors ${rowBg}`}>
                             <td className="px-3 py-2">
-                              <button onClick={() => setSurveyModal(p)} className="flex items-center gap-1.5 min-w-0 group text-right">
+                              <button onClick={() => { setSurveyModal(p); setOpenSections(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent'])) }} className="flex items-center gap-1.5 min-w-0 group text-right">
                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
                                 <span className="text-white font-semibold truncate max-w-[80px] group-hover:text-purple-300 transition-colors underline decoration-dotted underline-offset-2 decoration-gray-600 group-hover:decoration-purple-400">{p.name}</span>
                                 <span className="text-gray-700 flex-shrink-0">#{p.number}</span>
@@ -1736,7 +1737,6 @@ export default function Admin3Page() {
           </div>
         )
 
-        const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
         const toggleSection = (id: string) => setOpenSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
 
         const mbg = mbtiGroup(s.mbti || '')

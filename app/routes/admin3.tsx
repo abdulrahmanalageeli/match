@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -80,6 +80,7 @@ export default function Admin3Page() {
   const [selectedParticipantNum, setSelectedParticipantNum] = useState<number | null>(null)
   const [participantPanelOpen, setParticipantPanelOpen] = useState(false)
   const [pairDetail, setPairDetail] = useState<any | null>(null)
+  const [surveyModal, setSurveyModal] = useState<any | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -1536,12 +1537,12 @@ export default function Admin3Page() {
                           )}
                           <tr key={p.number} className={`border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors ${rowBg}`}>
                             <td className="px-3 py-2">
-                              <div className="flex items-center gap-1.5 min-w-0">
+                              <button onClick={() => setSurveyModal(p)} className="flex items-center gap-1.5 min-w-0 group text-right">
                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
-                                <span className="text-white font-semibold truncate max-w-[80px]">{p.name}</span>
+                                <span className="text-white font-semibold truncate max-w-[80px] group-hover:text-purple-300 transition-colors underline decoration-dotted underline-offset-2 decoration-gray-600 group-hover:decoration-purple-400">{p.name}</span>
                                 <span className="text-gray-700 flex-shrink-0">#{p.number}</span>
                                 {!p.complete && <span className="text-red-500 text-[9px] flex-shrink-0">⚠</span>}
-                              </div>
+                              </button>
                             </td>
                             <td className="text-center px-2 py-2">
                               {mb ? <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${mb.cls}`}>{mb.label}</span> : <span className="text-gray-700">—</span>}
@@ -1667,6 +1668,278 @@ export default function Admin3Page() {
               </div>
             )}
 
+          </div>
+        )
+      })()}
+
+      {/* ── Survey Detail Modal ───────────────────────────────── */}
+      {surveyModal && (() => {
+        const p = surveyModal
+        const s = p.surveyAnswers || {}
+        const isFemale = p.gender === 'female'
+
+        const mbtiGroup = (m: string) => {
+          if (!m) return null
+          const t = m.toUpperCase()
+          if (['INFJ','INFP','ENFJ','ENFP'].includes(t)) return { name: 'Idealist (NF)', ar: 'مثالي', note: 'عمق عاطفي، معاني وروابط', col: 'text-violet-300' }
+          if (['INTJ','INTP','ENTJ','ENTP'].includes(t)) return { name: 'Analyst (NT)', ar: 'محلل', note: 'منطق، استراتيجية، أفكار', col: 'text-blue-300' }
+          if (['ISFJ','ISTJ','ESFJ','ESTJ'].includes(t)) return { name: 'Guardian (SJ)', ar: 'حارس', note: 'استقرار، تقاليد، موثوقية', col: 'text-teal-300' }
+          return { name: 'Artisan (SP)', ar: 'فنان', note: 'عفوية، حاضر، مغامرة', col: 'text-amber-300' }
+        }
+        const firstLetter = s.mbti?.[0]?.toUpperCase()
+        const ieNote = firstLetter === 'I' ? { label: 'انطوائي', note: 'I+I = 0 نقاط، I+E = 2.5 نقاط', col: 'text-indigo-300' }
+          : firstLetter === 'E' ? { label: 'انبساطي', note: 'E+E = 2.5 نقاط، E+I = 2.5 نقاط', col: 'text-orange-300' } : null
+
+        const lifestyle = s.lifestyle ? s.lifestyle.split(',') : []
+        const coreVals = s.core_values ? s.core_values.split(',') : []
+
+        const lifestyleLabels = [
+          { q: 'وقت النشاط', opts: { 'أ': 'الصباح', 'ب': 'بعد الظهر', 'ج': 'المساء/الليل' } },
+          { q: 'تواتر التواصل', opts: { 'أ': 'يومياً', 'ب': 'كل أيام', 'ج': 'نادراً' } },
+          { q: 'المساحة الشخصية', opts: { 'أ': 'يحتاج مساحة كبيرة', 'ب': 'متوسط', 'ج': 'يفضل القرب' } },
+          { q: 'أسلوب التخطيط', opts: { 'أ': 'منظم تماماً', 'ب': 'شبه منظم', 'ج': 'عفوي' } },
+          { q: 'العطلة المثالية', opts: { 'أ': 'نشاطات اجتماعية', 'ب': 'هادئ مع أصدقاء قليلين', 'ج': 'في المنزل' } },
+        ]
+        const coreValLabels = [
+          { q: 'الطموح', opts: { 'أ': 'الطموح أولاً', 'ب': 'توازن', 'ج': 'الاستقرار أولاً' } },
+          { q: 'الدين والروحانية', opts: { 'أ': 'محوري في حياتي', 'ب': 'مهم لكن مرن', 'ج': 'شخصي وخاص' } },
+          { q: 'الأسرة والعلاقات', opts: { 'أ': 'أولوية قصوى', 'ب': 'مهم مع استقلالية', 'ج': 'أُقدّر حريتي أكثر' } },
+          { q: 'الصدق والشفافية', opts: { 'أ': 'صريح تماماً دائماً', 'ب': 'صادق مع حساسية', 'ج': 'أتحاشى المواجهة' } },
+          { q: 'النمو الشخصي', opts: { 'أ': 'أسعى له باستمرار', 'ب': 'مهم لكن ليس هوساً', 'ج': 'أتقبّل نفسي كما أنا' } },
+        ]
+
+        const Row = ({ icon, label, value, badge, impact, impactColor = 'text-gray-500' }: any) => (
+          <div className="flex items-start gap-3 py-2.5 border-b border-gray-800/40 last:border-0">
+            <span className="text-base flex-shrink-0 mt-0.5">{icon}</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-gray-400 text-[11px]">{label}</span>
+                {badge && <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${badge.cls}`}>{badge.label}</span>}
+                {value && !badge && <span className="text-white font-bold text-xs">{value}</span>}
+              </div>
+              {impact && <p className={`text-[10px] mt-0.5 leading-tight ${impactColor}`}>{impact}</p>}
+            </div>
+          </div>
+        )
+
+        const Section = ({ id, icon, title, pts, children, open, onToggle }: any) => (
+          <div className="border-b border-gray-800/50 last:border-0">
+            <button onClick={() => onToggle(id)} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-800/30 transition-colors">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{icon}</span>
+                <span className="text-xs font-semibold text-gray-200">{title}</span>
+                {pts && <span className="text-[9px] text-gray-600 bg-gray-800 px-1.5 py-0.5 rounded-full">{pts}</span>}
+              </div>
+              <ChevronDown size={13} className={`text-gray-500 transition-transform ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && <div className="px-4 pb-3">{children}</div>}
+          </div>
+        )
+
+        const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
+        const toggleSection = (id: string) => setOpenSections(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+
+        const mbg = mbtiGroup(s.mbti || '')
+
+        const answerBadge = (val: string | null, map: Record<string, { label: string; cls: string }>) => {
+          if (!val) return null
+          return map[val.toUpperCase()] || { label: val, cls: 'text-gray-300 bg-gray-800 border-gray-700' }
+        }
+
+        const roleBadge = answerBadge(s.conversational_role, {
+          A: { label: 'A · مبادر', cls: 'text-orange-300 bg-orange-900/30 border-orange-700/40' },
+          B: { label: 'B · مستجيب', cls: 'text-blue-300 bg-blue-900/30 border-blue-700/40' },
+          C: { label: 'C · مستمع', cls: 'text-gray-300 bg-gray-800 border-gray-700' },
+        })
+        const depthBadge = answerBadge(s.conversation_depth, {
+          A: { label: 'A · عميق', cls: 'text-violet-300 bg-violet-900/30 border-violet-700/40' },
+          B: { label: 'B · متوسط', cls: 'text-blue-300 bg-blue-900/30 border-blue-700/40' },
+          C: { label: 'C · خفيف', cls: 'text-teal-300 bg-teal-900/30 border-teal-700/40' },
+        })
+        const batteryBadge = answerBadge(s.social_battery, {
+          A: { label: 'A · انبساطي', cls: 'text-amber-300 bg-amber-900/30 border-amber-700/40' },
+          B: { label: 'B · متوسط', cls: 'text-blue-300 bg-blue-900/30 border-blue-700/40' },
+          C: { label: 'C · انطوائي', cls: 'text-indigo-300 bg-indigo-900/30 border-indigo-700/40' },
+        })
+        const humorBanterBadge = answerBadge(s.humor_banter, {
+          A: { label: 'A · مرح وخفيف', cls: 'text-yellow-300 bg-yellow-900/30 border-yellow-700/40' },
+          B: { label: 'B · دافئ وودود', cls: 'text-pink-300 bg-pink-900/30 border-pink-700/40' },
+          C: { label: 'C · هادئ وطبيعي', cls: 'text-teal-300 bg-teal-900/30 border-teal-700/40' },
+          D: { label: 'D · جدي نسبياً', cls: 'text-gray-300 bg-gray-800 border-gray-700' },
+        })
+        const humorSubBadge = answerBadge(s.humor_subtype, {
+          A: { label: 'A · سخرية', cls: 'text-red-300 bg-red-900/30 border-red-700/40' },
+          B: { label: 'B · قصص ممتعة', cls: 'text-blue-300 bg-blue-900/30 border-blue-700/40' },
+          C: { label: 'C · عفوي', cls: 'text-green-300 bg-green-900/30 border-green-700/40' },
+          D: { label: 'D · هادئ', cls: 'text-gray-300 bg-gray-800 border-gray-700' },
+        })
+        const curiosityBadge = answerBadge(s.curiosity_style, {
+          A: { label: 'A · فكري', cls: 'text-violet-300 bg-violet-900/30 border-violet-700/40' },
+          B: { label: 'B · عملي', cls: 'text-amber-300 bg-amber-900/30 border-amber-700/40' },
+          C: { label: 'C · عاطفي', cls: 'text-pink-300 bg-pink-900/30 border-pink-700/40' },
+        })
+        const silenceBadge = answerBadge(s.silence_comfort, {
+          A: { label: 'A · مرتاح مع الصمت', cls: 'text-teal-300 bg-teal-900/30 border-teal-700/40' },
+          B: { label: 'B · غير مرتاح', cls: 'text-orange-300 bg-orange-900/30 border-orange-700/40' },
+        })
+        const intentBadge = answerBadge(s.intent_goal, {
+          A: { label: 'A · توسيع الدائرة', cls: 'text-blue-300 bg-blue-900/30 border-blue-700/40' },
+          B: { label: 'B · تواصل فكري', cls: 'text-violet-300 bg-violet-900/30 border-violet-700/40' },
+          C: { label: 'C · استكشاف', cls: 'text-emerald-300 bg-emerald-900/30 border-emerald-700/40' },
+        })
+        const commBadge = answerBadge(s.communication, {
+          ASSERTIVE: { label: 'حازم', cls: 'text-emerald-300 bg-emerald-900/30 border-emerald-700/40' },
+          PASSIVE: { label: 'سلبي', cls: 'text-blue-300 bg-blue-900/30 border-blue-700/40' },
+          'PASSIVE-AGGRESSIVE': { label: 'سلبي-عدواني', cls: 'text-amber-300 bg-amber-900/30 border-amber-700/40' },
+          AGGRESSIVE: { label: 'عدواني', cls: 'text-red-300 bg-red-900/30 border-red-700/40' },
+        })
+        const attachBadge = answerBadge(s.attachment, {
+          SECURE: { label: 'آمن ✓', cls: 'text-emerald-300 bg-emerald-900/30 border-emerald-700/40' },
+          ANXIOUS: { label: 'قلق', cls: 'text-yellow-300 bg-yellow-900/30 border-yellow-700/40' },
+          AVOIDANT: { label: 'تجنّبي', cls: 'text-red-300 bg-red-900/30 border-red-700/40' },
+          FEARFUL: { label: 'خائف', cls: 'text-orange-300 bg-orange-900/30 border-orange-700/40' },
+        })
+        const openNum = s.early_openness !== null && s.early_openness !== undefined ? Number(s.early_openness) : null
+
+        return (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSurveyModal(null)}>
+            <div className="bg-gray-950 border border-gray-800 rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+
+              {/* Header */}
+              <div className={`relative px-5 pt-5 pb-4 flex-shrink-0 ${isFemale ? 'bg-gradient-to-b from-pink-950/60 to-gray-950' : 'bg-gradient-to-b from-blue-950/60 to-gray-950'}`}>
+                <div className={`absolute top-0 left-0 right-0 h-0.5 ${isFemale ? 'bg-gradient-to-r from-transparent via-pink-500/70 to-transparent' : 'bg-gradient-to-r from-transparent via-blue-500/70 to-transparent'}`} />
+                <button onClick={() => setSurveyModal(null)} className="absolute top-4 left-4 text-gray-600 hover:text-gray-300 p-1 rounded-lg hover:bg-gray-800/50">
+                  <X size={16} />
+                </button>
+                <div className="flex items-start gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg flex-shrink-0 ${isFemale ? 'bg-pink-900/40 border border-pink-800/40' : 'bg-blue-900/40 border border-blue-800/40'}`}>
+                    {isFemale ? '♀' : '♂'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-white font-bold text-base">{p.name}</h3>
+                      <span className="text-gray-600 text-xs">#{p.number}</span>
+                      {p.age && <span className="text-gray-500 text-xs">{p.age} سنة</span>}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${p.complete ? 'text-emerald-300 bg-emerald-900/30 border-emerald-700/40' : 'text-red-300 bg-red-900/30 border-red-700/40'}`}>
+                        {p.complete ? '✓ استبيان مكتمل' : '⚠ استبيان ناقص'}
+                      </span>
+                      {s.mbti && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-200">{s.mbti}</span>}
+                      {s.gender_preference && <span className="text-[9px] text-gray-500 px-1.5 py-0.5 rounded-full bg-gray-800/60">
+                        {s.gender_preference === 'opposite_gender' ? 'يفضل الجنس الآخر' : s.gender_preference === 'same_gender' ? 'يفضل نفس الجنس' : 'أي جنس'}
+                      </span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1">
+
+                {/* 1. Personality & Attachment */}
+                <Section id="personality" icon="🧠" title="الشخصية والتعلّق" pts="MBTI · تعلق" open={openSections.has('personality')} onToggle={toggleSection}>
+                  <Row icon="🔠" label="نوع MBTI"
+                    badge={s.mbti ? { label: s.mbti, cls: mbg ? `${mbg.col.replace('text-','text-')} bg-gray-800 border-gray-700` : 'text-gray-300 bg-gray-800 border-gray-700' } : null}
+                    impact={mbg ? `${mbg.ar} (${mbg.name}) — ${mbg.note}` : 'غير محدد'}
+                    impactColor={mbg?.col || 'text-gray-600'} />
+                  {ieNote && <Row icon="↔️" label="الطاقة الاجتماعية (I/E)"
+                    badge={{ label: ieNote.label, cls: `${ieNote.col} bg-gray-800 border-gray-700` }}
+                    impact={ieNote.note} impactColor={ieNote.col} />}
+                  <Row icon="🔗" label="أسلوب التعلّق"
+                    badge={attachBadge}
+                    impact={s.attachment === 'Secure' ? 'آمن: يمنح +5 نقاط مع أي شريك' : s.attachment === 'Anxious' ? 'قلق: إذا كلاهما قلق → عقوبة' : s.attachment === 'Avoidant' ? 'تجنّبي: إذا كلاهما تجنّبي → عقوبة' : 'قيمة افتراضية +2.5 نقطة'}
+                    impactColor={s.attachment === 'Secure' ? 'text-emerald-400' : 'text-yellow-500'} />
+                </Section>
+
+                {/* 2. Communication */}
+                <Section id="comm" icon="💬" title="أسلوب التواصل" pts="حتى 17 نقطة" open={openSections.has('comm')} onToggle={toggleSection}>
+                  <Row icon="🗣️" label="طريقة التعبير" badge={commBadge}
+                    impact={'Assertive+Assertive = 10 | Assertive+Passive = 8 | Passive+Passive = 5'}
+                    impactColor="text-gray-600" />
+                  <Row icon="🎙️" label="الدور في الحوار (Q35)" badge={roleBadge}
+                    impact={s.conversational_role?.toUpperCase() === 'A' ? 'مبادر: أفضل مع مستجيب/مستمع = 7 نقاط' : s.conversational_role?.toUpperCase() === 'B' ? 'مستجيب: يبني على ما يقوله الآخر = 4-7 نقاط' : s.conversational_role?.toUpperCase() === 'C' ? 'مستمع: اثنان مستمعَين = 0 نقاط' : 'غير محدد'}
+                    impactColor={s.conversational_role?.toUpperCase() === 'C' ? 'text-red-400' : 'text-gray-500'} />
+                  <Row icon="🌊" label="عمق المحادثة (Q36)" badge={depthBadge}
+                    impact="يجب أن يتطابق مع الشريك → +5 نقاط | اختلاف = 0 نقاط"
+                    impactColor="text-amber-500" />
+                </Section>
+
+                {/* 3. Energy & Openness */}
+                <Section id="energy" icon="⚡" title="الطاقة والانفتاح" pts="حتى 9 نقاط" open={openSections.has('energy')} onToggle={toggleSection}>
+                  <Row icon="😄" label="أسلوب الدعابة (humor_banter)" badge={humorBanterBadge}
+                    impact="يؤثر في مستوى الطاقة الكلية للمشارك (جزء من الحساب)"
+                    impactColor="text-gray-500" />
+                  <Row icon="🔓" label={`الانفتاح المبكر (0–3) · القيمة: ${openNum !== null ? openNum : '—'}`}
+                    badge={openNum !== null ? {
+                      label: openNum === 0 ? '0 · منغلق' : openNum === 1 ? '1 · خجول' : openNum === 2 ? '2 · مرن' : '3 · منفتح جداً',
+                      cls: openNum === 0 ? 'text-red-300 bg-red-900/30 border-red-700/40' : openNum === 3 ? 'text-green-300 bg-green-900/30 border-green-700/40' : 'text-blue-300 bg-blue-900/30 border-blue-700/40'
+                    } : null}
+                    impact={openNum === 0 ? '⚠ إذا كلاهما 0 → Dead Air Veto (استبعاد)' : 'يرفع مستوى الطاقة الكلية'}
+                    impactColor={openNum === 0 ? 'text-red-400' : 'text-gray-500'} />
+                  <Row icon="🔋" label="البطارية الاجتماعية (Q37)" badge={batteryBadge}
+                    impact="أي مزيج = +3-4 نقاط. لا عقوبة للاختلاف"
+                    impactColor="text-gray-500" />
+                </Section>
+
+                {/* 4. Humor & Curiosity */}
+                <Section id="humor" icon="😂" title="الفكاهة والفضول والصمت" pts="حتى 14 نقطة" open={openSections.has('humor')} onToggle={toggleSection}>
+                  <Row icon="🎭" label="نوع الفكاهة (Q38)" badge={humorSubBadge}
+                    impact={`نفس النوع = 4 نقاط · A+C أو B+C = 3 نقاط · غيرها = 2 نقاط`}
+                    impactColor="text-gray-500" />
+                  <Row icon="🔍" label="أسلوب الفضول (Q39)" badge={curiosityBadge}
+                    impact={`A+B (فكري+عملي) = 5 نقاط · C+C (عاطفي+عاطفي) = 5 نقاط · A+A أو B+B = 0 نقاط`}
+                    impactColor={s.curiosity_style?.toUpperCase() === 'C' ? 'text-pink-400' : 'text-gray-500'} />
+                  <Row icon="🤫" label="الراحة مع الصمت (Q41)" badge={silenceBadge}
+                    impact={`A+B (مرتاح+غير مرتاح) = 5 نقاط تكاملية · A+A = 3 · B+B = 3`}
+                    impactColor={s.silence_comfort?.toUpperCase() === 'A' ? 'text-teal-400' : 'text-orange-400'} />
+                </Section>
+
+                {/* 5. Values & Lifestyle */}
+                <Section id="values" icon="🌟" title="القيم وأسلوب الحياة" pts="حتى 30 نقطة" open={openSections.has('values')} onToggle={toggleSection}>
+                  {coreVals.length === 5 ? (
+                    <div className="space-y-2 mb-3">
+                      <p className="text-[9px] text-gray-600 font-semibold uppercase tracking-wider mb-1">القيم الجوهرية (تطابق = 4 نقاط · مجاور = 2 · مقابل = 0)</p>
+                      {coreValLabels.map((cl, i) => {
+                        const v = coreVals[i]
+                        const label = cl.opts[v as keyof typeof cl.opts] || v
+                        return (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-[9px] text-gray-600 w-[70px] flex-shrink-0 truncate">{cl.q}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${v === 'أ' ? 'text-blue-300 bg-blue-900/20 border-blue-800/40' : v === 'ب' ? 'text-violet-300 bg-violet-900/20 border-violet-800/40' : 'text-teal-300 bg-teal-900/20 border-teal-800/40'}`}>{v}</span>
+                            <span className="text-gray-400 text-[9px] truncate">{label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : <p className="text-[10px] text-gray-600 mb-2">القيم الجوهرية: غير مكتملة</p>}
+                  {lifestyle.length === 5 ? (
+                    <div className="space-y-2">
+                      <p className="text-[9px] text-gray-600 font-semibold uppercase tracking-wider mb-1">أسلوب الحياة (تطابق = 3 نقاط · متقارب = 1.5 · بعيد = 0)</p>
+                      {lifestyleLabels.map((ll, i) => {
+                        const v = lifestyle[i]
+                        const label = ll.opts[v as keyof typeof ll.opts] || v
+                        return (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-[9px] text-gray-600 w-[70px] flex-shrink-0 truncate">{ll.q}</span>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border flex-shrink-0 ${v === 'أ' ? 'text-amber-300 bg-amber-900/20 border-amber-800/40' : v === 'ب' ? 'text-indigo-300 bg-indigo-900/20 border-indigo-800/40' : 'text-rose-300 bg-rose-900/20 border-rose-800/40'}`}>{v}</span>
+                            <span className="text-gray-400 text-[9px] truncate">{label}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : <p className="text-[10px] text-gray-600">أسلوب الحياة: غير مكتمل</p>}
+                </Section>
+
+                {/* 6. Intent */}
+                <Section id="intent" icon="🎯" title="الهدف من اللقاء" pts="حتى 5 نقاط" open={openSections.has('intent')} onToggle={toggleSection}>
+                  <Row icon="🧭" label="النية والهدف (Q40)" badge={intentBadge}
+                    impact={`نفس الهدف = 5 نقاط · A+B = 4 · بقية المزيج = 2-3 نقاط · B مع غير B ممنوع (veto)`}
+                    impactColor={s.intent_goal?.toUpperCase() === 'B' ? 'text-red-400' : 'text-gray-500'} />
+                </Section>
+
+              </div>
+            </div>
           </div>
         )
       })()}

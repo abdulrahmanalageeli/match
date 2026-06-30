@@ -6228,6 +6228,23 @@ export default async function handler(req, res) {
               rankingCount: rankerMap[p.assigned_number] ?? 0,
               rankingSubmitted: (rankerMap[p.assigned_number] ?? 0) > 0,
               matchPartner: matchMap[p.assigned_number] ?? null,
+              surveyAnswers: {
+                mbti: p.mbti_personality_type || sd.mbtiType || ans.mbti || null,
+                attachment: p.attachment_style || sd.attachmentStyle || ans.attachment_style || null,
+                communication: p.communication_style || sd.communicationStyle || ans.communication_style || null,
+                humor_banter: p.humor_banter_style || sd.humor_banter_style || ans.humor_banter_style || null,
+                early_openness: p.early_openness_comfort !== undefined && p.early_openness_comfort !== null ? p.early_openness_comfort : (ans.early_openness_comfort !== undefined ? ans.early_openness_comfort : null),
+                lifestyle: sd.lifestylePreferences || null,
+                core_values: sd.coreValues || null,
+                conversational_role: ans.conversational_role || null,
+                conversation_depth: ans.conversation_depth_pref || null,
+                social_battery: ans.social_battery || null,
+                humor_subtype: ans.humor_subtype || null,
+                curiosity_style: ans.curiosity_style || null,
+                silence_comfort: ans.silence_comfort || null,
+                intent_goal: ans.intent_goal || null,
+                gender_preference: ans.gender_preference || null,
+              },
             }
           }
           // Build compatibility matrix (skipAI=true for speed)

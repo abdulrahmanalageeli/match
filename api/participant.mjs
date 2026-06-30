@@ -2585,6 +2585,29 @@ Please respond in JSON format:
         return res.status(200).json({ phase, timer_active: stateRow?.global_timer_active || false, timer_start: stateRow?.global_timer_start_time || null, timer_duration: stateRow?.global_timer_duration || 1200, timer_round: stateRow?.global_timer_round || null, my_assignment: myAssignment, enrolled: myAssignment?.enrolled || false, my_info: myInfo, participants_selected: participantsSelected || 0, phase2_score_revealed: stateRow?.phase2_score_revealed || false, phase3_score_revealed: stateRow?.phase3_score_revealed || false })
       }
 
+      // e3-login-by-phone (no token required)
+      if (action === "e3-login-by-phone") {
+        const { phone } = req.body
+        if (!phone) return res.status(400).json({ error: "رقم الجوال مطلوب" })
+        const raw = String(phone).replace(/\D/g, '')
+        const last7 = raw.slice(-7)
+        if (last7.length < 7) return res.status(400).json({ error: "رقم الجوال غير صحيح" })
+        const { data: candidates } = await supabase
+          .from("participants").select("assigned_number,secure_token,name,phone_number")
+          .eq("match_id", MAIN_MATCH).not("phone_number", "is", null)
+        const match = (candidates || []).find(c => {
+          const cp = String(c.phone_number || '').replace(/\D/g, '')
+          return cp.length >= 7 && cp.slice(-7) === last7
+        })
+        if (!match) return res.status(404).json({ error: "لم يتم العثور على رقمك في الفعالية. تأكد من الرقم أو تواصل مع المنظم." })
+        const { data: ep } = await supabase.from("event3_participants")
+          .select("participant_number").eq("match_id", E3_MATCH_ID)
+          .eq("participant_number", match.assigned_number).maybeSingle()
+        if (!ep) return res.status(403).json({ error: "رقمك غير مسجّل في هذه الفعالية. تواصل مع المنظم." })
+        const firstName = (match.name || '').trim().split(/\s+/)[0] || 'مشارك'
+        return res.status(200).json({ token: match.secure_token, name: firstName })
+      }
+
       if (!participant) return res.status(401).json({ error: "Invalid or missing token" })
 
       // e3-get-assignment
@@ -2768,6 +2791,38 @@ Please respond in JSON format:
         }
         const members = nums.map(n => ({ number: n, ...(nameMap[n] || { name: `#${n}`, gender: null }) }))
         return res.status(200).json({ group: { table_number: assignment.table_number, members } })
+      }
+
+      // e3-sos — participant requests organizer to come to their table
+      if (action === "e3-sos") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { message } = req.body
+        const sd = typeof participant.survey_data === "string" ? JSON.parse(participant.survey_data || "{}") : (participant.survey_data || {})
+        const fullName = participant.name || sd?.answers?.name || sd?.name || ""
+        const pName = firstName(fullName)
+        const { data: stateRow } = await supabase.from("event_state").select("phase").eq("match_id", E3_MATCH_ID).maybeSingle()
+        const phase = stateRow?.phase || "setup"
+        let tableInfo = phase
+        const roundMatch = phase.match(/^round(\d)$/)
+        if (roundMatch) {
+          const { data: sa } = await supabase.from("session_assignments").select("table_number").eq("match_id", E3_MATCH_ID).eq("round", parseInt(roundMatch[1])).eq("participant_id", myNumber).maybeSingle()
+          if (sa) tableInfo = `الجولة ${roundMatch[1]} · طاولة ${sa.table_number}`
+        } else if (phase === "phase2_reveal") { tableInfo = "كشف المرحلة 2" }
+        else if (phase === "phase3_reveal") { tableInfo = "كشف المرحلة 3" }
+        const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
+          participant_token: token, participant_number: myNumber, participant_name: pName,
+          table_info: tableInfo, message: message || null, status: "pending"
+        }).select("id").single()
+        if (insErr) return res.status(500).json({ error: insErr.message })
+        return res.status(200).json({ id: inserted.id, status: "pending" })
+      }
+
+      // e3-sos-check — poll latest SOS status + organizer reply
+      if (action === "e3-sos-check") {
+        if (!participant) return res.status(401).json({ error: "Invalid token" })
+        const { data: latest } = await supabase.from("organizer_requests").select("id,status,organizer_reply").eq("participant_token", token).order("created_at", { ascending: false }).limit(1).maybeSingle()
+        if (!latest) return res.status(200).json({ status: null })
+        return res.status(200).json({ id: latest.id, status: latest.status, organizer_reply: latest.organizer_reply || null })
       }
 
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })

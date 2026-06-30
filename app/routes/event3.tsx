@@ -7,7 +7,7 @@ import confetti from "canvas-confetti"
 import {
   Clock, MapPin, Heart, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge,
+  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -391,56 +391,86 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
   )
 }
 
-// ─── Token Entry Screen ───────────────────────────────────────────────────────
-function TokenEntry({ onToken }: { onToken: (t: string) => void }) {
-  const [val, setVal] = useState(() => (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || "")
+// ─── Phone Entry Screen ───────────────────────────────────────────────────────
+function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
+  const [phone, setPhone] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [shake, setShake] = useState(false)
 
-  const submit = () => {
-    if (val.trim()) { localStorage.setItem("blindmatch_result_token", val.trim()); onToken(val.trim()) }
-    else toast.error("أدخل رمزك أولاً")
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhone(e.target.value.replace(/[^\d+\s\-()]/g, ''))
+    if (error) setError("")
+  }
+
+  const submit = async () => {
+    const cleaned = phone.replace(/\D/g, '')
+    if (cleaned.length < 7) { setError("أدخل رقم جوال صحيح"); setShake(true); setTimeout(() => setShake(false), 500); return }
+    setLoading(true); setError("")
+    const d = await call("e3-login-by-phone", null, { phone: cleaned })
+    setLoading(false)
+    if (d.error) { setError(d.error); setShake(true); setTimeout(() => setShake(false), 500); return }
+    localStorage.setItem("blindmatch_result_token", d.token)
+    onToken(d.token)
   }
 
   return (
     <PageWrapper className="flex items-center justify-center p-6">
       <motion.div
-        initial={{ opacity: 0, y: 28 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
+        initial={{ opacity: 0, y: 32 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
         className="w-full max-w-sm space-y-8 text-center"
       >
+        {/* Icon */}
         <div className="space-y-5">
           <motion.div
-            initial={{ scale: 0, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 240, delay: 0.1 }}
-            className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-purple-600 via-pink-600 to-rose-600 flex items-center justify-center shadow-2xl shadow-purple-600/40"
+            initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: "spring", stiffness: 220, damping: 14, delay: 0.1 }}
+            className="relative w-24 h-24 mx-auto"
           >
-            <Heart size={36} className="text-white" fill="white" />
+            {[0, 1].map(i => (
+              <motion.div key={i} className="absolute inset-0 rounded-3xl bg-gradient-to-br from-purple-500/30 to-pink-500/20"
+                animate={{ scale: [1, 1.15 + i * 0.1], opacity: [0.5, 0] }}
+                transition={{ duration: 2, delay: i * 0.7, repeat: Infinity, ease: "easeOut" }} />
+            ))}
+            <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 flex items-center justify-center shadow-2xl shadow-purple-700/50">
+              <span className="text-4xl">📱</span>
+            </div>
           </motion.div>
-          <Brand />
-          <div>
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
             <h1 className="text-3xl font-black text-white">أهلاً بك</h1>
-            <p className="text-gray-500 text-sm mt-2">أدخل رمزك الشخصي للانضمام إلى الفعالية</p>
-          </div>
+            <p className="text-gray-400 text-sm mt-2 leading-relaxed">أدخل رقم جوالك المسجّل في الفعالية</p>
+          </motion.div>
         </div>
 
-        <GlassCard className="p-6 space-y-4 shadow-2xl shadow-black/30">
-          <input
-            type="text"
-            placeholder="أدخل رمز الدخول هنا"
-            value={val}
-            onChange={e => setVal(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && submit()}
-            className="w-full bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-4 py-3.5 text-center text-lg focus:outline-none focus:border-purple-500/70 focus:bg-gray-800/90 transition-all placeholder:text-gray-600"
-          />
-          <motion.button
-            onClick={submit}
-            whileTap={{ scale: 0.97 }}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl py-3.5 font-bold text-lg shadow-lg shadow-purple-600/30 transition-all"
-          >
-            دخول ✨
-          </motion.button>
-        </GlassCard>
+        {/* Input card */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+          <GlassCard className="p-5 space-y-3 shadow-2xl shadow-black/30">
+            <motion.div animate={shake ? { x: [-8, 8, -6, 6, -3, 3, 0] } : { x: 0 }} transition={{ duration: 0.4 }}>
+              <input
+                type="tel" inputMode="numeric" dir="ltr"
+                placeholder="05XXXXXXXX"
+                value={phone} onChange={handleInput}
+                onKeyDown={e => e.key === "Enter" && submit()}
+                className={`w-full bg-gray-800/80 border text-white rounded-2xl px-5 py-4 text-center text-xl font-bold tracking-widest focus:outline-none transition-all placeholder:text-gray-700 placeholder:font-normal placeholder:tracking-normal
+                  ${error ? 'border-red-500/60 focus:border-red-400' : 'border-gray-700/60 focus:border-purple-500/70 focus:bg-gray-800/90'}`}
+              />
+            </motion.div>
+            <AnimatePresence>
+              {error && (
+                <motion.p initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                  className="text-red-400 text-sm text-center leading-snug">{error}</motion.p>
+              )}
+            </AnimatePresence>
+            <motion.button onClick={submit} disabled={loading} whileTap={{ scale: 0.97 }}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
+              {loading ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <>دخول ✨</>}
+            </motion.button>
+          </GlassCard>
+        </motion.div>
+
+        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
+          className="text-gray-600 text-xs">تواصل مع المنظم إذا واجهت أي مشكلة في الدخول</motion.p>
       </motion.div>
     </PageWrapper>
   )
@@ -918,6 +948,291 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 }
 
 
+// ─── Shared Feedback Flow ─────────────────────────────────────────────────────
+function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
+  partnerName: string | null; word: string; done: boolean
+  onDone: () => void; onBack: () => void; onSubmit: (fb: Record<string, any>) => Promise<boolean>
+}) {
+  const [step, setStep] = useState(0)
+  const [submitting, setSubmitting] = useState(false)
+  const [dir, setDir] = useState(1)
+  const [fb, setFb] = useState({
+    conversationQuality: 0, personalConnection: 0,
+    wantConnect: null as boolean | null, organizerImpression: '',
+    compatibilityRate: 50, sliderMoved: false, sharedInterests: 3, comfortLevel: 3,
+    communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, recommendations: '', participantMessage: ''
+  })
+  const STEPS = 4
+  const goNext = (patch?: Partial<typeof fb>) => {
+    if (patch) setFb(p => ({ ...p, ...patch }))
+    setDir(1); setTimeout(() => setStep(s => Math.min(s + 1, STEPS - 1)), 150)
+  }
+  const goBack = () => { setDir(-1); setStep(s => Math.max(s - 1, 0)) }
+  const handleSubmit = async () => {
+    if (fb.wantConnect === null) { toast.error('الرجوع للخطوة 3 واختر رد'); return }
+    setSubmitting(true)
+    const ok = await onSubmit({ ...fb, word })
+    setSubmitting(false)
+    if (ok) onDone()
+  }
+  const EmojiRow = ({ emojis, labels, field, val }: { emojis: string[]; labels: string[]; field: string; val: number }) => (
+    <div className="flex gap-2">
+      {emojis.map((em, i) => (
+        <motion.button key={i} whileTap={{ scale: 0.82 }}
+          onClick={() => { setFb(p => ({ ...p, [field]: i + 1 })); setTimeout(() => goNext({ [field]: i + 1 }), 320) }}
+          className={`flex-1 flex flex-col items-center gap-1.5 py-5 rounded-2xl transition-all duration-200 ${val === i + 1 ? 'bg-purple-500/20 ring-2 ring-purple-400/50 scale-105' : 'bg-white/[0.04] ring-1 ring-white/[0.06] active:bg-white/10'}`}>
+          <span className="text-3xl">{em}</span>
+          <span className="text-[9px] text-gray-500 leading-tight text-center">{labels[i]}</span>
+        </motion.button>
+      ))}
+    </div>
+  )
+  if (done) return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-6 p-8">
+      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
+        className="w-28 h-28 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
+        <span className="text-5xl">✨</span>
+      </motion.div>
+      <div className="text-center space-y-2">
+        <p className="text-white font-black text-2xl">شكراً!</p>
+        <p className="text-gray-400 text-sm">تم حفظ تقييمك — انتظر المرحلة التالية</p>
+      </div>
+    </motion.div>
+  )
+  return (
+    <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+      className="fixed inset-0 z-50 bg-gray-950 flex flex-col" dir="rtl">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-32 -left-32 w-80 h-80 bg-pink-600/20 rounded-full blur-[100px]" />
+        <div className="absolute -bottom-20 right-1/4 w-72 h-72 bg-purple-600/15 rounded-full blur-[90px]" />
+      </div>
+      <div className="relative z-10 px-5 pt-5 pb-3 flex items-center gap-3">
+        <button onClick={step === 0 ? onBack : goBack}
+          className="w-9 h-9 rounded-full bg-white/[0.06] flex items-center justify-center text-gray-400 hover:text-white active:scale-90 transition-all">
+          <ChevronRight size={18} />
+        </button>
+        <div className="flex gap-1.5 flex-1 justify-center">
+          {Array.from({ length: STEPS }).map((_, i) => (
+            <motion.div key={i} className="rounded-full h-2"
+              animate={{ width: i === step ? 24 : 8, backgroundColor: i < step ? 'rgba(139,92,246,0.85)' : i === step ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)' }}
+              transition={{ duration: 0.3 }} />
+          ))}
+        </div>
+        <span className="text-gray-600 text-xs font-mono w-9 text-left">{step + 1}/{STEPS}</span>
+      </div>
+      {partnerName && (
+        <div className="relative z-10 mx-5 mb-1">
+          <div className="inline-flex items-center gap-2 bg-pink-950/40 border border-pink-900/30 rounded-full px-3 py-1.5">
+            <Heart size={10} className="text-pink-400" fill="currentColor" />
+            <span className="text-pink-300/80 text-xs font-medium">{partnerName}</span>
+          </div>
+        </div>
+      )}
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-5 pb-10">
+        <AnimatePresence mode="wait" custom={dir}>
+          {step === 0 && (
+            <motion.div key="s0" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-3xl font-black text-white">كيف كانت المحادثة؟</p>
+                <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
+              </div>
+              <EmojiRow emojis={["😫","😕","😐","🙂","🤩"]} labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
+            </motion.div>
+          )}
+          {step === 1 && (
+            <motion.div key="s1" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-3xl font-black text-white">التواصل الشخصي؟</p>
+                <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
+              </div>
+              <EmojiRow emojis={["💔","😶","🙂","😊","💫"]} labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
+            </motion.div>
+          )}
+          {step === 2 && (
+            <motion.div key="s2" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
+              <div className="text-center space-y-2">
+                <p className="text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
+                <p className="text-gray-500 text-xs leading-relaxed max-w-xs mx-auto">إجابتك سرية — يُشارك فقط إذا أجاب كلاكما بـ «نعم» 🤝</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {[{ val: true, emoji: "✅", label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/20 ring-2 ring-emerald-500/60 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
+                   { val: false, emoji: "❌", label: "لا",   cls: fb.wantConnect === false ? 'bg-red-500/20 ring-2 ring-red-500/60 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
+                ].map(opt => (
+                  <motion.button key={String(opt.val)} whileTap={{ scale: 0.93 }}
+                    onClick={() => { setFb(p => ({ ...p, wantConnect: opt.val })); setTimeout(() => goNext({ wantConnect: opt.val }), 350) }}
+                    className={`min-h-[110px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
+                    <span className="text-5xl">{opt.emoji}</span>
+                    <span className={`text-xl ${opt.textCls}`}>{opt.label}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity: 0, x: dir * 70 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 70 }}
+              transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-6">
+              <div className="text-center space-y-2">
+                <p className="text-2xl font-black text-white">ملاحظة للمنظم</p>
+                <p className="text-gray-500 text-sm">اختياري — لن يراها الطرف الآخر</p>
+              </div>
+              <textarea value={fb.organizerImpression}
+                onChange={e => e.target.value.length <= 300 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
+                placeholder="شعرت بالراحة... / الوقت كان قصيراً..."
+                rows={4}
+                className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 rounded-2xl px-4 py-4 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all" />
+              <motion.button onClick={handleSubmit} disabled={submitting || fb.wantConnect === null} whileTap={{ scale: 0.97 }}
+                className="w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
+                {submitting
+                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
+                  : <>إرسال التقييم ✨</>}
+              </motion.button>
+              {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 3 وأجب على سؤال التواصل</p>}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── SOS / Organizer Request Button ─────────────────────────────────────────
+function SOSButton({ token }: { token: string }) {
+  const [status, setStatus] = useState<'idle' | 'pending' | 'seen' | 'replied' | 'resolved'>('idle')
+  const [open, setOpen] = useState(false)
+  const [message, setMessage] = useState("")
+  const [sending, setSending] = useState(false)
+  const [organizerReply, setOrganizerReply] = useState<string | null>(null)
+  const [showReply, setShowReply] = useState(false)
+
+  useEffect(() => {
+    if (status === 'idle' || status === 'resolved') return
+    const iv = setInterval(async () => {
+      const d = await call('e3-sos-check', token)
+      if (!d.error && d.status && d.status !== status) {
+        setStatus(d.status)
+        if (d.organizer_reply && !organizerReply) {
+          setOrganizerReply(d.organizer_reply)
+          setShowReply(true)
+          toast('💬 رسالة من المنظم!', { duration: 6000 })
+        } else if (d.status === 'seen' && status === 'pending') {
+          toast('👀 المنظم رأى طلبك — في الطريق!', { duration: 4000 })
+        }
+      }
+    }, 5000)
+    return () => clearInterval(iv)
+  }, [status, token, organizerReply])
+
+  const send = async () => {
+    setSending(true)
+    const d = await call('e3-sos', token, { message: message.trim() || undefined })
+    setSending(false)
+    if (!d.error) {
+      setStatus('pending')
+      setOpen(false)
+      setMessage("")
+      toast.success('تم إرسال الطلب للمنظم ✅')
+    } else {
+      toast.error('حدث خطأ، حاول مرة أخرى')
+    }
+  }
+
+  const cfg = {
+    idle:     { bg: 'bg-red-500',     glow: 'shadow-red-500/50',     pulse: true,  label: '🆘' },
+    pending:  { bg: 'bg-orange-500',  glow: 'shadow-orange-500/40',  pulse: true,  label: '⏳' },
+    seen:     { bg: 'bg-blue-500',    glow: 'shadow-blue-500/40',    pulse: false, label: '👀' },
+    replied:  { bg: 'bg-emerald-500', glow: 'shadow-emerald-500/40', pulse: false, label: '💬' },
+    resolved: { bg: 'bg-gray-600',    glow: 'shadow-black/20',       pulse: false, label: '✅' },
+  }[status]
+
+  return (
+    <>
+      {/* Floating button cluster */}
+      <div className="fixed bottom-6 right-5 z-[190] flex flex-col items-end gap-2" dir="rtl">
+        {/* Organizer reply bubble */}
+        <AnimatePresence>
+          {showReply && organizerReply && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              className="max-w-[210px] bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-4 py-3 shadow-2xl shadow-emerald-900/30"
+            >
+              <p className="text-emerald-400 text-[10px] font-bold tracking-wide mb-1">رسالة من المنظم</p>
+              <p className="text-white/90 text-sm leading-snug">{organizerReply}</p>
+              <button onClick={() => { setShowReply(false); setStatus('resolved') }}
+                className="mt-2.5 text-gray-600 text-xs hover:text-white transition-colors">✕ إغلاق</button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Main button */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            if (status === 'idle') setOpen(true)
+            else if ((status === 'replied') && organizerReply) setShowReply(s => !s)
+          }}
+          className={`relative w-13 h-13 w-[52px] h-[52px] rounded-full ${cfg.bg} flex items-center justify-center shadow-xl ${cfg.glow} text-xl transition-all`}
+        >
+          {cfg.pulse && <span className={`absolute inset-0 rounded-full ${cfg.bg} animate-ping opacity-25`} />}
+          {status === 'pending'
+            ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
+            : <span>{cfg.label}</span>}
+        </motion.button>
+      </div>
+
+      {/* Compose modal */}
+      <AnimatePresence>
+        {open && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-end justify-center p-4"
+            onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
+            <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              className="w-full max-w-sm bg-gray-950 border border-gray-800/80 rounded-3xl p-5 space-y-4 shadow-2xl" dir="rtl">
+
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-white font-black text-lg leading-tight">استدعاء المنظم 🆘</p>
+                  <p className="text-gray-500 text-xs mt-0.5">سيأتي إلى طاولتك فور تلقي الطلب</p>
+                </div>
+                <button onClick={() => setOpen(false)}
+                  className="w-8 h-8 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-1.5">
+                <textarea
+                  value={message}
+                  onChange={e => e.target.value.length <= 200 && setMessage(e.target.value)}
+                  placeholder="رسالة اختيارية للمنظم... (اختياري)"
+                  rows={3}
+                  className="w-full bg-gray-900 border border-gray-700/50 text-white rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-red-500/40 resize-none placeholder:text-gray-700 transition-all"
+                />
+                <p className="text-gray-700 text-xs text-left" dir="ltr">{message.length}/200</p>
+              </div>
+
+              <motion.button onClick={send} disabled={sending} whileTap={{ scale: 0.97 }}
+                className="w-full py-4 rounded-2xl font-black text-base bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_8px_24px_-6px_rgba(239,68,68,0.5)] disabled:opacity-40 transition-all flex items-center justify-center gap-2">
+                {sending
+                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
+                  : <>🆘 أرسل الطلب</>}
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  )
+}
+
 // ─── Phase 2 Reveal Screen ────────────────────────────────────────────────────
 function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   token: string; timerActive: boolean; timerStart: string | null; timerDuration: number
@@ -930,16 +1245,6 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, wantConnect: null as boolean | null, organizerImpression: '', recommendations: '', participantMessage: '' })
-  const [submittingFb, setSubmittingFb] = useState(false)
-
-  const submitFb = async () => {
-    if (fb.wantConnect === null) { toast.error('يرجى الإجابة على سؤال التواصل'); return }
-    setSubmittingFb(true)
-    const d = await call('e3-submit-phase2-feedback', token, { feedback: { ...fb, word } })
-    setSubmittingFb(false)
-    if (!d.error) { setFeedbackDone(true); toast.success('تم الحفظ ✨') }
-  }
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -1090,133 +1395,18 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
       {/* ── Feedback View (Phase 2) ──────────────────────────────────────────── */}
       <AnimatePresence>
         {view === 'feedback' && (
-          <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto relative">
-            {/* Background orbs */}
-            <div className="pointer-events-none fixed inset-0 overflow-hidden">
-              <div className="absolute -top-32 -left-32 w-96 h-96 bg-pink-600/25 rounded-full blur-[100px]" />
-              <div className="absolute top-1/3 -right-24 w-80 h-80 bg-rose-500/20 rounded-full blur-[90px]" />
-              <div className="absolute -bottom-24 left-1/4 w-72 h-72 bg-fuchsia-600/20 rounded-full blur-[80px]" />
-              <div className="absolute bottom-1/4 right-1/3 w-60 h-60 bg-pink-400/10 rounded-full blur-[70px]" />
-            </div>
-            <div className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur-xl px-5 pt-4 pb-3">
-              <div className="flex items-center gap-3 mb-2.5">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-pink-500/40 to-transparent" />
-                <div className="flex items-center gap-1.5 bg-pink-900/25 border border-pink-700/30 rounded-full px-3 py-1">
-                  <Heart size={10} className="text-pink-400" fill="currentColor" />
-                  <span className="text-pink-300 text-xs font-semibold">تقييم الجلسة الفردية الأولى</span>
-                </div>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-pink-500/40 to-transparent" />
-              </div>
-              <button onClick={() => setView('session')} className="flex items-center gap-1 text-gray-600 hover:text-gray-300 text-xs transition-colors mx-auto">
-                <ChevronRight size={11} /> العودة إلى أسئلة الجلسة
-              </button>
-            </div>
-            {feedbackDone ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_40px_-8px_rgba(16,185,129,0.5)]">
-                  <span className="text-4xl">✨</span>
-                </div>
-                <div className="text-center space-y-1.5">
-                  <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
-                  <p className="text-gray-500 text-sm">تم الحفظ — انتظر المرحلة التالية</p>
-                </div>
-              </div>
-            ) : (
-              <div className="max-w-sm mx-auto w-full p-4 space-y-3 pb-12">
-                <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl bg-gradient-to-l from-pink-950/70 to-rose-950/40 border border-pink-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <span className="text-pink-400/60 text-xs font-medium tracking-wide">شريكك في الجلسة</span>
-                  <span className="text-white font-bold">{data?.partner_first_name}</span>
-                </div>
-                <div className="flex items-center justify-center gap-1.5 py-1">
-                  <span className="text-gray-600 text-xs">🔒</span>
-                  <span className="text-gray-600 text-xs">تقييمك سري — لا يراه إلا المنظم</span>
-                </div>
-                {/* Compatibility slider — force LTR so 0% stays left, 100% stays right */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div>
-                    <p className="text-white/90 text-sm font-semibold">⭐ التوافق المقدَّر <span className="text-red-400">*</span></p>
-                    <p className="text-gray-600 text-xs mt-0.5">حرّك المؤشر — النتيجة الحقيقية تُكشف بعد الإرسال</p>
-                  </div>
-                  <div dir="ltr" className="space-y-2">
-                    <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
-                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                      className="compat-slider w-full rounded-full touch-none"
-                      style={{
-                        height: '20px',
-                        background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)`,
-                      }} />
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>0%</span>
-                      <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
-                      <span>100%</span>
-                    </div>
-                  </div>
-                </div>
-                {/* Rating questions */}
-                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
-                  <div key={key} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                    <div>
-                      <p className="text-white/90 text-sm font-semibold">{label}</p>
-                      <p className="text-gray-600 text-xs mt-0.5">{hint}</p>
-                    </div>
-                    <div className="flex gap-2 justify-between" dir="ltr">
-                      {[1,2,3,4,5].map(v => (
-                        <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
-                          className={`flex-1 min-h-[48px] rounded-xl font-bold text-sm transition-all duration-150 active:scale-95 ${
-                            (fb[key] as number) === v
-                              ? v <= 2 ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_16px_-4px_rgba(239,68,68,0.5)]' : v === 3 ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50 shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)]' : 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
-                              : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'
-                          }`}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {/* Want to connect */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div>
-                    <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل معه/معها بعد الفعالية؟ <span className="text-red-400">*</span></p>
-                    <p className="text-gray-500 text-xs mt-1.5 leading-relaxed">إجابتك سرية تماماً ولن يعلم بها الطرف الآخر. فقط في حال أجاب كلاكما بـ«نعم» سيتواصل معكما المنظم لتسهيل تبادل معلومات التواصل 🤝</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === true ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>نعم ✅</button>
-                    <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
-                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === false ? 'bg-red-500/15 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_20px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>لا ❌</button>
-                  </div>
-                </div>
-                {/* Organizer impression */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/80 text-sm font-medium">انطباعك عن الشخص <span className="text-gray-600 text-xs font-normal">(سري — للمنظم فقط)</span></p>
-                  <textarea value={fb.organizerImpression} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
-                    placeholder="شعرت بالراحة أثناء الحديث..." rows={3}
-                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
-                  <p className="text-gray-700 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
-                </div>
-                {/* Recommendations */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/80 text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
-                  <textarea value={fb.recommendations} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, recommendations: e.target.value }))}
-                    placeholder="زيادة الوقت بين الجلسات..." rows={3}
-                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
-                  <p className="text-gray-700 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
-                </div>
-                {/* Message to partner */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/80 text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
-                  <textarea value={fb.participantMessage} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, participantMessage: e.target.value }))}
-                    placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
-                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
-                  <p className="text-gray-700 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
-                </div>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
-                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white shadow-[0_4px_24px_-4px_rgba(236,72,153,0.6)] disabled:opacity-30 disabled:shadow-none transition-all">
-                  {submittingFb ? 'جاري الحفظ...' : 'إرسال التقييم ✨'}
-                </motion.button>
-              </div>
-            )}
-          </motion.div>
+          <FeedbackFlow
+            partnerName={data?.partner_first_name || null}
+            word={word}
+            done={feedbackDone}
+            onDone={() => setFeedbackDone(true)}
+            onBack={() => setView('session')}
+            onSubmit={async (fbData) => {
+              const d = await call('e3-submit-phase2-feedback', token, { feedback: fbData })
+              if (!d.error) { toast.success('تم الحفظ ✨'); return true }
+              return false
+            }}
+          />
         )}
       </AnimatePresence>
 
@@ -1309,16 +1499,6 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
-  const [fb, setFb] = useState({ compatibilityRate: 50, sliderMoved: false, conversationQuality: 3, personalConnection: 3, sharedInterests: 3, comfortLevel: 3, communicationStyle: 3, wouldMeetAgain: 3, overallExperience: 3, wantConnect: null as boolean | null, organizerImpression: '', recommendations: '', participantMessage: '' })
-  const [submittingFb, setSubmittingFb] = useState(false)
-
-  const submitFb = async () => {
-    if (fb.wantConnect === null) { toast.error('يرجى الإجابة على سؤال التواصل'); return }
-    setSubmittingFb(true)
-    const d = await call('e3-submit-phase3-feedback', token, { feedback: { ...fb, word } })
-    setSubmittingFb(false)
-    if (!d.error) { setFeedbackDone(true); toast.success('تم الحفظ ✨') }
-  }
 
   useEffect(() => {
     call("e3-get-phase3-reveal", token).then(d => {
@@ -1510,131 +1690,18 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
       {/* ── Feedback View (Phase 3) ──────────────────────────────────────────── */}
       <AnimatePresence>
         {view === 'feedback' && (
-          <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            className="fixed inset-0 z-50 bg-gray-950 flex flex-col overflow-y-auto relative">
-            {/* Background orbs */}
-            <div className="pointer-events-none fixed inset-0 overflow-hidden">
-              <div className="absolute -top-32 -right-32 w-96 h-96 bg-purple-600/25 rounded-full blur-[100px]" />
-              <div className="absolute top-1/3 -left-24 w-80 h-80 bg-violet-500/20 rounded-full blur-[90px]" />
-              <div className="absolute -bottom-24 right-1/4 w-72 h-72 bg-indigo-600/20 rounded-full blur-[80px]" />
-              <div className="absolute bottom-1/4 left-1/3 w-60 h-60 bg-purple-400/10 rounded-full blur-[70px]" />
-            </div>
-            <div className="sticky top-0 z-10 bg-gray-950/80 backdrop-blur-xl px-5 pt-4 pb-3">
-              <div className="flex items-center gap-3 mb-2.5">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
-                <div className="flex items-center gap-1.5 bg-purple-900/25 border border-purple-700/30 rounded-full px-3 py-1">
-                  <Brain size={10} className="text-purple-400" />
-                  <span className="text-purple-300 text-xs font-semibold">تقييم الجلسة الفردية الثانية</span>
-                </div>
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
-              </div>
-              <button onClick={() => setView('session')} className="flex items-center gap-1 text-gray-600 hover:text-gray-300 text-xs transition-colors mx-auto">
-                <ChevronRight size={11} /> العودة إلى أسئلة الجلسة
-              </button>
-            </div>
-            {feedbackDone ? (
-              <div className="flex-1 flex flex-col items-center justify-center gap-5 p-8">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_40px_-8px_rgba(16,185,129,0.5)]">
-                  <span className="text-4xl">✨</span>
-                </div>
-                <div className="text-center space-y-1.5">
-                  <p className="text-white font-bold text-xl">شكراً على تقييمك!</p>
-                  <p className="text-gray-500 text-sm">تم الحفظ — انتظر الكشف النهائي</p>
-                </div>
-              </div>
-            ) : (
-              <div className="max-w-sm mx-auto w-full p-4 space-y-3 pb-12">
-                <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl bg-gradient-to-l from-purple-950/70 to-violet-950/40 border border-purple-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <span className="text-purple-400/60 text-xs font-medium tracking-wide">شريكك في الجلسة</span>
-                  <span className="text-white font-bold">{data?.partner_first_name}</span>
-                  {data?.compatibility_score && <span className="text-purple-400/70 text-xs">{data.compatibility_score}%</span>}
-                </div>
-                <div className="flex items-center justify-center gap-1.5 py-1">
-                  <span className="text-gray-600 text-xs">🔒</span>
-                  <span className="text-gray-600 text-xs">تقييمك سري — لا يراه إلا المنظم</span>
-                </div>
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div>
-                    <p className="text-white/90 text-sm font-semibold">⭐ التوافق المقدَّر <span className="text-red-400">*</span></p>
-                    <p className="text-gray-600 text-xs mt-0.5">حرّك المؤشر — النتيجة الحقيقية تُكشف بعد الإرسال</p>
-                  </div>
-                  <div dir="ltr" className="space-y-2">
-                    <input type="range" min="0" max="100" step="5" value={fb.compatibilityRate}
-                      onChange={e => setFb(p => ({ ...p, compatibilityRate: parseInt(e.target.value), sliderMoved: true }))}
-                      className="compat-slider w-full rounded-full touch-none"
-                      style={{
-                        height: '20px',
-                        background: `linear-gradient(to right, ${fb.compatibilityRate >= 70 ? '#10b981' : fb.compatibilityRate >= 40 ? '#f59e0b' : '#ef4444'} ${fb.compatibilityRate}%, #374151 ${fb.compatibilityRate}%)`,
-                      }} />
-                    <div className="flex justify-between text-xs text-gray-500">
-                      <span>0%</span>
-                      <span className={`font-black text-sm ${fb.compatibilityRate >= 70 ? 'text-emerald-400' : fb.compatibilityRate >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{fb.compatibilityRate}%</span>
-                      <span>100%</span>
-                    </div>
-                  </div>
-                </div>
-                {([{ key: 'conversationQuality', label: 'جودة المحادثة', hint: '1 = سيئة، 5 = ممتازة' }, { key: 'personalConnection', label: 'التواصل الشخصي', hint: '1 = لا يوجد، 5 = قوي جداً' }, { key: 'sharedInterests', label: 'اهتمامات مشتركة', hint: '1 = لا يوجد، 5 = كثيرة جداً' }, { key: 'comfortLevel', label: 'مستوى الراحة', hint: '1 = غير مرتاح، 5 = مرتاح جداً' }, { key: 'communicationStyle', label: 'توافق أسلوب التواصل', hint: '1 = مختلف جداً، 5 = متطابق تماماً' }, { key: 'overallExperience', label: 'التقييم العام للتجربة', hint: '1 = سيئة، 5 = ممتازة' }] as { key: keyof typeof fb; label: string; hint: string }[]).map(({ key, label, hint }) => (
-                  <div key={key} className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                    <div>
-                      <p className="text-white/90 text-sm font-semibold">{label}</p>
-                      <p className="text-gray-600 text-xs mt-0.5">{hint}</p>
-                    </div>
-                    <div className="flex gap-2 justify-between" dir="ltr">
-                      {[1,2,3,4,5].map(v => (
-                        <button key={v} onClick={() => setFb(p => ({ ...p, [key]: v }))}
-                          className={`flex-1 min-h-[48px] rounded-xl font-bold text-sm transition-all duration-150 active:scale-95 ${
-                            (fb[key] as number) === v
-                              ? v <= 2 ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_16px_-4px_rgba(239,68,68,0.5)]' : v === 3 ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/50 shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)]' : 'bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]'
-                              : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'
-                          }`}>{v}</button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-5 space-y-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <div className="space-y-1.5">
-                    <p className="text-white/90 text-sm font-semibold">هل ترغب في التواصل معه/معها بعد الفعالية؟ <span className="text-red-400">*</span></p>
-                    <p className="text-gray-500 text-xs leading-relaxed">إجابتك سرية تماماً ولن يعلم بها الطرف الآخر. فقط في حال أجاب كلاكما بـ«نعم» سيتواصل معكما المنظم لتسهيل تبادل معلومات التواصل 🤝</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => setFb(p => ({ ...p, wantConnect: true }))}
-                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === true ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/50 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>نعم ✅</button>
-                    <button onClick={() => setFb(p => ({ ...p, wantConnect: false }))}
-                      className={`min-h-[60px] rounded-xl font-bold text-base transition-all duration-150 active:scale-95 ${fb.wantConnect === false ? 'bg-red-500/15 text-red-300 ring-1 ring-red-500/50 shadow-[0_0_20px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.03] text-gray-500 ring-1 ring-white/[0.06]'}`}>لا ❌</button>
-                  </div>
-                </div>
-                {/* Organizer impression */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/80 text-sm font-medium">انطباعك عن الشخص <span className="text-gray-600 text-xs font-normal">(سري — للمنظم فقط)</span></p>
-                  <textarea value={fb.organizerImpression} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, organizerImpression: e.target.value }))}
-                    placeholder="شعرت بالراحة أثناء الحديث..." rows={3}
-                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
-                  <p className="text-gray-700 text-xs" dir="ltr">{fb.organizerImpression.length}/500</p>
-                </div>
-                {/* Recommendations */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/80 text-sm font-medium">اقتراحاتك لتحسين الفعالية <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
-                  <textarea value={fb.recommendations} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, recommendations: e.target.value }))}
-                    placeholder="زيادة الوقت بين الجلسات..." rows={3}
-                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
-                  <p className="text-gray-700 text-xs" dir="ltr">{fb.recommendations.length}/500</p>
-                </div>
-                {/* Message to partner */}
-                <div className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                  <p className="text-white/80 text-sm font-medium">رسالة للطرف الآخر <span className="text-gray-600 text-xs font-normal">(اختياري)</span></p>
-                  <textarea value={fb.participantMessage} onChange={e => e.target.value.length <= 500 && setFb(p => ({ ...p, participantMessage: e.target.value }))}
-                    placeholder="سعدت بالتعرّف عليك اليوم!" rows={3}
-                    className="w-full bg-black/30 border border-white/[0.06] text-white/90 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-white/10 resize-none placeholder:text-gray-700 transition-all" />
-                  <p className="text-gray-700 text-xs" dir="ltr">{fb.participantMessage.length}/500</p>
-                </div>
-                <motion.button whileTap={{ scale: 0.97 }} onClick={submitFb} disabled={submittingFb || fb.wantConnect === null}
-                  className="w-full py-4 rounded-2xl font-bold text-base bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_4px_24px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all">
-                  {submittingFb ? 'جاري الحفظ...' : 'إرسال التقييم ✨'}
-                </motion.button>
-              </div>
-            )}
-          </motion.div>
+          <FeedbackFlow
+            partnerName={data?.partner_first_name || null}
+            word={word}
+            done={feedbackDone}
+            onDone={() => setFeedbackDone(true)}
+            onBack={() => setView('session')}
+            onSubmit={async (fbData) => {
+              const d = await call('e3-submit-phase3-feedback', token, { feedback: fbData })
+              if (!d.error) { toast.success('تم الحفظ ✨'); return true }
+              return false
+            }}
+          />
         )}
       </AnimatePresence>
     </PageWrapper>
@@ -1785,7 +1852,7 @@ export default function Event3Page() {
   }, [token, fetchState])
 
   if (showWelcome) return <WelcomeScreen onDone={() => setShowWelcome(false)} />
-  if (!token) return <TokenEntry onToken={t => { setToken(t); localStorage.setItem("blindmatch_result_token", t) }} />
+  if (!token) return <PhoneEntry onToken={t => { setToken(t) }} />
 
   if (!eventState) return (
     <PageWrapper className="flex items-center justify-center">
@@ -1814,6 +1881,9 @@ export default function Event3Page() {
           <span className="text-gray-500 text-[10px] font-mono leading-none">#{myInfo.number}</span>
         </div>
       )}
+
+      {/* SOS organizer request button */}
+      {enrolled && <SOSButton token={token} />}
 
       <AnimatePresence mode="wait">
         {phase === "setup" && <SetupScreen key="setup" token={token} />}

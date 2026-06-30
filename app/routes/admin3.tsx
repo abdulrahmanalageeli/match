@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import toast, { Toaster } from "react-hot-toast"
 import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
@@ -83,6 +83,12 @@ export default function Admin3Page() {
   const [surveyModal, setSurveyModal] = useState<any | null>(null)
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
 
+  const [sosRequests, setSosRequests] = useState<any[]>([])
+  const [sosModalOpen, setSosModalOpen] = useState(false)
+  const [replyingId, setReplyingId] = useState<string | null>(null)
+  const [replyText, setReplyText] = useState("")
+  const knownSosIds = useRef<Set<string>>(new Set())
+
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
       setAuthenticated(true)
@@ -135,6 +141,28 @@ export default function Admin3Page() {
     setOverviewLoading(false)
   }, [])
 
+  const fetchSOS = useCallback(async () => {
+    const data = await api("e3-get-sos")
+    if (!data.requests) return
+    const newRequests: any[] = data.requests
+    const newPending = newRequests.filter(r => r.status === 'pending' && !knownSosIds.current.has(r.id))
+    newRequests.forEach(r => knownSosIds.current.add(r.id))
+    if (newPending.length > 0) {
+      const msg = newPending.length === 1
+        ? `🆘 ${newPending[0].participant_name} (#${newPending[0].participant_number}) يطلب المنظم!`
+        : `🆘 ${newPending.length} طلبات جديدة!`
+      toast(msg, { duration: 8000, style: { background: '#1f0505', color: '#fca5a5', border: '1px solid #7f1d1d', borderRadius: '12px' } })
+      setSosModalOpen(true)
+    }
+    setSosRequests(newRequests)
+  }, [])
+
+  const handleSOSAction = async (id: string, reply: string | null, newStatus: string) => {
+    await api("e3-sos-reply", { id, reply, status: newStatus })
+    setReplyingId(null)
+    fetchSOS()
+  }
+
   const fetchRankStatus = useCallback(async () => {
     const data = await api("e3-get-rankings-status")
     setRankStatus(data)
@@ -148,9 +176,11 @@ export default function Admin3Page() {
     fetchState()
     fetchParticipants()
     fetchSeating()
+    fetchSOS()
     const iv = setInterval(fetchState, 3000)
-    return () => clearInterval(iv)
-  }, [authenticated, fetchState, fetchParticipants, fetchSeating])
+    const sosIv = setInterval(fetchSOS, 6000)
+    return () => { clearInterval(iv); clearInterval(sosIv) }
+  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS])
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
@@ -350,6 +380,15 @@ export default function Admin3Page() {
                 {PHASES.find(p => p.id === state?.phase)?.label || "—"}
               </span>
             </div>
+          )}
+          {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (
+            <button onClick={() => setSosModalOpen(true)}
+              className="relative p-2 rounded-lg bg-red-900/40 border border-red-700/30 text-red-400 hover:text-red-300 transition-colors">
+              <AlertCircle size={18} className="animate-pulse" />
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold">
+                {sosRequests.filter(r => r.status !== 'resolved').length}
+              </span>
+            </button>
           )}
           <button onClick={logout} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
             <LogOut size={18} />
@@ -2109,6 +2148,89 @@ export default function Admin3Page() {
           </div>
         )
       })()}
+
+      {/* ─── SOS Modal ──────────────────────────────────────────── */}
+      {sosModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: '85vh' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={18} className="text-red-400" />
+                <h2 className="font-bold text-white">طلبات استدعاء المنظم</h2>
+                {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (
+                  <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium">
+                    {sosRequests.filter(r => r.status !== 'resolved').length} نشط
+                  </span>
+                )}
+              </div>
+              <button onClick={() => setSosModalOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {sosRequests.length === 0 && (
+                <div className="text-center py-16 text-gray-600">لا توجد طلبات</div>
+              )}
+              {sosRequests.map(req => (
+                <div key={req.id} className={`rounded-xl border p-4 space-y-3 transition-opacity ${
+                  req.status === 'resolved' ? 'border-gray-800 opacity-40' : 'border-red-800/40 bg-red-950/15'
+                }`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <span className="text-white font-semibold">{req.participant_name}</span>
+                      <span className="text-gray-500 text-xs mr-1.5">#{req.participant_number}</span>
+                      <p className="text-gray-500 text-xs mt-0.5">{req.table_info}</p>
+                    </div>
+                    <span className={`text-[11px] px-2 py-0.5 rounded-full flex-shrink-0 ${
+                      req.status === 'pending'  ? 'bg-orange-500/20 text-orange-400' :
+                      req.status === 'seen'     ? 'bg-blue-500/20 text-blue-400' :
+                      req.status === 'replied'  ? 'bg-emerald-500/20 text-emerald-400' :
+                      'bg-gray-700/60 text-gray-500'
+                    }`}>{req.status === 'pending' ? 'جديد' : req.status === 'seen' ? 'مُشاهَد' : req.status === 'replied' ? 'تم الرد' : 'محلول'}</span>
+                  </div>
+
+                  {req.message && (
+                    <p className="text-gray-300 text-sm bg-gray-800/60 rounded-lg px-3 py-2 leading-relaxed">{req.message}</p>
+                  )}
+
+                  {req.organizer_reply && (
+                    <p className="text-emerald-400 text-sm">ردك: <span className="text-emerald-300">{req.organizer_reply}</span></p>
+                  )}
+
+                  <p className="text-gray-700 text-xs">{new Date(req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
+
+                  {req.status !== 'resolved' && (
+                    replyingId === req.id ? (
+                      <div className="space-y-2">
+                        <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
+                          placeholder="اكتب ردك هنا..." rows={2}
+                          className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-600 resize-none" />
+                        <div className="flex gap-2">
+                          <button onClick={() => handleSOSAction(req.id, replyText, 'replied')}
+                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-1.5 text-sm font-medium transition-colors">✓ إرسال الرد</button>
+                          <button onClick={() => setReplyingId(null)}
+                            className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition-colors">إلغاء</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={() => { setReplyingId(req.id); setReplyText(""); handleSOSAction(req.id, null, 'seen') }}
+                          className="flex-1 bg-blue-900/30 border border-blue-700/30 hover:bg-blue-900/50 text-blue-400 rounded-lg py-1.5 text-sm transition-colors">رد بنص</button>
+                        <button onClick={() => handleSOSAction(req.id, null, 'resolved')}
+                          className="flex-1 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg py-1.5 text-sm transition-colors">✓ تم الحل</button>
+                      </div>
+                    )
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

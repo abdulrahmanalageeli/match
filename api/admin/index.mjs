@@ -6022,18 +6022,62 @@ export default async function handler(req, res) {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number,position").eq("match_id", EVENT3_MATCH_ID).order("position", { ascending: true })
           if (!ep || ep.length < 4) return res.status(400).json({ error: "Select at least 4 participants first" })
           const participantNumbers = ep.map(r => r.participant_number)
-          const plan = e3GenerateSeatingPlan(participantNumbers)
+
+          // ── Compatibility-based ordering (greedy nearest-neighbor) ──────────────
+          let orderedNumbers = participantNumbers
+          let usedCompat = false
+          try {
+            const { data: pdata } = await supabase
+              .from("participants").select("assigned_number,name,gender,age,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,survey_data")
+              .eq("match_id", STATIC_MATCH_ID).in("assigned_number", participantNumbers)
+            if (pdata && pdata.length > 1) {
+              const compatMap = {}
+              for (let i = 0; i < pdata.length; i++) {
+                for (let j = i + 1; j < pdata.length; j++) {
+                  const a = pdata[i], b = pdata[j]
+                  if (!isParticipantComplete(a) || !isParticipantComplete(b)) continue
+                  const key = a.assigned_number < b.assigned_number ? `${a.assigned_number}-${b.assigned_number}` : `${b.assigned_number}-${a.assigned_number}`
+                  try {
+                    const r = await calculateFullCompatibilityWithCache(a, b, true, false)
+                    compatMap[key] = r.totalScore || 0
+                  } catch { compatMap[key] = 0 }
+                }
+              }
+              if (Object.keys(compatMap).length > 0) {
+                const numSet = new Set(participantNumbers)
+                const order = []
+                let current = participantNumbers[0]
+                numSet.delete(current); order.push(current)
+                while (numSet.size > 0) {
+                  let best = null, bestScore = -1
+                  for (const cand of numSet) {
+                    const key = current < cand ? `${current}-${cand}` : `${cand}-${current}`
+                    const score = compatMap[key] ?? 0
+                    if (score > bestScore) { bestScore = score; best = cand }
+                  }
+                  order.push(best); numSet.delete(best); current = best
+                }
+                orderedNumbers = order
+                usedCompat = true
+              }
+            }
+          } catch (e) {
+            console.log("Compat ordering failed, falling back to sequential:", e.message)
+          }
+          // ─────────────────────────────────────────────────────────────────────────
+
+          const plan = e3GenerateSeatingPlan(orderedNumbers)
           if (plan.error) return res.status(400).json({ error: plan.error })
           const { round1, round2, T, G, positionMap } = plan
           await supabase.from("session_assignments").delete().eq("match_id", EVENT3_MATCH_ID)
           await supabase.from("event3_participants").delete().eq("match_id", EVENT3_MATCH_ID)
-          await supabase.from("event3_participants").insert(participantNumbers.map(num => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: positionMap[num] })))
+          await supabase.from("event3_participants").insert(orderedNumbers.map(num => ({ match_id: EVENT3_MATCH_ID, participant_number: num, position: positionMap[num] })))
           const assignments = []
           for (let t = 0; t < T; t++) for (const p of round1[t]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 1, table_number: t + 1, participant_id: p })
           for (let g = 0; g < G; g++) for (const p of round2[g]) assignments.push({ match_id: EVENT3_MATCH_ID, event_id: 3, round: 2, table_number: g + 1, participant_id: p })
           const { error } = await supabase.from("session_assignments").insert(assignments)
           if (error) return res.status(500).json({ error: error.message })
-          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات من ${G} أشخاص، جولتان`, round1, round2, groups: T, groupSize: G })
+          return res.status(200).json({ message: `تم توليد خطة الجلسات — ${T} مجموعات من ${G} أشخاص، جولتان${usedCompat ? ' (مُحسَّنة بالتوافق)' : ''}`, round1, round2, groups: T, groupSize: G })
         }
         // e3-get-seating
         if (action === "e3-get-seating") {
@@ -6395,6 +6439,22 @@ export default async function handler(req, res) {
           const { error } = await supabase.from("participant_rankings").delete().eq("match_id", EVENT3_MATCH_ID)
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "All rankings cleared" })
+        }
+        // e3-get-sos — get all organizer requests
+        if (action === "e3-get-sos") {
+          const { data, error } = await supabase.from("organizer_requests").select("*").order("created_at", { ascending: false })
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ requests: data || [] })
+        }
+        // e3-sos-reply — admin acknowledges/replies to a request
+        if (action === "e3-sos-reply") {
+          const { id, reply, status: newStatus } = req.body
+          if (!id) return res.status(400).json({ error: "id required" })
+          const update = { status: newStatus || "replied", updated_at: new Date().toISOString() }
+          if (reply !== undefined) update.organizer_reply = reply || null
+          const { error } = await supabase.from("organizer_requests").update(update).eq("id", id)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "تم التحديث" })
         }
         // e3-reset-event
         if (action === "e3-reset-event") {

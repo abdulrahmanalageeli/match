@@ -1929,7 +1929,21 @@ export default function Event3Page() {
     fetchState()
     const channel = supabase
       .channel('event3-state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_state' }, () => fetchState())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_state' }, (payload: any) => {
+        const row = payload.new
+        if (row) {
+          setEventState((prev: any) => prev ? {
+            ...prev,
+            phase: row.phase || prev.phase,
+            timer_active: row.global_timer_active ?? prev.timer_active,
+            timer_start: row.global_timer_start_time ?? prev.timer_start,
+            timer_duration: row.global_timer_duration ?? prev.timer_duration,
+            phase2_score_revealed: row.phase2_score_revealed ?? prev.phase2_score_revealed,
+            phase3_score_revealed: row.phase3_score_revealed ?? prev.phase3_score_revealed,
+          } : null)
+        }
+        fetchState()
+      })
       .subscribe()
     const fallback = setInterval(fetchState, 30000)
     return () => { supabase.removeChannel(channel); clearInterval(fallback) }

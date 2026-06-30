@@ -159,7 +159,7 @@ export default function Admin3Page() {
 
   const handleSOSAction = async (id: string, reply: string | null, newStatus: string) => {
     await api("e3-sos-reply", { id, reply, status: newStatus })
-    setReplyingId(null)
+    if (newStatus !== 'seen') setReplyingId(null)
     fetchSOS()
   }
 

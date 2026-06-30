@@ -1141,52 +1141,59 @@ function SOSButton({ token }: { token: string }) {
     }
   }
 
-  const cfg = {
-    idle:     { bg: 'bg-red-500',     glow: 'shadow-red-500/50',     pulse: true,  label: '🆘' },
-    pending:  { bg: 'bg-orange-500',  glow: 'shadow-orange-500/40',  pulse: true,  label: '⏳' },
-    seen:     { bg: 'bg-blue-500',    glow: 'shadow-blue-500/40',    pulse: false, label: '👀' },
-    replied:  { bg: 'bg-emerald-500', glow: 'shadow-emerald-500/40', pulse: false, label: '💬' },
-    resolved: { bg: 'bg-gray-600',    glow: 'shadow-black/20',       pulse: false, label: '✅' },
+  if (status === 'resolved') return null
+
+  const pillCls = {
+    idle:    'bg-gray-900/80 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600/70',
+    pending: 'bg-orange-950/60 border-orange-700/40 text-orange-300',
+    seen:    'bg-blue-950/60 border-blue-700/40 text-blue-300',
+    replied: 'bg-emerald-950/60 border-emerald-600/50 text-emerald-300',
+    resolved: '',
   }[status]
 
   return (
     <>
-      {/* Floating button cluster */}
-      <div className="fixed bottom-6 right-5 z-[190] flex flex-col items-end gap-2" dir="rtl">
+      <div className="fixed bottom-5 right-4 z-[190] flex flex-col items-end gap-2" dir="rtl">
         {/* Organizer reply bubble */}
         <AnimatePresence>
           {showReply && organizerReply && (
             <motion.div
-              initial={{ opacity: 0, y: 10, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.85 }}
-              className="max-w-[210px] bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-4 py-3 shadow-2xl shadow-emerald-900/30"
+              initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              className="max-w-[200px] bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-4 py-3 shadow-2xl"
             >
               <p className="text-emerald-400 text-[10px] font-bold tracking-wide mb-1">رسالة من المنظم</p>
-              <p className="text-white/90 text-sm leading-snug">{organizerReply}</p>
+              <p className="text-white/90 text-sm leading-relaxed">{organizerReply}</p>
               <button onClick={() => { setShowReply(false); setStatus('resolved') }}
-                className="mt-2.5 text-gray-600 text-xs hover:text-white transition-colors">✕ إغلاق</button>
+                className="mt-2 text-gray-600 text-xs hover:text-white transition-colors">✕ إغلاق</button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Main button */}
+        {/* Pill button */}
         <motion.button
-          whileTap={{ scale: 0.9 }}
+          whileTap={{ scale: 0.95 }}
           onClick={() => {
             if (status === 'idle') setOpen(true)
-            else if ((status === 'replied') && organizerReply) setShowReply(s => !s)
+            else if (status === 'replied' && organizerReply) setShowReply(s => !s)
           }}
-          className={`relative w-13 h-13 w-[52px] h-[52px] rounded-full ${cfg.bg} flex items-center justify-center shadow-xl ${cfg.glow} text-xl transition-all`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md border text-xs font-semibold shadow-lg transition-all ${pillCls}`}
         >
-          {cfg.pulse && <span className={`absolute inset-0 rounded-full ${cfg.bg} animate-ping opacity-25`} />}
-          {status === 'pending'
-            ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
-                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />
-            : <span>{cfg.label}</span>}
+          {status === 'idle' && (
+            <><span className="w-1.5 h-1.5 rounded-full bg-red-500/80 animate-pulse flex-shrink-0" /><span>طلب مساعدة</span></>
+          )}
+          {status === 'pending' && (
+            <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+              className="w-3 h-3 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" /><span>في الانتظار...</span></>
+          )}
+          {status === 'seen' && <><span>👀</span><span>المنظم في الطريق</span></>}
+          {status === 'replied' && (
+            <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" /><span>رسالة من المنظم</span></>
+          )}
         </motion.button>
       </div>
 
-      {/* Compose modal */}
+      {/* Compose sheet */}
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -1198,7 +1205,7 @@ function SOSButton({ token }: { token: string }) {
 
               <div className="flex items-start justify-between">
                 <div>
-                  <p className="text-white font-black text-lg leading-tight">استدعاء المنظم 🆘</p>
+                  <p className="text-white font-black text-lg leading-tight">استدعاء المنظم</p>
                   <p className="text-gray-500 text-xs mt-0.5">سيأتي إلى طاولتك فور تلقي الطلب</p>
                 </div>
                 <button onClick={() => setOpen(false)}
@@ -1213,17 +1220,17 @@ function SOSButton({ token }: { token: string }) {
                   onChange={e => e.target.value.length <= 200 && setMessage(e.target.value)}
                   placeholder="رسالة اختيارية للمنظم... (اختياري)"
                   rows={3}
-                  className="w-full bg-gray-900 border border-gray-700/50 text-white rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-red-500/40 resize-none placeholder:text-gray-700 transition-all"
+                  className="w-full bg-gray-900 border border-gray-700/50 text-white rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all"
                 />
                 <p className="text-gray-700 text-xs text-left" dir="ltr">{message.length}/200</p>
               </div>
 
               <motion.button onClick={send} disabled={sending} whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-2xl font-black text-base bg-gradient-to-r from-red-500 to-rose-600 text-white shadow-[0_8px_24px_-6px_rgba(239,68,68,0.5)] disabled:opacity-40 transition-all flex items-center justify-center gap-2">
+                className="w-full py-4 rounded-2xl font-black text-base bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-600/25 disabled:opacity-40 transition-all flex items-center justify-center gap-2">
                 {sending
                   ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                       className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
-                  : <>🆘 أرسل الطلب</>}
+                  : <>📢 أرسل الطلب</>}
               </motion.button>
             </motion.div>
           </motion.div>

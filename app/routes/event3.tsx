@@ -11,6 +11,7 @@ import {
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
+import { supabase } from "~/lib/supabase"
 
 const PromptTopicsModal = lazy(() => import("~/components/PromptTopicsModal"))
 
@@ -485,8 +486,12 @@ function SetupScreen({ token }: { token: string }) {
       if (d && !d.error && d.participants_selected != null) setEnrolledCount(d.participants_selected)
     })
     fetchCount()
-    const iv = setInterval(fetchCount, 5000)
-    return () => clearInterval(iv)
+    const channel = supabase
+      .channel('setup-count')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event3_participants' }, () => fetchCount())
+      .subscribe()
+    const fallback = setInterval(fetchCount, 30000)
+    return () => { supabase.removeChannel(channel); clearInterval(fallback) }
   }, [token])
 
   return (
@@ -1099,8 +1104,13 @@ function SOSButton({ token }: { token: string }) {
   const [lastReplyCount, setLastReplyCount] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  const openRef = useRef(false)
+  const lastReplyCountRef = useRef(0)
+  useEffect(() => { openRef.current = open }, [open])
+  useEffect(() => { lastReplyCountRef.current = lastReplyCount }, [lastReplyCount])
+
   useEffect(() => {
-    const iv = setInterval(async () => {
+    const doFetch = async () => {
       const d = await call('e3-sos-check', token)
       if (d.error || !d.requests) return
       const userMsgs: { id: string; text: string; from: 'user'; status: string }[] = []
@@ -1111,15 +1121,21 @@ function SOSButton({ token }: { token: string }) {
       }
       const all = [...userMsgs, ...orgMsgs].sort((a, b) => a.id.localeCompare(b.id))
       setMessages(all)
-      if (orgMsgs.length > lastReplyCount && lastReplyCount >= 0) {
+      if (orgMsgs.length > lastReplyCountRef.current && lastReplyCountRef.current >= 0) {
         setHasUnread(true)
-        if (!open) toast('💬 رسالة من المنظم!', { duration: 5000 })
+        if (!openRef.current) toast('💬 رسالة من المنظم!', { duration: 5000 })
       }
       setLastReplyCount(orgMsgs.length)
       if (userMsgs.length > 0) setShowOptions(false)
-    }, 5000)
-    return () => clearInterval(iv)
-  }, [token, open, lastReplyCount])
+    }
+    doFetch()
+    const channel = supabase
+      .channel(`sos-${token}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_requests', filter: `participant_token=eq.${token}` }, () => doFetch())
+      .subscribe()
+    const fallback = setInterval(doFetch, 30000)
+    return () => { supabase.removeChannel(channel); clearInterval(fallback) }
+  }, [token])
 
   useEffect(() => {
     if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }
@@ -1911,8 +1927,12 @@ export default function Event3Page() {
   useEffect(() => {
     if (!token) return
     fetchState()
-    const iv = setInterval(fetchState, 2000)
-    return () => clearInterval(iv)
+    const channel = supabase
+      .channel('event3-state')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_state' }, () => fetchState())
+      .subscribe()
+    const fallback = setInterval(fetchState, 30000)
+    return () => { supabase.removeChannel(channel); clearInterval(fallback) }
   }, [token, fetchState])
 
   if (showWelcome) return <WelcomeScreen onDone={() => setShowWelcome(false)} />

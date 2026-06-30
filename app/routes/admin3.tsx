@@ -6,6 +6,7 @@ import {
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
   Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X,
 } from "lucide-react"
+import { supabase } from "~/lib/supabase"
 
 const ADMIN_PASSWORD = "soulmatch2026"
 const API = "/api/admin"
@@ -177,9 +178,22 @@ export default function Admin3Page() {
     fetchParticipants()
     fetchSeating()
     fetchSOS()
-    const iv = setInterval(fetchState, 3000)
-    const sosIv = setInterval(fetchSOS, 6000)
-    return () => { clearInterval(iv); clearInterval(sosIv) }
+    const stateChannel = supabase
+      .channel('admin3-state')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_state' }, () => fetchState())
+      .subscribe()
+    const sosChannel = supabase
+      .channel('admin3-sos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_requests' }, () => fetchSOS())
+      .subscribe()
+    const fallbackState = setInterval(fetchState, 30000)
+    const fallbackSOS = setInterval(fetchSOS, 30000)
+    return () => {
+      supabase.removeChannel(stateChannel)
+      supabase.removeChannel(sosChannel)
+      clearInterval(fallbackState)
+      clearInterval(fallbackSOS)
+    }
   }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS])
 
   useEffect(() => {

@@ -1123,12 +1123,12 @@ function SOSButton({ token }: { token: string }) {
       }
       setLastReplyCount(orgMsgs.length)
       if (userMsgs.length > 0) setShowOptions(false)
-      else setShowOptions(true)
+      else { setShowOptions(true); setHasUnread(false) }
     }
     doFetch()
     const channel = supabase
       .channel(`sos-${token}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_requests', filter: `participant_token=eq.${token}` }, () => doFetch())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_requests' }, () => doFetch())
       .subscribe()
     const fallback = setInterval(doFetch, 30000)
     return () => { supabase.removeChannel(channel); clearInterval(fallback) }

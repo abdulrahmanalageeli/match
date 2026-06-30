@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send,
 } from "lucide-react"
 import { supabase } from "~/lib/supabase"
 
@@ -88,6 +88,7 @@ export default function Admin3Page() {
   const [sosModalOpen, setSosModalOpen] = useState(false)
   const [replyingId, setReplyingId] = useState<string | null>(null)
   const [replyText, setReplyText] = useState("")
+  const [sosFilter, setSosFilter] = useState<'all' | 'active' | 'resolved'>('all')
   const knownSosIds = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -390,15 +391,15 @@ export default function Admin3Page() {
               </span>
             </div>
           )}
-          {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (
-            <button onClick={() => setSosModalOpen(true)}
-              className="relative p-2 rounded-lg bg-red-900/40 border border-red-700/30 text-red-400 hover:text-red-300 transition-colors">
-              <AlertCircle size={18} className="animate-pulse" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold">
+          <button onClick={() => setSosModalOpen(true)}
+            className="relative p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
+            <MessageSquare size={18} />
+            {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[9px] flex items-center justify-center text-white font-bold animate-pulse">
                 {sosRequests.filter(r => r.status !== 'resolved').length}
               </span>
-            </button>
-          )}
+            )}
+          </button>
           <button onClick={logout} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
             <LogOut size={18} />
           </button>
@@ -2160,19 +2161,17 @@ export default function Admin3Page() {
 
       {/* ─── SOS Modal ──────────────────────────────────────────── */}
       {sosModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col" style={{ maxHeight: '85vh' }}>
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '85vh' }}>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
-              <div className="flex items-center gap-2">
-                <AlertCircle size={18} className="text-red-400" />
-                <h2 className="font-bold text-white">طلبات استدعاء المنظم</h2>
-                {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (
-                  <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium">
-                    {sosRequests.filter(r => r.status !== 'resolved').length} نشط
-                  </span>
-                )}
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-800 bg-gradient-to-l from-red-950/30 to-gray-900">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white text-sm font-bold">ع</div>
+                <div>
+                  <h2 className="font-bold text-white text-sm leading-tight">عبدالرحمن — المنظم</h2>
+                  <p className="text-gray-500 text-[10px] leading-tight">طلبات المساعدة والرسائل</p>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 {sosRequests.length > 0 && (
@@ -2182,70 +2181,125 @@ export default function Admin3Page() {
                     setSosRequests([])
                     toast.success("تم حذف جميع الطلبات")
                   }}
-                    className="px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-700/30 text-red-400 hover:bg-red-900/60 text-xs font-medium transition-colors">
+                    className="px-2.5 py-1 rounded-lg bg-red-900/40 border border-red-700/30 text-red-400 hover:bg-red-900/60 text-[11px] font-medium transition-colors">
                     حذف الكل
                   </button>
                 )}
-                <button onClick={() => setSosModalOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
-                  <X size={16} />
+                <button onClick={() => setSosModalOpen(false)} className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                  <X size={14} />
                 </button>
               </div>
             </div>
 
+            {/* Filter tabs */}
+            {sosRequests.length > 0 && (
+              <div className="flex gap-1 px-4 py-2 border-b border-gray-800/60 bg-gray-900/50">
+                {[
+                  { id: 'all', label: 'الكل', count: sosRequests.length },
+                  { id: 'active', label: 'نشط', count: sosRequests.filter(r => r.status !== 'resolved').length },
+                  { id: 'resolved', label: 'محلول', count: sosRequests.filter(r => r.status === 'resolved').length },
+                ].map(tab => (
+                  <button key={tab.id} onClick={() => setSosFilter(tab.id as any)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                      sosFilter === tab.id ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+                    }`}>
+                    {tab.label} {tab.count > 0 && <span className="opacity-60">{tab.count}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* List */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {sosRequests.length === 0 && (
-                <div className="text-center py-16 text-gray-600">لا توجد طلبات</div>
+                <div className="flex flex-col items-center justify-center py-20 text-gray-600 gap-3">
+                  <div className="w-14 h-14 rounded-full bg-gray-800/50 flex items-center justify-center">
+                    <AlertCircle size={24} className="text-gray-700" />
+                  </div>
+                  <p className="text-sm">لا توجد طلبات مساعدة</p>
+                </div>
               )}
-              {sosRequests.map(req => (
-                <div key={req.id} className={`rounded-xl border p-4 space-y-3 transition-opacity ${
-                  req.status === 'resolved' ? 'border-gray-800 opacity-40' : 'border-red-800/40 bg-red-950/15'
+              {sosRequests
+                .filter(r => sosFilter === 'all' ? true : sosFilter === 'active' ? r.status !== 'resolved' : r.status === 'resolved')
+                .map(req => (
+                <div key={req.id} className={`rounded-2xl border overflow-hidden transition-all ${
+                  req.status === 'resolved' ? 'border-gray-800/60 opacity-50' :
+                  req.status === 'pending' ? 'border-red-700/40 bg-red-950/10' :
+                  'border-gray-700/40 bg-gray-800/20'
                 }`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <span className="text-white font-semibold">{req.participant_name}</span>
-                      <span className="text-gray-500 text-xs mr-1.5">#{req.participant_number}</span>
-                      <p className="text-gray-500 text-xs mt-0.5">{req.table_info}</p>
+                  {/* Participant info bar */}
+                  <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-800/40">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+                        req.status === 'pending' ? 'bg-red-600/30 text-red-400' :
+                        req.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
+                        req.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
+                        'bg-gray-700 text-gray-500'
+                      }`}>{req.participant_name?.charAt(0) || '؟'}</div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-white text-sm font-semibold leading-tight">{req.participant_name}</span>
+                          <span className="text-gray-600 text-[10px] font-mono">#{req.participant_number}</span>
+                        </div>
+                        <p className="text-gray-500 text-[10px] leading-tight mt-0.5">{req.table_info} · {new Date(req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
+                      </div>
                     </div>
-                    <span className={`text-[11px] px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
                       req.status === 'pending'  ? 'bg-orange-500/20 text-orange-400' :
                       req.status === 'seen'     ? 'bg-blue-500/20 text-blue-400' :
                       req.status === 'replied'  ? 'bg-emerald-500/20 text-emerald-400' :
                       'bg-gray-700/60 text-gray-500'
-                    }`}>{req.status === 'pending' ? 'جديد' : req.status === 'seen' ? 'مُشاهَد' : req.status === 'replied' ? 'تم الرد' : 'محلول'}</span>
+                    }`}>{req.status === 'pending' ? '🟠 جديد' : req.status === 'seen' ? '🔵 مُشاهَد' : req.status === 'replied' ? '🟢 تم الرد' : '⚪ محلول'}</span>
                   </div>
 
-                  {req.message && (
-                    <p className="text-gray-300 text-sm bg-gray-800/60 rounded-lg px-3 py-2 leading-relaxed">{req.message}</p>
-                  )}
-
-                  {req.organizer_reply && (
-                    <p className="text-emerald-400 text-sm">ردك: <span className="text-emerald-300">{req.organizer_reply}</span></p>
-                  )}
-
-                  <p className="text-gray-700 text-xs">{new Date(req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
-
-                  {req.status !== 'resolved' && (
-                    replyingId === req.id ? (
-                      <div className="space-y-2">
-                        <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-                          placeholder="اكتب ردك هنا..." rows={2}
-                          className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-600 resize-none" />
-                        <div className="flex gap-2">
-                          <button onClick={() => handleSOSAction(req.id, replyText, 'replied')}
-                            className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-1.5 text-sm font-medium transition-colors">✓ إرسال الرد</button>
-                          <button onClick={() => setReplyingId(null)}
-                            className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg text-sm transition-colors">إلغاء</button>
+                  {/* Chat bubbles */}
+                  <div className="px-3.5 py-3 space-y-2">
+                    {req.message && (
+                      <div className="flex justify-start">
+                        <div className="max-w-[85%] bg-gray-800/60 rounded-2xl rounded-bl-md px-3 py-2 text-sm text-gray-200 leading-relaxed">
+                          {req.message}
                         </div>
                       </div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <button onClick={() => { setReplyingId(req.id); setReplyText(""); handleSOSAction(req.id, null, 'seen') }}
-                          className="flex-1 bg-blue-900/30 border border-blue-700/30 hover:bg-blue-900/50 text-blue-400 rounded-lg py-1.5 text-sm transition-colors">رد بنص</button>
-                        <button onClick={() => handleSOSAction(req.id, null, 'resolved')}
-                          className="flex-1 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-lg py-1.5 text-sm transition-colors">✓ تم الحل</button>
+                    )}
+                    {req.organizer_reply && (
+                      <div className="flex justify-end">
+                        <div className="max-w-[85%] bg-emerald-900/30 border border-emerald-700/30 rounded-2xl rounded-br-md px-3 py-2 text-sm text-emerald-200 leading-relaxed">
+                          {req.organizer_reply}
+                        </div>
                       </div>
-                    )
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  {req.status !== 'resolved' && (
+                    <div className="px-3.5 pb-3">
+                      {replyingId === req.id ? (
+                        <div className="space-y-2">
+                          <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
+                            placeholder="اكتب ردك هنا..." rows={2} autoFocus
+                            className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600" />
+                          <div className="flex gap-2">
+                            <button onClick={() => handleSOSAction(req.id, replyText, 'replied')}
+                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
+                              <Send size={13} /> إرسال
+                            </button>
+                            <button onClick={() => setReplyingId(null)}
+                              className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm transition-colors">إلغاء</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <button onClick={() => { setReplyingId(req.id); setReplyText("") }}
+                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
+                            <MessageSquare size={13} /> رد
+                          </button>
+                          <button onClick={() => handleSOSAction(req.id, null, 'resolved')}
+                            className="px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl py-2 text-sm transition-colors flex items-center justify-center gap-1.5">
+                            <CheckCircle size={13} /> تم الحل
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

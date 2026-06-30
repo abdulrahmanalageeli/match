@@ -6244,7 +6244,7 @@ export default async function handler(req, res) {
             }
           }
           // Attach partner names and compat scores to participants
-          const participants = Object.values(infoMap).map((p: any) => {
+          const participants = Object.values(infoMap).map((p) => {
             const partner = p.matchPartner ? infoMap[p.matchPartner] : null
             const pKey = p.matchPartner ? (p.number < p.matchPartner ? `${p.number}-${p.matchPartner}` : `${p.matchPartner}-${p.number}`) : null
             return { ...p, matchPartnerName: partner?.name ?? null, matchCompatScore: pKey ? matrix[pKey]?.score ?? null : null }

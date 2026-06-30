@@ -6188,6 +6188,69 @@ export default async function handler(req, res) {
           if (rows.length > 0) { const { error } = await supabase.from("participant_rankings").insert(rows); if (error) return res.status(500).json({ error: error.message }) }
           return res.status(200).json({ message: `Randomized rankings for ${selected.length} participants (${rows.length} entries)` })
         }
+        // e3-get-overview
+        if (action === "e3-get-overview") {
+          const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
+          const selected = (ep || []).map(r => r.participant_number)
+          if (selected.length === 0) return res.status(200).json({ participants: [], matrix: {} })
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", selected)
+          const { data: assignments } = await supabase.from("session_assignments").select("participant_id,round,table_number").eq("match_id", EVENT3_MATCH_ID)
+          const { data: rankRows } = await supabase.from("participant_rankings").select("ranker_number,ranked_number,rank").eq("match_id", EVENT3_MATCH_ID)
+          const { data: matchRows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID)
+          // Build assignment maps: assignMap[num][round] = table
+          const assignMap = {}
+          for (const a of assignments || []) { if (!assignMap[a.participant_id]) assignMap[a.participant_id] = {}; assignMap[a.participant_id][a.round] = a.table_number }
+          // Build ranking map: rankerMap[num] = { count, submitted }
+          const rankerMap = {}
+          for (const r of rankRows || []) { if (!rankerMap[r.ranker_number]) rankerMap[r.ranker_number] = 0; rankerMap[r.ranker_number]++ }
+          // Build match map: matchMap[num] = partner num
+          const matchMap = {}
+          for (const m of matchRows || []) { if (m.phase2_partner) matchMap[m.participant_number] = m.phase2_partner }
+          // Build participant info map
+          const infoMap = {}
+          for (const p of pdata || []) {
+            const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {})
+            const ans = sd.answers || {}
+            infoMap[p.assigned_number] = {
+              number: p.assigned_number,
+              name: p.name || ans.name || sd.name || `#${p.assigned_number}`,
+              gender: p.gender || ans.gender || sd.gender || "?",
+              age: p.age || ans.age || null,
+              mbti: p.mbti_personality_type || sd.mbtiType || ans.mbti || null,
+              attachment: p.attachment_style || sd.attachmentStyle || ans.attachment_style || null,
+              communication: p.communication_style || sd.communicationStyle || ans.communication_style || null,
+              humor: p.humor_banter_style || sd.humor_banter_style || ans.humor_banter_style || null,
+              openness: p.early_openness_comfort ?? ans.early_openness_comfort ?? null,
+              complete: isParticipantComplete(p),
+              r1Table: assignMap[p.assigned_number]?.[1] ?? null,
+              r2Table: assignMap[p.assigned_number]?.[2] ?? null,
+              r20Table: assignMap[p.assigned_number]?.[20] ?? null,
+              rankingCount: rankerMap[p.assigned_number] ?? 0,
+              rankingSubmitted: (rankerMap[p.assigned_number] ?? 0) > 0,
+              matchPartner: matchMap[p.assigned_number] ?? null,
+            }
+          }
+          // Build compatibility matrix (skipAI=true for speed)
+          const matrix = {}
+          const pdataList = pdata || []
+          for (let i = 0; i < pdataList.length; i++) {
+            for (let j = i + 1; j < pdataList.length; j++) {
+              const a = pdataList[i].assigned_number, b = pdataList[j].assigned_number
+              const key = a < b ? `${a}-${b}` : `${b}-${a}`
+              try {
+                const r = await calculateFullCompatibilityWithCache(pdataList[i], pdataList[j], true, false)
+                matrix[key] = { score: Math.round(r.totalScore), bothComplete: isParticipantComplete(pdataList[i]) && isParticipantComplete(pdataList[j]) }
+              } catch { matrix[key] = { score: null, bothComplete: false } }
+            }
+          }
+          // Attach partner names and compat scores to participants
+          const participants = Object.values(infoMap).map((p: any) => {
+            const partner = p.matchPartner ? infoMap[p.matchPartner] : null
+            const pKey = p.matchPartner ? (p.number < p.matchPartner ? `${p.number}-${p.matchPartner}` : `${p.matchPartner}-${p.number}`) : null
+            return { ...p, matchPartnerName: partner?.name ?? null, matchCompatScore: pKey ? matrix[pKey]?.score ?? null : null }
+          })
+          return res.status(200).json({ participants, matrix })
+        }
         // e3-get-matches
         if (action === "e3-get-matches") {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)

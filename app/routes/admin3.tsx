@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -67,7 +67,9 @@ export default function Admin3Page() {
   const [loading, setLoading] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [genderFilter, setGenderFilter] = useState("all")
-  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants">("control")
+  const [activeTab, setActiveTab] = useState<"control" | "seating" | "ranking" | "participants" | "overview">("control")
+  const [overviewData, setOverviewData] = useState<any>(null)
+  const [overviewLoading, setOverviewLoading] = useState(false)
   const [timerRemaining, setTimerRemaining] = useState(0)
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [editedOrder, setEditedOrder] = useState<any[]>([])
@@ -124,6 +126,13 @@ export default function Admin3Page() {
     setMatchPairs(data.pairs || [])
   }, [])
 
+  const fetchOverview = useCallback(async () => {
+    setOverviewLoading(true)
+    const data = await api("e3-get-overview")
+    setOverviewData(data)
+    setOverviewLoading(false)
+  }, [])
+
   const fetchRankStatus = useCallback(async () => {
     const data = await api("e3-get-rankings-status")
     setRankStatus(data)
@@ -145,7 +154,8 @@ export default function Admin3Page() {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
     if (authenticated && activeTab === "ranking") fetchRankStatus()
     if (authenticated && activeTab === "participants") { fetchParticipants(); fetchSeating(); fetchRankStatus(); fetchMatches() }
-  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches])
+    if (authenticated && activeTab === "overview") fetchOverview()
+  }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview])
 
   // Timer countdown
   useEffect(() => {
@@ -424,6 +434,7 @@ export default function Admin3Page() {
             { id: "seating",      label: "خريطة الجلسات", icon: Table2 },
             { id: "participants", label: "المشاركون",  icon: Users },
             { id: "ranking",      label: "التصنيفات",  icon: BarChart3 },
+            { id: "overview",     label: "نظرة شاملة", icon: Layers },
           ].map(tab => (
             <button
               key={tab.id}
@@ -1390,6 +1401,303 @@ export default function Admin3Page() {
               </div>
             </div>
           </>
+        )
+      })()}
+
+      {/* TAB: OVERVIEW ─────────────────────────────────────────── */}
+      {activeTab === "overview" && (() => {
+        const scoreColor = (score: number | null, bothComplete: boolean) => {
+          if (!bothComplete || score == null) return { bg: 'rgba(31,41,55,0.8)', text: '#4b5563' }
+          if (score >= 80) return { bg: 'rgba(16,185,129,0.22)', text: '#34d399' }
+          if (score >= 68) return { bg: 'rgba(59,130,246,0.18)', text: '#60a5fa' }
+          if (score >= 54) return { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa' }
+          if (score >= 40) return { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24' }
+          return { bg: 'rgba(239,68,68,0.13)', text: '#f87171' }
+        }
+        const mbtiColor = (m: string) => {
+          if (!m) return 'text-gray-600 bg-gray-800'
+          const type = m.toUpperCase()
+          if (['INFJ','INFP','ENFJ','ENFP'].includes(type)) return 'text-violet-300 bg-violet-950/60 border border-violet-800/40'
+          if (['INTJ','INTP','ENTJ','ENTP'].includes(type)) return 'text-blue-300 bg-blue-950/60 border border-blue-800/40'
+          if (['ISFJ','ISFP','ESFJ','ESFP'].includes(type)) return 'text-pink-300 bg-pink-950/60 border border-pink-800/40'
+          return 'text-teal-300 bg-teal-950/60 border border-teal-800/40'
+        }
+        const attachColor = (a: string) => {
+          if (!a) return 'text-gray-600'
+          if (a === 'Secure') return 'text-green-400'
+          if (a === 'Anxious') return 'text-yellow-400'
+          if (a === 'Avoidant') return 'text-red-400'
+          return 'text-gray-400'
+        }
+        const pts: any[] = overviewData?.participants || []
+        const matrix: Record<string, { score: number | null; bothComplete: boolean }> = overviewData?.matrix || {}
+        const sortedPts = [...pts].sort((a, b) => a.number - b.number)
+        const males = sortedPts.filter(p => p.gender === 'male')
+        const females = sortedPts.filter(p => p.gender === 'female')
+        const getScore = (a: number, b: number) => {
+          const key = a < b ? `${a}-${b}` : `${b}-${a}`
+          return matrix[key] || null
+        }
+        if (overviewLoading) return (
+          <div className="flex flex-col items-center justify-center py-24 gap-4">
+            <Loader2 size={36} className="text-purple-400 animate-spin" />
+            <p className="text-gray-400 text-sm">جاري حساب التوافق لجميع الأزواج…</p>
+            <p className="text-gray-600 text-xs">قد يستغرق هذا دقيقة</p>
+          </div>
+        )
+        if (!overviewData) return (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Layers size={36} className="text-gray-700" />
+            <p className="text-gray-500">لا توجد بيانات. حدّث الصفحة.</p>
+            <button onClick={fetchOverview} className="text-sm text-purple-400 hover:text-purple-300 bg-purple-900/20 px-4 py-2 rounded-xl border border-purple-800/30">تحديث</button>
+          </div>
+        )
+        return (
+          <div className="space-y-6 pb-8">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-white">نظرة شاملة</h2>
+                <p className="text-xs text-gray-500 mt-0.5">{pts.length} مشارك · {Object.keys(matrix).length} زوج محسوب</p>
+              </div>
+              <button onClick={fetchOverview} className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-700 transition-colors">
+                <RefreshCw size={12} /> تحديث
+              </button>
+            </div>
+
+            {/* ── SECTION 1: Participant Cards ─────────────────────── */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Users size={12} /> بيانات المشاركين
+              </h3>
+              {/* Males */}
+              {males.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[10px] text-blue-500 font-semibold mb-2 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />ذكور ({males.length})</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {males.map((p: any) => (
+                      <div key={p.number} className={`rounded-xl p-3 border bg-blue-950/10 border-blue-900/30 relative overflow-hidden`}>
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-blue-600/0 via-blue-500/60 to-blue-600/0" />
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold text-sm truncate">{p.name}</p>
+                            <p className="text-gray-600 text-[10px]">#{p.number}{p.age ? ` · ${p.age}` : ''}</p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${p.complete ? 'bg-green-900/40 text-green-400 border border-green-800/40' : 'bg-red-900/30 text-red-400 border border-red-800/30'}`}>
+                            {p.complete ? '✓ مكتمل' : '⚠ ناقص'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {p.mbti && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${mbtiColor(p.mbti)}`}>{p.mbti}</span>}
+                          {p.attachment && <span className={`text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 ${attachColor(p.attachment)}`}>{p.attachment}</span>}
+                          {p.humor && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400">{p.humor === 'A' ? '😄 مرح' : p.humor === 'B' ? '🤗 دافئ' : p.humor === 'C' ? '🧘 هادئ' : '🎩 جدي'}</span>}
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 mb-2 text-center">
+                          {[1, 2, 20].map(r => (
+                            <div key={r} className="bg-gray-800/60 rounded-lg px-1 py-1">
+                              <p className="text-[8px] text-gray-600">{r === 20 ? '1:1' : `ج${r}`}</p>
+                              <p className="text-[11px] font-bold text-gray-300">{(r === 1 ? p.r1Table : r === 2 ? p.r2Table : p.r20Table) ?? '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between text-[9px]">
+                          <span className={`flex items-center gap-1 ${p.rankingSubmitted ? 'text-emerald-400' : 'text-gray-600'}`}>
+                            {p.rankingSubmitted ? `✓ صوّت (${p.rankingCount})` : '○ لم يصوّت'}
+                          </span>
+                          {p.matchPartner ? (
+                            <div className="text-right">
+                              <span className="text-gray-500">مع: </span>
+                              <span className="text-white font-medium">{p.matchPartnerName || `#${p.matchPartner}`}</span>
+                              {p.matchCompatScore != null && <span className={`mr-1 font-bold ${p.matchCompatScore >= 68 ? 'text-green-400' : p.matchCompatScore >= 54 ? 'text-blue-400' : 'text-yellow-400'}`}>{p.matchCompatScore}%</span>}
+                            </div>
+                          ) : <span className="text-gray-700">لا مطابقة</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Females */}
+              {females.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-pink-500 font-semibold mb-2 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-pink-400 inline-block" />إناث ({females.length})</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {females.map((p: any) => (
+                      <div key={p.number} className={`rounded-xl p-3 border bg-pink-950/10 border-pink-900/30 relative overflow-hidden`}>
+                        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-pink-600/0 via-pink-500/60 to-pink-600/0" />
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold text-sm truncate">{p.name}</p>
+                            <p className="text-gray-600 text-[10px]">#{p.number}{p.age ? ` · ${p.age}` : ''}</p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${p.complete ? 'bg-green-900/40 text-green-400 border border-green-800/40' : 'bg-red-900/30 text-red-400 border border-red-800/30'}`}>
+                            {p.complete ? '✓ مكتمل' : '⚠ ناقص'}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {p.mbti && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${mbtiColor(p.mbti)}`}>{p.mbti}</span>}
+                          {p.attachment && <span className={`text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 ${attachColor(p.attachment)}`}>{p.attachment}</span>}
+                          {p.humor && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-800 text-gray-400">{p.humor === 'A' ? '😄 مرح' : p.humor === 'B' ? '🤗 دافئ' : p.humor === 'C' ? '🧘 هادئ' : '🎩 جدي'}</span>}
+                        </div>
+                        <div className="grid grid-cols-3 gap-1 mb-2 text-center">
+                          {[1, 2, 20].map(r => (
+                            <div key={r} className="bg-gray-800/60 rounded-lg px-1 py-1">
+                              <p className="text-[8px] text-gray-600">{r === 20 ? '1:1' : `ج${r}`}</p>
+                              <p className="text-[11px] font-bold text-gray-300">{(r === 1 ? p.r1Table : r === 2 ? p.r2Table : p.r20Table) ?? '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center justify-between text-[9px]">
+                          <span className={`flex items-center gap-1 ${p.rankingSubmitted ? 'text-emerald-400' : 'text-gray-600'}`}>
+                            {p.rankingSubmitted ? `✓ صوّت (${p.rankingCount})` : '○ لم يصوّت'}
+                          </span>
+                          {p.matchPartner ? (
+                            <div className="text-right">
+                              <span className="text-gray-500">مع: </span>
+                              <span className="text-white font-medium">{p.matchPartnerName || `#${p.matchPartner}`}</span>
+                              {p.matchCompatScore != null && <span className={`mr-1 font-bold ${p.matchCompatScore >= 68 ? 'text-green-400' : p.matchCompatScore >= 54 ? 'text-blue-400' : 'text-yellow-400'}`}>{p.matchCompatScore}%</span>}
+                            </div>
+                          ) : <span className="text-gray-700">لا مطابقة</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* ── SECTION 2: Activity Flow Table ───────────────────── */}
+            <div>
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <BarChart3 size={12} /> تدفق النشاط
+              </h3>
+              <div className="bg-gray-900/60 rounded-2xl border border-gray-800 overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="bg-gray-800/60 border-b border-gray-700/50">
+                      <th className="text-right px-3 py-2.5 text-gray-400 font-semibold">المشارك</th>
+                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">ج1</th>
+                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">ج2</th>
+                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">التصويت</th>
+                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">المطابقة النهائية</th>
+                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">التوافق</th>
+                      <th className="text-center px-2 py-2.5 text-gray-400 font-semibold">الاستبيان</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPts.map((p: any, i: number) => (
+                      <tr key={p.number} className={`border-b border-gray-800/40 ${i % 2 === 0 ? '' : 'bg-gray-900/30'} hover:bg-gray-800/20 transition-colors`}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                            <span className="text-white font-medium truncate max-w-[80px]">{p.name}</span>
+                            <span className="text-gray-700">#{p.number}</span>
+                          </div>
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          {p.r1Table != null ? <span className="text-indigo-300 font-bold">{p.r1Table}</span> : <span className="text-gray-700">—</span>}
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          {p.r2Table != null ? <span className="text-indigo-300 font-bold">{p.r2Table}</span> : <span className="text-gray-700">—</span>}
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          {p.rankingSubmitted
+                            ? <span className="text-emerald-400 font-semibold">✓ {p.rankingCount}</span>
+                            : <span className="text-gray-700">—</span>}
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          {p.matchPartner
+                            ? <span className="text-white">{p.matchPartnerName || `#${p.matchPartner}`}</span>
+                            : <span className="text-gray-700">—</span>}
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          {p.matchCompatScore != null
+                            ? <span className={`font-bold ${p.matchCompatScore >= 68 ? 'text-green-400' : p.matchCompatScore >= 54 ? 'text-blue-400' : 'text-yellow-400'}`}>{p.matchCompatScore}%</span>
+                            : <span className="text-gray-700">—</span>}
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${p.complete ? 'text-green-400 bg-green-900/30' : 'text-red-400 bg-red-900/20'}`}>
+                            {p.complete ? '✓' : '✗'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* ── SECTION 3: Compatibility Matrix ──────────────────── */}
+            {sortedPts.length > 0 && (
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 flex items-center gap-2">
+                  <Heart size={12} /> مصفوفة التوافق
+                </h3>
+                <p className="text-[10px] text-gray-600 mb-3">الصفوف = ذكور · الأعمدة = إناث · بدون AI (مع الكاش)</p>
+                <div className="bg-gray-900/60 rounded-2xl border border-gray-800 overflow-auto">
+                  {males.length > 0 && females.length > 0 ? (
+                    <table className="text-[10px] w-full">
+                      <thead>
+                        <tr className="border-b border-gray-800">
+                          <th className="bg-gray-800/70 px-2 py-2 text-gray-500 font-semibold sticky left-0 z-10 text-right min-w-[90px]">ذ \ أ</th>
+                          {females.map((f: any) => (
+                            <th key={f.number} className="bg-gray-800/70 px-2 py-2 text-pink-400 font-semibold text-center min-w-[52px] whitespace-nowrap">
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className="truncate max-w-[44px] text-[9px]">{f.name.split(' ')[0]}</span>
+                                <span className="text-gray-600 text-[8px]">#{f.number}</span>
+                              </div>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {males.map((m: any, mi: number) => (
+                          <tr key={m.number} className="border-b border-gray-800/40">
+                            <td className={`sticky left-0 z-10 px-2 py-1.5 font-semibold text-blue-400 whitespace-nowrap ${mi % 2 === 0 ? 'bg-gray-900' : 'bg-gray-900/80'}`}>
+                              <div className="flex flex-col gap-0">
+                                <span className="text-[9px] truncate max-w-[80px]">{m.name.split(' ')[0]}</span>
+                                <span className="text-gray-600 text-[8px]">#{m.number}</span>
+                              </div>
+                            </td>
+                            {females.map((f: any) => {
+                              const entry = getScore(m.number, f.number)
+                              const { bg, text } = scoreColor(entry?.score ?? null, entry?.bothComplete ?? false)
+                              return (
+                                <td key={f.number} style={{ background: bg }} className="text-center px-1 py-1.5 transition-all hover:ring-1 hover:ring-white/20">
+                                  {entry?.score != null && entry.bothComplete
+                                    ? <span style={{ color: text }} className="font-black text-[11px]">{entry.score}</span>
+                                    : <span className="text-gray-700 text-[10px]">{entry?.score != null ? entry.score : '?'}</span>
+                                  }
+                                </td>
+                              )
+                            })}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className="py-8 text-center text-gray-600 text-sm">يتطلب وجود ذكور وإناث لعرض المصفوفة</div>
+                  )}
+                </div>
+                {/* Legend */}
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
+                  <span className="text-[9px] text-gray-600">الألوان:</span>
+                  {[
+                    { bg: 'rgba(16,185,129,0.22)', text: '#34d399', label: '≥80' },
+                    { bg: 'rgba(59,130,246,0.18)', text: '#60a5fa', label: '68–79' },
+                    { bg: 'rgba(139,92,246,0.15)', text: '#a78bfa', label: '54–67' },
+                    { bg: 'rgba(245,158,11,0.15)', text: '#fbbf24', label: '40–53' },
+                    { bg: 'rgba(239,68,68,0.13)', text: '#f87171', label: '<40' },
+                  ].map(l => (
+                    <div key={l.label} className="flex items-center gap-1">
+                      <div style={{ background: l.bg }} className="w-5 h-3.5 rounded-sm" />
+                      <span style={{ color: l.text }} className="text-[9px] font-bold">{l.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )
       })()}
 

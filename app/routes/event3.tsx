@@ -486,12 +486,8 @@ function SetupScreen({ token }: { token: string }) {
       if (d && !d.error && d.participants_selected != null) setEnrolledCount(d.participants_selected)
     })
     fetchCount()
-    const channel = supabase
-      .channel('setup-count')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event3_participants' }, () => fetchCount())
-      .subscribe()
-    const fallback = setInterval(fetchCount, 30000)
-    return () => { supabase.removeChannel(channel); clearInterval(fallback) }
+    const iv = setInterval(fetchCount, 5000)
+    return () => clearInterval(iv)
   }, [token])
 
   return (
@@ -1127,6 +1123,7 @@ function SOSButton({ token }: { token: string }) {
       }
       setLastReplyCount(orgMsgs.length)
       if (userMsgs.length > 0) setShowOptions(false)
+      else setShowOptions(true)
     }
     doFetch()
     const channel = supabase
@@ -1927,26 +1924,8 @@ export default function Event3Page() {
   useEffect(() => {
     if (!token) return
     fetchState()
-    const channel = supabase
-      .channel('event3-state')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'event_state' }, (payload: any) => {
-        const row = payload.new
-        if (row) {
-          setEventState((prev: any) => prev ? {
-            ...prev,
-            phase: row.phase || prev.phase,
-            timer_active: row.global_timer_active ?? prev.timer_active,
-            timer_start: row.global_timer_start_time ?? prev.timer_start,
-            timer_duration: row.global_timer_duration ?? prev.timer_duration,
-            phase2_score_revealed: row.phase2_score_revealed ?? prev.phase2_score_revealed,
-            phase3_score_revealed: row.phase3_score_revealed ?? prev.phase3_score_revealed,
-          } : null)
-        }
-        fetchState()
-      })
-      .subscribe()
-    const fallback = setInterval(fetchState, 30000)
-    return () => { supabase.removeChannel(channel); clearInterval(fallback) }
+    const iv = setInterval(fetchState, 2000)
+    return () => clearInterval(iv)
   }, [token, fetchState])
 
   if (showWelcome) return <WelcomeScreen onDone={() => setShowWelcome(false)} />

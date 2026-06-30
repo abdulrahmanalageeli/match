@@ -1183,10 +1183,10 @@ function SOSButton({ token }: { token: string }) {
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60 bg-gray-900/50">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">م</div>
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">ع</div>
                 <div>
-                  <p className="text-white text-sm font-bold leading-tight">المنظم</p>
-                  <p className="text-gray-500 text-[10px] leading-tight">تواصل مباشر</p>
+                  <p className="text-white text-sm font-bold leading-tight">عبدالرحمن</p>
+                  <p className="text-gray-500 text-[10px] leading-tight">المنظم — تواصل مباشر</p>
                 </div>
               </div>
               <button onClick={() => setOpen(false)}
@@ -1231,7 +1231,7 @@ function SOSButton({ token }: { token: string }) {
                       : 'bg-gray-800/80 text-gray-100 rounded-br-md border border-emerald-700/30'
                   }`}>
                     {msg.from === 'organizer' && (
-                      <p className="text-emerald-400/80 text-[9px] font-bold mb-0.5">المنظم</p>
+                      <p className="text-emerald-400/80 text-[9px] font-bold mb-0.5">عبدالرحمن</p>
                     )}
                     {msg.text}
                     {msg.from === 'user' && msg.status === 'pending' && (

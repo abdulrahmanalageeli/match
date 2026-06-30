@@ -2165,9 +2165,22 @@ export default function Admin3Page() {
                   </span>
                 )}
               </div>
-              <button onClick={() => setSosModalOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
-                <X size={16} />
-              </button>
+              <div className="flex items-center gap-2">
+                {sosRequests.length > 0 && (
+                  <button onClick={async () => {
+                    if (!confirm("حذف جميع طلبات المساعدة؟ لا يمكن التراجع.")) return
+                    await api("e3-reset-sos")
+                    setSosRequests([])
+                    toast.success("تم حذف جميع الطلبات")
+                  }}
+                    className="px-3 py-1.5 rounded-lg bg-red-900/40 border border-red-700/30 text-red-400 hover:bg-red-900/60 text-xs font-medium transition-colors">
+                    حذف الكل
+                  </button>
+                )}
+                <button onClick={() => setSosModalOpen(false)} className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white">
+                  <X size={16} />
+                </button>
+              </div>
             </div>
 
             {/* List */}

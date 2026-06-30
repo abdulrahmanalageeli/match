@@ -6456,6 +6456,12 @@ export default async function handler(req, res) {
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم التحديث" })
         }
+        // e3-reset-sos — delete all organizer requests
+        if (action === "e3-reset-sos") {
+          const { error } = await supabase.from("organizer_requests").delete().neq("id", 0)
+          if (error) return res.status(500).json({ error: error.message })
+          return res.status(200).json({ message: "تم حذف جميع الطلبات" })
+        }
         // e3-reset-event
         if (action === "e3-reset-event") {
           await Promise.all([

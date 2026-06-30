@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from "react"
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from "react"
 import GroupsPage from "./groups"
 import { useSearchParams } from "react-router"
 import toast, { Toaster } from "react-hot-toast"
@@ -814,12 +814,6 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
             ))}
           </div>
 
-          {submitted && (
-            <div className="mx-5 mb-3 flex items-center gap-2 bg-green-900/20 border border-green-800/40 rounded-xl px-3 py-2">
-              <CheckCircle size={13} className="text-green-400" />
-              <span className="text-green-400 text-xs">تصنيفك محفوظ — يمكنك التعديل وإعادة الإرسال</span>
-            </div>
-          )}
         </div>
 
         {/* Drag-to-reorder list */}
@@ -932,15 +926,9 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
             {submitting ? <Spinner size={18} className="!text-white" /> : <Send size={18} />}
             {submitted ? "تحديث التصنيف" : "إرسال التصنيف النهائي"}
           </motion.button>
-          {submitted ? (
-            <p className="text-center text-green-400 text-xs mt-2.5 flex items-center justify-center gap-1.5">
-              <CheckCircle size={11} /> محفوظ — انتظر كشف النتائج
-            </p>
-          ) : (
-            <p className="text-center text-gray-700 text-[11px] mt-2">
-              النظام سيختار توافقك الأمثل من تصنيفاتك
-            </p>
-          )}
+          <p className="text-center text-gray-700 text-[11px] mt-2">
+            النظام سيختار توافقك الأمثل من تصنيفاتك
+          </p>
         </div>
       </div>
     </PageWrapper>
@@ -1100,139 +1088,208 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
   )
 }
 
-// ─── SOS / Organizer Request Button ─────────────────────────────────────────
+// ─── SOS / Organizer Chat Box ───────────────────────────────────────────────
 function SOSButton({ token }: { token: string }) {
-  const [status, setStatus] = useState<'idle' | 'pending' | 'seen' | 'replied' | 'resolved'>('idle')
   const [open, setOpen] = useState(false)
-  const [message, setMessage] = useState("")
+  const [messages, setMessages] = useState<{ id: string; text: string; from: 'user' | 'organizer'; status: string }[]>([])
+  const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
-  const [organizerReply, setOrganizerReply] = useState<string | null>(null)
-  const [showReply, setShowReply] = useState(false)
+  const [showOptions, setShowOptions] = useState(true)
+  const [hasUnread, setHasUnread] = useState(false)
+  const [lastReplyCount, setLastReplyCount] = useState(0)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (status === 'idle' || status === 'resolved') return
     const iv = setInterval(async () => {
       const d = await call('e3-sos-check', token)
-      if (!d.error && d.status && d.status !== status) {
-        setStatus(d.status)
-        if (d.organizer_reply && !organizerReply) {
-          setOrganizerReply(d.organizer_reply)
-          setShowReply(true)
-          toast('💬 رسالة من المنظم!', { duration: 6000 })
-        } else if (d.status === 'seen' && status === 'pending') {
-          toast('👀 المنظم رأى طلبك — في الطريق!', { duration: 4000 })
-        }
+      if (d.error || !d.requests) return
+      const userMsgs: { id: string; text: string; from: 'user'; status: string }[] = []
+      const orgMsgs: { id: string; text: string; from: 'organizer'; status: string }[] = []
+      for (const r of d.requests) {
+        if (r.message) userMsgs.push({ id: r.id, text: r.message, from: 'user', status: r.status })
+        if (r.organizer_reply) orgMsgs.push({ id: r.id + '-reply', text: r.organizer_reply, from: 'organizer', status: r.status })
       }
+      const all = [...userMsgs, ...orgMsgs].sort((a, b) => a.id.localeCompare(b.id))
+      setMessages(all)
+      if (orgMsgs.length > lastReplyCount && lastReplyCount >= 0) {
+        setHasUnread(true)
+        if (!open) toast('💬 رسالة من المنظم!', { duration: 5000 })
+      }
+      setLastReplyCount(orgMsgs.length)
+      if (userMsgs.length > 0) setShowOptions(false)
     }, 5000)
     return () => clearInterval(iv)
-  }, [status, token, organizerReply])
+  }, [token, open, lastReplyCount])
 
-  const send = async () => {
+  useEffect(() => {
+    if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }
+  }, [open, messages])
+
+  const send = async (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed || sending) return
     setSending(true)
-    const d = await call('e3-sos', token, { message: message.trim() || undefined })
+    const d = await call('e3-sos', token, { message: trimmed })
     setSending(false)
     if (!d.error) {
-      setStatus('pending')
-      setOpen(false)
-      setMessage("")
-      toast.success('تم إرسال الطلب للمنظم ✅')
+      setMessages(prev => [...prev, { id: d.id || String(Date.now()), text: trimmed, from: 'user', status: 'pending' }])
+      setShowOptions(false)
+      setInput("")
+      toast.success('تم الإرسال ✅')
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
     } else {
-      toast.error('حدث خطأ، حاول مرة أخرى')
+      toast.error('حدث خطأ')
     }
   }
 
-  if (status === 'resolved') return null
-
-  const pillCls = {
-    idle:    'bg-gray-900/80 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600/70',
-    pending: 'bg-orange-950/60 border-orange-700/40 text-orange-300',
-    seen:    'bg-blue-950/60 border-blue-700/40 text-blue-300',
-    replied: 'bg-emerald-950/60 border-emerald-600/50 text-emerald-300',
-    resolved: '',
-  }[status]
+  const pendingCount = messages.filter(m => m.from === 'user' && m.status === 'pending').length
+  const hasActive = messages.length > 0
 
   return (
     <>
-      <div className="fixed bottom-5 right-4 z-[190] flex flex-col items-end gap-2" dir="rtl">
-        {/* Organizer reply bubble */}
-        <AnimatePresence>
-          {showReply && organizerReply && (
-            <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.92 }}
-              className="max-w-[200px] bg-gray-900/95 backdrop-blur-md border border-emerald-500/30 rounded-2xl px-4 py-3 shadow-2xl"
-            >
-              <p className="text-emerald-400 text-[10px] font-bold tracking-wide mb-1">رسالة من المنظم</p>
-              <p className="text-white/90 text-sm leading-relaxed">{organizerReply}</p>
-              <button onClick={() => { setShowReply(false); setStatus('resolved') }}
-                className="mt-2 text-gray-600 text-xs hover:text-white transition-colors">✕ إغلاق</button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {/* Floating button — always visible */}
+      <motion.button
+        whileTap={{ scale: 0.92 }}
+        onClick={() => setOpen(o => !o)}
+        className={`fixed bottom-5 right-4 z-[190] flex items-center gap-2 px-3.5 py-2.5 rounded-2xl backdrop-blur-md border shadow-lg transition-all ${
+          hasUnread ? 'bg-emerald-950/70 border-emerald-600/50 text-emerald-300'
+          : pendingCount > 0 ? 'bg-orange-950/60 border-orange-700/40 text-orange-300'
+          : 'bg-gray-900/80 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600/70'
+        }`}
+        dir="rtl"
+      >
+        {pendingCount > 0 && !hasUnread && (
+          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+            className="w-3 h-3 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" />
+        )}
+        {hasUnread && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />}
+        {!hasActive && <span className="w-1.5 h-1.5 rounded-full bg-red-500/80 animate-pulse flex-shrink-0" />}
+        <span className="text-xs font-semibold">
+          {hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : 'المنظم'}
+        </span>
+      </motion.button>
 
-        {/* Pill button */}
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => {
-            if (status === 'idle') setOpen(true)
-            else if (status === 'replied' && organizerReply) setShowReply(s => !s)
-          }}
-          className={`flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md border text-xs font-semibold shadow-lg transition-all ${pillCls}`}
-        >
-          {status === 'idle' && (
-            <><span className="w-1.5 h-1.5 rounded-full bg-red-500/80 animate-pulse flex-shrink-0" /><span>طلب مساعدة</span></>
-          )}
-          {status === 'pending' && (
-            <><motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-              className="w-3 h-3 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" /><span>في الانتظار...</span></>
-          )}
-          {status === 'seen' && <><span>👀</span><span>المنظم في الطريق</span></>}
-          {status === 'replied' && (
-            <><span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" /><span>رسالة من المنظم</span></>
-          )}
-        </motion.button>
-      </div>
-
-      {/* Compose sheet */}
+      {/* Chat panel */}
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-end justify-center p-4"
-            onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
-            <motion.div initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 80, opacity: 0 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-              className="w-full max-w-sm bg-gray-950 border border-gray-800/80 rounded-3xl p-5 space-y-4 shadow-2xl" dir="rtl">
-
-              <div className="flex items-start justify-between">
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+            className="fixed bottom-20 right-4 z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+            style={{ maxHeight: '70vh' }}
+            dir="rtl"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/60 bg-gray-900/50">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-xs font-bold text-white">م</div>
                 <div>
-                  <p className="text-white font-black text-lg leading-tight">استدعاء المنظم</p>
-                  <p className="text-gray-500 text-xs mt-0.5">سيأتي إلى طاولتك فور تلقي الطلب</p>
+                  <p className="text-white text-sm font-bold leading-tight">المنظم</p>
+                  <p className="text-gray-500 text-[10px] leading-tight">تواصل مباشر</p>
                 </div>
-                <button onClick={() => setOpen(false)}
-                  className="w-8 h-8 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-                  <X size={14} />
-                </button>
               </div>
+              <button onClick={() => setOpen(false)}
+                className="w-7 h-7 rounded-full bg-gray-800/80 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <X size={13} />
+              </button>
+            </div>
 
-              <div className="space-y-1.5">
-                <textarea
-                  value={message}
-                  onChange={e => e.target.value.length <= 200 && setMessage(e.target.value)}
-                  placeholder="رسالة اختيارية للمنظم... (اختياري)"
-                  rows={3}
-                  className="w-full bg-gray-900 border border-gray-700/50 text-white rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all"
-                />
-                <p className="text-gray-700 text-xs text-left" dir="ltr">{message.length}/200</p>
+            {/* Messages area */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2.5 min-h-[120px]">
+              {messages.length === 0 && showOptions && (
+                <div className="space-y-2.5 py-2">
+                  <p className="text-center text-gray-600 text-xs mb-3">اختر نوع الطلب</p>
+                  <button
+                    onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة عاجل - أحتاج المنظم إلى طاولتي') }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-950/30 border border-red-800/40 hover:bg-red-950/50 transition-all text-right"
+                  >
+                    <span className="text-lg">🆘</span>
+                    <div>
+                      <p className="text-red-300 text-sm font-semibold">طلب مساعدة عاجل</p>
+                      <p className="text-gray-500 text-[11px]">سيأتي المنظم إلى طاولتك فوراً</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => { setShowOptions(false); setInput('') }}
+                    className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40 hover:bg-purple-950/50 transition-all text-right"
+                  >
+                    <span className="text-lg">💬</span>
+                    <div>
+                      <p className="text-purple-300 text-sm font-semibold">رسالة خاصة</p>
+                      <p className="text-gray-500 text-[11px]">اكتب رسالة سرية للمنظم</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+
+              {messages.map(msg => (
+                <div key={msg.id} className={`flex ${msg.from === 'user' ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                    msg.from === 'user'
+                      ? 'bg-gradient-to-br from-purple-600/90 to-pink-600/90 text-white rounded-bl-md'
+                      : 'bg-gray-800/80 text-gray-100 rounded-br-md border border-emerald-700/30'
+                  }`}>
+                    {msg.from === 'organizer' && (
+                      <p className="text-emerald-400/80 text-[9px] font-bold mb-0.5">المنظم</p>
+                    )}
+                    {msg.text}
+                    {msg.from === 'user' && msg.status === 'pending' && (
+                      <p className="text-white/50 text-[9px] mt-1 flex items-center gap-1">
+                        <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                          className="w-2 h-2 border border-white/30 border-t-white/60 rounded-full" />
+                        في الانتظار
+                      </p>
+                    )}
+                    {msg.from === 'user' && msg.status === 'seen' && (
+                      <p className="text-white/50 text-[9px] mt-1">👀 تمت المشاهدة</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              {messages.length === 0 && !showOptions && (
+                <p className="text-center text-gray-600 text-xs py-4">لا توجد رسائل</p>
+              )}
+            </div>
+
+            {/* Input area */}
+            {!showOptions && (
+              <div className="border-t border-gray-800/60 p-2.5 bg-gray-900/30">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={input}
+                    onChange={e => e.target.value.length <= 200 && setInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(input) } }}
+                    placeholder="اكتب رسالة..."
+                    rows={1}
+                    className="flex-1 bg-gray-900 border border-gray-700/50 text-white rounded-2xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500/40 resize-none placeholder:text-gray-700 transition-all max-h-20"
+                    style={{ minHeight: '40px' }}
+                  />
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={() => send(input)}
+                    disabled={sending || !input.trim()}
+                    className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-white disabled:opacity-30 transition-all flex-shrink-0"
+                  >
+                    {sending
+                      ? <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" />
+                      : <Send size={15} />}
+                  </motion.button>
+                </div>
               </div>
+            )}
 
-              <motion.button onClick={send} disabled={sending} whileTap={{ scale: 0.97 }}
-                className="w-full py-4 rounded-2xl font-black text-base bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-lg shadow-purple-600/25 disabled:opacity-40 transition-all flex items-center justify-center gap-2">
-                {sending
-                  ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                      className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
-                  : <>📢 أرسل الطلب</>}
-              </motion.button>
-            </motion.div>
+            {/* New request option after conversation started */}
+            {hasActive && messages.length > 0 && (
+              <button
+                onClick={() => { setShowOptions(true); setInput('') }}
+                className="text-center text-gray-600 text-[11px] py-2 hover:text-gray-400 transition-colors border-t border-gray-800/40"
+              >
+                + طلب جديد
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

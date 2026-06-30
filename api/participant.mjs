@@ -2817,12 +2817,11 @@ Please respond in JSON format:
         return res.status(200).json({ id: inserted.id, status: "pending" })
       }
 
-      // e3-sos-check — poll latest SOS status + organizer reply
+      // e3-sos-check — poll all SOS requests for this user (chat history)
       if (action === "e3-sos-check") {
         if (!participant) return res.status(401).json({ error: "Invalid token" })
-        const { data: latest } = await supabase.from("organizer_requests").select("id,status,organizer_reply").eq("participant_token", token).order("created_at", { ascending: false }).limit(1).maybeSingle()
-        if (!latest) return res.status(200).json({ status: null })
-        return res.status(200).json({ id: latest.id, status: latest.status, organizer_reply: latest.organizer_reply || null })
+        const { data: requests } = await supabase.from("organizer_requests").select("id,status,message,organizer_reply,created_at").eq("participant_token", token).order("created_at", { ascending: true })
+        return res.status(200).json({ requests: requests || [] })
       }
 
       return res.status(400).json({ error: `Unknown e3 action: ${action}` })

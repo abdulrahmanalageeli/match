@@ -1,7 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import OpenAI from "openai"
-import munkres from "munkres-js"
-import { calculateFullCompatibilityWithCache, isParticipantComplete } from "./trigger-match.mjs"
+import { calculateFullCompatibilityWithCache, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility } from "./trigger-match.mjs"
 
 const supabase = createClient(
   process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
@@ -45,13 +44,15 @@ function e3GenerateSeatingPlan(participantNumbers) {
   return { round1, round2, T, G, positionMap }
 }
 
-function e3GreedyMutualMatching(rankings, genders = new Map()) {
+function e3GreedyMutualMatching(rankings, participantMap = new Map()) {
   const unmatched = new Set(rankings.keys()), matches = new Map(), list = Array.from(rankings.keys()), pairs = []
   for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {
     const pi = list[i], pj = list[j]
     const ri = (rankings.get(pi) || []).indexOf(pj), rj = (rankings.get(pj) || []).indexOf(pi)
     if (ri !== -1 && rj !== -1) {
-      const oppGender = genders.size > 0 && genders.get(pi) && genders.get(pj) && genders.get(pi) !== genders.get(pj) ? 1 : 0
+      const pA = participantMap.get(pi), pB = participantMap.get(pj)
+      if (pA && pB && !checkGenderCompatibility(pA, pB)) continue
+      const oppGender = pA && pB && pA.gender && pB.gender && pA.gender !== pB.gender ? 1 : 0
       pairs.push({ a: pi, b: pj, score: ri + rj, oppGender })
     }
   }
@@ -61,25 +62,14 @@ function e3GreedyMutualMatching(rankings, genders = new Map()) {
     if (unmatched.size === 0) break
   }
   const rest = Array.from(unmatched)
-  // Pair remaining: if odd count, last 3 form a circular triple (A→B→C→A)
   for (let i = 0; i + 1 < rest.length; i += 2) {
     if (i + 2 === rest.length - 1) {
-      // 3 left: circular triple
       const [a, b, c] = rest.slice(i)
       matches.set(a, b); matches.set(b, c); matches.set(c, a)
       break
     }
     matches.set(rest[i], rest[i+1]); matches.set(rest[i+1], rest[i])
   }
-  return matches
-}
-
-function e3HungarianMatching(participants, scoreMap) {
-  const half = Math.floor(participants.length / 2)
-  const groupA = participants.slice(0, half), groupB = participants.slice(half)
-  const cost = groupA.map(pa => groupB.map(pb => { const key = pa < pb ? `${pa}-${pb}` : `${pb}-${pa}`; return 100 - (scoreMap[key] ?? 50) }))
-  const matches = new Map()
-  for (const [i, j] of munkres(cost)) { matches.set(groupA[i], groupB[j]); matches.set(groupB[j], groupA[i]) }
   return matches
 }
 
@@ -6140,13 +6130,13 @@ export default async function handler(req, res) {
             rankings.set(row.ranker_number, sorted)
           }
           const rankerNums = Array.from(rankings.keys())
-          const { data: genderRows } = await supabase.from("participants").select("assigned_number,gender,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", rankerNums)
-          const genders = new Map()
+          const { data: genderRows } = await supabase.from("participants").select("assigned_number,gender,survey_data,same_gender_preference,any_gender_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", rankerNums)
+          const participantMap = new Map()
           for (const p of genderRows || []) {
-            const g = p.gender || (() => { try { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return sd?.answers?.gender || sd?.gender || "" } catch { return "" } })()
-            if (g) genders.set(p.assigned_number, g.toLowerCase())
+            try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
+            participantMap.set(p.assigned_number, p)
           }
-          const matches = e3GreedyMutualMatching(rankings, genders)
+          const matches = e3GreedyMutualMatching(rankings, participantMap)
           await supabase.from("event3_matches").delete().eq("match_id", EVENT3_MATCH_ID)
           const rows = []
           const seen = new Set()
@@ -6176,13 +6166,84 @@ export default async function handler(req, res) {
           const { data: ep } = await supabase.from("event3_participants").select("participant_number").eq("match_id", EVENT3_MATCH_ID)
           if (!ep || ep.length < 4) return res.status(400).json({ error: "No participants selected" })
           const nums = ep.map(r => r.participant_number)
-          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          // Fetch ALL fields needed for the same filtering as trigger-match.mjs
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,gender,age,survey_data,mbti_personality_type,attachment_style,communication_style,humor_banter_style,early_openness_comfort,same_gender_preference,any_gender_preference,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
           if (!pdata) return res.status(500).json({ error: "Failed to fetch participant data" })
-          const scoreMap = {}
-          for (let i = 0; i < pdata.length; i++) for (let j = i + 1; j < pdata.length; j++) { const a = pdata[i].assigned_number, b = pdata[j].assigned_number; const key = a < b ? `${a}-${b}` : `${b}-${a}`; scoreMap[key] = (await e3FullCalcCompat(pdata[i], pdata[j])).totalScore }
-          const matches = e3HungarianMatching(nums.slice().sort((a, b) => a - b), scoreMap)
-          for (const [p, partner] of matches) { const key = p < partner ? `${p}-${partner}` : `${partner}-${p}`; await supabase.from("event3_matches").upsert({ match_id: EVENT3_MATCH_ID, participant_number: p, phase3_partner: partner, phase3_score: scoreMap[key] ?? 50 }, { onConflict: "match_id,participant_number" }) }
-          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.size / 2} pairs.` })
+          // Parse survey_data
+          for (const p of pdata) {
+            try { p.survey_data = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}) } catch {}
+          }
+          // Build participant lookup
+          const pByNum = new Map(pdata.map(p => [p.assigned_number, p]))
+
+          // Same pipeline as trigger-match.mjs: filter pairs, calculate scores, greedy match
+          const compatibilityScores = []
+          let skippedGender = 0, skippedNationality = 0, skippedAge = 0, skippedInteraction = 0
+
+          for (let i = 0; i < pdata.length; i++) {
+            for (let j = i + 1; j < pdata.length; j++) {
+              const a = pdata[i], b = pdata[j]
+
+              // 1. Gender compatibility (respects same_gender_preference, any_gender_preference, opposite_gender)
+              if (!checkGenderCompatibility(a, b)) { skippedGender++; continue }
+              // 2. Nationality hard gate
+              if (!checkNationalityHardGate(a, b)) { skippedNationality++; continue }
+              // 3. Age range hard gate
+              if (!checkAgeRangeHardGate(a, b)) { skippedAge++; continue }
+              // 4. Interaction style compatibility (humor/openness veto)
+              if (!checkInteractionStyleCompatibility(a, b)) { skippedInteraction++; continue }
+
+              // 5. Calculate full compatibility (same function as Generate Matches)
+              const result = await e3FullCalcCompat(a, b)
+              const totalScore = result.totalScore
+
+              // 6. Build reason string (same format as trigger-match.mjs)
+              const reason = `Synergy: ${Math.round(result.synergyScore)}% + Vibe: ${Math.round(result.vibeScore)}% + Lifestyle: ${Math.round(result.lifestyleScore)}% + Humor/Openness: ${Math.round(result.humorOpenScore)}% + Communication: ${Math.round(result.communicationScore)}% + Core Values: ${Math.round(result.coreValuesScaled5 ?? 0)}%` +
+                (result.attachmentPenalty ? ` − Penalty(Anx×Avoid)` : '') +
+                (result.intentBoost ? ` × IntentBoost(1.05)` : '') +
+                (result.capApplied ? ` (capped @ ${result.capApplied}%)` : '')
+
+              compatibilityScores.push({ a: a.assigned_number, b: b.assigned_number, score: totalScore, reason })
+            }
+          }
+
+          console.log(`Phase 3 matching: ${compatibilityScores.length} compatible pairs, skipped: ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style`)
+
+          // 7. Greedy matching: sort by score descending, assign best pairs first (same as trigger-match.mjs)
+          compatibilityScores.sort((a, b) => b.score - a.score)
+          const used = new Set()
+          const matches = []
+          for (const pair of compatibilityScores) {
+            if (!used.has(pair.a) && !used.has(pair.b)) {
+              used.add(pair.a)
+              used.add(pair.b)
+              matches.push(pair)
+            }
+          }
+
+          // 8. Store results with score and reason
+          for (const pair of matches) {
+            await supabase.from("event3_matches").upsert({
+              match_id: EVENT3_MATCH_ID,
+              participant_number: pair.a,
+              phase3_partner: pair.b,
+              phase3_score: pair.score,
+            }, { onConflict: "match_id,participant_number" })
+            await supabase.from("event3_matches").upsert({
+              match_id: EVENT3_MATCH_ID,
+              participant_number: pair.b,
+              phase3_partner: pair.a,
+              phase3_score: pair.score,
+            }, { onConflict: "match_id,participant_number" })
+          }
+
+          // Handle unmatched (odd count) — pair with highest remaining compatible or leave unmatched
+          const unmatched = nums.filter(n => !used.has(n))
+          if (unmatched.length === 1) {
+            console.log(`Phase 3: 1 unmatched participant #${unmatched[0]} (odd count)`)
+          }
+
+          return res.status(200).json({ message: `Phase 3 matching complete. Created ${matches.length} pairs. Skipped: ${skippedGender} gender, ${skippedNationality} nationality, ${skippedAge} age, ${skippedInteraction} interaction style.` })
         }
         // e3-get-all-rankings
         if (action === "e3-get-all-rankings") {

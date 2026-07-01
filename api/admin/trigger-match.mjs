@@ -3132,7 +3132,7 @@ function getLockedMatch(participantA, participantB, lockedPairs) {
   )
 }
 
-export { calculateFullCompatibilityWithCache, isParticipantComplete }
+export { calculateFullCompatibilityWithCache, isParticipantComplete, checkGenderCompatibility, checkNationalityHardGate, checkAgeRangeHardGate, checkInteractionStyleCompatibility }
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

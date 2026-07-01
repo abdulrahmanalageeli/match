@@ -85,6 +85,8 @@ export default function Admin3Page() {
   const [pairDetail, setPairDetail] = useState<any | null>(null)
   const [surveyModal, setSurveyModal] = useState<any | null>(null)
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
+  const [overviewSearch, setOverviewSearch] = useState("")
+  const [overviewFilter, setOverviewFilter] = useState("all")
 
   const [sosRequests, setSosRequests] = useState<any[]>([])
   const [sosModalOpen, setSosModalOpen] = useState(false)
@@ -146,6 +148,24 @@ export default function Admin3Page() {
     setOverviewData(data)
     setOverviewLoading(false)
   }, [])
+
+  const mbtiGroupFn = (m: string) => {
+    if (!m) return null
+    const t = m.toUpperCase()
+    if (['INFJ','INFP','ENFJ','ENFP'].includes(t)) return { label: m, cls: 'bg-violet-900/60 text-violet-300 border-violet-700/50' }
+    if (['INTJ','INTP','ENTJ','ENTP'].includes(t)) return { label: m, cls: 'bg-blue-900/60 text-blue-300 border-blue-700/50' }
+    if (['ISFJ','ISFP','ESFJ','ESFP'].includes(t)) return { label: m, cls: 'bg-pink-900/50 text-pink-300 border-pink-700/50' }
+    return { label: m, cls: 'bg-teal-900/50 text-teal-300 border-teal-700/50' }
+  }
+
+  const getRankerFn = (num: number) => allRankings.find((r: any) => r.number === num)
+  const isMutualTop3Fn = (a: number, b: number) => {
+    const ra = getRankerFn(a), rb = getRankerFn(b)
+    if (!ra?.ranked_list || !rb?.ranked_list) return false
+    const aRankedB = ra.ranked_list.find((item: any) => item.number === b)
+    const bRankedA = rb.ranked_list.find((item: any) => item.number === a)
+    return !!(aRankedB?.rank <= 3 && bRankedA?.rank <= 3)
+  }
 
   const fetchSOS = useCallback(async () => {
     const data = await api("e3-get-sos")
@@ -524,7 +544,7 @@ export default function Admin3Page() {
           ].map(tab => (
             <button
               key={tab.id}
-              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking") fetchRankStatus() }}
+              onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking" || tab.id === "overview") fetchRankStatus() }}
               className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-purple-500 text-purple-400"
@@ -1525,15 +1545,52 @@ export default function Admin3Page() {
       {activeTab === "overview" && (() => {
         const pts: any[] = overviewData?.participants || []
         const matrix: Record<string, { score: number | null; bothComplete: boolean }> = overviewData?.matrix || {}
-        const sorted = [...pts].sort((a, b) => {
+        const getEntry = (a: number, b: number) => { const k = a < b ? `${a}-${b}` : `${b}-${a}`; return matrix[k] || null }
+
+        // Helper: get ranking data for a participant
+        const getTopPick = (num: number) => { const r = getRankerFn(num); return r?.ranked_list?.[0] || null }
+        const getMutualTop3Count = (num: number) => {
+          let count = 0
+          for (const r of allRankings) {
+            if (r.number === num) continue
+            const rankedMe = r.ranked_list?.find((item: any) => item.number === num)
+            if (rankedMe && rankedMe.rank <= 3) {
+              const myRanking = getRankerFn(num)
+              const iRankedThem = myRanking?.ranked_list?.find((item: any) => item.number === r.number)
+              if (iRankedThem && iRankedThem.rank <= 3) count++
+            }
+          }
+          return count
+        }
+
+        // Compute avg compatibility per participant
+        const getAvgCompat = (pNum: number, pGender: string) => {
+          const opposite = pts.filter(p => p.gender !== pGender && p.number !== pNum)
+          const scores = opposite.map(p => getEntry(pNum, p.number)?.score).filter(s => s != null) as number[]
+          return scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+        }
+
+        // Filter participants
+        const filteredPts = pts.filter(p => {
+          if (overviewSearch) {
+            const q = overviewSearch.toLowerCase()
+            if (!p.name?.toLowerCase().includes(q) && !String(p.number).includes(q)) return false
+          }
+          if (overviewFilter === 'incomplete' && p.complete) return false
+          if (overviewFilter === 'notvoted' && p.rankingSubmitted) return false
+          if (overviewFilter === 'matched' && !p.matchPartner) return false
+          if (overviewFilter === 'unmatched' && p.matchPartner) return false
+          return true
+        })
+
+        const sorted = [...filteredPts].sort((a, b) => {
           if (a.gender !== b.gender) return a.gender === 'male' ? -1 : 1
           return a.number - b.number
         })
         const males = sorted.filter(p => p.gender === 'male')
         const females = sorted.filter(p => p.gender === 'female')
-        const getEntry = (a: number, b: number) => { const k = a < b ? `${a}-${b}` : `${b}-${a}`; return matrix[k] || null }
 
-        const cellStyle = (score: number | null, complete: boolean, isMatch: boolean) => {
+        const cellStyle = (score: number | null, complete: boolean, isMatch: boolean, isMutual: boolean) => {
           if (!complete || score == null) return { background: 'rgba(17,24,39,0.9)', color: '#374151', outline: 'none' }
           let bg = 'rgba(17,24,39,0.9)', col = '#374151'
           if (score >= 80) { bg = 'rgba(16,185,129,0.25)'; col = '#34d399' }
@@ -1541,17 +1598,13 @@ export default function Admin3Page() {
           else if (score >= 54) { bg = 'rgba(139,92,246,0.18)'; col = '#c084fc' }
           else if (score >= 40) { bg = 'rgba(234,179,8,0.16)'; col = '#facc15' }
           else { bg = 'rgba(239,68,68,0.14)'; col = '#f87171' }
-          return { background: bg, color: col, outline: isMatch ? '2px solid #f59e0b' : 'none', outlineOffset: '-2px', zIndex: isMatch ? 1 : 'auto' }
+          let outline = 'none'
+          if (isMatch) outline = '2px solid #f59e0b'
+          else if (isMutual) outline = '2px solid #ec4899'
+          return { background: bg, color: col, outline, outlineOffset: '-2px', zIndex: (isMatch || isMutual) ? 1 : 'auto' }
         }
 
-        const mbtiGroup = (m: string) => {
-          if (!m) return null
-          const t = m.toUpperCase()
-          if (['INFJ','INFP','ENFJ','ENFP'].includes(t)) return { label: m, cls: 'bg-violet-900/60 text-violet-300 border-violet-700/50' }
-          if (['INTJ','INTP','ENTJ','ENTP'].includes(t)) return { label: m, cls: 'bg-blue-900/60 text-blue-300 border-blue-700/50' }
-          if (['ISFJ','ISFP','ESFJ','ESFP'].includes(t)) return { label: m, cls: 'bg-pink-900/50 text-pink-300 border-pink-700/50' }
-          return { label: m, cls: 'bg-teal-900/50 text-teal-300 border-teal-700/50' }
-        }
+        const mbtiGroup = mbtiGroupFn
 
         const attachDot = (a: string) => {
           if (a === 'Secure') return 'bg-emerald-400'
@@ -1565,6 +1618,10 @@ export default function Admin3Page() {
         const matchedCount = pts.filter(p => p.matchPartner).length
         const avgScores = pts.filter(p => p.matchCompatScore != null).map(p => p.matchCompatScore)
         const avgCompat = avgScores.length ? Math.round(avgScores.reduce((a: number, b: number) => a + b, 0) / avgScores.length) : null
+        const currentPhaseIdx = PHASES.findIndex(p => p.id === state?.phase)
+        const allMales = pts.filter(p => p.gender === 'male')
+        const allFemales = pts.filter(p => p.gender === 'female')
+        const totalForBalance = allMales.length + allFemales.length
 
         if (overviewLoading) return (
           <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -1592,6 +1649,29 @@ export default function Admin3Page() {
               </button>
             </div>
 
+            {/* ── Progress Timeline ── */}
+            {state && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
+                  {PHASES.map((phase, idx) => (
+                    <div key={phase.id} className="flex items-center gap-1 flex-shrink-0">
+                      <div className={`px-2 py-1 rounded-lg text-[9px] sm:text-[10px] font-medium transition-all ${
+                        idx === currentPhaseIdx
+                          ? "bg-purple-600 text-white"
+                          : idx < currentPhaseIdx
+                          ? "bg-gray-700 text-green-400"
+                          : "bg-gray-800 text-gray-600"
+                      }`}>
+                        {phase.icon} {phase.label}
+                        {idx < currentPhaseIdx && <Check size={8} className="inline mr-1" />}
+                      </div>
+                      {idx < PHASES.length - 1 && <span className="text-gray-700 text-[8px]">→</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── Stats Strip ── */}
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
               {[
@@ -1608,16 +1688,54 @@ export default function Admin3Page() {
               ))}
             </div>
 
+            {/* ── Gender Balance Bar ── */}
+            {totalForBalance > 0 && (
+              <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] text-gray-500">التوازن بين الجنسين</span>
+                  <span className="text-[10px] text-gray-600">{allMales.length}ذ · {allFemales.length}أ</span>
+                </div>
+                <div className="h-3 rounded-full overflow-hidden flex bg-gray-800">
+                  <div className="bg-blue-500/70 h-full transition-all duration-500" style={{ width: `${(allMales.length / totalForBalance) * 100}%` }} />
+                  <div className="bg-pink-500/70 h-full transition-all duration-500" style={{ width: `${(allFemales.length / totalForBalance) * 100}%` }} />
+                </div>
+              </div>
+            )}
+
+            {/* ── Search & Filter Bar ── */}
+            <div className="flex gap-2 flex-wrap">
+              <input
+                type="text"
+                placeholder="ابحث بالاسم أو الرقم..."
+                value={overviewSearch}
+                onChange={e => setOverviewSearch(e.target.value)}
+                className="flex-1 min-w-[120px] bg-gray-800 border border-gray-700 text-white rounded-lg px-3 py-1.5 text-xs text-right focus:outline-none focus:border-purple-500"
+              />
+              <select
+                value={overviewFilter}
+                onChange={e => setOverviewFilter(e.target.value)}
+                className="bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1.5 text-xs"
+              >
+                <option value="all">الجميع</option>
+                <option value="incomplete">استبيان ناقص</option>
+                <option value="notvoted">لم يصوّت</option>
+                <option value="matched">مطابَق</option>
+                <option value="unmatched">غير مطابَق</option>
+              </select>
+            </div>
+
             {/* ── Participant Roster ── */}
             <div className="rounded-2xl border border-gray-800 overflow-hidden bg-gray-900/40">
               <div className="px-3 py-2 border-b border-gray-800 flex items-center justify-between">
                 <span className="text-xs font-semibold text-gray-400 flex items-center gap-1.5"><Users size={11} /> قائمة المشاركين</span>
                 <div className="flex items-center gap-2 text-[9px] text-gray-600">
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />ذكور {males.length}</span>
-                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-pink-400 inline-block" />إناث {females.length}</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400 inline-block" />ذكور {allMales.length}</span>
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-pink-400 inline-block" />إناث {allFemales.length}</span>
                 </div>
               </div>
-              <div className="overflow-x-auto">
+
+              {/* Desktop: table */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-[11px]">
                   <thead>
                     <tr className="border-b border-gray-800/60 bg-gray-800/30">
@@ -1627,6 +1745,9 @@ export default function Admin3Page() {
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج١</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">ج٢</th>
                       <th className="text-center px-2 py-2 text-gray-500 font-semibold">صوّت</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">متوسط</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">اختياره</th>
+                      <th className="text-center px-2 py-2 text-gray-500 font-semibold">تبادل</th>
                       <th className="text-right px-2 py-2 text-gray-500 font-semibold">المطابقة</th>
                     </tr>
                   </thead>
@@ -1635,18 +1756,21 @@ export default function Admin3Page() {
                       const isFirstFemale = p.gender === 'female' && (i === 0 || sorted[i - 1].gender === 'male')
                       const mb = mbtiGroup(p.mbti)
                       const rowBg = !p.complete ? 'bg-red-950/10' : p.matchPartner ? 'bg-emerald-950/8' : ''
+                      const avgC = getAvgCompat(p.number, p.gender)
+                      const topPick = getTopPick(p.number)
+                      const mutualCount = getMutualTop3Count(p.number)
                       return (
                         <>
                           {isFirstFemale && (
                             <tr key="divider-f" className="border-t-2 border-pink-900/40">
-                              <td colSpan={7} className="px-3 py-1 bg-pink-950/10">
+                              <td colSpan={10} className="px-3 py-1 bg-pink-950/10">
                                 <span className="text-[9px] text-pink-600 font-semibold tracking-wider uppercase">إناث</span>
                               </td>
                             </tr>
                           )}
                           {i === 0 && p.gender === 'male' && (
                             <tr key="divider-m">
-                              <td colSpan={7} className="px-3 py-1 bg-blue-950/10">
+                              <td colSpan={10} className="px-3 py-1 bg-blue-950/10">
                                 <span className="text-[9px] text-blue-600 font-semibold tracking-wider uppercase">ذكور</span>
                               </td>
                             </tr>
@@ -1682,6 +1806,21 @@ export default function Admin3Page() {
                                 ? <span className="text-emerald-400 font-bold text-xs">✓{p.rankingCount}</span>
                                 : <span className="text-gray-700 text-xs">✗</span>}
                             </td>
+                            <td className="text-center px-2 py-2">
+                              {avgC != null ? (
+                                <span className={`font-bold text-[10px] ${avgC >= 68 ? 'text-emerald-400' : avgC >= 54 ? 'text-violet-400' : 'text-gray-500'}`}>{avgC}%</span>
+                              ) : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {topPick ? (
+                                <span className="text-gray-400 text-[10px] truncate max-w-[60px] inline-block">{topPick.name}</span>
+                              ) : <span className="text-gray-700">—</span>}
+                            </td>
+                            <td className="text-center px-2 py-2">
+                              {mutualCount > 0 ? (
+                                <span className="text-pink-400 font-bold text-[10px]">🔁{mutualCount}</span>
+                              ) : <span className="text-gray-700">—</span>}
+                            </td>
                             <td className="px-2 py-2 text-right">
                               {p.matchPartner ? (
                                 <div className="flex items-center justify-end gap-1.5">
@@ -1704,15 +1843,63 @@ export default function Admin3Page() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile: card layout */}
+              <div className="sm:hidden divide-y divide-gray-800/40">
+                {sorted.map((p: any) => {
+                  const mb = mbtiGroup(p.mbti)
+                  const avgC = getAvgCompat(p.number, p.gender)
+                  const topPick = getTopPick(p.number)
+                  const mutualCount = getMutualTop3Count(p.number)
+                  return (
+                    <div key={p.number} className={`p-3 ${!p.complete ? 'bg-red-950/10' : p.matchPartner ? 'bg-emerald-950/8' : ''}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <button onClick={() => { setSurveyModal(p); setOpenSections(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent'])) }} className="flex items-center gap-1.5 min-w-0 group text-right">
+                          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.gender === 'female' ? 'bg-pink-400' : 'bg-blue-400'}`} />
+                          <span className="text-white font-semibold text-xs truncate max-w-[100px] underline decoration-dotted underline-offset-2 decoration-gray-600">{p.name}</span>
+                          <span className="text-gray-700 text-[10px]">#{p.number}</span>
+                          {!p.complete && <span className="text-red-500 text-[9px]">⚠</span>}
+                        </button>
+                        {p.matchPartner && (
+                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg border ${
+                            p.matchCompatScore >= 80 ? 'text-emerald-300 bg-emerald-900/30 border-emerald-800/40' :
+                            p.matchCompatScore >= 68 ? 'text-indigo-300 bg-indigo-900/30 border-indigo-800/40' :
+                            'text-yellow-300 bg-yellow-900/20 border-yellow-800/30'
+                          }`}>{p.matchCompatScore}%</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap text-[9px]">
+                        {mb && <span className={`font-bold px-1.5 py-0.5 rounded border ${mb.cls}`}>{mb.label}</span>}
+                        {p.attachment && (
+                          <span className="flex items-center gap-1">
+                            <span className={`w-1.5 h-1.5 rounded-full ${attachDot(p.attachment)}`} />
+                            <span className="text-gray-400">{p.attachment === 'Secure' ? 'آمن' : p.attachment === 'Anxious' ? 'قلق' : 'تجنّبي'}</span>
+                          </span>
+                        )}
+                        {p.r1Table != null && <span className="text-indigo-300">ج١: {p.r1Table}</span>}
+                        {p.r2Table != null && <span className="text-indigo-300">ج٢: {p.r2Table}</span>}
+                        {p.rankingSubmitted
+                          ? <span className="text-emerald-400">✓ صوّت ({p.rankingCount})</span>
+                          : <span className="text-gray-600">✗ لم يصوّت</span>}
+                        {avgC != null && <span className={avgC >= 68 ? 'text-emerald-400' : 'text-gray-500'}>متوسط: {avgC}%</span>}
+                        {topPick && <span className="text-gray-500">اختياره: {topPick.name}</span>}
+                        {mutualCount > 0 && <span className="text-pink-400">🔁 تبادل {mutualCount}</span>}
+                        {p.matchPartner && <span className="text-gray-400">المطابقة: {p.matchPartnerName || `#${p.matchPartner}`}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
 
             {/* ── Compatibility Matrix ── */}
             {males.length > 0 && females.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
                   <span className="text-xs font-semibold text-gray-400 flex items-center gap-1.5"><Heart size={11} /> مصفوفة التوافق</span>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[9px] text-amber-500 flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm border-2 border-amber-500/70" />مطابقة</span>
+                    <span className="text-[9px] text-pink-500 flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-sm border-2 border-pink-500/70" />تبادل ذوياً</span>
                     <span className="text-[9px] text-gray-600">ذكور × إناث</span>
                   </div>
                 </div>
@@ -1745,18 +1932,21 @@ export default function Admin3Page() {
                           {females.map((f: any) => {
                             const entry = getEntry(m.number, f.number)
                             const isMatch = !!(m.matchPartner === f.number || f.matchPartner === m.number)
-                            const st = cellStyle(entry?.score ?? null, entry?.bothComplete ?? false, isMatch)
+                            const isMutual = isMutualTop3Fn(m.number, f.number)
+                            const st = cellStyle(entry?.score ?? null, entry?.bothComplete ?? false, isMatch, isMutual)
                             return (
                               <td
                                 key={f.number}
                                 style={{ background: st.background, color: st.color, outline: st.outline, outlineOffset: st.outlineOffset, position: 'relative' } as any}
-                                className="text-center px-1 py-2 transition-colors hover:brightness-125 cursor-default"
+                                className="text-center px-1 py-2 transition-colors hover:brightness-125 cursor-pointer"
+                                onClick={() => setPairDetail({ a: m, b: f, score: entry?.score ?? null })}
                               >
                                 {entry?.score != null
                                   ? <span className="font-black text-[13px]">{entry.score}</span>
                                   : <span className="text-[9px]">?</span>
                                 }
                                 {isMatch && <span className="absolute top-0.5 right-0.5 text-[7px] text-amber-500">★</span>}
+                                {isMutual && !isMatch && <span className="absolute top-0.5 right-0.5 text-[7px] text-pink-500">♥</span>}
                               </td>
                             )
                           })}
@@ -1779,11 +1969,76 @@ export default function Admin3Page() {
                       <span style={{ color: l.c }} className="text-[9px] font-bold">{l.l}</span>
                     </div>
                   ))}
-                  <span className="text-[9px] text-gray-700 mr-1">· ★ = مطابقة فعلية</span>
+                  <span className="text-[9px] text-gray-700 mr-1">· ★ = مطابقة · ♥ = تبادل ذوياً</span>
                 </div>
               </div>
             )}
 
+          </div>
+        )
+      })()}
+
+      {/* ── Pair Detail Modal ───────────────────────────────── */}
+      {pairDetail && (() => {
+        const { a, b, score } = pairDetail
+        const aMb = mbtiGroupFn(a.mbti)
+        const bMb = mbtiGroupFn(b.mbti)
+        const mutual = isMutualTop3Fn(a.number, b.number)
+        const aRankOfB = allRankings.find((r: any) => r.number === a.number)?.ranked_list?.find((item: any) => item.number === b.number)
+        const bRankOfA = allRankings.find((r: any) => r.number === b.number)?.ranked_list?.find((item: any) => item.number === a.number)
+        return (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setPairDetail(null)}>
+            <div className="bg-gray-950 border border-gray-800 rounded-2xl w-full max-w-sm p-5 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-white">تفاصيل الزوج</h3>
+                <button onClick={() => setPairDetail(null)} className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="bg-gray-900 rounded-xl p-3 text-center">
+                  <div className={`w-8 h-8 rounded-full ${a.gender === 'female' ? 'bg-pink-900/40' : 'bg-blue-900/40'} flex items-center justify-center text-sm font-bold mx-auto mb-2 ${a.gender === 'female' ? 'text-pink-300' : 'text-blue-300'}`}>{a.name?.charAt(0)}</div>
+                  <p className="text-white text-xs font-semibold">{a.name}</p>
+                  <p className="text-gray-600 text-[10px]">#{a.number}</p>
+                  {aMb && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border mt-1 inline-block ${aMb.cls}`}>{aMb.label}</span>}
+                  <p className="text-gray-500 text-[10px] mt-1">{a.attachment === 'Secure' ? 'تعلّق آمن' : a.attachment === 'Anxious' ? 'تعلّق قلق' : a.attachment === 'Avoidant' ? 'تعلّق تجنّبي' : a.attachment || '—'}</p>
+                </div>
+                <div className="bg-gray-900 rounded-xl p-3 text-center">
+                  <div className={`w-8 h-8 rounded-full ${b.gender === 'female' ? 'bg-pink-900/40' : 'bg-blue-900/40'} flex items-center justify-center text-sm font-bold mx-auto mb-2 ${b.gender === 'female' ? 'text-pink-300' : 'text-blue-300'}`}>{b.name?.charAt(0)}</div>
+                  <p className="text-white text-xs font-semibold">{b.name}</p>
+                  <p className="text-gray-600 text-[10px]">#{b.number}</p>
+                  {bMb && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border mt-1 inline-block ${bMb.cls}`}>{bMb.label}</span>}
+                  <p className="text-gray-500 text-[10px] mt-1">{b.attachment === 'Secure' ? 'تعلّق آمن' : b.attachment === 'Anxious' ? 'تعلّق قلق' : b.attachment === 'Avoidant' ? 'تعلّق تجنّبي' : b.attachment || '—'}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {score != null ? (
+                  <div className="bg-gray-900 rounded-xl p-3 text-center">
+                    <p className="text-gray-500 text-[10px] mb-1">نسبة التوافق</p>
+                    <p className={`text-3xl font-black ${score >= 80 ? 'text-emerald-400' : score >= 68 ? 'text-indigo-400' : score >= 54 ? 'text-violet-400' : score >= 40 ? 'text-yellow-400' : 'text-red-400'}`}>{score}%</p>
+                  </div>
+                ) : (
+                  <div className="bg-gray-900 rounded-xl p-3 text-center">
+                    <p className="text-gray-600 text-xs">لم يكتمل الاستبيان بعد</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-gray-900 rounded-lg p-2 text-center">
+                    <p className="text-gray-600 text-[9px]">{a.name?.split(' ')[0]} رتّب {b.name?.split(' ')[0]}</p>
+                    {aRankOfB ? <p className="text-purple-400 font-bold text-sm">#{aRankOfB.rank}</p> : <p className="text-gray-700 text-[10px]">لم يرتّب</p>}
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-2 text-center">
+                    <p className="text-gray-600 text-[9px]">{b.name?.split(' ')[0]} رتّب {a.name?.split(' ')[0]}</p>
+                    {bRankOfA ? <p className="text-purple-400 font-bold text-sm">#{bRankOfA.rank}</p> : <p className="text-gray-700 text-[10px]">لم يرتّب</p>}
+                  </div>
+                </div>
+                {mutual && (
+                  <div className="bg-pink-950/20 border border-pink-800/30 rounded-lg p-2 text-center">
+                    <p className="text-pink-400 text-xs font-semibold">♥ تبادل ذوياً — كلاهما اختار الآخر في أول ٣</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )
       })()}

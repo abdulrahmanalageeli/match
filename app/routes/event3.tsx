@@ -11,7 +11,6 @@ import {
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
-import { supabase } from "~/lib/supabase"
 
 const PromptTopicsModal = lazy(() => import("~/components/PromptTopicsModal"))
 
@@ -1125,57 +1124,16 @@ function SOSButton({ token }: { token: string }) {
       if (userMsgs.length > 0) setShowOptions(false)
       else { setShowOptions(true); setHasUnread(false) }
     }
-    const applyPayload = (payload: any) => {
-      const row = payload.new || payload.old
-      if (!row) { doFetch(); return }
-      if (payload.eventType === 'DELETE') {
-        setMessages([])
-        setShowOptions(true)
-        setHasUnread(false)
-        setLastReplyCount(0)
-        return
-      }
-      const newRow = payload.new
-      if (!newRow) { doFetch(); return }
-      setMessages(prev => {
-        const updated = [...prev]
-        const userIdx = updated.findIndex(m => m.id === newRow.id)
-        if (userIdx >= 0) {
-          updated[userIdx] = { ...updated[userIdx], status: newRow.status }
-        } else if (newRow.message) {
-          updated.push({ id: newRow.id, text: newRow.message, from: 'user', status: newRow.status })
-        }
-        const replyIdx = updated.findIndex(m => m.id === newRow.id + '-reply')
-        if (newRow.organizer_reply) {
-          if (replyIdx >= 0) {
-            updated[replyIdx] = { id: newRow.id + '-reply', text: newRow.organizer_reply, from: 'organizer', status: newRow.status }
-          } else {
-            updated.push({ id: newRow.id + '-reply', text: newRow.organizer_reply, from: 'organizer', status: newRow.status })
-            if (!openRef.current) {
-              setHasUnread(true)
-              toast('💬 رسالة من المنظم!', { duration: 5000 })
-            }
-          }
-        } else if (replyIdx >= 0) {
-          updated.splice(replyIdx, 1)
-        }
-        return updated.sort((a, b) => a.id.localeCompare(b.id))
-      })
-      if (newRow.status === 'seen' || newRow.organizer_reply) {
-        // status changed, update user message status too
-        setMessages(prev => prev.map(m => m.id === newRow.id ? { ...m, status: newRow.status } : m))
-      }
-    }
     doFetch()
-    const channel = supabase
-      .channel(`sos-${token}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_requests' }, (payload: any) => {
-        applyPayload(payload)
-      })
-      .subscribe()
-    const fallback = setInterval(doFetch, 30000)
-    return () => { supabase.removeChannel(channel); clearInterval(fallback) }
-  }, [token])
+    let iv: ReturnType<typeof setInterval>
+    const startPolling = () => {
+      clearInterval(iv)
+      const hasActive = messages.some(m => m.status === 'pending' || m.status === 'seen')
+      iv = setInterval(doFetch, hasActive ? 3000 : 20000)
+    }
+    startPolling()
+    return () => clearInterval(iv)
+  }, [token, messages])
 
   useEffect(() => {
     if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }

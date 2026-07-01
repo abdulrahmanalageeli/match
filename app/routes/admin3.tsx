@@ -6,7 +6,6 @@ import {
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
   Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send,
 } from "lucide-react"
-import { supabase } from "~/lib/supabase"
 
 const ADMIN_PASSWORD = "soulmatch2026"
 const API = "/api/admin"
@@ -179,18 +178,14 @@ export default function Admin3Page() {
     fetchParticipants()
     fetchSeating()
     fetchSOS()
-    const sosChannel = supabase
-      .channel('admin3-sos')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'organizer_requests' }, () => fetchSOS())
-      .subscribe()
     const stateIv = setInterval(fetchState, 3000)
-    const fallbackSOS = setInterval(fetchSOS, 30000)
+    const hasActiveSos = sosRequests.some(r => r.status === 'pending' || r.status === 'seen')
+    const sosIv = setInterval(fetchSOS, hasActiveSos ? 3000 : 20000)
     return () => {
-      supabase.removeChannel(sosChannel)
       clearInterval(stateIv)
-      clearInterval(fallbackSOS)
+      clearInterval(sosIv)
     }
-  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS])
+  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS, sosRequests])
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }

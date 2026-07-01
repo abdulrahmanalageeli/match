@@ -87,6 +87,7 @@ export default function Admin3Page() {
   const [openSections, setOpenSections] = useState<Set<string>>(new Set(['personality', 'comm', 'energy', 'humor', 'values', 'intent']))
   const [overviewSearch, setOverviewSearch] = useState("")
   const [overviewFilter, setOverviewFilter] = useState("all")
+  const [participantSort, setParticipantSort] = useState<"number" | "name" | "voted">("number")
 
   const [sosRequests, setSosRequests] = useState<any[]>([])
   const [sosModalOpen, setSosModalOpen] = useState(false)
@@ -1028,28 +1029,65 @@ export default function Admin3Page() {
         )}
 
         {/* TAB: PARTICIPANTS ───────────────────────────────────────────────── */}
-        {activeTab === "participants" && (
+        {activeTab === "participants" && (() => {
+          const selected = participants.filter(p => p.selected)
+          const getMatchFor = (num: number) => matchPairs.find((mp: any) => mp.aNumber === num || mp.bNumber === num)
+          const getPopularity = (num: number) => {
+            let count = 0
+            for (const r of allRankings) {
+              if (r.number === num) continue
+              const ranked = r.ranked_list?.find((item: any) => item.number === num)
+              if (ranked && ranked.rank <= 3) count++
+            }
+            return count
+          }
+          const sortedPts = [...selected].sort((a, b) => {
+            if (participantSort === "name") return (a.name || '').localeCompare(b.name || '')
+            if (participantSort === "voted") {
+              const av = allRankings.find(r => r.number === a.number)?.submitted ? 1 : 0
+              const bv = allRankings.find(r => r.number === b.number)?.submitted ? 1 : 0
+              return bv - av
+            }
+            return a.number - b.number
+          })
+          return (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h3 className="font-semibold text-gray-300">نظرة شاملة على المشاركين</h3>
-                <p className="text-xs text-gray-600 mt-0.5">{participants.filter(p => p.selected).length} مشارك مختار · اضغط لعرض التفاصيل</p>
+                <p className="text-xs text-gray-600 mt-0.5">{selected.length} مشارك مختار · اضغط لعرض التفاصيل</p>
               </div>
-              <button onClick={() => { fetchParticipants(); fetchSeating(); fetchRankStatus(); fetchMatches() }} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
-                <RefreshCw size={14} />
-              </button>
+              <div className="flex items-center gap-2">
+                <select
+                  value={participantSort}
+                  onChange={e => setParticipantSort(e.target.value as any)}
+                  className="bg-gray-800 border border-gray-700 text-white rounded-lg px-2 py-1.5 text-xs"
+                >
+                  <option value="number">ترتيب بالرقم</option>
+                  <option value="name">ترتيب بالاسم</option>
+                  <option value="voted">الذين صوّتوا أولاً</option>
+                </select>
+                <button onClick={() => { fetchParticipants(); fetchSeating(); fetchRankStatus(); fetchMatches() }} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
+                  <RefreshCw size={14} />
+                </button>
+              </div>
             </div>
 
-            {participants.filter(p => p.selected).length === 0 ? (
+            {selected.length === 0 ? (
               <div className="text-center py-12 text-gray-600">
                 <Users size={32} className="mx-auto mb-3 opacity-30" />
                 <p>لم يُختَر مشاركون بعد</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {participants.filter(p => p.selected).sort((a, b) => a.number - b.number).map(p => {
+                {sortedPts.map(p => {
                   const tables = getParticipantTables(p.number)
                   const rankData = allRankings.find(r => r.number === p.number)
+                  const match = getMatchFor(p.number)
+                  const matchName = match ? (match.aNumber === p.number ? match.bName : match.aName) : null
+                  const matchScore = match?.compatibilityScore
+                  const matchType = match?.matchType
+                  const popularity = getPopularity(p.number)
                   return (
                     <button key={p.number}
                       onClick={() => { setSelectedParticipantNum(p.number); setParticipantPanelOpen(true) }}
@@ -1069,14 +1107,27 @@ export default function Admin3Page() {
                           </div>
                           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                             {p.mbti_personality_type && <span className="text-[10px] text-purple-400">{p.mbti_personality_type}</span>}
-                            {p.communication_style && <span className="text-[10px] text-blue-400 opacity-70">{p.communication_style}</span>}
+                            {p.attachment_style && (
+                              <span className="flex items-center gap-1 text-[10px] text-teal-400">
+                                <span className={`w-1.5 h-1.5 rounded-full ${p.attachment_style === 'Secure' ? 'bg-emerald-400' : p.attachment_style === 'Anxious' ? 'bg-yellow-400' : p.attachment_style === 'Avoidant' ? 'bg-red-400' : 'bg-gray-600'}`} />
+                                {p.attachment_style === 'Secure' ? 'آمن' : p.attachment_style === 'Anxious' ? 'قلق' : p.attachment_style === 'Avoidant' ? 'تجنّبي' : p.attachment_style}
+                              </span>
+                            )}
+                            {popularity > 0 && <span className="text-[10px] text-pink-400">♥ {popularity}</span>}
                           </div>
                         </div>
-                        <div className="flex-shrink-0">
+                        <div className="flex-shrink-0 flex flex-col items-end gap-1">
                           {rankData?.submitted
                             ? <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-800/30">✓ صوّت</span>
                             : <span className="text-[10px] text-gray-700">—</span>
                           }
+                          {match && (
+                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-lg border ${
+                              matchScore >= 80 ? 'text-emerald-300 bg-emerald-900/30 border-emerald-800/40' :
+                              matchScore >= 68 ? 'text-indigo-300 bg-indigo-900/30 border-indigo-800/40' :
+                              'text-yellow-300 bg-yellow-900/20 border-yellow-800/30'
+                            }`}>{matchScore}%</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -1087,7 +1138,14 @@ export default function Admin3Page() {
                             ج{r}: طاولة {tables[r]}
                           </span>
                         ) : null)}
-                        {!tables[1] && !tables[2] && (
+                        {match && (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-lg border ${
+                            matchType === 'mutual' ? 'bg-emerald-900/20 border-emerald-800/30 text-emerald-400' : 'bg-amber-900/20 border-amber-800/30 text-amber-400'
+                          }`}>
+                            {matchType === 'mutual' ? '🔁 ' : '⚡ '}{matchName}
+                          </span>
+                        )}
+                        {!tables[1] && !tables[2] && !match && (
                           <span className="text-[10px] text-gray-700">بدون طاولة محددة</span>
                         )}
                       </div>
@@ -1097,7 +1155,8 @@ export default function Admin3Page() {
               </div>
             )}
           </div>
-        )}
+          )
+        })()}
 
         {/* TAB: RANKING ─────────────────────────────────────────────────────── */}
         {activeTab === "ranking" && (
@@ -1393,11 +1452,23 @@ export default function Admin3Page() {
         const p = participants.find(x => x.number === selectedParticipantNum)
         const rankData = allRankings.find(r => r.number === selectedParticipantNum)
         const tables = getParticipantTables(selectedParticipantNum)
+        const match = matchPairs.find((mp: any) => mp.aNumber === selectedParticipantNum || mp.bNumber === selectedParticipantNum)
+        const matchName = match ? (match.aNumber === selectedParticipantNum ? match.bName : match.aName) : null
+        const matchScore = match?.compatibilityScore
+        const matchType = match?.matchType
+        const whoRankedMe = allRankings
+          .filter((r: any) => r.number !== selectedParticipantNum && r.submitted)
+          .map((r: any) => {
+            const item = r.ranked_list?.find((i: any) => i.number === selectedParticipantNum)
+            return item ? { rankerNum: r.number, rankerName: r.name, rank: item.rank } : null
+          })
+          .filter(Boolean)
+          .sort((a: any, b: any) => a.rank - b.rank)
         if (!p) return null
         return (
           <>
             <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={() => setParticipantPanelOpen(false)} />
-            <div className="fixed top-0 left-0 h-full w-80 bg-gray-900 border-r border-gray-800 z-50 overflow-y-auto shadow-2xl flex flex-col" dir="rtl">
+            <div className="fixed top-0 left-0 h-full w-80 bg-gray-900 border-r border-gray-800 z-50 overflow-y-auto shadow-2xl flex flex-col sm:fixed sm:top-0 sm:left-0 sm:h-full sm:w-80 max-sm:bottom-0 max-sm:left-0 max-sm:right-0 max-sm:top-auto max-sm:h-[85vh] max-sm:w-full max-sm:rounded-t-2xl max-sm:border-r-0 max-sm:border-t" dir="rtl">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-800 bg-gray-900/95 backdrop-blur-md sticky top-0 z-10">
                 <div className="flex items-center gap-3">
@@ -1427,6 +1498,26 @@ export default function Admin3Page() {
                     {p.attachment_style && (
                       <span className="bg-teal-900/40 border border-teal-700/40 text-teal-300 text-xs px-2.5 py-1 rounded-lg">{p.attachment_style}</span>
                     )}
+                  </div>
+                )}
+
+                {/* Match Info */}
+                {match && (
+                  <div className={`rounded-xl p-3.5 space-y-2 ${matchType === 'mutual' ? 'bg-emerald-950/20 border border-emerald-800/40' : 'bg-amber-950/15 border border-amber-800/30'}`}>
+                    <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                      <Heart size={11} /> المطابقة
+                    </h4>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${matchType === 'mutual' ? 'bg-emerald-900/60 text-emerald-300' : 'bg-amber-900/50 text-amber-400'}`}>
+                          {matchType === 'mutual' ? '🔁 تبادل' : '⚡ احتياطي'}
+                        </span>
+                        <span className="text-sm font-semibold text-white">{matchName}</span>
+                      </div>
+                      {matchScore != null && (
+                        <span className={`text-lg font-black ${matchScore >= 80 ? 'text-emerald-400' : matchScore >= 68 ? 'text-indigo-400' : 'text-yellow-400'}`}>{matchScore}%</span>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1493,11 +1584,11 @@ export default function Admin3Page() {
                   })}
                 </div>
 
-                {/* Ranking */}
+                {/* Ranking — who they ranked */}
                 <div className="bg-gray-800/50 rounded-xl p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
-                      <BarChart3 size={11} /> التصنيف
+                      <BarChart3 size={11} /> تصنيفاته
                     </h4>
                     {rankData?.submitted
                       ? <span className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded-full border border-green-800/30">✓ صوّت</span>
@@ -1526,8 +1617,41 @@ export default function Admin3Page() {
                   ) : null}
                 </div>
 
+                {/* Who ranked them */}
+                {whoRankedMe.length > 0 && (
+                  <div className="bg-gray-800/50 rounded-xl p-3.5 space-y-2.5">
+                    <h4 className="text-[11px] text-gray-500 font-semibold uppercase tracking-wider flex items-center gap-1.5">
+                      <Users size={11} /> من رتّبوه
+                    </h4>
+                    <div className="space-y-1.5">
+                      {whoRankedMe.slice(0, 8).map((w: any) => {
+                        const iRankedThem = rankData?.ranked_list?.find((i: any) => i.number === w.rankerNum)
+                        const mutual = iRankedThem && iRankedThem.rank <= 3 && w.rank <= 3
+                        return (
+                          <div key={w.rankerNum} className={`flex items-center gap-2 text-xs px-2 py-1.5 rounded-lg ${mutual ? 'bg-emerald-900/20 border border-emerald-800/30' : ''}`}>
+                            <span className="w-5 h-5 rounded-lg bg-gray-700 text-gray-400 flex items-center justify-center text-[10px] font-bold flex-shrink-0">{w.rank}</span>
+                            <span className="text-gray-300 flex-1 truncate">{w.rankerName}</span>
+                            <span className="text-gray-600 text-[10px] flex-shrink-0">#{w.rankerNum}</span>
+                            {mutual && <span className="text-emerald-400 text-[10px] flex-shrink-0">🔁 تبادل</span>}
+                            {iRankedThem && !mutual && <span className="text-gray-500 text-[10px] flex-shrink-0">رتّبه #{iRankedThem.rank}</span>}
+                          </div>
+                        )
+                      })}
+                      {whoRankedMe.length > 8 && (
+                        <p className="text-[10px] text-gray-600 text-center pt-0.5">+{whoRankedMe.length - 8} آخرون</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Actions */}
-                <div className="pt-1">
+                <div className="pt-1 space-y-2">
+                  <button
+                    onClick={() => { setSurveyModal(p); setParticipantPanelOpen(false) }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-purple-900/30 hover:bg-purple-900/50 border border-purple-700/40 text-purple-300 text-sm font-medium transition-all active:scale-[0.98]"
+                  >
+                    <Eye size={14} /> عرض الاستبيان الكامل
+                  </button>
                   <button
                     onClick={() => { setParticipantPanelOpen(false); setSwapA(p.number); setActiveTab("seating") }}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-amber-900/30 hover:bg-amber-900/50 border border-amber-700/40 text-amber-300 text-sm font-medium transition-all active:scale-[0.98]"

@@ -1118,7 +1118,10 @@ function SOSButton({ token }: { token: string }) {
       setMessages(all)
       if (orgMsgs.length > lastReplyCountRef.current && lastReplyCountRef.current >= 0) {
         setHasUnread(true)
-        if (!openRef.current) toast('💬 رسالة من المنظم!', { duration: 5000 })
+        if (!openRef.current) {
+          setOpen(true)
+          toast('💬 رسالة من المنظم!', { duration: 5000 })
+        }
       }
       setLastReplyCount(orgMsgs.length)
       if (userMsgs.length > 0) setShowOptions(false)

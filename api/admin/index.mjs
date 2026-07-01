@@ -6402,6 +6402,30 @@ export default async function handler(req, res) {
           }
           return res.status(200).json({ message: `Ranking updated for #${ranker_number}` })
         }
+        // e3-get-met-for-admin — get people a participant met (for admin simulation)
+        if (action === "e3-get-met-for-admin") {
+          const { participant_number } = req.body
+          if (!participant_number) return res.status(400).json({ error: "participant_number required" })
+          const { data: allRounds } = await supabase.from("session_assignments").select("round,table_number").eq("match_id", EVENT3_MATCH_ID).eq("participant_id", participant_number).order("round", { ascending: true })
+          if (!allRounds || allRounds.length === 0) return res.status(200).json({ people: [] })
+          const metNumbers = []
+          const seenNums = new Set()
+          for (const row of allRounds) {
+            const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", EVENT3_MATCH_ID).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", participant_number)
+            for (const m of mates || []) {
+              if (!seenNums.has(m.participant_id)) {
+                seenNums.add(m.participant_id)
+                metNumbers.push({ number: m.participant_id, round: row.round })
+              }
+            }
+          }
+          if (metNumbers.length === 0) return res.status(200).json({ people: [] })
+          const nums = metNumbers.map(m => m.number)
+          const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", STATIC_MATCH_ID).in("assigned_number", nums)
+          const nameMap = {}
+          for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
+          return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, name: nameMap[m.number] || `#${m.number}`, round: m.round })) })
+        }
         // e3-move-table (reassign one participant to a different table in one round)
         if (action === "e3-move-table") {
           const { participant_number, round, new_table } = req.body
@@ -6450,6 +6474,11 @@ export default async function handler(req, res) {
         if (action === "e3-sos-reply") {
           const { id, reply, status: newStatus } = req.body
           if (!id) return res.status(400).json({ error: "id required" })
+          if (newStatus === 'resolved') {
+            const { error } = await supabase.from("organizer_requests").delete().eq("id", id)
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ message: "تم الحذف" })
+          }
           const update = { status: newStatus || "replied", updated_at: new Date().toISOString() }
           if (reply !== undefined) update.organizer_reply = reply || null
           const { error } = await supabase.from("organizer_requests").update(update).eq("id", id)

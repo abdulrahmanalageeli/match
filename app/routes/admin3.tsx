@@ -73,6 +73,9 @@ export default function Admin3Page() {
   const [timerRemaining, setTimerRemaining] = useState(0)
   const [editingRanker, setEditingRanker] = useState<number | null>(null)
   const [editedOrder, setEditedOrder] = useState<any[]>([])
+  const [simulatingRanker, setSimulatingRanker] = useState<number | null>(null)
+  const [simOrder, setSimOrder] = useState<any[]>([])
+  const [simLoading, setSimLoading] = useState(false)
   const [swapA, setSwapA] = useState<number | null>(null)
   const [mapRound, setMapRound] = useState<1 | 2 | 20>(1)
   const [editingTable, setEditingTable] = useState<{ num: number; round: number; value: string } | null>(null)
@@ -89,6 +92,8 @@ export default function Admin3Page() {
   const [replyText, setReplyText] = useState("")
   const [sosFilter, setSosFilter] = useState<'all' | 'active' | 'resolved'>('all')
   const knownSosIds = useRef<Set<string>>(new Set())
+  const [flashIds, setFlashIds] = useState<Set<string>>(new Set())
+  const [selectedSosId, setSelectedSosId] = useState<string | null>(null)
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -147,7 +152,17 @@ export default function Admin3Page() {
     if (!data.requests) return
     const newRequests: any[] = data.requests
     const newPending = newRequests.filter(r => r.status === 'pending' && !knownSosIds.current.has(r.id))
-    newRequests.forEach(r => knownSosIds.current.add(r.id))
+    const freshIds = new Set<string>()
+    newRequests.forEach(r => {
+      if (!knownSosIds.current.has(r.id)) {
+        freshIds.add(r.id)
+      }
+      knownSosIds.current.add(r.id)
+    })
+    if (freshIds.size > 0) {
+      setFlashIds(freshIds)
+      setTimeout(() => setFlashIds(new Set()), 3000)
+    }
     if (newPending.length > 0) {
       const msg = newPending.length === 1
         ? `🆘 ${newPending[0].participant_name} (#${newPending[0].participant_number}) يطلب المنظم!`
@@ -161,7 +176,12 @@ export default function Admin3Page() {
   const handleSOSAction = async (id: string, reply: string | null, newStatus: string) => {
     await api("e3-sos-reply", { id, reply, status: newStatus })
     if (newStatus !== 'seen') setReplyingId(null)
-    fetchSOS()
+    if (newStatus === 'resolved') {
+      knownSosIds.current.delete(id)
+      setSosRequests(prev => prev.filter(r => r.id !== id))
+    } else {
+      fetchSOS()
+    }
   }
 
   const fetchRankStatus = useCallback(async () => {
@@ -229,6 +249,19 @@ export default function Admin3Page() {
   const stopTimer = () => run("timer-stop", () => api("e3-stop-timer"))
   const saveRanking = (rankerNum: number) =>
     run(`save-rank-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: editedOrder.map(i => i.number) }).then(d => { if (!d.error) { setEditingRanker(null); fetchRankStatus() } return d }))
+
+  const startSimulate = async (rankerNum: number) => {
+    setSimLoading(true)
+    const data = await api("e3-get-met-for-admin", { participant_number: rankerNum })
+    setSimLoading(false)
+    if (data.error) { toast.error(data.error); return }
+    if (!data.people || data.people.length === 0) { toast.error("لم يقابل أحداً بعد"); return }
+    setSimOrder(data.people.sort((a: any, b: any) => a.round - b.round || a.number - b.number))
+    setSimulatingRanker(rankerNum)
+  }
+
+  const saveSimulate = (rankerNum: number) =>
+    run(`save-sim-${rankerNum}`, () => api("e3-set-ranking", { ranker_number: rankerNum, ranked_list: simOrder.map(i => i.number) }).then(d => { if (!d.error) { setSimulatingRanker(null); fetchRankStatus(); toast.success("تم حفظ التصنيف بالنيابة") } return d }))
 
   const doSwap = (numB: number) =>
     run(`swap-${swapA}-${numB}`, () => api("e3-swap-seating", { num_a: swapA, num_b: numB }).then(d => { if (!d.error) { setSwapA(null); fetchSeating() } return d }))
@@ -369,17 +402,17 @@ export default function Admin3Page() {
       <Toaster position="top-center" />
 
       {/* Header */}
-      <header className="border-b border-gray-800 bg-gray-900 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">✨</span>
+      <header className="border-b border-gray-800 bg-gray-900 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <span className="text-xl sm:text-2xl">✨</span>
           <div>
-            <h1 className="text-lg font-bold">التوافق الأعمى 3.0</h1>
-            <p className="text-xs text-gray-400">لوحة التحكم</p>
+            <h1 className="text-sm sm:text-lg font-bold">التوافق الأعمى 3.0</h1>
+            <p className="text-[10px] sm:text-xs text-gray-400">لوحة التحكم</p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {state && (
-            <div className="flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
+            <div className="hidden sm:flex items-center gap-2 bg-gray-800 rounded-lg px-3 py-1.5">
               <div className={`w-2 h-2 rounded-full ${state.phase !== "setup" ? "bg-green-400 animate-pulse" : "bg-gray-500"}`} />
               <span className="text-sm text-gray-300">
                 {PHASES.find(p => p.id === state?.phase)?.label || "—"}
@@ -408,15 +441,15 @@ export default function Admin3Page() {
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
+      <div className="max-w-6xl mx-auto p-3 sm:p-6 space-y-4 sm:space-y-6">
 
         {/* Phase Progress */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
-          <h2 className="text-sm font-medium text-gray-400 mb-3">مراحل الفعالية</h2>
-          <div className="flex items-center gap-1 overflow-x-auto pb-1">
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+          <h2 className="text-xs sm:text-sm font-medium text-gray-400 mb-2 sm:mb-3">مراحل الفعالية</h2>
+          <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin">
             {PHASES.map((phase, idx) => (
               <div key={phase.id} className="flex items-center gap-1 flex-shrink-0">
-                <div className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                <div className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
                   idx === currentPhaseIdx
                     ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
                     : idx < currentPhaseIdx
@@ -434,7 +467,7 @@ export default function Admin3Page() {
 
         {/* Stats Row */}
         {state && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3">
             {[
               { label: "المشاركون المختارون", value: `${state.participants_selected}`, icon: Users, ok: (state.participants_selected || 0) >= 6 },
               { label: "خطة الجلسات", value: state.seating_generated ? "جاهزة ✓" : "لم تُولَّد", icon: Grid3x3, ok: state.seating_generated },
@@ -442,12 +475,12 @@ export default function Admin3Page() {
               { label: "مطابقات المرحلة 2", value: state.phase2_matches_done ? "جاهزة ✓" : "—", icon: Trophy, ok: state.phase2_matches_done },
               { label: "مطابقات الخوارزمية", value: state.phase3_matches_done ? "جاهزة ✓" : "—", icon: Brain, ok: state.phase3_matches_done },
             ].map(stat => (
-              <div key={stat.label} className={`bg-gray-900 border rounded-xl p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
+              <div key={stat.label} className={`bg-gray-900 border rounded-xl p-3 sm:p-4 ${stat.ok ? "border-green-800" : "border-gray-800"}`}>
                 <div className="flex items-center justify-between mb-1">
-                  <stat.icon size={16} className={stat.ok ? "text-green-400" : "text-gray-500"} />
-                  <span className={`text-lg font-bold ${stat.ok ? "text-green-400" : "text-white"}`}>{stat.value}</span>
+                  <stat.icon size={14} className={stat.ok ? "text-green-400" : "text-gray-500"} />
+                  <span className={`text-base sm:text-lg font-bold ${stat.ok ? "text-green-400" : "text-white"}`}>{stat.value}</span>
                 </div>
-                <p className="text-xs text-gray-500">{stat.label}</p>
+                <p className="text-[10px] sm:text-xs text-gray-500">{stat.label}</p>
               </div>
             ))}
           </div>
@@ -456,16 +489,16 @@ export default function Admin3Page() {
         {/* Timer */}
         {state?.timer_active && (
           <div className="bg-blue-900/30 border border-blue-700/50 rounded-xl overflow-hidden">
-            <div className="p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Clock size={20} className="text-blue-400 animate-pulse" />
+            <div className="p-3 sm:p-4 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Clock size={18} className="text-blue-400 animate-pulse" />
                 <div>
-                  <p className="font-medium text-blue-300">المؤقت نشط</p>
-                  <p className="text-xs text-gray-400">الجولة {state.timer_round} · {formatTime(timerRemaining)} متبقية</p>
+                  <p className="font-medium text-sm sm:text-base text-blue-300">المؤقت نشط</p>
+                  <p className="text-[10px] sm:text-xs text-gray-400">الجولة {state.timer_round} · {formatTime(timerRemaining)} متبقية</p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className={`text-3xl font-mono font-bold ${timerRemaining < 120 ? 'text-red-400' : 'text-blue-300'}`}>{formatTime(timerRemaining)}</div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className={`text-2xl sm:text-3xl font-mono font-bold ${timerRemaining < 120 ? 'text-red-400' : 'text-blue-300'}`}>{formatTime(timerRemaining)}</div>
                 <button onClick={stopTimer} disabled={!!loading} className="bg-red-600/80 hover:bg-red-600 text-white rounded-lg px-4 py-2 text-sm flex items-center gap-2">
                   <Square size={14} /> إيقاف
                 </button>
@@ -481,7 +514,7 @@ export default function Admin3Page() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-gray-800">
+        <div className="flex gap-1 sm:gap-2 border-b border-gray-800 overflow-x-auto scrollbar-thin">
           {[
             { id: "control",      label: "التحكم",     icon: Play },
             { id: "seating",      label: "خريطة الجلسات", icon: Table2 },
@@ -492,7 +525,7 @@ export default function Admin3Page() {
             <button
               key={tab.id}
               onClick={() => { setActiveTab(tab.id as any); if (tab.id === "ranking") fetchRankStatus() }}
-              className={`flex items-center gap-2 px-4 py-2 border-b-2 text-sm font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 border-b-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "border-purple-500 text-purple-400"
                   : "border-transparent text-gray-500 hover:text-gray-300"
@@ -508,9 +541,9 @@ export default function Admin3Page() {
           <div className="space-y-4">
 
             {/* Participant Selection */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold flex items-center gap-2">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-5">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 className="font-semibold flex items-center gap-2 text-sm sm:text-base">
                   <Users size={16} className="text-purple-400" /> اختيار المشاركين
                 </h3>
                 <div className="flex items-center gap-2">
@@ -547,7 +580,7 @@ export default function Admin3Page() {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-72 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-60 sm:max-h-72 overflow-y-auto">
                 {filteredParticipants.map(p => (
                   <button
                     key={p.number}
@@ -573,8 +606,8 @@ export default function Admin3Page() {
             </div>
 
             {/* Phase & Timer Controls */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-              <h3 className="font-semibold flex items-center gap-2 mb-4">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-5">
+              <h3 className="font-semibold flex items-center gap-2 mb-3 sm:mb-4 text-sm sm:text-base">
                 <Play size={16} className="text-purple-400" /> التحكم في المراحل
               </h3>
 
@@ -727,8 +760,8 @@ export default function Admin3Page() {
         {activeTab === "seating" && (
           <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-300">خريطة الجلسات التفاعلية</h3>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="font-semibold text-sm sm:text-base text-gray-300">خريطة الجلسات التفاعلية</h3>
               <div className="flex items-center gap-2">
                 <button onClick={() => { fetchSeating(); fetchRankStatus() }} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400">
                   <RefreshCw size={14} />
@@ -1161,6 +1194,37 @@ export default function Admin3Page() {
                           )}
                         </div>
                       )}
+                      {expandedRanker === r.number && !r.submitted && (
+                        <div className="px-4 pb-3 border-t border-gray-800/60 pt-2 space-y-2">
+                          {simulatingRanker === r.number ? (
+                            <>
+                              <p className="text-amber-400 text-xs mb-1">🛠️ تصنيف بالنيابة — رتّب الأشخاص الذين قابلهم</p>
+                              {simOrder.map((item: any, idx: number) => (
+                                <div key={item.number} className="flex items-center gap-2 text-xs bg-gray-800/60 rounded-lg px-2 py-1.5">
+                                  <span className="w-5 h-5 rounded-md bg-amber-900/60 text-amber-300 flex items-center justify-center font-bold flex-shrink-0">{idx + 1}</span>
+                                  <span className="text-gray-200 flex-1">{item.name} <span className="text-gray-600">#{item.number}</span></span>
+                                  {item.round && <span className="text-gray-600 text-[10px]">ج{item.round}</span>}
+                                  <div className="flex gap-1">
+                                    <button onClick={() => setSimOrder(o => { const a=[...o]; if(idx>0){[a[idx-1],a[idx]]=[a[idx],a[idx-1]]}; return a })} disabled={idx===0} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▲</button>
+                                    <button onClick={() => setSimOrder(o => { const a=[...o]; if(idx<a.length-1){[a[idx],a[idx+1]]=[a[idx+1],a[idx]]}; return a })} disabled={idx===simOrder.length-1} className="p-0.5 rounded hover:bg-gray-700 disabled:opacity-30">▼</button>
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="flex gap-2 pt-1">
+                                <button onClick={() => saveSimulate(r.number)} disabled={!!loading} className="flex-1 py-1.5 rounded-lg bg-emerald-700/60 hover:bg-emerald-700 text-emerald-200 text-xs font-medium">{loading===`save-sim-${r.number}` ? '...' : 'حفظ التصنيف'}</button>
+                                <button onClick={() => setSimulatingRanker(null)} className="px-3 py-1.5 rounded-lg bg-gray-700 text-gray-400 text-xs">إلغاء</button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="text-center py-2">
+                              <p className="text-gray-500 text-xs mb-2">لم يقدّم تصنيفه بعد</p>
+                              <button onClick={() => startSimulate(r.number)} disabled={simLoading} className="px-4 py-1.5 rounded-lg bg-amber-900/40 border border-amber-700/30 hover:bg-amber-900/60 text-amber-300 text-xs font-medium transition-colors">
+                                {simLoading ? '...' : '🛠️ تصنيف بالنيابة'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1529,7 +1593,7 @@ export default function Admin3Page() {
             </div>
 
             {/* ── Stats Strip ── */}
-            <div className="grid grid-cols-5 gap-1.5">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
               {[
                 { label: 'المشاركون', value: pts.length, color: 'text-white', bg: 'bg-gray-800/80 border-gray-700/50' },
                 { label: 'الاستبيان', value: `${completeCount}/${pts.length}`, color: completeCount === pts.length ? 'text-emerald-400' : 'text-yellow-400', bg: 'bg-gray-800/80 border-gray-700/50' },
@@ -2162,12 +2226,19 @@ export default function Admin3Page() {
       })()}
 
       {/* ─── SOS Modal ──────────────────────────────────────────── */}
-      {sosModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-md shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '85vh' }}>
+      {sosModalOpen && (() => {
+        const sorted = [...sosRequests].sort((a, b) => {
+          const order: Record<string, number> = { pending: 0, seen: 1, replied: 2, resolved: 3 }
+          return (order[a.status] ?? 9) - (order[b.status] ?? 9)
+        })
+        const selected = sorted.find(r => r.id === selectedSosId) || sorted[0] || null
+        const selId = selected?.id || null
+        return (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" dir="rtl">
+          <div className="bg-gray-900 border border-gray-800 rounded-3xl w-full max-w-2xl shadow-2xl flex flex-col overflow-hidden" style={{ maxHeight: '90vh', height: '90vh' }}>
 
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-800 bg-gradient-to-l from-red-950/30 to-gray-900">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 bg-gradient-to-l from-red-950/30 to-gray-900 flex-shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-red-600 to-orange-600 flex items-center justify-center text-white text-sm font-bold">ع</div>
                 <div>
@@ -2181,6 +2252,7 @@ export default function Admin3Page() {
                     if (!confirm("حذف جميع طلبات المساعدة؟ لا يمكن التراجع.")) return
                     await api("e3-reset-sos")
                     setSosRequests([])
+                    setSelectedSosId(null)
                     toast.success("تم حذف جميع الطلبات")
                   }}
                     className="px-2.5 py-1 rounded-lg bg-red-900/40 border border-red-700/30 text-red-400 hover:bg-red-900/60 text-[11px] font-medium transition-colors">
@@ -2193,122 +2265,182 @@ export default function Admin3Page() {
               </div>
             </div>
 
-            {/* Filter tabs */}
-            {sosRequests.length > 0 && (
-              <div className="flex gap-1 px-4 py-2 border-b border-gray-800/60 bg-gray-900/50">
-                {[
-                  { id: 'all', label: 'الكل', count: sosRequests.length },
-                  { id: 'active', label: 'نشط', count: sosRequests.filter(r => r.status !== 'resolved').length },
-                  { id: 'resolved', label: 'محلول', count: sosRequests.filter(r => r.status === 'resolved').length },
-                ].map(tab => (
-                  <button key={tab.id} onClick={() => setSosFilter(tab.id as any)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                      sosFilter === tab.id ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
-                    }`}>
-                    {tab.label} {tab.count > 0 && <span className="opacity-60">{tab.count}</span>}
-                  </button>
-                ))}
-              </div>
-            )}
+            {/* Two-panel body */}
+            <div className="flex flex-1 overflow-hidden flex-col sm:flex-row">
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3">
-              {sosRequests.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-gray-600 gap-3">
-                  <div className="w-14 h-14 rounded-full bg-gray-800/50 flex items-center justify-center">
-                    <AlertCircle size={24} className="text-gray-700" />
-                  </div>
-                  <p className="text-sm">لا توجد طلبات مساعدة</p>
+              {/* Conversation list (right side in RTL on desktop, top bar on mobile) */}
+              <div className="sm:w-56 sm:border-l border-b sm:border-b-0 border-gray-800/60 flex flex-col flex-shrink-0 sm:max-w-none max-h-32 sm:max-h-none">
+                <div className="flex gap-1 px-2 py-2 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
+                  {[
+                    { id: 'all', label: 'الكل' },
+                    { id: 'active', label: 'نشط' },
+                  ].map(tab => (
+                    <button key={tab.id} onClick={() => setSosFilter(tab.id as any)}
+                      className={`flex-1 px-2 py-1 rounded-lg text-[11px] font-medium transition-colors ${
+                        sosFilter === tab.id ? 'bg-gray-700 text-white' : 'text-gray-500 hover:text-gray-300'
+                      }`}>
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
-              )}
-              {sosRequests
-                .filter(r => sosFilter === 'all' ? true : sosFilter === 'active' ? r.status !== 'resolved' : r.status === 'resolved')
-                .map(req => (
-                <div key={req.id} className={`rounded-2xl border overflow-hidden transition-all ${
-                  req.status === 'resolved' ? 'border-gray-800/60 opacity-50' :
-                  req.status === 'pending' ? 'border-red-700/40 bg-red-950/10' :
-                  'border-gray-700/40 bg-gray-800/20'
-                }`}>
-                  {/* Participant info bar */}
-                  <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-gray-800/40">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
-                        req.status === 'pending' ? 'bg-red-600/30 text-red-400' :
-                        req.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
-                        req.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
-                        'bg-gray-700 text-gray-500'
-                      }`}>{req.participant_name?.charAt(0) || '؟'}</div>
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-white text-sm font-semibold leading-tight">{req.participant_name}</span>
-                          <span className="text-gray-600 text-[10px] font-mono">#{req.participant_number}</span>
-                        </div>
-                        <p className="text-gray-500 text-[10px] leading-tight mt-0.5">{req.table_info} · {new Date(req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
+                <div className="flex-1 overflow-x-auto sm:overflow-y-auto sm:overflow-x-hidden flex sm:flex-col">
+                  {sorted.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-12 text-gray-600 gap-2">
+                      <div className="w-10 h-10 rounded-full bg-gray-800/50 flex items-center justify-center">
+                        <AlertCircle size={18} className="text-gray-700" />
                       </div>
+                      <p className="text-xs">لا توجد طلبات</p>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
-                      req.status === 'pending'  ? 'bg-orange-500/20 text-orange-400' :
-                      req.status === 'seen'     ? 'bg-blue-500/20 text-blue-400' :
-                      req.status === 'replied'  ? 'bg-emerald-500/20 text-emerald-400' :
-                      'bg-gray-700/60 text-gray-500'
-                    }`}>{req.status === 'pending' ? '🟠 جديد' : req.status === 'seen' ? '🔵 مُشاهَد' : req.status === 'replied' ? '🟢 تم الرد' : '⚪ محلول'}</span>
-                  </div>
+                  )}
+                  {sorted
+                    .filter(r => sosFilter === 'all' ? true : r.status !== 'resolved')
+                    .map(req => {
+                    const isSel = req.id === selId
+                    const isFlashing = flashIds.has(req.id)
+                    const tableMatch = req.table_info?.match(/طاولة\s*(\d+)/)
+                    const tableNum = tableMatch ? tableMatch[1] : null
+                    return (
+                      <button key={req.id} onClick={() => setSelectedSosId(req.id)}
+                        className={`flex items-center gap-2 px-3 py-2.5 sm:border-b border-gray-800/30 text-right transition-colors flex-shrink-0 sm:w-full ${
+                          isSel ? 'bg-gray-800/80' : 'hover:bg-gray-800/40'
+                        } ${isFlashing ? 'ring-1 ring-inset ring-red-500/40' : ''}`}>
+                        <div className="relative flex-shrink-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                            req.status === 'pending' ? 'bg-red-600/30 text-red-400' :
+                            req.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
+                            req.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
+                            'bg-gray-700 text-gray-500'
+                          }`}>{req.participant_name?.charAt(0) || '؟'}</div>
+                          {tableNum && (
+                            <span className="absolute -bottom-1 -left-1 bg-gray-900 border border-gray-700 text-[8px] font-bold text-gray-300 rounded-full px-1 leading-none py-0.5 flex items-center gap-0.5">
+                              <Table2 size={7} />{tableNum}
+                            </span>
+                          )}
+                          {req.status === 'pending' && (
+                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-gray-900 animate-pulse" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 hidden sm:block">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-white text-xs font-semibold truncate">{req.participant_name}</span>
+                            <span className="text-gray-600 text-[9px] flex-shrink-0">{new Date(req.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
+                          <p className="text-gray-500 text-[10px] truncate mt-0.5">
+                            {req.message || req.organizer_reply || '—'}
+                          </p>
+                        </div>
+                        <span className="text-white text-xs font-semibold sm:hidden">{req.participant_name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
 
-                  {/* Chat bubbles */}
-                  <div className="px-3.5 py-3 space-y-2">
-                    {req.message && (
-                      <div className="flex justify-start">
-                        <div className="max-w-[85%] bg-gray-800/60 rounded-2xl rounded-bl-md px-3 py-2 text-sm text-gray-200 leading-relaxed">
-                          {req.message}
+              {/* Chat panel (left side in RTL) */}
+              <div className="flex-1 flex flex-col">
+                {selected ? (
+                  <>
+                    {/* Chat header */}
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-800/40 bg-gray-900/30 flex-shrink-0">
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-shrink-0">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                            selected.status === 'pending' ? 'bg-red-600/30 text-red-400' :
+                            selected.status === 'replied' ? 'bg-emerald-600/20 text-emerald-400' :
+                            selected.status === 'seen' ? 'bg-blue-600/20 text-blue-400' :
+                            'bg-gray-700 text-gray-500'
+                          }`}>{selected.participant_name?.charAt(0) || '؟'}</div>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-white text-sm font-semibold">{selected.participant_name}</span>
+                            <span className="text-gray-600 text-[10px] font-mono">#{selected.participant_number}</span>
+                          </div>
+                          <p className="text-gray-500 text-[10px]">{selected.table_info}</p>
                         </div>
                       </div>
-                    )}
-                    {req.organizer_reply && (
-                      <div className="flex justify-end">
-                        <div className="max-w-[85%] bg-emerald-900/30 border border-emerald-700/30 rounded-2xl rounded-br-md px-3 py-2 text-sm text-emerald-200 leading-relaxed">
-                          {req.organizer_reply}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 font-medium ${
+                        selected.status === 'pending'  ? 'bg-orange-500/20 text-orange-400' :
+                        selected.status === 'seen'     ? 'bg-blue-500/20 text-blue-400' :
+                        selected.status === 'replied'  ? 'bg-emerald-500/20 text-emerald-400' :
+                        'bg-gray-700/60 text-gray-500'
+                      }`}>{selected.status === 'pending' ? '🟠 جديد' : selected.status === 'seen' ? '🔵 مُشاهَد' : selected.status === 'replied' ? '🟢 تم الرد' : '⚪ محلول'}</span>
+                    </div>
 
-                  {/* Actions */}
-                  {req.status !== 'resolved' && (
-                    <div className="px-3.5 pb-3">
-                      {replyingId === req.id ? (
-                        <div className="space-y-2">
-                          <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
-                            placeholder="اكتب ردك هنا..." rows={2} autoFocus
-                            className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600" />
-                          <div className="flex gap-2">
-                            <button onClick={() => handleSOSAction(req.id, replyText, 'replied')}
-                              className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
-                              <Send size={13} /> إرسال
-                            </button>
-                            <button onClick={() => setReplyingId(null)}
-                              className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm transition-colors">إلغاء</button>
+                    {/* Messages */}
+                    <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2.5 bg-gray-950/30">
+                      {selected.message && (
+                        <div className="flex justify-start">
+                          <div className="max-w-[75%]">
+                            <div className="bg-gray-800 rounded-2xl rounded-bl-md px-3.5 py-2.5 text-sm text-gray-200 leading-relaxed">
+                              {selected.message}
+                            </div>
+                            <p className="text-gray-700 text-[9px] mt-1 mr-1">{new Date(selected.created_at).toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' })}</p>
                           </div>
                         </div>
-                      ) : (
-                        <div className="flex gap-2">
-                          <button onClick={() => { setReplyingId(req.id); setReplyText("") }}
-                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
-                            <MessageSquare size={13} /> رد
-                          </button>
-                          <button onClick={() => handleSOSAction(req.id, null, 'resolved')}
-                            className="px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl py-2 text-sm transition-colors flex items-center justify-center gap-1.5">
-                            <CheckCircle size={13} /> تم الحل
-                          </button>
+                      )}
+                      {selected.organizer_reply && (
+                        <div className="flex justify-end">
+                          <div className="max-w-[75%]">
+                            <div className="bg-emerald-900/30 border border-emerald-700/30 rounded-2xl rounded-br-md px-3.5 py-2.5 text-sm text-emerald-200 leading-relaxed">
+                              {selected.organizer_reply}
+                            </div>
+                            <p className="text-gray-700 text-[9px] mt-1 ml-1 text-left">عبدالرحمن</p>
+                          </div>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {/* Reply input — always visible at bottom */}
+                    {selected.status !== 'resolved' && (
+                      <div className="border-t border-gray-800/60 p-3 bg-gray-900/50 flex-shrink-0">
+                        {replyingId === selId ? (
+                          <div className="space-y-2">
+                            <textarea value={replyText} onChange={e => setReplyText(e.target.value)}
+                              placeholder="اكتب ردك هنا..." rows={2} autoFocus
+                              className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-emerald-600 resize-none placeholder-gray-600" />
+                            <div className="flex gap-2">
+                              <button onClick={() => handleSOSAction(selId!, replyText, 'replied')}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
+                                <Send size={13} /> إرسال
+                              </button>
+                              <button onClick={() => setReplyingId(null)}
+                                className="px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-xl text-sm transition-colors">إلغاء</button>
+                              <button onClick={() => handleSOSAction(selId!, null, 'resolved')}
+                                className="px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl text-sm transition-colors flex items-center justify-center gap-1.5">
+                                <CheckCircle size={13} /> تم الحل
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button onClick={() => { setReplyingId(selId!); setReplyText("") }}
+                              className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-xl py-2 text-sm font-medium transition-colors flex items-center justify-center gap-1.5">
+                              <MessageSquare size={13} /> رد
+                            </button>
+                            <button onClick={() => handleSOSAction(selId!, null, 'resolved')}
+                              className="px-4 bg-gray-700/50 hover:bg-gray-700 text-gray-300 rounded-xl py-2 text-sm transition-colors flex items-center justify-center gap-1.5">
+                              <CheckCircle size={13} /> تم الحل
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-3">
+                    <div className="w-14 h-14 rounded-full bg-gray-800/50 flex items-center justify-center">
+                      <MessageSquare size={24} className="text-gray-700" />
+                    </div>
+                    <p className="text-sm">اختر محادثة من القائمة</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      )}
+        )
+      })()}
 
     </div>
   )

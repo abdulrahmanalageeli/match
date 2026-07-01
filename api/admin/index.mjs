@@ -6458,7 +6458,7 @@ export default async function handler(req, res) {
         }
         // e3-reset-sos — delete all organizer requests
         if (action === "e3-reset-sos") {
-          const { error } = await supabase.from("organizer_requests").delete().neq("id", 0)
+          const { error } = await supabase.from("organizer_requests").delete().neq("id", "00000000-0000-0000-0000-000000000000")
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ message: "تم حذف جميع الطلبات" })
         }

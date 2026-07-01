@@ -77,6 +77,145 @@ function Spinner({ size = 24, className = "" }: { size?: number; className?: str
   )
 }
 
+// ─── Partner Info Card ────────────────────────────────────────────────────────
+function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink" | "purple" }) {
+  const cl = accent === "pink"
+    ? { border: "border-pink-800/30", bg: "from-pink-950/30 to-rose-950/20", text: "text-pink-300", label: "text-pink-400/70" }
+    : { border: "border-purple-800/30", bg: "from-purple-950/30 to-violet-950/20", text: "text-purple-300", label: "text-purple-400/70" }
+
+  const ageRange = (age: number | null) => {
+    if (!age) return null
+    if (age <= 22) return "18-22"
+    if (age <= 27) return "23-27"
+    if (age <= 32) return "28-32"
+    if (age <= 37) return "33-37"
+    return "38+"
+  }
+
+  const traits = [
+    data?.partner_mbti && { icon: "🧠", label: "الشخصية", value: data.partner_mbti },
+    data?.partner_age && { icon: "📅", label: "العمر", value: ageRange(data.partner_age) },
+    data?.partner_communication && { icon: "💬", label: "التواصل", value: data.partner_communication },
+    data?.partner_attachment && { icon: "🤝", label: "التعلق", value: data.partner_attachment },
+  ].filter(Boolean)
+
+  if (traits.length === 0) return null
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+      className={`rounded-2xl border ${cl.border} bg-gradient-to-br ${cl.bg} p-4 space-y-3`}>
+      <p className={`text-xs font-bold ${cl.label} flex items-center gap-1.5`}>
+        <Sparkles size={11} /> نبذة عن شريكك
+      </p>
+      <div className="grid grid-cols-2 gap-2.5">
+        {traits.map((t: any, i: number) => (
+          <div key={i} className="flex items-center gap-2 bg-gray-900/40 rounded-xl px-3 py-2">
+            <span className="text-base flex-shrink-0">{t.icon}</span>
+            <div className="min-w-0">
+              <p className="text-gray-600 text-[10px] leading-tight">{t.label}</p>
+              <p className={`${cl.text} text-xs font-semibold leading-tight truncate`}>{t.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  )
+}
+
+// ─── Compatibility Breakdown ──────────────────────────────────────────────────
+function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: any; accent?: "pink" | "purple" }) {
+  if (!breakdown) return null
+
+  const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
+
+  const dims = [
+    { key: "synergy", label: "الانسجام التفاعلي", value: breakdown.synergy || 0, max: 35, bar: "from-violet-500 to-purple-500" },
+    { key: "vibe", label: "الطاقة والكيمياء", value: breakdown.vibe || 0, max: 20, bar: "from-purple-500 to-pink-500" },
+    { key: "lifestyle", label: "نمط الحياة", value: breakdown.lifestyle || 0, max: 15, bar: "from-cyan-500 to-blue-500" },
+    { key: "humorOpen", label: "الدعابة/الانفتاح", value: breakdown.humorOpen || 0, max: 15, bar: "from-amber-500 to-orange-500" },
+    { key: "communication", label: "التواصل", value: breakdown.communication || 0, max: 10, bar: "from-indigo-500 to-sky-500" },
+    { key: "coreValues", label: "الأهداف/القيم", value: breakdown.coreValues || 0, max: 5, bar: "from-emerald-500 to-teal-500" },
+  ]
+
+  const sorted = [...dims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
+  const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 60).slice(0, 2)
+  const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
+  const synergyPercent = percent(breakdown.synergy || 0, 35)
+
+  const accentCl = accent === "pink" ? "text-pink-300" : "text-purple-300"
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+      className="rounded-2xl overflow-hidden border border-gray-800/60 bg-gradient-to-br from-gray-900/80 to-gray-950/80 shadow-lg">
+      {/* Header */}
+      <div className="px-5 py-4 border-b border-gray-800/50 bg-gray-900/60">
+        <h4 className={`text-base font-bold flex items-center gap-2 ${accentCl}`}>
+          <BarChart3 size={16} /> تحليل التوافق
+        </h4>
+        <p className="text-gray-500 text-xs mt-0.5">تفصيل دقيق لمستويات التوافق بينكما</p>
+      </div>
+
+      {/* Synergy Overview */}
+      <div className="px-5 pt-4">
+        <div className="rounded-xl p-3.5 bg-gray-900/40 border border-gray-800/40">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-bold text-gray-200">مؤشر الانسجام العام</span>
+            <span className={`text-sm font-extrabold ${synergyPercent >= 70 ? "text-emerald-400" : synergyPercent >= 50 ? "text-yellow-500" : "text-orange-500"}`}>{synergyPercent}%</span>
+          </div>
+          <div className="w-full h-2.5 rounded-full bg-gray-800/70">
+            <motion.div
+              className={`h-full rounded-full bg-gradient-to-r ${synergyPercent >= 70 ? "from-emerald-500 to-teal-500" : synergyPercent >= 50 ? "from-amber-500 to-yellow-500" : "from-orange-500 to-red-500"}`}
+              initial={{ width: 0 }} animate={{ width: `${synergyPercent}%` }} transition={{ duration: 0.8, delay: 0.4 }}
+            />
+          </div>
+
+          {/* Dimension mini-bars */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
+            {dims.map((d, i) => (
+              <div key={i} className="rounded-lg p-2.5 bg-gray-900/40 border border-gray-800/40">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[11px] font-semibold text-gray-300">{d.label}</span>
+                  <span className="text-[11px] font-bold text-gray-400">{percent(d.value, d.max)}%</span>
+                </div>
+                <div className="w-full h-1.5 rounded-full bg-gray-800/70">
+                  <motion.div
+                    className={`h-full rounded-full bg-gradient-to-r ${d.bar}`}
+                    initial={{ width: 0 }} animate={{ width: `${percent(d.value, d.max)}%` }} transition={{ duration: 0.6, delay: 0.5 + i * 0.08 }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Highlights & Growth */}
+          <div className="grid grid-cols-1 gap-2.5 mt-3.5">
+            {topStrengths.length > 0 && (
+              <div className="bg-emerald-500/10 border border-emerald-400/30 rounded-lg p-3">
+                <div className="text-[11px] font-bold mb-1 text-emerald-300">أبرز النقاط</div>
+                <ul className="text-[11px] leading-relaxed text-emerald-100/80 list-disc pr-4">
+                  {topStrengths.map((d, idx) => (
+                    <li key={idx}>{d.label}: جانب قويّ يساعد على سهولة الانسجام.</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {growth.length > 0 && (
+              <div className="bg-orange-500/10 border border-orange-400/30 rounded-lg p-3">
+                <div className="text-[11px] font-bold mb-1 text-orange-300">مساحات للنمو</div>
+                <ul className="text-[11px] leading-relaxed text-orange-100/80 list-disc pr-4">
+                  {growth.map((d, idx) => (
+                    <li key={idx}>{d.label}: قد يحتاج وقتاً للتأقلم.</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Welcome & Event Flow Onboarding ─────────────────────────────────────────
 const FLOW_STEPS = [
   {
@@ -477,7 +616,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 }
 
 // ─── Waiting / Setup Screen ───────────────────────────────────────────────────
-function SetupScreen({ token }: { token: string }) {
+function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null }) {
   const [enrolledCount, setEnrolledCount] = useState<number | null>(null)
 
   useEffect(() => {
@@ -489,20 +628,55 @@ function SetupScreen({ token }: { token: string }) {
     return () => clearInterval(iv)
   }, [token])
 
+  const timeline = [
+    { icon: "👥", label: "جلسة جماعية أولى", time: "20 دقيقة" },
+    { icon: "🔀", label: "جلسة جماعية ثانية", time: "20 دقيقة" },
+    { icon: "🏆", label: "ترتيب المشاركين", time: "5 دقائق" },
+    { icon: "💘", label: "جلسة فردية (اختيارك)", time: "15 دقيقة" },
+    { icon: "🧠", label: "جلسة فردية (اختيار النظام)", time: "15 دقيقة" },
+    { icon: "✨", label: "الكشف النهائي", time: "النتيجة" },
+  ]
+
   return (
-    <PageWrapper className="flex items-center justify-center p-6 text-center">
+    <PageWrapper className="flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="space-y-6 max-w-sm w-full"
+        className="space-y-5 max-w-sm w-full"
       >
         <motion.div
           animate={{ scale: [1, 1.08, 1], rotate: [0, 8, -8, 0] }}
           transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 0.5 }}
-          className="text-7xl mx-auto w-fit"
+          className="text-6xl mx-auto w-fit text-center"
         >✨</motion.div>
         <Brand />
-        <GlassCard className="p-8 space-y-4 shadow-xl shadow-black/20">
+
+        {/* Participant info card */}
+        {myInfo && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <GlassCard className="p-5 flex items-center gap-4 border border-purple-800/30 shadow-xl shadow-purple-900/20">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black flex-shrink-0 ${
+                myInfo.gender === "female" ? "bg-pink-900/40 border border-pink-700/40 text-pink-300" :
+                myInfo.gender === "male" ? "bg-blue-900/40 border border-blue-700/40 text-blue-300" :
+                "bg-purple-900/40 border border-purple-700/40 text-purple-300"
+              }`}>
+                {myInfo.number}
+              </div>
+              <div className="flex-1 min-w-0 text-right">
+                <p className="text-white font-bold text-base leading-tight">{myInfo.name}</p>
+                <p className="text-gray-500 text-xs mt-0.5">رقمك في الفعالية</p>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-green-400 text-[11px] font-medium">جاهز</span>
+                </div>
+              </div>
+            </GlassCard>
+          </motion.div>
+        )}
+
+        <GlassCard className="p-6 space-y-4 shadow-xl shadow-black/20 text-center">
           <div className="flex justify-center gap-1.5">
             {[0, 1, 2].map(i => (
               <motion.div
@@ -522,19 +696,45 @@ function SetupScreen({ token }: { token: string }) {
             </div>
           )}
         </GlassCard>
+
+        {/* Event timeline preview */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <GlassCard className="p-5 space-y-3">
+            <p className="text-gray-400 text-xs font-bold flex items-center gap-1.5">
+              <Clock size={12} className="text-purple-400" /> رحلة الفعالية
+            </p>
+            <div className="space-y-2.5">
+              {timeline.map((step, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-gray-800/60 border border-gray-700/40 flex items-center justify-center text-sm flex-shrink-0">
+                      {step.icon}
+                    </div>
+                    {i < timeline.length - 1 && (
+                      <div className="absolute top-full w-px h-2.5 bg-gray-700/50" />
+                    )}
+                  </div>
+                  <span className="text-gray-300 text-xs font-medium flex-1">{step.label}</span>
+                  <span className="text-gray-600 text-[10px] font-mono">{step.time}</span>
+                </div>
+              ))}
+            </div>
+          </GlassCard>
+        </motion.div>
       </motion.div>
     </PageWrapper>
   )
 }
 
 // ─── Round Screen ─────────────────────────────────────────────────────────────
-function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
-  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number
+function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo }: {
+  token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null
 }) {
   const round = parseInt(phase.replace("round", "")) || 1
   const [assignment, setAssignment] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
+  const wakeLockRef = useRef<any>(null)
 
   useEffect(() => {
     call("e3-get-assignment", token, { round }).then(d => { if (!d.error) setAssignment(d) })
@@ -550,6 +750,28 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
     const iv = setInterval(update, 1000)
     return () => clearInterval(iv)
   }, [timerActive, timerStart, timerDuration])
+
+  // Wake lock: prevent screen sleep during active round
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      try {
+        if ("wakeLock" in navigator) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request("screen")
+        }
+      } catch {}
+    }
+    if (timerActive && timeLeft > 0) requestWakeLock()
+    return () => {
+      if (wakeLockRef.current) { try { wakeLockRef.current.release() } catch {} wakeLockRef.current = null }
+    }
+  }, [timerActive, timeLeft])
+
+  // Vibrate when timer starts or when 10 seconds remain
+  useEffect(() => {
+    if (!timerActive) return
+    if (timeLeft === 10 && "vibrate" in navigator) { try { navigator.vibrate(200) } catch {} }
+    if (timeLeft === 0 && "vibrate" in navigator) { try { navigator.vibrate([300, 100, 300]) } catch {} }
+  }, [timeLeft, timerActive])
 
   const roundAr = ["الأولى", "الثانية"][round - 1] || round
   const RC = [
@@ -614,6 +836,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
             <span className="text-gray-600 text-xs">من 2</span>
           </motion.div>
 
+          {/* Prominent participant number */}
+          {myInfo && (
+            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+              className="flex items-center justify-center gap-2">
+              <span className="text-gray-600 text-xs">رقمك</span>
+              <span className={`text-2xl font-black ${RC.num}`}>#{myInfo.number}</span>
+            </motion.div>
+          )}
+
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
@@ -622,6 +853,15 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration }: {
                 </p>
                 <div className={`text-8xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
                 <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
+
+                {/* Tablemate count */}
+                {assignment.tablemates?.length > 0 && (
+                  <div className="flex items-center justify-center gap-1.5 text-gray-500 text-xs">
+                    <Users size={11} />
+                    <span>{assignment.tablemates.length} أشخاص معك في الطاولة</span>
+                  </div>
+                )}
+
                 {assignment.tablemates?.length > 0 && (
                   <div className="pt-4 border-t border-gray-800/60">
                     <p className="text-gray-600 text-xs mb-3">رفاقك في الطاولة</p>
@@ -714,6 +954,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [savingNote, setSavingNote] = useState<number | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -758,6 +999,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
     setSubmitting(false)
     if (d.error) { toast.error(d.error); return }
     setSubmitted(true)
+    setShowConfirm(false)
     toast.success("تم حفظ تصنيفاتك! ✨")
   }
 
@@ -797,6 +1039,20 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
               قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> في الجولات الجماعية — رتّبهم لتحديد جلستك الفردية
             </p>
             <p className="text-purple-400/80 text-[11px] text-center mt-1">✨ ترتيبك سيُستخدم لاختيار من ستلتقيه في جلستك الفردية الأولى</p>
+
+            {/* Ranked count indicator */}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <div className="flex items-center gap-1.5 bg-purple-900/30 border border-purple-800/40 rounded-full px-3 py-1">
+                <Trophy size={10} className="text-purple-400" />
+                <span className="text-purple-300 text-[11px] font-semibold">{order.length} مرتّب</span>
+              </div>
+              {submitted && (
+                <div className="flex items-center gap-1.5 bg-emerald-900/30 border border-emerald-800/40 rounded-full px-3 py-1">
+                  <CheckCircle size={10} className="text-emerald-400" />
+                  <span className="text-emerald-300 text-[11px] font-semibold">تم الإرسال</span>
+                </div>
+              )}
+            </div>
             {newNums.size > 0 && (
               <p className="text-purple-400 text-[11px] text-center mt-1 font-medium">
                 ✨ {newNums.size} أشخاص جدد من الجولة {completedRounds} أُضيفوا في الأسفل
@@ -851,6 +1107,11 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
                         <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
+                        {p.table_number && (
+                          <span className="text-[10px] bg-amber-900/40 text-amber-300 border border-amber-800/40 rounded-full px-1.5 py-0.5 font-medium">
+                            طاولة {p.table_number}
+                          </span>
+                        )}
                         {newNums.has(num) && (
                           <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
                         )}
@@ -918,7 +1179,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
       <div className="fixed bottom-0 inset-x-0 p-5 bg-gradient-to-t from-gray-950 via-gray-950/95 to-transparent pt-10">
         <div className="max-w-md mx-auto">
           <motion.button
-            onClick={submit}
+            onClick={() => setShowConfirm(true)}
             disabled={submitting}
             whileTap={{ scale: 0.97 }}
             className="w-full flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-60 text-white rounded-2xl py-4 font-bold text-base shadow-2xl shadow-purple-600/30 transition-all"
@@ -931,6 +1192,59 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
           </p>
         </div>
       </div>
+
+      {/* Confirmation modal */}
+      <AnimatePresence>
+        {showConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[500] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => setShowConfirm(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="bg-gray-900 border border-gray-800 rounded-3xl p-6 max-w-sm w-full space-y-4 text-center"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-purple-900/40 border border-purple-700/40 flex items-center justify-center">
+                <Send size={24} className="text-purple-400" />
+              </div>
+              <h3 className="text-white font-bold text-lg">تأكيد التصنيف</h3>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                ستقوم بإرسال ترتيبك النهائي لـ <span className="text-white font-semibold">{order.length}</span> شخص.
+                {submitted ? " سيتم تحديث تصنيفك السابق." : " لا يمكن التراجع بعد الإرسال."}
+              </p>
+              {/* Top 3 preview */}
+              <div className="bg-gray-800/50 rounded-2xl p-3 space-y-1.5">
+                {order.slice(0, 3).map((num, i) => {
+                  const p = personMap[num]
+                  if (!p) return null
+                  return (
+                    <div key={num} className="flex items-center gap-2 text-sm">
+                      <span className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${rankStyle(i)}`}>{i + 1}</span>
+                      <span className="text-gray-300 font-medium">{p.first_name}</span>
+                      <span className="text-gray-600 text-[10px] font-mono">#{p.number}</span>
+                    </div>
+                  )
+                })}
+                {order.length > 3 && <p className="text-gray-600 text-[11px] pt-1">+ {order.length - 3} أخرون</p>}
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setShowConfirm(false)}
+                  className="flex-1 py-3 rounded-2xl bg-gray-800 text-gray-400 font-bold text-sm hover:bg-gray-700 transition-colors">
+                  إلغاء
+                </button>
+                <button onClick={submit} disabled={submitting}
+                  className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-sm hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 transition-all flex items-center justify-center gap-2">
+                  {submitting ? <Spinner size={16} className="!text-white" /> : <CheckCircle size={16} />}
+                  تأكيد
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageWrapper>
   )
 }
@@ -1428,6 +1742,9 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </div>
               </motion.div>
 
+              {/* Partner info card */}
+              {data && <PartnerInfoCard data={data} accent="pink" />}
+
               {data?.table_number && (
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                   <div className="relative overflow-hidden rounded-2xl border border-amber-700/50 bg-gradient-to-br from-amber-900/40 via-orange-900/25 to-amber-900/30 p-5 text-center shadow-lg shadow-amber-900/20">
@@ -1690,6 +2007,12 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </div>
               </motion.div>
 
+              {/* Partner info card */}
+              {data && <PartnerInfoCard data={data} accent="purple" />}
+
+              {/* Compatibility breakdown */}
+              {data?.breakdown && <CompatibilityBreakdown breakdown={data.breakdown} accent="purple" />}
+
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
@@ -1877,6 +2200,26 @@ function FinalRevealScreen({ token }: { token: string }) {
             ? "غريزتك والخوارزمية متوافقتان — هذا نادر الحدوث ✨"
             : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </p>
+
+        {/* Compatibility breakdown for algorithm choice */}
+        {data.phase3?.breakdown && (
+          <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" />
+        )}
+
+        {/* What's next CTA */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+          className="rounded-2xl border border-purple-800/30 bg-gradient-to-br from-purple-950/30 to-violet-950/20 p-5 space-y-3 text-center">
+          <p className="text-purple-300 font-bold text-sm flex items-center justify-center gap-1.5">
+            <Sparkles size={14} /> ماذا بعد؟
+          </p>
+          <p className="text-gray-400 text-xs leading-relaxed">
+            ستظهر نتائجك الكاملة مع تفاصيل التوافق في صفحتك الرئيسية قريباً.
+            تواصل مع المنظم لمزيد من المعلومات.
+          </p>
+          <a href="/welcome" className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl px-5 py-2.5 text-sm font-bold transition-all">
+            <Home size={14} /> صفحتي الرئيسية
+          </a>
+        </motion.div>
       </motion.div>
     </PageWrapper>
   )
@@ -1909,15 +2252,28 @@ export default function Event3Page() {
     return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
-  const [showWelcome, setShowWelcome] = useState(true)
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window !== "undefined") {
+      return !sessionStorage.getItem("e3_welcome_seen")
+    }
+    return true
+  })
   const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
+  const [isOffline, setIsOffline] = useState(false)
+  const [tokenError, setTokenError] = useState(false)
 
   const fetchState = useCallback(async () => {
     if (!token) return
     const d = await call("e3-get-state", token)
-    if (d.error) return
+    if (d.error) {
+      if (d.error.includes("Invalid") || d.error.includes("token") || d.error.includes("expired")) {
+        setTokenError(true)
+        localStorage.removeItem("blindmatch_result_token")
+      }
+      return
+    }
     setEventState(d)
     if (enrolled === null) setEnrolled(d.enrolled !== false)
     if (d.my_info && !myInfo) setMyInfo(d.my_info)
@@ -1935,8 +2291,26 @@ export default function Event3Page() {
     return () => clearInterval(iv)
   }, [token, fetchState])
 
-  if (showWelcome) return <WelcomeScreen onDone={() => setShowWelcome(false)} />
-  if (!token) return <PhoneEntry onToken={t => { setToken(t) }} />
+  // Online/offline detection
+  useEffect(() => {
+    const goOffline = () => setIsOffline(true)
+    const goOnline = () => setIsOffline(false)
+    window.addEventListener("offline", goOffline)
+    window.addEventListener("online", goOnline)
+    setIsOffline(!navigator.onLine)
+    return () => {
+      window.removeEventListener("offline", goOffline)
+      window.removeEventListener("online", goOnline)
+    }
+  }, [])
+
+  const handleWelcomeDone = useCallback(() => {
+    setShowWelcome(false)
+    if (typeof window !== "undefined") sessionStorage.setItem("e3_welcome_seen", "1")
+  }, [])
+
+  if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />
+  if (!token || tokenError) return <PhoneEntry onToken={t => { setToken(t); setTokenError(false) }} />
 
   if (!eventState) return (
     <PageWrapper className="flex items-center justify-center">
@@ -1969,9 +2343,19 @@ export default function Event3Page() {
       {/* SOS organizer request button */}
       {enrolled && <SOSButton token={token} />}
 
+      {/* Offline indicator */}
+      {isOffline && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-[250] bg-orange-950/90 backdrop-blur-md border border-orange-800/50 rounded-full px-4 py-1.5 shadow-lg">
+          <span className="text-orange-300 text-xs font-medium flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-orange-400 animate-pulse" />
+            لا يوجد اتصال — بعض الميزات قد لا تعمل
+          </span>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
-        {phase === "setup" && <SetupScreen key="setup" token={token} />}
-        {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} />}
+        {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} />}
+        {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
         {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
         {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
         {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}

@@ -2643,10 +2643,13 @@ Please respond in JSON format:
         const { data: pdata } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", nums)
         const nameMap = {}
         for (const p of pdata || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); nameMap[p.assigned_number] = p.name || sd?.answers?.name || sd?.name || `#${p.assigned_number}` }
+        // Build table_number map from session_assignments
+        const tableMap = {}
+        for (const row of allRounds) { const { data: mates } = await supabase.from("session_assignments").select("participant_id").eq("match_id", E3_MATCH_ID).eq("round", row.round).eq("table_number", row.table_number).neq("participant_id", myNumber); for (const m of mates || []) { if (!tableMap[m.participant_id]) tableMap[m.participant_id] = row.table_number } }
         const { data: existingRankings } = await supabase.from("participant_rankings").select("ranked_number,rank").eq("match_id", E3_MATCH_ID).eq("ranker_number", myNumber)
         const rankingMap = {}
         for (const r of existingRankings || []) rankingMap[r.ranked_number] = r.rank
-        return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 })
+        return res.status(200).json({ people: metNumbers.map(m => ({ number: m.number, first_name: firstName(nameMap[m.number]), round: m.round, table_number: tableMap[m.number] || null })), existing_rankings: rankingMap, already_submitted: (existingRankings || []).length > 0 })
       }
 
       // e3-submit-ranking
@@ -2678,7 +2681,11 @@ Please respond in JSON format:
         const atA = (getF(participant, "attachment_style") || "").toLowerCase(), atB = (getF(partner, "attachment_style") || "").toLowerCase()
         if (atA && atB) { if (atA === atB && atA === "secure") phase2Score += 10; else if (atA === "secure" || atB === "secure") phase2Score += 5 }
         phase2Score = Math.min(99, Math.max(1, phase2Score))
-        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: phase2Score })
+        const partnerMbti = (getF(partner, "mbti_type") || partner?.mbti_personality_type || "").toUpperCase()
+        const partnerAttachment = getF(partner, "attachment_style") || ""
+        const partnerCommunication = getF(partner, "communication_style") || ""
+        const partnerAge = parseInt(getF(partner, "age") || partner?.age) || null
+        return res.status(200).json({ partner_number: matchRow.phase2_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), table_number: tableRow?.table_number ?? null, word_submitted: !!matchRow.phase2_word, my_word: matchRow.phase2_word || null, compatibility_score: phase2Score, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge })
       }
 
       // e3-submit-phase2-word
@@ -2694,9 +2701,32 @@ Please respond in JSON format:
       if (action === "e3-get-phase3-reveal") {
         const { data: matchRow } = await supabase.from("event3_matches").select("phase3_partner,phase3_score,phase3_word,phase2_partner").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
         if (!matchRow || !matchRow.phase3_partner) return res.status(404).json({ error: "No Phase 3 match found yet" })
-        const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
+        const { data: partner } = await supabase.from("participants").select("assigned_number,name,survey_data,mbti_personality_type,age").eq("match_id", MAIN_MATCH).eq("assigned_number", matchRow.phase3_partner).single()
         const sd = typeof partner?.survey_data === "string" ? JSON.parse(partner.survey_data || "{}") : (partner?.survey_data || {})
-        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word })
+        const getF = (p, k) => { try { const s = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); return s?.answers?.[k] ?? s?.[k] ?? p?.[k] ?? "" } catch { return "" } }
+        const partnerMbti = (getF(partner, "mbti_type") || partner?.mbti_personality_type || "").toUpperCase()
+        const partnerAttachment = getF(partner, "attachment_style") || ""
+        const partnerCommunication = getF(partner, "communication_style") || ""
+        const partnerAge = parseInt(getF(partner, "age") || partner?.age) || null
+        // Fetch compatibility breakdown from cache
+        let breakdown = null
+        const [a, b] = [myNumber, matchRow.phase3_partner].sort((x, y) => x - y)
+        const { data: cacheRow } = await supabase.from("compatibility_cache").select("*").eq("participant_a_number", a).eq("participant_b_number", b).order("last_used", { ascending: false }).limit(1).single()
+        if (cacheRow) {
+          const coreScaled5 = Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5)
+          const humorOpen = Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - coreScaled5))
+          breakdown = {
+            synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
+            vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
+            lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
+            humorOpen,
+            communication: Math.round(parseFloat(cacheRow.communication_score)),
+            coreValues: coreScaled5,
+            intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
+            total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
+          }
+        }
+        return res.status(200).json({ partner_number: matchRow.phase3_partner, partner_first_name: firstName(partner?.name || sd?.answers?.name || sd?.name), compatibility_score: matchRow.phase3_score || 0, same_as_phase2: matchRow.phase2_partner === matchRow.phase3_partner, word_submitted: !!matchRow.phase3_word, partner_mbti: partnerMbti, partner_attachment: partnerAttachment, partner_communication: partnerCommunication, partner_age: partnerAge, breakdown })
       }
 
       // e3-submit-phase3-word
@@ -2731,7 +2761,30 @@ Please respond in JSON format:
         const { data: partners } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", partnerNums)
         const pMap = {}
         for (const p of partners || []) { const sd = typeof p.survey_data === "string" ? JSON.parse(p.survey_data || "{}") : (p.survey_data || {}); pMap[p.assigned_number] = firstName(p.name || sd?.answers?.name || sd?.name) }
-        return res.status(200).json({ phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null }, phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score || 0, word: matchRow.phase3_word || null }, same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner })
+        // Fetch compatibility breakdown from cache for phase3 pair
+        let breakdown = null
+        if (matchRow.phase3_partner) {
+          const [a, b] = [matchRow.phase2_partner, matchRow.phase3_partner].filter(Boolean).sort((x, y) => x - y)
+          if (matchRow.phase3_partner) {
+            const [pa, pb] = [myNumber, matchRow.phase3_partner].sort((x, y) => x - y)
+            const { data: cacheRow } = await supabase.from("compatibility_cache").select("*").eq("participant_a_number", pa).eq("participant_b_number", pb).order("last_used", { ascending: false }).limit(1).single()
+            if (cacheRow) {
+              const coreScaled5 = Math.round((parseFloat(cacheRow.core_values_score) / 20) * 5)
+              const humorOpen = Math.max(0, Math.round(parseFloat(cacheRow.total_compatibility_score) - parseFloat(cacheRow.interaction_synergy_score) - parseFloat(cacheRow.ai_vibe_score) - parseFloat(cacheRow.lifestyle_score) - parseFloat(cacheRow.communication_score) - coreScaled5))
+              breakdown = {
+                synergy: Math.round(parseFloat(cacheRow.interaction_synergy_score)),
+                vibe: Math.round(parseFloat(cacheRow.ai_vibe_score)),
+                lifestyle: Math.round(parseFloat(cacheRow.lifestyle_score)),
+                humorOpen,
+                communication: Math.round(parseFloat(cacheRow.communication_score)),
+                coreValues: coreScaled5,
+                intent: Math.round(parseFloat(cacheRow.intent_goal_score) || 0),
+                total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
+              }
+            }
+          }
+        }
+        return res.status(200).json({ phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null }, phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score || 0, word: matchRow.phase3_word || null, breakdown }, same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner })
       }
 
       // e3-get-notes

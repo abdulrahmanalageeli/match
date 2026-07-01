@@ -391,7 +391,14 @@ export default function Admin3Page() {
               </span>
             </div>
           )}
-          <button onClick={() => setSosModalOpen(true)}
+          <button onClick={async () => {
+            setSosModalOpen(true)
+            const pending = sosRequests.filter(r => r.status === 'pending')
+            if (pending.length > 0) {
+              await api("e3-sos-mark-seen")
+              setSosRequests(prev => prev.map(r => r.status === 'pending' ? { ...r, status: 'seen' } : r))
+            }
+          }}
             className="relative p-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors">
             <MessageSquare size={18} />
             {sosRequests.filter(r => r.status !== 'resolved').length > 0 && (

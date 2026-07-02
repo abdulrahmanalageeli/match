@@ -6142,7 +6142,7 @@ export default async function handler(req, res) {
           const seen = new Set()
           const pairs = []
           for (const [p, partner] of matches) {
-            if (seen.has(p)) continue
+            if (seen.has(p) || seen.has(partner)) continue
             seen.add(p); seen.add(partner)
             // Calculate real compatibility score (same function as Generate Matches)
             const pA = participantMap.get(p), pB = participantMap.get(partner)

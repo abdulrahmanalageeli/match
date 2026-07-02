@@ -33,7 +33,7 @@ function formatTime(s: number) {
 // ─── Shared Design Components ─────────────────────────────────────────────────
 function PageWrapper({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`min-h-screen bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
+    <div className={`h-[100dvh] bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
         <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/18 rounded-full blur-[100px]" />
@@ -799,7 +799,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="fixed top-0 inset-x-0 z-50 bg-gray-950/90 backdrop-blur-xl overflow-hidden"
           >
-            <div className="flex items-center justify-between px-5 h-14 max-w-sm mx-auto">
+            <div className="flex items-center justify-between px-5 h-14 max-w-sm mx-auto relative">
               <div className="flex items-center gap-2">
                 <Clock size={13} className="text-purple-400" />
                 <span className="text-gray-500 text-xs">الوقت المتبقي</span>
@@ -1025,7 +1025,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   )
 
   return (
-    <PageWrapper>
+    <PageWrapper className="overflow-y-auto">
       <div className="max-w-md mx-auto pb-36">
 
         {/* Sticky header */}
@@ -1691,8 +1691,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }
 
   return (
-    <PageWrapper>
-      <div className="max-w-sm mx-auto p-5 pb-10 space-y-4">
+    <PageWrapper className="overflow-y-auto">
+      <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
@@ -1948,8 +1948,8 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   }
 
   return (
-    <PageWrapper>
-      <div className="max-w-sm mx-auto p-5 pb-10 space-y-4">
+    <PageWrapper className="overflow-y-auto">
+      <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
@@ -2150,8 +2150,8 @@ function FinalRevealScreen({ token }: { token: string }) {
   )
 
   return (
-    <PageWrapper className="flex flex-col items-center justify-center p-6">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-5 text-center">
+    <PageWrapper className="overflow-y-auto flex flex-col items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-4 text-center">
         <Brand />
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
           className="text-6xl">✨</motion.div>
@@ -2384,7 +2384,7 @@ export default function Event3Page() {
 
       {/* Fixed participant info chip */}
       {myInfo && enrolled && (
-        <div className="fixed bottom-3 left-3 z-[200] flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-2 pr-3 py-1">
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-2 pr-3 py-1">
           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400/80" : myInfo.gender === "male" ? "bg-blue-400/80" : "bg-purple-400/80"}`} />
           <span className="text-gray-300 text-[11px] font-medium leading-none">{myInfo.name}</span>
           <span className="text-gray-600 text-[9px] font-mono leading-none">#{myInfo.number}</span>

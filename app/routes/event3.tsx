@@ -1430,7 +1430,7 @@ function SOSButton({ token, bottomRight = false }: { token: string; bottomRight?
         }
       }
       setLastReplyCount(orgMsgs.length)
-      if (userMsgs.length > 0) setShowOptions(false)
+      if (userMsgs.length > 0 || orgMsgs.length > 0) setShowOptions(false)
       else setShowOptions(true)
       if (orgMsgs.length === 0 && userMsgs.length === 0) setHasUnread(false)
     }

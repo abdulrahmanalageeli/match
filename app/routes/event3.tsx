@@ -54,6 +54,42 @@ function GlassCard({ children, className = "", glow = "" }: { children: React.Re
   )
 }
 
+// ─── Typewriter Name ─────────────────────────────────────────────────────────
+function TypewriterName({ name, accent = "pink" }: { name: string; accent?: "pink" | "purple" }) {
+  const [displayed, setDisplayed] = useState("")
+  const [done, setDone] = useState(false)
+  const greeting = "Hello, "
+  const fullName = greeting + (name || "")
+  const cursorColor = accent === "pink" ? "text-pink-400" : "text-purple-400"
+
+  useEffect(() => {
+    if (!name) return
+    setDisplayed("")
+    setDone(false)
+    let i = 0
+    const speed = 85
+    const interval = setInterval(() => {
+      if (i < fullName.length) {
+        setDisplayed(fullName.slice(0, i + 1))
+        i++
+      } else {
+        clearInterval(interval)
+        setDone(true)
+      }
+    }, speed)
+    return () => clearInterval(interval)
+  }, [name])
+
+  const isGreeting = displayed.length <= greeting.length
+
+  return (
+    <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: accent === "pink" ? '0 2px 20px rgba(236,72,153,0.3)' : '0 2px 20px rgba(139,92,246,0.3)' }}>
+      <span className={isGreeting ? "text-gray-500" : "text-white"}>{displayed}</span>
+      <span className={`${cursorColor} ${done ? "animate-pulse" : ""}`}>|</span>
+    </p>
+  )
+}
+
 function Brand() {
   return (
     <div className="text-center">
@@ -1736,8 +1772,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                       <Heart size={10} className="text-pink-400" fill="currentColor" />
                       <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
                     </div>
-                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
+                    <TypewriterName name={data?.partner_first_name} accent="pink" />
                   </div>
                 </div>
               </motion.div>
@@ -2001,17 +2036,13 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                       <Brain size={10} className="text-purple-400" />
                       <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
                     </div>
-                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
-                    <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
+                    <TypewriterName name={data?.partner_first_name} accent="purple" />
                   </div>
                 </div>
               </motion.div>
 
               {/* Partner info card */}
               {data && <PartnerInfoCard data={data} accent="purple" />}
-
-              {/* Compatibility breakdown */}
-              {data?.breakdown && <CompatibilityBreakdown breakdown={data.breakdown} accent="purple" />}
 
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
@@ -2064,7 +2095,6 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <div className="flex items-center justify-between px-4 py-2.5 rounded-xl bg-purple-900/20 border border-purple-800/30">
                 <span className="text-gray-500 text-xs">شريكك</span>
                 <span className="text-purple-300 font-bold">{data?.partner_first_name}</span>
-                {data?.compatibility_score && <span className="text-purple-400 text-xs font-medium">{data.compatibility_score}% توافق</span>}
               </div>
               {timerActive && timeLeft > 0 && (
                 <div className="rounded-xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
@@ -2170,6 +2200,10 @@ function FinalRevealScreen({ token }: { token: string }) {
               <div className="text-2xl">💘</div>
               <p className="text-gray-500 text-xs">اخترت</p>
               <p className="text-xl font-black text-white leading-tight">{data.phase2?.partner_first_name}</p>
+              <div className="flex items-center gap-1">
+                <span className="text-pink-300 font-black text-sm">{data.phase2?.compatibility_score}%</span>
+                <span className="text-gray-600 text-xs">توافق</span>
+              </div>
               {data.phase2?.word && (
                 <span className="text-xs bg-pink-900/40 text-pink-300 border border-pink-800/40 rounded-full px-2.5 py-0.5">
                   "{data.phase2.word}"
@@ -2203,7 +2237,10 @@ function FinalRevealScreen({ token }: { token: string }) {
 
         {/* Compatibility breakdown for algorithm choice */}
         {data.phase3?.breakdown && (
-          <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" />
+          <div className="space-y-2">
+            <p className="text-purple-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيار الخوارزمية</p>
+            <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" />
+          </div>
         )}
 
         {/* What's next CTA */}

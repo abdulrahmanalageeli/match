@@ -837,15 +837,6 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             <span className="text-gray-600 text-xs">من 2</span>
           </motion.div>
 
-          {/* Prominent participant number */}
-          {myInfo && (
-            <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-              className="flex items-center justify-center gap-2">
-              <span className="text-gray-600 text-xs">رقمك</span>
-              <span className={`text-2xl font-black ${RC.num}`}>#{myInfo.number}</span>
-            </motion.div>
-          )}
-
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
@@ -1480,17 +1471,18 @@ function SOSButton({ token }: { token: string }) {
 
   return (
     <>
-      {/* Floating button — subtle link in the gap below the timer bar */}
-      <motion.button
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setOpen(o => !o)}
-        className={`fixed top-[68px] left-1/2 -translate-x-1/2 z-[190] flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
-          hasUnread ? 'text-emerald-400 bg-emerald-950/40'
-          : pendingCount > 0 ? 'text-orange-400 bg-orange-950/30'
-          : 'text-gray-500 hover:text-gray-300 bg-gray-900/30'
-        }`}
-        dir="rtl"
-      >
+      {/* Organizer button — centered with separator lines */}
+      <div className="fixed top-[68px] left-0 right-0 z-[190] flex items-center justify-center gap-3 px-4" dir="rtl">
+        <div className="flex-1 h-px bg-gradient-to-l from-gray-700/40 to-transparent" />
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setOpen(o => !o)}
+          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
+            hasUnread ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-700/30'
+            : pendingCount > 0 ? 'text-orange-300 bg-orange-950/50 border border-orange-700/30'
+            : 'text-gray-400 hover:text-gray-200 bg-gray-800/60 border border-gray-700/40'
+          }`}
+        >
         {pendingCount > 0 && !hasUnread && (
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
             className="w-2.5 h-2.5 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" />
@@ -1498,7 +1490,9 @@ function SOSButton({ token }: { token: string }) {
         {hasUnread && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />}
         {!hasActive && <span className="w-1 h-1 rounded-full bg-red-500/70 animate-pulse flex-shrink-0" />}
         <span>{hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : 'المنظم'}</span>
-      </motion.button>
+        </motion.button>
+        <div className="flex-1 h-px bg-gradient-to-r from-gray-700/40 to-transparent" />
+      </div>
 
       {/* Chat panel */}
       <AnimatePresence>

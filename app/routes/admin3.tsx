@@ -4,7 +4,7 @@ import {
   Users, Play, Square, ChevronRight, RotateCcw, CheckCircle,
   Circle, RefreshCw, Table2, Trophy, Clock, BarChart3, Shuffle,
   Eye, EyeOff, ArrowRight, Sparkles, Brain, Shield, LogOut,
-  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send,
+  Grid3x3, Star, Check, AlertCircle, Loader2, Copy, Heart, Layers, ChevronDown, X, MessageSquare, Send, Home,
 } from "lucide-react"
 
 const ADMIN_PASSWORD = "soulmatch2026"
@@ -746,6 +746,15 @@ export default function Admin3Page() {
                     color: "amber",
                     enabled: true,
                     loadKey: "phase-final_reveal",
+                  },
+                  {
+                    label: "الفعالية ستبدأ قريباً",
+                    desc: "إعادة المشاركين لشاشة الانتظار",
+                    action: () => setPhase("setup"),
+                    icon: Home,
+                    color: "gray",
+                    enabled: true,
+                    loadKey: "phase-setup",
                   },
                 ].map(btn => (
                   <button

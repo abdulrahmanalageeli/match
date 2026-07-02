@@ -644,11 +644,6 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
         animate={{ opacity: 1, scale: 1 }}
         className="space-y-5 max-w-sm w-full"
       >
-        <motion.div
-          animate={{ scale: [1, 1.08, 1], rotate: [0, 8, -8, 0] }}
-          transition={{ duration: 3.5, repeat: Infinity, repeatDelay: 0.5 }}
-          className="text-6xl mx-auto w-fit text-center"
-        >✨</motion.div>
         <Brand />
 
         {/* Participant info card */}
@@ -2382,8 +2377,8 @@ export default function Event3Page() {
     <>
       <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
 
-      {/* Fixed participant info chip */}
-      {myInfo && enrolled && (
+      {/* Fixed participant info chip — hidden on setup screen to avoid duplicate name display */}
+      {myInfo && enrolled && phase !== "setup" && (
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-2 pr-3 py-1">
           <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400/80" : myInfo.gender === "male" ? "bg-blue-400/80" : "bg-purple-400/80"}`} />
           <span className="text-gray-300 text-[11px] font-medium leading-none">{myInfo.name}</span>

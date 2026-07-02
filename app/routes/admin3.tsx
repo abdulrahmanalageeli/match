@@ -97,6 +97,10 @@ export default function Admin3Page() {
   const knownSosIds = useRef<Set<string>>(new Set())
   const [flashIds, setFlashIds] = useState<Set<string>>(new Set())
   const [selectedSosId, setSelectedSosId] = useState<string | null>(null)
+  const [initiateChatOpen, setInitiateChatOpen] = useState(false)
+  const [initiateChatTarget, setInitiateChatTarget] = useState<any>(null)
+  const [initiateChatText, setInitiateChatText] = useState("")
+  const [initiateSending, setInitiateSending] = useState(false)
 
   useEffect(() => {
     if (localStorage.getItem("admin3") === "authenticated") {
@@ -203,6 +207,24 @@ export default function Admin3Page() {
     } else {
       fetchSOS()
     }
+  }
+
+  const initiateChat = async () => {
+    if (!initiateChatText.trim() || !initiateChatTarget) return
+    setInitiateSending(true)
+    const d = await api("e3-sos-initiate", {
+      participant_number: initiateChatTarget.number,
+      participant_name: initiateChatTarget.name,
+      message: initiateChatText.trim()
+    })
+    setInitiateSending(false)
+    if (d.error) { toast.error(d.error); return }
+    toast.success("تم إرسال الرسالة ✅")
+    setInitiateChatOpen(false)
+    setInitiateChatText("")
+    setInitiateChatTarget(null)
+    fetchSOS()
+    setSosModalOpen(true)
   }
 
   const fetchRankStatus = useCallback(async () => {
@@ -1658,6 +1680,12 @@ export default function Admin3Page() {
                   >
                     <Shuffle size={14} /> تبديل مكانه في الطاولات
                   </button>
+                  <button
+                    onClick={() => { setInitiateChatTarget({ number: p.number, name: p.name }); setInitiateChatOpen(true); setParticipantPanelOpen(false) }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-emerald-900/30 hover:bg-emerald-900/50 border border-emerald-700/40 text-emerald-300 text-sm font-medium transition-all active:scale-[0.98]"
+                  >
+                    <MessageSquare size={14} /> مراسلة المشارك
+                  </button>
                 </div>
               </div>
             </div>
@@ -2820,6 +2848,39 @@ export default function Admin3Page() {
         </div>
         )
       })()}
+
+      {/* ─── Initiate Chat Modal ─────────────────────────────────── */}
+      {initiateChatOpen && initiateChatTarget && (
+        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-gray-900 border border-gray-700/60 rounded-2xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-base flex items-center gap-2">
+                <MessageSquare size={16} className="text-emerald-400" />
+                مراسلة {initiateChatTarget.name} (#{initiateChatTarget.number})
+              </h3>
+              <button onClick={() => { setInitiateChatOpen(false); setInitiateChatText(""); setInitiateChatTarget(null) }}
+                className="w-7 h-7 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
+                <X size={14} />
+              </button>
+            </div>
+            <textarea
+              value={initiateChatText}
+              onChange={e => setInitiateChatText(e.target.value)}
+              placeholder="اكتب رسالتك للمشارك..."
+              rows={4}
+              className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500/50 resize-none placeholder:text-gray-600 transition-all"
+            />
+            <button
+              onClick={initiateChat}
+              disabled={!initiateChatText.trim() || initiateSending}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-sm font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {initiateSending ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+              إرسال الرسالة
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   )

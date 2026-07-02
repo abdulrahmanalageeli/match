@@ -292,9 +292,9 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
   const s = FLOW_STEPS[step]
 
   return (
-    <div className="min-h-screen bg-gray-950 relative overflow-hidden" dir="rtl">
+    <div className="h-[100dvh] bg-gray-950 relative overflow-hidden flex flex-col" dir="rtl">
       {/* Ambient background */}
-      <div className="fixed inset-0 pointer-events-none">
+      <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
         <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/15 rounded-full blur-[100px]" />
         <motion.div
@@ -314,15 +314,15 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
             transition={{ duration: 0.4 }}
-            className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6 text-center"
+            className="relative z-10 flex-1 flex flex-col items-center justify-center px-6 text-center"
           >
             {/* Logo + pulsing rings */}
-            <div className="relative mb-8 flex items-center justify-center">
+            <div className="relative mb-6 flex items-center justify-center">
               {[0, 1, 2].map(i => (
                 <motion.div
                   key={i}
                   className="absolute rounded-full border border-purple-400/25"
-                  style={{ width: `${128 + i * 44}px`, height: `${128 + i * 44}px` }}
+                  style={{ width: `${110 + i * 38}px`, height: `${110 + i * 38}px` }}
                   animate={{ scale: [1, 1.18], opacity: [0.5, 0] }}
                   transition={{ duration: 2, delay: i * 0.55, repeat: Infinity, ease: "easeOut" }}
                 />
@@ -341,7 +341,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.45, duration: 0.6 }}
-              className="space-y-3 mb-10"
+              className="space-y-2 mb-6"
             >
               <motion.div
                 initial={{ opacity: 0 }}
@@ -359,7 +359,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.65 }}
-                className="text-[2.6rem] font-black text-white leading-tight"
+                className="text-[2.2rem] font-black text-white leading-tight"
               >
                 التوافق الأعمى<br />
                 <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
@@ -385,7 +385,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={() => setPhase("steps")}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-4 font-black text-lg shadow-2xl shadow-purple-600/30 transition-all"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-2xl shadow-purple-600/30 transition-all"
               >
                 كيف تسير الفعالية؟ ←
               </motion.button>
@@ -406,7 +406,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="relative z-10 min-h-screen flex flex-col"
+            className="relative z-10 flex-1 flex flex-col overflow-hidden"
           >
             {/* Top progress bar */}
             <div className="w-full h-1 bg-gray-800/50">
@@ -447,7 +447,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 >
                   <div className={`rounded-3xl overflow-hidden shadow-2xl ${s.glowClass}`}>
                     {/* Gradient header */}
-                    <div className={`bg-gradient-to-br ${s.gradient} px-7 pt-7 pb-6 text-center relative overflow-hidden`}>
+                    <div className={`bg-gradient-to-br ${s.gradient} px-6 pt-5 pb-4 text-center relative overflow-hidden`}>
                       {/* Subtle dot pattern */}
                       <div
                         className="absolute inset-0 opacity-[0.07]"
@@ -473,7 +473,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                           transition={{ type: "spring", stiffness: 260, damping: 18, delay: 0.08 }}
                           className="py-4 flex items-center justify-center"
                         >
-                          <s.Icon size={68} className="text-white/90" strokeWidth={1.25} />
+                          <s.Icon size={56} className="text-white/90" strokeWidth={1.25} />
                         </motion.div>
                         {/* Title */}
                         <motion.h2
@@ -491,7 +491,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.18 }}
-                      className="bg-gray-900/95 backdrop-blur-sm px-6 py-5"
+                      className="bg-gray-900/95 backdrop-blur-sm px-5 py-4"
                     >
                       <p className="text-gray-300 text-sm leading-relaxed text-center">{s.desc}</p>
                     </motion.div>
@@ -501,7 +501,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             </div>
 
             {/* Bottom navigation */}
-            <div className="px-5 pb-8 pt-3 space-y-4">
+            <div className="px-5 pb-4 pt-2 space-y-3">
               {/* Dot indicators */}
               <div className="flex items-center justify-center gap-1.5">
                 {FLOW_STEPS.map((_, i) => (
@@ -518,7 +518,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               <motion.button
                 whileTap={{ scale: 0.97 }}
                 onClick={goNext}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-4 font-black text-lg shadow-xl shadow-purple-600/25 transition-all"
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-xl shadow-purple-600/25 transition-all"
               >
                 {step === FLOW_STEPS.length - 1 ? "أبدأ رحلتي ✨" : "التالي ←"}
               </motion.button>
@@ -1439,7 +1439,8 @@ function SOSButton({ token }: { token: string }) {
       }
       setLastReplyCount(orgMsgs.length)
       if (userMsgs.length > 0) setShowOptions(false)
-      else { setShowOptions(true); setHasUnread(false) }
+      else setShowOptions(true)
+      if (orgMsgs.length === 0 && userMsgs.length === 0) setHasUnread(false)
     }
     doFetch()
     let iv: ReturnType<typeof setInterval>

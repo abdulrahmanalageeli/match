@@ -6560,6 +6560,32 @@ export default async function handler(req, res) {
           if (error) return res.status(500).json({ error: error.message })
           return res.status(200).json({ requests: data || [] })
         }
+        // e3-sos-initiate — organizer starts a chat with a participant
+        if (action === "e3-sos-initiate") {
+          const { participant_number, participant_name, message } = req.body
+          if (!participant_number) return res.status(400).json({ error: "participant_number required" })
+          // Find participant's token
+          const { data: pRow } = await supabase.from("participants").select("secure_token,name").eq("match_id", STATIC_MATCH_ID).eq("assigned_number", participant_number).single()
+          if (!pRow || !pRow.secure_token) return res.status(404).json({ error: "Participant not found or no token" })
+          const pName = participant_name || pRow.name || `#${participant_number}`
+          // Check if there's already an existing request for this participant
+          const { data: existing } = await supabase.from("organizer_requests").select("id").eq("participant_token", pRow.secure_token).order("created_at", { ascending: false }).limit(1).single()
+          if (existing) {
+            // Update existing with organizer reply
+            const { error } = await supabase.from("organizer_requests").update({
+              organizer_reply: message, status: "replied", updated_at: new Date().toISOString()
+            }).eq("id", existing.id)
+            if (error) return res.status(500).json({ error: error.message })
+            return res.status(200).json({ message: "تم الإرسال", id: existing.id })
+          }
+          // Create new organizer-initiated request
+          const { data: inserted, error: insErr } = await supabase.from("organizer_requests").insert({
+            participant_token: pRow.secure_token, participant_number, participant_name: pName,
+            table_info: "رسالة من المنظم", message: null, organizer_reply: message, status: "replied"
+          }).select("id").single()
+          if (insErr) return res.status(500).json({ error: insErr.message })
+          return res.status(200).json({ message: "تم الإرسال", id: inserted.id })
+        }
         // e3-sos-reply — admin acknowledges/replies to a request
         if (action === "e3-sos-reply") {
           const { id, reply, status: newStatus } = req.body

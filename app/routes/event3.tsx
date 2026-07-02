@@ -800,10 +800,10 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
                 <span className="text-gray-500 text-xs">الوقت المتبقي</span>
               </div>
               {myInfo && (
-                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-2 pr-3 py-1">
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400/80" : myInfo.gender === "male" ? "bg-blue-400/80" : "bg-purple-400/80"}`} />
-                  <span className="text-gray-300 text-[11px] font-medium leading-none">{myInfo.name}</span>
-                  <span className="text-gray-600 text-[9px] font-mono leading-none">#{myInfo.number}</span>
+                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400/70" : myInfo.gender === "male" ? "bg-blue-400/70" : "bg-purple-400/70"}`} />
+                  <span className="text-gray-400 text-[11px] font-medium leading-none">{myInfo.name}</span>
+                  <span className="text-gray-700 text-[9px] font-mono leading-none">#{myInfo.number}</span>
                 </div>
               )}
               <div className={`text-2xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
@@ -1485,7 +1485,7 @@ function SOSButton({ token }: { token: string }) {
       <motion.button
         whileTap={{ scale: 0.92 }}
         onClick={() => setOpen(o => !o)}
-        className={`fixed top-16 right-4 z-[190] flex items-center gap-2 px-3.5 py-2.5 rounded-2xl backdrop-blur-md border shadow-lg transition-all ${
+        className={`fixed top-16 left-1/2 -translate-x-1/2 z-[190] flex items-center gap-2 px-3.5 py-2.5 rounded-2xl backdrop-blur-md border shadow-lg transition-all ${
           hasUnread ? 'bg-emerald-950/70 border-emerald-600/50 text-emerald-300'
           : pendingCount > 0 ? 'bg-orange-950/60 border-orange-700/40 text-orange-300'
           : 'bg-gray-900/80 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600/70'
@@ -1510,7 +1510,7 @@ function SOSButton({ token }: { token: string }) {
             initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed top-32 right-4 z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed top-32 left-1/2 -translate-x-1/2 z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
             style={{ maxHeight: '60vh' }}
             dir="rtl"
           >

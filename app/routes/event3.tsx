@@ -2115,6 +2115,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 function FinalRevealScreen({ token }: { token: string }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [showExitPopup, setShowExitPopup] = useState(false)
 
   useEffect(() => {
     call("e3-get-final-reveal", token).then(d => {
@@ -2122,6 +2123,12 @@ function FinalRevealScreen({ token }: { token: string }) {
       setLoading(false)
     })
   }, [token])
+
+  useEffect(() => {
+    if (!data) return
+    const t = setTimeout(() => setShowExitPopup(true), 2500)
+    return () => clearTimeout(t)
+  }, [data])
 
   useEffect(() => {
     if (!data) return
@@ -2224,6 +2231,52 @@ function FinalRevealScreen({ token }: { token: string }) {
           </a>
         </motion.div>
       </motion.div>
+
+      {/* Exit popup */}
+      <AnimatePresence>
+        {showExitPopup && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+            onClick={() => setShowExitPopup(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="bg-gray-900 border border-gray-700/60 rounded-3xl p-7 max-w-sm w-full text-center space-y-4 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-4xl">🤝</div>
+              <h2 className="text-xl font-black text-white">قبل أن تغادر</h2>
+              <p className="text-gray-400 text-sm leading-relaxed">
+                انتهت الفعالية رسمياً، لكن يمكنك البقاء هنا والاستمرار في التفاعل مع شريكك الذي اخترته.
+                إذا كنت ترغب بذلك، عُد إلى شاشة الكشف السابقة لمواصلة الجلسة.
+                أو يمكنك المغادرة الآن — الخيار لك.
+              </p>
+              <div className="flex flex-col gap-2.5 pt-1">
+                <button
+                  onClick={() => setShowExitPopup(false)}
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-sm font-bold transition-all"
+                >
+                  البقاء هنا
+                </button>
+                <a
+                  href="/welcome"
+                  className="w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-all"
+                >
+                  العودة لشريكي والاستمرار
+                </a>
+              </div>
+              <button
+                onClick={() => setShowExitPopup(false)}
+                className="text-gray-600 text-xs hover:text-gray-500 transition-colors"
+              >
+                ربما لاحقاً
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </PageWrapper>
   )
 }
@@ -2255,12 +2308,7 @@ export default function Event3Page() {
     return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
-  const [showWelcome, setShowWelcome] = useState(() => {
-    if (typeof window !== "undefined") {
-      return !sessionStorage.getItem("e3_welcome_seen")
-    }
-    return true
-  })
+  const [showWelcome, setShowWelcome] = useState(true)
   const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
@@ -2309,7 +2357,6 @@ export default function Event3Page() {
 
   const handleWelcomeDone = useCallback(() => {
     setShowWelcome(false)
-    if (typeof window !== "undefined") sessionStorage.setItem("e3_welcome_seen", "1")
   }, [])
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />

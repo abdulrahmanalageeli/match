@@ -244,18 +244,17 @@ export default function Admin3Page() {
     fetchSeating()
     fetchSOS()
     const stateIv = setInterval(fetchState, 3000)
-    const hasActiveSos = sosRequests.some(r => r.status === 'pending' || r.status === 'seen')
-    const sosIv = setInterval(fetchSOS, hasActiveSos ? 3000 : 20000)
+    const sosIv = setInterval(fetchSOS, 5000)
     return () => {
       clearInterval(stateIv)
       clearInterval(sosIv)
     }
-  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS, sosRequests])
+  }, [authenticated, fetchState, fetchParticipants, fetchSeating, fetchSOS])
 
   useEffect(() => {
     if (authenticated && activeTab === "seating") { fetchSeating(); fetchRankStatus() }
     if (authenticated && activeTab === "ranking") fetchRankStatus()
-    if (authenticated && activeTab === "participants") { fetchParticipants(); fetchSeating(); fetchRankStatus(); fetchMatches() }
+    if (authenticated && activeTab === "participants") { fetchParticipants({ preserveSelection: true }); fetchSeating(); fetchRankStatus(); fetchMatches() }
     if (authenticated && activeTab === "overview") fetchOverview()
   }, [activeTab, authenticated, fetchSeating, fetchRankStatus, fetchParticipants, fetchMatches, fetchOverview])
 

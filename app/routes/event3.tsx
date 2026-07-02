@@ -800,10 +800,9 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
                 <span className="text-gray-500 text-xs">الوقت المتبقي</span>
               </div>
               {myInfo && (
-                <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5">
-                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400/70" : myInfo.gender === "male" ? "bg-blue-400/70" : "bg-purple-400/70"}`} />
-                  <span className="text-gray-400 text-[11px] font-medium leading-none">{myInfo.name}</span>
-                  <span className="text-gray-700 text-[9px] font-mono leading-none">#{myInfo.number}</span>
+                <div className="absolute left-1/2 -translate-x-1/2 flex items-baseline gap-1">
+                  <span className="text-gray-400/70 text-[12px] font-medium leading-none">{myInfo.name}</span>
+                  <span className={`text-[12px] font-mono font-bold leading-none ${myInfo.gender === "female" ? "text-pink-400/60" : myInfo.gender === "male" ? "text-blue-400/60" : "text-purple-400/60"}`}>#{myInfo.number}</span>
                 </div>
               )}
               <div className={`text-2xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>
@@ -1481,26 +1480,24 @@ function SOSButton({ token }: { token: string }) {
 
   return (
     <>
-      {/* Floating button — positioned in the gap below the timer bar */}
+      {/* Floating button — subtle link in the gap below the timer bar */}
       <motion.button
-        whileTap={{ scale: 0.92 }}
+        whileTap={{ scale: 0.95 }}
         onClick={() => setOpen(o => !o)}
-        className={`fixed top-16 left-1/2 -translate-x-1/2 z-[190] flex items-center gap-2 px-3.5 py-2.5 rounded-2xl backdrop-blur-md border shadow-lg transition-all ${
-          hasUnread ? 'bg-emerald-950/70 border-emerald-600/50 text-emerald-300'
-          : pendingCount > 0 ? 'bg-orange-950/60 border-orange-700/40 text-orange-300'
-          : 'bg-gray-900/80 border-gray-700/50 text-gray-400 hover:text-gray-200 hover:border-gray-600/70'
+        className={`fixed top-[68px] left-1/2 -translate-x-1/2 z-[190] flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
+          hasUnread ? 'text-emerald-400 bg-emerald-950/40'
+          : pendingCount > 0 ? 'text-orange-400 bg-orange-950/30'
+          : 'text-gray-500 hover:text-gray-300 bg-gray-900/30'
         }`}
         dir="rtl"
       >
         {pendingCount > 0 && !hasUnread && (
           <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-            className="w-3 h-3 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" />
+            className="w-2.5 h-2.5 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" />
         )}
-        {hasUnread && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />}
-        {!hasActive && <span className="w-1.5 h-1.5 rounded-full bg-red-500/80 animate-pulse flex-shrink-0" />}
-        <span className="text-xs font-semibold">
-          {hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : 'المنظم'}
-        </span>
+        {hasUnread && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />}
+        {!hasActive && <span className="w-1 h-1 rounded-full bg-red-500/70 animate-pulse flex-shrink-0" />}
+        <span>{hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : 'المنظم'}</span>
       </motion.button>
 
       {/* Chat panel */}
@@ -1510,7 +1507,7 @@ function SOSButton({ token }: { token: string }) {
             initial={{ opacity: 0, y: -20, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed top-32 left-1/2 -translate-x-1/2 z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed top-[88px] left-1/2 -translate-x-1/2 z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
             style={{ maxHeight: '60vh' }}
             dir="rtl"
           >

@@ -128,12 +128,14 @@ export default function Admin3Page() {
     setState(data)
   }, [])
 
-  const fetchParticipants = useCallback(async () => {
+  const fetchParticipants = useCallback(async (opts?: { preserveSelection?: boolean }) => {
     const data = await api("e3-get-participants")
     if (data.participants) {
       setParticipants(data.participants)
-      const sel = new Set<number>(data.participants.filter((p: any) => p.selected).map((p: any) => p.number))
-      setSelectedNumbers(sel)
+      if (!opts?.preserveSelection) {
+        const sel = new Set<number>(data.participants.filter((p: any) => p.selected).map((p: any) => p.number))
+        setSelectedNumbers(sel)
+      }
     }
   }, [])
 

@@ -6185,33 +6185,21 @@ export default async function handler(req, res) {
           // Build participant lookup
           const pByNum = new Map(pdata.map(p => [p.assigned_number, p]))
 
-          // Fetch previously matched pairs to skip (Phase 2 matches + group round tablemates)
+          // Fetch previously matched pairs from PREVIOUS EVENTS (not Phase 2 within same event)
           const previousMatchPairs = new Set()
-          // Phase 2 matches
-          const { data: phase2Rows } = await supabase.from("event3_matches").select("participant_number,phase2_partner").eq("match_id", EVENT3_MATCH_ID).not("phase2_partner", "is", null)
-          for (const r of phase2Rows || []) {
-            if (r.phase2_partner) {
-              const key = `${Math.min(r.participant_number, r.phase2_partner)}-${Math.max(r.participant_number, r.phase2_partner)}`
+          const { data: prevEventMatches } = await supabase
+            .from("match_results")
+            .select("participant_a_number, participant_b_number")
+            .eq("match_id", STATIC_MATCH_ID)
+            .lt("event_id", 3) // previous events only (event 3 is current)
+            .in("participant_a_number", nums)
+          for (const r of prevEventMatches || []) {
+            if (r.participant_a_number && r.participant_b_number) {
+              const key = `${Math.min(r.participant_a_number, r.participant_b_number)}-${Math.max(r.participant_a_number, r.participant_b_number)}`
               previousMatchPairs.add(key)
             }
           }
-          // Group round tablemates (rounds 1-3)
-          const { data: allAssignments } = await supabase.from("session_assignments").select("round,table_number,participant_id").eq("match_id", EVENT3_MATCH_ID).in("round", [1, 2, 3])
-          const tableGroups = new Map() // round -> table_number -> [participant_ids]
-          for (const a of allAssignments || []) {
-            const k = `${a.round}-${a.table_number}`
-            if (!tableGroups.has(k)) tableGroups.set(k, [])
-            tableGroups.get(k).push(a.participant_id)
-          }
-          for (const ids of tableGroups.values()) {
-            for (let i = 0; i < ids.length; i++) {
-              for (let j = i + 1; j < ids.length; j++) {
-                const key = `${Math.min(ids[i], ids[j])}-${Math.max(ids[i], ids[j])}`
-                previousMatchPairs.add(key)
-              }
-            }
-          }
-          console.log(`Phase 3: ${previousMatchPairs.size} previously matched pairs will be skipped`)
+          console.log(`Phase 3: ${previousMatchPairs.size} previously matched pairs (from previous events) will be skipped`)
 
           // Same pipeline as trigger-match.mjs: filter pairs, calculate scores, greedy match
           const compatibilityScores = []
@@ -6221,7 +6209,7 @@ export default async function handler(req, res) {
             for (let j = i + 1; j < pdata.length; j++) {
               const a = pdata[i], b = pdata[j]
 
-              // 0. Skip previously matched pairs (Phase 2 + group rounds)
+              // 0. Skip previously matched pairs (from previous events)
               const pairKey = `${Math.min(a.assigned_number, b.assigned_number)}-${Math.max(a.assigned_number, b.assigned_number)}`
               if (previousMatchPairs.has(pairKey)) { skippedPrevious++; continue }
 

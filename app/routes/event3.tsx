@@ -54,42 +54,6 @@ function GlassCard({ children, className = "", glow = "" }: { children: React.Re
   )
 }
 
-// ─── Typewriter Name ─────────────────────────────────────────────────────────
-function TypewriterName({ name, accent = "pink" }: { name: string; accent?: "pink" | "purple" }) {
-  const [displayed, setDisplayed] = useState("")
-  const [done, setDone] = useState(false)
-  const greeting = "Hello, "
-  const fullName = greeting + (name || "")
-  const cursorColor = accent === "pink" ? "text-pink-400" : "text-purple-400"
-
-  useEffect(() => {
-    if (!name) return
-    setDisplayed("")
-    setDone(false)
-    let i = 0
-    const speed = 85
-    const interval = setInterval(() => {
-      if (i < fullName.length) {
-        setDisplayed(fullName.slice(0, i + 1))
-        i++
-      } else {
-        clearInterval(interval)
-        setDone(true)
-      }
-    }, speed)
-    return () => clearInterval(interval)
-  }, [name])
-
-  const isGreeting = displayed.length <= greeting.length
-
-  return (
-    <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: accent === "pink" ? '0 2px 20px rgba(236,72,153,0.3)' : '0 2px 20px rgba(139,92,246,0.3)' }}>
-      <span className={isGreeting ? "text-gray-500" : "text-white"}>{displayed}</span>
-      <span className={`${cursorColor} ${done ? "animate-pulse" : ""}`}>|</span>
-    </p>
-  )
-}
-
 function Brand() {
   return (
     <div className="text-center">
@@ -1772,7 +1736,8 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                       <Heart size={10} className="text-pink-400" fill="currentColor" />
                       <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
                     </div>
-                    <TypewriterName name={data?.partner_first_name} accent="pink" />
+                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
+                    <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
                   </div>
                 </div>
               </motion.div>
@@ -2036,7 +2001,8 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                       <Brain size={10} className="text-purple-400" />
                       <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
                     </div>
-                    <TypewriterName name={data?.partner_first_name} accent="purple" />
+                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
+                    <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
                   </div>
                 </div>
               </motion.div>

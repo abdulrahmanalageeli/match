@@ -2336,10 +2336,10 @@ export default function Event3Page() {
 
       {/* Fixed participant info chip */}
       {myInfo && enrolled && (
-        <div className="fixed top-3 left-3 z-[200] flex items-center gap-2 bg-gray-900/90 backdrop-blur-md border border-gray-700/60 rounded-xl px-3 py-1.5 shadow-lg shadow-black/30">
-          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400" : myInfo.gender === "male" ? "bg-blue-400" : "bg-purple-400"}`} />
-          <span className="text-white text-xs font-semibold leading-none">{myInfo.name}</span>
-          <span className="text-gray-500 text-[10px] font-mono leading-none">#{myInfo.number}</span>
+        <div className="fixed top-3 left-3 z-[200] flex items-center gap-1.5 bg-black/40 backdrop-blur-sm rounded-full pl-2 pr-3 py-1">
+          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${myInfo.gender === "female" ? "bg-pink-400/80" : myInfo.gender === "male" ? "bg-blue-400/80" : "bg-purple-400/80"}`} />
+          <span className="text-gray-300 text-[11px] font-medium leading-none">{myInfo.name}</span>
+          <span className="text-gray-600 text-[9px] font-mono leading-none">#{myInfo.number}</span>
         </div>
       )}
 

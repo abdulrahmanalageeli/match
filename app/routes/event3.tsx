@@ -33,15 +33,13 @@ function formatTime(s: number) {
 // ─── Shared Design Components ─────────────────────────────────────────────────
 function PageWrapper({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`h-[100dvh] bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
+    <div className={`h-full bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-40 -right-20 w-[550px] h-[550px] bg-purple-600/20 rounded-full blur-[120px]" />
-        <div className="absolute -bottom-32 -left-20 w-[500px] h-[500px] bg-pink-600/18 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 left-1/2 w-[380px] h-[380px] bg-violet-500/12 rounded-full blur-[90px] -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute top-1/4 -left-16 w-[300px] h-[300px] bg-rose-500/10 rounded-full blur-[80px]" />
-        <div className="absolute bottom-1/4 -right-10 w-[260px] h-[260px] bg-fuchsia-600/10 rounded-full blur-[80px]" />
+        <div className="absolute -top-40 -right-20 w-[400px] h-[400px] bg-purple-600/20 rounded-full blur-[100px]" />
+        <div className="absolute -bottom-24 -left-16 w-[360px] h-[360px] bg-pink-600/15 rounded-full blur-[90px]" />
+        <div className="absolute top-1/2 left-1/2 w-[280px] h-[280px] bg-violet-500/10 rounded-full blur-[80px] -translate-x-1/2 -translate-y-1/2" />
       </div>
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10 h-full">{children}</div>
     </div>
   )
 }
@@ -638,7 +636,7 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
   ]
 
   return (
-    <PageWrapper className="flex items-center justify-center p-6 pb-20">
+    <PageWrapper className="overflow-y-auto flex items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, scale: 0.92 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -780,13 +778,12 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   const timerBarH = timerActive && timeLeft > 0 ? "64px" : "0px"
 
   return (
-    <div className="min-h-screen bg-gray-950 relative overflow-hidden" dir="rtl">
+    <div className="h-full bg-gray-950 relative overflow-hidden" dir="rtl">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute -top-32 -right-16 w-[520px] h-[520px] bg-purple-600/20 rounded-full blur-[110px]" />
-        <div className="absolute -bottom-24 -left-16 w-[460px] h-[460px] bg-pink-600/18 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 right-1/3 w-[340px] h-[340px] bg-blue-500/10 rounded-full blur-[90px] -translate-y-1/2" />
-        <div className="absolute top-1/4 left-1/4 w-[260px] h-[260px] bg-cyan-500/8 rounded-full blur-[80px]" />
+        <div className="absolute -top-24 -right-12 w-[380px] h-[380px] bg-purple-600/20 rounded-full blur-[90px]" />
+        <div className="absolute -bottom-20 -left-12 w-[340px] h-[340px] bg-pink-600/15 rounded-full blur-[80px]" />
+        <div className="absolute top-1/2 right-1/3 w-[260px] h-[260px] bg-blue-500/10 rounded-full blur-[70px] -translate-y-1/2" />
       </div>
 
       {/* ── Sticky Timer Strip ─────────────────────────────────────── */}
@@ -827,8 +824,8 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
       {/* ── Main Content ───────────────────────────────────────────── */}
       <motion.div
         initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="relative z-10 flex flex-col items-center justify-center p-6 min-h-screen"
-        style={{ paddingTop: `calc(1.5rem + ${timerBarH})` }}
+        className="relative z-10 flex flex-col items-center justify-center p-6 h-full"
+        style={{ paddingTop: `calc(1rem + ${timerBarH})` }}
       >
         <div className="w-full max-w-sm space-y-5 text-center">
           <motion.div
@@ -843,11 +840,11 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <GlassCard className={`p-7 space-y-4 border ${RC.card} shadow-xl shadow-black/20`}>
+              <GlassCard className={`p-5 space-y-3 border ${RC.card} shadow-xl shadow-black/20`}>
                 <p className="text-gray-500 text-xs flex items-center justify-center gap-1.5">
                   <MapPin size={12} /> مكانك هذه الجولة
                 </p>
-                <div className={`text-8xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
+                <div className={`text-7xl font-black leading-none ${RC.num}`}>{assignment.table}</div>
                 <p className="text-gray-500 text-sm font-medium">طاولة رقم</p>
 
                 {/* Tablemate count */}
@@ -1022,7 +1019,7 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-md mx-auto pb-36">
+      <div className="max-w-md mx-auto pb-6">
 
         {/* Sticky header */}
         <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
@@ -1479,7 +1476,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
   return (
     <>
       {/* Organizer button — centered with separator lines */}
-      <div className={`fixed ${position === 'bottom' ? 'bottom-0' : 'top-[68px]'} left-0 right-0 z-[190] flex items-center justify-center gap-3 px-4 pb-3 pt-2 bg-gradient-to-t from-gray-950/80 to-transparent`} dir="rtl">
+      <div className={`${position === 'bottom' ? 'relative' : 'fixed top-[68px]'} left-0 right-0 z-[190] flex items-center justify-center gap-3 px-4 pb-2 pt-2 bg-gradient-to-t from-gray-950/90 to-transparent flex-shrink-0`} dir="rtl">
         <div className="flex-1 h-px bg-gradient-to-l from-gray-700/40 to-transparent" />
         <motion.button
           whileTap={{ scale: 0.95 }}
@@ -1694,7 +1691,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-sm mx-auto p-4 pb-20 space-y-3">
+      <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
@@ -1709,7 +1706,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
           {!revealed ? (
             <motion.div key="pre" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
-                className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-8 font-bold text-xl shadow-2xl shadow-pink-600/40 border border-pink-500/30">
+                className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-6 font-bold text-lg shadow-2xl shadow-pink-600/40 border border-pink-500/30">
                 <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
                   <Users size={24} /> اكشف اسمه / اسمها
                 </motion.span>
@@ -1718,7 +1715,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
                     <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
@@ -1735,12 +1732,12 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div className="absolute inset-0 bg-gradient-to-br from-pink-950 via-rose-950/80 to-pink-900/60" />
                   <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-pink-400/60 to-transparent" />
                   <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                  <div className="relative z-10 px-6 pt-7 pb-8 text-center">
-                    <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-5">
+                  <div className="relative z-10 px-6 pt-5 pb-6 text-center">
+                    <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-4">
                       <Users size={10} className="text-pink-400" />
                       <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
                     </div>
-                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
+                    <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
                     <p className="text-pink-400/50 text-xs mt-1">شريكك في جلسة الاختيار الشخصي</p>
                   </div>
                 </div>
@@ -1774,7 +1771,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">وقت الجلسة المتبقّي <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
                     <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
@@ -1952,7 +1949,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-sm mx-auto p-4 pb-20 space-y-3">
+      <div className="max-w-sm mx-auto p-4 pb-6 space-y-3">
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-purple-900/30 border border-purple-700/40 text-purple-300 rounded-full px-4 py-1.5 text-sm font-semibold">
@@ -1967,7 +1964,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
           {!revealed ? (
             <motion.div key="pre" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="space-y-4">
               <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
-                className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-8 font-bold text-xl shadow-2xl shadow-purple-600/40 border border-purple-500/30">
+                className="w-full bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 text-white rounded-2xl py-6 font-bold text-lg shadow-2xl shadow-purple-600/40 border border-purple-500/30">
                 <motion.span animate={{ rotate: [0, -4, 4, 0] }} transition={{ duration: 3, repeat: Infinity }} className="flex items-center justify-center gap-3">
                   <Brain size={24} /> اكشف اختيار الخوارزمية
                 </motion.span>
@@ -1976,7 +1973,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">الجلسة تبدأ خلال <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
                     <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
@@ -2001,12 +1998,12 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-violet-950/80 to-purple-900/60" />
                   <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-purple-400/60 to-transparent" />
                   <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
-                  <div className="relative z-10 px-6 pt-7 pb-8 text-center">
-                    <div className="inline-flex items-center gap-1.5 bg-purple-900/50 border border-purple-700/40 rounded-full px-3 py-1 mb-5">
+                  <div className="relative z-10 px-6 pt-5 pb-6 text-center">
+                    <div className="inline-flex items-center gap-1.5 bg-purple-900/50 border border-purple-700/40 rounded-full px-3 py-1 mb-4">
                       <Brain size={10} className="text-purple-400" />
                       <span className="text-purple-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيار النظام</span>
                     </div>
-                    <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
+                    <p className="text-5xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(139,92,246,0.3)' }}>{data?.partner_first_name || "..."}</p>
                     <p className="text-purple-400/50 text-xs mt-1">شريكك في جلسة اختيار النظام</p>
                   </div>
                 </div>
@@ -2019,7 +2016,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
                   <div className="px-5 pt-4 pb-3">
                     <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">وقت الجلسة المتبقّي <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-5xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
+                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
                   </div>
                   <div className="h-1 bg-gray-800/60">
                     <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
@@ -2155,7 +2152,7 @@ function FinalRevealScreen({ token }: { token: string }) {
 
   return (
     <PageWrapper className="overflow-y-auto">
-      <div className="max-w-sm mx-auto p-4 pb-20 space-y-4 text-center">
+      <div className="max-w-sm mx-auto p-4 pb-6 space-y-4 text-center">
         <Brand />
         <h1 className="text-2xl font-black text-white pt-2">الكشف النهائي</h1>
         <p className="text-gray-600 text-[11px] leading-relaxed">
@@ -2421,13 +2418,8 @@ export default function Event3Page() {
   const completedRounds = rankingMatch ? parseInt(rankingMatch[1]) : null
 
   return (
-    <>
+    <div className="h-[100dvh] flex flex-col bg-gray-950 overflow-hidden" dir="rtl">
       <Toaster position="top-center" toastOptions={{ style: { background: "#1f2937", color: "#f9fafb", border: "1px solid #374151", borderRadius: "12px" } }} />
-
-      {/* Name badge is now embedded in the RoundScreen timer bar — no standalone badge */}
-
-      {/* SOS organizer request button — separator at top on round screens, bottom on others */}
-      {enrolled && <SOSButton token={token} position={isRound ? 'top' : 'bottom'} />}
 
       {/* Offline indicator */}
       {isOffline && (
@@ -2439,14 +2431,23 @@ export default function Event3Page() {
         </div>
       )}
 
-      <AnimatePresence mode="wait">
-        {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} />}
-        {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
-        {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
-        {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
-        {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
-        {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
-      </AnimatePresence>
-    </>
+      {/* Round screens: SOS button fixed at top (overlays timer bar area) */}
+      {enrolled && isRound && <SOSButton token={token} position="top" />}
+
+      {/* Screen content fills available space */}
+      <div className={`flex-1 ${isRound ? 'overflow-hidden' : 'overflow-y-auto'} relative z-10`}>
+        <AnimatePresence mode="wait">
+          {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} />}
+          {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
+          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
+          {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
+          {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
+          {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
+        </AnimatePresence>
+      </div>
+
+      {/* Non-round screens: SOS button in normal flow at bottom (pushes content, no overlay) */}
+      {enrolled && !isRound && <SOSButton token={token} position="bottom" />}
+    </div>
   )
 }

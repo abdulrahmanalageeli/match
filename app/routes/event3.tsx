@@ -8,6 +8,7 @@ import {
   Clock, MapPin, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
+  Frown, Meh, Smile,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -1629,24 +1630,37 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
     setSubmitting(false)
     if (ok) onDone()
   }
-  const EmojiRow = ({ emojis, labels, field, val }: { emojis: string[]; labels: string[]; field: string; val: number }) => (
+  const ratingConfigs = [
+    { icon: <Frown size={18} />, gradient: 'from-red-500/80 to-rose-600/80', ring: 'ring-red-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(239,68,68,0.5)]' },
+    { icon: <Frown size={18} className="[&>path]:stroke-[1.5]" />, gradient: 'from-orange-500/80 to-amber-600/80', ring: 'ring-orange-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(249,115,22,0.5)]' },
+    { icon: <Meh size={18} />, gradient: 'from-amber-500/80 to-yellow-600/80', ring: 'ring-amber-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(245,158,11,0.5)]' },
+    { icon: <Smile size={18} />, gradient: 'from-lime-500/80 to-green-600/80', ring: 'ring-lime-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(132,204,22,0.5)]' },
+    { icon: <Sparkles size={18} />, gradient: 'from-emerald-500/80 to-teal-600/80', ring: 'ring-emerald-400/60', glow: 'shadow-[0_0_20px_-4px_rgba(16,185,129,0.5)]' },
+  ]
+  const RatingRow = ({ labels, field, val }: { labels: string[]; field: string; val: number }) => (
     <div className="flex gap-2">
-      {emojis.map((em, i) => (
-        <motion.button key={i} whileTap={{ scale: 0.82 }}
-          onClick={() => { setFb(p => ({ ...p, [field]: i + 1 })); setTimeout(() => goNext({ [field]: i + 1 }), 320) }}
-          className={`flex-1 flex flex-col items-center gap-1.5 py-5 rounded-2xl transition-all duration-200 ${val === i + 1 ? 'bg-purple-500/20 ring-2 ring-purple-400/50 scale-105' : 'bg-white/[0.04] ring-1 ring-white/[0.06] active:bg-white/10'}`}>
-          <span className="text-3xl">{em}</span>
-          <span className="text-[9px] text-gray-500 leading-tight text-center">{labels[i]}</span>
-        </motion.button>
-      ))}
+      {labels.map((label, i) => {
+        const cfg = ratingConfigs[i]
+        const selected = val === i + 1
+        return (
+          <motion.button key={i} whileTap={{ scale: 0.88 }}
+            onClick={() => { setFb(p => ({ ...p, [field]: i + 1 })); setTimeout(() => goNext({ [field]: i + 1 }), 320) }}
+            className={`flex-1 flex flex-col items-center gap-2 py-4 rounded-2xl transition-all duration-200 ${selected ? 'bg-white/[0.06] ring-2 scale-105 ' + cfg.ring + ' ' + cfg.glow : 'bg-white/[0.03] ring-1 ring-white/[0.05] active:bg-white/8'}`}>
+            <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${cfg.gradient} flex items-center justify-center text-white transition-transform duration-200 ${selected ? 'scale-110' : 'scale-95 opacity-70'}`}>
+              {cfg.icon}
+            </div>
+            <span className={`text-[10px] leading-tight text-center transition-colors duration-200 ${selected ? 'text-white font-semibold' : 'text-gray-600'}`}>{label}</span>
+          </motion.button>
+        )
+      })}
     </div>
   )
   if (done) return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
       className="fixed inset-0 z-50 bg-gray-950 flex flex-col items-center justify-center gap-6 p-8">
       <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-        className="w-28 h-28 rounded-full bg-gradient-to-br from-emerald-500/20 to-teal-500/10 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
-        <span className="text-5xl">✨</span>
+        className="w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/25 to-teal-500/15 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_-8px_rgba(16,185,129,0.5)]">
+        <CheckCircle size={40} className="text-emerald-400" />
       </motion.div>
       <div className="text-center space-y-2">
         <p className="text-white font-black text-2xl">شكراً!</p>
@@ -1693,7 +1707,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
                 <p className="text-3xl font-black text-white">كيف كانت المحادثة؟</p>
                 <p className="text-gray-500 text-sm">اختر ما يناسب شعورك</p>
               </div>
-              <EmojiRow emojis={["😫","😕","😐","🙂","🤩"]} labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
+              <RatingRow labels={["سيئة","ضعيفة","مقبولة","جيدة","ممتازة"]} field="conversationQuality" val={fb.conversationQuality} />
             </motion.div>
           )}
           {step === 1 && (
@@ -1703,7 +1717,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
                 <p className="text-3xl font-black text-white">التواصل الشخصي؟</p>
                 <p className="text-gray-500 text-sm">مستوى الراحة والتفاهم</p>
               </div>
-              <EmojiRow emojis={["💔","😶","🙂","😊","💫"]} labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
+              <RatingRow labels={["لا شيء","ضعيف","مقبول","جيد","رائع"]} field="personalConnection" val={fb.personalConnection} />
             </motion.div>
           )}
           {step === 2 && (
@@ -1711,17 +1725,19 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
               <div className="text-center space-y-2">
                 <p className="text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
-                <p className="text-gray-500 text-xs leading-relaxed max-w-xs mx-auto">إجابتك سرية — يُشارك فقط إذا أجاب كلاكما بـ «نعم» 🤝</p>
+                <p className="text-gray-500 text-xs leading-relaxed max-w-xs mx-auto">إجابتك سرية — يُشارك فقط إذا أجاب كلاكما بـ «نعم»</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                {[{ val: true, emoji: "✅", label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/20 ring-2 ring-emerald-500/60 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
-                   { val: false, emoji: "❌", label: "لا",   cls: fb.wantConnect === false ? 'bg-red-500/20 ring-2 ring-red-500/60 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
+                {[{ val: true, icon: <CheckCircle size={26} />, label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/15 ring-2 ring-emerald-500/50 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === true ? 'from-emerald-500/80 to-teal-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
+                   { val: false, icon: <X size={26} />, label: "لا", cls: fb.wantConnect === false ? 'bg-red-500/15 ring-2 ring-red-500/50 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === false ? 'from-red-500/80 to-rose-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }
                 ].map(opt => (
                   <motion.button key={String(opt.val)} whileTap={{ scale: 0.93 }}
                     onClick={() => { setFb(p => ({ ...p, wantConnect: opt.val })); setTimeout(() => goNext({ wantConnect: opt.val }), 350) }}
-                    className={`min-h-[110px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
-                    <span className="text-5xl">{opt.emoji}</span>
-                    <span className={`text-xl ${opt.textCls}`}>{opt.label}</span>
+                    className={`min-h-[120px] rounded-3xl flex flex-col items-center justify-center gap-3 font-black transition-all duration-200 ${opt.cls}`}>
+                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${opt.iconCls} flex items-center justify-center transition-transform duration-200 ${fb.wantConnect === opt.val ? 'scale-110' : 'scale-95'}`}>
+                      {opt.icon}
+                    </div>
+                    <span className={`text-lg ${opt.textCls}`}>{opt.label}</span>
                   </motion.button>
                 ))}
               </div>
@@ -1743,7 +1759,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
                 className="w-full py-5 rounded-3xl font-black text-lg bg-gradient-to-r from-purple-500 via-violet-500 to-purple-600 text-white shadow-[0_8px_30px_-4px_rgba(139,92,246,0.6)] disabled:opacity-30 disabled:shadow-none transition-all flex items-center justify-center gap-2">
                 {submitting
                   ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري الإرسال...</>
-                  : <>إرسال التقييم ✨</>}
+                  : <><Send size={18} /> إرسال التقييم</>}
               </motion.button>
               {fb.wantConnect === null && <p className="text-center text-amber-500/70 text-xs">ارجع للخطوة 3 وأجب على سؤال التواصل</p>}
             </motion.div>
@@ -2150,20 +2166,6 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </motion.div>
               )}
 
-              {timerActive && timeLeft > 0 && (
-                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
-                  <div className="px-5 pt-4 pb-3">
-                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">وقت الجلسة المتبقّي <Clock size={11} className="text-pink-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                  </div>
-                  <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-pink-500 via-rose-400 to-pink-600"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(236,72,153,0.7)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
-                  </div>
-                </div>
-              )}
-
               <motion.button
                 onClick={() => setView('session')}
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
@@ -2393,20 +2395,6 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
 
               {/* Partner info card */}
               {data && <PartnerInfoCard data={data} accent="purple" />}
-
-              {timerActive && timeLeft > 0 && (
-                <div className="rounded-2xl bg-gray-900/80 border border-white/[0.05] overflow-hidden">
-                  <div className="px-5 pt-4 pb-3">
-                    <p className="text-gray-500 text-xs flex items-center justify-end gap-1.5 mb-1">وقت الجلسة المتبقّي <Clock size={11} className="text-purple-400" /></p>
-                    <div className={`text-4xl font-mono font-black tabular-nums ${timeLeft < 60 ? "text-red-400" : "text-white"}`}>{formatTime(timeLeft)}</div>
-                  </div>
-                  <div className="h-1 bg-gray-800/60">
-                    <motion.div className={`h-full ${timeLeft < 60 ? "bg-gradient-to-r from-red-500 to-red-400" : "bg-gradient-to-r from-purple-500 via-violet-400 to-purple-600"}`}
-                      style={{ boxShadow: timeLeft < 60 ? "0 0 8px rgba(239,68,68,0.7)" : "0 0 10px rgba(139,92,246,0.7)" }}
-                      animate={{ width: `${(timeLeft / timerDuration) * 100}%` }} transition={{ duration: 1 }} />
-                  </div>
-                </div>
-              )}
 
               <motion.button
                 onClick={() => setView('session')}

@@ -8,7 +8,7 @@ import {
   Clock, MapPin, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
-  Frown, Meh, Smile,
+  Frown, Meh, Smile, Layers,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -1036,6 +1036,59 @@ function OneToOneTutorial({ onClose }: { onClose: () => void }) {
   )
 }
 
+// ─── Session Quick Tips (tooltips) ───────────────────────────────────────────
+function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent?: "pink" | "purple" }) {
+  const [tip, setTip] = useState(0)
+  const ac = accent === "pink"
+    ? { text: "text-pink-300", bg: "bg-pink-500/15", border: "border-pink-500/30", dot: "bg-pink-400" }
+    : { text: "text-purple-300", bg: "bg-purple-500/15", border: "border-purple-500/30", dot: "bg-purple-400" }
+
+  const tips = [
+    { icon: <Layers size={14} />, title: "مجموعات الأسئلة", desc: "بدّل بين المجموعات للوصول إلى أسئلة متنوعة تناسب نقاشكما" },
+    { icon: <Zap size={14} />, title: "مستويات الأسئلة", desc: "الأسئلة مرتبة من خفيفة إلى عميقة — ابدأ بالأسهل وتدرّج" },
+    { icon: <MessageSquare size={14} />, title: "أسئلة للنقاش", desc: "زر إضافي لمواضيع نقاش مفتوحة إذا احتجتم أفكاراً أخرى" },
+    { icon: <CheckCircle size={14} />, title: "الانتهاء والتقييم", desc: "إذا أنهيتما مبكراً، اضغط الزر بالأسفل للانتقال إلى التقييم" },
+  ]
+
+  const goNext = () => { if (tip < tips.length - 1) setTip(t => t + 1); else onClose() }
+  const t = tips[tip]
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        className={`relative ${ac.bg} ${ac.border} border rounded-2xl px-4 py-3 space-y-2.5`}
+        dir="rtl"
+      >
+        <div className="flex items-start gap-2.5">
+          <div className={`w-7 h-7 rounded-lg ${ac.bg} ${ac.border} border flex items-center justify-center shrink-0 ${ac.text}`}>
+            {t.icon}
+          </div>
+          <div className="flex-1 space-y-0.5">
+            <p className={`text-xs font-bold ${ac.text}`}>{t.title}</p>
+            <p className="text-gray-400 text-[11px] leading-relaxed">{t.desc}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-600 hover:text-gray-400 transition-colors shrink-0">
+            <X size={14} />
+          </button>
+        </div>
+        {/* Footer: dots + next */}
+        <div className="flex items-center justify-between pt-0.5">
+          <div className="flex items-center gap-1">
+            {tips.map((_, i) => (
+              <span key={i} className={`w-1 h-1 rounded-full transition-all ${i === tip ? `${ac.dot} w-3` : 'bg-gray-700'}`} />
+            ))}
+          </div>
+          <button onClick={goNext} className={`text-[11px] font-medium ${ac.text} hover:opacity-80 transition-opacity`}>
+            {tip < tips.length - 1 ? "التالي ←" : "تم"}
+          </button>
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
 // ─── Round Screen ─────────────────────────────────────────────────────────────
 function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo }: {
   token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null
@@ -2057,6 +2110,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
   const [showTutorial, setShowTutorial] = useState(true)
+  const [showSessionTips, setShowSessionTips] = useState(false)
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -2091,6 +2145,16 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   useEffect(() => {
     if (view === 'session' && timerActive && timeLeft === 0) setView('feedback')
   }, [timeLeft, view, timerActive])
+
+  // Auto-show tips on first entry to session view
+  const tipsShownRef = useRef(false)
+  useEffect(() => {
+    if (view === 'session' && !tipsShownRef.current) {
+      tipsShownRef.current = true
+      const t = setTimeout(() => setShowSessionTips(true), 600)
+      return () => clearTimeout(t)
+    }
+  }, [view])
 
   const handleReveal = () => {
     setRevealed(true)
@@ -2255,6 +2319,9 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 </div>
               )}
               {/* Questions */}
+              <AnimatePresence>
+                {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="pink" />}
+              </AnimatePresence>
               <QuestionSlideshow defaultSet="special" />
               {/* PromptTopicsModal */}
               <button onClick={() => setShowPrompt(true)}
@@ -2263,15 +2330,25 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               </button>
               {/* Jump to feedback manually */}
               <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
-              {/* Replay tutorial button */}
-              <motion.button
-                onClick={() => setShowTutorial(true)}
-                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-                className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
-              >
-                <RefreshCw size={11} />
-                إعادة الشرح
-              </motion.button>
+              {/* Replay tutorial + tips buttons */}
+              <div className="flex items-center justify-center gap-4">
+                <motion.button
+                  onClick={() => setShowTutorial(true)}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                  className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5"
+                >
+                  <RefreshCw size={11} />
+                  إعادة الشرح
+                </motion.button>
+                <motion.button
+                  onClick={() => setShowSessionTips(true)}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                  className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5"
+                >
+                  <Sparkles size={11} />
+                  نصائح سريعة
+                </motion.button>
+              </div>
             </div>
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
@@ -2300,6 +2377,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
+  const [showSessionTips, setShowSessionTips] = useState(false)
 
   useEffect(() => {
     call("e3-get-phase3-reveal", token).then(d => {
@@ -2334,6 +2412,16 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   useEffect(() => {
     if (view === 'session' && timerActive && timeLeft === 0) setView('feedback')
   }, [timeLeft, view, timerActive])
+
+  // Auto-show tips on first entry to session view
+  const tipsShownRef = useRef(false)
+  useEffect(() => {
+    if (view === 'session' && !tipsShownRef.current) {
+      tipsShownRef.current = true
+      const t = setTimeout(() => setShowSessionTips(true), 600)
+      return () => clearTimeout(t)
+    }
+  }, [view])
 
   const handleReveal = () => {
     setRevealed(true)
@@ -2462,6 +2550,9 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   </div>
                 </div>
               )}
+              <AnimatePresence>
+                {showSessionTips && <SessionTips onClose={() => setShowSessionTips(false)} accent="purple" />}
+              </AnimatePresence>
               <QuestionSlideshow defaultSet="set1" />
               <button onClick={() => setShowPrompt(true)}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
@@ -2469,6 +2560,15 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               </button>
               {/* Jump to feedback */}
               <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
+              {/* Quick tips button */}
+              <motion.button
+                onClick={() => setShowSessionTips(true)}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
+              >
+                <Sparkles size={11} />
+                نصائح سريعة
+              </motion.button>
             </div>
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}

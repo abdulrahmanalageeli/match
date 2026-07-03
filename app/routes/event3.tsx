@@ -31,6 +31,31 @@ function formatTime(s: number) {
 }
 
 // ─── Shared Design Components ─────────────────────────────────────────────────
+
+function InfoHint({ text, delay = 0.3, duration = 5 }: { text: string; delay?: number; duration?: number }) {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const t1 = setTimeout(() => setVisible(true), delay * 1000)
+    const t2 = setTimeout(() => setVisible(false), (delay + duration) * 1000)
+    return () => { clearTimeout(t1); clearTimeout(t2) }
+  }, [delay, duration])
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ opacity: 0, y: -6, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6, scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+          className="text-gray-500 text-[10px] leading-relaxed text-center px-3 py-1 bg-gray-900/40 rounded-lg border border-gray-800/40"
+        >
+          {text}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function PageWrapper({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
     <div className={`h-full bg-gray-950 relative overflow-hidden ${className}`} dir="rtl">
@@ -682,9 +707,7 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
           </div>
           <h1 className="text-xl font-bold text-white">الفعالية ستبدأ قريباً</h1>
           <p className="text-gray-500 text-sm">انتظر توجيهات المنظم</p>
-          <p className="text-gray-600 text-[11px] leading-relaxed pt-1">
-            ستنتقل تلقائياً عند بدء الجولات. لو احتجت أي مساعدة، استخدم زر «المنظم» في الأسفل.
-          </p>
+          <InfoHint text="ستنتقل تلقائياً عند بدء الجولات · لو احتجت أي مساعدة، استخدم زر «المنظم» في الأسفل" delay={0.5} duration={6} />
           {enrolledCount != null && enrolledCount > 0 && (
             <div className="flex items-center justify-center gap-2 pt-1">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -778,7 +801,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   const timerBarH = timerActive && timeLeft > 0 ? "64px" : "0px"
 
   return (
-    <div className="h-full bg-gray-950 relative overflow-hidden" dir="rtl">
+    <div className="min-h-full bg-gray-950 relative overflow-hidden" dir="rtl">
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-24 -right-12 w-[380px] h-[380px] bg-purple-600/20 rounded-full blur-[90px]" />
@@ -836,7 +859,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             <span className="font-bold text-sm">الجولة الجماعية {roundAr}</span>
             <span className="text-gray-600 text-xs">من 2</span>
           </motion.div>
-          <p className="text-gray-700 text-[10px] leading-relaxed -mt-3">اذهب إلى طاولتك · للطوارئ أو المساعدة، استخدم زر «المنظم» في الأعلى</p>
+          <InfoHint text="اذهب إلى طاولتك · للطوارئ أو المساعدة، استخدم زر «المنظم» في الأسفل" delay={0.5} duration={5} />
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -937,7 +960,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
 }
 
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
-function RankingScreen({ token, completedRounds }: { token: string, completedRounds: number }) {
+function RankingScreen({ token, completedRounds, currentPhase }: { token: string, completedRounds: number, currentPhase: string }) {
   const [people, setPeople] = useState<any[]>([])
   const [order, setOrder] = useState<number[]>([])
   const [newNums, setNewNums] = useState<Set<number>>(new Set())
@@ -948,6 +971,8 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
   const [openNote, setOpenNote] = useState<number | null>(null)
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [showPhaseWarning, setShowPhaseWarning] = useState(false)
+  const initialPhaseRef = useRef(currentPhase)
 
   useEffect(() => {
     Promise.all([
@@ -979,6 +1004,13 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
       if (!nd.error && nd.notes) setNotes(nd.notes)
     })
   }, [token, completedRounds])
+
+  // Detect phase change while user is on ranking screen
+  useEffect(() => {
+    if (currentPhase !== initialPhaseRef.current && !submitted) {
+      setShowPhaseWarning(true)
+    }
+  }, [currentPhase, submitted])
 
   const saveNote = async (aboutNumber: number, text: string) => {
     setSavingNote(aboutNumber)
@@ -1021,51 +1053,78 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
     <PageWrapper className="overflow-y-auto">
       <div className="max-w-md mx-auto pb-6">
 
-        {/* Sticky header */}
-        <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
-          <div className="px-5 pt-5 pb-3">
-            <div className="flex items-center justify-center gap-2 mb-1">
-              <Trophy size={16} className="text-amber-400" />
-              <h1 className="text-lg font-bold text-white">رتّب أولوياتك</h1>
-            </div>
-            <p className="text-gray-500 text-xs text-center">
-              قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> في الجولات الجماعية — رتّبهم لتحديد جلستك الفردية
-            </p>
-            <p className="text-purple-400/80 text-[11px] text-center mt-1">ترتيبك سيُستخدم لاختيار من ستلتقيه في جلستك الفردية الأولى</p>
-            <p className="text-gray-600 text-[10px] text-center mt-1 leading-relaxed">
-              اسحب الأشخاص لإعادة ترتيبهم · يمكنك كتابة ملاحظة قصيرة عن كل شخص بالضغط على أيقونة الملاحظة
-            </p>
-
-            {/* Ranked count indicator */}
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <div className="flex items-center gap-1.5 bg-purple-900/30 border border-purple-800/40 rounded-full px-3 py-1">
-                <Trophy size={10} className="text-purple-400" />
-                <span className="text-purple-300 text-[11px] font-semibold">{order.length} مرتّب</span>
-              </div>
-              {submitted && (
-                <div className="flex items-center gap-1.5 bg-emerald-900/30 border border-emerald-800/40 rounded-full px-3 py-1">
-                  <CheckCircle size={10} className="text-emerald-400" />
-                  <span className="text-emerald-300 text-[11px] font-semibold">تم الإرسال</span>
+        {/* Phase change warning popup */}
+        <AnimatePresence>
+          {showPhaseWarning && !submitted && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[400] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
+              onClick={() => setShowPhaseWarning(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="bg-gray-900 border border-amber-700/50 rounded-2xl p-6 max-w-sm w-full text-center space-y-4"
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="w-12 h-12 mx-auto rounded-full bg-amber-900/40 border border-amber-700/40 flex items-center justify-center">
+                  <Clock size={24} className="text-amber-400" />
                 </div>
+                <h2 className="text-white font-bold text-base">المنظم انتقل للمرحلة التالية</h2>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                  يرجى ترتيب اختياراتك والضغط على «إرسال الترتيب» في أسرع وقت للمتابعة.
+                </p>
+                <button
+                  onClick={() => setShowPhaseWarning(false)}
+                  className="w-full bg-amber-600 hover:bg-amber-500 text-white rounded-xl py-3 font-bold text-sm transition-all"
+                >
+                  حسناً، سأرتب الآن
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Sticky header — compact */}
+        <div className="sticky top-0 bg-gray-950/95 backdrop-blur-md z-10 border-b border-gray-800/50">
+          <div className="px-4 pt-3 pb-2">
+            <div className="flex items-center justify-center gap-2">
+              <Trophy size={15} className="text-amber-400" />
+              <h1 className="text-base font-bold text-white">رتّب أولوياتك</h1>
+              <span className="text-gray-500 text-[11px]">· {people.length} أشخاص</span>
+              {submitted && (
+                <span className="flex items-center gap-1 bg-emerald-900/30 border border-emerald-800/40 rounded-full px-2 py-0.5">
+                  <CheckCircle size={9} className="text-emerald-400" />
+                  <span className="text-emerald-300 text-[10px] font-semibold">تم الإرسال</span>
+                </span>
               )}
             </div>
-            {newNums.size > 0 && (
-              <p className="text-purple-400 text-[11px] text-center mt-1 font-medium">
-                ✨ {newNums.size} أشخاص جدد من الجولة {completedRounds} أُضيفوا في الأسفل
-              </p>
-            )}
-            <p className="text-gray-700 text-[11px] text-center mt-0.5">اسحب الأسماء لإعادة الترتيب · هذا التصنيف سري تماماً</p>
+            <div className="flex items-center justify-center gap-2 mt-1.5">
+              <span className="text-purple-300 text-[10px] bg-purple-900/30 border border-purple-800/40 rounded-full px-2.5 py-0.5 font-medium">
+                اسحب للترتيب · سري تماماً
+              </span>
+              {newNums.size > 0 && (
+                <span className="text-purple-400 text-[10px] bg-purple-900/20 rounded-full px-2 py-0.5">
+                  ✨ {newNums.size} جديد
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Round legend */}
-          <div className="px-5 pb-3 flex gap-2 justify-center flex-wrap">
+          <div className="px-4 pb-2 flex gap-1.5 justify-center flex-wrap">
             {[1, 2].map(r => (
-              <span key={r} className={`text-xs px-3 py-1 rounded-full border ${roundStyle(r)}`}>
+              <span key={r} className={`text-[10px] px-2.5 py-0.5 rounded-full border ${roundStyle(r)}`}>
                 {roundLabel(r)}
               </span>
             ))}
           </div>
 
+        </div>
+
+        {/* Scroll hint */}
+        <div className="text-center pt-2">
+          <InfoHint text="مرّر للأسفل لرؤية جميع الأشخاص · اسحب الأسماء لإعادة الترتيب" delay={0.5} duration={4} />
         </div>
 
         {/* Drag-to-reorder list */}
@@ -1698,7 +1757,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <Users size={13} /> جلسة فردية 1:1 · اختيارك أنت
             </div>
             <p className="text-gray-600 text-xs">جلسة خاصة مع الشخص الذي اخترته من جولات التعارف</p>
-            <p className="text-gray-700 text-[10px] leading-relaxed">اضغط للكشف عن اسم شريكك · لديك وقت محدد للمحادثة · يمكنك إرسال كلمة تصف تجربتك في النهاية</p>
+            <InfoHint text="اضغط للكشف عن اسم شريكك · لديك وقت محدد للمحادثة · يمكنك إرسال كلمة تصف تجربتك" delay={0.4} duration={5} />
           </div>
         </motion.div>
 
@@ -1956,7 +2015,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <Brain size={13} /> جلسة فردية 1:1 · اختيارنا لك
             </div>
             <p className="text-gray-600 text-xs">جلسة خاصة مع من رشّحه النظام بناءً على توافقكما</p>
-            <p className="text-gray-700 text-[10px] leading-relaxed">الخوارزمية اختارت هذا الشخص بناءً على بياناتك وبياناتهم · اضغط للكشف · ستحصل على أسئلة للنقاش</p>
+            <InfoHint text="الخوارزمية اختارت هذا الشخص بناءً على بياناتك وبياناتهم · اضغط للكشف · ستحصل على أسئلة للنقاش" delay={0.4} duration={5} />
           </div>
         </motion.div>
 
@@ -2155,9 +2214,7 @@ function FinalRevealScreen({ token }: { token: string }) {
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-4 text-center">
         <Brand />
         <h1 className="text-2xl font-black text-white pt-2">الكشف النهائي</h1>
-        <p className="text-gray-600 text-[11px] leading-relaxed">
-          قارننا بين اختيارك الشخصي واختيار الخوارزمية · راجع تفاصيل التوافق لكل طرف · وأخبرنا بمن تفضّل
-        </p>
+        <InfoHint text="قارنّا بين اختيارك الشخصي واختيار الخوارزمية · راجع تفاصيل التوافق لكل طرف · وأخبرنا بمن تفضّل" delay={0.3} duration={6} />
 
         {data.same_match && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
@@ -2431,23 +2488,20 @@ export default function Event3Page() {
         </div>
       )}
 
-      {/* Round screens: SOS button fixed at top (overlays timer bar area) */}
-      {enrolled && isRound && <SOSButton token={token} position="top" />}
-
       {/* Screen content fills available space */}
-      <div className={`flex-1 ${isRound ? 'overflow-hidden' : 'overflow-y-auto'} relative z-10`}>
+      <div className="flex-1 overflow-y-auto relative z-10">
         <AnimatePresence mode="wait">
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} />}
           {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
-          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} />}
+          {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} />}
           {phase === "phase2_reveal" && <Phase2RevealScreen key="p2r" token={token} {...timerProps} />}
           {phase === "phase3_reveal" && <Phase3RevealScreen key="p3r" token={token} {...timerProps} />}
           {phase === "final_reveal" && <FinalRevealScreen key="final" token={token} />}
         </AnimatePresence>
       </div>
 
-      {/* Non-round screens: SOS button in normal flow at bottom (pushes content, no overlay) */}
-      {enrolled && !isRound && <SOSButton token={token} position="bottom" />}
+      {/* SOS button in normal flow at bottom on all screens */}
+      {enrolled && <SOSButton token={token} position="bottom" />}
     </div>
   )
 }

@@ -1725,8 +1725,23 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
               transition={{ type: 'spring', stiffness: 350, damping: 35 }} className="space-y-8">
               <div className="text-center space-y-2">
                 <p className="text-3xl font-black text-white">هل تريد التواصل لاحقاً؟</p>
-                <p className="text-gray-500 text-xs leading-relaxed max-w-xs mx-auto">إجابتك سرية — يُشارك فقط إذا أجاب كلاكما بـ «نعم»</p>
               </div>
+              {/* Highlighted info card */}
+              <motion.div
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/40 via-teal-950/30 to-emerald-950/20 px-4 py-3.5"
+              >
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
+                <div className="flex items-start gap-2.5">
+                  <div className="mt-0.5 w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                    <Sparkles size={14} className="text-emerald-400" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-emerald-300 text-[11px] font-bold">معلومة مهمة</p>
+                    <p className="text-gray-300 text-[11px] leading-relaxed">إجابتك سرية — إذا أجاب كلاكما بـ«نعم» ستحصلان على رقم تواصل ومعلومات بعضكم في صفحة النتائج بعد الفعالية</p>
+                  </div>
+                </div>
+              </motion.div>
               <div className="grid grid-cols-2 gap-4">
                 {[{ val: true, icon: <CheckCircle size={26} />, label: "نعم", cls: fb.wantConnect === true ? 'bg-emerald-500/15 ring-2 ring-emerald-500/50 shadow-[0_0_30px_-4px_rgba(16,185,129,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === true ? 'from-emerald-500/80 to-teal-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === true ? 'text-emerald-300' : 'text-gray-500' },
                    { val: false, icon: <X size={26} />, label: "لا", cls: fb.wantConnect === false ? 'bg-red-500/15 ring-2 ring-red-500/50 shadow-[0_0_30px_-4px_rgba(239,68,68,0.4)]' : 'bg-white/[0.04] ring-1 ring-white/[0.06]', iconCls: fb.wantConnect === false ? 'from-red-500/80 to-rose-600/80 text-white' : 'from-gray-600/40 to-gray-700/40 text-gray-500', textCls: fb.wantConnect === false ? 'text-red-300' : 'text-gray-500' }

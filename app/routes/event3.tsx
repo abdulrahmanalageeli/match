@@ -88,7 +88,7 @@ function Brand() {
         </span>
         <Sparkles size={14} className="text-pink-400" />
       </div>
-      <div className="text-[10px] text-gray-600 tracking-widest font-medium mt-0.5">VERSION 3.0</div>
+      <div className="text-[10px] text-gray-600 tracking-widest font-medium mt-0.5">VERSION 4.0</div>
     </div>
   )
 }
@@ -375,7 +375,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               >
                 <Sparkles size={12} className="text-purple-400" />
                 <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-[0.18em] uppercase">
-                  التوافق الأعمى — الجيل الثالث
+                  التوافق الأعمى — الجيل الرابع
                 </span>
                 <Sparkles size={12} className="text-pink-400" />
               </motion.div>
@@ -387,7 +387,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               >
                 التوافق الأعمى<br />
                 <span className="bg-gradient-to-r from-purple-400 via-violet-400 to-indigo-400 bg-clip-text text-transparent">
-                  الجيل الثالث
+                  الجيل الرابع
                 </span>
               </motion.h1>
               <motion.p

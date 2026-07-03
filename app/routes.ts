@@ -8,6 +8,6 @@ export default [
   route("matrix", "routes/matrix.tsx"),
   route("results", "routes/results.tsx"), // ✅ Results page
   route("groups", "routes/groups.tsx"), // ✅ Groups games page
-  route("event3", "routes/event3.tsx"), // ✅ BlindMatch 3.0 participant page
-  route("admin3", "routes/admin3.tsx"), // ✅ BlindMatch 3.0 admin panel
+  route("event3", "routes/event3.tsx"), // ✅ BlindMatch 4.0 participant page
+  route("admin3", "routes/admin3.tsx"), // ✅ BlindMatch 4.0 admin panel
 ] satisfies RouteConfig;

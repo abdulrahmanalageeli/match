@@ -11,7 +11,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
 const STATIC_MATCH_ID = "00000000-0000-0000-0000-000000000000"
 
-// ── Event 3.0 constants & helpers ─────────────────────────────────────────────
+// ── Event 4.0 constants & helpers ─────────────────────────────────────────────
 const EVENT3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
 const EVENT3_PASSWORD = "soulmatch2026"
 const E3_LATIN_SQUARE = [[0,1,2,3,4,5],[2,3,4,5,0,1],[4,5,0,1,2,3],[1,0,3,2,5,4],[3,2,5,4,1,0],[5,4,1,0,3,2]]
@@ -5973,7 +5973,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Event 3.0 admin actions (password required in body) ─────────────────────
+    // ── Event 4.0 admin actions (password required in body) ─────────────────────
     if (action && action.startsWith("e3-")) {
       if (req.body?.password !== EVENT3_PASSWORD) return res.status(403).json({ error: "Unauthorized" })
       try {

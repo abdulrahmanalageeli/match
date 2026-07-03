@@ -2540,7 +2540,7 @@ Please respond in JSON format:
     }
   }
 
-  // ── Event 3.0 participant actions ─────────────────────────────────────────────
+  // ── Event 4.0 participant actions ─────────────────────────────────────────────
   if (action && action.startsWith("e3-")) {
     const E3_MATCH_ID = "00000000-0000-0000-0000-000000000003"
     const MAIN_MATCH = "00000000-0000-0000-0000-000000000000"

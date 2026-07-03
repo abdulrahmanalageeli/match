@@ -745,6 +745,151 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
   )
 }
 
+// ─── Round Tutorial Overlay ───────────────────────────────────────────────────
+function RoundTutorial({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0)
+  const [dir, setDir] = useState(1)
+
+  const steps = [
+    {
+      icon: <Users size={28} className="text-blue-400" />,
+      title: "الجولة الجماعية الأولى",
+      desc: "ستلتقي بمجموعة من المشاركين على طاولتك للتعارف والمحادثة",
+      accent: "from-blue-600/20 to-cyan-600/10",
+      ring: "ring-blue-500/30",
+    },
+    {
+      icon: <MapPin size={28} className="text-purple-400" />,
+      title: "رقم طاولتك",
+      desc: "هذا هو رقم الطاولة التي يجب أن تذهب إليها — ابحث عنها في المكان",
+      accent: "from-purple-600/20 to-pink-600/10",
+      ring: "ring-purple-500/30",
+      hint: "ابحث عن الرقم الكبير في المنتصف",
+    },
+    {
+      icon: <ExternalLink size={28} className="text-indigo-400" />,
+      title: "نشاطات المجموعة",
+      desc: "اضغط على هذا الزر لعرض نشاطات وأسئلة المجموعة لمساعدتكم في التعارف",
+      accent: "from-indigo-600/20 to-purple-600/10",
+      ring: "ring-indigo-500/30",
+      hint: "الزر الكبير في الأسفل",
+    },
+    {
+      icon: <MessageSquare size={28} className="text-emerald-400" />,
+      title: "زر المنظم للطوارئ",
+      desc: "إذا احتجت مساعدة أو كان لديك سؤال عاجل، اضغط على زر «المنظم» في أسفل الشاشة للتواصل مع المنظم مباشرة",
+      accent: "from-emerald-600/20 to-teal-600/10",
+      ring: "ring-emerald-500/30",
+      hint: "في أسفل الشاشة",
+    },
+    {
+      icon: <Clock size={28} className="text-amber-400" />,
+      title: "المؤقت في الأعلى",
+      desc: "يظهر المؤقت في أعلى الشاشة عند بدء الجولة — ينبهك عند اقتراب انتهاء الوقت",
+      accent: "from-amber-600/20 to-orange-600/10",
+      ring: "ring-amber-500/30",
+    },
+  ]
+
+  const goNext = () => {
+    if (step < steps.length - 1) { setDir(1); setStep(s => s + 1) }
+    else onClose()
+  }
+  const goBack = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
+
+  const s = steps[step]
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+      dir="rtl"
+    >
+      {/* Skip button */}
+      <button
+        onClick={onClose}
+        className="absolute top-5 left-5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors z-10"
+      >
+        تخطّي
+      </button>
+
+      {/* Step indicator dots */}
+      <div className="absolute top-5 right-5 flex items-center gap-1.5 z-10">
+        {steps.map((_, i) => (
+          <motion.span
+            key={i}
+            animate={{ scale: i === step ? 1.2 : 1, opacity: i === step ? 1 : 0.4 }}
+            className={`w-1.5 h-1.5 rounded-full ${i === step ? 'bg-purple-400' : 'bg-gray-600'}`}
+          />
+        ))}
+      </div>
+
+      {/* Card */}
+      <motion.div
+        key={step}
+        initial={{ opacity: 0, x: dir * 40, scale: 0.95 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-8 max-w-xs w-full text-center overflow-hidden ring-1 ${s.ring}`}
+      >
+        {/* Gradient backdrop */}
+        <div className={`absolute inset-0 bg-gradient-to-br ${s.accent} pointer-events-none`} />
+
+        {/* Content */}
+        <div className="relative z-10 space-y-4">
+          {/* Icon with pulse ring */}
+          <div className="relative mx-auto w-fit">
+            <motion.div
+              className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
+              animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+              style={{ color: 'currentColor' }}
+            />
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">
+              {s.icon}
+            </div>
+          </div>
+
+          <h2 className="text-white font-bold text-lg">{s.title}</h2>
+          <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
+
+          {s.hint && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+              className="inline-flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5"
+            >
+              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                <ChevronDown size={12} className="text-gray-500 rotate-180" />
+              </motion.div>
+              <span className="text-gray-500 text-[11px]">{s.hint}</span>
+            </motion.div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex items-center gap-3 pt-2">
+            {step > 0 && (
+              <button
+                onClick={goBack}
+                className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors px-3 py-2"
+              >
+                <ChevronRight size={14} />
+                السابق
+              </button>
+            )}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={goNext}
+              className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl py-3 font-bold text-sm transition-all shadow-lg shadow-purple-900/30"
+            >
+              {step < steps.length - 1 ? 'التالي' : 'ابدأ الجولة'}
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
 // ─── Round Screen ─────────────────────────────────────────────────────────────
 function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo }: {
   token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null
@@ -753,6 +898,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   const [assignment, setAssignment] = useState<any>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [showGroups, setShowGroups] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(round === 1)
   const wakeLockRef = useRef<any>(null)
 
   useEffect(() => {
@@ -926,8 +1072,25 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             {round === 2 && "آخر جولة جماعية — بعدها ستُرتّب الأولويات لتحديد جلستك الفردية"}
           </p>
 
+          {/* Replay tutorial button */}
+          {round === 1 && (
+            <motion.button
+              onClick={() => setShowTutorial(true)}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+              className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
+            >
+              <RefreshCw size={11} />
+              إعادة الشرح
+            </motion.button>
+          )}
+
         </div>
       </motion.div>
+
+      {/* ── Tutorial Overlay ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showTutorial && <RoundTutorial onClose={() => setShowTutorial(false)} />}
+      </AnimatePresence>
 
       {/* ── Groups Overlay Modal ────────────────────────────────────── */}
       <AnimatePresence>

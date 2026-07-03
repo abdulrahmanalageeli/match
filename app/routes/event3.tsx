@@ -1519,51 +1519,57 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
 
   return (
     <>
-      {/* Organizer button — centered with separator lines */}
-      <div className={`${position === 'bottom' ? 'relative' : 'fixed top-[68px]'} left-0 right-0 z-[190] flex items-center justify-center gap-3 px-4 pb-2 pt-2 bg-gradient-to-t from-gray-950/90 to-transparent flex-shrink-0`} dir="rtl">
-        <div className="flex-1 h-px bg-gradient-to-l from-gray-700/40 to-transparent" />
+      {/* Organizer button — centered with separator lines beside it */}
+      <div className={`${position === 'bottom' ? 'relative' : 'fixed top-[68px]'} left-0 right-0 z-[190] flex items-center justify-center px-4 pb-5 pt-3 bg-gradient-to-t from-gray-950 via-gray-950/80 to-transparent flex-shrink-0`} dir="rtl">
+        {/* Left separator */}
+        <div className="flex-1 h-px bg-gradient-to-l from-gray-700/30 to-transparent max-w-[80px]" />
+        {/* Button */}
         <motion.button
           whileTap={{ scale: 0.95 }}
-          whileHover={{ scale: 1.03 }}
+          whileHover={{ scale: 1.04 }}
           onClick={() => setOpen(o => !o)}
-          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-300 ${
+          animate={buttonState === 'idle' ? { scale: [1, 1.03, 1] } : {}}
+          transition={buttonState === 'idle' ? { duration: 3, repeat: Infinity, ease: 'easeInOut' } : {}}
+          className={`mx-3 flex items-center gap-2 px-5 py-2 rounded-full text-[12px] font-semibold transition-colors duration-300 ${
             buttonState === 'unread' ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-700/40 shadow-lg shadow-emerald-900/30'
             : buttonState === 'pending' ? 'text-orange-300 bg-orange-950/50 border border-orange-700/40'
             : buttonState === 'active' ? 'text-gray-300 bg-gray-800/60 border border-gray-700/40'
-            : 'text-gray-400 hover:text-gray-200 bg-gray-800/40 border border-gray-700/30'
+            : 'text-gray-400 hover:text-gray-200 bg-gray-800/50 border border-gray-700/40'
           }`}
         >
-          {/* Status indicator dot */}
-          <span className="relative flex-shrink-0 flex items-center justify-center w-2 h-2">
+          {/* Status indicator */}
+          <span className="relative flex-shrink-0 flex items-center justify-center w-2.5 h-2.5">
             {buttonState === 'unread' && (
-              <motion.span layoutId="status-dot" className="w-2 h-2 rounded-full bg-emerald-400"
-                animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+              <motion.span className="w-2.5 h-2.5 rounded-full bg-emerald-400"
+                animate={{ scale: [1, 1.35, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
             )}
             {buttonState === 'pending' && (
               <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
                 className="w-2.5 h-2.5 border border-orange-500/40 border-t-orange-300 rounded-full" />
             )}
-            {buttonState === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />}
-            {buttonState === 'idle' && <span className="w-1 h-1 rounded-full bg-red-500/70 animate-pulse" />}
+            {buttonState === 'active' && <span className="w-2 h-2 rounded-full bg-gray-500" />}
+            {buttonState === 'idle' && (
+              <motion.span className="w-1.5 h-1.5 rounded-full bg-red-500/70"
+                animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} />
+            )}
           </span>
 
-          {/* Animated label */}
-          <span className="relative h-[14px] overflow-hidden flex items-center" style={{ minWidth: '60px' }}>
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={buttonLabel}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.25 }}
-                className="whitespace-nowrap"
-              >
-                {buttonLabel}
-              </motion.span>
-            </AnimatePresence>
-          </span>
+          {/* Animated label — auto width */}
+          <AnimatePresence mode="wait">
+            <motion.span
+              key={buttonLabel}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="whitespace-nowrap"
+            >
+              {buttonLabel}
+            </motion.span>
+          </AnimatePresence>
         </motion.button>
-        <div className="flex-1 h-px bg-gradient-to-r from-gray-700/40 to-transparent" />
+        {/* Right separator */}
+        <div className="flex-1 h-px bg-gradient-to-r from-gray-700/30 to-transparent max-w-[80px]" />
       </div>
 
       {/* Chat panel */}
@@ -1574,7 +1580,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
             exit={{ opacity: 0, y: position === 'bottom' ? 20 : -20, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
             className={`fixed z-[300] w-[300px] max-w-[calc(100vw-2rem)] bg-gray-950/95 backdrop-blur-xl border border-gray-800/80 rounded-3xl shadow-2xl flex flex-col overflow-hidden ${
-              position === 'bottom' ? 'bottom-16 left-1/2 -translate-x-1/2' : 'top-[88px] left-1/2 -translate-x-1/2'
+              position === 'bottom' ? 'bottom-20 left-1/2 -translate-x-1/2' : 'top-[88px] left-1/2 -translate-x-1/2'
             }`}
             style={{ maxHeight: '60vh' }}
             dir="rtl"

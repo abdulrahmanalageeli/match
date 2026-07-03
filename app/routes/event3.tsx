@@ -1009,6 +1009,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
   useEffect(() => {
     if (currentPhase !== initialPhaseRef.current && !submitted) {
       setShowPhaseWarning(true)
+      toast('⏰ المنظم انتقل للمرحلة التالية — ارتب اختياراتك وأرسلها بسرعة!', { duration: 6000, icon: '⏰' })
     }
   }, [currentPhase, submitted])
 
@@ -1053,34 +1054,22 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
     <PageWrapper className="overflow-y-auto">
       <div className="max-w-md mx-auto pb-6">
 
-        {/* Phase change warning popup */}
+        {/* Phase change warning banner — non-blocking */}
         <AnimatePresence>
           {showPhaseWarning && !submitted && (
             <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[400] bg-black/70 backdrop-blur-sm flex items-center justify-center p-6"
-              onClick={() => setShowPhaseWarning(false)}
+              initial={{ opacity: 0, y: -20, height: 0 }} animate={{ opacity: 1, y: 0, height: 'auto' }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              className="bg-amber-950/80 border border-amber-700/40 rounded-xl mx-4 mt-2 px-4 py-2.5 flex items-center gap-2.5"
             >
-              <motion.div
-                initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }}
-                transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className="bg-gray-900 border border-amber-700/50 rounded-2xl p-6 max-w-sm w-full text-center space-y-4"
-                onClick={e => e.stopPropagation()}
-              >
-                <div className="w-12 h-12 mx-auto rounded-full bg-amber-900/40 border border-amber-700/40 flex items-center justify-center">
-                  <Clock size={24} className="text-amber-400" />
-                </div>
-                <h2 className="text-white font-bold text-base">المنظم انتقل للمرحلة التالية</h2>
-                <p className="text-gray-400 text-sm leading-relaxed">
-                  يرجى ترتيب اختياراتك والضغط على «إرسال الترتيب» في أسرع وقت للمتابعة.
-                </p>
-                <button
-                  onClick={() => setShowPhaseWarning(false)}
-                  className="w-full bg-amber-600 hover:bg-amber-500 text-white rounded-xl py-3 font-bold text-sm transition-all"
-                >
-                  حسناً، سأرتب الآن
-                </button>
-              </motion.div>
+              <Clock size={16} className="text-amber-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-amber-300 text-xs font-bold">المنظم انتقل للمرحلة التالية</p>
+                <p className="text-amber-400/60 text-[10px]">ارتب اختياراتك وأرسلها بسرعة للمتابعة</p>
+              </div>
+              <button onClick={() => setShowPhaseWarning(false)} className="text-amber-500/60 hover:text-amber-400 flex-shrink-0">
+                <X size={14} />
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1465,13 +1454,11 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
   const [sending, setSending] = useState(false)
   const [showOptions, setShowOptions] = useState(true)
   const [hasUnread, setHasUnread] = useState(false)
-  const [lastReplyCount, setLastReplyCount] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const openRef = useRef(false)
-  const lastReplyCountRef = useRef(0)
+  const lastReplyCountRef = useRef(parseInt(sessionStorage.getItem('sos_last_reply_count') || '0'))
   useEffect(() => { openRef.current = open }, [open])
-  useEffect(() => { lastReplyCountRef.current = lastReplyCount }, [lastReplyCount])
 
   useEffect(() => {
     const doFetch = async () => {
@@ -1485,28 +1472,23 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
       }
       const all = [...userMsgs, ...orgMsgs].sort((a, b) => a.id.localeCompare(b.id))
       setMessages(all)
-      if (orgMsgs.length > lastReplyCountRef.current && lastReplyCountRef.current >= 0) {
+      const prevCount = lastReplyCountRef.current
+      if (orgMsgs.length > prevCount && prevCount >= 0) {
         setHasUnread(true)
         if (!openRef.current) {
-          setOpen(true)
-          toast('💬 رسالة من المنظم!', { duration: 5000 })
+          toast('💬 رسالة من المنظم!', { duration: 4000 })
         }
       }
-      setLastReplyCount(orgMsgs.length)
+      lastReplyCountRef.current = orgMsgs.length
+      sessionStorage.setItem('sos_last_reply_count', String(orgMsgs.length))
       if (userMsgs.length > 0 || orgMsgs.length > 0) setShowOptions(false)
       else setShowOptions(true)
       if (orgMsgs.length === 0 && userMsgs.length === 0) setHasUnread(false)
     }
     doFetch()
-    let iv: ReturnType<typeof setInterval>
-    const startPolling = () => {
-      clearInterval(iv)
-      const hasActive = messages.some(m => m.status === 'pending' || m.status === 'seen')
-      iv = setInterval(doFetch, hasActive ? 3000 : 20000)
-    }
-    startPolling()
+    const iv = setInterval(doFetch, 5000)
     return () => clearInterval(iv)
-  }, [token, messages])
+  }, [token])
 
   useEffect(() => {
     if (open) { setHasUnread(false); scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }) }
@@ -1532,6 +1514,9 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
   const pendingCount = messages.filter(m => m.from === 'user' && m.status === 'pending').length
   const hasActive = messages.length > 0
 
+  const buttonLabel = hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : hasActive ? 'المنظم' : 'طلب مساعدة'
+  const buttonState = hasUnread ? 'unread' : pendingCount > 0 ? 'pending' : hasActive ? 'active' : 'idle'
+
   return (
     <>
       {/* Organizer button — centered with separator lines */}
@@ -1539,20 +1524,44 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
         <div className="flex-1 h-px bg-gradient-to-l from-gray-700/40 to-transparent" />
         <motion.button
           whileTap={{ scale: 0.95 }}
+          whileHover={{ scale: 1.03 }}
           onClick={() => setOpen(o => !o)}
-          className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold transition-all ${
-            hasUnread ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-700/30'
-            : pendingCount > 0 ? 'text-orange-300 bg-orange-950/50 border border-orange-700/30'
-            : 'text-gray-400 hover:text-gray-200 bg-gray-800/60 border border-gray-700/40'
+          className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[11px] font-semibold transition-all duration-300 ${
+            buttonState === 'unread' ? 'text-emerald-300 bg-emerald-950/60 border border-emerald-700/40 shadow-lg shadow-emerald-900/30'
+            : buttonState === 'pending' ? 'text-orange-300 bg-orange-950/50 border border-orange-700/40'
+            : buttonState === 'active' ? 'text-gray-300 bg-gray-800/60 border border-gray-700/40'
+            : 'text-gray-400 hover:text-gray-200 bg-gray-800/40 border border-gray-700/30'
           }`}
         >
-        {pendingCount > 0 && !hasUnread && (
-          <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
-            className="w-2.5 h-2.5 border border-orange-500/40 border-t-orange-300 rounded-full flex-shrink-0" />
-        )}
-        {hasUnread && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />}
-        {!hasActive && <span className="w-1 h-1 rounded-full bg-red-500/70 animate-pulse flex-shrink-0" />}
-        <span>{hasUnread ? 'رسالة جديدة' : pendingCount > 0 ? 'في الانتظار...' : 'المنظم'}</span>
+          {/* Status indicator dot */}
+          <span className="relative flex-shrink-0 flex items-center justify-center w-2 h-2">
+            {buttonState === 'unread' && (
+              <motion.span layoutId="status-dot" className="w-2 h-2 rounded-full bg-emerald-400"
+                animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.5, repeat: Infinity }} />
+            )}
+            {buttonState === 'pending' && (
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                className="w-2.5 h-2.5 border border-orange-500/40 border-t-orange-300 rounded-full" />
+            )}
+            {buttonState === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-gray-500" />}
+            {buttonState === 'idle' && <span className="w-1 h-1 rounded-full bg-red-500/70 animate-pulse" />}
+          </span>
+
+          {/* Animated label */}
+          <span className="relative h-[14px] overflow-hidden flex items-center" style={{ minWidth: '60px' }}>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={buttonLabel}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25 }}
+                className="whitespace-nowrap"
+              >
+                {buttonLabel}
+              </motion.span>
+            </AnimatePresence>
+          </span>
         </motion.button>
         <div className="flex-1 h-px bg-gradient-to-r from-gray-700/40 to-transparent" />
       </div>
@@ -2490,7 +2499,7 @@ export default function Event3Page() {
 
       {/* Screen content fills available space */}
       <div className="flex-1 overflow-y-auto relative z-10">
-        <AnimatePresence mode="wait">
+        <AnimatePresence>
           {phase === "setup" && <SetupScreen key="setup" token={token} myInfo={myInfo} />}
           {isRound && <RoundScreen key={phase} token={token} phase={phase} {...timerProps} myInfo={myInfo} />}
           {completedRounds && <RankingScreen key={phase} token={token} completedRounds={completedRounds} currentPhase={phase} />}

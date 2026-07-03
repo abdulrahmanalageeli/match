@@ -3497,7 +3497,7 @@ Proceed?`
       )}
 
       {/* Phase Control */}
-      <div className="relative z-10 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4" style={{ display: isCohost ? 'none' : undefined }}>
+      <div className="relative z-30 bg-white/5 backdrop-blur-xl border-b border-white/10 p-4" style={{ display: isCohost ? 'none' : undefined }}>
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className={`flex items-center gap-2 px-4 py-2 rounded-xl ${currentPhaseConfig.bg} border border-white/20`}>

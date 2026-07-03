@@ -7,7 +7,7 @@ import confetti from "canvas-confetti"
 import {
   Clock, MapPin, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
-  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X,
+  MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -882,6 +882,151 @@ function RoundTutorial({ onClose }: { onClose: () => void }) {
               className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl py-3 font-bold text-sm transition-all shadow-lg shadow-purple-900/30"
             >
               {step < steps.length - 1 ? 'التالي' : 'ابدأ الجولة'}
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ─── One-to-One Tutorial Overlay ─────────────────────────────────────────────
+function OneToOneTutorial({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0)
+  const [dir, setDir] = useState(1)
+
+  const steps = [
+    {
+      icon: <Users size={28} className="text-pink-400" />,
+      title: "جلستك الفردية الأولى",
+      desc: "اخترت هذا الشخص من جولات التعارف الجماعية — الآن لديك جلسة خاصة 1:1 معه",
+      accent: "from-pink-600/20 to-rose-600/10",
+      ring: "ring-pink-500/30",
+    },
+    {
+      icon: <Users size={28} className="text-rose-400" />,
+      title: "اكشف اسم شريكك",
+      desc: "اضغط على زر «اكشف اسمه / اسمها» لمعرفة الشخص الذي اخترته للجلسة الفردية",
+      accent: "from-rose-600/20 to-pink-600/10",
+      ring: "ring-rose-500/30",
+      hint: "الزر الكبير في المنتصف",
+    },
+    {
+      icon: <MapPin size={28} className="text-amber-400" />,
+      title: "رقم طاولتك",
+      desc: "بعد الكشف، سيظهر رقم الطاولة التي يجب أن تذهب إليها لمقابلة شريكك",
+      accent: "from-amber-600/20 to-orange-600/10",
+      ring: "ring-amber-500/30",
+      hint: "ابحث عن الرقم الكبير",
+    },
+    {
+      icon: <MessageSquare size={28} className="text-purple-400" />,
+      title: "أسئلة الجلسة",
+      desc: "اضغط «انتقل إلى أسئلة الجلسة» للوصول إلى أسئلة نقاش تساعدك في المحادثة مع شريكك",
+      accent: "from-purple-600/20 to-violet-600/10",
+      ring: "ring-purple-500/30",
+      hint: "الزر في أسفل البطاقة",
+    },
+    {
+      icon: <Clock size={28} className="text-amber-400" />,
+      title: "المؤقت",
+      desc: "يظهر المؤقت عند بدء الجلسة — ينبهك عند اقتراب انتهاء الوقت، انتقل للتقييم عند انتهائه",
+      accent: "from-amber-600/20 to-orange-600/10",
+      ring: "ring-amber-500/30",
+    },
+    {
+      icon: <Heart size={28} className="text-emerald-400" />,
+      title: "التقييم بعد الجلسة",
+      desc: "عند انتهاء الجلسة، ستقيم تجربتك — إجاباتك سرية وتساعدنا في تحسين التجربة",
+      accent: "from-emerald-600/20 to-teal-600/10",
+      ring: "ring-emerald-500/30",
+    },
+  ]
+
+  const goNext = () => {
+    if (step < steps.length - 1) { setDir(1); setStep(s => s + 1) }
+    else onClose()
+  }
+  const goBack = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
+
+  const s = steps[step]
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[500] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6"
+      dir="rtl"
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-5 left-5 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors z-10"
+      >
+        تخطّي
+      </button>
+
+      <div className="absolute top-5 right-5 flex items-center gap-1.5 z-10">
+        {steps.map((_, i) => (
+          <motion.span
+            key={i}
+            animate={{ scale: i === step ? 1.2 : 1, opacity: i === step ? 1 : 0.4 }}
+            className={`w-1.5 h-1.5 rounded-full ${i === step ? 'bg-pink-400' : 'bg-gray-600'}`}
+          />
+        ))}
+      </div>
+
+      <motion.div
+        key={step}
+        initial={{ opacity: 0, x: dir * 40, scale: 0.95 }}
+        animate={{ opacity: 1, x: 0, scale: 1 }}
+        transition={{ type: "spring", stiffness: 300, damping: 28 }}
+        className={`relative bg-gray-900/95 border border-gray-700/50 rounded-3xl p-8 max-w-xs w-full text-center overflow-hidden ring-1 ${s.ring}`}
+      >
+        <div className={`absolute inset-0 bg-gradient-to-br ${s.accent} pointer-events-none`} />
+
+        <div className="relative z-10 space-y-4">
+          <div className="relative mx-auto w-fit">
+            <motion.div
+              className="absolute inset-0 rounded-2xl border-2 border-current opacity-20"
+              animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
+              transition={{ duration: 2.5, repeat: Infinity }}
+              style={{ color: 'currentColor' }}
+            />
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-gray-800/80 border border-gray-700/50 flex items-center justify-center">
+              {s.icon}
+            </div>
+          </div>
+
+          <h2 className="text-white font-bold text-lg">{s.title}</h2>
+          <p className="text-gray-400 text-sm leading-relaxed">{s.desc}</p>
+
+          {s.hint && (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+              className="inline-flex items-center gap-1.5 bg-gray-800/60 border border-gray-700/40 rounded-full px-3 py-1.5"
+            >
+              <motion.div animate={{ y: [0, -3, 0] }} transition={{ duration: 1.5, repeat: Infinity }}>
+                <ChevronDown size={12} className="text-gray-500 rotate-180" />
+              </motion.div>
+              <span className="text-gray-500 text-[11px]">{s.hint}</span>
+            </motion.div>
+          )}
+
+          <div className="flex items-center gap-3 pt-2">
+            {step > 0 && (
+              <button
+                onClick={goBack}
+                className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-xs font-medium transition-colors px-3 py-2"
+              >
+                <ChevronRight size={14} />
+                السابق
+              </button>
+            )}
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={goNext}
+              className="flex-1 bg-gradient-to-r from-pink-600 to-rose-600 text-white rounded-xl py-3 font-bold text-sm transition-all shadow-lg shadow-pink-900/30"
+            >
+              {step < steps.length - 1 ? 'التالي' : 'ابدأ الجلسة'}
             </motion.button>
           </div>
         </div>
@@ -1880,6 +2025,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const [view, setView] = useState<'partner' | 'session' | 'feedback'>('partner')
   const [showPrompt, setShowPrompt] = useState(false)
   const [feedbackDone, setFeedbackDone] = useState(false)
+  const [showTutorial, setShowTutorial] = useState(true)
 
   useEffect(() => {
     call("e3-get-phase2-reveal", token).then(d => {
@@ -2098,29 +2244,28 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
                 <MessageSquare size={14} /> أسئلة للنقاش ✨
               </button>
-              {/* One-word feedback */}
-              <div className="rounded-2xl border border-gray-800/60 bg-gray-900/60 p-4 space-y-3">
-                <p className="text-gray-400 text-sm text-center">صف هذه الجلسة بكلمة واحدة</p>
-                <div className="flex gap-2">
-                  <input type="text" placeholder="مثلاً: ممتع، عميق..." value={word} maxLength={20}
-                    onChange={e => setWord(e.target.value.split(" ")[0])} disabled={wordSubmitted}
-                    className="flex-1 bg-gray-800/80 border border-gray-700/60 text-white rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-pink-500/60 disabled:opacity-50 transition-all placeholder:text-gray-600" />
-                  {wordSubmitted
-                    ? <div className="flex items-center px-2 text-green-400"><CheckCircle size={16} /></div>
-                    : <button onClick={submitWord} disabled={!word.trim()}
-                        className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 disabled:opacity-40 text-white rounded-xl px-4 py-2 shadow-md transition-all">
-                        <Send size={14} /></button>
-                  }
-                </div>
-              </div>
               {/* Jump to feedback manually */}
               <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
+              {/* Replay tutorial button */}
+              <motion.button
+                onClick={() => setShowTutorial(true)}
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                className="text-gray-600 hover:text-gray-400 text-[11px] font-medium transition-colors flex items-center gap-1.5 mx-auto"
+              >
+                <RefreshCw size={11} />
+                إعادة الشرح
+              </motion.button>
             </div>
             <Suspense fallback={null}>
               {showPrompt && <PromptTopicsModal open={showPrompt} onClose={() => setShowPrompt(false)} />}
             </Suspense>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* ── Tutorial Overlay ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showTutorial && <OneToOneTutorial onClose={() => setShowTutorial(false)} />}
       </AnimatePresence>
     </PageWrapper>
   )
@@ -2678,8 +2823,8 @@ export default function Event3Page() {
         </AnimatePresence>
       </div>
 
-      {/* SOS button in normal flow at bottom on all screens */}
-      {enrolled && <SOSButton token={token} position="bottom" />}
+      {/* SOS button in normal flow at bottom on all screens (hidden on ranking pages) */}
+      {enrolled && !rankingMatch && <SOSButton token={token} position="bottom" />}
     </div>
   )
 }

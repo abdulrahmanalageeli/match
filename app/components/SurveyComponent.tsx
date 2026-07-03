@@ -935,6 +935,9 @@ const SurveyComponent = memo(function SurveyComponent({
   const surveyContainerRef = useRef<HTMLDivElement | null>(null)
   const [showPhoneConfirmModal, setShowPhoneConfirmModal] = useState(false)
   const [phoneConfirmDisplay, setPhoneConfirmDisplay] = useState('')
+  const [showResumeBanner, setShowResumeBanner] = useState(false)
+  const surveyProgressKey = 'survey_progress'
+  const hasRestoredRef = useRef(false)
 
   // Helper to parse hobbies from the text field
   const getHobbiesArray = useCallback((str: string) => {
@@ -943,6 +946,56 @@ const SurveyComponent = memo(function SurveyComponent({
       .split(',')
       .map(s => s.trim())
       .filter(Boolean)
+  }, [])
+
+  // Restore survey progress from localStorage on mount
+  useEffect(() => {
+    if (hasRestoredRef.current) return
+    hasRestoredRef.current = true
+    try {
+      const saved = localStorage.getItem(surveyProgressKey)
+      if (!saved) return
+      const parsed = JSON.parse(saved)
+      if (!parsed.answers || typeof parsed.page !== 'number') return
+      const hasExistingAnswers = Object.keys(surveyData.answers).some(
+        k => k !== 'gender_preference' && surveyData.answers[k]
+      )
+      if (hasExistingAnswers && !parsed.answers) return
+      setSurveyData((prev: SurveyData) => ({
+        ...prev,
+        answers: { ...prev.answers, ...parsed.answers },
+        termsAccepted: parsed.termsAccepted ?? prev.termsAccepted,
+        dataConsent: parsed.dataConsent ?? prev.dataConsent,
+      }))
+      if (typeof parsed.page === 'number' && parsed.page > 0) {
+        setCurrentPage(parsed.page)
+        setShowResumeBanner(true)
+        setTimeout(() => setShowResumeBanner(false), 5000)
+      }
+    } catch {}
+  }, [])
+
+  // Auto-save survey progress to localStorage whenever answers or page changes
+  useEffect(() => {
+    if (!hasRestoredRef.current) return
+    try {
+      const hasAnswers = Object.keys(surveyData.answers).some(
+        k => k !== 'gender_preference' && surveyData.answers[k]
+      )
+      if (!hasAnswers) return
+      localStorage.setItem(surveyProgressKey, JSON.stringify({
+        answers: surveyData.answers,
+        page: currentPage,
+        termsAccepted: surveyData.termsAccepted,
+        dataConsent: surveyData.dataConsent,
+        savedAt: Date.now(),
+      }))
+    } catch {}
+  }, [surveyData.answers, surveyData.termsAccepted, surveyData.dataConsent, currentPage])
+
+  // Clear saved progress on successful submit
+  const clearSurveyProgress = useCallback(() => {
+    try { localStorage.removeItem(surveyProgressKey) } catch {}
   }, [])
 
   // Auto-parse existing composed phone_number into split fields
@@ -1393,11 +1446,12 @@ const SurveyComponent = memo(function SurveyComponent({
         }
       }
       
+      clearSurveyProgress();
       onSubmit(finalData);
     } else {
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }, [surveyData, onSubmit])
+  }, [surveyData, onSubmit, clearSurveyProgress])
 
   // Handle submit with provided data (to avoid race condition)
   const handleSubmitWithData = useCallback((dataToSubmit: SurveyData) => {
@@ -1482,11 +1536,12 @@ const SurveyComponent = memo(function SurveyComponent({
         }
       }
       
+      clearSurveyProgress();
       onSubmit(finalData);
     } else {
       alert("يرجى الموافقة على الشروط والأحكام وسياسة الخصوصية");
     }
-  }, [onSubmit])
+  }, [onSubmit, clearSurveyProgress])
 
   const renderQuestion = (question: any) => {
     const value = surveyData.answers[question.id]
@@ -2091,6 +2146,26 @@ const SurveyComponent = memo(function SurveyComponent({
                 </div>
               </CardContent>
             </Card>
+          </div>
+        )}
+
+        {/* Resume Banner */}
+        {showResumeBanner && (
+          <div className="mb-4">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-800/50 rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle className="w-4 h-4 text-white" />
+              </div>
+              <p className="text-sm text-green-700 dark:text-green-300 font-medium flex-1">
+                تم استئناف الاستبيان من حيث توقفت — صفحة {currentPage + 1} من {totalPages}
+              </p>
+              <button
+                onClick={() => { setCurrentPage(0); setShowResumeBanner(false); }}
+                className="text-xs text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200 underline font-medium whitespace-nowrap"
+              >
+                البدء من جديد
+              </button>
+            </div>
           </div>
         )}
 

@@ -2775,9 +2775,24 @@ Please respond in JSON format:
         return res.status(200).json({ message: "Feedback saved" })
       }
 
+      // e3-submit-match-preference (user prefers choice or algorithm match)
+      if (action === "e3-submit-match-preference") {
+        const preference = req.body.preference // "choice" | "algorithm" | "both" | "neither"
+        if (!preference || !["choice", "algorithm", "both", "neither"].includes(preference)) {
+          return res.status(400).json({ error: "Invalid preference" })
+        }
+        const { error } = await supabase.from("event3_matches").update({ match_preference: preference }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+        if (error) {
+          // Column might not exist yet — try with metadata fallback
+          const { error: err2 } = await supabase.from("event3_matches").update({ phase3_feedback: { match_preference: preference } }).eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber)
+          if (err2) return res.status(500).json({ error: err2.message })
+        }
+        return res.status(200).json({ message: "Preference saved", preference })
+      }
+
       // e3-get-final-reveal
       if (action === "e3-get-final-reveal") {
-        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase3_score").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
+        const { data: matchRow } = await supabase.from("event3_matches").select("phase2_partner,phase3_partner,phase2_word,phase3_word,phase2_score,phase3_score,match_preference").eq("match_id", E3_MATCH_ID).eq("participant_number", myNumber).single()
         if (!matchRow) return res.status(404).json({ error: "No match data found" })
         const partnerNums = [matchRow.phase2_partner, matchRow.phase3_partner].filter(Boolean)
         const { data: partners } = await supabase.from("participants").select("assigned_number,name,survey_data").eq("match_id", MAIN_MATCH).in("assigned_number", partnerNums)
@@ -2810,7 +2825,8 @@ Please respond in JSON format:
         return res.status(200).json({
           phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: matchRow.phase2_score || 0, breakdown: phase2Breakdown },
           phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score || 0, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
-          same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner
+          same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
+          match_preference: matchRow.match_preference || null
         })
       }
 

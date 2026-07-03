@@ -5,7 +5,7 @@ import toast, { Toaster } from "react-hot-toast"
 import { motion, AnimatePresence, Reorder } from "framer-motion"
 import confetti from "canvas-confetti"
 import {
-  Clock, MapPin, Heart, Brain, ChevronDown, ExternalLink,
+  Clock, MapPin, Brain, ChevronDown, ExternalLink,
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X,
 } from "lucide-react"
@@ -632,7 +632,7 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
     { icon: "👥", label: "جلسة جماعية أولى", time: "20 دقيقة" },
     { icon: "🔀", label: "جلسة جماعية ثانية", time: "20 دقيقة" },
     { icon: "🏆", label: "ترتيب المشاركين", time: "5 دقائق" },
-    { icon: "💘", label: "جلسة فردية (اختيارك)", time: "15 دقيقة" },
+    { icon: "🌟", label: "جلسة فردية (اختيارك)", time: "15 دقيقة" },
     { icon: "🧠", label: "جلسة فردية (اختيار النظام)", time: "15 دقيقة" },
     { icon: "✨", label: "الكشف النهائي", time: "النتيجة" },
   ]
@@ -684,6 +684,9 @@ function SetupScreen({ token, myInfo }: { token: string; myInfo: { number: numbe
           </div>
           <h1 className="text-xl font-bold text-white">الفعالية ستبدأ قريباً</h1>
           <p className="text-gray-500 text-sm">انتظر توجيهات المنظم</p>
+          <p className="text-gray-600 text-[11px] leading-relaxed pt-1">
+            ستنتقل تلقائياً عند بدء الجولات. لو احتجت أي مساعدة، استخدم زر «المنظم» في الأسفل.
+          </p>
           {enrolledCount != null && enrolledCount > 0 && (
             <div className="flex items-center justify-center gap-2 pt-1">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
@@ -836,6 +839,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             <span className="font-bold text-sm">الجولة الجماعية {roundAr}</span>
             <span className="text-gray-600 text-xs">من 2</span>
           </motion.div>
+          <p className="text-gray-700 text-[10px] leading-relaxed -mt-3">اذهب إلى طاولتك · للطوارئ أو المساعدة، استخدم زر «المنظم» في الأعلى</p>
 
           {assignment ? (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -1030,7 +1034,10 @@ function RankingScreen({ token, completedRounds }: { token: string, completedRou
             <p className="text-gray-500 text-xs text-center">
               قابلت <span className="text-white font-semibold">{people.length} أشخاص</span> في الجولات الجماعية — رتّبهم لتحديد جلستك الفردية
             </p>
-            <p className="text-purple-400/80 text-[11px] text-center mt-1">✨ ترتيبك سيُستخدم لاختيار من ستلتقيه في جلستك الفردية الأولى</p>
+            <p className="text-purple-400/80 text-[11px] text-center mt-1">ترتيبك سيُستخدم لاختيار من ستلتقيه في جلستك الفردية الأولى</p>
+            <p className="text-gray-600 text-[10px] text-center mt-1 leading-relaxed">
+              اسحب الأشخاص لإعادة ترتيبهم · يمكنك كتابة ملاحظة قصيرة عن كل شخص بالضغط على أيقونة الملاحظة
+            </p>
 
             {/* Ranked count indicator */}
             <div className="flex items-center justify-center gap-2 mt-2">
@@ -1319,7 +1326,7 @@ function FeedbackFlow({ partnerName, word, done, onDone, onBack, onSubmit }: {
       {partnerName && (
         <div className="relative z-10 mx-5 mb-1">
           <div className="inline-flex items-center gap-2 bg-pink-950/40 border border-pink-900/30 rounded-full px-3 py-1.5">
-            <Heart size={10} className="text-pink-400" fill="currentColor" />
+            <Users size={10} className="text-pink-400" />
             <span className="text-pink-300/80 text-xs font-medium">{partnerName}</span>
           </div>
         </div>
@@ -1714,9 +1721,10 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
         <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="text-center pt-4 space-y-1">
           <div className="flex flex-col items-center gap-1.5">
             <div className="inline-flex items-center gap-2 bg-pink-900/30 border border-pink-700/40 text-pink-300 rounded-full px-4 py-1.5 text-sm font-semibold">
-              <Heart size={13} fill="currentColor" /> جلسة فردية 1:1 · اختيارك أنت
+              <Users size={13} /> جلسة فردية 1:1 · اختيارك أنت
             </div>
             <p className="text-gray-600 text-xs">جلسة خاصة مع الشخص الذي اخترته من جولات التعارف</p>
+            <p className="text-gray-700 text-[10px] leading-relaxed">اضغط للكشف عن اسم شريكك · لديك وقت محدد للمحادثة · يمكنك إرسال كلمة تصف تجربتك في النهاية</p>
           </div>
         </motion.div>
 
@@ -1726,7 +1734,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <motion.button onClick={handleReveal} whileTap={{ scale: 0.97 }}
                 className="w-full bg-gradient-to-br from-pink-600 via-rose-600 to-pink-700 text-white rounded-2xl py-8 font-bold text-xl shadow-2xl shadow-pink-600/40 border border-pink-500/30">
                 <motion.span animate={{ scale: [1, 1.06, 1] }} transition={{ duration: 1.8, repeat: Infinity }} className="flex items-center justify-center gap-3">
-                  <Heart size={24} fill="white" /> اكشف اسمه / اسمها
+                  <Users size={24} /> اكشف اسمه / اسمها
                 </motion.span>
               </motion.button>
               {timerActive && timeLeft > 0 && (
@@ -1752,7 +1760,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
                   <div className="absolute bottom-0 inset-x-0 h-24 bg-gradient-to-t from-black/30 to-transparent" />
                   <div className="relative z-10 px-6 pt-7 pb-8 text-center">
                     <div className="inline-flex items-center gap-1.5 bg-pink-900/50 border border-pink-700/40 rounded-full px-3 py-1 mb-5">
-                      <Heart size={10} className="text-pink-400" fill="currentColor" />
+                      <Users size={10} className="text-pink-400" />
                       <span className="text-pink-300 text-[11px] font-semibold tracking-wide">جلسة فردية · اختيارك الشخصي</span>
                     </div>
                     <p className="text-6xl font-black text-white mb-2 tracking-tight" style={{ textShadow: '0 2px 20px rgba(236,72,153,0.3)' }}>{data?.partner_first_name || "..."}</p>
@@ -1974,6 +1982,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <Brain size={13} /> جلسة فردية 1:1 · اختيارنا لك
             </div>
             <p className="text-gray-600 text-xs">جلسة خاصة مع من رشّحه النظام بناءً على توافقكما</p>
+            <p className="text-gray-700 text-[10px] leading-relaxed">الخوارزمية اختارت هذا الشخص بناءً على بياناتك وبياناتهم · اضغط للكشف · ستحصل على أسئلة للنقاش</p>
           </div>
         </motion.div>
 
@@ -2135,10 +2144,12 @@ function FinalRevealScreen({ token }: { token: string }) {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [showExitPopup, setShowExitPopup] = useState(false)
+  const [matchPref, setMatchPref] = useState<string | null>(null)
+  const [prefSubmitting, setPrefSubmitting] = useState(false)
 
   useEffect(() => {
     call("e3-get-final-reveal", token).then(d => {
-      if (!d.error) setData(d)
+      if (!d.error) { setData(d); setMatchPref(d.match_preference || null) }
       setLoading(false)
     })
   }, [token])
@@ -2149,15 +2160,13 @@ function FinalRevealScreen({ token }: { token: string }) {
     return () => clearTimeout(t)
   }, [data])
 
-  useEffect(() => {
-    if (!data) return
-    if (data.same_match) {
-      try {
-        confetti({ particleCount: 100, spread: 80, origin: { y: 0.3 } })
-        setTimeout(() => confetti({ particleCount: 60, spread: 90, origin: { y: 0.4 }, colors: ["#f59e0b", "#fbbf24", "#fcd34d", "#fef08a"] }), 400)
-      } catch {}
-    }
-  }, [data])
+  const submitPref = async (pref: string) => {
+    setPrefSubmitting(true)
+    const d = await call("e3-submit-match-preference", token, { preference: pref })
+    setPrefSubmitting(false)
+    if (!d.error) { setMatchPref(pref); toast.success("تم حفظ تفضيلك ✅") }
+    else toast.error("حدث خطأ")
+  }
 
   if (loading) return (
     <PageWrapper className="flex items-center justify-center"><Spinner size={28} /></PageWrapper>
@@ -2168,12 +2177,13 @@ function FinalRevealScreen({ token }: { token: string }) {
   )
 
   return (
-    <PageWrapper className="overflow-y-auto flex flex-col items-center justify-center p-4">
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-sm space-y-4 text-center">
+    <PageWrapper className="overflow-y-auto">
+      <div className="max-w-sm mx-auto p-4 pb-8 space-y-4 text-center">
         <Brand />
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
-          className="text-6xl">✨</motion.div>
-        <h1 className="text-2xl font-black text-white">الكشف النهائي</h1>
+        <h1 className="text-2xl font-black text-white pt-2">الكشف النهائي</h1>
+        <p className="text-gray-600 text-[11px] leading-relaxed">
+          قارننا بين اختيارك الشخصي واختيار الخوارزمية · راجع تفاصيل التوافق لكل طرف · وأخبرنا بمن تفضّل
+        </p>
 
         {data.same_match && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
@@ -2189,7 +2199,7 @@ function FinalRevealScreen({ token }: { token: string }) {
         <div className="grid grid-cols-2 gap-3">
           <motion.div initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
             <GlassCard className="p-5 space-y-2.5 border border-pink-800/40 shadow-xl shadow-pink-500/8 h-full flex flex-col items-center">
-              <div className="text-2xl">💘</div>
+              <div className="text-2xl">🌟</div>
               <p className="text-gray-500 text-xs">اخترت</p>
               <p className="text-xl font-black text-white leading-tight">{data.phase2?.partner_first_name}</p>
               <div className="flex items-center gap-1">
@@ -2223,9 +2233,17 @@ function FinalRevealScreen({ token }: { token: string }) {
 
         <p className="text-gray-500 text-xs leading-relaxed">
           {data.same_match
-            ? "غريزتك والخوارزمية متوافقتان — هذا نادر الحدوث ✨"
+            ? "غريزتك والخوارزمية متوافقتان — هذا نادر الحدوث!"
             : "رأيت بعينيك، ورأت الخوارزمية بالبيانات — أيهما أصح؟"}
         </p>
+
+        {/* Compatibility breakdown for user's choice */}
+        {data.phase2?.breakdown && (
+          <div className="space-y-2">
+            <p className="text-pink-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيارك</p>
+            <CompatibilityBreakdown breakdown={data.phase2.breakdown} accent="pink" />
+          </div>
+        )}
 
         {/* Compatibility breakdown for algorithm choice */}
         {data.phase3?.breakdown && (
@@ -2235,11 +2253,41 @@ function FinalRevealScreen({ token }: { token: string }) {
           </div>
         )}
 
+        {/* Match preference buttons */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          className="rounded-2xl border border-gray-800/60 bg-gray-900/50 p-5 space-y-3">
+          <p className="text-gray-300 font-bold text-sm">من تفضّل؟</p>
+          <p className="text-gray-500 text-xs leading-relaxed">رأيك يصل للمنظم لمساعدتنا في تحسين التجربة. اختر من تحب مواصلته:</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <button
+              onClick={() => submitPref("choice")}
+              disabled={prefSubmitting || matchPref === "choice"}
+              className={`py-3 rounded-xl text-sm font-bold transition-all border ${matchPref === "choice" ? "bg-pink-600/30 border-pink-500/50 text-pink-300" : "bg-pink-950/30 border-pink-800/40 text-pink-300 hover:bg-pink-950/50"}`}
+            >
+              {matchPref === "choice" ? "✓ " : ""}أفضّل اختياري
+            </button>
+            <button
+              onClick={() => submitPref("algorithm")}
+              disabled={prefSubmitting || matchPref === "algorithm"}
+              className={`py-3 rounded-xl text-sm font-bold transition-all border ${matchPref === "algorithm" ? "bg-purple-600/30 border-purple-500/50 text-purple-300" : "bg-purple-950/30 border-purple-800/40 text-purple-300 hover:bg-purple-950/50"}`}
+            >
+              {matchPref === "algorithm" ? "✓ " : ""}أفضّل الخوارزمية
+            </button>
+            <button
+              onClick={() => submitPref("both")}
+              disabled={prefSubmitting || matchPref === "both"}
+              className={`py-3 rounded-xl text-sm font-bold transition-all border col-span-2 ${matchPref === "both" ? "bg-emerald-600/30 border-emerald-500/50 text-emerald-300" : "bg-gray-800/40 border-gray-700/40 text-gray-300 hover:bg-gray-800/60"}`}
+            >
+              {matchPref === "both" ? "✓ " : ""}كلاهما ممتاز
+            </button>
+          </div>
+        </motion.div>
+
         {/* What's next CTA */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
           className="rounded-2xl border border-purple-800/30 bg-gradient-to-br from-purple-950/30 to-violet-950/20 p-5 space-y-3 text-center">
           <p className="text-purple-300 font-bold text-sm flex items-center justify-center gap-1.5">
-            <Sparkles size={14} /> ماذا بعد؟
+            <Home size={14} /> ماذا بعد؟
           </p>
           <p className="text-gray-400 text-xs leading-relaxed">
             ستظهر نتائجك الكاملة مع تفاصيل التوافق في صفحتك الرئيسية قريباً.
@@ -2249,7 +2297,7 @@ function FinalRevealScreen({ token }: { token: string }) {
             <Home size={14} /> صفحتي الرئيسية
           </a>
         </motion.div>
-      </motion.div>
+      </div>
 
       {/* Exit popup */}
       <AnimatePresence>
@@ -2268,22 +2316,21 @@ function FinalRevealScreen({ token }: { token: string }) {
               <div className="text-4xl">🤝</div>
               <h2 className="text-xl font-black text-white">قبل أن تغادر</h2>
               <p className="text-gray-400 text-sm leading-relaxed">
-                انتهت الفعالية رسمياً، لكن يمكنك البقاء هنا والاستمرار في التفاعل مع شريكك الذي اخترته.
-                إذا كنت ترغب بذلك، عُد إلى شاشة الكشف السابقة لمواصلة الجلسة.
-                أو يمكنك المغادرة الآن — الخيار لك.
+                انتهت الفعالية رسمياً. يمكنك العودة إلى شريكك الذي اخترته لمواصلة التعارف،
+                أو البقاء في هذه الشاشة ومراجعة نتائجك مع شريكك الحالي. الخيار لك.
               </p>
               <div className="flex flex-col gap-2.5 pt-1">
                 <button
                   onClick={() => setShowExitPopup(false)}
                   className="w-full py-3 rounded-2xl bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white text-sm font-bold transition-all"
                 >
-                  البقاء هنا
+                  البقاء هنا ومراجعة النتائج
                 </button>
                 <a
                   href="/welcome"
                   className="w-full py-3 rounded-2xl bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm font-medium transition-all"
                 >
-                  العودة لشريكي والاستمرار
+                  العودة لشريكي ومواصلة الجلسة
                 </a>
               </div>
               <button
@@ -2402,8 +2449,8 @@ export default function Event3Page() {
 
       {/* Name badge is now embedded in the RoundScreen timer bar — no standalone badge */}
 
-      {/* SOS organizer request button */}
-      {enrolled && <SOSButton token={token} bottomRight={phase === "setup"} />}
+      {/* SOS organizer request button — bottom-right on non-round screens, separator design on round screens */}
+      {enrolled && <SOSButton token={token} bottomRight={!isRound} />}
 
       {/* Offline indicator */}
       {isOffline && (

@@ -877,15 +877,17 @@ export default function ParticipantResultsModal({
                                   <Tooltip.Root>
                                     <Tooltip.Trigger asChild>
                                       <Popover.Trigger asChild>
-                                        <span className="text-white font-medium cursor-pointer hover:text-cyan-300 transition-colors">
-                                          {participant.name || "غير محدد"}
-                                        </span>
-                                        {isNewUser(participant.assigned_number) && (
-                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-medium" title="مستخدم جديد — تم إنشاء الحساب اليوم">
-                                            <Sparkles className="w-2.5 h-2.5" />
-                                            جديد
+                                        <div className="flex items-center gap-2 cursor-pointer">
+                                          <span className="text-white font-medium hover:text-cyan-300 transition-colors">
+                                            {participant.name || "غير محدد"}
                                           </span>
-                                        )}
+                                          {isNewUser(participant.assigned_number) && (
+                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-medium" title="مستخدم جديد — تم إنشاء الحساب اليوم">
+                                              <Sparkles className="w-2.5 h-2.5" />
+                                              جديد
+                                            </span>
+                                          )}
+                                        </div>
                                       </Popover.Trigger>
                                     </Tooltip.Trigger>
                                     <Tooltip.Portal>

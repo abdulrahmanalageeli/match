@@ -613,14 +613,26 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 فريق التوافق الأعمى`;
     }
 
-    return `*التوافق الأعمى* ✨
+    return `*التوافق الأعمى 4.0: اختيارك واختيارنا* ✨
 
 السلام عليكم *${name}*،
 
 نسعد بإبلاغكم أنه تم العثور على شريك متوافق معكم!
 
-⚠️ *ملاحظة مهمة:* 
+⚠️ *ملاحظة مهمة:*
+تم تغيير الية الفعالية والمكان، التفاصيل في الميت أب
 إذا لم تتمكنوا من الحضور، يرجى إبلاغنا فوراً حتى نعطي الفرصة لمشارك آخر.
+
+📋 *تفاصيل الفعالية كاملة:*
+https://meetu.ps/e/Q816M/Lh7Kd/i
+
+📍 *تفاصيل الفعالية:*
+المكان: ${d.locationName}
+التاريخ: ${d.eventDateText}
+الوقت: ${d.eventTimeText} (الحضور ${d.arrivalTimeText})
+
+العنوان:
+${d.mapUrl}
 
 💰 *رسوم المشاركة:*
 🔸 ${d.earlyPrice} ريال (التسجيل قبل ${d.latePriceSwitchLabel})
@@ -638,18 +650,10 @@ https://match-omega.vercel.app/welcome?token=${secureToken}
 ✦ لا استرداد للرسوم بعد التأكيد (حتى في حالة الإلغاء المسبق)
 ✦ لا يمكن تأجيل دفع من فعاليه الى فعاليه اخرى
 
-📍 *تفاصيل الفعالية:*
-المكان: ${d.locationName}
-التاريخ: ${d.eventDateText}
-الوقت: ${d.eventTimeText} (الحضور ${d.arrivalTimeText})
-
-العنوان: 
-${d.mapUrl}
-
 📱 *معلوماتكم:*
 رقم المشارك: *${assignedNumber}*
 الرمز: *${secureToken}*
-الرابط: 
+الرابط:
 https://match-omega.vercel.app/welcome?token=${secureToken}
 
 نتطلع لحضوركم!

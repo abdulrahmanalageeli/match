@@ -505,6 +505,14 @@ export default function ParticipantResultsModal({
     return "text-red-400"
   }
 
+  const isNewUser = (assignedNumber: number): boolean => {
+    const pData = participantData.get(assignedNumber)
+    if (!pData?.created_at) return false
+    const created = new Date(pData.created_at)
+    const now = new Date()
+    return created.toDateString() === now.toDateString()
+  }
+
   const getScoreBg = (score: number) => {
     if (score >= 80) return "bg-green-500/20 border-green-400/30"
     if (score >= 60) return "bg-yellow-500/20 border-yellow-400/30"
@@ -872,6 +880,12 @@ export default function ParticipantResultsModal({
                                         <span className="text-white font-medium cursor-pointer hover:text-cyan-300 transition-colors">
                                           {participant.name || "غير محدد"}
                                         </span>
+                                        {isNewUser(participant.assigned_number) && (
+                                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-medium" title="مستخدم جديد — تم إنشاء الحساب اليوم">
+                                            <Sparkles className="w-2.5 h-2.5" />
+                                            جديد
+                                          </span>
+                                        )}
                                       </Popover.Trigger>
                                     </Tooltip.Trigger>
                                     <Tooltip.Portal>

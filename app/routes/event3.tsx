@@ -444,12 +444,13 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
             {/* Rules list */}
             <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-2.5">
               {[
-                { icon: "🫱🏼‍🫲🏽", title: "الاحترام المتبادل", desc: "تعامل مع الجميع بالاحترام الذي تودّ أن تُعامَل به، بغض النظر عن الاختلاف" },
-                { icon: "👂", title: "الاستماع الفعّال", desc: "أعطِ من أمامك انتباهك الكامل — لا هاتف، لا تشتت" },
-                { icon: "🔒", title: "السرية التامة", desc: "ما يُشارَك في الجلسة يبقى بينكم — لا نشر ولا تسجيل" },
-                { icon: "🚫", title: "لا إحراج", desc: "امتنع عن الأسئلة المُحرجة أو التعليقات الجارحة أو أي شكل من الإزعاج" },
-                { icon: "💬", title: "الصدق اللطيف", desc: "كن صادقاً في تعبيرك مع الحفاظ على اللطف والإيجابية" },
-                { icon: "✊", title: "احترام الاختلاف", desc: "تباين الآراء والخلفيات ثروة — تقبّله بانفتاح وفضول" },
+                { icon: "🕶️", title: "ابقَ أعمى", desc: "لا تكشف لأحد ترتيبك أو تقييماتك — سرية الخيارات هي جوهر الفعالية" },
+                { icon: "🎭", title: "كن نفسك", desc: "الخوارزمية تعمل بناءً على شخصيتك الحقيقية — التمثيل يضر نتيجتك" },
+                { icon: "📱", title: "التطبيق أداتك", desc: "استخدم التطبيق للتقييم والترتيب، لكن لا تُظهِر شاشتك للآخرين" },
+                { icon: "🤝", title: "احترم الجلسة", desc: "الجميع هنا بنفس الهدف — تعامل بلطف واحترام مع كل من تجلس معه" },
+                { icon: "⏱️", title: "احترم الوقت", desc: "كل جلسة لها مؤقت — أنهِ المحادثة باحترام حين ينتهي الوقت" },
+                { icon: "🚫", title: "لا إحراج", desc: "امتنع عن الأسئلة الشخصية المُحرجة أو أي تعليق يخلق إحراجاً" },
+                { icon: "🔒", title: "النتيجة سرية حتى النهاية", desc: "لا تشارك أحداً من اخترت — الكشف يحدث في النهاية للجميع معاً" },
               ].map((rule, i) => (
                 <motion.div
                   key={i}
@@ -1369,6 +1370,218 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
   )
 }
 
+// ─── Ranking Tutorial Overlay ─────────────────────────────────────────────────
+function RankingTutorial({ onClose }: { onClose: () => void }) {
+  const [step, setStep] = useState(0)
+  const [dir, setDir] = useState(1)
+  const TOTAL = 4
+  const goNext = () => { if (step < TOTAL - 1) { setDir(1); setStep(s => s + 1) } else onClose() }
+  const goPrev = () => { if (step > 0) { setDir(-1); setStep(s => s - 1) } }
+
+  const people = [
+    { name: "سارة", init: "س", color: "from-pink-500 to-rose-500", dim: "bg-pink-900/30 border-pink-800/40" },
+    { name: "فهد", init: "ف", color: "from-blue-500 to-cyan-500", dim: "bg-blue-900/30 border-blue-800/40" },
+    { name: "نورة", init: "ن", color: "from-violet-500 to-purple-500", dim: "bg-violet-900/30 border-violet-800/40" },
+    { name: "خالد", init: "خ", color: "from-emerald-500 to-teal-500", dim: "bg-emerald-900/30 border-emerald-800/40" },
+  ]
+  const rankStyle = (i: number) =>
+    i === 0 ? "bg-gradient-to-br from-amber-400 to-yellow-500 text-black shadow-lg shadow-amber-500/30" :
+    i === 1 ? "bg-gradient-to-br from-gray-300 to-gray-400 text-black" :
+    i === 2 ? "bg-gradient-to-br from-amber-700 to-amber-800 text-white" :
+    "bg-gray-800 text-gray-500"
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[500] bg-black/90 backdrop-blur-sm flex flex-col items-center justify-between px-6 pt-14 pb-6"
+      dir="rtl"
+    >
+      <button onClick={onClose} className="absolute top-5 left-5 text-gray-500 hover:text-gray-300 text-xs font-medium z-10">تخطّي</button>
+      <div className="absolute top-5 right-5 flex items-center gap-1.5 z-10">
+        {Array.from({ length: TOTAL }).map((_, i) => (
+          <motion.span key={i}
+            animate={{ scale: i === step ? 1.3 : 1, opacity: i === step ? 1 : i < step ? 0.6 : 0.3 }}
+            className={`w-1.5 h-1.5 rounded-full ${i === step ? "bg-amber-400" : i < step ? "bg-amber-600" : "bg-gray-600"}`}
+          />
+        ))}
+      </div>
+
+      <AnimatePresence mode="wait" custom={dir}>
+        <motion.div key={step}
+          initial={{ opacity: 0, x: dir * 50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -dir * 50 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          className="w-full max-w-sm flex flex-col items-center gap-5 flex-1 justify-center"
+        >
+          {/* Step 1 – You rank */}
+          {step === 0 && (
+            <>
+              <div className="text-center space-y-1">
+                <div className="text-4xl mb-2">🏆</div>
+                <h2 className="text-white font-black text-xl">رتّب من أعجبك</h2>
+                <p className="text-gray-400 text-sm leading-relaxed">بعد الجلسات الجماعية رتّب الجميع — الأول هو أولويتك القصوى</p>
+              </div>
+              <div className="w-full space-y-2">
+                {[0, 2, 1, 3].map((pi, rank) => {
+                  const p = people[pi]
+                  return (
+                    <motion.div key={pi} layout
+                      initial={{ opacity: 0, x: -15 }} animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: rank * 0.1, layout: { type: "spring", stiffness: 400, damping: 35 } }}
+                      className={`flex items-center gap-3 ${p.dim} border rounded-2xl px-4 py-3`}
+                    >
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ${rankStyle(rank)}`}>{rank + 1}</div>
+                      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${p.color} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>{p.init}</div>
+                      <span className="text-white text-sm font-medium flex-1">{p.name}</span>
+                      {rank === 0 && <span className="text-amber-400 text-[10px] font-semibold">اختيارك الأول ⭐</span>}
+                    </motion.div>
+                  )
+                })}
+              </div>
+              <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                className="text-gray-600 text-xs text-center">اسحب البطاقات لإعادة الترتيب</motion.p>
+            </>
+          )}
+
+          {/* Step 2 – Everyone ranks secretly */}
+          {step === 1 && (
+            <>
+              <div className="text-center space-y-1">
+                <div className="text-4xl mb-2">🔒</div>
+                <h2 className="text-white font-black text-xl">الكل يرتّب بسرية</h2>
+                <p className="text-gray-400 text-sm leading-relaxed">كل مشارك يرتّب الآخرين — لا أحد يعرف ترتيب غيره حتى يُكشف</p>
+              </div>
+              <div className="w-full grid grid-cols-2 gap-3">
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-2">
+                  <p className="text-white text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-[9px] font-black">أ</div> أنت
+                  </p>
+                  {[{ n: "سارة", star: true }, { n: "فهد", star: false }, { n: "نورة", star: false }].map((x, i) => (
+                    <motion.div key={x.n} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.12 + 0.2 }}
+                      className="flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center flex-shrink-0 ${i === 0 ? "bg-amber-400 text-black" : "bg-gray-700 text-gray-400"}`}>{i + 1}</span>
+                      <span className={`text-xs ${i === 0 ? "text-amber-300 font-semibold" : "text-gray-500"}`}>{x.n}{x.star ? " ⭐" : ""}</span>
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="bg-pink-900/20 border border-pink-800/30 rounded-2xl p-3.5 space-y-2">
+                  <p className="text-pink-300 text-xs font-bold text-center flex items-center justify-center gap-1.5">
+                    <div className="w-5 h-5 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white text-[9px] font-black">س</div> سارة
+                  </p>
+                  {[{ n: "أنت", star: true }, { n: "خالد", star: false }, { n: "نورة", star: false }].map((x, i) => (
+                    <motion.div key={x.n} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.12 + 0.4 }}
+                      className="flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center flex-shrink-0 ${i === 0 ? "bg-amber-400 text-black" : "bg-gray-700 text-gray-400"}`}>{i + 1}</span>
+                      <span className={`text-xs ${i === 0 ? "text-amber-300 font-semibold" : "text-gray-500"}`}>{x.n}{x.star ? " ⭐" : ""}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.8 }}
+                className="bg-amber-900/20 border border-amber-700/30 rounded-2xl px-4 py-2.5 text-center">
+                <p className="text-amber-300 text-xs font-bold">💡 لا أحد يرى ترتيب غيره</p>
+              </motion.div>
+            </>
+          )}
+
+          {/* Step 3 – Algorithm finds mutual */}
+          {step === 2 && (
+            <>
+              <div className="text-center space-y-1">
+                <div className="text-4xl mb-2">🤖</div>
+                <h2 className="text-white font-black text-xl">الخوارزمية تبحث</h2>
+                <p className="text-gray-400 text-sm leading-relaxed">تبحث عن أعلى تطابق متبادل — من وضعته أولاً ووضعك أولاً</p>
+              </div>
+              <div className="w-full space-y-3">
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                  className="relative bg-emerald-900/25 border border-emerald-700/50 rounded-2xl p-4 overflow-hidden">
+                  <motion.div className="absolute inset-0 bg-emerald-500/8 rounded-2xl"
+                    animate={{ opacity: [0, 1, 0] }} transition={{ duration: 1.8, repeat: Infinity }} />
+                  <div className="relative flex items-center justify-between">
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-black">أ</div>
+                      <span className="text-gray-400 text-[10px]">أنت</span>
+                      <span className="text-amber-400 text-[9px] font-bold">رتّبها #1</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1.5">
+                      <motion.div animate={{ scale: [1, 1.25, 1] }} transition={{ duration: 1, repeat: Infinity }} className="text-2xl">❤️</motion.div>
+                      <span className="text-emerald-300 text-[10px] font-bold bg-emerald-900/40 border border-emerald-700/40 px-2 py-0.5 rounded-full">تطابق!</span>
+                    </div>
+                    <div className="flex flex-col items-center gap-1">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white font-black">س</div>
+                      <span className="text-gray-400 text-[10px]">سارة</span>
+                      <span className="text-amber-400 text-[9px] font-bold">رتّبتك #1</span>
+                    </div>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 0.4 }} transition={{ delay: 0.5 }}
+                  className="bg-gray-900/50 border border-gray-800/50 rounded-2xl p-3.5 flex items-center justify-between">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">ف</div>
+                    <span className="text-gray-600 text-[9px]">فهد — رتّبك #1</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-gray-700 text-sm">↔</span>
+                    <p className="text-gray-700 text-[9px]">لا تطابق كافٍ</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className="w-9 h-9 rounded-full bg-gray-700 flex items-center justify-center text-gray-400 text-xs font-bold">أ</div>
+                    <span className="text-gray-600 text-[9px]">أنت — رتّبته #3</span>
+                  </div>
+                </motion.div>
+              </div>
+            </>
+          )}
+
+          {/* Step 4 – Result */}
+          {step === 3 && (
+            <>
+              <div className="text-center space-y-1">
+                <div className="text-4xl mb-2">✨</div>
+                <h2 className="text-white font-black text-xl">نتيجتك: جلستان فرديتان</h2>
+                <p className="text-gray-400 text-sm leading-relaxed">ترتيبك الآن يحدد من ستجلس معه في جلستيك الفرديتين</p>
+              </div>
+              <div className="w-full space-y-3">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="bg-pink-900/25 border border-pink-700/40 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="text-2xl flex-shrink-0">💘</div>
+                  <div>
+                    <p className="text-white font-bold text-sm">جلسة اختيارك الشخصي</p>
+                    <p className="text-pink-300 text-xs mt-0.5">أعلى تطابق متبادل من ترتيبك ← تختار أنت</p>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+                  className="bg-purple-900/25 border border-purple-700/40 rounded-2xl p-4 flex items-center gap-3">
+                  <div className="text-2xl flex-shrink-0">🧠</div>
+                  <div>
+                    <p className="text-white font-bold text-sm">جلسة اختيار الخوارزمية</p>
+                    <p className="text-purple-300 text-xs mt-0.5">الخوارزمية تختار أفضل توافق بناءً على بياناتكما</p>
+                  </div>
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
+                  className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center">
+                  <p className="text-amber-300/80 text-xs">🔑 كلما كان ترتيبك متبادلاً — كانت جلستك أدق توافقاً</p>
+                </motion.div>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      <div className="w-full max-w-sm flex items-center gap-3 mt-4">
+        {step > 0 && (
+          <button onClick={goPrev} className="flex items-center gap-1 text-gray-500 hover:text-gray-300 text-sm px-3 py-3.5 transition-colors">
+            <ChevronRight size={15} /> السابق
+          </button>
+        )}
+        <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
+          className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black rounded-2xl py-3.5 text-base shadow-2xl shadow-amber-500/30">
+          {step < TOTAL - 1 ? "التالي ←" : "فهمت — ابدأ الترتيب! 🏆"}
+        </motion.button>
+      </div>
+    </motion.div>
+  )
+}
+
 // ─── Ranking Screen ───────────────────────────────────────────────────────────
 function RankingScreen({ token, completedRounds, currentPhase }: { token: string, completedRounds: number, currentPhase: string }) {
   const [people, setPeople] = useState<any[]>([])
@@ -1382,6 +1595,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [showConfirm, setShowConfirm] = useState(false)
   const [showPhaseWarning, setShowPhaseWarning] = useState(false)
+  const [showRankTutorial, setShowRankTutorial] = useState(true)
   const initialPhaseRef = useRef(currentPhase)
 
   useEffect(() => {
@@ -1646,6 +1860,11 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
           </p>
         </div>
       </div>
+
+      {/* Ranking Tutorial Overlay */}
+      <AnimatePresence>
+        {showRankTutorial && <RankingTutorial onClose={() => setShowRankTutorial(false)} />}
+      </AnimatePresence>
 
       {/* Confirmation modal */}
       <AnimatePresence>
@@ -2880,9 +3099,7 @@ export default function Event3Page() {
     return p || (typeof window !== "undefined" ? localStorage.getItem("blindmatch_result_token") : null) || null
   })
 
-  const [showWelcome, setShowWelcome] = useState(() => {
-    try { return sessionStorage.getItem("e3_welcome_done") !== "1" } catch { return true }
-  })
+  const [showWelcome, setShowWelcome] = useState(true)
   const [eventState, setEventState] = useState<any>(null)
   const [enrolled, setEnrolled] = useState<boolean | null>(null)
   const [myInfo, setMyInfo] = useState<{ number: number; name: string; gender: string | null } | null>(null)
@@ -2931,7 +3148,6 @@ export default function Event3Page() {
 
   const handleWelcomeDone = useCallback(() => {
     setShowWelcome(false)
-    try { sessionStorage.setItem("e3_welcome_done", "1") } catch {}
   }, [])
 
   if (showWelcome) return <WelcomeScreen onDone={handleWelcomeDone} />

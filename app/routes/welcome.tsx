@@ -430,7 +430,6 @@ export default function WelcomePage() {
   const [welcomeTyping, setWelcomeTyping] = useState(false)
   const [announcementProgress, setAnnouncementProgress] = useState(0)
   const [showFormFilledPrompt, setShowFormFilledPrompt] = useState(false)
-  const [showRules, setShowRules] = useState(false)
   const [pendingMatchRound, setPendingMatchRound] = useState<number | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [historyMatches, setHistoryMatches] = useState<MatchResultEntry[]>([])
@@ -8170,45 +8169,9 @@ export default function WelcomePage() {
               </div>
             </div>
             
-            {!welcomeTyping && !showRules && (
+            {!welcomeTyping && (
               <div className="flex justify-center">
-                <FancyNextButton onClick={() => setShowRules(true)} label="ابدأ الرحلة" />
-              </div>
-            )}
-
-            {/* Rules Screen */}
-            {!welcomeTyping && showRules && (
-              <div className="animate-in slide-in-from-bottom-4 duration-500">
-                <div className={`relative backdrop-blur-xl border rounded-2xl p-6 shadow-2xl ${
-                  dark ? "bg-white/8 border-white/15" : "bg-white/85 border-gray-200/60 shadow-xl"
-                }`}>
-                  <div className="text-center mb-5">
-                    <div className="text-3xl mb-2">🤝</div>
-                    <h2 className={`text-lg font-bold ${dark ? "text-white" : "text-gray-800"}`}>قواعد الجلسة</h2>
-                    <p className={`text-xs mt-1 ${dark ? "text-slate-400" : "text-gray-500"}`}>يرجى القراءة والموافقة للمتابعة</p>
-                  </div>
-                  <div className="space-y-3 text-right mb-6">
-                    {[
-                      { icon: "🫱🏼‍🫲🏽", title: "الاحترام المتبادل", desc: "تعامل مع الجميع بالاحترام الذي تودّ أن تُعامَل به، بغض النظر عن الاختلاف" },
-                      { icon: "👂", title: "الاستماع الفعّال", desc: "أعطِ من أمامك انتباهك الكامل — لا هاتف، لا تشتت" },
-                      { icon: "🔒", title: "السرية التامة", desc: "ما يُشارَك في الجلسة يبقى بينكم — لا نشر ولا تسجيل" },
-                      { icon: "🚫", title: "لا إحراج", desc: "امتنع عن الأسئلة المُحرجة أو التعليقات الجارحة أو أي شكل من الإزعاج" },
-                      { icon: "💬", title: "الصدق اللطيف", desc: "كن صادقاً في تعبيرك مع الحفاظ على اللطف والإيجابية" },
-                      { icon: "✊", title: "احترام الاختلاف", desc: "تباين الآراء والخلفيات ثروة — تقبّله بانفتاح وفضول" },
-                    ].map((rule, i) => (
-                      <div key={i} className={`flex items-start gap-3 p-3 rounded-xl ${
-                        dark ? "bg-white/5 border border-white/8" : "bg-gray-50 border border-gray-100"
-                      }`}>
-                        <span className="text-xl flex-shrink-0 mt-0.5">{rule.icon}</span>
-                        <div>
-                          <p className={`text-sm font-bold ${dark ? "text-slate-100" : "text-gray-800"}`}>{rule.title}</p>
-                          <p className={`text-xs mt-0.5 leading-relaxed ${dark ? "text-slate-400" : "text-gray-500"}`}>{rule.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <FancyNextButton onClick={() => { setShowRules(false); setStep(0) }} label="أوافق وأبدأ ✓" />
-                </div>
+                <FancyNextButton onClick={() => setStep(0)} label="ابدأ الرحلة" />
               </div>
             )}
           </section>

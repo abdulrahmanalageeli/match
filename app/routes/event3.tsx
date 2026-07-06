@@ -2813,48 +2813,6 @@ function NotEnrolledScreen() {
   )
 }
 
-// ─── Phase Progress Strip ────────────────────────────────────────────────────
-const PHASE_STEPS = [
-  { key: "setup", label: "انتظار" },
-  { key: "round", label: "الجلسات" },
-  { key: "ranking", label: "الترتيب" },
-  { key: "phase2", label: "اختيارك" },
-  { key: "phase3", label: "الخوارزمية" },
-  { key: "final", label: "النهاية" },
-]
-function phaseToStep(phase: string): number {
-  if (!phase || phase === "setup") return 0
-  if (/^round/.test(phase)) return 1
-  if (/^ranking/.test(phase)) return 2
-  if (phase === "phase2_reveal") return 3
-  if (phase === "phase3_reveal") return 4
-  if (phase === "final_reveal") return 5
-  return 0
-}
-function PhaseProgress({ phase }: { phase: string }) {
-  const current = phaseToStep(phase)
-  return (
-    <div className="flex items-center justify-center gap-0 px-4 py-2 bg-gray-950/80 backdrop-blur-sm border-b border-gray-800/40">
-      {PHASE_STEPS.map((s, i) => (
-        <div key={s.key} className="flex items-center">
-          <div className={`flex flex-col items-center gap-0.5 px-1.5 ${
-            i < current ? "opacity-40" : i === current ? "opacity-100" : "opacity-20"
-          }`}>
-            <div className={`w-2 h-2 rounded-full transition-all ${
-              i < current ? "bg-purple-500" : i === current ? "bg-white scale-125" : "bg-gray-700"
-            }`} />
-            <span className={`text-[8px] font-medium whitespace-nowrap leading-none ${
-              i === current ? "text-white" : "text-gray-600"
-            }`}>{s.label}</span>
-          </div>
-          {i < PHASE_STEPS.length - 1 && (
-            <div className={`w-5 h-px mb-2 ${ i < current ? "bg-purple-500/50" : "bg-gray-800" }`} />
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
 
 // ─── Root Component ───────────────────────────────────────────────────────────
 export default function Event3Page() {
@@ -2949,9 +2907,6 @@ export default function Event3Page() {
           </span>
         </div>
       )}
-
-      {/* Phase progress strip */}
-      {enrolled && <PhaseProgress phase={phase} />}
 
       {/* Screen content fills available space */}
       <div className="flex-1 overflow-y-auto relative z-10">

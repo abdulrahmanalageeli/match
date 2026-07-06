@@ -3664,30 +3664,32 @@ export default async function handler(req, res) {
         if (allNums.length === 0) return res.status(200).json({ participants: [] })
 
         const [{ data: cacheA }, { data: cacheB }] = await Promise.all([
-          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score").in("participant_a_number", allNums),
-          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score").in("participant_b_number", allNums),
+          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score, model_used").in("participant_a_number", allNums),
+          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score, model_used").in("participant_b_number", allNums),
         ])
 
-        const pairVibeMap = new Map()
+        const pairMap = new Map()
         for (const c of [...(cacheA || []), ...(cacheB || [])]) {
           const [a, b] = [c.participant_a_number, c.participant_b_number].sort((x, y) => x - y)
-          pairVibeMap.set(`${a}-${b}`, parseFloat(c.ai_vibe_score))
+          pairMap.set(`${a}-${b}`, { vibe: parseFloat(c.ai_vibe_score), model: c.model_used || null })
         }
 
         const participants = eligible.map(p => {
           const n = p.assigned_number
-          const myPairs = [...pairVibeMap.entries()].filter(([k]) => {
+          const myPairs = [...pairMap.entries()].filter(([k]) => {
             const [a, b] = k.split('-').map(Number)
             return a === n || b === n
           })
-          const vibes = myPairs.map(([, v]) => v)
+          const vibes = myPairs.map(([, v]) => v.vibe)
+          const models = [...new Set(myPairs.map(([, v]) => v.model).filter(Boolean))]
+          const hasOldModel = myPairs.some(([, v]) => !v.model || v.model !== 'gpt-5.4-mini')
           const badVibes = vibes.filter(v => Math.abs(v - 10) <= 0.5).length
           const avgVibe = vibes.length > 0
             ? Math.round((vibes.reduce((s, v) => s + v, 0) / vibes.length) * 10) / 10
             : null
           const sd = typeof p.survey_data === 'string' ? JSON.parse(p.survey_data || '{}') : (p.survey_data || {})
           const name = (p.name || sd?.answers?.name || sd?.name || `#${n}`).split(' ')[0]
-          return { number: n, name, gender: p.gender, cached_pairs: vibes.length, bad_vibe_pairs: badVibes, avg_vibe: avgVibe }
+          return { number: n, name, gender: p.gender, cached_pairs: vibes.length, bad_vibe_pairs: badVibes, avg_vibe: avgVibe, models, has_old_model: hasOldModel }
         })
 
         return res.status(200).json({ participants, total: eligible.length })

@@ -163,6 +163,7 @@ async function storeCachedCompatibility(participantA, participantB, scores) {
       total_compatibility_score: scores.totalScore,
       humor_multiplier: scores.humorMultiplier,
       humor_early_openness_bonus: bonusType,
+      model_used: 'gpt-5.4-mini',
       last_used: new Date().toISOString(),
       use_count: 1
     }
@@ -1429,6 +1430,7 @@ async function storeGroupCachedCompatibility(participantA, participantB, payload
       total_compatibility_score: payload.totalScore,
       humor_multiplier: humorMultiplier,
       humor_early_openness_bonus: bonusType,
+      model_used: 'gpt-5.4-mini',
       use_count: 1,
       last_used: new Date().toISOString(),
       participant_a_cached_at: new Date().toISOString(),
@@ -4084,7 +4086,7 @@ if (action === "cache-status-by-gender") {
   // ── recalc-vibe: Fix fallback (≈10) vibe scores for eligible participants ────
   if (action === "recalc-vibe") {
     const _match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
-    const { participant_numbers, cursor = 0, force = false } = req.body || {}
+    const { participant_numbers, cursor = 0, force = false, paidOnly = false, skipNewModel = false } = req.body || {}
     if (!eventId) return res.status(400).json({ error: "eventId is required" })
 
     const CONCURRENCY = 4  // parallel OpenAI calls per request
@@ -4092,12 +4094,12 @@ if (action === "cache-status-by-gender") {
 
     const { data: allRaw } = await supabase
       .from("participants")
-      .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference")
+      .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference,PAID_DONE")
       .eq("match_id", _match_id)
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
       .neq("assigned_number", 9999)
 
-    const allEligible = (allRaw || []).filter(isParticipantComplete)
+    const allEligible = (allRaw || []).filter(p => isParticipantComplete(p) && (!paidOnly || p.PAID_DONE === true))
     const pMap = new Map(allEligible.map(p => [p.assigned_number, p]))
 
     const targets = (Array.isArray(participant_numbers) && participant_numbers.length > 0)
@@ -4135,15 +4137,14 @@ if (action === "cache-status-by-gender") {
 
       const { data: existing } = await supabase
         .from("compatibility_cache")
-        .select("id, ai_vibe_score")
+        .select("id, ai_vibe_score, model_used")
         .eq("participant_a_number", a)
         .eq("participant_b_number", b)
         .order("last_used", { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      const vibeVal = existing ? parseFloat(existing.ai_vibe_score) : null
-      if (!force && vibeVal !== null && Math.abs(vibeVal - 10) > 0.5) return 'skip'
+      if (skipNewModel && existing?.model_used === 'gpt-5.4-mini') return 'skip'
 
       if (existing?.id) {
         await supabase.from("compatibility_cache").delete().eq("id", existing.id)

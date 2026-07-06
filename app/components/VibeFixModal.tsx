@@ -14,6 +14,8 @@ interface ParticipantVibeStatus {
   cached_pairs: number
   bad_vibe_pairs: number
   avg_vibe: number | null
+  models: string[]
+  has_old_model: boolean
 }
 
 interface FixProgress {
@@ -31,6 +33,8 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
   const [done, setDone] = useState(false)
   const [running, setRunning] = useState(false)
   const [activeTarget, setActiveTarget] = useState<number[] | 'all' | null>(null)
+  const [paidOnly, setPaidOnly] = useState(true)
+  const [skipNewModel, setSkipNewModel] = useState(true)
 
   const fetchStatus = useCallback(async () => {
     setLoading(true)
@@ -75,6 +79,8 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
             participant_numbers: participantNumbers || null,
             cursor,
             force,
+            paidOnly,
+            skipNewModel,
           }),
         })
         const data = await res.json()
@@ -122,6 +128,33 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
           <button onClick={onClose} disabled={running} className="p-1.5 hover:bg-white/10 rounded-lg transition disabled:opacity-40">
             <X className="w-4 h-4 text-gray-400" />
           </button>
+        </div>
+
+        {/* Paid Only Toggle */}
+        <div className="flex items-center gap-3 bg-gray-800/60 border border-gray-700/50 rounded-xl px-4 py-2.5 flex-shrink-0">
+          <span className="text-sm text-gray-400">Filter:</span>
+          <button
+            onClick={() => setPaidOnly(v => !v)}
+            disabled={running}
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium transition disabled:opacity-40 ${
+              paidOnly ? 'bg-green-600/30 border border-green-500/50 text-green-300' : 'bg-gray-700 border border-gray-600 text-gray-300'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${paidOnly ? 'bg-green-400' : 'bg-gray-500'}`} />
+            {paidOnly ? 'Paid Only' : 'All Eligible'}
+          </button>
+          <span className="text-xs text-gray-500">{paidOnly ? 'Only fixing pairs where both participants have paid' : 'Fixing all eligible participants regardless of payment'}</span>
+          <div className="w-px h-4 bg-gray-700 mx-1" />
+          <label className="flex items-center gap-2 cursor-pointer select-none" title="Skip pairs already cached with gpt-5.4-mini">
+            <input
+              type="checkbox"
+              checked={skipNewModel}
+              onChange={e => setSkipNewModel(e.target.checked)}
+              disabled={running}
+              className="w-3.5 h-3.5 accent-green-500"
+            />
+            <span className="text-sm text-gray-300">Skip already on <span className="text-green-400 font-mono">5.4-mini</span></span>
+          </label>
         </div>
 
         {/* Summary bar */}
@@ -228,6 +261,17 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
                 )}
                 {p.avg_vibe != null && (
                   <span className="text-gray-500 w-16 text-right">avg {p.avg_vibe}/25</span>
+                )}
+                {p.cached_pairs > 0 && (
+                  <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                    p.models.length === 0
+                      ? 'bg-gray-700 text-gray-400'
+                      : p.has_old_model
+                        ? 'bg-orange-900/50 border border-orange-500/40 text-orange-300'
+                        : 'bg-green-900/50 border border-green-500/40 text-green-300'
+                  }`}>
+                    {p.models.length === 0 ? 'no model' : p.has_old_model ? '⚠ old model' : '✓ 5.4-mini'}
+                  </span>
                 )}
               </div>
               <button

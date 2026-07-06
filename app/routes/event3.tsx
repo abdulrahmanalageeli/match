@@ -161,10 +161,15 @@ function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: a
     { key: "coreValues", label: "الأهداف/القيم", value: breakdown.coreValues || 0, max: 5, bar: "from-emerald-500 to-teal-500" },
   ]
 
-  const sorted = [...dims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
-  const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 60).slice(0, 2)
+  const intentDim = (breakdown.intent || 0) > 0
+    ? [{ key: "intent", label: "الأهداف والتوقعات", value: breakdown.intent || 0, max: 10, bar: "from-rose-500 to-pink-500" }]
+    : []
+  const allDims = [...dims, ...intentDim]
+
+  const sorted = [...allDims].sort((a, b) => percent(b.value, b.max) - percent(a.value, a.max))
+  const topStrengths = sorted.filter(d => percent(d.value, d.max) >= 65).slice(0, 2)
   const growth = sorted.filter(d => percent(d.value, d.max) < 40).slice(0, 2)
-  const synergyPercent = percent(breakdown.synergy || 0, 35)
+  const totalPct = breakdown.total ?? percent(breakdown.synergy || 0, 35)
 
   const accentCl = accent === "pink" ? "text-pink-300" : "text-purple-300"
 
@@ -183,19 +188,19 @@ function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: a
       <div className="px-5 pt-4">
         <div className="rounded-xl p-3.5 bg-gray-900/40 border border-gray-800/40">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-bold text-gray-200">مؤشر الانسجام العام</span>
-            <span className={`text-sm font-extrabold ${synergyPercent >= 70 ? "text-emerald-400" : synergyPercent >= 50 ? "text-yellow-500" : "text-orange-500"}`}>{synergyPercent}%</span>
+            <span className="text-sm font-bold text-gray-200">التوافق الكلي</span>
+            <span className={`text-sm font-extrabold ${totalPct >= 70 ? "text-emerald-400" : totalPct >= 50 ? "text-yellow-500" : "text-orange-500"}`}>{totalPct}%</span>
           </div>
           <div className="w-full h-2.5 rounded-full bg-gray-800/70">
             <motion.div
-              className={`h-full rounded-full bg-gradient-to-r ${synergyPercent >= 70 ? "from-emerald-500 to-teal-500" : synergyPercent >= 50 ? "from-amber-500 to-yellow-500" : "from-orange-500 to-red-500"}`}
-              initial={{ width: 0 }} animate={{ width: `${synergyPercent}%` }} transition={{ duration: 0.8, delay: 0.4 }}
+              className={`h-full rounded-full bg-gradient-to-r ${totalPct >= 70 ? "from-emerald-500 to-teal-500" : totalPct >= 50 ? "from-amber-500 to-yellow-500" : "from-orange-500 to-red-500"}`}
+              initial={{ width: 0 }} animate={{ width: `${totalPct}%` }} transition={{ duration: 0.8, delay: 0.4 }}
             />
           </div>
 
           {/* Dimension mini-bars */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-3.5">
-            {dims.map((d, i) => (
+            {allDims.map((d, i) => (
               <div key={i} className="rounded-lg p-2.5 bg-gray-900/40 border border-gray-800/40">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-[11px] font-semibold text-gray-300">{d.label}</span>
@@ -3022,10 +3027,23 @@ function FinalRevealScreen({ token }: { token: string }) {
   const [showExitPopup, setShowExitPopup] = useState(false)
   const [matchPref, setMatchPref] = useState<string | null>(null)
   const [prefSubmitting, setPrefSubmitting] = useState(false)
+  const [currentEventId, setCurrentEventId] = useState<number>(1)
+
+  // AI analysis state — one per phase
+  const [ai2, setAi2] = useState<string | null>(null)
+  const [ai3, setAi3] = useState<string | null>(null)
+  const [generating2, setGenerating2] = useState(false)
+  const [generating3, setGenerating3] = useState(false)
+  const [shown2, setShown2] = useState(false)
+  const [shown3, setShown3] = useState(false)
+  const [typed2, setTyped2] = useState("")
+  const [typed3, setTyped3] = useState("")
+  const [typing2, setTyping2] = useState(false)
+  const [typing3, setTyping3] = useState(false)
 
   useEffect(() => {
     call("e3-get-final-reveal", token).then(d => {
-      if (!d.error) { setData(d); setMatchPref(d.match_preference || null) }
+      if (!d.error) { setData(d); setMatchPref(d.match_preference || null); setCurrentEventId(d.current_event_id || 1) }
       setLoading(false)
     })
   }, [token])
@@ -3035,6 +3053,52 @@ function FinalRevealScreen({ token }: { token: string }) {
     const t = setTimeout(() => setShowExitPopup(true), 2500)
     return () => clearTimeout(t)
   }, [data])
+
+  // Typewriter effect for phase 2
+  useEffect(() => {
+    if (!ai2 || !shown2) return
+    setTyped2("")
+    setTyping2(true)
+    let i = 0
+    const iv = setInterval(() => {
+      i++
+      setTyped2(ai2.slice(0, i))
+      if (i >= ai2.length) { clearInterval(iv); setTyping2(false) }
+    }, 18)
+    return () => clearInterval(iv)
+  }, [ai2, shown2])
+
+  // Typewriter effect for phase 3
+  useEffect(() => {
+    if (!ai3 || !shown3) return
+    setTyped3("")
+    setTyping3(true)
+    let i = 0
+    const iv = setInterval(() => {
+      i++
+      setTyped3(ai3.slice(0, i))
+      if (i >= ai3.length) { clearInterval(iv); setTyping3(false) }
+    }, 18)
+    return () => clearInterval(iv)
+  }, [ai3, shown3])
+
+  const generateAnalysis = async (partnerNum: number, phase: 2 | 3) => {
+    const setGenerating = phase === 2 ? setGenerating2 : setGenerating3
+    const setAi = phase === 2 ? setAi2 : setAi3
+    const setShown = phase === 2 ? setShown2 : setShown3
+    setGenerating(true)
+    try {
+      const res = await fetch("/api/participant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "generate-vibe-analysis", secure_token: token, partner_number: partnerNum, event_id: currentEventId })
+      })
+      const d = await res.json()
+      if (d.success) { setAi(d.analysis); setShown(true) }
+      else toast.error("حدث خطأ أثناء التحليل")
+    } catch { toast.error("تعذّر الاتصال بالخادم") }
+    finally { setGenerating(false) }
+  }
 
   const submitPref = async (pref: string) => {
     setPrefSubmitting(true)
@@ -3119,12 +3183,112 @@ function FinalRevealScreen({ token }: { token: string }) {
           </div>
         )}
 
+        {/* AI analysis — phase 2 */}
+        {data.phase2?.partner_number && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+            className="rounded-2xl overflow-hidden border border-pink-800/30 bg-gradient-to-br from-gray-900/80 to-gray-950/80 shadow-lg">
+            {!shown2 ? (
+              <div className="p-6 text-center space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-pink-900/40 flex items-center justify-center mx-auto">
+                  <Sparkles size={20} className="text-pink-400" />
+                </div>
+                <p className="text-white font-bold text-sm">لماذا توافقتما؟</p>
+                <p className="text-gray-500 text-xs">تحليل ذكي للكيمياء بينك وبين اختيارك</p>
+                <motion.button
+                  onClick={() => generateAnalysis(data.phase2.partner_number, 2)}
+                  disabled={generating2}
+                  whileTap={{ scale: 0.97 }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-700 to-rose-700 text-white text-sm font-bold disabled:opacity-60">
+                  {generating2 ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      جاري التحليل…
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <Sparkles size={14} /> اعرض التحليل الذكي
+                    </span>
+                  )}
+                </motion.button>
+              </div>
+            ) : (
+              <div>
+                <div className="px-5 py-3.5 border-b border-pink-800/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={15} className="text-pink-400" />
+                    <span className="text-pink-300 font-bold text-sm">التحليل الذكي</span>
+                  </div>
+                  <button onClick={() => setShown2(false)} className="text-gray-600 hover:text-gray-400 transition-colors">
+                    <X size={15} />
+                  </button>
+                </div>
+                <div className="p-5">
+                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap text-right">
+                    {typed2}
+                    {typing2 && <span className="inline-block w-0.5 h-4 bg-pink-400 mr-0.5 animate-pulse align-middle" />}
+                  </p>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
         {/* Compatibility breakdown for algorithm choice */}
         {data.phase3?.breakdown && (
           <div className="space-y-2">
             <p className="text-purple-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيار الخوارزمية</p>
             <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" />
           </div>
+        )}
+
+        {/* AI analysis — phase 3 */}
+        {data.phase3?.partner_number && !data.same_match && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+            className="rounded-2xl overflow-hidden border border-purple-800/30 bg-gradient-to-br from-gray-900/80 to-gray-950/80 shadow-lg">
+            {!shown3 ? (
+              <div className="p-6 text-center space-y-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-900/40 flex items-center justify-center mx-auto">
+                  <Sparkles size={20} className="text-purple-400" />
+                </div>
+                <p className="text-white font-bold text-sm">لماذا اختارتك الخوارزمية؟</p>
+                <p className="text-gray-500 text-xs">تحليل ذكي للكيمياء بينك وبين اختيار الخوارزمية</p>
+                <motion.button
+                  onClick={() => generateAnalysis(data.phase3.partner_number, 3)}
+                  disabled={generating3}
+                  whileTap={{ scale: 0.97 }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-700 to-violet-700 text-white text-sm font-bold disabled:opacity-60">
+                  {generating3 ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      جاري التحليل…
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <Sparkles size={14} /> اعرض التحليل الذكي
+                    </span>
+                  )}
+                </motion.button>
+              </div>
+            ) : (
+              <div>
+                <div className="px-5 py-3.5 border-b border-purple-800/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles size={15} className="text-purple-400" />
+                    <span className="text-purple-300 font-bold text-sm">التحليل الذكي</span>
+                  </div>
+                  <button onClick={() => setShown3(false)} className="text-gray-600 hover:text-gray-400 transition-colors">
+                    <X size={15} />
+                  </button>
+                </div>
+                <div className="p-5">
+                  <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-wrap text-right">
+                    {typed3}
+                    {typing3 && <span className="inline-block w-0.5 h-4 bg-purple-400 mr-0.5 animate-pulse align-middle" />}
+                  </p>
+                </div>
+              </div>
+            )}
+          </motion.div>
         )}
 
         {/* Match preference buttons */}

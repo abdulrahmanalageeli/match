@@ -2860,16 +2860,18 @@ Please respond in JSON format:
             total: Math.round(parseFloat(cacheRow.total_compatibility_score)),
           }
         }
-        // Fetch breakdowns for both phases in parallel
-        const [phase2Breakdown, phase3Breakdown] = await Promise.all([
+        // Fetch breakdowns and current_event_id in parallel
+        const [phase2Breakdown, phase3Breakdown, eventStateRow] = await Promise.all([
           getBreakdown(matchRow.phase2_partner),
           getBreakdown(matchRow.phase3_partner),
+          supabase.from("event_state").select("current_event_id").eq("match_id", MAIN_MATCH).single().then(r => r.data),
         ])
         return res.status(200).json({
           phase2: { partner_number: matchRow.phase2_partner, partner_first_name: pMap[matchRow.phase2_partner] || "—", word: matchRow.phase2_word || null, compatibility_score: matchRow.phase2_score || 0, breakdown: phase2Breakdown },
           phase3: { partner_number: matchRow.phase3_partner, partner_first_name: pMap[matchRow.phase3_partner] || "—", compatibility_score: matchRow.phase3_score || 0, word: matchRow.phase3_word || null, breakdown: phase3Breakdown },
           same_match: matchRow.phase2_partner && matchRow.phase2_partner === matchRow.phase3_partner,
-          match_preference: matchRow.match_preference || null
+          match_preference: matchRow.match_preference || null,
+          current_event_id: eventStateRow?.current_event_id || 1
         })
       }
 

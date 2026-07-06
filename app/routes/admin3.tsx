@@ -935,7 +935,7 @@ export default function Admin3Page() {
                               </div>
                             )}
                             <button
-                              onClick={() => setPairDetail(pair)}
+                              onClick={() => setPairDetail({ type: 'match', ...pair })}
                               className="text-[10px] text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/30 px-2 py-1.5 rounded-lg transition-colors border border-indigo-800/30 hover:border-indigo-700/50"
                             >📊 تفاصيل</button>
                           </div>
@@ -2125,7 +2125,7 @@ export default function Admin3Page() {
                                 key={f.number}
                                 style={{ background: st.background, color: st.color, outline: st.outline, outlineOffset: st.outlineOffset, position: 'relative' } as any}
                                 className="text-center px-1 py-2 transition-colors hover:brightness-125 cursor-pointer"
-                                onClick={() => setPairDetail({ a: m, b: f, score: entry?.score ?? null })}
+                                onClick={() => setPairDetail({ type: 'overview', a: m, b: f, score: entry?.score ?? null })}
                               >
                                 {entry?.score != null
                                   ? <span className="font-black text-[13px]">{entry.score}</span>
@@ -2165,7 +2165,7 @@ export default function Admin3Page() {
       })()}
 
       {/* ── Pair Detail Modal ───────────────────────────────── */}
-      {pairDetail && (() => {
+      {pairDetail?.type === 'overview' && (() => {
         const { a, b, score } = pairDetail
         const aMb = mbtiGroupFn(a.mbti)
         const bMb = mbtiGroupFn(b.mbti)
@@ -2501,7 +2501,7 @@ export default function Admin3Page() {
       })()}
 
       {/* ── Pair Detail Modal ─────────────────────────────────── */}
-      {pairDetail && (() => {
+      {pairDetail?.type === 'match' && (() => {
         const pd = pairDetail
         const c = pd.compat || {}
         const getAns = (survey: any, key: string) => {

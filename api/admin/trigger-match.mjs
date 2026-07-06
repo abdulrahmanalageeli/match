@@ -1706,11 +1706,11 @@ GUIDELINES
 
 قيّم التوافق الشخصي بينهما من 0 إلى 35:`
 
-    console.log(`🤖 Calling OpenAI API (model: gpt-4o-mini)...`)
+    console.log(`🤖 Calling OpenAI API (model: gpt-5.4-mini)...`)
     const apiStartTime = Date.now()
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.4-mini",
       messages: [
         { role: "system", content: systemMessage },
         { role: "user", content: userMessage }
@@ -4080,7 +4080,101 @@ if (action === "cache-status-by-gender") {
       return res.status(500).json({ error: error.message })
     }
   }
-  
+
+  // ── recalc-vibe: Fix fallback (≈10) vibe scores for eligible participants ────
+  if (action === "recalc-vibe") {
+    const _match_id = process.env.CURRENT_MATCH_ID || "00000000-0000-0000-0000-000000000000"
+    const { participant_numbers, cursor = 0 } = req.body || {}
+    if (!eventId) return res.status(400).json({ error: "eventId is required" })
+
+    const CONCURRENCY = 4  // parallel OpenAI calls per request
+    const MAX_PER_CALL = 4 // same as concurrency — frontend loops for more
+
+    const { data: allRaw } = await supabase
+      .from("participants")
+      .select("assigned_number,name,survey_data,mbti_personality_type,attachment_style,communication_style,gender,age,same_gender_preference,any_gender_preference,humor_banter_style,early_openness_comfort,nationality,prefer_same_nationality,preferred_age_min,preferred_age_max,open_age_preference")
+      .eq("match_id", _match_id)
+      .eq("event_id", eventId)
+      .neq("assigned_number", 9999)
+
+    const allEligible = (allRaw || []).filter(isParticipantComplete)
+    const pMap = new Map(allEligible.map(p => [p.assigned_number, p]))
+
+    const targets = (Array.isArray(participant_numbers) && participant_numbers.length > 0)
+      ? allEligible.filter(p => participant_numbers.includes(p.assigned_number))
+      : allEligible
+
+    const seenPairs = new Set()
+    const allPairs = []
+    for (const target of targets) {
+      for (const other of allEligible) {
+        if (target.assigned_number === other.assigned_number) continue
+        const [a, b] = [target.assigned_number, other.assigned_number].sort((x, y) => x - y)
+        const key = `${a}-${b}`
+        if (!seenPairs.has(key)) {
+          seenPairs.add(key)
+          allPairs.push({ a, b })
+        }
+      }
+    }
+
+    const slice = allPairs.slice(cursor, cursor + MAX_PER_CALL)
+    const nextCursor = cursor + MAX_PER_CALL
+    const hasMore = nextCursor < allPairs.length
+
+    // Process one pair: check cache, delete if bad, recalculate
+    const processPair = async ({ a, b }) => {
+      const p1 = pMap.get(a)
+      const p2 = pMap.get(b)
+      if (!p1 || !p2) return 'error'
+
+      const { data: existing } = await supabase
+        .from("compatibility_cache")
+        .select("id, ai_vibe_score")
+        .eq("participant_a_number", a)
+        .eq("participant_b_number", b)
+        .order("last_used", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const vibeVal = existing ? parseFloat(existing.ai_vibe_score) : null
+      if (vibeVal !== null && Math.abs(vibeVal - 10) > 0.5) return 'skip'
+
+      if (existing?.id) {
+        await supabase.from("compatibility_cache").delete().eq("id", existing.id)
+      }
+
+      await calculateFullCompatibilityWithCache(p1, p2, false, false)
+      console.log(`✅ recalc-vibe fixed #${a}×#${b}`)
+      return 'fixed'
+    }
+
+    // Run all pairs in this slice in parallel
+    const results = await Promise.allSettled(slice.map(pair => processPair(pair)))
+
+    let fixed = 0, skippedGood = 0, errors = 0
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i]
+      if (r.status === 'rejected') {
+        errors++
+        console.error(`❌ recalc-vibe error #${slice[i].a}×#${slice[i].b}:`, r.reason?.message)
+      } else if (r.value === 'fixed') fixed++
+      else if (r.value === 'skip') skippedGood++
+      else errors++
+    }
+
+    return res.status(200).json({
+      success: true,
+      fixed,
+      skipped_good: skippedGood,
+      errors,
+      pairs_processed: slice.length,
+      total_pairs: allPairs.length,
+      has_more: hasMore,
+      next_cursor: hasMore ? nextCursor : null,
+    })
+  }
+
   if (!eventId) {
     return res.status(400).json({ error: "eventId is required" })
   }

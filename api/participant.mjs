@@ -2323,7 +2323,7 @@ export default async function handler(req, res) {
       console.log(`🤖 Generating fresh Vibe Analysis for ${name1} & ${name2}...`)
       
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.4-mini",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 500,
         temperature: 0.82,     // High creativity but controlled
@@ -2529,7 +2529,7 @@ Please respond in JSON format:
 
       // Generate prediction using OpenAI
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-5.4-mini",
         messages: [
           {
             role: "system",

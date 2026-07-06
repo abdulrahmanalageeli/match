@@ -3643,6 +3643,60 @@ export default async function handler(req, res) {
       }
     }
 
+    // 🔹 GET VIBE STATUS — show eligible participants with their cached vibe scores
+    if (action === "get-vibe-status") {
+      try {
+        const { event_id } = req.body
+        if (!event_id) return res.status(400).json({ error: "event_id required" })
+
+        const { data: rawParticipants } = await supabase
+          .from("participants")
+          .select("assigned_number, name, survey_data, gender")
+          .eq("match_id", STATIC_MATCH_ID)
+          .eq("event_id", event_id)
+          .neq("assigned_number", 9999)
+
+        const eligible = (rawParticipants || []).filter(p =>
+          p.survey_data && typeof p.survey_data === 'object' && Object.keys(p.survey_data).length > 0
+        )
+        const allNums = eligible.map(p => p.assigned_number)
+
+        if (allNums.length === 0) return res.status(200).json({ participants: [] })
+
+        const [{ data: cacheA }, { data: cacheB }] = await Promise.all([
+          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score").in("participant_a_number", allNums),
+          supabase.from("compatibility_cache").select("participant_a_number, participant_b_number, ai_vibe_score").in("participant_b_number", allNums),
+        ])
+
+        const pairVibeMap = new Map()
+        for (const c of [...(cacheA || []), ...(cacheB || [])]) {
+          const [a, b] = [c.participant_a_number, c.participant_b_number].sort((x, y) => x - y)
+          pairVibeMap.set(`${a}-${b}`, parseFloat(c.ai_vibe_score))
+        }
+
+        const participants = eligible.map(p => {
+          const n = p.assigned_number
+          const myPairs = [...pairVibeMap.entries()].filter(([k]) => {
+            const [a, b] = k.split('-').map(Number)
+            return a === n || b === n
+          })
+          const vibes = myPairs.map(([, v]) => v)
+          const badVibes = vibes.filter(v => Math.abs(v - 10) <= 0.5).length
+          const avgVibe = vibes.length > 0
+            ? Math.round((vibes.reduce((s, v) => s + v, 0) / vibes.length) * 10) / 10
+            : null
+          const sd = typeof p.survey_data === 'string' ? JSON.parse(p.survey_data || '{}') : (p.survey_data || {})
+          const name = (p.name || sd?.answers?.name || sd?.name || `#${n}`).split(' ')[0]
+          return { number: n, name, gender: p.gender, cached_pairs: vibes.length, bad_vibe_pairs: badVibes, avg_vibe: avgVibe }
+        })
+
+        return res.status(200).json({ participants, total: eligible.length })
+      } catch (error) {
+        console.error("Error in get-vibe-status:", error)
+        return res.status(500).json({ error: "Failed to get vibe status" })
+      }
+    }
+
     // 🔹 GET DELTA CACHE PARTICIPANTS LIST
     if (action === "get-delta-cache-participants") {
       try {

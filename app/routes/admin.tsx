@@ -50,6 +50,7 @@ import ParticipantResultsModal from "~/components/ParticipantResultsModal"
 import GroupAssignmentsModal from "~/components/GroupAssignmentsModal"
 import ParticipantDualResultsModal from "~/components/ParticipantDualResultsModal"
 import BatchedCacheModal from "~/components/BatchedCacheModal"
+import VibeFixModal from "~/components/VibeFixModal"
 import WhatsappMessageModal from '~/components/WhatsappMessageModal';
 import ParticipantQRModal from "~/components/ParticipantQRModal"
 import ParticipantProfileModal from "~/components/ParticipantProfileModal"
@@ -243,6 +244,9 @@ export default function AdminPage() {
 
   // Batched gender-mode pre-cache modal state
   const [showBatchedCacheModal, setShowBatchedCacheModal] = useState(false)
+
+  // Vibe fix modal state
+  const [showVibeFixModal, setShowVibeFixModal] = useState(false)
 
   // WhatsApp message modal state
   const [whatsappParticipant, setWhatsappParticipant] = useState<any | null>(null);
@@ -4224,6 +4228,17 @@ Proceed?`
                     <Activity className="w-3.5 h-3.5" />
                     Batched Cache (R1/R2)
                   </button>
+
+                  {/* Fix vibe scores stuck at fallback=10 */}
+                  <button
+                    onClick={() => setShowVibeFixModal(true)}
+                    disabled={loading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-700 to-pink-700 hover:from-purple-800 hover:to-pink-800 text-white rounded-lg transition-all duration-300 disabled:opacity-50 text-sm shadow-lg"
+                    title="Fix participants whose vibe score is stuck at 10 (OpenAI timeout fallback)"
+                  >
+                    <Zap className="w-3.5 h-3.5" />
+                    Fix Vibe Scores
+                  </button>
                 </div>
 
                 <button
@@ -6690,6 +6705,13 @@ Proceed?`
       <BatchedCacheModal
         isOpen={showBatchedCacheModal}
         onClose={() => setShowBatchedCacheModal(false)}
+        eventId={currentEventId}
+      />
+
+      {/* Vibe Fix Modal — recalculate stuck vibe=10 fallback scores */}
+      <VibeFixModal
+        isOpen={showVibeFixModal}
+        onClose={() => setShowVibeFixModal(false)}
         eventId={currentEventId}
       />
 

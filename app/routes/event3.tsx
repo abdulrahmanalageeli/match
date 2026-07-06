@@ -154,7 +154,7 @@ function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: a
 
   const dims = [
     { key: "synergy", label: "الانسجام التفاعلي", value: breakdown.synergy || 0, max: 35, bar: "from-violet-500 to-purple-500" },
-    { key: "vibe", label: "الطاقة والكيمياء", value: breakdown.vibe || 0, max: 20, bar: "from-purple-500 to-pink-500" },
+    { key: "vibe", label: "الطاقة والكيمياء", value: breakdown.vibe || 0, max: 25, bar: "from-purple-500 to-pink-500" },
     { key: "lifestyle", label: "نمط الحياة", value: breakdown.lifestyle || 0, max: 15, bar: "from-cyan-500 to-blue-500" },
     { key: "humorOpen", label: "الدعابة/الانفتاح", value: breakdown.humorOpen || 0, max: 15, bar: "from-amber-500 to-orange-500" },
     { key: "communication", label: "التواصل", value: breakdown.communication || 0, max: 10, bar: "from-indigo-500 to-sky-500" },

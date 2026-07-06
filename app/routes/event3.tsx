@@ -9,6 +9,8 @@ import {
   CheckCircle, Send, RefreshCw, Sparkles, Home, Trophy, Lock, GripVertical,
   MessageSquare, ChevronRight, Users, PenLine, Shuffle, BarChart3, GitMerge, X, Heart,
   Frown, Meh, Smile, Layers, Zap,
+  Snowflake, Target, Star, Drama, AlertTriangle, XCircle, Search, Lightbulb, Key, PartyPopper, LifeBuoy,
+  EyeOff, Smartphone, Handshake, Timer, Ban, ShieldCheck,
 } from "lucide-react"
 
 import { QuestionSlideshow } from "~/components/QuestionSlideshow"
@@ -117,9 +119,9 @@ function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink"
   }
 
   const traits = [
-    data?.partner_mbti && { icon: "🧠", label: "الشخصية", value: data.partner_mbti },
-    data?.partner_communication && { icon: "💬", label: "التواصل", value: data.partner_communication },
-    data?.partner_attachment && { icon: "🤝", label: "التعلق", value: data.partner_attachment },
+    data?.partner_mbti && { icon: <Brain size={16} className={cl.text} />, label: "الشخصية", value: data.partner_mbti },
+    data?.partner_communication && { icon: <MessageSquare size={16} className={cl.text} />, label: "التواصل", value: data.partner_communication },
+    data?.partner_attachment && { icon: <Handshake size={16} className={cl.text} />, label: "التعلق", value: data.partner_attachment },
   ].filter(Boolean)
 
   if (traits.length === 0) return null
@@ -444,19 +446,19 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
               <button onClick={() => setPhase("splash")} className="flex items-center gap-1 text-gray-500 text-sm hover:text-gray-400 transition-colors">
                 <ChevronRight size={15} className="rotate-180" /> رجوع
               </button>
-              <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide">✨ قواعد الجلسة</span>
+              <span className="text-[11px] font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent tracking-wide flex items-center gap-1"><Sparkles size={11} /> قواعد الجلسة</span>
             </div>
 
             {/* Rules list */}
             <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-2.5">
               {[
-                { icon: "🕶️", title: "ابقَ أعمى", desc: "لا تكشف لأحد ترتيبك أو تقييماتك — سرية الخيارات هي جوهر الفعالية" },
-                { icon: "🎭", title: "كن نفسك", desc: "الخوارزمية تعمل بناءً على شخصيتك الحقيقية — التمثيل يضر نتيجتك" },
-                { icon: "📱", title: "التطبيق أداتك", desc: "استخدم التطبيق للتقييم والترتيب، لكن لا تُظهِر شاشتك للآخرين" },
-                { icon: "🤝", title: "احترم الجلسة", desc: "الجميع هنا بنفس الهدف — تعامل بلطف واحترام مع كل من تجلس معه" },
-                { icon: "⏱️", title: "احترم الوقت", desc: "كل جلسة لها مؤقت — أنهِ المحادثة باحترام حين ينتهي الوقت" },
-                { icon: "🚫", title: "لا إحراج", desc: "امتنع عن الأسئلة الشخصية المُحرجة أو أي تعليق يخلق إحراجاً" },
-                { icon: "🔒", title: "النتيجة سرية حتى النهاية", desc: "لا تشارك أحداً من اخترت — الكشف يحدث في النهاية للجميع معاً" },
+                { icon: <EyeOff size={20} className="text-purple-400" />, title: "ابقَ أعمى", desc: "لا تكشف لأحد ترتيبك أو تقييماتك — سرية الخيارات هي جوهر الفعالية" },
+                { icon: <Drama size={20} className="text-purple-400" />, title: "كن نفسك", desc: "الخوارزمية تعمل بناءً على شخصيتك الحقيقية — التمثيل يضر نتيجتك" },
+                { icon: <Smartphone size={20} className="text-purple-400" />, title: "التطبيق أداتك", desc: "استخدم التطبيق للتقييم والترتيب، لكن لا تُظهِر شاشتك للآخرين" },
+                { icon: <Handshake size={20} className="text-purple-400" />, title: "احترم الجلسة", desc: "الجميع هنا بنفس الهدف — تعامل بلطف واحترام مع كل من تجلس معه" },
+                { icon: <Timer size={20} className="text-purple-400" />, title: "احترم الوقت", desc: "كل جلسة لها مؤقت — أنهِ المحادثة باحترام حين ينتهي الوقت" },
+                { icon: <Ban size={20} className="text-purple-400" />, title: "لا إحراج", desc: "امتنع عن الأسئلة الشخصية المُحرجة أو أي تعليق يخلق إحراجاً" },
+                { icon: <Lock size={20} className="text-purple-400" />, title: "النتيجة سرية حتى النهاية", desc: "لا تشارك أحداً من اخترت — الكشف يحدث في النهاية للجميع معاً" },
               ].map((rule, i) => (
                 <motion.div
                   key={i}
@@ -465,7 +467,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                   transition={{ delay: i * 0.07, duration: 0.3 }}
                   className="flex items-start gap-3 bg-white/[0.04] border border-white/[0.07] rounded-2xl px-4 py-3.5"
                 >
-                  <span className="text-2xl flex-shrink-0 mt-0.5">{rule.icon}</span>
+                  <span className="flex-shrink-0 mt-0.5 flex items-center justify-center w-7">{rule.icon}</span>
                   <div className="text-right">
                     <p className="text-white font-bold text-sm">{rule.title}</p>
                     <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{rule.desc}</p>
@@ -609,7 +611,7 @@ function WelcomeScreen({ onDone }: { onDone: () => void }) {
                 onClick={goNext}
                 className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-2xl py-3.5 font-black text-base shadow-xl shadow-purple-600/25 transition-all"
               >
-                {step === FLOW_STEPS.length - 1 ? "أبدأ رحلتي ✨" : "التالي ←"}
+                {step === FLOW_STEPS.length - 1 ? <span className="flex items-center justify-center gap-2">أبدأ رحلتي <Sparkles size={16} /></span> : "التالي ←"}
               </motion.button>
             </div>
           </motion.div>
@@ -662,7 +664,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
                 transition={{ duration: 2, delay: i * 0.7, repeat: Infinity, ease: "easeOut" }} />
             ))}
             <div className="relative w-24 h-24 rounded-3xl bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 flex items-center justify-center shadow-2xl shadow-purple-700/50">
-              <span className="text-4xl">📱</span>
+              <Smartphone size={36} className="text-white" />
             </div>
           </motion.div>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
@@ -692,7 +694,7 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
             </AnimatePresence>
             <motion.button onClick={submit} disabled={loading} whileTap={{ scale: 0.97 }}
               className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:opacity-50 text-white rounded-2xl py-4 font-black text-lg shadow-lg shadow-purple-600/30 transition-all flex items-center justify-center gap-2">
-              {loading ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <>دخول ✨</>}
+              {loading ? <><motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full" />جاري التحقق...</> : <span className="flex items-center justify-center gap-2">دخول <Sparkles size={16} /></span>}
             </motion.button>
           </GlassCard>
         </motion.div>
@@ -708,12 +710,12 @@ function PhoneEntry({ onToken }: { onToken: (t: string) => void }) {
 function SetupScreen({ token, myInfo, enrolledCount }: { token: string; myInfo: { number: number; name: string; gender: string | null } | null; enrolledCount: number | null }) {
 
   const timeline = [
-    { icon: "👥", label: "جلسة جماعية أولى", time: "20 دقيقة" },
-    { icon: "🔀", label: "جلسة جماعية ثانية", time: "20 دقيقة" },
-    { icon: "🏆", label: "ترتيب المشاركين", time: "5 دقائق" },
-    { icon: "🌟", label: "جلسة فردية (اختيارك)", time: "15 دقيقة" },
-    { icon: "🧠", label: "جلسة فردية (اختيار النظام)", time: "15 دقيقة" },
-    { icon: "✨", label: "الكشف النهائي", time: "النتيجة" },
+    { icon: <Users size={14} className="text-purple-400" />, label: "جلسة جماعية أولى", time: "20 دقيقة" },
+    { icon: <Shuffle size={14} className="text-purple-400" />, label: "جلسة جماعية ثانية", time: "20 دقيقة" },
+    { icon: <Trophy size={14} className="text-purple-400" />, label: "ترتيب المشاركين", time: "5 دقائق" },
+    { icon: <Star size={14} className="text-purple-400" />, label: "جلسة فردية (اختيارك)", time: "15 دقيقة" },
+    { icon: <Brain size={14} className="text-purple-400" />, label: "جلسة فردية (اختيار النظام)", time: "15 دقيقة" },
+    { icon: <Sparkles size={14} className="text-purple-400" />, label: "الكشف النهائي", time: "النتيجة" },
   ]
 
   return (
@@ -1144,6 +1146,170 @@ function SessionTips({ onClose, accent = "pink" }: { onClose: () => void; accent
   )
 }
 
+// ─── Ice Breaker (Group Rounds) ──────────────────────────────────────────────
+const ICE_BREAKERS: Record<number, { title: string; prompt: string; subPrompts?: string[] }> = {
+  1: {
+    title: "كسر الجليد",
+    prompt: "اسمك، ثم أعطنا 3 أشياء تساعدنا نتعرف عليك أكثر — ممنوع تقول عمرك أو وظيفتك.",
+  },
+  2: {
+    title: "كسر الجليد",
+    prompt: "اسمك، وشارك 3 أشياء عنك:",
+    subPrompts: [
+      "شيء تحب تسويه.",
+      "شيء الناس غالبًا ما يتوقعونه عنك.",
+      "شيء تتمنى تجربه أو تتعلمه.",
+    ],
+  },
+}
+
+function IceBreaker({ round, myInfo, tablemates }: {
+  round: number; myInfo: { number: number; name: string; gender: string | null } | null; tablemates: { number: number; first_name: string; gender: string | null }[]
+}) {
+  const ib = ICE_BREAKERS[round]
+  const [started, setStarted] = useState(false)
+  const [done, setDone] = useState(false)
+  const [currentIdx, setCurrentIdx] = useState(0)
+  const [order, setOrder] = useState<{ name: string; number: number; isMe: boolean }[]>([])
+
+  const startBreaker = () => {
+    const all = [
+      ...(myInfo ? [{ name: myInfo.name, number: myInfo.number, isMe: true }] : []),
+      ...tablemates.map(m => ({ name: m.first_name, number: m.number, isMe: false })),
+    ]
+    // Shuffle and pick random start
+    const shuffled = [...all]
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+    setOrder(shuffled)
+    setCurrentIdx(0)
+    setStarted(true)
+  }
+
+  const nextPerson = () => {
+    if (currentIdx < order.length - 1) {
+      setCurrentIdx(i => i + 1)
+    } else {
+      setDone(true)
+    }
+  }
+
+  if (!ib || done) return null
+
+  if (!started) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+        <GlassCard className="p-5 space-y-3 border-amber-800/40 shadow-lg shadow-amber-900/10">
+          <div className="flex items-center justify-center gap-2">
+            <Snowflake size={24} className="text-amber-400" />
+            <h4 className="text-white font-bold text-sm">{ib.title}</h4>
+          </div>
+          <p className="text-gray-400 text-xs text-center leading-relaxed">
+            قبل بدء الأسئلة — نشاط تعارف سريع يبدأ بشخص عشوائي ويمر على الجميع
+          </p>
+          <button
+            onClick={startBreaker}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm shadow-lg shadow-amber-600/30 hover:brightness-110 active:scale-95 transition-all"
+          >
+            <Sparkles size={14} className="inline" /> ابدأ كسر الجليد
+          </button>
+        </GlassCard>
+      </motion.div>
+    )
+  }
+
+  const current = order[currentIdx]
+  const speakerClass = current.isMe
+    ? "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 bg-amber-500/20 border-2 border-amber-500/50"
+    : "inline-flex items-center gap-2 rounded-2xl px-5 py-2.5 bg-gray-800/60 border border-gray-700/50"
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      <GlassCard className="p-5 space-y-4 border-amber-800/40 shadow-lg shadow-amber-900/10">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Snowflake size={18} className="text-amber-400" />
+            <h4 className="text-white font-bold text-sm">{ib.title}</h4>
+          </div>
+          <span className="text-amber-400/70 text-[10px] font-mono">{currentIdx + 1}/{order.length}</span>
+        </div>
+
+        {/* Progress dots */}
+        <div className="flex items-center justify-center gap-1.5">
+          {order.map((p, i) => (
+            <div
+              key={p.number}
+              className={
+                i < currentIdx ? "h-1.5 rounded-full transition-all duration-300 w-2 bg-amber-500/60"
+                : i === currentIdx ? "h-1.5 rounded-full transition-all duration-300 w-6 bg-amber-400"
+                : "h-1.5 rounded-full transition-all duration-300 w-2 bg-gray-700"
+              }
+            />
+          ))}
+        </div>
+
+        {/* Current speaker */}
+        <div className="text-center space-y-2 py-2">
+          <p className="text-gray-500 text-[10px]">دور</p>
+          <motion.div
+            key={currentIdx}
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className={speakerClass}
+          >
+            <span className="text-white font-black text-lg">{current.name}</span>
+            {current.isMe && <span className="text-amber-400 text-[10px] font-bold">أنت</span>}
+          </motion.div>
+        </div>
+
+        {/* Prompt */}
+        <div className="bg-amber-950/30 rounded-xl p-4 border border-amber-800/30 space-y-2">
+          <p className="text-amber-200/90 text-sm leading-relaxed text-center font-medium">{ib.prompt}</p>
+          {ib.subPrompts && (
+            <div className="space-y-1 pt-1">
+              {ib.subPrompts.map((sp, i) => (
+                <p key={i} className="text-amber-300/70 text-xs leading-relaxed text-center">
+                  {i + 1}. {sp}
+                </p>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Circle order preview */}
+        <div className="flex flex-wrap gap-1.5 justify-center">
+          {order.map((p, i) => (
+            <span
+              key={p.number}
+              className={
+                i === currentIdx
+                  ? "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-500/30 border-amber-500/50 text-amber-200 font-bold"
+                  : i < currentIdx
+                    ? "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-amber-900/20 border-amber-800/30 text-amber-500/40"
+                    : "text-[10px] px-2 py-0.5 rounded-full border transition-all bg-gray-800/40 border-gray-700/40 text-gray-500"
+              }
+            >
+              {p.name}
+            </span>
+          ))}
+        </div>
+
+        {/* Next button */}
+        <button
+          onClick={nextPerson}
+          className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 text-white font-bold text-sm shadow-lg shadow-amber-600/30 hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2"
+        >
+          {currentIdx < order.length - 1 ? "الشخص التالي ←" : "تم النشاط ✓"}
+        </button>
+      </GlassCard>
+    </motion.div>
+  )
+}
+
 // ─── Round Screen ─────────────────────────────────────────────────────────────
 function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myInfo }: {
   token: string; phase: string; timerActive: boolean; timerStart: string | null; timerDuration: number; myInfo: { number: number; name: string; gender: string | null } | null
@@ -1297,7 +1463,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
                   className="mt-4 pt-4 border-t border-gray-800/60 text-center space-y-1"
                 >
-                  <div className="text-2xl">⏰</div>
+                  <Clock size={24} className="text-amber-400 mx-auto" />
                   <p className="text-white font-semibold text-sm">انتهت الجلسة</p>
                   <p className="text-gray-500 text-xs">انتظر توجيهات المنظم للمرحلة التالية</p>
                 </motion.div>
@@ -1311,13 +1477,18 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
             </GlassCard>
           )}
 
+          {/* Ice Breaker — appears before group activities */}
+          {assignment?.tablemates && (
+            <IceBreaker round={round} myInfo={myInfo} tablemates={assignment.tablemates} />
+          )}
+
           {/* Groups button */}
           <motion.button
             onClick={() => setShowGroups(true)}
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
             className={`flex items-center justify-center gap-3 w-full py-4 rounded-2xl border font-bold text-base transition-all ${RC.badge} hover:brightness-125 active:scale-95`}
           >
-            نشاطات المجموعة 🎯
+            <Target size={16} className="inline" /> نشاطات المجموعة
             <ExternalLink size={15} />
           </motion.button>
 
@@ -1357,7 +1528,7 @@ function RoundScreen({ token, phase, timerActive, timerStart, timerDuration, myI
           >
             {/* Modal header */}
             <div className="flex items-center justify-between px-5 py-3 border-b border-gray-800/60 bg-gray-900/80 backdrop-blur-md flex-shrink-0">
-              <span className="font-bold text-white flex items-center gap-2">🎯 نشاطات المجموعة</span>
+              <span className="font-bold text-white flex items-center gap-2"><Target size={16} /> نشاطات المجموعة</span>
               <button
                 onClick={() => setShowGroups(false)}
                 className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors text-sm font-medium"
@@ -1434,7 +1605,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
           {step === 0 && (
             <>
               <div className="text-center space-y-1">
-                <div className="text-4xl mb-2">🏆</div>
+                <Trophy size={36} className="text-amber-400 mb-2 mx-auto" />
                 <h2 className="text-white font-black text-xl">رتّب من أعجبك</h2>
                 <p className="text-gray-400 text-sm">من الأعلى اهتماماً للأقل — الأول هو أولويتك القصوى</p>
               </div>
@@ -1451,7 +1622,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                       <span className="text-white text-sm font-medium flex-1">{p.name}</span>
                       {rank === 0 && (
                         <motion.span key="star" initial={{ scale: 0 }} animate={{ scale: 1 }}
-                          className="text-amber-400 text-[10px] font-semibold">⭐ أولوية</motion.span>
+                          className="text-amber-400 text-[10px] font-semibold flex items-center gap-1"><Star size={10} className="inline" /> أولوية</motion.span>
                       )}
                     </motion.div>
                   )
@@ -1465,7 +1636,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
           {step === 1 && (
             <>
               <div className="text-center space-y-1">
-                <div className="text-4xl mb-2">🎭</div>
+                <Drama size={36} className="text-purple-400 mb-2 mx-auto" />
                 <h2 className="text-white font-black text-xl">ماذا يحدث لكل اختيار؟</h2>
                 <p className="text-gray-400 text-sm">النتيجة تعتمد على ترتيب الطرفين معاً</p>
               </div>
@@ -1475,7 +1646,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 }}
                   className="bg-emerald-900/25 border border-emerald-700/40 rounded-2xl px-3.5 py-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-emerald-500 text-black text-[9px] font-black rounded-full px-2 py-0.5">✅ تطابق مثالي</span>
+                    <span className="bg-emerald-500 text-black text-[9px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"><CheckCircle size={9} className="inline" /> تطابق مثالي</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
@@ -1485,7 +1656,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                     <div className="flex-1 flex flex-col items-center gap-0.5">
                       <div className="flex items-center w-full gap-1">
                         <div className="flex-1 border-t border-dashed border-emerald-600/50"/>
-                        <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} className="text-base">❤️</motion.span>
+                        <motion.span animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }}><Heart size={16} className="text-emerald-400" /></motion.span>
                         <div className="flex-1 border-t border-dashed border-emerald-600/50"/>
                       </div>
                       <span className="text-emerald-400 text-[9px] font-bold">متبادل → جلسة!</span>
@@ -1501,7 +1672,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}
                   className="bg-amber-950/30 border border-amber-800/30 rounded-2xl px-3.5 py-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-amber-900/50 text-amber-300 border border-amber-700/40 text-[9px] font-black rounded-full px-2 py-0.5">⚠️ تطابق ضعيف</span>
+                    <span className="bg-amber-900/50 text-amber-300 border border-amber-700/40 text-[9px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"><AlertTriangle size={9} className="inline" /> تطابق ضعيف</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
@@ -1527,7 +1698,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.35 }}
                   className="bg-red-950/20 border border-red-900/30 rounded-2xl px-3.5 py-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-red-950/50 text-red-400 border border-red-900/40 text-[9px] font-black rounded-full px-2 py-0.5">❌ لا جلسة</span>
+                    <span className="bg-red-950/50 text-red-400 border border-red-900/40 text-[9px] font-black rounded-full px-2 py-0.5 flex items-center gap-1"><XCircle size={9} className="inline" /> لا جلسة</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex flex-col items-center gap-0.5 flex-shrink-0">
@@ -1557,7 +1728,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
           {step === 2 && (
             <>
               <div className="text-center space-y-1">
-                <div className="text-4xl mb-2">🔍</div>
+                <Search size={36} className="text-cyan-400 mb-2 mx-auto" />
                 <h2 className="text-white font-black text-xl">النظام يقارن الترتيبات</h2>
                 <p className="text-gray-400 text-sm">يبحث عن أعلى تطابق متبادل بين الجميع</p>
               </div>
@@ -1577,7 +1748,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                       <div className="flex items-center w-full gap-1">
                         <motion.div className="flex-1 h-px bg-emerald-500/60"
                           animate={{ scaleX: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
-                        <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: Infinity }} className="text-xl">❤️</motion.div>
+                        <motion.div animate={{ scale: [1, 1.3, 1] }} transition={{ duration: 1, repeat: Infinity }}><Heart size={20} className="text-emerald-400" /></motion.div>
                         <motion.div className="flex-1 h-px bg-emerald-500/60"
                           animate={{ scaleX: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }} />
                       </div>
@@ -1608,7 +1779,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 </motion.div>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
                   className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center">
-                  <p className="text-amber-400/70 text-xs">💡 كل شخص يحصل على أفضل تطابق متبادل ممكن</p>
+                  <p className="text-amber-400/70 text-xs flex items-center justify-center gap-1.5"><Lightbulb size={12} className="inline" /> كل شخص يحصل على أفضل تطابق متبادل ممكن</p>
                 </motion.div>
               </div>
             </>
@@ -1618,14 +1789,14 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
           {step === 3 && (
             <>
               <div className="text-center space-y-1">
-                <div className="text-4xl mb-2">✨</div>
+                <Sparkles size={36} className="text-pink-400 mb-2 mx-auto" />
                 <h2 className="text-white font-black text-xl">نتيجتك: جلستان فرديتان</h2>
                 <p className="text-gray-400 text-sm">ترتيبك يحدد من ستجلس معه في الجلستين الفرديتين</p>
               </div>
               <div className="w-full space-y-3">
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="bg-pink-900/25 border border-pink-700/40 rounded-2xl p-4 flex items-center gap-3">
-                  <div className="text-2xl flex-shrink-0">💘</div>
+                  <Heart size={24} className="text-pink-400 flex-shrink-0" />
                   <div>
                     <p className="text-white font-bold text-sm">جلسة اختيارك</p>
                     <p className="text-pink-300 text-xs mt-0.5">أعلى تطابق متبادل من ترتيبك — أنت من اختار</p>
@@ -1633,7 +1804,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 </motion.div>
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
                   className="bg-purple-900/25 border border-purple-700/40 rounded-2xl p-4 flex items-center gap-3">
-                  <div className="text-2xl flex-shrink-0">🧠</div>
+                  <Brain size={24} className="text-purple-400 flex-shrink-0" />
                   <div>
                     <p className="text-white font-bold text-sm">جلسة التوافق الذكي</p>
                     <p className="text-purple-300 text-xs mt-0.5">النظام يختار أفضل توافق بناءً على بياناتكما معاً</p>
@@ -1641,7 +1812,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
                 </motion.div>
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}
                   className="bg-amber-900/15 border border-amber-800/30 rounded-2xl px-4 py-2.5 text-center space-y-1">
-                  <p className="text-amber-300/80 text-xs">🔑 كلما كان ترتيبك متبادلاً — كانت جلستك أدق توافقاً</p>
+                  <p className="text-amber-300/80 text-xs flex items-center justify-center gap-1.5"><Key size={12} className="inline" /> كلما كان ترتيبك متبادلاً — كانت جلستك أدق توافقاً</p>
                   <p className="text-gray-600 text-[11px]">قد تُطابق مع شخص رتّبته أخيراً إذا لم يخترك أي من أعلى خياراتك — النظام يبحث عن أفضل تطابق ممكن للجميع</p>
                 </motion.div>
               </div>
@@ -1659,7 +1830,7 @@ function RankingTutorial({ onClose }: { onClose: () => void }) {
         )}
         <motion.button whileTap={{ scale: 0.97 }} onClick={goNext}
           className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-black font-black rounded-2xl py-3.5 text-base shadow-2xl shadow-amber-500/30">
-          {step < TOTAL - 1 ? "التالي ←" : "فهمت — ابدأ الترتيب! 🏆"}
+          {step < TOTAL - 1 ? "التالي ←" : "فهمت — ابدأ الترتيب!"}
         </motion.button>
       </div>
     </motion.div>
@@ -1717,7 +1888,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
   useEffect(() => {
     if (currentPhase !== initialPhaseRef.current && !submitted) {
       setShowPhaseWarning(true)
-      toast('⏰ المنظم انتقل للمرحلة التالية — ارتب اختياراتك وأرسلها بسرعة!', { duration: 6000, icon: '⏰' })
+      toast('المنظم انتقل للمرحلة التالية — ارتب اختياراتك وأرسلها بسرعة!', { duration: 6000 })
     }
   }, [currentPhase, submitted])
 
@@ -1734,7 +1905,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
     if (d.error) { toast.error(d.error); return }
     setSubmitted(true)
     setShowConfirm(false)
-    toast.success("تم حفظ تصنيفاتك! ✨")
+    toast.success("تم حفظ تصنيفاتك!")
   }
 
   const personMap = Object.fromEntries(people.map(p => [p.number, p]))
@@ -1801,8 +1972,8 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                 اسحب للترتيب · سري تماماً
               </span>
               {newNums.size > 0 && (
-                <span className="text-purple-400 text-[10px] bg-purple-900/20 rounded-full px-2 py-0.5">
-                  ✨ {newNums.size} جديد
+                <span className="text-purple-400 text-[10px] bg-purple-900/20 rounded-full px-2 py-0.5 flex items-center gap-1">
+                  <Sparkles size={10} className="inline" /> {newNums.size} جديد
                 </span>
               )}
             </div>
@@ -1860,7 +2031,7 @@ function RankingScreen({ token, completedRounds, currentPhase }: { token: string
                         <span className="font-semibold text-white text-sm leading-tight">{p.first_name}</span>
                         <span className="text-[10px] text-gray-600 font-mono">#{p.number}</span>
                         {newNums.has(num) && (
-                          <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold">جديد ✨</span>
+                          <span className="text-[10px] bg-purple-900/60 text-purple-300 border border-purple-700/50 rounded-full px-1.5 py-0.5 font-semibold flex items-center gap-1"><Sparkles size={8} className="inline" /> جديد</span>
                         )}
                       </div>
                       <span className={`text-[11px] px-2 py-0.5 rounded-full border mt-1 inline-block ${roundStyle(p.round)}`}>
@@ -2229,7 +2400,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
       if (orgMsgs.length > prevCount && prevCount >= 0) {
         setHasUnread(true)
         if (!openRef.current) {
-          toast('💬 رسالة من المنظم!', { duration: 4000 })
+          toast('رسالة من المنظم!', { duration: 4000 })
         }
       }
       lastReplyCountRef.current = orgMsgs.length
@@ -2257,7 +2428,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
       setMessages(prev => [...prev, { id: d.id || String(Date.now()), text: trimmed, from: 'user', status: 'pending' }])
       setShowOptions(false)
       setInput("")
-      toast.success('تم الإرسال ✅')
+      toast.success('تم الإرسال')
       scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
     } else {
       toast.error('حدث خطأ')
@@ -2368,7 +2539,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
                     onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة - أحتاج المنظم إلى طاولتي') }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-950/30 border border-red-800/40 hover:bg-red-950/50 transition-all text-right"
                   >
-                    <span className="text-lg">🆘</span>
+                    <LifeBuoy size={18} className="text-red-400" />
                     <div>
                       <p className="text-red-300 text-sm font-semibold">طلب مساعدة</p>
                       <p className="text-gray-500 text-[11px]">سيأتي المنظم إلى طاولتك</p>
@@ -2378,7 +2549,7 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
                     onClick={() => { setShowOptions(false); setInput('') }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-purple-950/30 border border-purple-800/40 hover:bg-purple-950/50 transition-all text-right"
                   >
-                    <span className="text-lg">💬</span>
+                    <MessageSquare size={18} className="text-purple-400" />
                     <div>
                       <p className="text-purple-300 text-sm font-semibold">رسالة خاصة</p>
                       <p className="text-gray-500 text-[11px]">اكتب رسالة سرية للمنظم</p>
@@ -2532,7 +2703,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const submitWord = async () => {
     if (!word.trim()) return
     const d = await call("e3-submit-phase2-word", token, { word: word.trim() })
-    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ! ✨") }
+    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ!") }
   }
 
   return (
@@ -2666,7 +2837,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
             onBack={() => setView('session')}
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase2-feedback', token, { feedback: fbData })
-              if (!d.error) { toast.success('تم الحفظ ✨'); return true }
+              if (!d.error) { toast.success('تم الحفظ'); return true }
               return false
             }}
           />
@@ -2723,7 +2894,7 @@ function Phase2RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               {/* PromptTopicsModal */}
               <button onClick={() => setShowPrompt(true)}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
-                <MessageSquare size={14} /> أسئلة للنقاش ✨
+                <MessageSquare size={14} /> أسئلة للنقاش
               </button>
               {/* Jump to feedback manually */}
               <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
@@ -2829,7 +3000,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
   const submitWord = async () => {
     if (!word.trim()) return
     const d = await call("e3-submit-phase3-word", token, { word: word.trim() })
-    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ! ✨") }
+    if (!d.error) { setWordSubmitted(true); toast.success("تم الحفظ!") }
   }
 
   return (
@@ -2903,7 +3074,8 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               {data?.same_as_phase2 && (
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-gradient-to-r from-amber-900/40 to-yellow-900/30 border border-amber-700/50 rounded-2xl p-4 text-center">
-                  <p className="text-amber-300 font-black text-base">🏆 مطابقة مثالية!</p>
+                  <div className="flex items-center justify-center gap-2 mb-2"><Trophy size={22} className="text-amber-400" /></div>
+                  <p className="text-amber-300 font-black text-base">مطابقة مثالية!</p>
                   <p className="text-amber-400/70 text-xs mt-0.5">اخترت نفس الشخص الذي اختارته الخوارزمية</p>
                 </motion.div>
               )}
@@ -2984,7 +3156,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
               <QuestionSlideshow defaultSet="set1" />
               <button onClick={() => setShowPrompt(true)}
                 className="flex items-center justify-center gap-2 w-full py-2.5 rounded-full text-sm font-medium bg-gradient-to-r from-purple-600/60 to-pink-600/60 hover:from-purple-600 hover:to-pink-600 text-white transition-all border border-purple-700/30">
-                <MessageSquare size={14} /> أسئلة للنقاش ✨
+                <MessageSquare size={14} /> أسئلة للنقاش
               </button>
               {/* Jump to feedback */}
               <button onClick={() => setView('feedback')} className="w-full py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-400 transition-colors">الانتهاء والتقييم →</button>
@@ -3016,7 +3188,7 @@ function Phase3RevealScreen({ token, timerActive, timerStart, timerDuration }: {
             onBack={() => setView('session')}
             onSubmit={async (fbData) => {
               const d = await call('e3-submit-phase3-feedback', token, { feedback: fbData })
-              if (!d.error) { toast.success('تم الحفظ ✨'); return true }
+              if (!d.error) { toast.success('تم الحفظ'); return true }
               return false
             }}
           />
@@ -3110,7 +3282,7 @@ function FinalRevealScreen({ token }: { token: string }) {
     setPrefSubmitting(true)
     const d = await call("e3-submit-match-preference", token, { preference: pref })
     setPrefSubmitting(false)
-    if (!d.error) { setMatchPref(pref); toast.success("تم حفظ تفضيلك ✅") }
+    if (!d.error) { setMatchPref(pref); toast.success("تم حفظ تفضيلك") }
     else toast.error("حدث خطأ")
   }
 
@@ -3137,7 +3309,7 @@ function FinalRevealScreen({ token }: { token: string }) {
         {data.same_match && (
           <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
             className="bg-gradient-to-r from-amber-900/40 via-yellow-900/30 to-amber-900/40 border border-amber-600/50 rounded-2xl p-5 shadow-2xl shadow-amber-500/20">
-            <div className="text-3xl mb-2">🏆</div>
+            <div className="flex items-center justify-center mb-2"><Trophy size={28} className="text-amber-400" /></div>
             <p className="text-amber-300 font-black text-lg">مطابقة مثالية!</p>
             <p className="text-amber-400/70 text-sm mt-1">
               اخترت <strong className="text-amber-300">{data.phase2?.partner_first_name}</strong> والخوارزمية اختارت نفس الشخص
@@ -3372,7 +3544,7 @@ function FinalRevealScreen({ token }: { token: string }) {
               className="bg-gray-900 border border-gray-700/60 rounded-3xl p-7 max-w-sm w-full text-center space-y-4 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-4xl">🎉</div>
+              <div className="flex items-center justify-center mb-1"><PartyPopper size={32} className="text-purple-400" /></div>
               <h2 className="text-xl font-black text-white">انتهت الفعالية!</h2>
               <p className="text-gray-400 text-sm leading-relaxed">
                 راجع نتائجك وتفاصيل التوافق هنا أولاً. بعد ذلك، يمكنك اختيار من تريد مواصلة التحدث معه — سواء شريك اختيارك أو شريك الخوارزمية. يمكنك أيضاً مواصلة التحدث مع أي شخص بعد الفعالية إذا رغب الطرفان.

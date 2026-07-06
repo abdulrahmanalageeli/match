@@ -146,7 +146,7 @@ function PartnerInfoCard({ data, accent = "pink" }: { data: any; accent?: "pink"
 }
 
 // ─── Compatibility Breakdown ──────────────────────────────────────────────────
-function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: any; accent?: "pink" | "purple" }) {
+function CompatibilityBreakdown({ breakdown, accent = "purple", partnerName }: { breakdown: any; accent?: "pink" | "purple"; partnerName?: string }) {
   if (!breakdown) return null
 
   const percent = (v: number, max: number) => Math.max(0, Math.min(100, Math.round((v / max) * 100)))
@@ -180,7 +180,9 @@ function CompatibilityBreakdown({ breakdown, accent = "purple" }: { breakdown: a
         <h4 className={`text-base font-bold flex items-center gap-2 ${accentCl}`}>
           <BarChart3 size={16} /> تحليل التوافق
         </h4>
-        <p className="text-gray-500 text-xs mt-0.5">تفصيل دقيق لمستويات التوافق — هذا التحليل خاص بهذا الشخص فقط واختاره النظام بناءً على بياناتكما</p>
+        <p className="text-gray-500 text-xs mt-0.5">
+          هذا التحليل خاص بـ{partnerName ? ` ${partnerName}` : " هذا الشخص"} فقط — يعتمد على بيانات الاستبيان ولا يتأثر بالتقييمات
+        </p>
       </div>
 
       {/* Synergy Overview */}
@@ -2363,13 +2365,13 @@ function SOSButton({ token, position = 'top' }: { token: string; position?: 'top
                   </div>
                   <p className="text-center text-gray-600 text-xs mb-1">اختر نوع الطلب</p>
                   <button
-                    onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة عاجل - أحتاج المنظم إلى طاولتي') }}
+                    onClick={() => { setShowOptions(false); setInput(''); send('طلب مساعدة - أحتاج المنظم إلى طاولتي') }}
                     className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-red-950/30 border border-red-800/40 hover:bg-red-950/50 transition-all text-right"
                   >
                     <span className="text-lg">🆘</span>
                     <div>
-                      <p className="text-red-300 text-sm font-semibold">طلب مساعدة عاجل</p>
-                      <p className="text-gray-500 text-[11px]">سيأتي المنظم إلى طاولتك فوراً</p>
+                      <p className="text-red-300 text-sm font-semibold">طلب مساعدة</p>
+                      <p className="text-gray-500 text-[11px]">سيأتي المنظم إلى طاولتك</p>
                     </div>
                   </button>
                   <button
@@ -3125,6 +3127,11 @@ function FinalRevealScreen({ token }: { token: string }) {
       <div className="max-w-sm mx-auto p-4 pb-6 space-y-4 text-center">
         <Brand />
         <h1 className="text-2xl font-black text-white pt-2">الكشف النهائي</h1>
+        <div className="flex gap-2">
+          <a href="/welcome" className="flex-1 py-2.5 rounded-xl bg-gray-800/60 border border-gray-700/50 hover:bg-gray-800 text-gray-300 text-xs font-medium transition-all flex items-center justify-center gap-1.5">
+            <ChevronRight size={14} /> العودة للجلسات الفردية
+          </a>
+        </div>
         <InfoHint text="قارنّا بين اختيارك الشخصي واختيار الخوارزمية · راجع تفاصيل التوافق لكل طرف · وأخبرنا بمن تفضّل" delay={0.3} duration={6} />
 
         {data.same_match && (
@@ -3193,7 +3200,7 @@ function FinalRevealScreen({ token }: { token: string }) {
         {data.phase2?.breakdown && (
           <div className="space-y-2">
             <p className="text-pink-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيارك</p>
-            <CompatibilityBreakdown breakdown={data.phase2.breakdown} accent="pink" />
+            <CompatibilityBreakdown breakdown={data.phase2.breakdown} accent="pink" partnerName={data.phase2?.partner_first_name} />
           </div>
         )}
 
@@ -3251,7 +3258,7 @@ function FinalRevealScreen({ token }: { token: string }) {
         {data.phase3?.breakdown && (
           <div className="space-y-2">
             <p className="text-purple-400/70 text-xs font-semibold text-center">تفاصيل التوافق — اختيار الخوارزمية</p>
-            <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" />
+            <CompatibilityBreakdown breakdown={data.phase3.breakdown} accent="purple" partnerName={data.phase3?.partner_first_name} />
           </div>
         )}
 
@@ -3368,7 +3375,7 @@ function FinalRevealScreen({ token }: { token: string }) {
               <div className="text-4xl">🎉</div>
               <h2 className="text-xl font-black text-white">انتهت الفعالية!</h2>
               <p className="text-gray-400 text-sm leading-relaxed">
-                راجع نتائجك وتفاصيل التوافق هنا أولاً. بعد ذلك، يمكنك اختيار من تريد مواصلة التحدث معه — سواء شريك اختيارك أو شريك الخوارزمية. يمكنك أيضاً مواصلة التحدث مع أي شخص بعد الفعالية إذا رغب الطرفان.
+                راجع نتائجك وتفاصيل التوافق هنا. يمكنك العودة لأعلى الصفحة لمواصلة أسئلة الجلسات الفردية إذا أردت.
               </p>
               <div className="flex flex-col gap-2.5 pt-1">
                 <button
@@ -3377,18 +3384,6 @@ function FinalRevealScreen({ token }: { token: string }) {
                 >
                   مراجعة النتائج هنا
                 </button>
-                <a
-                  href="/welcome"
-                  className="w-full py-3 rounded-2xl bg-pink-900/40 border border-pink-700/40 hover:bg-pink-900/60 text-pink-300 text-sm font-medium transition-all"
-                >
-                  مواصلة التحدث مع شريك اختياري
-                </a>
-                <a
-                  href="/welcome"
-                  className="w-full py-3 rounded-2xl bg-purple-900/40 border border-purple-700/40 hover:bg-purple-900/60 text-purple-300 text-sm font-medium transition-all"
-                >
-                  مواصلة التحدث مع شريك الخوارزمية
-                </a>
               </div>
               <p className="text-gray-600 text-[11px] leading-relaxed pt-1">
                 يمكنك استئناف المحادثات مع أي شخص بعد الفعالية إذا كان الطرفان مهتمين.

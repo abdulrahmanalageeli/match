@@ -35,6 +35,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
   const [activeTarget, setActiveTarget] = useState<number[] | 'all' | null>(null)
   const [paidOnly, setPaidOnly] = useState(true)
   const [skipNewModel, setSkipNewModel] = useState(true)
+  const [fixedLog, setFixedLog] = useState<string[]>([])
 
   const fetchStatus = useCallback(async () => {
     setLoading(true)
@@ -64,6 +65,7 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
     setActiveTarget(participantNumbers ? participantNumbers : 'all')
     setProgress({ fixed: 0, skipped_good: 0, errors: 0, pairs_processed: 0, total_pairs: null })
     setDone(false)
+    setFixedLog([])
 
     let cursor = 0
     let totalFixed = 0, totalSkipped = 0, totalErrors = 0, totalProcessed = 0
@@ -90,6 +92,15 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
         totalSkipped += data.skipped_good || 0
         totalErrors += data.errors || 0
         totalProcessed += data.pairs_processed || 0
+
+        if (data.fixed_pairs?.length) {
+          setFixedLog(prev => [
+            ...prev,
+            ...data.fixed_pairs.map((p: { a: number; b: number; nameA: string; nameB: string }) =>
+              `#${p.a} ${p.nameA} ↔ #${p.b} ${p.nameB}`
+            )
+          ])
+        }
 
         setProgress({
           fixed: totalFixed,
@@ -222,6 +233,18 @@ export default function VibeFixModal({ isOpen, onClose, eventId }: VibeFixModalP
               <span className="text-green-400">Fixed: <b>{progress.fixed}</b></span>
               <span className="text-gray-400">Already ok: <b>{progress.skipped_good}</b></span>
               {progress.errors > 0 && <span className="text-red-400">Errors: <b>{progress.errors}</b></span>}
+            </div>
+          </div>
+        )}
+
+        {/* Fixed pairs log */}
+        {fixedLog.length > 0 && (
+          <div className="bg-gray-800/60 border border-green-500/20 rounded-xl px-3 py-2.5 flex-shrink-0 max-h-32 overflow-y-auto">
+            <div className="text-xs text-green-400 font-semibold mb-1.5">Fixed {fixedLog.length} pair{fixedLog.length !== 1 ? 's' : ''}:</div>
+            <div className="space-y-0.5">
+              {fixedLog.map((entry, i) => (
+                <div key={i} className="text-xs text-gray-300 font-mono">{entry}</div>
+              ))}
             </div>
           </div>
         )}

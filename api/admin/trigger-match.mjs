@@ -4099,12 +4099,13 @@ if (action === "cache-status-by-gender") {
       .or(`signup_for_next_event.eq.true,event_id.eq.${eventId},auto_signup_next_event.eq.true`)
       .neq("assigned_number", 9999)
 
-    const allEligible = (allRaw || []).filter(p => isParticipantComplete(p) && (!paidOnly || p.PAID_DONE === true))
+    const allEligible = (allRaw || []).filter(p => isParticipantComplete(p))
+    const paidParticipants = paidOnly ? allEligible.filter(p => p.PAID_DONE === true) : allEligible
     const pMap = new Map(allEligible.map(p => [p.assigned_number, p]))
 
     const targets = (Array.isArray(participant_numbers) && participant_numbers.length > 0)
       ? allEligible.filter(p => participant_numbers.includes(p.assigned_number))
-      : allEligible
+      : paidOnly ? paidParticipants : allEligible
 
     const seenPairs = new Set()
     const allPairs = []
@@ -4152,20 +4153,23 @@ if (action === "cache-status-by-gender") {
 
       await calculateFullCompatibilityWithCache(p1, p2, false, false)
       console.log(`✅ recalc-vibe fixed #${a}×#${b}`)
-      return 'fixed'
+      return { status: 'fixed', a, b, nameA: p1.name?.split(' ')[0] || `#${a}`, nameB: p2.name?.split(' ')[0] || `#${b}` }
     }
 
     // Run all pairs in this slice in parallel
     const results = await Promise.allSettled(slice.map(pair => processPair(pair)))
 
     let fixed = 0, skippedGood = 0, errors = 0
+    const fixedPairs = []
     for (let i = 0; i < results.length; i++) {
       const r = results[i]
       if (r.status === 'rejected') {
         errors++
         console.error(`❌ recalc-vibe error #${slice[i].a}×#${slice[i].b}:`, r.reason?.message)
-      } else if (r.value === 'fixed') fixed++
-      else if (r.value === 'skip') skippedGood++
+      } else if (r.value?.status === 'fixed') {
+        fixed++
+        fixedPairs.push({ a: r.value.a, b: r.value.b, nameA: r.value.nameA, nameB: r.value.nameB })
+      } else if (r.value === 'skip') skippedGood++
       else errors++
     }
 
@@ -4178,6 +4182,7 @@ if (action === "cache-status-by-gender") {
       total_pairs: allPairs.length,
       has_more: hasMore,
       next_cursor: hasMore ? nextCursor : null,
+      fixed_pairs: fixedPairs,
     })
   }
 
